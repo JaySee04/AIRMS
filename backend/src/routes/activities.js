@@ -74,6 +74,27 @@ router.post('/', auth, rbac('athlete'), async (req, res) => {
   }
 });
 
+// PUT /api/activities/:id — edit an activity (athlete only)
+router.put('/:id', auth, rbac('athlete'), async (req, res) => {
+  try {
+    const activity = await Activity.findById(req.params.id);
+    if (!activity) return res.status(404).json({ message: 'Activity not found' });
+    if (activity.athleteId !== req.user.athleteId) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+    const { type, date, duration, intensity, notes } = req.body;
+    if (type !== undefined) activity.type = type;
+    if (date !== undefined) activity.date = date;
+    if (duration !== undefined) activity.duration = duration;
+    if (intensity !== undefined) activity.intensity = intensity;
+    if (notes !== undefined) activity.notes = notes;
+    await activity.save();
+    res.json(activity);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
 // DELETE /api/activities/:id — remove an activity (athlete, medical)
 router.delete('/:id', auth, rbac('athlete', 'medical', 'admin'), async (req, res) => {
   try {

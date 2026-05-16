@@ -6,28 +6,30 @@ import Image from 'next/image';
 import { api } from '@/lib/api';
 import { saveSession } from '@/lib/auth';
 
+type RoleTab = 'athlete' | 'medical' | 'admin';
+
+const ROLE_REDIRECTS: Record<string, string> = {
+  athlete: '/athlete/dashboard',
+  medical: '/medical/dashboard',
+  admin: '/admin/dashboard',
+};
+
 export default function LoginPage() {
   const router = useRouter();
+  const [selectedRole, setSelectedRole] = useState<RoleTab>('athlete');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-
-  const ROLE_DEFAULTS: Record<string, string> = {
-    'admin@isn.gov.my': '/admin/dashboard',
-    'medical@isn.gov.my': '/medical/dashboard',
-    'athlete@isn.gov.my': '/athlete/dashboard',
-  };
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError('');
     setLoading(true);
     try {
-      const data = await api.post('/auth/login', { email, password });
-      saveSession(data.token, data.user);
-      const redirect = ROLE_DEFAULTS[data.user.role] ?? `/${data.user.role}/dashboard`;
-      router.push(redirect);
+      const data = await api.post<{ token: string; user: { role: string } }>('/auth/login', { email, password });
+      saveSession((data as any).token, (data as any).user);
+      router.push(ROLE_REDIRECTS[(data as any).user.role] ?? '/athlete/dashboard');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Login failed');
     } finally {
@@ -36,51 +38,78 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="login-page">
+    <div className="login-split">
       <div className="login-card">
-        <div className="login-logo">
-          <Image src="/images/logofull.png" alt="ISN Logo" width={200} height={80} priority />
+      <div className="login-left">
+        <div className="login-logos">
+          <Image src="/images/logofull.png" alt="ISN" width={210} height={72} priority quality={100} />
         </div>
-        <h1 className="login-title">AIRMS</h1>
-        <p className="login-subtitle">Athlete Injury Risk Management System</p>
-
-        <form onSubmit={handleSubmit} className="login-form">
-          {error && <div className="alert alert-error">{error}</div>}
-          <div className="form-group">
-            <label htmlFor="email">Email</label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Enter your email"
-              required
-              autoComplete="email"
-            />
-          </div>
-          <div className="form-group">
-            <label htmlFor="password">Password</label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter your password"
-              required
-              autoComplete="current-password"
-            />
-          </div>
-          <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
-            {loading ? 'Signing in…' : 'Sign In'}
-          </button>
-        </form>
-
-        <div className="login-demo-hint">
-          <p><strong>Demo accounts:</strong></p>
-          <p>admin@isn.gov.my / admin123</p>
-          <p>medical@isn.gov.my / medical123</p>
-          <p>athlete@isn.gov.my / athlete123</p>
+        <div className="login-left-body">
+          <h2 className="login-tagline">Athlete Injury Risk<br />Management System</h2>
+          <p className="login-org">INSTITUT SUKAN NEGARA</p>
+          <p className="login-address">
+            Kompleks Sukan Negara<br />
+            57000 Bukit Jalil, Kuala Lumpur
+          </p>
         </div>
+        <p className="login-version">AIRMS Prototype v0.2</p>
+      </div>
+
+      <div className="login-right">
+        <div className="login-form-wrap">
+          <h1 className="login-heading">Sign in</h1>
+          <p className="login-subtext">Use your ISN credentials to access the system.</p>
+
+          <div className="login-role-group">
+            <span className="login-role-label">Role</span>
+            <div className="login-role-buttons">
+              {(['athlete', 'medical', 'admin'] as RoleTab[]).map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  className={`login-role-btn${selectedRole === r ? ' active' : ''}`}
+                  onClick={() => setSelectedRole(r)}
+                >
+                  {r === 'athlete' ? 'Athlete' : r === 'medical' ? 'Medical Staff' : 'Administrator'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <form onSubmit={handleSubmit}>
+            {error && <div className="alert alert-error">{error}</div>}
+            <div className="form-group">
+              <label htmlFor="email">Email</label>
+              <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Email address"
+                required
+                autoComplete="email"
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="password">Password</label>
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Password"
+                required
+                autoComplete="current-password"
+              />
+            </div>
+            <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
+              {loading ? 'Signing in…' : 'Sign in'}
+            </button>
+          </form>
+
+          <a href="#" className="login-forgot">Forgot password?</a>
+        </div>
+      </div>
       </div>
     </div>
   );

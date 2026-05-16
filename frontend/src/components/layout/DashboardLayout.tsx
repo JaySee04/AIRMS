@@ -9,9 +9,10 @@ import { getSession, clearSession, SessionUser } from '@/lib/auth';
 interface DashboardLayoutProps {
   children: React.ReactNode;
   allowedRoles: Array<'athlete' | 'medical' | 'admin'>;
+  title: string;
 }
 
-export default function DashboardLayout({ children, allowedRoles }: DashboardLayoutProps) {
+export default function DashboardLayout({ children, allowedRoles, title }: DashboardLayoutProps) {
   const router = useRouter();
   const [user, setUser] = useState<SessionUser | null>(null);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
@@ -23,7 +24,6 @@ export default function DashboardLayout({ children, allowedRoles }: DashboardLay
       return;
     }
     setUser(session.user);
-
     const saved = localStorage.getItem('airms_theme') as 'light' | 'dark' | null;
     if (saved) setTheme(saved);
   }, [allowedRoles, router]);
@@ -46,8 +46,9 @@ export default function DashboardLayout({ children, allowedRoles }: DashboardLay
       <div className="main-area">
         <Topbar
           user={user}
+          title={title}
           theme={theme}
-          onToggleTheme={() => setTheme(t => t === 'light' ? 'dark' : 'light')}
+          onToggleTheme={() => setTheme((t) => (t === 'light' ? 'dark' : 'light'))}
           onLogout={handleLogout}
         />
         <main className="page-content">{children}</main>

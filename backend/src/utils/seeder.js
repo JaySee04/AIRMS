@@ -41,9 +41,9 @@ const SPORTS = [
 ];
 const PROGRAMS = ['PELAPIS', 'PODIUM', 'OTHERS'];
 const GENDERS = ['Male', 'Female'];
-const BODY_PARTS = ['Neck','Shoulder','Spine','Lumbar/Pelvis','Knee','Ankle','Wrist','Elbow','Hip','Foot'];
+const BODY_PARTS = ['Neck','Shoulder','Spine','Lumbar/Pelvis','Knee','Ankle','Wrist','Elbow','Hip','Other'];
 const SIDES = ['Left','Right','Both','N/A'];
-const INJURY_TYPES = ['Strain','Sprain','Tendinitis','Bursitis','Fracture','Contusion','Dislocation','Overuse'];
+const INJURY_TYPES = ['Strain','Sprain','Tendinitis','Bursitis','Fracture','Contusion','Dislocation','Other'];
 const SEVERITY = ['Minor','Moderate','Severe'];
 const RECOVERY = ['Recovering','Recovered','Chronic'];
 const MECHANISMS = ['Contact','Non-contact','Overuse','Recurrent'];
