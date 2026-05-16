@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Self-Report Review · AIRMS</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/css/main.css"/>
+</head>
+<body data-layout="app" data-allowed-roles="medical" data-title="Self-Report Review">
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+      <div class="content">
+
+        <div class="tabs" id="tabs">
+          <button class="tab tab--active" data-tab="Pending">Pending <span id="cnt-Pending"></span></button>
+          <button class="tab" data-tab="Approved">Approved <span id="cnt-Approved"></span></button>
+          <button class="tab" data-tab="Rejected">Rejected <span id="cnt-Rejected"></span></button>
+        </div>
+
+        <div id="report-list"></div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: review -->
+  <div class="modal-backdrop" id="review-modal">
+    <div class="modal" style="max-width: 640px;">
+      <div class="modal__header">
+        <h2 style="margin: 0; font-size: 1.05rem;">Review Submission</h2>
+        <button class="close-x" data-close>×</button>
+      </div>
+      <div class="modal__body" id="review-body"></div>
+      <div class="modal__footer">
+        <button class="btn btn--ghost" data-close>Cancel</button>
+        <button class="btn btn--danger" id="reject-btn">Reject</button>
+        <button class="btn" id="approve-btn">Approve & Add to Record</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../assets/js/main.js"></script>
+  <script src="../assets/js/mockdata.js"></script>
+  <script>
+    const D = window.AIRMS_DATA;
+    let reports = [...D.SELF_REPORTS];
+    let activeTab = 'Pending';
+
+    function counts() {
+      ['Pending','Approved','Rejected'].forEach(s => {
+        const n = reports.filter(r => r.status === s).length;
+        document.getElementById('cnt-' + s).textContent = ` (${n})`;
+      });
+    }
+
+    function render() {
+      counts();
+      const list = reports.filter(r => r.status === activeTab);
+      const root = document.getElementById('report-list');
+      if (list.length === 0) { root.innerHTML = '<div class="card"><div class="empty-state">No reports in this category.</div></div>'; return; }
+      root.innerHTML = list.map(r => `
+        <div class="card" style="margin-bottom: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
+            <div>
+              <h3 style="margin: 0;">${r.athleteName}</h3>
+              <div class="muted" style="font-size: 0.85rem;">${r.sport} · Submitted ${r.submittedAt} · ${r.id}</div>
+            </div>
+            <span class="badge badge--${r.status==='Pending'?'mod':r.status==='Approved'?'low':'high'}">${r.status}</span>
+          </div>
+          <div class="kv-grid" style="margin-bottom: 12px;">
+            <div><span>Body Part</span><span>${r.bodyPart} (${r.side})</span></div>
+            <div><span>Type</span><span>${r.injuryType}</span></div>
+            <div><span>Severity</span><span>${r.severity}</span></div>
+            <div><span>Source</span><span>Athlete Self-Report</span></div>
+          </div>
+          <div style="background: var(--bg-elev-2); padding: 12px 14px; border-radius: 6px; font-size: 0.92rem;">${r.description}</div>
+          ${r.reviewNote ? `<div style="margin-top: 12px; padding: 10px 14px; border-left: 3px solid var(--primary); background: var(--bg-elev-2); font-size: 0.88rem;"><strong>Reviewer note (${r.reviewedBy || ''}):</strong> ${r.reviewNote}</div>` : ''}
+          ${r.status === 'Pending' ? `<div style="margin-top: 14px; display: flex; gap: 8px; justify-content: flex-end;"><button class="btn" data-rev="${r.id}">Review</button></div>` : ''}
+        </div>
+      `).join('');
+      document.querySelectorAll('[data-rev]').forEach(b => b.addEventListener('click', () => openReview(b.dataset.rev)));
+    }
+    render();
+
+    document.querySelectorAll('#tabs .tab').forEach(t =>
+      t.addEventListener('click', () => {
+        document.querySelectorAll('#tabs .tab').forEach(x => x.classList.remove('tab--active'));
+        t.classList.add('tab--active');
+        activeTab = t.dataset.tab;
+        render();
+      }));
+
+    let revId = null;
+    function openReview(id) {
+      revId = id;
+      const r = reports.find(x => x.id === id);
+      document.getElementById('review-body').innerHTML = `
+        <h3 style="margin: 0 0 10px;">${r.athleteName}</h3>
+        <p class="muted" style="font-size: 0.85rem;">${r.sport} · Submitted ${r.submittedAt}</p>
+        <div class="kv-grid" style="margin-bottom: 14px;">
+          <div><span>Body Part</span><span>${r.bodyPart} (${r.side})</span></div>
+          <div><span>Type</span><span>${r.injuryType}</span></div>
+          <div><span>Severity</span><span>${r.severity}</span></div>
+        </div>
+        <p><strong>Description:</strong></p>
+        <div style="background: var(--bg-elev-2); padding: 12px 14px; border-radius: 6px; margin-bottom: 14px; font-size: 0.92rem;">${r.description}</div>
+        <div class="field">
+          <label>Reviewer Note</label>
+          <textarea id="r-note" placeholder="Required for rejection. Optional for approval."></textarea>
+        </div>
+      `;
+      document.getElementById('review-modal').classList.add('open');
+    }
+    document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => document.getElementById('review-modal').classList.remove('open')));
+    document.getElementById('approve-btn').addEventListener('click', () => {
+      const r = reports.find(x => x.id === revId);
+      r.status = 'Approved';
+      r.reviewNote = document.getElementById('r-note').value || 'Approved — added to official record.';
+      r.reviewedBy = 'Dr. Aisyah Rahman';
+      document.getElementById('review-modal').classList.remove('open');
+      render();
+    });
+    document.getElementById('reject-btn').addEventListener('click', () => {
+      const note = document.getElementById('r-note').value;
+      if (!note.trim()) { alert('Please add a note explaining the rejection.'); return; }
+      const r = reports.find(x => x.id === revId);
+      r.status = 'Rejected';
+      r.reviewNote = note;
+      r.reviewedBy = 'Dr. Aisyah Rahman';
+      document.getElementById('review-modal').classList.remove('open');
+      render();
+    });
+  </script>
+</body>
+</html>

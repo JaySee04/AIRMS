@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Athlete Dashboard · AIRMS</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/css/main.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body data-layout="app" data-allowed-roles="medical" data-title="Athlete Dashboard">
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+      <div class="content">
+
+        <!-- Search bar -->
+        <div class="card" style="margin-bottom: 20px;">
+          <div style="display: flex; gap: 12px; align-items: end; flex-wrap: wrap;">
+            <div class="field" style="flex: 2; min-width: 280px;">
+              <label>Search Athlete</label>
+              <input type="text" id="search" placeholder="Type name or athlete ID…" autocomplete="off"/>
+            </div>
+            <div class="field" style="flex: 1; min-width: 160px;">
+              <label>Filter by Sport</label>
+              <select id="filter-sport"><option value="">All Sports</option></select>
+            </div>
+            <div class="field" style="flex: 1; min-width: 160px;">
+              <label>Programme</label>
+              <select id="filter-prog"><option value="">All Programmes</option></select>
+            </div>
+          </div>
+          <div id="search-results" style="margin-top: 14px;"></div>
+        </div>
+
+        <!-- Selected athlete view -->
+        <div id="athlete-view"></div>
+
+      </div>
+    </div>
+  </div>
+
+  <template id="athlete-tpl">
+    <div class="grid-2-1" style="margin-bottom: 20px;">
+      <div class="card">
+        <div style="display: flex; align-items: center; gap: 18px; margin-bottom: 18px;">
+          <div style="width: 64px; height: 64px; border-radius: 50%; background: var(--brand-navy); color: white; display: grid; place-items: center; font-size: 1.3rem; font-weight: 600;" data-bind="initials"></div>
+          <div style="flex: 1;">
+            <h2 style="margin: 0;" data-bind="name"></h2>
+            <div class="muted" style="font-size: 0.9rem;" data-bind="meta"></div>
+          </div>
+          <button class="btn btn--gold btn--sm" data-bind="log-injury-btn">+ Log Injury</button>
+        </div>
+        <div class="kv-grid">
+          <div><span>Athlete ID</span><span data-bind="aid"></span></div>
+          <div><span>Sport</span><span data-bind="sport"></span></div>
+          <div><span>Programme</span><span data-bind="program"></span></div>
+          <div><span>Age</span><span data-bind="age"></span></div>
+          <div><span>Gender</span><span data-bind="gender"></span></div>
+          <div><span>Height</span><span data-bind="height"></span></div>
+          <div><span>Weight</span><span data-bind="weight"></span></div>
+          <div><span>Status</span><span data-bind="status"></span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="card__title" style="margin-bottom: 14px;">Latest Screening Scores</h3>
+        <div data-bind="scores"></div>
+      </div>
+    </div>
+
+    <div class="grid-2" style="margin-bottom: 20px;">
+      <div class="card">
+        <div class="card__header">
+          <h3 class="card__title">Injury Risk Indicators</h3>
+          <span class="card__sub">From last screening</span>
+        </div>
+        <div style="position: relative; height: 300px;"><canvas data-bind="risk-chart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card__header">
+          <h3 class="card__title">Workload Trend</h3>
+          <span class="card__sub">Last 8 weeks · ACWR</span>
+        </div>
+        <div style="position: relative; height: 300px;"><canvas data-bind="load-chart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Body / muscle map -->
+    <div class="card" style="margin-bottom: 20px;">
+      <div class="card__header">
+        <h3 class="card__title">Muscle Assessment Map</h3>
+        <span class="card__sub">L = left, R = right, B = both</span>
+      </div>
+      <div data-bind="bodymap"></div>
+    </div>
+
+    <div class="grid-2" style="margin-bottom: 20px;">
+      <div class="card">
+        <div class="card__header">
+          <h3 class="card__title">Injury History</h3>
+          <span class="card__sub" data-bind="injcount"></span>
+        </div>
+        <div class="table-wrap"><table class="data" data-bind="injtable"></table></div>
+      </div>
+      <div class="card">
+        <div class="card__header">
+          <h3 class="card__title">Sport-Level Context</h3>
+          <span class="card__sub" data-bind="sport-ctx-label"></span>
+        </div>
+        <div style="position: relative; height: 280px;"><canvas data-bind="sport-chart"></canvas></div>
+        <p class="muted" style="font-size: 0.85rem; margin-top: 12px;" data-bind="sport-note"></p>
+      </div>
+    </div>
+  </template>
+
+  <script src="../assets/js/main.js"></script>
+  <script src="../assets/js/mockdata.js"></script>
+  <script src="../assets/js/charts.js"></script>
+  <script src="../assets/js/bodymap.js"></script>
+  <script>
+    const D = window.AIRMS_DATA;
+
+    const sportSel = document.getElementById('filter-sport');
+    [...new Set(D.ATHLETES.map(a => a.sport))].sort().forEach(s => {
+      const o = document.createElement('option'); o.textContent = s; sportSel.appendChild(o);
+    });
+    const progSel = document.getElementById('filter-prog');
+    D.PROGRAMS.forEach(p => {
+      const o = document.createElement('option'); o.textContent = p; progSel.appendChild(o);
+    });
+
+    function searchAthletes() {
+      const q = document.getElementById('search').value.toLowerCase().trim();
+      const sp = sportSel.value, pg = progSel.value;
+      let res = D.ATHLETES;
+      if (q) res = res.filter(a =>
+        a.name.toLowerCase().includes(q) || a.id.toLowerCase().includes(q));
+      if (sp) res = res.filter(a => a.sport === sp);
+      if (pg) res = res.filter(a => a.program === pg);
+      res = res.slice(0, 8);
+
+      const root = document.getElementById('search-results');
+      if (!q && !sp && !pg) { root.innerHTML = ''; return; }
+      if (res.length === 0) { root.innerHTML = '<div class="empty-state">No matching athletes.</div>'; return; }
+      root.innerHTML = '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px;">' +
+        res.map(a => `
+          <button class="btn btn--secondary" style="justify-content: flex-start; text-align: left;"
+                  data-aid="${a.id}">
+            <div style="flex: 1;">
+              <div style="font-weight: 600;">${a.name}</div>
+              <div style="font-size: 0.78rem; color: var(--text-muted);">${a.sport} · ${a.program}</div>
+            </div>
+          </button>
+        `).join('') + '</div>';
+      root.querySelectorAll('[data-aid]').forEach(b =>
+        b.addEventListener('click', () => loadAthlete(b.dataset.aid)));
+    }
+    document.getElementById('search').addEventListener('input', searchAthletes);
+    sportSel.addEventListener('change', searchAthletes);
+    progSel.addEventListener('change', searchAthletes);
+
+    let charts = [];
+    function loadAthlete(id) {
+      const a = D.findAthlete(id);
+      if (!a) return;
+      const tpl = document.getElementById('athlete-tpl').content.cloneNode(true);
+      const set = (k, v) => tpl.querySelector(`[data-bind="${k}"]`).textContent = v;
+      const setH = (k, v) => tpl.querySelector(`[data-bind="${k}"]`).innerHTML = v;
+      set('initials', a.name.split(' ').map(s => s[0]).slice(0,2).join(''));
+      set('name', a.name);
+      set('meta', `${a.sport} · ${a.program} · ${a.gender}, ${a.age}`);
+      set('aid', a.id);
+      set('sport', a.sport);
+      set('program', a.program);
+      set('age', `${a.age}`);
+      set('gender', a.gender);
+      set('height', `${a.height} cm`);
+      set('weight', `${a.weight} kg`);
+
+      // Active injury status
+      const allInjs = D.injuriesFor(a.id);
+      const active = allInjs.filter(i => i.recoveryStatus !== 'Recovered');
+      set('status', active.length === 0 ? 'No active injuries' : `${active.length} active injur${active.length===1?'y':'ies'}`);
+
+      const scoreBar = (label, val, max=100, lowerIsBetter=false) => {
+        const pct = Math.min(100, val / max * 100);
+        let col;
+        if (lowerIsBetter) {
+          col = val <= 10 ? 'var(--risk-low)' : val <= 20 ? 'var(--risk-mod)' : 'var(--risk-high)';
+        } else {
+          col = val < 60 ? 'var(--risk-high)' : val < 80 ? 'var(--risk-mod)' : 'var(--risk-low)';
+        }
+        return `
+          <div style="margin-bottom: 12px;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 4px;">
+              <span class="muted">${label}</span><strong>${val.toFixed(2)}</strong>
+            </div>
+            <div style="height: 6px; background: var(--bg-elev-2); border-radius: 999px; overflow: hidden;">
+              <div style="height: 100%; width: ${pct}%; background: ${col};"></div>
+            </div>
+          </div>`;
+      };
+      setH('scores', `
+        ${scoreBar('Overall Activity Score', a.overallActivityScore)}
+        ${scoreBar('Mobility', a.mobility)}
+        ${scoreBar('Stability', a.stability)}
+        ${scoreBar('Symmetry', a.symmetry)}
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px;">
+          <div style="padding: 10px; border-radius: 6px; background: var(--bg-elev-2);">
+            <div class="muted" style="font-size: 0.78rem;">Injury Risk Index</div>
+            <div style="font-size: 1.4rem; font-weight: 700;">${a.injuryRiskIndex}</div>
+            <div class="muted" style="font-size: 0.72rem;">Lower is better · 0–10 low</div>
+          </div>
+          <div style="padding: 10px; border-radius: 6px; background: var(--bg-elev-2);">
+            <div class="muted" style="font-size: 0.78rem;">Exercise Risk Score</div>
+            <div style="font-size: 1.4rem; font-weight: 700;">${a.exerciseRiskScore}</div>
+            <div class="muted" style="font-size: 0.72rem;">Lower is better</div>
+          </div>
+        </div>
+      `);
+
+      // Injury history
+      tpl.querySelector('[data-bind="injcount"]').textContent = `${allInjs.length} record${allInjs.length===1?'':'s'}`;
+      const itable = tpl.querySelector('[data-bind="injtable"]');
+      itable.innerHTML = allInjs.length === 0 ? '<tbody><tr><td class="empty-state">No recorded injuries.</td></tr></tbody>' : `
+        <thead><tr><th>Date</th><th>Body Part</th><th>Type</th><th>Severity</th><th>Status</th></tr></thead>
+        <tbody>${allInjs.sort((a,b)=>b.date.localeCompare(a.date)).map(i => `
+          <tr>
+            <td>${i.date}</td>
+            <td>${i.bodyPart} (${i.side})</td>
+            <td>${i.injuryType}</td>
+            <td>${i.severity}</td>
+            <td><span class="badge badge--${i.recoveryStatus==='Recovered'?'low':i.recoveryStatus==='Recovering'?'mod':'high'}">${i.recoveryStatus}</span></td>
+          </tr>`).join('')}
+        </tbody>`;
+
+      // Sport context
+      const peers = D.INJURIES.filter(x => x.sport === a.sport);
+      tpl.querySelector('[data-bind="sport-ctx-label"]').textContent = `${peers.length} cases across ${a.sport}`;
+      const bp = {};
+      peers.forEach(p => { bp[p.bodyPart] = (bp[p.bodyPart] || 0) + 1; });
+      const sportEntries = Object.entries(bp).sort((a,b)=>b[1]-a[1]);
+      tpl.querySelector('[data-bind="sport-note"]').textContent =
+        sportEntries.length ? `Most common ${a.sport} injury: ${sportEntries[0][0]} (${sportEntries[0][1]} cases). ${a.name} has ${allInjs.filter(i=>i.bodyPart===sportEntries[0][0]).length} match(es).` : '';
+
+      document.getElementById('athlete-view').innerHTML = '';
+      document.getElementById('athlete-view').appendChild(tpl);
+
+      charts.forEach(c => c.destroy()); charts = [];
+
+      // Risk radar
+      const rctx = document.querySelector('[data-bind="risk-chart"]');
+      const rChart = new Chart(rctx, {
+        type: 'radar',
+        data: {
+          labels: Object.keys(a.risks).map(l => l.replace(' injury risk','').replace(' herniation','')),
+          datasets: [{
+            label: 'Risk %', data: Object.values(a.risks),
+            backgroundColor: 'rgba(176, 48, 48, 0.18)',
+            borderColor: AIRMS_CHARTS.palette()[3],
+            pointBackgroundColor: AIRMS_CHARTS.palette()[3]
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false,
+          scales: { r: { min: 0, max: 30, ticks: { display: false } } },
+          plugins: { legend: { display: false } } }
+      });
+      charts.push(rChart);
+
+      // Workload chart (synthesise stable values for non-anchor athletes)
+      const lctx = document.querySelector('[data-bind="load-chart"]');
+      const seed = a.id.charCodeAt(5) || 1;
+      const wks = Array.from({length: 8}, (_, i) => 1800 + ((seed * 7 + i*53) % 900));
+      const acwrSeq = wks.map((v, i) => {
+        const slice = wks.slice(Math.max(0,i-3), i+1);
+        return v / (slice.reduce((s,x)=>s+x,0)/slice.length);
+      });
+      const lChart = new Chart(lctx, {
+        data: {
+          labels: ['W18','W19','W20','W21','W22','W23','W24','W25'],
+          datasets: [
+            { type: 'bar', label: 'Weekly Load', data: wks, backgroundColor: AIRMS_CHARTS.palette()[0], borderRadius: 4, yAxisID: 'y' },
+            { type: 'line', label: 'ACWR', data: acwrSeq, yAxisID: 'y1',
+              borderColor: AIRMS_CHARTS.palette()[1], tension: 0.35, pointRadius: 4 }
+          ]
+        },
+        options: { responsive: true, maintainAspectRatio: false,
+          scales: {
+            y: { beginAtZero: true, title: { display: true, text: 'Load (AU)' } },
+            y1: { position: 'right', grid: { display: false }, min: 0, max: 2.5, ticks: { stepSize: 0.5 }, title: { display: true, text: 'ACWR' } }
+          },
+          plugins: { legend: { position: 'bottom' } } }
+      });
+      charts.push(lChart);
+
+      // Sport context bar
+      const sctx = document.querySelector('[data-bind="sport-chart"]');
+      const sChart = new Chart(sctx, {
+        type: 'bar',
+        data: {
+          labels: sportEntries.map(e=>e[0]),
+          datasets: [{ label: 'Cases', data: sportEntries.map(e=>e[1]), backgroundColor: AIRMS_CHARTS.palette()[2], borderRadius: 4 }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { beginAtZero: true, ticks: { stepSize: 1, precision: 0 } },
+            y: { ticks: { autoSkip: false } }
+          } }
+      });
+      charts.push(sChart);
+
+      // Body map
+      AIRMS_BODYMAP.render(document.querySelector('[data-bind="bodymap"]'), a);
+
+      // Log injury button
+      document.querySelector('[data-bind="log-injury-btn"]').addEventListener('click', () => {
+        window.location.href = `injury-log.html?athlete=${a.id}`;
+      });
+    }
+
+    loadAthlete('ATH0001');
+  </script>
+</body>
+</html>

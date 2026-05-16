@@ -1,0 +1,339 @@
+00:17
+Amen.
+
+04:02
+Hello, Jianquan.
+
+04:04
+Can you hear us? Hi, hello. Hi, good afternoon, Dr. Tong. So, again, we welcome Dr. Tong.
+
+04:18
+Quite some time not see you already. And also, Jianquan, it's the first time seeing Dr. Tong this round. But Dr. Tong is already our stakeholder for the, I think it's the third year right now. okay for this particular project so we are actually continuing the project from shewin and also keying so do you want to like uh share a little bit what you know so far about the project and what you can give suggestions to dr tong then maybe dr tong also give his expectation then we can actually have some common understanding on it okay sure um is it okay if we arrange in that way yeah yeah yeah all right sure yeah so uh From what I know right now is that the system is built based on... Do you have anything to share, like share screen or something? Oh yeah, sure. I can do that. Yeah, easier that way since we are doing meetings, right? You can write down, you can like, I don't know, if you have any preparation on that.
+
+05:13
+Is the setting allowed you to share?
+
+05:15
+Yeah, it's okay already. Okay.
+
+05:19
+Okay, so yeah. From what I know right now, the system consists of
+
+05:25
+a few modules that previously Sherwin and Keying has been developing on. Mainly it's on the events because that's what the students will be joining and stuff. And that's what the admins will be managing. Also announcements for the events and then also the admin page. And obviously at the student side, it will be the dashboard.
+
+05:46
+And so on that behalf, I think for what I'm going to be doing this year is to uh improve on the dashboard mainly on the injury risk um settings because not not because yep that injury setting yeah very good yeah so like uh okay not this account uh doing some time basically uh it's just that um
+
+06:20
+The current dashboard, I think there is still some... Okay, it's fine. Wait.
+
+06:52
+OK, Win. So yeah, the main thing about this is that the current dashboard, I think it's not really injury-proof. I think it could be done in a way so that after students log their events, and also I'll be adding that the students can log their current activity records and also their own injury records, because injuries can happen no matter how
+
+07:22
+how fresh you are, like in terms of body accidents may happen or any non-contact injuries can also happen. So I plan to have those two as my create and my CRUD projects, which is to add in the students' own data input. Yep, like that. So that will be it. Can you mention again, because my site will be lagging. Two main things that you want to add in the injury prevention is what already?
+
+07:54
+Actually, I want to improve the whole dashboard.
+
+07:59
+My main idea is that I want to have a more complex view. Hello?
+
+08:08
+Yeah, I'm lagged here.
+
+08:10
+Oh, I'm sorry. I'm sorry. No, no, it's fine. Can you hear me now? Yes, yes. OK, so again, the main thing I want to improve on is the dashboard, mainly the user dashboard over here. So that's why I want to improve on the injury part here, especially for the muscles and the body parts that are very crucial, especially for, if I'm not mistaken,
+
+08:42
+Dr. Tong, you guys are mainly on swimming activities, right? Or are you overseeing all sports activities?
+
+08:52
+We oversee all sports.
+
+08:55
+Okay. We have 52 sports. And in two or three programs like, let's say that is in the national program, there's elite and the development athletes. And also, we have other projects. They only come in once they are near to competition.
+
+09:14
+So there's several other programs. Let's say we put it at programs. So it's a national elite program and national development program and shop program and those kind of programs.
+
+09:27
+All right. So, okay. Then instead of focusing only on...
+
+09:33
+body parts that are crucial to swimming athletes, I guess I can expand the scope to being basically the whole human body for across all 52 sports and also any other projects. So that's the main thing I want to add for the injury risk settings. I would like to ask you on this one.
+
+09:59
+Where do you get this data from?
+
+10:02
+You mean the one that's showing up currently? Yeah. I got it from Ke Ying, the last successor of the... Hello? How much data you have?
+
+10:18
+I received the Excel file also. The Excel file that you last time passed it to me, you still remember? I've forgotten how many already. Yeah, but how many samples are there? If you want to open that file, maybe you can.
+
+10:35
+before you do that just ask thinking if this is a summary of overall score for the whole dataset 77 no this is one of the ones that was used by Ke Ying for her presentation I believe would you do like dashboard something like dashboard that you can show
+
+11:00
+by sport by gender by age group kind of thing to see their overall score and their most most issues like what are their issues since that is like a group page of traits like I think it should be doable so basically you want me to divide them into sports then inside the sports divide them by genders and then only we highlight like the the injury problems that they would have right yeah you see we uh our site we have the report and athletes will get the report but to report to the there's two persons that we need to two group of people we need to report or coordinate one is administrator which is from the managers to the the minister level so we need to show them like summary of how the whole program perform like let's say
+
+11:57
+We have 1,000 cases of injury.
+
+12:01
+And what kind of injury, like summaries of injuries, like they have upper body, lower body, which part, left or right, what kind of type of the injury. And then they can easily look into that. And also, we have the slicer to pick what we want.
+
+12:17
+And it gives you more kind of summary. Then we can tackle on the issues, like make a policy, okay, why women actually have more knee So we need to do more knee prevention. Then you can have a graph to show how this progress from time to time, like from year to year, quarter to quarter, and see whether it's actually drop and this and that.
+
+12:39
+Or when is the most critical time, like most of the fourth quarter or September, you have high risk of knee injury. The other quarters have very low. So then it means we have to do some actions before.
+
+12:54
+That has helped us to get the action plan done with the data that we insert into this platform.
+
+13:00
+And also, when we do, if we have done the screening, if possible, we can update the database. So this database can be easy to manage. We just upload the data and then it will add into the picture and then people will just, without any, you know, it's simple step. So then the medical doctor in the room They can just click on the website and you can, they can trace through their IC number. Let's say the IC number to just to see, oh, this athlete have this problem. And from last time they have this, and now they have this and they see how they develop. And they also, the doctor in the room can also see, okay, this spot, what are the prominent kind of injury and when going to happen? So you can also give them a good advice based on the, based on this page if possible. So one group is for the administrator.
+
+13:55
+Another group is for professional, which is medical doctor, physio, or strength condition, the LIS size kind of people to look into it. So administrator is quite easy. They want anything general and big directions.
+
+14:08
+And the size people, they need details. They don't want to see too much of the big directions. They want to see individual and their trend of individual or by, you know, at least they have the picture of by sport and by gender, by age. but then they want to see that person's develops.
+
+14:28
+Would that be too difficult for you or you think it is manageable?
+
+14:33
+It is doable, but given the scope of the time, I'm not sure how much I can promise you as in to what extent, but for now, I think I can make it so that for different roles, which is administrator and also the medical staff, right? I can create two separate admin dashboards that would be a good reflection on what they would want to, what they would need for them to carry out their jobs. I think I can do that. To what extent and what level of detail, I cannot promise anything yet, but I'll do my best. Okay.
+
+15:14
+There's one more thing I want to clarify. The current part is already done and no more updating, right?
+
+15:21
+You mean like, will Keying be continuing to work on this project?
+
+15:26
+Hello? Hello? Yeah, sorry. I did not get your mic. Here, stop. Oh, yeah. So to clarify your question just now, are you asking that if Keying will be continuing to work on the project? No, no. Just now you showed me whatever Keying have done just now, right? Not without, before this.
+
+15:46
+Oh, yeah. Is this done already or not done?
+
+15:49
+You mean, is it finalized? Yeah. Actually, I was about to get into that.
+
+15:58
+For my portion of inheriting this project and also as my final project, I think what I would be doing is I would change the whole user interface and user experience for the website.
+
+16:14
+And obviously, if you are asking
+
+16:18
+is that if this can be deployed or not, or if this can be used or not, is it? Yeah, it can be deployed. But the original idea is to check this part. This is the whole part, and then this divided into two. And this is one part of the whole one.
+
+16:35
+And if this is done, then we need to focus on the injury part, which is the second part that you showed me just now. So we can put this aside and can be deployed for trial and then maybe next year we can work on it i mean maybe other student but then after we have tried but then we work on the part that we discussed just now so then you can more focus i don't need to do two side if you if not too burdened for you yeah of course sure uh from what i know keying's uh take on this announcement and events but uh i don't plan on changing any of the logical side, the backend side.
+
+17:17
+I'll only be changing the interface. Basically, meaning that what she has right now is deployable. It can be used.
+
+17:31
+Does that mean you want this to be separately deployed first and then work on the injury part? Yeah. If that, it can be your focus. You don't need to focus to um can i ask uh like when would you like this to happen as soon as you think is possible i'm okay with that uh but just uh this year we want to see something uh on the injury side that we have discussed just now okay uh this year yeah sure because um Currently, my plan is as I've mentioned for the injury part, since I'll be adding some new user input from the activity side and then also them manually informing of their own injury.
+
+18:24
+That would be my focus on my current semester since I have about seven weeks. My current focus would be to add these input modules and also to
+
+18:38
+create a design for the whole user interface and user experience. And after that, during my semester break, I think I will be working on deploying this.
+
+18:49
+I'll work on deploying this. And we'll see if I can make it in time to change the UI UX for this one also.
+
+19:00
+If that is not doable, it's OK. I can just deploy this one on its own, and then I can make the injury part a separate thing.
+
+19:08
+Yeah, so that's the plan. And then during my semester break, so basically during my semester break, I'll be trying to deploy this and then I'll be working as much as I can on completing the injury parts as soon as possible. And during that time, I think I'll be consulting you a lot because I will be gathering a lot of data from you and also asking on the data insights because
+
+19:35
+I have looked through it. I'm not sure I understand it fully, so I would like clarification on that when I start to develop that.
+
+19:42
+Okay, good.
+
+19:47
+Okay, so are there any other requirements on your side? Yeah, I will give you a non-disclosure agreement to sign. Okay. Because the data includes some personal data from the athletes, right? It is not shareable to anybody else. We need you to sign that. And when is exactly your semester break?
+
+20:18
+Currently, I'm not sure about the exact date, but at least on July.
+
+20:28
+On July, I'll be starting my semester break. So July to October is my semester break. During these three months, I'll try my best to have this ready as soon as possible, especially the announcement and events part, I'll have them ready for deployment. Oh, okay.
+
+20:50
+Are you plan to coming in
+
+20:55
+Do I send or you are just coming in just for one day, three months? How is the mood look like?
+
+21:04
+Are you coming in every day or in a week or short term or something? Oh, you mean like when I'm developing the injury part?
+
+21:13
+Yeah. Because we need a lot of discussion. Yeah, I understand that.
+
+21:17
+I'll be visiting as frequently as I can. Yeah. Yeah.
+
+21:23
+And if I have any personal things, then I'll personally message you, I guess, and request if we can do any discussions online. But obviously, I understand that since the data is confidential and also that face-to-face is obviously more effective, I'll try my best to visit ISN as much as I can during the development for the injury risk part. Yep. There's two things here.
+
+21:51
+When I asked you on, are you coming here? I'm actually thinking if you are coming here, I have to think way to compensate you. Try to find some small allowance for you.
+
+22:04
+But the confidential things is whether you are in ISN or not. Still, we need you to keep it to yourself and make sure data is safe all the time. I actually, you have to sign and return it to me yep i'll do that yeah so if you can tell me the exact day and how many half frequency and then i can write a you know a memo and apply some small grant for you so then uh at least you have something now then you you can focus on it like you are coming here for five days a week and just work on the this thing i can pay you a small amount like 500
+
+22:48
+just for your semester break, like two months, three months, and then you just deliver what you have done. I think that will be more focused than you try to work at home alone and when you come in. It's your choice.
+
+23:04
+I'm not sure about... I can't give you any specifics right now, but okay, I'll think about it. So...
+
+23:16
+after this meeting, I'm, I think on week 13 or at least before that, uh, I, hello. Yeah. I, uh, I have a lot of break.
+
+23:26
+It's okay. It's okay. So, uh, okay. Um, thank you for the offer, Dr. Tong. Uh, I will consider it. I can, I cannot give you any specific answer right now because I also haven't planned that far on anything else to do other than my, uh, final project and also my courses. So, um, During week 13, or basically somewhere on June, I will need to have another meeting with you and also any other personnel to show you my deliverables, mainly the system that I can, and also mainly the modules that I've created, which is to key in the activities and also self-injuries, and also the other thing, which is the design of my own version of the
+
+24:14
+UI UX of the website. So, yeah, during that meeting, I will try to give you a definitive answer so that you can have any preparation needed for that. Yeah.
+
+24:28
+Okay.
+
+24:29
+Jin Chen, just want to ask you, do you know where ISN is? Bukit Jalil, right? Yeah, where do you stay? Currently, I'm staying in KL Gateway, actually, LIT University.
+
+24:45
+OK, there's an LRT, right? Yeah, yeah.
+
+24:50
+I can get there.
+
+24:53
+Yeah, it's .. I can discuss with you again later on in terms of arrangement. But I'm just thinking, next week is your as well, right? Do you want to go there one round?
+
+25:06
+Or you are not next week? Unfortunately, next week, I
+
+25:13
+OK, you're not around. It's OK. It's OK. Yeah, because I actually will be busy with hackathon.
+
+25:20
+It's OK. It's OK. Understandable. I'm just thinking that in the short, if possible, before your monitoring session, you can go at least one round to ISN, take a look on the machine itself, and so on. Oh, yeah. And then understanding how the machine looks like. Then you also know how to deal with the data you collected after that. yeah so um do you have extra data right now to be shared by gentran if i mean since the nda is also signed already yeah that's why uh the the set of data that you you have is the non-athletes at data yes not not so this is not the real data yes i mean but at least we have a feel how it looks like and then at least we implement something in the system yeah and we have more data now uh so that is more on the national athletes good so uh when you come we can uh i can deploy to you i can just forward to you when you are around yeah yeah yeah so jenchen you might want to i think of a time to visit isn yeah okay so please let us know when is your availability you think about it first and then if i can go with you then i will if i can't then you need to go by your own right you won't lose over there it's okay fine
+
+26:36
+I have may add in one more test data for you as well, which is from the force plate data. So beside the hollow motion, there's another data. Then we discuss whether we want to put in or not. It depends.
+
+26:54
+And then just now, I think Dr. Tong, when he's actually explaining about the dashboard, there are two different views. I think it's quite possible for you to do it as long as you're actually...
+
+27:06
+show the data from overview first. So it's like the data and overview, and then you try to give different kind of filtering, based on different features and so on, and maybe different timing and so on. So then basically achieve what Dr. Tong wants, basically. You can actually have some sample first, I mean, in the next few weeks, then at least we can see how we can actually adjust based on the data obtained by Dr. Tong later. OK, then we have a better idea on it.
+
+27:34
+What do you think about, what do you mean by more complex view previously, Dr. Jianxuan? You mean on the injury?
+
+27:46
+instead of complex, I'll just say more detailed because currently right now in the dashboard here and also I don't think it reflects fully on the data that was given to Keying and then also passed down to me. I believe that this doesn't really show the full picture of what the medical staff could use as an indication on
+
+28:15
+how they would want to see if someone is riskful of any potential injuries if they continue to exert their bodies, etc.
+
+28:25
+Okay. Jianxuan, please bear in mind that when Ke Ying built this project, I think the user is a little bit different from what Dr. Tong is saying just now. This one is actually used by the
+
+28:35
+normal users or maybe the students from universities and so on. Maybe they are the ones keying in and then they get their certificates and so on. I mean, the purpose is a little bit different. So just make sure you actually able to separate I mean one is a bit more general for different like for the SKS student probably we still recall it's a little bit different kind of purpose but at the same time we actually deal certain kind of part like the dashboard over here for the injury risk. So that's why it's like two things merged into one and so on but Dr. Tong wants to focus more on the injuries risk this time. So that's why he actually mentioned whatever Ke Ying have already done maybe you don't need to touch it at all you can just deploy it on the site on the net. maybe he can actually use it for some other purposes like the SKS, right? So there are two things actually right now. One is the one Ke Ying built,
+
+29:30
+You don't need to touch anything. You let it online, workable. And if it's still really working, then he can actually use it for his purposes. And then you just have to maintain it whenever necessary. But maybe how the server, where does it go? Because maybe they can't really use public server. They might need to use the local server within their ISM server. You might need to help on that sense as well. This is for the maintainer's purpose. Yep, I understand. I mean, you are doing the project, so I have no choice. I need to ask you to do this one, although maybe you can't really tell this one in your report later on. But it's like a package, because once you do this one, FYP2 basically do the same thing. You just do it earlier a little bit. Then only you start to, from the current version of it, you start to, maybe you want to start some new design, or revamp the whole thing, maybe possible. Because right now, the focus will become a little bit different, the injury risk part.
+
+30:26
+if you feel like revamping is better or from the current from the current structure you extend it is better you think about it and then you let us know and then we see how we want to move on okay is it uh make sense to you dr tom yeah yeah very good yeah and then from there right there will be like two main uh or uh user role one is admin they log into from a holistic point of view okay and then they try to filter filter based on different features so that they can do the reporting and maybe you want to think about reporting automatic reporting as one of the features as well if you wanted to like look into each engine yeah based on the data are you able to give a standard reporting maybe they want to customize maybe later but extended reporting given a time given feature that they actually selected we can do some pdf something like that that would be helpful i believe so
+
+31:16
+Is it correct, Dr. Tom? I think something standard, then you can actually generate every month. Then something specific, maybe you, I mean, you as a sports scientist, you can actually do it by yourself, or maybe you can develop some specialized version later. Another one is about the medical staff, then the medical staff is a little bit different, where you can actually look from personal, and from the personal, right, extend to the from that particular person point of view extend to that field of it like for example this one is a badminton athlete he wants to know the badminton at the histories and so on in the general perspective but focus is still that particular individual so you get what i mean so the dashboard will be a bit different yeah okay one is very holistic okay another one is focus on the individuals from the athlete i mean the dashboard or the information that is actually related can be related to that
+
+32:11
+at least will be displayed over below to help the medical staff to make decision okay so there will be two different kind of dashboard layout over there making sense to you yep yeah then you can actually treat these two as two different modules in a sense okay although it's like one dashboard but maybe because of the layout or maybe Because of the approach that you're actually using, it's going to be different. Because your theory will be a bit different, to be honest. One is very holistic, one very general database version of it. Another one is basically, it's a little bit like retrieval.
+
+32:49
+OK? Because you actually have one universe, then only you retrieve necessary information from there. So it's a little bit different. So from the system complexity, you also can talk a little bit about it. OK. Yeah, I understand. so that will be all these things that i can capture just now based on both of your inputs anything i missed fantastic okay then on the nda and then you can sign the nda and then gently remember to pass your stakeholder letter you let other don't decide as well every year to sign one okay yeah sure Yeah. Do I email to Dr. Tong? Just WhatsApp. You see the WhatsApp Dr. Tong already posted. You can just WhatsApp over there. OK, yeah, sure. Yeah, thank you. And then I think, I'm not so sure, Dr. Tong, do you think your data, right, is it safe to just email, or is it better for to go to to collect it, the data that you say is about the athletes' data?
+
+33:48
+It is better if I put in the WhatsApp. It's a bit risky. It's either or you can actually put a password. Also, password you also share in WhatsApp. Maybe I can give you the link in the drive. Maybe that will be better. Okay. Maybe you can give a link in the drive and then you just allow Jianxuan to access it and download it. If you are okay with it, then I just don't want Jianxuan to wait because next week he got iCathod and everything. So I just wanted him...
+
+34:17
+We get the data as soon as he can. After he sign the NDA, he can work on that. Yeah, if you don't mind, Dr. Tong. Sure, yeah, can. There's a lot of data cleaning now. We're actually in the middle of cleaning.
+
+34:31
+We have a clean, I mean, clean in terms of merging two data sets, but our way, but you don't need to merge it, right? We can just throw everything to you.
+
+34:43
+You can give a raw version, and also your version. It's either up to you. Whatever things you give, supposedly Jenschen can do something on it. Although he's an IS information systems student, but I think . Yeah, I have experience in cleaning data and stuff. I can get into that.
+
+35:04
+All right. Anything else that we should highlight more, Jenschen? Or do you have any other extra questions?
+
+35:12
+I believe the questions will only follow once I continue with development. So as of right now, I understand what Dr. Tong wants me to implement and I'll work on delivering everything that I need to have present for both the school side and also from Dr. Tong's side. So you might want to prepare some user requirements and also the
+
+35:40
+maybe some visualization. Yes, I'll review. I have the meeting recorded right now. So I'll review this once again and then I'll finalize everything. And if anything, I'll let Dr. Hu go over it once I prepare it. I think you recorded the meeting. I can't see it. No, I recorded using third-party stuff. You record something, next time you tell the person. I'm sorry. Aiyo.
+
+36:09
+I won't be sharing it with anyone, but yeah, I'm sorry to only say it now. It's a manner.
+
+36:15
+Okay. Because I'm afraid that I leave out anything, again, I apologize for only telling it now. We must all set the next meeting date you are saying just now. When do you think it's suitable?
+
+36:54
+Give me some time. Let me go through the academic calendar. So Doctor Who, do you have any idea on what is the submission deadline for week 13?
+
+37:09
+This is what I actually keep asking you, right? You all, right? I mean, when is your monitoring? When is your IFAS? When is your VIPAR? All that kind of things. But you all never give me a very exact answer. Okay, it's fine. Is there any particular time where both of you will be, like, free? Like, Like afternoon, I think Dr. Tong can only do it after maybe after two, for example. I can't really join on Monday and Thursday because I have classes.
+
+37:41
+So the rest of the day, as long as you try to tell me earlier, I will try to make myself available. Because I regularly have meetings, but some of the meetings like students meetings and so on. So it looks based on priority somehow. yeah it's always there will be a lot of meetings that's been scheduled but you need to like yeah do it based on priority okay yeah so you can like tuesday wednesday or friday right yeah so if that is the case then i think early june i think we can set a meeting on that june or may june early may is like like two weeks from now i i i
+
+38:24
+It's okay. Early June. It's okay to me. Yeah, no problem. Wait, early June. So like second or third or fifth?
+
+38:33
+Week 12. You are sure?
+
+38:36
+I think that should be the case. Hopefully, I can get my stuff done by then. Because week 30, I have to finalize everything for submission, right? So, yeah.
+
+38:47
+Okay. Hmm.
+
+38:50
+Okay. Maybe you want to put like Wednesday or Tuesday? Wednesday or Friday, I think would be the best since Tuesday. I will be meeting you, right, Doctor? So, I think... That is like 12 p.m., 1 p.m. Like the timing wouldn't be the best if I want to prepare stuff. So, I think... Wednesday then? Wednesday? 3rd of June?
+
+39:14
+Is Dr. Tong okay with that? 3rd of June, yeah? Okay, no problem. 3rd of June, maybe we set like 2 p.m. ?
+
+39:20
+Okay. And then we sign at ISN. Is that okay? At ISN. Okay.
+
+39:25
+Okay? Okay. Yeah. Sure. Okay. Then, Zhenxuan, please this round, you are the one initiate the calendar invite, please. Okay. Because Golden Tung is the one doing it.
+
+39:39
+I just add on to my calendar at the moment. So it's okay. okay ah okay please do it yeah okay thank you thank you very much for your time yes thank you thank you thank you thank you for your time bye bye bye bye bye bye Thank you. Shit.
+

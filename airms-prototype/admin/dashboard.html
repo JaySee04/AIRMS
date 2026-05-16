@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Injury Analytics · AIRMS</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/css/main.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body data-layout="app" data-allowed-roles="admin" data-title="Injury Analytics">
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+      <div class="content">
+
+        <!-- Filter bar -->
+        <div class="filter-bar">
+          <div class="field">
+            <label>Sport</label>
+            <select id="f-sport"><option value="">All Sports</option></select>
+          </div>
+          <div class="field">
+            <label>Gender</label>
+            <select id="f-gender"><option value="">All</option><option>Male</option><option>Female</option></select>
+          </div>
+          <div class="field">
+            <label>Programme</label>
+            <select id="f-prog"><option value="">All</option></select>
+          </div>
+          <div class="field">
+            <label>Body Part</label>
+            <select id="f-bp"><option value="">All</option></select>
+          </div>
+          <div class="field">
+            <label>Injury Type</label>
+            <select id="f-type"><option value="">All</option></select>
+          </div>
+          <div class="field">
+            <label>From</label>
+            <input type="date" id="f-from" value="2025-01-01"/>
+          </div>
+          <div class="field">
+            <label>To</label>
+            <input type="date" id="f-to" value="2026-05-09"/>
+          </div>
+          <button class="btn btn--ghost" id="reset-btn">Reset</button>
+          <a class="btn btn--gold" href="reports.html">Generate PDF Report</a>
+        </div>
+
+        <!-- KPIs -->
+        <div class="stat-grid">
+          <div class="stat">
+            <div class="stat__label">Total Cases</div>
+            <div class="stat__value" id="kpi-total">—</div>
+            <div class="stat__delta" id="kpi-total-d"></div>
+          </div>
+          <div class="stat">
+            <div class="stat__label">Athletes Affected</div>
+            <div class="stat__value" id="kpi-athletes">—</div>
+            <div class="stat__delta">Unique athletes</div>
+          </div>
+          <div class="stat">
+            <div class="stat__label">Currently Recovering</div>
+            <div class="stat__value" id="kpi-recovering">—</div>
+            <div class="stat__delta">Active cases</div>
+          </div>
+          <div class="stat">
+            <div class="stat__label">Sports Affected</div>
+            <div class="stat__value" id="kpi-sports">—</div>
+            <div class="stat__delta">Out of 52</div>
+          </div>
+        </div>
+
+        <!-- Row 1: type & body part distribution -->
+        <div class="grid-2" style="margin-bottom: 20px;">
+          <div class="card">
+            <div class="card__header">
+              <h2 class="card__title">Injuries by Body Part</h2>
+              <span class="card__sub" id="bp-sub"></span>
+            </div>
+            <div style="position: relative; height: 320px;"><canvas id="bp-chart"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card__header">
+              <h2 class="card__title">Injuries by Type</h2>
+              <span class="card__sub" id="type-sub"></span>
+            </div>
+            <div style="position: relative; height: 320px;"><canvas id="type-chart"></canvas></div>
+          </div>
+        </div>
+
+        <!-- Row 2: temporal + side/severity -->
+        <div class="grid-2-1" style="margin-bottom: 20px;">
+          <div class="card">
+            <div class="card__header">
+              <div>
+                <h2 class="card__title">Temporal Trend</h2>
+                <span class="card__sub">Cases over time</span>
+              </div>
+              <div style="display: flex; gap: 4px;">
+                <button class="btn btn--ghost btn--sm trend-btn" data-trend="month">Monthly</button>
+                <button class="btn btn--secondary btn--sm trend-btn" data-trend="quarter">Quarterly</button>
+                <button class="btn btn--ghost btn--sm trend-btn" data-trend="year">Yearly</button>
+              </div>
+            </div>
+            <div style="position: relative; height: 300px;"><canvas id="trend-chart"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card__header">
+              <h2 class="card__title">Severity Mix</h2>
+            </div>
+            <div style="position: relative; height: 220px;"><canvas id="sev-chart"></canvas></div>
+            <div class="divider"></div>
+            <h3 style="margin: 0 0 10px; font-size: 0.95rem;">Side Distribution</h3>
+            <div id="side-bars"></div>
+          </div>
+        </div>
+
+        <!-- Row 3: sport breakdown table -->
+        <div class="card">
+          <div class="card__header">
+            <h2 class="card__title">Sport Breakdown</h2>
+            <span class="card__sub">Top 10 sports by case volume</span>
+          </div>
+          <div class="table-wrap">
+            <table class="data" id="sport-table"></table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script src="../assets/js/main.js"></script>
+  <script src="../assets/js/mockdata.js"></script>
+  <script src="../assets/js/charts.js"></script>
+  <script>
+    const D = window.AIRMS_DATA;
+
+    [...new Set(D.ATHLETES.map(a => a.sport))].sort().forEach(s => {
+      const o = document.createElement('option'); o.textContent = s; document.getElementById('f-sport').appendChild(o);
+    });
+    D.PROGRAMS.forEach(p => { const o = document.createElement('option'); o.textContent = p; document.getElementById('f-prog').appendChild(o); });
+    D.BODY_PARTS.forEach(b => { const o = document.createElement('option'); o.textContent = b; document.getElementById('f-bp').appendChild(o); });
+    D.INJURY_TYPES.forEach(t => { const o = document.createElement('option'); o.textContent = t; document.getElementById('f-type').appendChild(o); });
+
+    let trendMode = 'quarter';
+    const charts = {};
+
+    function applyFilters() {
+      const sp = document.getElementById('f-sport').value;
+      const g = document.getElementById('f-gender').value;
+      const pg = document.getElementById('f-prog').value;
+      const bp = document.getElementById('f-bp').value;
+      const ty = document.getElementById('f-type').value;
+      const from = document.getElementById('f-from').value;
+      const to = document.getElementById('f-to').value;
+      return D.INJURIES.filter(i =>
+        (!sp || i.sport === sp) &&
+        (!g || i.gender === g) &&
+        (!pg || i.program === pg) &&
+        (!bp || i.bodyPart === bp) &&
+        (!ty || i.injuryType === ty) &&
+        (!from || i.date >= from) &&
+        (!to || i.date <= to)
+      );
+    }
+
+    function render() {
+      const data = applyFilters();
+      document.getElementById('kpi-total').textContent = data.length;
+      document.getElementById('kpi-athletes').textContent = new Set(data.map(d => d.athleteId)).size;
+      document.getElementById('kpi-recovering').textContent = data.filter(d => d.recoveryStatus === 'Recovering').length;
+      document.getElementById('kpi-sports').textContent = new Set(data.map(d => d.sport)).size;
+
+      const lastQ = data.filter(d => d.date >= '2026-01-01').length;
+      const prevQ = data.filter(d => d.date >= '2025-10-01' && d.date < '2026-01-01').length;
+      const dEl = document.getElementById('kpi-total-d');
+      if (prevQ > 0) {
+        const diff = (lastQ - prevQ) / prevQ * 100;
+        dEl.textContent = (diff >= 0 ? '▲ ' : '▼ ') + Math.abs(diff).toFixed(0) + '% this quarter';
+        dEl.className = 'stat__delta ' + (diff >= 0 ? 'stat__delta--up' : 'stat__delta--down');
+      }
+
+      const bpAgg = {};
+      data.forEach(d => bpAgg[d.bodyPart] = (bpAgg[d.bodyPart]||0) + 1);
+      const bpEntries = Object.entries(bpAgg).sort((a,b)=>b[1]-a[1]);
+      document.getElementById('bp-sub').textContent = bpEntries[0] ? `Most common: ${bpEntries[0][0]}` : '';
+
+      if (charts.bp) charts.bp.destroy();
+      charts.bp = new Chart(document.getElementById('bp-chart'), {
+        type: 'bar',
+        data: { labels: bpEntries.map(e=>e[0]),
+          datasets: [{ data: bpEntries.map(e=>e[1]), backgroundColor: AIRMS_CHARTS.palette()[0], borderRadius: 4, label: 'Cases' }] },
+        options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+          plugins: { legend: { display: false } },
+          scales: { x: { beginAtZero: true } } }
+      });
+
+      const tyAgg = {};
+      data.forEach(d => tyAgg[d.injuryType] = (tyAgg[d.injuryType]||0) + 1);
+      const tyEntries = Object.entries(tyAgg).sort((a,b)=>b[1]-a[1]);
+      document.getElementById('type-sub').textContent = tyEntries[0] ? `Most common: ${tyEntries[0][0]}` : '';
+      if (charts.ty) charts.ty.destroy();
+      charts.ty = new Chart(document.getElementById('type-chart'), {
+        type: 'doughnut',
+        data: { labels: tyEntries.map(e=>e[0]),
+          datasets: [{ data: tyEntries.map(e=>e[1]), backgroundColor: AIRMS_CHARTS.palette() }] },
+        options: { responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { position: 'right' } } }
+      });
+
+      const buckets = {};
+      data.forEach(d => {
+        const dt = new Date(d.date);
+        let key;
+        if (trendMode === 'month') key = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}`;
+        else if (trendMode === 'quarter') key = `${dt.getFullYear()}-Q${Math.floor(dt.getMonth()/3)+1}`;
+        else key = `${dt.getFullYear()}`;
+        buckets[key] = (buckets[key]||0) + 1;
+      });
+      const tEntries = Object.entries(buckets).sort();
+      if (charts.trend) charts.trend.destroy();
+      charts.trend = new Chart(document.getElementById('trend-chart'), {
+        type: 'line',
+        data: { labels: tEntries.map(e=>e[0]),
+          datasets: [{ data: tEntries.map(e=>e[1]),
+            borderColor: AIRMS_CHARTS.palette()[1],
+            backgroundColor: 'rgba(200, 155, 60, 0.15)',
+            fill: true, tension: 0.35, pointBackgroundColor: AIRMS_CHARTS.palette()[1],
+            label: 'Cases' }] },
+        options: { responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true } } }
+      });
+
+      const sev = { Minor: 0, Moderate: 0, Severe: 0 };
+      data.forEach(d => sev[d.severity]++);
+      if (charts.sev) charts.sev.destroy();
+      charts.sev = new Chart(document.getElementById('sev-chart'), {
+        type: 'bar',
+        data: { labels: Object.keys(sev),
+          datasets: [{ data: Object.values(sev),
+            backgroundColor: ['#3d7c47', '#c89b3c', '#b03030'], borderRadius: 4, label: 'Cases' }] },
+        options: { responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true } } }
+      });
+
+      const sides = { Left: 0, Right: 0, Both: 0, 'N/A': 0 };
+      data.forEach(d => sides[d.side]++);
+      const sideTotal = data.length || 1;
+      document.getElementById('side-bars').innerHTML = Object.entries(sides).map(([k, v]) => {
+        const pct = (v / sideTotal * 100).toFixed(0);
+        return `<div style="margin-bottom: 8px;">
+          <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 4px;">
+            <span class="muted">${k}</span><strong>${v} (${pct}%)</strong>
+          </div>
+          <div style="height: 6px; background: var(--bg-elev-2); border-radius: 999px; overflow: hidden;">
+            <div style="height: 100%; width: ${pct}%; background: var(--primary);"></div>
+          </div>
+        </div>`;
+      }).join('');
+
+      const spAgg = {};
+      data.forEach(d => {
+        if (!spAgg[d.sport]) spAgg[d.sport] = { total: 0, recovering: 0, severe: 0 };
+        spAgg[d.sport].total++;
+        if (d.recoveryStatus === 'Recovering') spAgg[d.sport].recovering++;
+        if (d.severity === 'Severe') spAgg[d.sport].severe++;
+      });
+      const spRows = Object.entries(spAgg).sort((a,b)=>b[1].total-a[1].total).slice(0, 10);
+      document.getElementById('sport-table').innerHTML = `
+        <thead><tr><th>Sport</th><th>Total Cases</th><th>Currently Recovering</th><th>Severe Cases</th><th>Most Common Body Part</th></tr></thead>
+        <tbody>${spRows.map(([sport, info]) => {
+          const sportData = data.filter(d => d.sport === sport);
+          const bpForSport = {};
+          sportData.forEach(d => bpForSport[d.bodyPart] = (bpForSport[d.bodyPart]||0)+1);
+          const top = Object.entries(bpForSport).sort((a,b)=>b[1]-a[1])[0];
+          return `<tr>
+            <td><strong>${sport}</strong></td>
+            <td>${info.total}</td>
+            <td>${info.recovering}</td>
+            <td>${info.severe}</td>
+            <td>${top ? top[0] + ' (' + top[1] + ')' : '—'}</td>
+          </tr>`;
+        }).join('')}</tbody>`;
+    }
+
+    document.querySelectorAll('.filter-bar select, .filter-bar input').forEach(el => el.addEventListener('change', render));
+    document.getElementById('reset-btn').addEventListener('click', () => {
+      document.querySelectorAll('.filter-bar select').forEach(s => s.value = '');
+      document.getElementById('f-from').value = '2025-01-01';
+      document.getElementById('f-to').value = '2026-05-09';
+      render();
+    });
+    document.querySelectorAll('.trend-btn').forEach(b => b.addEventListener('click', () => {
+      trendMode = b.dataset.trend;
+      document.querySelectorAll('.trend-btn').forEach(x => { x.classList.remove('btn--secondary'); x.classList.add('btn--ghost'); });
+      b.classList.add('btn--secondary'); b.classList.remove('btn--ghost');
+      render();
+    }));
+
+    render();
+  </script>
+</body>
+</html>

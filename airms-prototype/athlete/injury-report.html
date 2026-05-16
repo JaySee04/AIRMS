@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Injury Reporting · AIRMS</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/css/main.css"/>
+</head>
+<body data-layout="app" data-allowed-roles="athlete" data-title="Injury Reporting">
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+      <div class="content">
+
+        <div class="alert alert--info">
+          <strong>Note:</strong> Self-reports are reviewed by medical staff before being added
+          to your official injury record. For training injuries, please notify your physio directly.
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <h2 class="card__title" style="margin-bottom: 14px;">New Self-Report</h2>
+            <form id="sr-form">
+              <div class="form-row">
+                <div class="field">
+                  <label>Body Part</label>
+                  <select id="sr-bp" required>
+                    <option value="">Select…</option>
+                    <option>Neck</option><option>Shoulder</option><option>Spine</option>
+                    <option>Lumbar/Pelvis</option><option>Knee</option><option>Ankle</option>
+                    <option>Wrist</option><option>Elbow</option><option>Hip</option><option>Foot</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label>Side</label>
+                  <select id="sr-side"><option>Left</option><option>Right</option><option>Both</option><option>N/A</option></select>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="field">
+                  <label>Suspected Type</label>
+                  <select id="sr-type">
+                    <option>Strain</option><option>Sprain</option><option>Tendinitis</option>
+                    <option>Bursitis</option><option>Contusion</option><option>Other</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label>Severity (your assessment)</label>
+                  <select id="sr-sev"><option>Minor</option><option>Moderate</option><option>Severe</option></select>
+                </div>
+              </div>
+              <div class="form-row form-row--full">
+                <div class="field">
+                  <label>Date Occurred</label>
+                  <input type="date" id="sr-date" value="2026-05-09" required/>
+                </div>
+              </div>
+              <div class="form-row form-row--full">
+                <div class="field">
+                  <label>Description</label>
+                  <textarea id="sr-desc" placeholder="Describe how it happened, what you feel, and any restrictions…" required></textarea>
+                </div>
+              </div>
+              <div class="form-row form-row--full">
+                <div class="field">
+                  <label>Attachment (optional)</label>
+                  <input type="file"/>
+                </div>
+              </div>
+              <button class="btn" type="submit" style="width: 100%; justify-content: center;">Submit for Review</button>
+            </form>
+          </div>
+
+          <div class="card">
+            <div class="card__header">
+              <h2 class="card__title">My Reports</h2>
+              <span class="card__sub" id="report-count"></span>
+            </div>
+            <div id="report-list"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script src="../assets/js/main.js"></script>
+  <script src="../assets/js/mockdata.js"></script>
+  <script>
+    // Filter self-reports for the current athlete
+    let myReports = [
+      { id: 'SR1099', date: '2026-04-22', bp: 'Shoulder', side: 'Right', type: 'Strain',
+        sev: 'Minor', desc: 'Soreness after smash drills, eased with rest.',
+        status: 'Approved', reviewNote: 'Logged as overuse strain. Ongoing monitoring.', submitted: '2026-04-22 17:14' },
+      { id: 'SR1078', date: '2026-03-15', bp: 'Foot', side: 'Left', type: 'Other',
+        sev: 'Minor', desc: 'Slight discomfort on arch. Resolved itself.',
+        status: 'Rejected', reviewNote: 'Insufficient detail; resolved without intervention.', submitted: '2026-03-15 09:30' }
+    ];
+
+    function badgeFor(s) {
+      if (s === 'Pending') return '<span class="badge badge--mod"><span class="badge__dot"></span>Pending</span>';
+      if (s === 'Approved') return '<span class="badge badge--low"><span class="badge__dot"></span>Approved</span>';
+      return '<span class="badge badge--high"><span class="badge__dot"></span>Rejected</span>';
+    }
+    function render() {
+      const list = document.getElementById('report-list');
+      document.getElementById('report-count').textContent = `${myReports.length} total`;
+      if (myReports.length === 0) {
+        list.innerHTML = '<div class="empty-state">No reports submitted yet.</div>';
+        return;
+      }
+      list.innerHTML = myReports.map(r => `
+        <div style="padding: 14px 0; border-bottom: 1px solid var(--border);">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+            <div>
+              <strong>${r.bp} (${r.side}) — ${r.type}</strong>
+              <div style="font-size: 0.82rem; color: var(--text-muted);">Submitted ${r.submitted} · Severity: ${r.sev}</div>
+            </div>
+            ${badgeFor(r.status)}
+          </div>
+          <div style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 6px;">${r.desc}</div>
+          ${r.reviewNote ? `<div style="font-size: 0.85rem; padding: 8px 12px; background: var(--bg-elev-2); border-radius: 6px; border-left: 3px solid var(--primary);"><strong>Reviewer note:</strong> ${r.reviewNote}</div>` : ''}
+        </div>
+      `).join('');
+    }
+    render();
+
+    document.getElementById('sr-form').addEventListener('submit', e => {
+      e.preventDefault();
+      myReports.unshift({
+        id: 'SR' + (2000 + myReports.length + 100),
+        date: document.getElementById('sr-date').value,
+        bp: document.getElementById('sr-bp').value,
+        side: document.getElementById('sr-side').value,
+        type: document.getElementById('sr-type').value,
+        sev: document.getElementById('sr-sev').value,
+        desc: document.getElementById('sr-desc').value,
+        status: 'Pending',
+        submitted: new Date().toISOString().slice(0, 16).replace('T', ' ')
+      });
+      e.target.reset();
+      document.getElementById('sr-date').value = '2026-05-09';
+      render();
+      const t = document.createElement('div');
+      t.className = 'alert alert--success';
+      t.textContent = '✓ Report submitted. Medical staff will review shortly.';
+      e.target.prepend(t);
+      setTimeout(() => t.remove(), 3000);
+    });
+  </script>
+</body>
+</html>

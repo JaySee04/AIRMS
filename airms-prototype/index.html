@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AIRMS · Sign In</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/main.css"/>
+</head>
+<body>
+  <div class="center-stage">
+    <div class="login-card">
+      <div class="login-card__visual">
+        <div>
+          <div class="login-card__logo">
+            <img src="assets/img/logofull.png" alt="Institut Sukan Negara"/>
+          </div>
+          <h1 style="color:#fff; margin-top: 4px;">Athlete Injury Risk<br/>Management System</h1>
+          <div style="color: var(--brand-gold-soft); font-size: 0.9rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;">Institut Sukan Negara</div>
+          <div style="color: rgba(255,255,255,0.78); font-size: 0.88rem; margin-top: 4px;">
+            Kompleks Sukan Negara<br/>57000 Bukit Jalil, Kuala Lumpur
+          </div>
+        </div>
+        <div style="font-size: 0.75rem; color: rgba(255,255,255,0.45); border-top: 1px solid rgba(255,255,255,0.1); padding-top: 14px;">
+          AIRMS Prototype v0.2
+        </div>
+      </div>
+
+      <div class="login-card__form">
+        <h1>Sign in</h1>
+        <p class="muted" style="font-size: 0.92rem;">Use your ISN credentials to access the system.</p>
+
+        <div style="margin-top: 22px;">
+          <label style="font-size: 0.82rem; font-weight: 500; color: var(--text-muted);">Role</label>
+          <div class="role-pick" id="role-pick">
+            <button data-role="athlete" class="active">Athlete</button>
+            <button data-role="medical">Medical Staff</button>
+            <button data-role="admin">Administrator</button>
+          </div>
+        </div>
+
+        <form id="login-form" autocomplete="off">
+          <div class="field" style="margin-bottom: 12px;">
+            <label for="email">Email</label>
+            <input type="email" id="email" value="john.doe@isn.gov.my"/>
+          </div>
+          <div class="field" style="margin-bottom: 18px;">
+            <label for="pw">Password</label>
+            <input type="password" id="pw" value="••••••••"/>
+          </div>
+          <button class="btn" style="width: 100%; justify-content: center; padding: 12px;" type="submit">Sign in</button>
+        </form>
+
+        <div style="margin-top: 18px; font-size: 0.82rem;">
+          <a href="#">Forgot password?</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="assets/js/main.js"></script>
+  <script>
+    let selectedRole = 'athlete';
+    document.querySelectorAll('#role-pick button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#role-pick button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        selectedRole = btn.dataset.role;
+        const email = document.getElementById('email');
+        if (selectedRole === 'athlete') email.value = 'john.doe@isn.gov.my';
+        else if (selectedRole === 'medical') email.value = 'aisyah.rahman@isn.gov.my';
+        else email.value = 'mohd.faizal@isn.gov.my';
+      });
+    });
+    document.getElementById('login-form').addEventListener('submit', e => {
+      e.preventDefault();
+      AIRMS.setRole(selectedRole);
+      const dest = selectedRole === 'admin' ? 'admin/dashboard.html'
+                 : selectedRole === 'medical' ? 'medical/dashboard.html'
+                 : 'athlete/dashboard.html';
+      window.location.href = dest;
+    });
+  </script>
+</body>
+</html>

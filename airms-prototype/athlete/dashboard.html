@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>My Dashboard · AIRMS</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/css/main.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body data-layout="app" data-allowed-roles="athlete" data-title="My Dashboard">
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+      <div class="content">
+
+        <!-- Risk hero -->
+        <div id="risk-hero"></div>
+
+        <!-- Stat tiles -->
+        <div class="stat-grid">
+          <div class="stat">
+            <div class="stat__label">This Week's Load</div>
+            <div class="stat__value" id="acute-load">—</div>
+            <div class="stat__delta" id="acute-delta">—</div>
+          </div>
+          <div class="stat">
+            <div class="stat__label">4-Week Average</div>
+            <div class="stat__value" id="chronic-load">—</div>
+            <div class="stat__delta">Rolling baseline</div>
+          </div>
+          <div class="stat">
+            <div class="stat__label">ACWR</div>
+            <div class="stat__value" id="acwr-val">—</div>
+            <div class="stat__delta">Acute ÷ Chronic</div>
+          </div>
+          <div class="stat">
+            <div class="stat__label">Sessions Logged</div>
+            <div class="stat__value" id="sessions-count">—</div>
+            <div class="stat__delta">Last 7 days</div>
+          </div>
+        </div>
+
+        <div class="grid-2-1">
+          <div class="card">
+            <div class="card__header">
+              <h2 class="card__title">Workload Trend (Last 8 Weeks)</h2>
+              <span class="card__sub">Weekly load · ACWR overlay</span>
+            </div>
+            <div style="position: relative; height: 300px;"><canvas id="workload-chart"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card__header">
+              <h2 class="card__title">Risk Indicators</h2>
+              <span class="card__sub">From last screening</span>
+            </div>
+            <div style="position: relative; height: 300px;"><canvas id="risk-chart"></canvas></div>
+          </div>
+        </div>
+
+        <div style="height: 20px"></div>
+
+        <!-- Body map -->
+        <div class="card" style="margin-bottom: 20px;">
+          <div class="card__header">
+            <h2 class="card__title">Muscle Assessment Map</h2>
+            <span class="card__sub">Latest screening · L = left, R = right, B = both</span>
+          </div>
+          <div id="body-map"></div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <div class="card__header">
+              <h2 class="card__title">Recent Activity</h2>
+              <a class="btn btn--secondary btn--sm" href="activity.html">View All</a>
+            </div>
+            <div class="table-wrap">
+              <table class="data" id="recent-activity"></table>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card__header">
+              <h2 class="card__title">Injury Records</h2>
+              <a class="btn btn--secondary btn--sm" href="injury-report.html">Report Injury</a>
+            </div>
+            <div class="tabs" style="margin-bottom: 14px;">
+              <button class="tab tab--active" data-inj-tab="active">Active <span id="cnt-active"></span></button>
+              <button class="tab" data-inj-tab="all">All History <span id="cnt-all"></span></button>
+            </div>
+            <div id="my-injuries"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script src="../assets/js/main.js"></script>
+  <script src="../assets/js/mockdata.js"></script>
+  <script src="../assets/js/charts.js"></script>
+  <script src="../assets/js/bodymap.js"></script>
+  <script>
+    const D = window.AIRMS_DATA;
+    const me = D.findAthlete('ATH0001');
+    const myActivity = D.activityFor(me.id);
+    const myInjuries = D.injuriesFor(me.id);
+
+    // === Compute weekly loads (last 8 weeks ending today) ===
+    function getWeekKey(d) {
+      const dt = new Date(d);
+      const onejan = new Date(dt.getFullYear(), 0, 1);
+      const week = Math.ceil((((dt - onejan) / 86400000) + onejan.getDay() + 1) / 7);
+      return `${dt.getFullYear()}-W${String(week).padStart(2,'0')}`;
+    }
+    const weeks = [];
+    const today = new Date('2026-05-09');
+    for (let i = 7; i >= 0; i--) {
+      const ref = new Date(today); ref.setDate(today.getDate() - i*7);
+      weeks.push(getWeekKey(ref));
+    }
+    const loadByWeek = Object.fromEntries(weeks.map(w => [w, 0]));
+    myActivity.forEach(a => {
+      const k = getWeekKey(a.date);
+      if (k in loadByWeek) loadByWeek[k] += a.load;
+    });
+    const weekLoads = weeks.map(w => loadByWeek[w]);
+    const acuteLoad = weekLoads[weekLoads.length - 1];
+    const chronicLoad = weekLoads.slice(-4).reduce((a, b) => a + b, 0) / 4;
+    const acwr = chronicLoad > 0 ? (acuteLoad / chronicLoad) : 0;
+    const prev = weekLoads[weekLoads.length - 2] || 0;
+    const acuteDelta = prev > 0 ? ((acuteLoad - prev) / prev * 100) : 0;
+
+    document.getElementById('acute-load').textContent = acuteLoad.toLocaleString();
+    document.getElementById('chronic-load').textContent = Math.round(chronicLoad).toLocaleString();
+    document.getElementById('acwr-val').textContent = acwr.toFixed(2);
+    const sessionsThisWeek = myActivity.filter(a => {
+      const d = new Date(a.date);
+      return (today - d) / 86400000 <= 7;
+    }).length;
+    document.getElementById('sessions-count').textContent = sessionsThisWeek;
+
+    const deltaEl = document.getElementById('acute-delta');
+    if (acuteDelta > 0) { deltaEl.textContent = `▲ ${acuteDelta.toFixed(0)}% vs last week`; deltaEl.classList.add('stat__delta--up'); }
+    else if (acuteDelta < 0) { deltaEl.textContent = `▼ ${Math.abs(acuteDelta).toFixed(0)}% vs last week`; deltaEl.classList.add('stat__delta--down'); }
+    else { deltaEl.textContent = 'No change'; }
+
+    // === Risk logic ===
+    // ACWR > 1.5  → High (red)
+    // 1.3 < ACWR ≤ 1.5 → Moderate (amber)
+    // 0.8 ≤ ACWR ≤ 1.3 → Optimal (green)
+    // ACWR < 0.8 → Low Workload / under-trained (blue)
+    function classifyRisk(v) {
+      if (v > 1.5)  return { cls: 'high',  level: 'High Risk',
+                             msg: 'Acute load is significantly above your baseline. Reduce intensity for the next 2–3 sessions and contact your medical staff if any symptoms appear.' };
+      if (v > 1.3)  return { cls: 'mod',   level: 'Elevated',
+                             msg: 'Your training load this week is trending higher than your baseline. Monitor recovery and avoid stacking high-intensity sessions.' };
+      if (v >= 0.8) return { cls: 'low',   level: 'Optimal',
+                             msg: 'Workload is balanced and within safe thresholds. Keep up your current routine.' };
+      // ACWR < 0.8 → under-trained
+      return { cls: 'under', level: 'Low Workload',
+               msg: 'Fitness at risk of declining. Your recent training is well below your usual baseline — check whether this is intentional rest or an unplanned drop.' };
+    }
+    const risk = classifyRisk(acwr);
+
+    // Sudden dip → ask about illness/injury
+    // Triggers when current week dropped >40% vs the previous week AND chronic > 0
+    const sharpDip = (prev > 0 && acuteLoad < 0.6 * prev) || (chronicLoad > 0 && acwr < 0.7);
+
+    document.getElementById('risk-hero').innerHTML = `
+      <div class="risk-hero risk-hero--${risk.cls}">
+        <div style="flex: 1;">
+          <div class="risk-hero__label">Current Status</div>
+          <div class="risk-hero__level">${risk.level}</div>
+          <div class="risk-hero__msg">${risk.msg}</div>
+          ${sharpDip ? `
+            <div class="risk-hero__prompt">
+              <span><strong>Sharp drop in activity detected.</strong> Were you ill or injured this week? Adding context helps your medical staff interpret the trend.</span>
+              <button class="btn btn--secondary btn--sm" id="explain-dip">Add Note</button>
+            </div>
+          ` : ''}
+        </div>
+        <div class="risk-hero__acwr">
+          <div class="risk-hero__acwr-val">${acwr.toFixed(2)}</div>
+          <div class="risk-hero__acwr-label">ACWR</div>
+        </div>
+      </div>
+    `;
+    const dipBtn = document.getElementById('explain-dip');
+    if (dipBtn) dipBtn.addEventListener('click', () => window.location.href = 'injury-report.html');
+
+    // === Workload chart ===
+    const wctx = document.getElementById('workload-chart').getContext('2d');
+    const cumACWR = weeks.map((w, i) => {
+      const acuteW = weekLoads[i];
+      const slice = weekLoads.slice(Math.max(0, i-3), i+1);
+      const chronicW = slice.length ? slice.reduce((a,b)=>a+b,0)/slice.length : 0;
+      return chronicW > 0 ? acuteW / chronicW : 0;
+    });
+    const wChart = new Chart(wctx, {
+      type: 'bar',
+      data: {
+        labels: weeks.map(w => w.split('-')[1]),
+        datasets: [
+          { type: 'bar', label: 'Weekly Load', data: weekLoads,
+            backgroundColor: AIRMS_CHARTS.palette()[0], borderRadius: 4, yAxisID: 'y' },
+          { type: 'line', label: 'ACWR', data: cumACWR, yAxisID: 'y1',
+            borderColor: AIRMS_CHARTS.palette()[1], backgroundColor: 'transparent',
+            tension: 0.35, pointRadius: 4, pointBackgroundColor: AIRMS_CHARTS.palette()[1] }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        scales: {
+          y: { title: { display: true, text: 'Load (AU)' }, beginAtZero: true },
+          y1: { position: 'right', title: { display: true, text: 'ACWR' }, grid: { display: false }, suggestedMax: 2.0 }
+        },
+        plugins: { legend: { position: 'bottom' } }
+      }
+    });
+    AIRMS_CHARTS.register(wChart);
+
+    // === Risk radar (8 indicators) ===
+    const rctx = document.getElementById('risk-chart').getContext('2d');
+    const labels = Object.keys(me.risks);
+    const values = Object.values(me.risks);
+    const rChart = new Chart(rctx, {
+      type: 'radar',
+      data: {
+        labels: labels.map(l => l.replace(' injury risk','').replace(' herniation','')),
+        datasets: [{
+          label: 'Risk %',
+          data: values,
+          backgroundColor: 'rgba(200, 155, 60, 0.18)',
+          borderColor: AIRMS_CHARTS.palette()[1],
+          pointBackgroundColor: AIRMS_CHARTS.palette()[1]
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        scales: { r: { min: 0, max: 30, ticks: { display: false } } },
+        plugins: { legend: { display: false } }
+      }
+    });
+    AIRMS_CHARTS.register(rChart);
+
+    // === Body map ===
+    AIRMS_BODYMAP.render(document.getElementById('body-map'), me);
+
+    // === Recent activity table ===
+    const recent = myActivity.slice(-6).reverse();
+    document.getElementById('recent-activity').innerHTML = `
+      <thead><tr><th>Date</th><th>Type</th><th>Duration</th><th>Intensity</th><th>Load</th></tr></thead>
+      <tbody>${recent.map(a => `
+        <tr>
+          <td>${a.date}</td>
+          <td>${a.type}</td>
+          <td>${a.duration} min</td>
+          <td>${a.intensity}/10</td>
+          <td><strong>${a.load}</strong></td>
+        </tr>`).join('')}
+      </tbody>`;
+
+    // === My injuries (tabbed: Active / All History) ===
+    const allInjuries = [...myInjuries].sort((a, b) => b.date.localeCompare(a.date));
+    const activeInjuries = allInjuries.filter(i => i.recoveryStatus !== 'Recovered');
+    let injTab = 'active';
+
+    function badgeClassFor(status) {
+      if (status === 'Recovered')  return 'low';
+      if (status === 'Recovering') return 'mod';
+      return 'high'; // Chronic
+    }
+
+    function renderInjuries() {
+      document.getElementById('cnt-active').textContent = `(${activeInjuries.length})`;
+      document.getElementById('cnt-all').textContent = `(${allInjuries.length})`;
+      const list = injTab === 'active' ? activeInjuries : allInjuries;
+      const myInj = document.getElementById('my-injuries');
+      if (list.length === 0) {
+        myInj.innerHTML = `<div class="empty-state">${injTab === 'active' ? 'No active injuries. Stay safe!' : 'No injuries on record.'}</div>`;
+        return;
+      }
+      myInj.innerHTML = list.map(i => `
+        <div style="padding: 12px 0; border-bottom: 1px solid var(--border);">
+          <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 4px;">
+            <div>
+              <strong>${i.bodyPart} (${i.side}) — ${i.injuryType}</strong>
+              <div style="font-size: 0.82rem; color: var(--text-muted);">${i.date} · ${i.severity} · ${i.mechanism}</div>
+            </div>
+            <span class="badge badge--${badgeClassFor(i.recoveryStatus)}">${i.recoveryStatus}</span>
+          </div>
+          ${i.notes ? `<div style="font-size: 0.88rem; color: var(--text-muted);">${i.notes}</div>` : ''}
+        </div>
+      `).join('');
+    }
+    document.querySelectorAll('[data-inj-tab]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('[data-inj-tab]').forEach(b => b.classList.remove('tab--active'));
+        btn.classList.add('tab--active');
+        injTab = btn.dataset.injTab;
+        renderInjuries();
+      });
+    });
+    renderInjuries();
+  </script>
+</body>
+</html>

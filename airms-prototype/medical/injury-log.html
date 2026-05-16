@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Injury Logging · AIRMS</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/css/main.css"/>
+</head>
+<body data-layout="app" data-allowed-roles="medical" data-title="Injury Logging">
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+      <div class="content">
+
+        <div class="grid-1-2">
+          <div class="card" style="height: fit-content;">
+            <h2 class="card__title" style="margin-bottom: 14px;">Log Official Injury</h2>
+            <form id="inj-form">
+              <div class="form-row form-row--full">
+                <div class="field">
+                  <label>Athlete</label>
+                  <input list="ath-list" id="f-athlete" placeholder="Search by name or athlete ID…" required/>
+                  <datalist id="ath-list"></datalist>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="field">
+                  <label>Body Part</label>
+                  <select id="f-bp" required><option value="">Select…</option></select>
+                </div>
+                <div class="field">
+                  <label>Side</label>
+                  <select id="f-side"><option>Left</option><option>Right</option><option>Both</option><option>N/A</option></select>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="field">
+                  <label>Injury Type</label>
+                  <select id="f-type" required><option value="">Select…</option></select>
+                </div>
+                <div class="field">
+                  <label>Severity</label>
+                  <select id="f-sev"><option>Minor</option><option>Moderate</option><option>Severe</option></select>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="field">
+                  <label>Mechanism</label>
+                  <select id="f-mech"><option>Contact</option><option>Non-contact</option><option>Overuse</option><option>Recurrent</option></select>
+                </div>
+                <div class="field">
+                  <label>Date of Injury</label>
+                  <input type="date" id="f-date" required/>
+                </div>
+              </div>
+              <div class="form-row form-row--full">
+                <div class="field">
+                  <label>Clinical Notes</label>
+                  <textarea id="f-notes" placeholder="Diagnosis, treatment plan, return-to-play guidance…"></textarea>
+                </div>
+              </div>
+              <button class="btn" type="submit" style="width: 100%; justify-content: center;">Save Record</button>
+            </form>
+          </div>
+
+          <div class="card">
+            <div class="card__header">
+              <div>
+                <h2 class="card__title">Injury Records</h2>
+                <span class="card__sub" id="rec-count"></span>
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <select id="filt-status" style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-strong); background: var(--bg-elev); color: var(--text); font-family: inherit;">
+                  <option value="">All Status</option>
+                  <option>Recovering</option><option>Recovered</option><option>Chronic</option>
+                </select>
+                <input id="filt-q" placeholder="Search athlete…" style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-strong); background: var(--bg-elev); color: var(--text); font-family: inherit;"/>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table class="data" id="rec-table"></table>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: edit recovery status -->
+  <div class="modal-backdrop" id="edit-modal">
+    <div class="modal">
+      <div class="modal__header">
+        <h2 style="margin: 0; font-size: 1.05rem;">Update Recovery Status</h2>
+        <button class="close-x" data-close>×</button>
+      </div>
+      <div class="modal__body" id="edit-body"></div>
+      <div class="modal__footer">
+        <button class="btn btn--ghost" data-close>Cancel</button>
+        <button class="btn" id="save-edit">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../assets/js/main.js"></script>
+  <script src="../assets/js/mockdata.js"></script>
+  <script>
+    const D = window.AIRMS_DATA;
+
+    // populate selects
+    const dl = document.getElementById('ath-list');
+    D.ATHLETES.forEach(a => { const o = document.createElement('option'); o.value = `${a.name} (${a.id})`; dl.appendChild(o); });
+    D.BODY_PARTS.forEach(b => { const o = document.createElement('option'); o.textContent = b; document.getElementById('f-bp').appendChild(o); });
+    D.INJURY_TYPES.forEach(t => { const o = document.createElement('option'); o.textContent = t; document.getElementById('f-type').appendChild(o); });
+    document.getElementById('f-date').value = '2026-05-09';
+
+    // Pre-fill athlete from URL param
+    const params = new URLSearchParams(location.search);
+    if (params.get('athlete')) {
+      const a = D.findAthlete(params.get('athlete'));
+      if (a) document.getElementById('f-athlete').value = `${a.name} (${a.id})`;
+    }
+
+    // Working set (start with all injuries)
+    let records = [...D.INJURIES].sort((a, b) => b.date.localeCompare(a.date));
+
+    function render() {
+      const status = document.getElementById('filt-status').value;
+      const q = document.getElementById('filt-q').value.toLowerCase().trim();
+      let view = records;
+      if (status) view = view.filter(r => r.recoveryStatus === status);
+      if (q) view = view.filter(r => r.athleteName.toLowerCase().includes(q));
+      view = view.slice(0, 30);
+      document.getElementById('rec-count').textContent = `Showing ${view.length} of ${records.length}`;
+      document.getElementById('rec-table').innerHTML = `
+        <thead><tr><th>Date</th><th>Athlete</th><th>Body Part</th><th>Type</th><th>Severity</th><th>Status</th><th>Source</th><th></th></tr></thead>
+        <tbody>${view.map(r => `
+          <tr>
+            <td>${r.date}</td>
+            <td><strong>${r.athleteName}</strong><div style="font-size: 0.78rem; color: var(--text-muted);">${r.sport}</div></td>
+            <td>${r.bodyPart} (${r.side})</td>
+            <td>${r.injuryType}</td>
+            <td>${r.severity}</td>
+            <td><span class="badge badge--${r.recoveryStatus==='Recovered'?'low':r.recoveryStatus==='Recovering'?'mod':'high'}">${r.recoveryStatus}</span></td>
+            <td><span class="muted" style="font-size: 0.82rem;">${r.source}</span></td>
+            <td style="text-align: right;"><button class="btn btn--ghost btn--sm" data-edit="${r.id}">Update</button></td>
+          </tr>`).join('')}
+        </tbody>`;
+      document.querySelectorAll('[data-edit]').forEach(b =>
+        b.addEventListener('click', () => openEdit(b.dataset.edit)));
+    }
+    render();
+    document.getElementById('filt-status').addEventListener('change', render);
+    document.getElementById('filt-q').addEventListener('input', render);
+
+    document.getElementById('inj-form').addEventListener('submit', e => {
+      e.preventDefault();
+      const ath = document.getElementById('f-athlete').value;
+      const m = ath.match(/\((ATH\d+)\)/);
+      if (!m) { alert('Pick an athlete from the suggestions.'); return; }
+      const a = D.findAthlete(m[1]);
+      const newRec = {
+        id: 'INJ' + (9100 + records.length),
+        athleteId: a.id, athleteName: a.name, sport: a.sport, gender: a.gender,
+        program: a.program,
+        bodyPart: document.getElementById('f-bp').value,
+        side: document.getElementById('f-side').value,
+        injuryType: document.getElementById('f-type').value,
+        severity: document.getElementById('f-sev').value,
+        mechanism: document.getElementById('f-mech').value,
+        date: document.getElementById('f-date').value,
+        recoveryStatus: 'Recovering',
+        source: 'Medical Log',
+        loggedBy: 'Dr. Aisyah Rahman',
+        notes: document.getElementById('f-notes').value
+      };
+      records.unshift(newRec);
+      e.target.reset();
+      document.getElementById('f-date').value = '2026-05-09';
+      render();
+      const t = document.createElement('div');
+      t.className = 'alert alert--success';
+      t.textContent = '✓ Injury record saved.';
+      e.target.prepend(t);
+      setTimeout(() => t.remove(), 2500);
+    });
+
+    // Edit modal
+    let editingId = null;
+    function openEdit(id) {
+      editingId = id;
+      const r = records.find(x => x.id === id);
+      document.getElementById('edit-body').innerHTML = `
+        <p style="margin-bottom: 14px;"><strong>${r.athleteName}</strong> · ${r.bodyPart} (${r.side}) · ${r.injuryType}<br/>
+        <span class="muted" style="font-size: 0.85rem;">${r.date} · Logged by ${r.loggedBy}</span></p>
+        <div class="field">
+          <label>Recovery Status</label>
+          <select id="m-status">
+            <option ${r.recoveryStatus==='Recovering'?'selected':''}>Recovering</option>
+            <option ${r.recoveryStatus==='Recovered'?'selected':''}>Recovered</option>
+            <option ${r.recoveryStatus==='Chronic'?'selected':''}>Chronic</option>
+          </select>
+        </div>
+        <div class="field" style="margin-top: 12px;">
+          <label>Update Note</label>
+          <textarea id="m-note" placeholder="Add a note for the medical team…"></textarea>
+        </div>
+      `;
+      document.getElementById('edit-modal').classList.add('open');
+    }
+    document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => document.getElementById('edit-modal').classList.remove('open')));
+    document.getElementById('save-edit').addEventListener('click', () => {
+      const r = records.find(x => x.id === editingId);
+      if (r) r.recoveryStatus = document.getElementById('m-status').value;
+      document.getElementById('edit-modal').classList.remove('open');
+      render();
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Activity Tracking · AIRMS</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/css/main.css"/>
+</head>
+<body data-layout="app" data-allowed-roles="athlete" data-title="Activity Tracking">
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+      <div class="content">
+
+        <div class="grid-1-2">
+          <div class="card">
+            <h2 class="card__title" style="margin-bottom: 14px;">Log New Activity</h2>
+            <form id="log-form">
+              <div class="form-row form-row--full">
+                <div class="field">
+                  <label>Activity Type</label>
+                  <select id="f-type" required>
+                    <option value="">Select…</option>
+                    <option>Strength</option>
+                    <option>Endurance</option>
+                    <option>Speed</option>
+                    <option>Skill</option>
+                    <option>Match</option>
+                    <option>Recovery</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-row form-row--full">
+                <div class="field">
+                  <label>Date</label>
+                  <input type="date" id="f-date" required value="2026-05-09"/>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="field">
+                  <label>Duration (minutes)</label>
+                  <input type="number" id="f-dur" min="10" max="240" value="60"/>
+                </div>
+                <div class="field">
+                  <label>Intensity (RPE 1–10)</label>
+                  <input type="number" id="f-int" min="1" max="10" value="6"/>
+                </div>
+              </div>
+
+              <!-- Live load preview -->
+              <div class="load-preview" id="load-preview">
+                <div class="formula">Load = Duration × Intensity</div>
+                <div style="margin-top: 4px;">
+                  <span id="lp-dur">60</span> min  ×  <span id="lp-int">6</span>  =  <strong id="lp-load">360</strong> AU
+                </div>
+                <div class="formula" style="margin-top: 6px;" id="lp-note"></div>
+              </div>
+
+              <div class="form-row form-row--full" style="margin-top: 14px;">
+                <div class="field">
+                  <label>Notes (optional)</label>
+                  <textarea id="f-notes" placeholder="Any relevant observations…"></textarea>
+                </div>
+              </div>
+              <button class="btn" type="submit" style="width: 100%; justify-content: center;">Save Activity</button>
+            </form>
+          </div>
+
+          <div class="card">
+            <div class="card__header">
+              <div>
+                <h2 class="card__title">Activity History</h2>
+                <span class="card__sub" id="history-count"></span>
+              </div>
+              <div style="display: flex; gap: 10px;">
+                <select id="filter-type" style="padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-strong); background: var(--bg-elev); color: var(--text); font-family: inherit;">
+                  <option value="">All Types</option>
+                  <option>Strength</option><option>Endurance</option>
+                  <option>Speed</option><option>Skill</option>
+                  <option>Match</option><option>Recovery</option>
+                </select>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table class="data" id="history-table"></table>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script src="../assets/js/main.js"></script>
+  <script src="../assets/js/mockdata.js"></script>
+  <script>
+    const D = window.AIRMS_DATA;
+    let entries = [...D.activityFor('ATH0001')].reverse();
+
+    // Live load preview
+    const durEl = document.getElementById('f-dur');
+    const intEl = document.getElementById('f-int');
+    const lpDur = document.getElementById('lp-dur');
+    const lpInt = document.getElementById('lp-int');
+    const lpLoad = document.getElementById('lp-load');
+    const lpNote = document.getElementById('lp-note');
+    function recalc() {
+      const d = +durEl.value || 0;
+      const i = +intEl.value || 0;
+      const load = d * i;
+      lpDur.textContent = d;
+      lpInt.textContent = i;
+      lpLoad.textContent = load.toLocaleString();
+      let note;
+      if (load === 0) note = 'Enter duration and intensity to compute load.';
+      else if (load < 200) note = 'Light session — feeds your chronic baseline.';
+      else if (load < 500) note = 'Moderate session — typical training load.';
+      else if (load < 800) note = 'High load session — ensure recovery is planned.';
+      else note = 'Very high load — verify duration and intensity values are accurate.';
+      lpNote.textContent = note;
+    }
+    [durEl, intEl].forEach(el => el.addEventListener('input', recalc));
+    recalc();
+
+    function render() {
+      const filter = document.getElementById('filter-type').value;
+      const filtered = filter ? entries.filter(e => e.type === filter) : entries;
+      document.getElementById('history-count').textContent = `${filtered.length} session${filtered.length===1?'':'s'} logged`;
+      document.getElementById('history-table').innerHTML = `
+        <thead><tr><th>Date</th><th>Type</th><th>Duration</th><th>Intensity</th><th>Load</th><th></th></tr></thead>
+        <tbody>${filtered.map((a, i) => `
+          <tr>
+            <td>${a.date}</td>
+            <td><span class="tag-pill">${a.type}</span></td>
+            <td>${a.duration} min</td>
+            <td>${a.intensity}/10</td>
+            <td><strong>${a.load}</strong></td>
+            <td style="text-align: right;">
+              <button class="btn btn--ghost btn--sm" data-act="del" data-i="${i}">Delete</button>
+            </td>
+          </tr>`).join('')}
+        </tbody>`;
+      document.querySelectorAll('[data-act="del"]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          if (confirm('Delete this activity entry?')) {
+            const real = entries.findIndex(e => e === filtered[+btn.dataset.i]);
+            entries.splice(real, 1);
+            render();
+          }
+        });
+      });
+    }
+    render();
+    document.getElementById('filter-type').addEventListener('change', render);
+
+    document.getElementById('log-form').addEventListener('submit', e => {
+      e.preventDefault();
+      const type = document.getElementById('f-type').value;
+      const date = document.getElementById('f-date').value;
+      const dur = +durEl.value;
+      const intensity = +intEl.value;
+      if (!type || !date) return;
+      entries.unshift({
+        id: 'ACT' + (9000 + entries.length),
+        date, type, duration: dur, intensity, load: dur * intensity,
+        notes: document.getElementById('f-notes').value
+      });
+      e.target.reset();
+      document.getElementById('f-date').value = '2026-05-09';
+      durEl.value = 60; intEl.value = 6; recalc();
+      render();
+      const t = document.createElement('div');
+      t.className = 'alert alert--success';
+      t.textContent = '✓ Activity saved. Your dashboard will update automatically.';
+      e.target.prepend(t);
+      setTimeout(() => t.remove(), 2500);
+    });
+  </script>
+</body>
+</html>

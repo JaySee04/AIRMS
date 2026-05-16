@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Data Uploading · AIRMS</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/css/main.css"/>
+</head>
+<body data-layout="app" data-allowed-roles="medical admin" data-title="Data Uploading">
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+      <div class="content">
+
+        <div class="grid-2-1">
+          <div class="card">
+            <h2 class="card__title" style="margin-bottom: 14px;">Upload Screening Data</h2>
+            <div class="alert alert--info">
+              <strong>Expected columns:</strong> Name, Age, Sex, Gender, Weight, Height, Sports, Program,
+              Overall Physical Activity Score, Injury Risk Index, Mobility, Stability, Symmetry,
+              Exercise Risk Score, plus 8 injury risk indicators and per-muscle deficiency/tension flags.
+            </div>
+
+            <div id="dropzone" style="border: 2px dashed var(--border-strong); border-radius: 12px; padding: 40px; text-align: center; cursor: pointer; transition: border-color 0.15s, background 0.15s;">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-muted); margin-bottom: 12px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              <h3 style="margin: 0 0 4px;">Drop Excel file here</h3>
+              <p class="muted" style="font-size: 0.9rem; margin: 0;">or click to browse · .xlsx / .xls accepted</p>
+              <input type="file" id="file-input" accept=".xlsx,.xls" style="display: none;"/>
+            </div>
+
+            <div id="validation-area" style="margin-top: 18px; display: none;"></div>
+          </div>
+
+          <div class="card">
+            <h2 class="card__title" style="margin-bottom: 14px;">Tips</h2>
+            <ul style="margin: 0 0 0 18px; padding: 0; font-size: 0.9rem; color: var(--text-muted); line-height: 1.7;">
+              <li>Each row represents one athlete screening session.</li>
+              <li>Use ISO date format (YYYY-MM-DD) for date columns.</li>
+              <li>Muscle deficiency / tension cells should contain L, R, B, or be empty.</li>
+              <li>Duplicate athlete IDs within the same date are flagged.</li>
+              <li>The system does not commit to the database until you confirm.</li>
+            </ul>
+            <div class="divider"></div>
+            <a class="btn btn--secondary btn--sm" href="#" onclick="alert('Template download — sample matches the Excel shared by ISN.'); return false;">Download Template</a>
+          </div>
+        </div>
+
+        <div style="height: 24px;"></div>
+
+        <div class="card">
+          <div class="card__header">
+            <h2 class="card__title">Recent Imports</h2>
+            <span class="card__sub">Last 30 days</span>
+          </div>
+          <div class="table-wrap">
+            <table class="data" id="hist-table"></table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script src="../assets/js/main.js"></script>
+  <script src="../assets/js/mockdata.js"></script>
+  <script>
+    const D = window.AIRMS_DATA;
+    document.getElementById('hist-table').innerHTML = `
+      <thead><tr><th>Import ID</th><th>File</th><th>Records</th><th>Errors</th><th>Uploaded By</th><th>Date</th><th></th></tr></thead>
+      <tbody>${D.IMPORT_LOG.map(l => `
+        <tr>
+          <td>${l.id}</td>
+          <td>${l.file}</td>
+          <td>${l.records}</td>
+          <td>${l.errors === 0 ? '<span class="badge badge--low">0</span>' : '<span class="badge badge--mod">' + l.errors + '</span>'}</td>
+          <td>${l.uploadedBy}</td>
+          <td>${l.uploadedAt}</td>
+          <td style="text-align: right;"><button class="btn btn--ghost btn--sm">View</button></td>
+        </tr>`).join('')}
+      </tbody>`;
+
+    const dz = document.getElementById('dropzone');
+    const fi = document.getElementById('file-input');
+    dz.addEventListener('click', () => fi.click());
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.style.borderColor = 'var(--primary)'; dz.style.background = 'var(--bg-elev-2)'; });
+    dz.addEventListener('dragleave', () => { dz.style.borderColor = ''; dz.style.background = ''; });
+    dz.addEventListener('drop', e => { e.preventDefault(); dz.style.borderColor = ''; dz.style.background = ''; if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
+    fi.addEventListener('change', e => { if (e.target.files[0]) handleFile(e.target.files[0]); });
+
+    function handleFile(file) {
+      const va = document.getElementById('validation-area');
+      va.style.display = 'block';
+      va.innerHTML = `
+        <div class="alert alert--info">
+          <strong>Validating ${file.name} (${(file.size/1024).toFixed(1)} KB)…</strong>
+        </div>`;
+      // Simulate validation
+      setTimeout(() => {
+        const total = 47, errs = 2, warns = 3;
+        va.innerHTML = `
+          <div class="alert alert--success">✓ Validation complete · <strong>${total - errs} valid rows</strong> ready to import</div>
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 18px;">
+            <div class="stat"><div class="stat__label">Total Rows</div><div class="stat__value">${total}</div></div>
+            <div class="stat"><div class="stat__label">Valid</div><div class="stat__value" style="color: var(--risk-low);">${total - errs}</div></div>
+            <div class="stat"><div class="stat__label">Errors</div><div class="stat__value" style="color: var(--risk-high);">${errs}</div></div>
+            <div class="stat"><div class="stat__label">Warnings</div><div class="stat__value" style="color: var(--risk-mod);">${warns}</div></div>
+          </div>
+          <h3 style="margin: 0 0 10px;">Issues Found</h3>
+          <table class="data" style="margin-bottom: 18px;">
+            <thead><tr><th>Row</th><th>Field</th><th>Issue</th><th>Severity</th></tr></thead>
+            <tbody>
+              <tr><td>14</td><td>Athlete ID</td><td>Duplicate of row 5 — same athlete and date</td><td><span class="badge badge--high">Error</span></td></tr>
+              <tr><td>23</td><td>Sport</td><td>Sport "Cricet" not in master list — did you mean "Cricket"?</td><td><span class="badge badge--high">Error</span></td></tr>
+              <tr><td>9</td><td>Knee injury risk</td><td>Value 105.4 exceeds expected 0–100 range</td><td><span class="badge badge--mod">Warning</span></td></tr>
+              <tr><td>17</td><td>Date</td><td>Date in DD/MM/YYYY format — auto-converted</td><td><span class="badge badge--mod">Warning</span></td></tr>
+              <tr><td>31</td><td>Weight</td><td>Empty — defaulting to last known value</td><td><span class="badge badge--mod">Warning</span></td></tr>
+            </tbody>
+          </table>
+          <div style="display: flex; gap: 10px; justify-content: flex-end;">
+            <button class="btn btn--ghost" onclick="document.getElementById('validation-area').style.display='none'">Cancel</button>
+            <button class="btn btn--secondary">Download Error Report</button>
+            <button class="btn" id="commit-btn">Commit ${total - errs} Records</button>
+          </div>
+        `;
+        document.getElementById('commit-btn').addEventListener('click', () => {
+          va.innerHTML = `<div class="alert alert--success">✓ Successfully imported ${total - errs} records into the database. Dashboards will refresh on next load.</div>`;
+          setTimeout(() => va.style.display = 'none', 3000);
+        });
+      }, 1200);
+    }
+  </script>
+</body>
+</html>

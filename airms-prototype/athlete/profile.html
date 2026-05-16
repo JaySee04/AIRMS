@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>My Profile · AIRMS</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/css/main.css"/>
+</head>
+<body data-layout="app" data-allowed-roles="athlete" data-title="My Profile">
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+      <div class="content">
+
+        <div class="alert alert--info">
+          Personal details and biometric data are maintained by the medical and administrative teams.
+          If anything below is incorrect, please contact your physio or programme coordinator.
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <h2 class="card__title" style="margin-bottom: 14px;">Personal Information</h2>
+            <div class="form-row">
+              <div class="field"><label>Full Name</label><input value="John Doe" readonly/></div>
+              <div class="field"><label>Athlete ID</label><input value="ATH0001" readonly/></div>
+            </div>
+            <div class="form-row">
+              <div class="field"><label>Date of Birth</label><input type="date" value="2004-02-27" readonly/></div>
+              <div class="field"><label>Gender</label><input value="Male" readonly/></div>
+            </div>
+            <div class="form-row">
+              <div class="field"><label>Height (cm)</label><input value="173" readonly/></div>
+              <div class="field"><label>Weight (kg)</label><input value="69.4" readonly/></div>
+            </div>
+            <div class="form-row">
+              <div class="field"><label>Sport</label><input value="Badminton" readonly/></div>
+              <div class="field"><label>Programme</label><input value="PODIUM" readonly/></div>
+            </div>
+            <div class="form-row form-row--full">
+              <div class="field"><label>Contact Number</label><input value="+60 12-345 6789" readonly/></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2 class="card__title" style="margin-bottom: 14px;">Account</h2>
+            <div class="kv-grid">
+              <div><span>Email</span><span>john.doe@isn.gov.my</span></div>
+              <div><span>Role</span><span>Athlete</span></div>
+              <div><span>Joined</span><span>15 Jan 2025</span></div>
+              <div><span>Last Login</span><span>2026-05-09 09:14</span></div>
+            </div>
+            <div class="divider"></div>
+            <h3 style="margin-bottom: 8px;">Latest Screening Snapshot</h3>
+            <div class="kv-grid">
+              <div><span>Overall Activity Score</span><span>80.28</span></div>
+              <div><span>Injury Risk Index</span><span>10.4</span></div>
+              <div><span>Mobility</span><span>79.94</span></div>
+              <div><span>Stability</span><span>77.62</span></div>
+              <div><span>Symmetry</span><span>82.49</span></div>
+              <div><span>Exercise Risk Score</span><span>5.49</span></div>
+            </div>
+            <p class="muted" style="font-size: 0.82rem; margin-top: 14px;">Screenings are conducted on-site at ISN. Speak to your physio to schedule the next one.</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script src="../assets/js/main.js"></script>
+</body>
+</html>

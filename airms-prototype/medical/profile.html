@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>My Profile · AIRMS</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/css/main.css"/>
+</head>
+<body data-layout="app" data-allowed-roles="medical" data-title="My Profile">
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="main">
+      <header class="topbar" id="topbar"></header>
+      <div class="content">
+
+        <div class="grid-2">
+          <div class="card">
+            <h2 class="card__title" style="margin-bottom: 14px;">My Information</h2>
+            <form id="info-form">
+              <div class="form-row">
+                <div class="field"><label>Full Name</label><input value="Dr. Aisyah Rahman"/></div>
+                <div class="field"><label>Staff ID</label><input value="MED-1042" readonly/></div>
+              </div>
+              <div class="form-row">
+                <div class="field"><label>Designation</label>
+                  <select>
+                    <option>Sports Physician</option>
+                    <option>Physiotherapist</option>
+                    <option>Strength &amp; Conditioning</option>
+                    <option>Sports Scientist</option>
+                  </select>
+                </div>
+                <div class="field"><label>Department</label>
+                  <select>
+                    <option>Sports Medicine</option>
+                    <option>Performance &amp; Conditioning</option>
+                    <option>Rehabilitation</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-row form-row--full">
+                <div class="field"><label>Email</label><input type="email" value="aisyah.rahman@isn.gov.my"/></div>
+              </div>
+              <div class="form-row form-row--full">
+                <div class="field"><label>Contact Number</label><input value="+60 13-456 7890"/></div>
+              </div>
+              <button class="btn" type="button">Save Changes</button>
+            </form>
+          </div>
+
+          <div class="card" id="change-password">
+            <h2 class="card__title" style="margin-bottom: 14px;">Change Password</h2>
+            <form id="pw-form">
+              <div class="form-row form-row--full">
+                <div class="field"><label>Current Password</label><input type="password"/></div>
+              </div>
+              <div class="form-row form-row--full">
+                <div class="field"><label>New Password</label><input type="password" id="pw-new"/></div>
+              </div>
+              <div class="form-row form-row--full">
+                <div class="field"><label>Confirm New Password</label><input type="password" id="pw-conf"/></div>
+              </div>
+              <button class="btn" type="submit">Update Password</button>
+              <div id="pw-msg" style="margin-top: 12px;"></div>
+            </form>
+
+            <div class="divider"></div>
+            <div class="kv-grid">
+              <div><span>Last Login</span><span>2026-05-09 08:40</span></div>
+              <div><span>Joined</span><span>03 Apr 2024</span></div>
+              <div><span>Role</span><span>Medical Staff</span></div>
+              <div><span>Account Status</span><span>Active</span></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script src="../assets/js/main.js"></script>
+  <script>
+    document.getElementById('pw-form').addEventListener('submit', e => {
+      e.preventDefault();
+      const np = document.getElementById('pw-new').value;
+      const cp = document.getElementById('pw-conf').value;
+      const msg = document.getElementById('pw-msg');
+      if (!np || np.length < 8) {
+        msg.innerHTML = '<div class="alert alert--danger">Password must be at least 8 characters.</div>'; return;
+      }
+      if (np !== cp) {
+        msg.innerHTML = '<div class="alert alert--danger">New passwords do not match.</div>'; return;
+      }
+      msg.innerHTML = '<div class="alert alert--success">Password updated successfully.</div>';
+      e.target.reset();
+    });
+    // If linked from dropdown with #change-password, focus it
+    if (location.hash === '#change-password') {
+      document.getElementById('change-password').scrollIntoView({behavior:'smooth'});
+    }
+  </script>
+</body>
+</html>
