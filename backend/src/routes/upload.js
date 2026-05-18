@@ -20,6 +20,82 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
 });
 
+// Shared row → Athlete payload normaliser. Tolerates many column-name variants
+// because Dr Tong's final canonical schema is still being defined.
+function normaliseRow(row) {
+  const get = (...keys) => {
+    for (const k of keys) {
+      if (row[k] !== undefined && row[k] !== null && row[k] !== '') return row[k];
+    }
+    return undefined;
+  };
+  const athleteId = String(get('Athlete ID', 'athleteId', 'AthleteID', 'ID') || '').trim();
+  return {
+    athleteId,
+    data: {
+      athleteId,
+      name: get('Name', 'name'),
+      age: get('Age', 'age'),
+      gender: get('Gender', 'gender'),
+      weight: get('Weight (kg)', 'Weight', 'weight'),
+      height: get('Height (cm)', 'Height', 'height'),
+      sport: get('Sport', 'Sports', 'sport'),
+      program: get('Program', 'Programme', 'program'),
+      overallActivityScore: get('Overall Activity Score', 'Overall Physical Activity Score', 'overallActivityScore'),
+      injuryRiskIndex: get('Injury Risk Index', 'injuryRiskIndex'),
+      mobility: get('Mobility', 'mobility'),
+      stability: get('Stability', 'stability'),
+      symmetry: get('Symmetry', 'symmetry'),
+      exerciseRiskScore: get('Exercise Risk Score', 'exerciseRiskScore'),
+    },
+  };
+}
+
+function validateRow(data) {
+  const errors = [];
+  if (!data.athleteId) errors.push('Missing Athlete ID');
+  if (!data.name) errors.push('Missing Name');
+  if (!data.sport) errors.push('Missing Sport');
+  if (data.program && !['PODIUM', 'PELAPIS', 'OTHERS'].includes(data.program)) {
+    errors.push(`Invalid Program "${data.program}" (expected PODIUM / PELAPIS / OTHERS)`);
+  }
+  if (data.gender && !['Male', 'Female'].includes(data.gender)) {
+    errors.push(`Invalid Gender "${data.gender}" (expected Male / Female)`);
+  }
+  return errors;
+}
+
+// POST /api/upload/screening/preview — parse + validate, DO NOT commit
+router.post('/screening/preview', auth, rbac('medical', 'admin'), upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
+    const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet);
+
+    const preview = await Promise.all(rows.map(async (row, index) => {
+      const { athleteId, data } = normaliseRow(row);
+      const errors = validateRow(data);
+      let action = 'create';
+      if (athleteId) {
+        const existing = await Athlete.findOne({ athleteId });
+        if (existing) action = 'update';
+      }
+      return { index, athleteId, name: data.name, sport: data.sport, action, errors, data };
+    }));
+
+    res.json({
+      filename: req.file.originalname,
+      total: rows.length,
+      valid: preview.filter((r) => r.errors.length === 0).length,
+      invalid: preview.filter((r) => r.errors.length > 0).length,
+      rows: preview,
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // POST /api/upload/screening — import athlete screening data from Excel
 router.post('/screening', auth, rbac('medical', 'admin'), upload.single('file'), async (req, res) => {
   try {
@@ -33,24 +109,10 @@ router.post('/screening', auth, rbac('medical', 'admin'), upload.single('file'),
 
     for (const row of rows) {
       try {
-        const athleteId = String(row['Athlete ID'] || row['athleteId'] || '').trim();
+        const { athleteId, data } = normaliseRow(row);
         if (!athleteId) { results.errors.push({ row, reason: 'Missing Athlete ID' }); continue; }
-
-        const data = {
-          athleteId,
-          name: row['Name'] || row['name'],
-          age: row['Age'],
-          gender: row['Gender'],
-          weight: row['Weight (kg)'] || row['weight'],
-          height: row['Height (cm)'] || row['height'],
-          sport: row['Sport'] || row['sport'],
-          program: row['Program'] || row['program'],
-          overallActivityScore: row['Overall Activity Score'],
-          injuryRiskIndex: row['Injury Risk Index'],
-          mobility: row['Mobility'],
-          stability: row['Stability'],
-          symmetry: row['Symmetry'],
-        };
+        const valErrors = validateRow(data);
+        if (valErrors.length) { results.errors.push({ row, reason: valErrors.join('; ') }); continue; }
 
         const existing = await Athlete.findOne({ athleteId });
         if (existing) {
