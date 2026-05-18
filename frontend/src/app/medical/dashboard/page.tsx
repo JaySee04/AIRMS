@@ -1,11 +1,748 @@
 'use client';
+
+import Link from 'next/link';
+import { useEffect, useMemo, useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
-// TODO: Convert airms-prototype/medical/dashboard.html
+import BodyMap, { MuscleEntry } from '@/components/dashboard/BodyMap';
+import WorkloadChart from '@/components/dashboard/WorkloadChart';
+import RiskRadar from '@/components/dashboard/RiskRadar';
+import { api } from '@/lib/api';
+import { classifyCompositeRisk } from '@/lib/risk';
+
+interface AthleteRisks {
+  neckInjuryRisk: number;
+  shoulderInjuryRisk: number;
+  scoliosis: number;
+  spinalDiscHerniation: number;
+  lumbarPelvisInjury: number;
+  jointPain: number;
+  kneeInjuryRisk: number;
+  ankleInjuryRisk: number;
+}
+
+interface AthleteListItem {
+  athleteId: string;
+  name: string;
+  sport: string;
+  programme?: string;
+  program?: string;
+  age?: number;
+  gender?: string;
+  isActive?: boolean;
+}
+
+interface AthleteFull extends AthleteListItem {
+  weight?: number;
+  height?: number;
+  overallActivityScore?: number;
+  injuryRiskIndex?: number;
+  mobility?: number;
+  stability?: number;
+  symmetry?: number;
+  exerciseRiskScore?: number;
+  risks: AthleteRisks;
+  myodynamia: MuscleEntry[];
+  tension: MuscleEntry[];
+}
+
+interface Activity {
+  _id: string;
+  date: string;
+  type: string;
+  duration: number;
+  intensity: number;
+  load: number;
+}
+
+interface Injury {
+  _id: string;
+  athleteId?: string;      // present on system-wide queries; optional on per-athlete views
+  athleteName?: string;
+  sport?: string;
+  bodyPart: string;
+  side: string;
+  injuryType: string;
+  severity: string;
+  mechanism?: string;
+  date: string;
+  recoveryStatus: 'Recovering' | 'Recovered' | 'Chronic';
+  notes?: string;
+}
+
+const RISK_LABEL: Record<keyof AthleteRisks, string> = {
+  neckInjuryRisk: 'Neck',
+  shoulderInjuryRisk: 'Shoulder',
+  scoliosis: 'Scoliosis',
+  spinalDiscHerniation: 'Spinal Disc',
+  lumbarPelvisInjury: 'Lumbar/Pelvis',
+  jointPain: 'Joint Pain',
+  kneeInjuryRisk: 'Knee',
+  ankleInjuryRisk: 'Ankle',
+};
+
+const RISK_KEYS: Array<keyof AthleteRisks> = [
+  'neckInjuryRisk',
+  'shoulderInjuryRisk',
+  'scoliosis',
+  'spinalDiscHerniation',
+  'lumbarPelvisInjury',
+  'jointPain',
+  'kneeInjuryRisk',
+  'ankleInjuryRisk',
+];
+
+function getInitials(name: string): string {
+  return name
+    .split(' ')
+    .filter((w) => /^[A-Za-z]/.test(w))
+    .slice(0, 2)
+    .map((w) => w[0].toUpperCase())
+    .join('');
+}
+
+// Maps a flagged muscle to the body region it most affects. Used by the
+// prevention-insight generator to cross-reference muscle flags with risk
+// indicators and prior injuries.
+const MUSCLE_REGION: Record<string, 'Neck' | 'Shoulder' | 'Spine/Lumbar' | 'Hip' | 'Knee' | 'Elbow'> = {
+  Sternocleidomastoid: 'Neck',
+  'Rectus Capitis Anterior': 'Neck',
+  'Upper Trapezius': 'Neck',
+  'Middle Deltoid': 'Shoulder',
+  'Lateral Deltoid': 'Shoulder',
+  'Posterior Deltoid': 'Shoulder',
+  'Pectoralis Major': 'Shoulder',
+  'Latissimus Dorsi': 'Spine/Lumbar',
+  'Rectus Abdominis': 'Spine/Lumbar',
+  'External Oblique': 'Spine/Lumbar',
+  'Internal Oblique': 'Spine/Lumbar',
+  'Biceps Brachii': 'Elbow',
+  Iliopsoas: 'Hip',
+  'Gluteus Medius': 'Hip',
+  'Gluteus Minimus': 'Hip',
+  'Gluteus Maximus': 'Hip',
+  Piriformis: 'Hip',
+  'Vastus Lateralis': 'Knee',
+  'Vastus Medialis': 'Knee',
+  'Rectus Femoris': 'Knee',
+  Sartorius: 'Knee',
+  'Biceps Femoris': 'Knee',
+};
+
+// Risk indicator → body region the indicator points to.
+const RISK_REGION: Record<keyof AthleteRisks, 'Neck' | 'Shoulder' | 'Spine/Lumbar' | 'Hip' | 'Knee' | 'Ankle'> = {
+  neckInjuryRisk: 'Neck',
+  shoulderInjuryRisk: 'Shoulder',
+  scoliosis: 'Spine/Lumbar',
+  spinalDiscHerniation: 'Spine/Lumbar',
+  lumbarPelvisInjury: 'Spine/Lumbar',
+  jointPain: 'Hip',
+  kneeInjuryRisk: 'Knee',
+  ankleInjuryRisk: 'Ankle',
+};
+
+interface PreventionInsight {
+  headline: string;
+  watchPoints: string[];
+  actions: string[];
+}
+
+function buildPreventionInsight(
+  athlete: AthleteFull,
+  injuries: Injury[],
+  riskLevel: 'low' | 'mod' | 'high' | 'under',
+): PreventionInsight | null {
+  // Top elevated risk indicators (over the standard alert threshold of 15)
+  const elevated = RISK_KEYS
+    .map((k) => ({ key: k, label: RISK_LABEL[k], value: athlete.risks[k] ?? 0, region: RISK_REGION[k] }))
+    .filter((r) => r.value >= 15)
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 3);
+
+  // Flagged muscle regions
+  const flaggedRegions = new Set<string>();
+  (athlete.myodynamia ?? []).forEach((m) => {
+    const r = MUSCLE_REGION[m.muscle];
+    if (r) flaggedRegions.add(r);
+  });
+  (athlete.tension ?? []).forEach((m) => {
+    const r = MUSCLE_REGION[m.muscle];
+    if (r) flaggedRegions.add(r);
+  });
+
+  // Prior injuries in the last 12 months, grouped by body part
+  const twelveMonthsAgo = new Date();
+  twelveMonthsAgo.setFullYear(twelveMonthsAgo.getFullYear() - 1);
+  const recentInjuries = injuries.filter((i) => new Date(i.date) >= twelveMonthsAgo);
+  const recentBodyParts = new Set(recentInjuries.map((i) => i.bodyPart));
+
+  if (elevated.length === 0 && flaggedRegions.size === 0 && recentBodyParts.size === 0) {
+    return null;
+  }
+
+  // Compose watch-points: regions where TWO of (elevated risk / muscle flag /
+  // recent injury) align are the highest-confidence ones.
+  const regions: Record<string, { signals: string[]; score: number }> = {};
+  const note = (region: string, signal: string) => {
+    if (!regions[region]) regions[region] = { signals: [], score: 0 };
+    regions[region].signals.push(signal);
+    regions[region].score += 1;
+  };
+  elevated.forEach((r) => note(r.region, `${r.label} risk indicator ${r.value.toFixed(1)}`));
+  flaggedRegions.forEach((r) => note(r, 'muscle flag from latest screening'));
+  recentBodyParts.forEach((bp) => note(bp, 'prior injury (last 12 months)'));
+
+  const ranked = Object.entries(regions)
+    .sort((a, b) => b[1].score - a[1].score)
+    .slice(0, 3);
+
+  const watchPoints = ranked.map(([region, info]) =>
+    `${region}: ${info.signals.join('; ')}`,
+  );
+
+  // Recommended actions tied to risk class.
+  const actions: string[] = [];
+  if (riskLevel === 'high' || riskLevel === 'mod') {
+    actions.push('Reduce volume in next 2–3 sessions; avoid stacking high-intensity work');
+  }
+  if (flaggedRegions.size > 0) {
+    actions.push('Address flagged muscle imbalances with prehab / activation work before next match');
+  }
+  if (recentInjuries.some((i) => i.recoveryStatus === 'Recovering')) {
+    actions.push('Confirm graded return-to-play criteria for currently recovering injuries');
+  }
+  if (actions.length === 0) {
+    actions.push('Maintain current training volume; reassess at next screening');
+  }
+
+  const headline = ranked.length
+    ? `${athlete.name.split(' ')[0]} — watch points: ${ranked.map(([r]) => r).join(', ')}`
+    : `${athlete.name.split(' ')[0]} — no convergent risk signals right now`;
+
+  return { headline, watchPoints, actions };
+}
+
 export default function MedicalDashboard() {
+  const [athletes, setAthletes] = useState<AthleteListItem[]>([]);
+  const [sports, setSports] = useState<string[]>([]);
+  const [search, setSearch] = useState('');
+  const [filterSport, setFilterSport] = useState('');
+  const [filterProgramme, setFilterProgramme] = useState('');
+  const [loadingList, setLoadingList] = useState(true);
+  const [listError, setListError] = useState<string | null>(null);
+
+  // System-wide signals used by the empty-state quick-access groups.
+  const [allInjuriesAcrossSystem, setAllInjuriesAcrossSystem] = useState<Injury[]>([]);
+  const [pendingReportsCount, setPendingReportsCount] = useState(0);
+
+  // Selected-athlete state
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedAthlete, setSelectedAthlete] = useState<AthleteFull | null>(null);
+  const [selectedActivities, setSelectedActivities] = useState<Activity[]>([]);
+  const [selectedInjuries, setSelectedInjuries] = useState<Injury[]>([]);
+  const [loadingSelected, setLoadingSelected] = useState(false);
+  const [selectedError, setSelectedError] = useState<string | null>(null);
+
+  // Initial roster load + system-wide signals for the empty-state.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        setLoadingList(true);
+        const [list, sportsList, injuriesAll, pendingReports] = await Promise.all([
+          api.get<AthleteListItem[]>('/athletes'),
+          api.get<string[]>('/athletes/meta/sports').catch(() => [] as string[]),
+          api.get<Injury[]>('/injuries').catch(() => [] as Injury[]),
+          api.get<unknown[]>('/self-reports?status=Pending').catch(() => [] as unknown[]),
+        ]);
+        if (!cancelled) {
+          setAthletes(list);
+          setSports(sportsList);
+          setAllInjuriesAcrossSystem(injuriesAll);
+          setPendingReportsCount(pendingReports.length);
+          setListError(null);
+        }
+      } catch (e) {
+        if (!cancelled) setListError(e instanceof Error ? e.message : 'Failed to load athletes');
+      } finally {
+        if (!cancelled) setLoadingList(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Per-selection data load
+  useEffect(() => {
+    if (!selectedId) {
+      setSelectedAthlete(null);
+      setSelectedActivities([]);
+      setSelectedInjuries([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        setLoadingSelected(true);
+        const [a, acts, injs] = await Promise.all([
+          api.get<AthleteFull>(`/athletes/${selectedId}`),
+          api.get<Activity[]>(`/activities/athlete/${selectedId}`).catch(() => [] as Activity[]),
+          api.get<Injury[]>(`/injuries/athlete/${selectedId}`).catch(() => [] as Injury[]),
+        ]);
+        if (!cancelled) {
+          setSelectedAthlete(a);
+          setSelectedActivities(acts);
+          setSelectedInjuries(injs);
+          setSelectedError(null);
+        }
+      } catch (e) {
+        if (!cancelled) setSelectedError(e instanceof Error ? e.message : 'Failed to load athlete');
+      } finally {
+        if (!cancelled) setLoadingSelected(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedId]);
+
+  // Filtered roster
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return athletes.filter((a) => {
+      if (q && !(a.name.toLowerCase().includes(q) || a.athleteId.toLowerCase().includes(q))) return false;
+      if (filterSport && a.sport !== filterSport) return false;
+      const prog = a.programme ?? a.program;
+      if (filterProgramme && prog !== filterProgramme) return false;
+      return true;
+    });
+  }, [athletes, search, filterSport, filterProgramme]);
+
+  // Workload computation for selected athlete (mirrors athlete dashboard)
+  const workload = useMemo(() => {
+    if (!selectedAthlete) return null;
+    const today = new Date();
+    const DAY = 86400000;
+    const weekLoads: number[] = Array(8).fill(0);
+    const weekLabels: string[] = [];
+    for (let i = 0; i < 8; i++) {
+      weekLabels.push(8 - i === 1 ? 'This wk' : `${8 - i} wk ago`);
+    }
+    selectedActivities.forEach((a) => {
+      const aDate = new Date(a.date);
+      const daysAgo = Math.floor((today.getTime() - aDate.getTime()) / DAY);
+      if (daysAgo < 0 || daysAgo >= 56) return;
+      const bucketFromEnd = Math.floor(daysAgo / 7);
+      const index = 7 - bucketFromEnd;
+      if (index >= 0 && index < 8) weekLoads[index] += a.load ?? 0;
+    });
+    const acuteLoad = weekLoads[7] ?? 0;
+    const chronicLoad = weekLoads.slice(-4).reduce((s, v) => s + v, 0) / 4;
+    const acwr = chronicLoad > 0 ? acuteLoad / chronicLoad : 0;
+    const cumACWR = weekLoads.map((_, i) => {
+      const acuteW = weekLoads[i];
+      const slice = weekLoads.slice(Math.max(0, i - 3), i + 1);
+      const chronicW = slice.length ? slice.reduce((a, b) => a + b, 0) / slice.length : 0;
+      return chronicW > 0 ? +(acuteW / chronicW).toFixed(2) : 0;
+    });
+    return { weekLabels, weekLoads, acuteLoad, chronicLoad, acwr, cumACWR };
+  }, [selectedAthlete, selectedActivities]);
+
+  const allInjuries = useMemo(
+    () => [...selectedInjuries].sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+    ),
+    [selectedInjuries],
+  );
+  const activeInjuries = useMemo(
+    () => allInjuries.filter((i) => i.recoveryStatus !== 'Recovered'),
+    [allInjuries],
+  );
+
+  const risk = useMemo(() => {
+    if (!selectedAthlete || !workload) return null;
+    return classifyCompositeRisk(workload.acwr, selectedAthlete, activeInjuries);
+  }, [selectedAthlete, workload, activeInjuries]);
+
+  const insight = useMemo(() => {
+    if (!selectedAthlete || !risk) return null;
+    return buildPreventionInsight(selectedAthlete, allInjuries, risk.cls);
+  }, [selectedAthlete, allInjuries, risk]);
+
+  // Distinct programmes available in the roster (for the filter dropdown)
+  const programmes = useMemo(() => {
+    const set = new Set<string>();
+    athletes.forEach((a) => {
+      const p = a.programme ?? a.program;
+      if (p) set.add(p);
+    });
+    return Array.from(set).sort();
+  }, [athletes]);
+
+  // Athletes with at least one currently-active (non-Recovered) injury — the
+  // clinician's natural first stop on opening the dashboard.
+  const activeInjuryAthletes = useMemo(() => {
+    const map = new Map<string, { athleteId: string; athleteName: string; sport?: string; cases: number }>();
+    allInjuriesAcrossSystem.forEach((i) => {
+      if (i.recoveryStatus === 'Recovered') return;
+      if (!i.athleteId) return;
+      const existing = map.get(i.athleteId);
+      if (existing) existing.cases++;
+      else map.set(i.athleteId, {
+        athleteId: i.athleteId,
+        athleteName: i.athleteName || i.athleteId,
+        sport: i.sport,
+        cases: 1,
+      });
+    });
+    return Array.from(map.values()).sort((a, b) => b.cases - a.cases);
+  }, [allInjuriesAcrossSystem]);
+
+  // Recently-logged injuries (last 14 days) — surfaces the freshest cases.
+  const recentInjuries = useMemo(() => {
+    const cutoff = Date.now() - 14 * 86400000;
+    return allInjuriesAcrossSystem
+      .filter((i) => new Date(i.date).getTime() >= cutoff)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 6);
+  }, [allInjuriesAcrossSystem]);
+
   return (
     <DashboardLayout allowedRoles={['medical']} title="Athlete Dashboard">
-      <div className="placeholder-notice">
-        <p>Medical dashboard — convert from <code>airms-prototype/medical/dashboard.html</code></p>
+      <div className="medical-shell">
+        {/* ── Left rail ───────────────────────────────────────────────────── */}
+        <aside className="medical-rail">
+          <div className="medical-rail-search">
+            <input
+              id="med-search"
+              type="text"
+              placeholder="Search name or athlete ID…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              autoComplete="off"
+              className="medical-rail-search-input"
+            />
+            <div className="medical-rail-filters">
+              <select
+                value={filterSport}
+                onChange={(e) => setFilterSport(e.target.value)}
+                aria-label="Filter by sport"
+              >
+                <option value="">All Sports</option>
+                {sports.map((s) => (<option key={s} value={s}>{s}</option>))}
+              </select>
+              <select
+                value={filterProgramme}
+                onChange={(e) => setFilterProgramme(e.target.value)}
+                aria-label="Filter by programme"
+              >
+                <option value="">All Programmes</option>
+                {programmes.map((p) => (<option key={p} value={p}>{p}</option>))}
+              </select>
+            </div>
+            <div className="medical-rail-count">
+              {loadingList ? 'Loading…' : `${filtered.length} athlete${filtered.length === 1 ? '' : 's'}`}
+            </div>
+          </div>
+
+          <div className="medical-rail-list" role="listbox" aria-label="Athletes">
+            {loadingList ? (
+              <p className="text-muted" style={{ padding: 12 }}>Loading roster…</p>
+            ) : listError ? (
+              <div className="alert alert-error">{listError}</div>
+            ) : filtered.length === 0 ? (
+              <p className="text-muted" style={{ padding: 12 }}>No athletes match your filters.</p>
+            ) : (
+              filtered.map((a) => (
+                <button
+                  key={a.athleteId}
+                  type="button"
+                  className={`athlete-row${selectedId === a.athleteId ? ' active' : ''}`}
+                  onClick={() => setSelectedId(a.athleteId)}
+                  role="option"
+                  aria-selected={selectedId === a.athleteId}
+                >
+                  <span className="athlete-row-avatar">{getInitials(a.name)}</span>
+                  <span className="athlete-row-info">
+                    <span className="athlete-row-name">{a.name}</span>
+                    <span className="athlete-row-meta">
+                      {a.sport ?? '—'} · {a.athleteId}
+                    </span>
+                  </span>
+                </button>
+              ))
+            )}
+          </div>
+        </aside>
+
+        {/* ── Right pane ──────────────────────────────────────────────────── */}
+        <section className="medical-pane">
+          {!selectedId ? (
+            /* Empty state — clinician's natural entry points */
+            <>
+              <div className="card medical-empty-hero">
+                <h2 style={{ margin: 0 }}>Pick an athlete to begin</h2>
+                <p className="text-muted" style={{ margin: '6px 0 0' }}>
+                  Search the rail on the left, or jump in via the quick-access groups below.
+                </p>
+              </div>
+
+              <div className="stat-grid" style={{ marginTop: 16 }}>
+                <div className="stat-tile">
+                  <div className="stat-tile-label">Athletes on roster</div>
+                  <div className="stat-tile-value">{loadingList ? '…' : athletes.length}</div>
+                  <div className="stat-tile-delta">Active</div>
+                </div>
+                <div className="stat-tile">
+                  <div className="stat-tile-label">With active injuries</div>
+                  <div className="stat-tile-value">{loadingList ? '…' : activeInjuryAthletes.length}</div>
+                  <div className="stat-tile-delta">Currently recovering / chronic</div>
+                </div>
+                <div className="stat-tile">
+                  <div className="stat-tile-label">Self-reports pending</div>
+                  <div className="stat-tile-value">{loadingList ? '…' : pendingReportsCount}</div>
+                  <div className="stat-tile-delta">Awaiting review</div>
+                </div>
+              </div>
+
+              <div className="grid-2" style={{ marginTop: 20 }}>
+                <div className="card">
+                  <div className="card-header">
+                    <h2 className="card-title" style={{ marginBottom: 0 }}>Athletes with active injuries</h2>
+                    <span className="text-muted">{activeInjuryAthletes.length}</span>
+                  </div>
+                  {activeInjuryAthletes.length === 0 ? (
+                    <div className="empty-state">No active injuries on record.</div>
+                  ) : (
+                    <div>
+                      {activeInjuryAthletes.slice(0, 8).map((a) => (
+                        <button
+                          key={a.athleteId}
+                          type="button"
+                          className="athlete-row"
+                          onClick={() => setSelectedId(a.athleteId)}
+                        >
+                          <span className="athlete-row-avatar">{getInitials(a.athleteName)}</span>
+                          <span className="athlete-row-info">
+                            <span className="athlete-row-name">{a.athleteName}</span>
+                            <span className="athlete-row-meta">
+                              {a.sport ?? '—'} · {a.cases} active case{a.cases === 1 ? '' : 's'}
+                            </span>
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="card">
+                  <div className="card-header">
+                    <h2 className="card-title" style={{ marginBottom: 0 }}>Recently logged (14 days)</h2>
+                    <span className="text-muted">{recentInjuries.length}</span>
+                  </div>
+                  {recentInjuries.length === 0 ? (
+                    <div className="empty-state">No injuries logged in the last 14 days.</div>
+                  ) : (
+                    <div>
+                      {recentInjuries.map((i) => (
+                        <button
+                          key={i._id}
+                          type="button"
+                          className="athlete-row"
+                          onClick={() => i.athleteId && setSelectedId(i.athleteId)}
+                          disabled={!i.athleteId}
+                        >
+                          <span className="athlete-row-avatar">{getInitials(i.athleteName ?? '?')}</span>
+                          <span className="athlete-row-info">
+                            <span className="athlete-row-name">{i.athleteName ?? i.athleteId ?? 'Unknown'}</span>
+                            <span className="athlete-row-meta">
+                              {i.bodyPart} ({i.side}) — {i.injuryType} · {new Date(i.date).toISOString().slice(0, 10)}
+                            </span>
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          ) : loadingSelected ? (
+            <p className="text-muted">Loading athlete details…</p>
+          ) : selectedError ? (
+            <div className="alert alert-error">{selectedError}</div>
+          ) : selectedAthlete && workload && risk ? (
+            <>
+              {/* Athlete header card */}
+              <div className="card" style={{ marginBottom: 20 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+                  <div style={{
+                    width: 64, height: 64, borderRadius: '50%',
+                    background: 'var(--brand-navy)', color: 'white',
+                    display: 'grid', placeItems: 'center',
+                    fontSize: '1.3rem', fontWeight: 600,
+                  }}>
+                    {getInitials(selectedAthlete.name)}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <h2 style={{ margin: 0 }}>{selectedAthlete.name}</h2>
+                    <div className="text-muted" style={{ fontSize: '0.9rem' }}>
+                      {selectedAthlete.sport} · {selectedAthlete.programme ?? selectedAthlete.program} ·{' '}
+                      {selectedAthlete.age ? `${selectedAthlete.age}y` : '—'}{' '}·{' '}
+                      {selectedAthlete.gender ?? '—'}
+                    </div>
+                  </div>
+                  <Link
+                    href={`/medical/injury-log?athleteId=${encodeURIComponent(selectedAthlete.athleteId)}`}
+                    className="btn btn-gold"
+                  >
+                    + Log Injury
+                  </Link>
+                </div>
+                <div className="kv-grid" style={{ marginTop: 16 }}>
+                  <div><span>Athlete ID</span><strong>{selectedAthlete.athleteId}</strong></div>
+                  <div><span>Height</span><strong>{selectedAthlete.height ?? '—'} cm</strong></div>
+                  <div><span>Weight</span><strong>{selectedAthlete.weight ?? '—'} kg</strong></div>
+                  <div><span>Overall Activity</span><strong>{selectedAthlete.overallActivityScore?.toFixed(1) ?? '—'}</strong></div>
+                  <div><span>Mobility</span><strong>{selectedAthlete.mobility?.toFixed(1) ?? '—'}</strong></div>
+                  <div><span>Stability</span><strong>{selectedAthlete.stability?.toFixed(1) ?? '—'}</strong></div>
+                  <div><span>Symmetry</span><strong>{selectedAthlete.symmetry?.toFixed(1) ?? '—'}</strong></div>
+                  <div><span>Injury Risk Index</span><strong>{selectedAthlete.injuryRiskIndex?.toFixed(1) ?? '—'}</strong></div>
+                </div>
+              </div>
+
+              {/* Composite risk hero (mirrors athlete dashboard) */}
+              <div className={`risk-hero risk-hero--${risk.cls}`}>
+                <div style={{ flex: 1 }}>
+                  <div className="risk-hero-label">Composite Risk</div>
+                  <div className="risk-hero-level">
+                    {risk.level}
+                    {risk.escalated && (
+                      <span className="risk-escalation-badge">
+                        escalated from {risk.baseCls === 'low' ? 'Optimal' : 'Elevated'}
+                      </span>
+                    )}
+                  </div>
+                  <div className="risk-hero-msg">{risk.msg}</div>
+                  {risk.factors.length > 0 && (
+                    <div className="risk-factors">
+                      <span className="risk-factors-label">Risk modifiers:</span>
+                      {risk.factors.map((f) => (
+                        <span key={f} className="risk-factor-chip">{f}</span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="risk-hero-acwr">
+                  <div className="risk-hero-acwr-val">{workload.acwr.toFixed(2)}</div>
+                  <div className="risk-hero-acwr-label">ACWR</div>
+                  <div className="risk-hero-acwr-thresholds">
+                    Personalised band:<br />
+                    <strong>{risk.personalisedRange.lowMin.toFixed(2)} – {risk.personalisedRange.lowMax.toFixed(2)}</strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* Prevention insight — clinical advice tailored to this athlete */}
+              {insight && (
+                <div className="insight-card">
+                  <div className="insight-card-head">
+                    <span className="insight-card-icon" aria-hidden>⚕</span>
+                    <div>
+                      <div className="insight-card-title">Prevention insight</div>
+                      <div className="insight-card-sub">Cross-references workload, screening flags, and injury history</div>
+                    </div>
+                  </div>
+                  <div className="insight-card-headline">{insight.headline}</div>
+                  {insight.watchPoints.length > 0 && (
+                    <div>
+                      <strong style={{ fontSize: '0.82rem' }}>Watch points</strong>
+                      <ul className="insight-list">
+                        {insight.watchPoints.map((w) => (<li key={w}>{w}</li>))}
+                      </ul>
+                    </div>
+                  )}
+                  <div>
+                    <strong style={{ fontSize: '0.82rem' }}>Recommended actions</strong>
+                    <ul className="insight-list">
+                      {insight.actions.map((a) => (<li key={a}>{a}</li>))}
+                    </ul>
+                  </div>
+                </div>
+              )}
+
+              {/* Workload + risk charts */}
+              <div className="grid-2-1" style={{ marginTop: 20 }}>
+                <div className="card">
+                  <div className="card-header">
+                    <div>
+                      <h2 className="card-title" style={{ marginBottom: 0 }}>Workload Trend</h2>
+                      <span className="card-sub">Last 8 weeks · ACWR overlay</span>
+                    </div>
+                  </div>
+                  <WorkloadChart
+                    labels={workload.weekLabels}
+                    weeklyLoads={workload.weekLoads}
+                    acwrSeries={workload.cumACWR}
+                  />
+                </div>
+                <div className="card">
+                  <div className="card-header">
+                    <div>
+                      <h2 className="card-title" style={{ marginBottom: 0 }}>Risk Indicators</h2>
+                      <span className="card-sub">Latest screening</span>
+                    </div>
+                  </div>
+                  <RiskRadar
+                    labels={RISK_KEYS.map((k) => RISK_LABEL[k])}
+                    values={RISK_KEYS.map((k) => Math.min(30, Math.max(0, selectedAthlete.risks[k] ?? 0)))}
+                  />
+                </div>
+              </div>
+
+              {/* Body map */}
+              <div className="card" style={{ marginTop: 20, marginBottom: 20 }}>
+                <div className="card-header">
+                  <div>
+                    <h2 className="card-title" style={{ marginBottom: 0 }}>Muscle Assessment Map</h2>
+                    <span className="card-sub">Latest screening · L = left, R = right, B = both</span>
+                  </div>
+                </div>
+                <BodyMap
+                  myodynamia={selectedAthlete.myodynamia ?? []}
+                  tension={selectedAthlete.tension ?? []}
+                />
+              </div>
+
+              {/* Injury history */}
+              <div className="card">
+                <div className="card-header">
+                  <h2 className="card-title" style={{ marginBottom: 0 }}>Injury History</h2>
+                  <span className="text-muted">{allInjuries.length} record{allInjuries.length === 1 ? '' : 's'}</span>
+                </div>
+                {allInjuries.length === 0 ? (
+                  <div className="empty-state">No injuries on record.</div>
+                ) : (
+                  allInjuries.map((i) => (
+                    <div key={i._id} className="injury-record">
+                      <div className="injury-record-head">
+                        <div>
+                          <strong>{i.bodyPart} ({i.side}) — {i.injuryType}</strong>
+                          <div className="injury-record-meta">
+                            {new Date(i.date).toISOString().slice(0, 10)} · {i.severity}{i.mechanism ? ` · ${i.mechanism}` : ''}
+                          </div>
+                        </div>
+                        <span className={i.recoveryStatus === 'Recovered' ? 'badge-low' : i.recoveryStatus === 'Recovering' ? 'badge-moderate' : 'badge-high'}>
+                          {i.recoveryStatus}
+                        </span>
+                      </div>
+                      {i.notes && <div className="injury-record-notes">{i.notes}</div>}
+                    </div>
+                  ))
+                )}
+              </div>
+            </>
+          ) : null}
+        </section>
       </div>
     </DashboardLayout>
   );
