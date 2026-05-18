@@ -95,7 +95,6 @@ export default function Sidebar({ role }: { role: 'athlete' | 'medical' | 'admin
           </Link>
         ))}
       </nav>
-      <div className="sidebar-footer">AIRMS Prototype v0.2</div>
     </aside>
   );
 }

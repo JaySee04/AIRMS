@@ -6,8 +6,6 @@ import Image from 'next/image';
 import { api } from '@/lib/api';
 import { saveSession } from '@/lib/auth';
 
-type RoleTab = 'athlete' | 'medical' | 'admin';
-
 const ROLE_REDIRECTS: Record<string, string> = {
   athlete: '/athlete/dashboard',
   medical: '/medical/dashboard',
@@ -16,7 +14,6 @@ const ROLE_REDIRECTS: Record<string, string> = {
 
 export default function LoginPage() {
   const router = useRouter();
-  const [selectedRole, setSelectedRole] = useState<RoleTab>('athlete');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -52,29 +49,12 @@ export default function LoginPage() {
             57000 Bukit Jalil, Kuala Lumpur
           </p>
         </div>
-        <p className="login-version">AIRMS Prototype v0.2</p>
       </div>
 
       <div className="login-right">
         <div className="login-form-wrap">
           <h1 className="login-heading">Sign in</h1>
           <p className="login-subtext">Use your ISN credentials to access the system.</p>
-
-          <div className="login-role-group">
-            <span className="login-role-label">Role</span>
-            <div className="login-role-buttons">
-              {(['athlete', 'medical', 'admin'] as RoleTab[]).map((r) => (
-                <button
-                  key={r}
-                  type="button"
-                  className={`login-role-btn${selectedRole === r ? ' active' : ''}`}
-                  onClick={() => setSelectedRole(r)}
-                >
-                  {r === 'athlete' ? 'Athlete' : r === 'medical' ? 'Medical Staff' : 'Administrator'}
-                </button>
-              ))}
-            </div>
-          </div>
 
           <form onSubmit={handleSubmit}>
             {error && <div className="alert alert-error">{error}</div>}
