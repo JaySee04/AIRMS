@@ -1,11 +1,295 @@
 'use client';
+
+import { useEffect, useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
-// TODO: Convert airms-prototype/admin/reports.html
+import { api } from '@/lib/api';
+
+const REPORT_TYPES = [
+  { value: 'monthly', label: 'Monthly Standard Report' },
+  { value: 'quarterly', label: 'Quarterly Programme Review' },
+  { value: 'custom', label: 'Custom Filtered Report' },
+];
+
+const BODY_PARTS = ['Neck', 'Shoulder', 'Spine', 'Lumbar/Pelvis', 'Knee', 'Ankle', 'Hip', 'Elbow', 'Wrist', 'Other'];
+const INJURY_TYPES = ['Sprain', 'Strain', 'Tendinitis', 'Bursitis', 'Fracture', 'Contusion', 'Dislocation', 'Other'];
+
+const AGE_GROUPS: Array<{ label: string; min?: number; max?: number }> = [
+  { label: 'All ages' },
+  { label: 'Under 18', max: 17 },
+  { label: '18–23 (junior)', min: 18, max: 23 },
+  { label: '24–29 (senior)', min: 24, max: 29 },
+  { label: '30+ (veteran)', min: 30 },
+];
+
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function startOfMonthISO() {
+  const d = new Date();
+  d.setDate(1);
+  return d.toISOString().slice(0, 10);
+}
+
+function startOfQuarterISO() {
+  const d = new Date();
+  const quarterStartMonth = Math.floor(d.getMonth() / 3) * 3;
+  d.setMonth(quarterStartMonth, 1);
+  return d.toISOString().slice(0, 10);
+}
+
 export default function AdminReportsPage() {
+  const [reportType, setReportType] = useState('monthly');
+  const [periodStart, setPeriodStart] = useState(startOfMonthISO());
+  const [periodEnd, setPeriodEnd] = useState(todayISO());
+  const [filterSport, setFilterSport] = useState('');
+  const [filterProgramme, setFilterProgramme] = useState('');
+  const [filterGender, setFilterGender] = useState('');
+  const [filterBodyPart, setFilterBodyPart] = useState('');
+  const [filterInjuryType, setFilterInjuryType] = useState('');
+  const [ageGroupIndex, setAgeGroupIndex] = useState(0);
+  const [includeRecovery, setIncludeRecovery] = useState(true);
+  const [includeTrends, setIncludeTrends] = useState(true);
+  const [includeAthleteIndex, setIncludeAthleteIndex] = useState(true);
+
+  const [sports, setSports] = useState<string[]>([]);
+  const [generating, setGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [lastDownloaded, setLastDownloaded] = useState<string | null>(null);
+
+  // Adjust default period when report type changes
+  useEffect(() => {
+    if (reportType === 'monthly') {
+      setPeriodStart(startOfMonthISO());
+      setPeriodEnd(todayISO());
+    } else if (reportType === 'quarterly') {
+      setPeriodStart(startOfQuarterISO());
+      setPeriodEnd(todayISO());
+    }
+    // 'custom' leaves whatever the user set
+  }, [reportType]);
+
+  // Load sports list for filter dropdown
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const s = await api.get<string[]>('/athletes/meta/sports');
+        if (!cancelled) setSports(s);
+      } catch { /* swallow — input still works without */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  async function handleGenerate(e: React.FormEvent) {
+    e.preventDefault();
+    setGenerating(true);
+    setError(null);
+    try {
+      const ageGroup = AGE_GROUPS[ageGroupIndex];
+      const body: Record<string, unknown> = {
+        reportType,
+        includeRecovery,
+        includeTrends,
+        includeAthleteIndex,
+      };
+      if (periodStart)         body.startDate = periodStart;
+      if (periodEnd)           body.endDate   = periodEnd;
+      if (filterSport)         body.sport     = filterSport;
+      if (filterProgramme)     body.program   = filterProgramme;
+      if (filterGender)        body.gender    = filterGender;
+      if (filterBodyPart)      body.bodyPart  = filterBodyPart;
+      if (filterInjuryType)    body.injuryType = filterInjuryType;
+      if (ageGroup.min !== undefined) body.ageMin = ageGroup.min;
+      if (ageGroup.max !== undefined) body.ageMax = ageGroup.max;
+
+      const res = await api.downloadPost('/reports/injuries-pdf', body);
+      const blob = await res.blob();
+
+      // Derive filename from Content-Disposition if the server set one,
+      // otherwise fall back to a sensible default.
+      const disposition = res.headers.get('Content-Disposition') || '';
+      const match = /filename="([^"]+)"/.exec(disposition);
+      const filename = match?.[1] || `airms-${reportType}-${todayISO()}.pdf`;
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+
+      setLastDownloaded(filename);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to generate report');
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  function filterSummary(): string {
+    const parts: string[] = [];
+    if (filterSport)      parts.push(`Sport: ${filterSport}`);
+    if (filterProgramme)  parts.push(`Programme: ${filterProgramme}`);
+    if (filterGender)     parts.push(`Gender: ${filterGender}`);
+    if (filterBodyPart)   parts.push(`Body Part: ${filterBodyPart}`);
+    if (filterInjuryType) parts.push(`Injury Type: ${filterInjuryType}`);
+    if (ageGroupIndex !== 0) parts.push(`Age: ${AGE_GROUPS[ageGroupIndex].label}`);
+    if (periodStart || periodEnd) parts.push(`Period: ${periodStart || '…'} → ${periodEnd || '…'}`);
+    return parts.length ? parts.join(' · ') : 'All records (no filters)';
+  }
+
   return (
     <DashboardLayout allowedRoles={['admin']} title="PDF Reports">
-      <div className="placeholder-notice">
-        <p>PDF reports — convert from <code>airms-prototype/admin/reports.html</code></p>
+      <div className="grid-1-2">
+        <div className="card">
+          <h2 className="card-title">Report Builder</h2>
+          {error && <div className="alert alert-error">{error}</div>}
+
+          <form onSubmit={handleGenerate}>
+            <div className="form-group">
+              <label htmlFor="r-type">Report Type</label>
+              <select id="r-type" value={reportType} onChange={(e) => setReportType(e.target.value)}>
+                {REPORT_TYPES.map((r) => (<option key={r.value} value={r.value}>{r.label}</option>))}
+              </select>
+            </div>
+
+            <div className="form-row-2">
+              <div className="form-group">
+                <label htmlFor="r-from">Period start</label>
+                <input id="r-from" type="date" value={periodStart} onChange={(e) => setPeriodStart(e.target.value)} />
+              </div>
+              <div className="form-group">
+                <label htmlFor="r-to">Period end</label>
+                <input id="r-to" type="date" value={periodEnd} onChange={(e) => setPeriodEnd(e.target.value)} />
+              </div>
+            </div>
+
+            <div className="form-row-2">
+              <div className="form-group">
+                <label htmlFor="r-sport">Sport filter</label>
+                <select id="r-sport" value={filterSport} onChange={(e) => setFilterSport(e.target.value)}>
+                  <option value="">All</option>
+                  {sports.map((s) => (<option key={s} value={s}>{s}</option>))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label htmlFor="r-prog">Programme</label>
+                <select id="r-prog" value={filterProgramme} onChange={(e) => setFilterProgramme(e.target.value)}>
+                  <option value="">All</option>
+                  <option>PODIUM</option>
+                  <option>PELAPIS</option>
+                  <option>OTHERS</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="form-row-2">
+              <div className="form-group">
+                <label htmlFor="r-gender">Gender</label>
+                <select id="r-gender" value={filterGender} onChange={(e) => setFilterGender(e.target.value)}>
+                  <option value="">All</option>
+                  <option>Male</option>
+                  <option>Female</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label htmlFor="r-age">Age group</label>
+                <select id="r-age" value={ageGroupIndex} onChange={(e) => setAgeGroupIndex(Number(e.target.value))}>
+                  {AGE_GROUPS.map((g, i) => (<option key={g.label} value={i}>{g.label}</option>))}
+                </select>
+              </div>
+            </div>
+
+            <div className="form-row-2">
+              <div className="form-group">
+                <label htmlFor="r-bp">Body Part</label>
+                <select id="r-bp" value={filterBodyPart} onChange={(e) => setFilterBodyPart(e.target.value)}>
+                  <option value="">All</option>
+                  {BODY_PARTS.map((b) => (<option key={b} value={b}>{b}</option>))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label htmlFor="r-it">Injury Type</label>
+                <select id="r-it" value={filterInjuryType} onChange={(e) => setFilterInjuryType(e.target.value)}>
+                  <option value="">All</option>
+                  {INJURY_TYPES.map((t) => (<option key={t} value={t}>{t}</option>))}
+                </select>
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 400 }}>
+                <input type="checkbox" checked={includeRecovery} onChange={(e) => setIncludeRecovery(e.target.checked)} />
+                Include severity + recovery status breakdown
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 400, marginTop: 4 }}>
+                <input type="checkbox" checked={includeTrends} onChange={(e) => setIncludeTrends(e.target.checked)} />
+                Include monthly trend chart
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 400, marginTop: 4 }}>
+                <input type="checkbox" checked={includeAthleteIndex} onChange={(e) => setIncludeAthleteIndex(e.target.checked)} />
+                Include athlete index (unique athletes affected)
+              </label>
+            </div>
+
+            <button type="submit" className="btn btn-gold btn-full" disabled={generating}>
+              {generating ? 'Generating PDF…' : 'Generate & download PDF'}
+            </button>
+          </form>
+        </div>
+
+        <div className="card">
+          <div className="card-header">
+            <h2 className="card-title" style={{ marginBottom: 0 }}>Report preview</h2>
+          </div>
+
+          <div className="alert alert-info" style={{ marginBottom: 14 }}>
+            <strong>Live generation.</strong> Clicking <em>Generate</em> queries the live injury
+            database against the filters below and streams a fresh PDF straight to your browser.
+            No data is cached or pre-rendered.
+          </div>
+
+          <h3 style={{ margin: '4px 0 8px', fontSize: '0.92rem' }}>Filters that will be applied</h3>
+          <div className="injury-record-notes" style={{
+            background: 'var(--bg)',
+            padding: 12,
+            borderRadius: 6,
+            fontSize: '0.85rem',
+            marginBottom: 18,
+          }}>
+            {filterSummary()}
+          </div>
+
+          <h3 style={{ margin: '4px 0 8px', fontSize: '0.92rem' }}>Sections in the generated PDF</h3>
+          <ul style={{ lineHeight: 1.8, paddingLeft: 20, fontSize: '0.9rem' }}>
+            <li><strong>Cover</strong> — title, AIRMS branding, period, generated-on timestamp</li>
+            <li><strong>Executive summary</strong> — total cases, athletes affected, sports affected, currently recovering</li>
+            <li><strong>Distribution by body part</strong> — horizontal bar chart, ordered canonically</li>
+            <li><strong>Distribution by injury type</strong> — horizontal bar chart</li>
+            {includeRecovery && (
+              <>
+                <li><strong>Distribution by severity</strong> — Minor / Moderate / Severe</li>
+                <li><strong>Recovery status</strong> — Recovering / Recovered / Chronic</li>
+              </>
+            )}
+            {includeTrends && (
+              <li><strong>Cases over time</strong> — monthly breakdown within the selected period</li>
+            )}
+            {includeAthleteIndex && (
+              <li><strong>Athlete index</strong> — unique athletes affected, with their injury count</li>
+            )}
+            <li><strong>Appendix</strong> — filter context + data source + report version</li>
+          </ul>
+
+          {lastDownloaded && (
+            <div className="alert alert-success" style={{ marginTop: 14 }}>
+              <strong>Download complete.</strong> Saved as <code>{lastDownloaded}</code>.
+            </div>
+          )}
+        </div>
       </div>
     </DashboardLayout>
   );

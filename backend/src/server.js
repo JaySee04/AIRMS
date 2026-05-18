@@ -9,13 +9,18 @@ const injuryRoutes = require('./routes/injuries');
 const activityRoutes = require('./routes/activities');
 const selfReportRoutes = require('./routes/selfReports');
 const uploadRoutes = require('./routes/upload');
+const reportRoutes = require('./routes/reports');
 
 const app = express();
 
 connectDB();
 
+const ALLOWED_ORIGINS = (process.env.FRONTEND_URL || 'http://localhost:3000,http://localhost:3001')
+  .split(',')
+  .map((s) => s.trim());
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: ALLOWED_ORIGINS,
   credentials: true,
 }));
 app.use(express.json());
@@ -27,6 +32,7 @@ app.use('/api/injuries', injuryRoutes);
 app.use('/api/activities', activityRoutes);
 app.use('/api/self-reports', selfReportRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/reports', reportRoutes);
 
 app.get('/api/health', (_req, res) => res.json({ status: 'ok', timestamp: new Date() }));
 
