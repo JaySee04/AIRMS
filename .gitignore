@@ -41,3 +41,11 @@ coverage/
 
 # Misc
 *.pem
+
+# TypeScript incremental build info
+*.tsbuildinfo
+
+# Claude Code session state
+.claude/scheduled_tasks.lock
+.claude/projects/
+.claude/wakeup_jobs/
