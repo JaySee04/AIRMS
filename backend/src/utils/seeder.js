@@ -188,6 +188,7 @@ function buildInjuries(athletes) {
       sport: ath.sport,
       gender: ath.gender,
       program: ath.program,
+      athleteAge: ath.age,
       bodyPart: pick(BODY_PARTS),
       side: pick(SIDES),
       injuryType: pick(INJURY_TYPES),
@@ -202,15 +203,15 @@ function buildInjuries(athletes) {
 
   // John Doe's curated injuries
   injuries.push(
-    { athleteId: 'ATH0001', athleteName: 'John Doe', sport: 'Badminton', gender: 'Male', program: 'PODIUM',
+    { athleteId: 'ATH0001', athleteName: 'John Doe', sport: 'Badminton', gender: 'Male', program: 'PODIUM', athleteAge: 19,
       bodyPart: 'Ankle', side: 'Right', injuryType: 'Sprain', severity: 'Moderate', mechanism: 'Non-contact',
       date: new Date('2025-11-12'), recoveryStatus: 'Recovered', source: 'Medical Log',
       loggedBy: 'Dr. Aisyah Rahman', notes: 'Lateral ankle sprain during match. Returned to play after 3 weeks.' },
-    { athleteId: 'ATH0001', athleteName: 'John Doe', sport: 'Badminton', gender: 'Male', program: 'PODIUM',
+    { athleteId: 'ATH0001', athleteName: 'John Doe', sport: 'Badminton', gender: 'Male', program: 'PODIUM', athleteAge: 19,
       bodyPart: 'Knee', side: 'Right', injuryType: 'Tendinitis', severity: 'Minor', mechanism: 'Overuse',
       date: new Date('2026-02-04'), recoveryStatus: 'Recovering', source: 'Medical Log',
       loggedBy: 'Dr. Aisyah Rahman', notes: 'Patellar tendinitis. Modified training plan in place.' },
-    { athleteId: 'ATH0001', athleteName: 'John Doe', sport: 'Badminton', gender: 'Male', program: 'PODIUM',
+    { athleteId: 'ATH0001', athleteName: 'John Doe', sport: 'Badminton', gender: 'Male', program: 'PODIUM', athleteAge: 19,
       bodyPart: 'Shoulder', side: 'Right', injuryType: 'Strain', severity: 'Minor', mechanism: 'Overuse',
       date: new Date('2026-04-22'), recoveryStatus: 'Recovering', source: 'Athlete Self-Report',
       loggedBy: 'Dr. Aisyah Rahman', notes: 'Rotator cuff irritation. Smash technique under review.' }

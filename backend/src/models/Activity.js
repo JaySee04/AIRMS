@@ -8,7 +8,7 @@ const activitySchema = new mongoose.Schema({
     enum: ['Strength', 'Endurance', 'Speed', 'Skill', 'Match', 'Recovery'],
     required: true,
   },
-  duration: { type: Number, required: true, min: 1 }, // minutes
+  duration: { type: Number, required: true, min: 10, max: 240 }, // minutes
   intensity: { type: Number, required: true, min: 1, max: 10 }, // RPE scale
   load: { type: Number }, // computed: duration × intensity
   notes: { type: String },

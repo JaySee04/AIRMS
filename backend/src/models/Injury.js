@@ -6,6 +6,7 @@ const injurySchema = new mongoose.Schema({
   sport: { type: String },
   gender: { type: String },
   program: { type: String },
+  athleteAge: { type: Number }, // denormalised for age-group filter on analytics
 
   bodyPart: {
     type: String,

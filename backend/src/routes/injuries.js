@@ -46,13 +46,14 @@ router.get('/athlete/:id', auth, async (req, res) => {
 router.post('/', auth, rbac('medical', 'admin'), async (req, res) => {
   try {
     // Enrich with athlete metadata if not provided
-    if (!req.body.athleteName && req.body.athleteId) {
+    if (req.body.athleteId) {
       const athlete = await Athlete.findOne({ athleteId: req.body.athleteId });
       if (athlete) {
-        req.body.athleteName = athlete.name;
-        req.body.sport = athlete.sport;
-        req.body.gender = athlete.gender;
-        req.body.program = athlete.program;
+        if (!req.body.athleteName) req.body.athleteName = athlete.name;
+        if (!req.body.sport)       req.body.sport       = athlete.sport;
+        if (!req.body.gender)      req.body.gender      = athlete.gender;
+        if (!req.body.program)     req.body.program     = athlete.program;
+        if (req.body.athleteAge === undefined) req.body.athleteAge = athlete.age;
       }
     }
     const injury = await Injury.create({ ...req.body, loggedBy: req.user.name });
@@ -79,11 +80,18 @@ router.patch('/:id', auth, rbac('medical', 'admin'), async (req, res) => {
 // GET /api/injuries/analytics/summary — aggregated KPIs for admin dashboard
 router.get('/analytics/summary', auth, rbac('admin'), async (req, res) => {
   try {
-    const { sport, program, gender, startDate, endDate } = req.query;
+    const { sport, program, gender, bodyPart, injuryType, ageMin, ageMax, startDate, endDate } = req.query;
     const match = {};
     if (sport) match.sport = sport;
     if (program) match.program = program;
     if (gender) match.gender = gender;
+    if (bodyPart) match.bodyPart = bodyPart;
+    if (injuryType) match.injuryType = injuryType;
+    if (ageMin || ageMax) {
+      match.athleteAge = {};
+      if (ageMin) match.athleteAge.$gte = Number(ageMin);
+      if (ageMax) match.athleteAge.$lte = Number(ageMax);
+    }
     if (startDate || endDate) {
       match.date = {};
       if (startDate) match.date.$gte = new Date(startDate);
