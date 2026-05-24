@@ -303,6 +303,58 @@ button { cursor: pointer; font-family: inherit; }
   gap: 14px;
 }
 
+/* ── RPE Reference Guide ─────────────────────────────────────────────────────── */
+.rpe-guide-wrap {
+  margin-top: 6px;
+}
+.rpe-guide-toggle {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-size: 0.78rem;
+  color: var(--brand-navy);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  opacity: 0.75;
+  transition: opacity 0.15s;
+}
+.rpe-guide-toggle:hover {
+  opacity: 1;
+}
+.rpe-table {
+  margin-top: 8px;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.76rem;
+}
+.rpe-table th {
+  background: var(--brand-navy);
+  color: #fff;
+  text-align: left;
+  padding: 5px 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.rpe-table td {
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+}
+.rpe-table td:first-child {
+  font-weight: 700;
+  color: var(--brand-navy);
+  white-space: nowrap;
+}
+.rpe-table tr:last-child td {
+  border-bottom: none;
+}
+.rpe-table tr:nth-child(even) td {
+  background: var(--bg);
+}
+
 /* ── Load preview (Activity Tracking) ───────────────────────────────────────── */
 .load-preview {
   margin-top: 6px;
@@ -329,6 +381,47 @@ button { cursor: pointer; font-family: inherit; }
   font-size: 0.78rem;
   color: var(--text-muted);
   font-style: italic;
+}
+.load-info-icon {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  cursor: help;
+  color: var(--brand-gold);
+  font-style: normal;
+  font-size: 0.82rem;
+  vertical-align: middle;
+}
+.load-info-icon .load-tooltip {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 260px;
+  background: var(--brand-navy);
+  color: #fff;
+  font-size: 0.75rem;
+  line-height: 1.55;
+  padding: 10px 13px;
+  border-radius: 6px;
+  z-index: 200;
+  letter-spacing: 0;
+  pointer-events: none;
+  font-style: normal;
+}
+.load-info-icon .load-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: var(--brand-navy);
+}
+.load-info-icon:hover .load-tooltip {
+  display: block;
 }
 
 /* ── Tag Pill (activity type badge) ─────────────────────────────────────────── */

@@ -57,6 +57,8 @@ export default function ActivityPage() {
   // Filter state
   const [filterType, setFilterType] = useState<ActivityType | ''>('');
 
+  const [showRpeGuide, setShowRpeGuide] = useState(false);
+
   // Track in-flight deletes per row so rapid double-clicks can't fire two DELETEs
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -227,8 +229,65 @@ export default function ActivityPage() {
               </div>
             </div>
 
+            <div className="rpe-guide-wrap">
+              <button
+                type="button"
+                className="rpe-guide-toggle"
+                onClick={() => setShowRpeGuide((v) => !v)}
+                aria-expanded={showRpeGuide}
+              >
+                <span>{showRpeGuide ? '▾' : '▸'}</span> RPE Reference Guide
+              </button>
+              {showRpeGuide && (
+                <table className="rpe-table">
+                  <thead>
+                    <tr>
+                      <th>RPE</th>
+                      <th>Effort Level</th>
+                      <th>Example</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>1 – 2</td>
+                      <td>Very light</td>
+                      <td>Gentle walk, cool-down stretching</td>
+                    </tr>
+                    <tr>
+                      <td>3 – 4</td>
+                      <td>Light – Moderate</td>
+                      <td>Easy jog, warm-up drills</td>
+                    </tr>
+                    <tr>
+                      <td>5 – 6</td>
+                      <td>Hard</td>
+                      <td>Typical training session, breathless but sustainable</td>
+                    </tr>
+                    <tr>
+                      <td>7 – 8</td>
+                      <td>Very hard</td>
+                      <td>High-intensity intervals, can only speak in short phrases</td>
+                    </tr>
+                    <tr>
+                      <td>9 – 10</td>
+                      <td>Maximum</td>
+                      <td>Competition effort, all-out sprint, cannot maintain</td>
+                    </tr>
+                  </tbody>
+                </table>
+              )}
+            </div>
+
             <div className="load-preview">
-              <div className="load-formula">Load = Duration × Intensity</div>
+              <div className="load-formula">
+                Load = Duration × Intensity
+                <span className="load-info-icon">
+                  ⓘ
+                  <span className="load-tooltip">
+                    Session load (AU — Arbitrary Units) reflects the total internal demand of a training session. It combines how long and how hard you trained. This value feeds directly into your weekly ACWR and risk level on the dashboard.
+                  </span>
+                </span>
+              </div>
               <div className="load-value">
                 <span>{duration}</span> min × <span>{intensity}</span> ={' '}
                 <strong>{load.toLocaleString()}</strong> AU
