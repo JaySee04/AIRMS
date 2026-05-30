@@ -72,12 +72,27 @@ Total 100% across four components:
 
 ## 5. Outstanding items before viva
 
-Ordered by rubric weight × current gap:
+### Resolved in 2026-05-25 draft
 
-1. **Analysis & Design errors (10% panel + 4 marks supervisor)** — fix UC-1 label ("Register Account" → "Login Account"), Medical Staff Dashboard actor label (currently "Administrator"), activity diagram titles + UC ranges (Figures 4.10/4.11/4.12), Figure 4.16 wrong screenshot, duplicate Figure 4.20.
-2. **Abstract + Conclusion (4 marks)** — currently empty placeholders in the report.
-3. **References consistency (1 mark + 2%)** — Bahr et al. (2020) cites different journals between slides (Orthopaedic Journal of Sports Medicine) and report (British Journal of Sports Medicine). Pick one.
-4. **Figure 5.1 (System Architecture)** — decision already made: remove. Chapter 5 ungraded for FYP I; defer deployment diagram to FYP II.
+The previous round of rubric-graded gaps has been closed in the latest report + slides drafts (`FYP I REPORT (2).pdf`, `FYP I VIVA SLIDES (Draft).pdf`):
+
+- ✅ **Analysis & Design corrections** — UC-1 now "Login Account"; Medical Staff Dashboard actor labelled "Medical Staff"; Figures 4.10 / 4.11 / 4.12 now correctly titled (Data Import / Admin Injury Analytics / Self-Reported Injury Workflow respectively); Figure 4.16 shows the Athlete Injury Report page; Figure 4.20 (Medical Report Review) no longer duplicated.
+- ✅ **Abstract** — 300-word abstract present (report p. 7), covers intro / objective / method / findings / discussion.
+- ✅ **Conclusion (Chapter 7)** — full chapter present (report p. 58); aligns with `docs/fyp/CONCLUSION_DRAFT.md` superseded by the in-report version.
+- ✅ **Bahr et al. (2020) consistency** — both slides and report now cite *British Journal of Sports Medicine, 54(7), 372–389*.
+- ✅ **Figure 5.1 (System Architecture)** — removed from Chapter 5.
+
+### Still outstanding
+
+Lower-stakes residual items found while diffing the new PDFs:
+
+1. **Report front-matter pages still empty** — Table of Contents (p. 8), List of Figures (p. 9), List of Symbols and Abbreviations (p. 11), List of Appendices (p. 12). Generate before final submission.
+2. **Acknowledgements (p. 6)** — panel names left as "Dr. and Dr." placeholders; fill in once panel is confirmed.
+3. **Original Literary Work Declaration (p. 4)** — "Field of Study" blank; Witness signature / Name / Designation blank.
+4. **Project Logbook (slides pp. 52–53)** — Supervisor signature column blank for all 7 entries.
+5. **Slides UC-2 vs report UC-2** — slide 20 lists Reset Password user role as "Medical Staff, Administrator"; report p. 32 still lists "Athlete, Medical Staff, Administrator". Pick one (the slides version is more accurate to the seeded-credentials model).
+6. **Slides p. 38 subheading** — labels the Data Import activity diagram as "UC-21 to UC-22: Self-Reported Injury Workflow"; the diagram is correct but the heading should read "Data Import Workflow".
+7. **Sprint count inconsistency** — slide 18/20 mentions "three broad sprints"; report p. 28 says "two broad sprints". Align.
 
 ---
 
@@ -87,4 +102,4 @@ Different rubrics will apply (heavier weight on system implementation, full depl
 
 ---
 
-*Updated 2026-05-24.*
+*Updated 2026-05-25 after diffing the 2026-05-25 report + slides drafts against the previous outstanding-items list.*

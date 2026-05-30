@@ -3,6 +3,8 @@
 > **You are Claude Code. You are helping the user (JC) build AIRMS — the Athlete Injury Risk Management System — as his Final Year Project for Institut Sukan Negara (ISN) Malaysia.**
 >
 > This file is your map. Read this first. It tells you which other documents to read, in what order, and why.
+>
+> **Note:** A shorter root-level [`CLAUDE.md`](../CLAUDE.md) is auto-loaded into every session and summarises the commands, big-picture architecture, and locked decisions. This file is the *long-form* version with stakeholder context, reading order, and communication norms — read it when starting a new project or after a context reset.
 
 ---
 
@@ -157,4 +159,4 @@ Full credentials in [PROJECT_GUIDE.md](PROJECT_GUIDE.md) §6.
 
 ---
 
-*Last updated: 2026-05-17 · All 6 modules functional. Modules 1+2 fully complete, audit-fixed; Modules 3–6 functional with deferred polish items documented per-module.*
+*Last updated: 2026-05-26 — added pointer to root `CLAUDE.md`. All 6 modules functional. Modules 1+2 fully complete, audit-fixed; Modules 3–6 functional with deferred polish items documented per-module.*

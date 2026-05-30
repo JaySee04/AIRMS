@@ -49,3 +49,7 @@ coverage/
 .claude/scheduled_tasks.lock
 .claude/projects/
 .claude/wakeup_jobs/
+
+# Local-only tooling
+sync-to-submission.ps1
+SUBMISSION_WORKFLOW.md

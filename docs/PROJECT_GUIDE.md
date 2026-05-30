@@ -19,6 +19,7 @@ AIRMS (JC FYP)/
 ├── frontend/                 # Next.js 14 app (App Router, TypeScript)
 ├── reports/                  # FYP submitted reports
 ├── node_modules/             # Root deps (concurrently)
+├── CLAUDE.md                 # Auto-loaded by Claude Code; pointer to docs/ + commands + locked decisions
 ├── package.json              # Root orchestrator (npm run dev / seed / install:all)
 └── README.md                 # Quick start
 ```
@@ -172,7 +173,8 @@ Useful files:
 
 | File | Purpose |
 |---|---|
-| [README_FOR_CLAUDE_CODE.md](README_FOR_CLAUDE_CODE.md) | Entry point for new sessions. Reading order. Communication norms |
+| [../CLAUDE.md](../CLAUDE.md) | Root-level Claude Code primer — auto-loaded into every session. Pointer to the docs below + commands + locked-decisions summary |
+| [README_FOR_CLAUDE_CODE.md](README_FOR_CLAUDE_CODE.md) | Long-form entry point for new sessions. Reading order. Communication norms |
 | [MASTER_CLARIFICATIONS.md](MASTER_CLARIFICATIONS.md) | Architectural truth. Locked decisions. Read first |
 | [MODULES_STATUS.md](MODULES_STATUS.md) | Status of all 6 FDD modules, plus spec for unbuilt ones |
 | [USER_MANUAL.md](USER_MANUAL.md) | End-user walk-through of every shipped feature |
@@ -244,4 +246,4 @@ Other seeded athletes (ATH0002–ATH0060) all have random Malaysian-style names 
 
 ---
 
-*Last updated: 2026-05-17.*
+*Last updated: 2026-05-26 — added `CLAUDE.md` to the folder tree + docs table.*

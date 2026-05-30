@@ -216,4 +216,4 @@ The umbrella message: *"All six modules are functional. The remaining work on Mo
 
 ---
 
-*Last updated: 2026-05-18. Recent: live PDF generation via pdfkit on Module 5 (Injury Analytics now ✅ fully complete); functional Medical + Admin profile pages with role-specific stat tiles + change-password modal + sign-out flow.*
+*Last updated: 2026-05-25. Module statuses unchanged since 2026-05-18 (live PDF generation via pdfkit on Module 5; functional Medical + Admin profile pages). Recent: report + slides drafts (2026-05-25) close the pre-viva rubric gaps — see `docs/FYP_RUBRICS.md` §5.*
