@@ -54,6 +54,9 @@ export default function ActivityPage() {
   const [notes, setNotes] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
 
+  // When set, the form is in edit mode and submit issues PUT instead of POST.
+  const [editingId, setEditingId] = useState<string | null>(null);
+
   // Filter state
   const [filterType, setFilterType] = useState<ActivityType | ''>('');
 
@@ -111,10 +114,35 @@ export default function ActivityPage() {
     [activities, filterType],
   );
 
+  function resetForm() {
+    setType('');
+    setDate(todayISO());
+    setDuration(60);
+    setIntensity(6);
+    setNotes('');
+    setEditingId(null);
+  }
+
+  function handleEdit(a: Activity) {
+    setEditingId(a._id);
+    setType(a.type);
+    setDate(new Date(a.date).toISOString().slice(0, 10));
+    setDuration(a.duration);
+    setIntensity(a.intensity);
+    setNotes(a.notes ?? '');
+    setError(null);
+    setSuccess(null);
+    // Bring the form into view — the table sits to the right on desktop but
+    // stacks below on narrow viewports, where the form would scroll out of sight.
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!type || !date) return;
-    // Client-side guards so a zero/invalid value never makes a doomed POST.
+    // Client-side guards so a zero/invalid value never makes a doomed request.
     if (!Number.isFinite(duration) || duration < 10 || duration > 240) {
       setError('Duration must be between 10 and 240 minutes.');
       return;
@@ -123,23 +151,31 @@ export default function ActivityPage() {
       setError('Intensity must be between 1 and 10.');
       return;
     }
+    // Date picker has `max={todayISO()}`, but a typed value can bypass that.
+    if (date > todayISO()) {
+      setError('Activity date cannot be in the future.');
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
-      const created = await api.post<Activity>('/activities', {
+      const payload = {
         type,
         date,
         duration,
         intensity,
         notes: notes || undefined,
-      });
-      setActivities((prev) => [created, ...prev]);
-      setType('');
-      setDate(todayISO());
-      setDuration(60);
-      setIntensity(6);
-      setNotes('');
-      setSuccess('Activity saved. Your dashboard will update automatically.');
+      };
+      if (editingId) {
+        const updated = await api.put<Activity>(`/activities/${editingId}`, payload);
+        setActivities((prev) => prev.map((a) => (a._id === editingId ? updated : a)));
+        setSuccess('Activity updated. Your dashboard will update automatically.');
+      } else {
+        const created = await api.post<Activity>('/activities', payload);
+        setActivities((prev) => [created, ...prev]);
+        setSuccess('Activity saved. Your dashboard will update automatically.');
+      }
+      resetForm();
       if (successTimerRef.current !== null) {
         window.clearTimeout(successTimerRef.current);
       }
@@ -161,6 +197,9 @@ export default function ActivityPage() {
     try {
       await api.delete(`/activities/${id}`);
       setActivities((prev) => prev.filter((a) => a._id !== id));
+      // If the row being deleted is the one currently loaded in the form,
+      // drop edit mode so the user isn't editing a ghost.
+      if (editingId === id) resetForm();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to delete activity');
     } finally {
@@ -172,7 +211,7 @@ export default function ActivityPage() {
     <DashboardLayout allowedRoles={['athlete']} title="Activity Tracking">
       <div className="grid-1-2">
         <div className="card">
-          <h2 className="card-title">Log New Activity</h2>
+          <h2 className="card-title">{editingId ? 'Edit Activity' : 'Log New Activity'}</h2>
 
           {success && <div className="alert alert-success">{success}</div>}
           {error && <div className="alert alert-error">{error}</div>}
@@ -199,6 +238,7 @@ export default function ActivityPage() {
                 id="f-date"
                 type="date"
                 value={date}
+                max={todayISO()}
                 onChange={(e) => setDate(e.target.value)}
                 required
               />
@@ -311,8 +351,21 @@ export default function ActivityPage() {
               className="btn btn-primary btn-full"
               disabled={submitting}
             >
-              {submitting ? 'Saving…' : 'Save Activity'}
+              {submitting
+                ? (editingId ? 'Updating…' : 'Saving…')
+                : (editingId ? 'Update Activity' : 'Save Activity')}
             </button>
+            {editingId && (
+              <button
+                type="button"
+                className="btn btn-outline btn-full"
+                style={{ marginTop: 8 }}
+                onClick={resetForm}
+                disabled={submitting}
+              >
+                Cancel Edit
+              </button>
+            )}
           </form>
         </div>
 
@@ -366,7 +419,16 @@ export default function ActivityPage() {
                       <td>{a.duration} min</td>
                       <td>{a.intensity}/10</td>
                       <td><strong>{a.load}</strong></td>
-                      <td style={{ textAlign: 'right' }}>
+                      <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        <button
+                          type="button"
+                          className="btn btn-outline btn-sm"
+                          onClick={() => handleEdit(a)}
+                          disabled={editingId === a._id || deletingId === a._id}
+                          style={{ marginRight: 6 }}
+                        >
+                          {editingId === a._id ? 'Editing…' : 'Edit'}
+                        </button>
                         <button
                           type="button"
                           className="btn btn-outline btn-sm"

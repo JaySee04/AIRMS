@@ -6,6 +6,7 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import BodyMap, { MuscleEntry } from '@/components/dashboard/BodyMap';
 import WorkloadChart from '@/components/dashboard/WorkloadChart';
 import RiskRadar from '@/components/dashboard/RiskRadar';
+import RiskAlert from '@/components/dashboard/RiskAlert';
 import { api } from '@/lib/api';
 import { getSession } from '@/lib/auth';
 import { classifyCompositeRisk } from '@/lib/risk';
@@ -233,6 +234,9 @@ export default function AthleteDashboard() {
 
   return (
     <DashboardLayout allowedRoles={['athlete']} title="My Dashboard">
+      {/* UC-13: prominent alert, renders only at Moderate/High risk */}
+      <RiskAlert risk={risk} acwr={computed.acwr} />
+
       {/* Risk hero */}
       <div className={`risk-hero risk-hero--${risk.cls}`}>
         <div style={{ flex: 1 }}>

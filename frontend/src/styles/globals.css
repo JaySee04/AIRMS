@@ -525,8 +525,12 @@ button { cursor: pointer; font-family: inherit; }
 .risk-hero--under .risk-hero-level { color: var(--risk-undertrained); }
 .risk-hero-msg {
   font-size: 0.92rem;
-  max-width: 520px;
   line-height: 1.5;
+  /* Shrink-to-fit: the box is only as wide as the text needs (single line
+     when there's room), but capped at the flex container's width so it
+     wraps gracefully on narrower viewports instead of overflowing. */
+  width: max-content;
+  max-width: 100%;
 }
 .risk-hero-acwr {
   text-align: center;
@@ -561,6 +565,43 @@ button { cursor: pointer; font-family: inherit; }
   flex-wrap: wrap;
 }
 [data-theme="dark"] .risk-hero-prompt { background: rgba(255,255,255,0.07); }
+
+/* UC-13 Risk Alert — prominent warning shown only at Moderate/High risk. */
+.risk-alert {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  border-radius: 10px;
+  margin-bottom: 16px;
+  border-left: 5px solid;
+  font-size: 0.9rem;
+}
+.risk-alert--mod  { background: var(--risk-moderate-bg); border-left-color: var(--risk-moderate, #c89b3c); color: #6b4f12; }
+.risk-alert--high { background: var(--risk-high-bg);     border-left-color: var(--risk-high);              color: var(--risk-high); }
+[data-theme="dark"] .risk-alert--mod  { color: #e6c170; }
+[data-theme="dark"] .risk-alert--high { color: #ff8a8a; }
+.risk-alert-icon {
+  font-size: 1.4rem;
+  line-height: 1;
+}
+.risk-alert--high .risk-alert-icon {
+  animation: risk-alert-pulse 1.6s ease-in-out infinite;
+}
+@keyframes risk-alert-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.4; }
+}
+.risk-alert-body { flex: 1; }
+.risk-alert-heading {
+  font-weight: 700;
+  font-size: 0.95rem;
+  margin-bottom: 2px;
+}
+.risk-alert-reason {
+  font-size: 0.85rem;
+  opacity: 0.9;
+}
 
 /* Risk modifiers (composite-risk factors and personalised band) */
 .risk-escalation-badge {

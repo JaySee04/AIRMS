@@ -324,6 +324,7 @@ export default function MedicalDashboard() {
     const today = new Date();
     const DAY = 86400000;
     const weekLoads: number[] = Array(8).fill(0);
+    const weekTypeBreakdowns: Array<Record<string, number>> = Array.from({ length: 8 }, () => ({}));
     const weekLabels: string[] = [];
     for (let i = 0; i < 8; i++) {
       weekLabels.push(8 - i === 1 ? 'This wk' : `${8 - i} wk ago`);
@@ -334,7 +335,12 @@ export default function MedicalDashboard() {
       if (daysAgo < 0 || daysAgo >= 56) return;
       const bucketFromEnd = Math.floor(daysAgo / 7);
       const index = 7 - bucketFromEnd;
-      if (index >= 0 && index < 8) weekLoads[index] += a.load ?? 0;
+      if (index >= 0 && index < 8) {
+        const load = a.load ?? 0;
+        weekLoads[index] += load;
+        const t = a.type || 'Other';
+        weekTypeBreakdowns[index][t] = (weekTypeBreakdowns[index][t] ?? 0) + load;
+      }
     });
     const acuteLoad = weekLoads[7] ?? 0;
     const chronicLoad = weekLoads.slice(-4).reduce((s, v) => s + v, 0) / 4;
@@ -345,7 +351,7 @@ export default function MedicalDashboard() {
       const chronicW = slice.length ? slice.reduce((a, b) => a + b, 0) / slice.length : 0;
       return chronicW > 0 ? +(acuteW / chronicW).toFixed(2) : 0;
     });
-    return { weekLabels, weekLoads, acuteLoad, chronicLoad, acwr, cumACWR };
+    return { weekLabels, weekLoads, weekTypeBreakdowns, acuteLoad, chronicLoad, acwr, cumACWR };
   }, [selectedAthlete, selectedActivities]);
 
   const allInjuries = useMemo(
@@ -683,6 +689,7 @@ export default function MedicalDashboard() {
                     labels={workload.weekLabels}
                     weeklyLoads={workload.weekLoads}
                     acwrSeries={workload.cumACWR}
+                    typeBreakdowns={workload.weekTypeBreakdowns}
                   />
                 </div>
                 <div className="card">

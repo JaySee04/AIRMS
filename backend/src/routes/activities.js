@@ -61,9 +61,23 @@ router.get('/athlete/:id/acwr', auth, async (req, res) => {
   }
 });
 
+// Rejects an activity date that lands after the current UTC day. Compared
+// at day-boundary granularity (not instant-level), so a session logged
+// "today" in any timezone still passes.
+function isFutureDate(value) {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return false;
+  const today = new Date();
+  today.setUTCHours(23, 59, 59, 999);
+  return d.getTime() > today.getTime();
+}
+
 // POST /api/activities — log a training session (athlete only)
 router.post('/', auth, rbac('athlete'), async (req, res) => {
   try {
+    if (req.body?.date && isFutureDate(req.body.date)) {
+      return res.status(400).json({ message: 'Activity date cannot be in the future' });
+    }
     const activity = await Activity.create({
       ...req.body,
       athleteId: req.user.athleteId,
@@ -83,6 +97,9 @@ router.put('/:id', auth, rbac('athlete'), async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
     const { type, date, duration, intensity, notes } = req.body;
+    if (date !== undefined && isFutureDate(date)) {
+      return res.status(400).json({ message: 'Activity date cannot be in the future' });
+    }
     if (type !== undefined) activity.type = type;
     if (date !== undefined) activity.date = date;
     if (duration !== undefined) activity.duration = duration;

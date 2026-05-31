@@ -26,12 +26,16 @@ interface WorkloadChartProps {
   labels: string[];
   weeklyLoads: number[];
   acwrSeries: number[];
+  // Optional: per-week breakdown of load by activity type, aligned to `labels`.
+  // When provided, the bar tooltip lists each type and its AU contribution —
+  // gives clinicians context for what made up a load spike.
+  typeBreakdowns?: Array<Record<string, number>>;
 }
 
 const NAVY = '#0f2c4a';
 const GOLD = '#c89b3c';
 
-export default function WorkloadChart({ labels, weeklyLoads, acwrSeries }: WorkloadChartProps) {
+export default function WorkloadChart({ labels, weeklyLoads, acwrSeries, typeBreakdowns }: WorkloadChartProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const chartRef = useRef<Chart | null>(null);
 
@@ -79,7 +83,25 @@ export default function WorkloadChart({ labels, weeklyLoads, acwrSeries }: Workl
             suggestedMax: 2.0,
           },
         },
-        plugins: { legend: { position: 'bottom' } },
+        plugins: {
+          legend: { position: 'bottom' },
+          tooltip: {
+            callbacks: {
+              afterBody: (items) => {
+                if (!typeBreakdowns) return '';
+                const barItem = items.find((i) => i.dataset.type === 'bar');
+                if (!barItem) return '';
+                const breakdown = typeBreakdowns[barItem.dataIndex];
+                if (!breakdown) return '';
+                const entries = Object.entries(breakdown)
+                  .filter(([, v]) => v > 0)
+                  .sort((a, b) => b[1] - a[1]);
+                if (entries.length === 0) return '';
+                return ['', 'Breakdown:', ...entries.map(([t, v]) => `  ${t}: ${v.toLocaleString()} AU`)];
+              },
+            },
+          },
+        },
       },
     });
 
@@ -87,7 +109,7 @@ export default function WorkloadChart({ labels, weeklyLoads, acwrSeries }: Workl
       chartRef.current?.destroy();
       chartRef.current = null;
     };
-  }, [labels, weeklyLoads, acwrSeries]);
+  }, [labels, weeklyLoads, acwrSeries, typeBreakdowns]);
 
   return (
     <div style={{ position: 'relative', height: 300 }}>
