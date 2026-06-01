@@ -80,6 +80,9 @@ export default function AdminDashboard() {
   const [bodyRegion, setBodyRegion] = useState<string | null>(null);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  // Trend chart bucketing — Dr Thung asked for both monthly (default) and
+  // quarterly views to spot Q-to-Q seasonality (e.g. "Q4 high knee risk").
+  const [trendBucket, setTrendBucket] = useState<'monthly' | 'quarterly'>('monthly');
 
   // Refs for the chart canvases
   const bodyPartRef = useRef<HTMLCanvasElement | null>(null);
@@ -147,6 +150,35 @@ export default function AdminDashboard() {
     if (bodyPart) setBodyRegion(null);
   }, [bodyPart]);
 
+  // Aggregate the byMonth series into the active bucket (monthly or
+  // quarterly). Quarterly view sums each calendar quarter (Q1=Jan-Mar etc.)
+  // and labels as `YYYY-Qn`. Also finds the peak bucket so we can call it
+  // out under the chart — Dr Thung's "when is the most critical time" ask.
+  const trend = useMemo(() => {
+    if (!summary) return { labels: [], values: [], peak: null as null | { label: string; count: number } };
+    if (trendBucket === 'monthly') {
+      const labels = summary.byMonth.map((m) => `${m._id.year}-${String(m._id.month).padStart(2, '0')}`);
+      const values = summary.byMonth.map((m) => m.count);
+      let peakIdx = -1;
+      values.forEach((v, i) => { if (peakIdx < 0 || v > values[peakIdx]) peakIdx = i; });
+      const peak = peakIdx >= 0 && values[peakIdx] > 0 ? { label: labels[peakIdx], count: values[peakIdx] } : null;
+      return { labels, values, peak };
+    }
+    // Quarterly aggregation
+    const buckets = new Map<string, number>();
+    summary.byMonth.forEach((m) => {
+      const q = Math.floor((m._id.month - 1) / 3) + 1;
+      const key = `${m._id.year}-Q${q}`;
+      buckets.set(key, (buckets.get(key) ?? 0) + m.count);
+    });
+    const labels = Array.from(buckets.keys()).sort();
+    const values = labels.map((l) => buckets.get(l) ?? 0);
+    let peakIdx = -1;
+    values.forEach((v, i) => { if (peakIdx < 0 || v > values[peakIdx]) peakIdx = i; });
+    const peak = peakIdx >= 0 && values[peakIdx] > 0 ? { label: labels[peakIdx], count: values[peakIdx] } : null;
+    return { labels, values, peak };
+  }, [summary, trendBucket]);
+
   // Render the charts
   useEffect(() => {
     chartsRef.current.forEach((c) => c.destroy());
@@ -179,17 +211,25 @@ export default function AdminDashboard() {
       }
     }
 
-    // Monthly trend (last 12 months)
+    // Trend chart — bucket-aware (monthly or quarterly)
     if (monthRef.current) {
       const ctx = monthRef.current.getContext('2d');
       if (ctx) {
-        const monthLabels = summary.byMonth.map((m) => `${m._id.year}-${String(m._id.month).padStart(2, '0')}`);
-        const monthData = summary.byMonth.map((m) => m.count);
         chartsRef.current.push(new Chart(ctx, {
           type: 'line',
           data: {
-            labels: monthLabels,
-            datasets: [{ label: 'Cases', data: monthData, borderColor: NAVY, backgroundColor: 'rgba(15,44,74,0.1)', tension: 0.3, pointRadius: 4 }],
+            labels: trend.labels,
+            datasets: [{
+              label: 'Cases',
+              data: trend.values,
+              borderColor: NAVY,
+              backgroundColor: 'rgba(15,44,74,0.1)',
+              tension: 0.3,
+              // Highlight the peak point in gold so the "critical time" is
+              // visible at a glance, not just buried in the line shape.
+              pointBackgroundColor: trend.values.map((_, i) => (trend.peak && trend.labels[i] === trend.peak.label ? GOLD : NAVY)),
+              pointRadius: trend.values.map((_, i) => (trend.peak && trend.labels[i] === trend.peak.label ? 6 : 4)),
+            }],
           },
           options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } },
         }));
@@ -200,7 +240,7 @@ export default function AdminDashboard() {
       chartsRef.current.forEach((c) => c.destroy());
       chartsRef.current = [];
     };
-  }, [summary]);
+  }, [summary, trend]);
 
   function reset() {
     setSport(''); setGender(''); setProgramme('');
@@ -350,7 +390,28 @@ export default function AdminDashboard() {
         <div className="card-header">
           <div>
             <h2 className="card-title" style={{ marginBottom: 0 }}>Cases Over Time</h2>
-            <span className="card-sub">Monthly counts</span>
+            <span className="card-sub">
+              {trendBucket === 'monthly' ? 'Monthly counts' : 'Quarterly counts'}
+              {trend.peak && (
+                <> · Peak: <strong>{trend.peak.label}</strong> ({trend.peak.count} case{trend.peak.count === 1 ? '' : 's'})</>
+              )}
+            </span>
+          </div>
+          <div style={{ display: 'inline-flex', gap: 4 }}>
+            <button
+              type="button"
+              className={`region-chip${trendBucket === 'monthly' ? ' active' : ''}`}
+              onClick={() => setTrendBucket('monthly')}
+            >
+              Monthly
+            </button>
+            <button
+              type="button"
+              className={`region-chip${trendBucket === 'quarterly' ? ' active' : ''}`}
+              onClick={() => setTrendBucket('quarterly')}
+            >
+              Quarterly
+            </button>
           </div>
         </div>
         <div style={{ position: 'relative', height: 240 }}>
