@@ -347,15 +347,25 @@ router.post('/injuries-pdf', auth, rbac('admin'), async (req, res) => {
     // Page numbers footer. Requires bufferPages: true on the document (set
     // above) so all pages remain writable; otherwise only the last page
     // would receive the footer.
+    //
+    // The footer is intentionally drawn within the bottom-margin band (y =
+    // pageHeight - 40). pdfkit's text() refuses to write outside the content
+    // area — anything past pageHeight - margins.bottom triggers _addPage().
+    // We temporarily zero the bottom margin on each page so the footer is
+    // accepted in place; otherwise pdfkit creates blank phantom pages just
+    // to hold each footer line.
     const range = doc.bufferedPageRange();
     for (let i = 0; i < range.count; i++) {
       doc.switchToPage(range.start + i);
+      const origBottom = doc.page.margins.bottom;
+      doc.page.margins.bottom = 0;
       doc.fillColor(MUTED).fontSize(8).text(
         `AIRMS · Page ${i + 1} of ${range.count}`,
         50,
         doc.page.height - 40,
         { width: doc.page.width - 100, align: 'center', lineBreak: false },
       );
+      doc.page.margins.bottom = origBottom;
     }
 
     doc.end();
