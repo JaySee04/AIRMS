@@ -77,6 +77,7 @@ function drawBarChart(doc, rows, { x, y, width, height, color = NAVY, maxLabel =
     doc.fontSize(9).fillColor(TEXT).text(r.label.slice(0, maxLabel), x, cy + 2, {
       width: labelCol - 4,
       ellipsis: true,
+      lineBreak: false,
     });
     const w = max > 0 ? (r.count / max) * barCol : 0;
     doc.save();
@@ -86,21 +87,37 @@ function drawBarChart(doc, rows, { x, y, width, height, color = NAVY, maxLabel =
       `${r.count}${total ? ` (${Math.round((r.count / total) * 100)}%)` : ''}`,
       x + labelCol + barCol + 6,
       cy + 2,
-      { width: valueCol, align: 'left' },
+      { width: valueCol, align: 'left', lineBreak: false },
     );
     cy += rowH;
   });
+  // Restore caller's left margin + advance doc.y past the chart so the next
+  // heading doesn't inherit the right-shifted x from the value column. Was
+  // the root cause of every post-chart heading wrapping vertically.
+  doc.x = x;
+  doc.y = cy;
   return cy;
 }
 
 function drawHeading(doc, text, opts = {}) {
+  doc.x = doc.page.margins.left;
   doc.fillColor(NAVY).fontSize(opts.size || 13).text(text, { underline: false });
   doc.moveDown(0.3);
 }
 
 function drawSubHeading(doc, text) {
+  doc.x = doc.page.margins.left;
   doc.fillColor(NAVY).fontSize(10).text(text);
   doc.moveDown(0.2);
+}
+
+// Reserve vertical space for the next block. If less than `needed` pixels
+// remain on the current page, start a new one. Prevents charts from being
+// shredded row-by-row across pages.
+function ensureRoom(doc, needed) {
+  if (doc.y + needed > doc.page.height - doc.page.margins.bottom) {
+    doc.addPage();
+  }
 }
 
 function drawHr(doc, y) {
@@ -170,6 +187,9 @@ router.post('/injuries-pdf', auth, rbac('admin'), async (req, res) => {
     const doc = new PDFDocument({
       size: 'A4',
       margins: { top: 60, bottom: 60, left: 50, right: 50 },
+      // bufferPages: true is required for the page-numbering footer below to
+      // write to every page. Without it, only the final page gets a footer.
+      bufferPages: true,
       info: {
         Title: `AIRMS — ${reportTypeLabel}`,
         Author: req.user.name || 'AIRMS',
@@ -197,6 +217,7 @@ router.post('/injuries-pdf', auth, rbac('admin'), async (req, res) => {
     doc.moveDown(0.5);
 
     drawSubHeading(doc, 'FILTERS APPLIED');
+    doc.x = doc.page.margins.left;
     doc.fillColor(TEXT).fontSize(10).text(buildFilterSummary(q));
     doc.moveDown(1);
 
@@ -220,22 +241,30 @@ router.post('/injuries-pdf', auth, rbac('admin'), async (req, res) => {
     });
     doc.y = sy + summaryRows.length * cellH + 14;
 
-    // ── Body part distribution ──────────────────────────────────────────────
+    // Each section reserves vertical space upfront so charts don't fragment
+    // row-by-row across pages. Heights below match the bar-chart row height
+    // (24 per row) plus heading + breathing room.
+
+    // ── Body part distribution — 10 categories ──────────────────────────────
+    ensureRoom(doc, 24 + 10 * 24 + 12);
     drawHeading(doc, 'Distribution by body part');
-    doc.y = drawBarChart(doc, byBodyPart, { x: 50, y: doc.y, width: 495, height: 200, color: NAVY });
+    doc.y = drawBarChart(doc, byBodyPart, { x: 50, y: doc.y, width: 495, height: 240, color: NAVY });
     doc.moveDown(0.6);
 
-    // ── Injury type distribution ────────────────────────────────────────────
+    // ── Injury type distribution — 8 categories ─────────────────────────────
+    ensureRoom(doc, 24 + 8 * 24 + 12);
     drawHeading(doc, 'Distribution by injury type');
-    doc.y = drawBarChart(doc, byType, { x: 50, y: doc.y, width: 495, height: 200, color: GOLD });
+    doc.y = drawBarChart(doc, byType, { x: 50, y: doc.y, width: 495, height: 192, color: GOLD });
     doc.moveDown(0.6);
 
-    // ── Severity (optional) ─────────────────────────────────────────────────
+    // ── Severity + Recovery (optional) — 3 categories each ──────────────────
     if (q.includeRecovery !== false) {
+      ensureRoom(doc, 24 + 3 * 24 + 12);
       drawHeading(doc, 'Distribution by severity');
       doc.y = drawBarChart(doc, bySeverity, { x: 50, y: doc.y, width: 495, height: 100, color: '#b03030' });
       doc.moveDown(0.6);
 
+      ensureRoom(doc, 24 + 3 * 24 + 12);
       drawHeading(doc, 'Recovery status');
       const recRows = [
         { label: 'Recovering', count: recovering },
@@ -248,10 +277,10 @@ router.post('/injuries-pdf', auth, rbac('admin'), async (req, res) => {
 
     // ── Monthly trend ───────────────────────────────────────────────────────
     if (q.includeTrends !== false && byMonth.length > 0) {
-      if (doc.y > doc.page.height - 180) doc.addPage();
-      drawHeading(doc, 'Cases over time');
       const trendRows = byMonth.map((m) => ({ label: m.label, count: m.count }));
-      doc.y = drawBarChart(doc, trendRows, { x: 50, y: doc.y, width: 495, height: Math.min(250, trendRows.length * 22), color: NAVY, maxLabel: 8 });
+      ensureRoom(doc, 24 + trendRows.length * 24 + 12);
+      drawHeading(doc, 'Cases over time');
+      doc.y = drawBarChart(doc, trendRows, { x: 50, y: doc.y, width: 495, height: Math.max(60, trendRows.length * 24), color: NAVY, maxLabel: 8 });
       doc.moveDown(0.6);
     }
 
@@ -293,24 +322,31 @@ router.post('/injuries-pdf', auth, rbac('admin'), async (req, res) => {
         doc.y += 18;
       });
       if (athleteIndex.length > 80) {
+        doc.x = doc.page.margins.left;
         doc.moveDown(0.5);
         doc.fillColor(MUTED).fontSize(9).text(`(${athleteIndex.length - 80} more athletes omitted — refine filters for the full list.)`);
       }
     }
 
     // ── Appendix ────────────────────────────────────────────────────────────
-    if (doc.y > doc.page.height - 140) doc.addPage();
+    ensureRoom(doc, 140);
     doc.moveDown(1);
     drawHr(doc, doc.y);
     doc.moveDown(0.5);
     drawHeading(doc, 'Appendix');
+    doc.x = doc.page.margins.left;
     doc.fillColor(MUTED).fontSize(9);
     doc.text('Report version: 1.0 · AIRMS analytics pipeline');
+    doc.x = doc.page.margins.left;
     doc.text(`Data source: live Injury collection, filtered query at generation time`);
+    doc.x = doc.page.margins.left;
     doc.text(`Records included: ${total}`);
+    doc.x = doc.page.margins.left;
     doc.text(`Filters: ${buildFilterSummary(q)}`);
 
-    // Page numbers footer
+    // Page numbers footer. Requires bufferPages: true on the document (set
+    // above) so all pages remain writable; otherwise only the last page
+    // would receive the footer.
     const range = doc.bufferedPageRange();
     for (let i = 0; i < range.count; i++) {
       doc.switchToPage(range.start + i);
@@ -318,7 +354,7 @@ router.post('/injuries-pdf', auth, rbac('admin'), async (req, res) => {
         `AIRMS · Page ${i + 1} of ${range.count}`,
         50,
         doc.page.height - 40,
-        { width: doc.page.width - 100, align: 'center' },
+        { width: doc.page.width - 100, align: 'center', lineBreak: false },
       );
     }
 
