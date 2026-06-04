@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { api } from '@/lib/api';
 
@@ -38,16 +39,40 @@ function startOfQuarterISO() {
   return d.toISOString().slice(0, 10);
 }
 
+// The page export wraps the form in a Suspense boundary so that
+// useSearchParams (used inside ReportBuilder) doesn't trip the App Router's
+// "should be wrapped in suspense" build-time check.
 export default function AdminReportsPage() {
-  const [reportType, setReportType] = useState('monthly');
-  const [periodStart, setPeriodStart] = useState(startOfMonthISO());
-  const [periodEnd, setPeriodEnd] = useState(todayISO());
-  const [filterSport, setFilterSport] = useState('');
-  const [filterProgramme, setFilterProgramme] = useState('');
-  const [filterGender, setFilterGender] = useState('');
-  const [filterBodyPart, setFilterBodyPart] = useState('');
-  const [filterInjuryType, setFilterInjuryType] = useState('');
-  const [ageGroupIndex, setAgeGroupIndex] = useState(0);
+  return (
+    <Suspense fallback={<DashboardLayout allowedRoles={['admin']} title="PDF Reports"><div className="card">Loading report builder…</div></DashboardLayout>}>
+      <ReportBuilder />
+    </Suspense>
+  );
+}
+
+function ReportBuilder() {
+  // Reads incoming filter state from the admin dashboard's "Generate PDF
+  // Report" link. If any of these query params are present, the form
+  // pre-fills with them so the analyst doesn't re-enter what they already
+  // chose on the dashboard.
+  const searchParams = useSearchParams();
+  const getParam = (k: string) => searchParams?.get(k) || '';
+  const hasPeriodInUrl = !!(getParam('startDate') || getParam('endDate'));
+
+  // If the URL carries a date range, default to 'custom' so the
+  // reportType-change effect below doesn't overwrite the incoming dates.
+  const [reportType, setReportType] = useState(() => (hasPeriodInUrl ? 'custom' : 'monthly'));
+  const [periodStart, setPeriodStart] = useState(() => getParam('startDate') || startOfMonthISO());
+  const [periodEnd, setPeriodEnd] = useState(() => getParam('endDate') || todayISO());
+  const [filterSport, setFilterSport] = useState(() => getParam('sport'));
+  const [filterProgramme, setFilterProgramme] = useState(() => getParam('program'));
+  const [filterGender, setFilterGender] = useState(() => getParam('gender'));
+  const [filterBodyPart, setFilterBodyPart] = useState(() => getParam('bodyPart'));
+  const [filterInjuryType, setFilterInjuryType] = useState(() => getParam('injuryType'));
+  const [ageGroupIndex, setAgeGroupIndex] = useState(() => {
+    const n = Number(getParam('ageGroupIndex'));
+    return Number.isFinite(n) && n >= 0 && n < AGE_GROUPS.length ? n : 0;
+  });
   const [includeRecovery, setIncludeRecovery] = useState(true);
   const [includeTrends, setIncludeTrends] = useState(true);
   const [includeAthleteIndex, setIncludeAthleteIndex] = useState(true);
@@ -57,8 +82,14 @@ export default function AdminReportsPage() {
   const [error, setError] = useState<string | null>(null);
   const [lastDownloaded, setLastDownloaded] = useState<string | null>(null);
 
-  // Adjust default period when report type changes
+  // Adjust default period when report type changes. Skip the first render
+  // so URL-prefilled period dates don't get clobbered on mount.
+  const reportTypeHydrated = useRef(false);
   useEffect(() => {
+    if (!reportTypeHydrated.current) {
+      reportTypeHydrated.current = true;
+      return;
+    }
     if (reportType === 'monthly') {
       setPeriodStart(startOfMonthISO());
       setPeriodEnd(todayISO());

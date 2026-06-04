@@ -50,21 +50,6 @@ const AGE_GROUPS: Array<{ label: string; min?: number; max?: number }> = [
   { label: '30+ (veteran)', min: 30 },
 ];
 
-// Body region groupings — chip shortcuts so admin can slice by region quickly
-// instead of cycling through the 10-option body part dropdown.
-const BODY_REGIONS: Record<string, string[]> = {
-  'Upper body': ['Neck', 'Shoulder', 'Elbow', 'Wrist'],
-  'Trunk': ['Spine', 'Lumbar/Pelvis'],
-  'Lower body': ['Hip', 'Knee', 'Ankle'],
-};
-
-function regionOfBodyPart(bp: string): string | null {
-  for (const [region, parts] of Object.entries(BODY_REGIONS)) {
-    if (parts.includes(bp)) return region;
-  }
-  return null;
-}
-
 const NAVY = '#0f2c4a';
 const GOLD = '#c89b3c';
 
@@ -81,7 +66,6 @@ export default function AdminDashboard() {
   const [bodyPart, setBodyPart] = useState('');
   const [injuryType, setInjuryType] = useState('');
   const [ageGroupIndex, setAgeGroupIndex] = useState(0); // 0 = "All ages"
-  const [bodyRegion, setBodyRegion] = useState<string | null>(null);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   // Trend chart bucketing — Dr Thung asked for both monthly (default) and
@@ -113,17 +97,7 @@ export default function AdminDashboard() {
       const data = await api.get<AnalyticsSummary>(
         `/injuries/analytics/summary${qs ? `?${qs}` : ''}`,
       );
-      // When a body region chip is active without a specific bodyPart, filter
-      // distribution buckets client-side so the rest of the summary still
-      // reflects the full picture but the body-part chart shows only the
-      // region.
-      const filteredSummary = bodyRegion && !bodyPart
-        ? {
-            ...data,
-            byBodyPart: data.byBodyPart.filter((b) => BODY_REGIONS[bodyRegion].includes(b._id)),
-          }
-        : data;
-      setSummary(filteredSummary);
+      setSummary(data);
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load analytics');
@@ -148,12 +122,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     fetchSummary();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sport, gender, programme, bodyPart, injuryType, ageGroupIndex, bodyRegion, startDate, endDate]);
-
-  // Selecting a specific bodyPart wins over a region chip — clear region.
-  useEffect(() => {
-    if (bodyPart) setBodyRegion(null);
-  }, [bodyPart]);
+  }, [sport, gender, programme, bodyPart, injuryType, ageGroupIndex, startDate, endDate]);
 
   // Aggregate the byMonth series into the active bucket (monthly or
   // quarterly). Quarterly view sums each calendar quarter (Q1=Jan-Mar etc.)
@@ -272,13 +241,29 @@ export default function AdminDashboard() {
   function reset() {
     setSport(''); setGender(''); setProgramme('');
     setBodyPart(''); setInjuryType('');
-    setAgeGroupIndex(0); setBodyRegion(null);
+    setAgeGroupIndex(0);
     setStartDate(''); setEndDate('');
   }
 
+  // Build the /admin/reports link with the current dashboard filter state
+  // URL-encoded as query params. The reports page reads them on mount so the
+  // analyst doesn't re-enter the same filters they already chose here.
+  const reportsHref = useMemo(() => {
+    const p = new URLSearchParams();
+    if (sport)        p.set('sport', sport);
+    if (gender)       p.set('gender', gender);
+    if (programme)    p.set('program', programme);
+    if (bodyPart)     p.set('bodyPart', bodyPart);
+    if (injuryType)   p.set('injuryType', injuryType);
+    if (ageGroupIndex) p.set('ageGroupIndex', String(ageGroupIndex));
+    if (startDate)    p.set('startDate', startDate);
+    if (endDate)      p.set('endDate', endDate);
+    const qs = p.toString();
+    return `/admin/reports${qs ? `?${qs}` : ''}`;
+  }, [sport, gender, programme, bodyPart, injuryType, ageGroupIndex, startDate, endDate]);
+
   // Hide rule: a chart's dimension is hidden iff a filter narrows it to a
-  // single value. Body region narrows the body-part chart to a subset but
-  // keeps multiple values, so we keep that chart visible.
+  // single value.
   const show = {
     sport: !sport,
     bodyPart: !bodyPart,
@@ -292,33 +277,6 @@ export default function AdminDashboard() {
       {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
 
       <div className="card" style={{ marginBottom: 20 }}>
-        {/* Body region chip shortcuts — quick slicer above the dropdowns */}
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' }}>
-          <span className="text-muted" style={{ fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-            Body region
-          </span>
-          <button
-            type="button"
-            className={`region-chip${!bodyRegion ? ' active' : ''}`}
-            onClick={() => setBodyRegion(null)}
-          >
-            All
-          </button>
-          {Object.keys(BODY_REGIONS).map((r) => (
-            <button
-              key={r}
-              type="button"
-              className={`region-chip${bodyRegion === r ? ' active' : ''}`}
-              onClick={() => setBodyRegion(bodyRegion === r ? null : r)}
-              disabled={!!bodyPart && regionOfBodyPart(bodyPart) !== r}
-              title={!!bodyPart && regionOfBodyPart(bodyPart) !== r
-                ? 'Clear the Body Part filter to use a region shortcut'
-                : ''}
-            >
-              {r}
-            </button>
-          ))}
-        </div>
         <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
           <div className="form-group" style={{ minWidth: 140, marginBottom: 0 }}>
             <label>Sport</label>
@@ -370,7 +328,7 @@ export default function AdminDashboard() {
             <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
           </div>
           <button type="button" className="btn btn-outline btn-sm" onClick={reset}>Reset</button>
-          <Link href="/admin/reports" className="btn btn-gold btn-sm">Generate PDF Report</Link>
+          <Link href={reportsHref} className="btn btn-gold btn-sm">Generate PDF Report</Link>
         </div>
       </div>
 
