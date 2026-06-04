@@ -1,0 +1,38 @@
+// Wires up associations between the Sequelize models. Import this once at
+// server bootstrap so the models are registered before any queries run.
+const { sequelize } = require('../config/db-sql');
+
+const User = require('./User');
+const Athlete = require('./Athlete');
+const MuscleFlag = require('./MuscleFlag');
+const Activity = require('./Activity');
+const Injury = require('./Injury');
+const SelfReport = require('./SelfReport');
+
+// Athlete ↔ MuscleFlag (1:N) — using athleteId VARCHAR as the FK so the
+// canonical "ATH0001" identifier stays the cross-table key (same as Mongo).
+Athlete.hasMany(MuscleFlag, { foreignKey: 'athleteId', sourceKey: 'athleteId', as: 'muscleFlags' });
+MuscleFlag.belongsTo(Athlete, { foreignKey: 'athleteId', targetKey: 'athleteId' });
+
+Athlete.hasMany(Activity, { foreignKey: 'athleteId', sourceKey: 'athleteId', as: 'activities' });
+Activity.belongsTo(Athlete, { foreignKey: 'athleteId', targetKey: 'athleteId' });
+
+Athlete.hasMany(Injury, { foreignKey: 'athleteId', sourceKey: 'athleteId', as: 'injuries' });
+Injury.belongsTo(Athlete, { foreignKey: 'athleteId', targetKey: 'athleteId' });
+
+Athlete.hasMany(SelfReport, { foreignKey: 'athleteId', sourceKey: 'athleteId', as: 'selfReports' });
+SelfReport.belongsTo(Athlete, { foreignKey: 'athleteId', targetKey: 'athleteId' });
+
+// User → Athlete is a soft link via User.athleteId (only populated when
+// role='athlete'). Kept as a column rather than a strict FK to mirror the
+// Mongoose model and avoid forcing seed order issues.
+
+module.exports = {
+  sequelize,
+  User,
+  Athlete,
+  MuscleFlag,
+  Activity,
+  Injury,
+  SelfReport,
+};
