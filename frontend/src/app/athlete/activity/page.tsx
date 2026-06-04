@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { api } from '@/lib/api';
 import { getSession } from '@/lib/auth';
@@ -39,6 +39,317 @@ function loadNote(load: number): string {
   return 'Very high load — verify duration and intensity values are accurate.';
 }
 
+function RpeGuide({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+  return (
+    <div className="rpe-guide-wrap">
+      <button
+        type="button"
+        className="rpe-guide-toggle"
+        onClick={onToggle}
+        aria-expanded={open}
+      >
+        <span>{open ? '▾' : '▸'}</span> RPE Reference Guide
+      </button>
+      {open && (
+        <table className="rpe-table">
+          <thead>
+            <tr>
+              <th>RPE</th>
+              <th>Effort Level</th>
+              <th>Example</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>1 – 2</td><td>Very light</td><td>Gentle walk, cool-down stretching</td></tr>
+            <tr><td>3 – 4</td><td>Light – Moderate</td><td>Easy jog, warm-up drills</td></tr>
+            <tr><td>5 – 6</td><td>Hard</td><td>Typical training session, breathless but sustainable</td></tr>
+            <tr><td>7 – 8</td><td>Very hard</td><td>High-intensity intervals, can only speak in short phrases</td></tr>
+            <tr><td>9 – 10</td><td>Maximum</td><td>Competition effort, all-out sprint, cannot maintain</td></tr>
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
+function LoadPreview({ duration, intensity }: { duration: number; intensity: number }) {
+  const load = duration * intensity;
+  return (
+    <div className="load-preview">
+      <div className="load-formula">
+        Load = Duration × Intensity
+        <span className="load-info-icon">
+          ⓘ
+          <span className="load-tooltip">
+            Session load (AU — Arbitrary Units) reflects the total internal demand of a training session. It combines how long and how hard you trained. This value feeds directly into your weekly ACWR and risk level on the dashboard.
+          </span>
+        </span>
+      </div>
+      <div className="load-value">
+        <span>{duration}</span> min × <span>{intensity}</span> ={' '}
+        <strong>{load.toLocaleString()}</strong> AU
+      </div>
+      <div className="load-note">{loadNote(load)}</div>
+    </div>
+  );
+}
+
+function ActivityEditModal({
+  activity,
+  onSaved,
+  onClose,
+}: {
+  activity: Activity;
+  onSaved: (updated: Activity) => void;
+  onClose: () => void;
+}) {
+  const [type, setType] = useState<ActivityType>(activity.type);
+  const [date, setDate] = useState<string>(new Date(activity.date).toISOString().slice(0, 10));
+  const [duration, setDuration] = useState<number>(activity.duration);
+  const [intensity, setIntensity] = useState<number>(activity.intensity);
+  const [notes, setNotes] = useState<string>(activity.notes ?? '');
+  const [showRpeGuide, setShowRpeGuide] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape' && !submitting) onClose();
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [submitting, onClose]);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!type || !date) return;
+    if (!Number.isFinite(duration) || duration < 10 || duration > 240) {
+      setError('Duration must be between 10 and 240 minutes.');
+      return;
+    }
+    if (!Number.isFinite(intensity) || intensity < 1 || intensity > 10) {
+      setError('Intensity must be between 1 and 10.');
+      return;
+    }
+    if (date > todayISO()) {
+      setError('Activity date cannot be in the future.');
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      const updated = await api.put<Activity>(`/activities/${activity._id}`, {
+        type,
+        date,
+        duration,
+        intensity,
+        notes: notes || undefined,
+      });
+      onSaved(updated);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to update activity');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={() => !submitting && onClose()}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2 style={{ margin: 0, fontSize: '1.05rem' }}>
+            Edit Activity — {new Date(activity.date).toISOString().slice(0, 10)}
+          </h2>
+          <button
+            type="button"
+            className="modal-close"
+            onClick={onClose}
+            disabled={submitting}
+            aria-label="Close"
+          >
+            ×
+          </button>
+        </div>
+        <form id="edit-activity-form" onSubmit={handleSubmit}>
+          <div className="modal-body">
+            {error && <div className="alert alert-error">{error}</div>}
+
+            <div className="form-group">
+              <label htmlFor="ef-type">Activity Type</label>
+              <select
+                id="ef-type"
+                value={type}
+                onChange={(e) => setType(e.target.value as ActivityType)}
+                required
+              >
+                {ACTIVITY_TYPES.map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="ef-date">Date</label>
+              <input
+                id="ef-date"
+                type="date"
+                value={date}
+                max={todayISO()}
+                onChange={(e) => setDate(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="form-row-2">
+              <div className="form-group">
+                <label htmlFor="ef-dur">Duration (minutes)</label>
+                <input
+                  id="ef-dur"
+                  type="number"
+                  min={10}
+                  max={240}
+                  value={duration}
+                  onChange={(e) => setDuration(Number(e.target.value) || 0)}
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="ef-int">Intensity (RPE 1–10)</label>
+                <input
+                  id="ef-int"
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={intensity}
+                  onChange={(e) => setIntensity(Number(e.target.value) || 0)}
+                />
+              </div>
+            </div>
+
+            <RpeGuide open={showRpeGuide} onToggle={() => setShowRpeGuide((v) => !v)} />
+
+            <LoadPreview duration={duration} intensity={intensity} />
+
+            <div className="form-group" style={{ marginTop: 14 }}>
+              <label htmlFor="ef-notes">Notes (optional)</label>
+              <textarea
+                id="ef-notes"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Any relevant observations…"
+                rows={3}
+              />
+            </div>
+          </div>
+          <div className="modal-footer">
+            <button
+              type="button"
+              className="btn btn-outline"
+              onClick={onClose}
+              disabled={submitting}
+            >
+              Cancel
+            </button>
+            <button type="submit" className="btn btn-primary" disabled={submitting}>
+              {submitting ? 'Updating…' : 'Update Activity'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function DeleteConfirmModal({
+  activity,
+  deleting,
+  error,
+  onConfirm,
+  onClose,
+}: {
+  activity: Activity;
+  deleting: boolean;
+  error: string | null;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape' && !deleting) onClose();
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [deleting, onClose]);
+
+  const dateStr = new Date(activity.date).toISOString().slice(0, 10);
+
+  return (
+    <div className="modal-backdrop" onClick={() => !deleting && onClose()}>
+      <div
+        className="modal"
+        style={{ maxWidth: 460 }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="modal-header">
+          <h2 style={{ margin: 0, fontSize: '1.05rem' }}>Delete activity?</h2>
+          <button
+            type="button"
+            className="modal-close"
+            onClick={onClose}
+            disabled={deleting}
+            aria-label="Close"
+          >
+            ×
+          </button>
+        </div>
+        <div className="modal-body">
+          {error && <div className="alert alert-error">{error}</div>}
+          <p style={{ marginTop: 0 }}>
+            This will permanently remove the entry below. Your weekly load and
+            ACWR on the dashboard will recalculate automatically.
+          </p>
+          <div
+            style={{
+              background: 'var(--bg)',
+              border: '1px solid var(--border)',
+              borderRadius: 8,
+              padding: '12px 14px',
+              marginTop: 10,
+            }}
+          >
+            <div style={{ marginBottom: 4 }}>
+              <strong>{dateStr}</strong>
+              <span className="text-muted"> · {activity.type}</span>
+            </div>
+            <div className="text-muted" style={{ fontSize: '0.88rem' }}>
+              {activity.duration} min · RPE {activity.intensity}/10 ·{' '}
+              <strong>{activity.load} AU</strong>
+            </div>
+          </div>
+        </div>
+        <div className="modal-footer">
+          <button
+            type="button"
+            className="btn btn-outline"
+            onClick={onClose}
+            disabled={deleting}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="btn btn-outline"
+            style={{ borderColor: 'var(--risk-high)', color: 'var(--risk-high)' }}
+            onClick={onConfirm}
+            disabled={deleting}
+          >
+            {deleting ? 'Deleting…' : 'Delete Activity'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ActivityPage() {
   const [athleteId, setAthleteId] = useState<string | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
@@ -46,7 +357,6 @@ export default function ActivityPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  // Form state
   const [type, setType] = useState<ActivityType | ''>('');
   const [date, setDate] = useState<string>(todayISO());
   const [duration, setDuration] = useState<number>(60);
@@ -54,24 +364,31 @@ export default function ActivityPage() {
   const [notes, setNotes] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
 
-  // When set, the form is in edit mode and submit issues PUT instead of POST.
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
+  const [flashRowId, setFlashRowId] = useState<string | null>(null);
 
-  // Filter state
   const [filterType, setFilterType] = useState<ActivityType | ''>('');
-
   const [showRpeGuide, setShowRpeGuide] = useState(false);
+  const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set());
+  const [deleteCandidate, setDeleteCandidate] = useState<Activity | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  // Track in-flight deletes per row so rapid double-clicks can't fire two DELETEs
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  function toggleNote(id: string) {
+    setExpandedNotes((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
-  // Hold the success-toast timer so we can clear it on unmount
   const successTimerRef = useRef<number | null>(null);
+  const flashTimerRef = useRef<number | null>(null);
   useEffect(() => {
     return () => {
-      if (successTimerRef.current !== null) {
-        window.clearTimeout(successTimerRef.current);
-      }
+      if (successTimerRef.current !== null) window.clearTimeout(successTimerRef.current);
+      if (flashTimerRef.current !== null) window.clearTimeout(flashTimerRef.current);
     };
   }, []);
 
@@ -107,8 +424,6 @@ export default function ActivityPage() {
     };
   }, [athleteId]);
 
-  const load = duration * intensity;
-
   const filtered = useMemo(
     () => (filterType ? activities.filter((a) => a.type === filterType) : activities),
     [activities, filterType],
@@ -120,29 +435,29 @@ export default function ActivityPage() {
     setDuration(60);
     setIntensity(6);
     setNotes('');
-    setEditingId(null);
   }
 
-  function handleEdit(a: Activity) {
-    setEditingId(a._id);
-    setType(a.type);
-    setDate(new Date(a.date).toISOString().slice(0, 10));
-    setDuration(a.duration);
-    setIntensity(a.intensity);
-    setNotes(a.notes ?? '');
-    setError(null);
-    setSuccess(null);
-    // Bring the form into view — the table sits to the right on desktop but
-    // stacks below on narrow viewports, where the form would scroll out of sight.
-    if (typeof window !== 'undefined') {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
+  function flashRow(id: string) {
+    setFlashRowId(id);
+    if (flashTimerRef.current !== null) window.clearTimeout(flashTimerRef.current);
+    flashTimerRef.current = window.setTimeout(() => {
+      setFlashRowId(null);
+      flashTimerRef.current = null;
+    }, 1700);
+  }
+
+  function showSuccess(msg: string) {
+    setSuccess(msg);
+    if (successTimerRef.current !== null) window.clearTimeout(successTimerRef.current);
+    successTimerRef.current = window.setTimeout(() => {
+      setSuccess(null);
+      successTimerRef.current = null;
+    }, 2500);
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!type || !date) return;
-    // Client-side guards so a zero/invalid value never makes a doomed request.
     if (!Number.isFinite(duration) || duration < 10 || duration > 240) {
       setError('Duration must be between 10 and 240 minutes.');
       return;
@@ -151,7 +466,6 @@ export default function ActivityPage() {
       setError('Intensity must be between 1 and 10.');
       return;
     }
-    // Date picker has `max={todayISO()}`, but a typed value can bypass that.
     if (date > todayISO()) {
       setError('Activity date cannot be in the future.');
       return;
@@ -159,30 +473,17 @@ export default function ActivityPage() {
     setSubmitting(true);
     setError(null);
     try {
-      const payload = {
+      const created = await api.post<Activity>('/activities', {
         type,
         date,
         duration,
         intensity,
         notes: notes || undefined,
-      };
-      if (editingId) {
-        const updated = await api.put<Activity>(`/activities/${editingId}`, payload);
-        setActivities((prev) => prev.map((a) => (a._id === editingId ? updated : a)));
-        setSuccess('Activity updated. Your dashboard will update automatically.');
-      } else {
-        const created = await api.post<Activity>('/activities', payload);
-        setActivities((prev) => [created, ...prev]);
-        setSuccess('Activity saved. Your dashboard will update automatically.');
-      }
+      });
+      setActivities((prev) => [created, ...prev]);
       resetForm();
-      if (successTimerRef.current !== null) {
-        window.clearTimeout(successTimerRef.current);
-      }
-      successTimerRef.current = window.setTimeout(() => {
-        setSuccess(null);
-        successTimerRef.current = null;
-      }, 2500);
+      showSuccess('Activity saved. Your dashboard will update automatically.');
+      flashRow(created._id);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to save activity');
     } finally {
@@ -190,28 +491,42 @@ export default function ActivityPage() {
     }
   }
 
-  async function handleDelete(id: string) {
-    if (deletingId) return;
-    if (!window.confirm('Delete this activity entry?')) return;
-    setDeletingId(id);
+  function handleEditSaved(updated: Activity) {
+    setActivities((prev) => prev.map((a) => (a._id === updated._id ? updated : a)));
+    setEditingActivity(null);
+    showSuccess('Activity updated. Your dashboard will update automatically.');
+    flashRow(updated._id);
+  }
+
+  async function confirmDelete() {
+    if (!deleteCandidate || deleting) return;
+    const id = deleteCandidate._id;
+    setDeleting(true);
+    setDeleteError(null);
     try {
       await api.delete(`/activities/${id}`);
       setActivities((prev) => prev.filter((a) => a._id !== id));
-      // If the row being deleted is the one currently loaded in the form,
-      // drop edit mode so the user isn't editing a ghost.
-      if (editingId === id) resetForm();
+      if (editingActivity?._id === id) setEditingActivity(null);
+      setDeleteCandidate(null);
+      showSuccess('Activity deleted. Your dashboard will update automatically.');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to delete activity');
+      setDeleteError(e instanceof Error ? e.message : 'Failed to delete activity');
     } finally {
-      setDeletingId(null);
+      setDeleting(false);
     }
+  }
+
+  function closeDeleteModal() {
+    if (deleting) return;
+    setDeleteCandidate(null);
+    setDeleteError(null);
   }
 
   return (
     <DashboardLayout allowedRoles={['athlete']} title="Activity Tracking">
       <div className="grid-1-2">
         <div className="card">
-          <h2 className="card-title">{editingId ? 'Edit Activity' : 'Log New Activity'}</h2>
+          <h2 className="card-title">Log New Activity</h2>
 
           {success && <div className="alert alert-success">{success}</div>}
           {error && <div className="alert alert-error">{error}</div>}
@@ -269,71 +584,9 @@ export default function ActivityPage() {
               </div>
             </div>
 
-            <div className="rpe-guide-wrap">
-              <button
-                type="button"
-                className="rpe-guide-toggle"
-                onClick={() => setShowRpeGuide((v) => !v)}
-                aria-expanded={showRpeGuide}
-              >
-                <span>{showRpeGuide ? '▾' : '▸'}</span> RPE Reference Guide
-              </button>
-              {showRpeGuide && (
-                <table className="rpe-table">
-                  <thead>
-                    <tr>
-                      <th>RPE</th>
-                      <th>Effort Level</th>
-                      <th>Example</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td>1 – 2</td>
-                      <td>Very light</td>
-                      <td>Gentle walk, cool-down stretching</td>
-                    </tr>
-                    <tr>
-                      <td>3 – 4</td>
-                      <td>Light – Moderate</td>
-                      <td>Easy jog, warm-up drills</td>
-                    </tr>
-                    <tr>
-                      <td>5 – 6</td>
-                      <td>Hard</td>
-                      <td>Typical training session, breathless but sustainable</td>
-                    </tr>
-                    <tr>
-                      <td>7 – 8</td>
-                      <td>Very hard</td>
-                      <td>High-intensity intervals, can only speak in short phrases</td>
-                    </tr>
-                    <tr>
-                      <td>9 – 10</td>
-                      <td>Maximum</td>
-                      <td>Competition effort, all-out sprint, cannot maintain</td>
-                    </tr>
-                  </tbody>
-                </table>
-              )}
-            </div>
+            <RpeGuide open={showRpeGuide} onToggle={() => setShowRpeGuide((v) => !v)} />
 
-            <div className="load-preview">
-              <div className="load-formula">
-                Load = Duration × Intensity
-                <span className="load-info-icon">
-                  ⓘ
-                  <span className="load-tooltip">
-                    Session load (AU — Arbitrary Units) reflects the total internal demand of a training session. It combines how long and how hard you trained. This value feeds directly into your weekly ACWR and risk level on the dashboard.
-                  </span>
-                </span>
-              </div>
-              <div className="load-value">
-                <span>{duration}</span> min × <span>{intensity}</span> ={' '}
-                <strong>{load.toLocaleString()}</strong> AU
-              </div>
-              <div className="load-note">{loadNote(load)}</div>
-            </div>
+            <LoadPreview duration={duration} intensity={intensity} />
 
             <div className="form-group" style={{ marginTop: 14 }}>
               <label htmlFor="f-notes">Notes (optional)</label>
@@ -351,21 +604,8 @@ export default function ActivityPage() {
               className="btn btn-primary btn-full"
               disabled={submitting}
             >
-              {submitting
-                ? (editingId ? 'Updating…' : 'Saving…')
-                : (editingId ? 'Update Activity' : 'Save Activity')}
+              {submitting ? 'Saving…' : 'Save Activity'}
             </button>
-            {editingId && (
-              <button
-                type="button"
-                className="btn btn-outline btn-full"
-                style={{ marginTop: 8 }}
-                onClick={resetForm}
-                disabled={submitting}
-              >
-                Cancel Edit
-              </button>
-            )}
           </form>
         </div>
 
@@ -412,40 +652,84 @@ export default function ActivityPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((a) => (
-                    <tr key={a._id}>
-                      <td>{new Date(a.date).toISOString().slice(0, 10)}</td>
-                      <td><span className="tag-pill">{a.type}</span></td>
-                      <td>{a.duration} min</td>
-                      <td>{a.intensity}/10</td>
-                      <td><strong>{a.load}</strong></td>
-                      <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                        <button
-                          type="button"
-                          className="btn btn-outline btn-sm"
-                          onClick={() => handleEdit(a)}
-                          disabled={editingId === a._id || deletingId === a._id}
-                          style={{ marginRight: 6 }}
-                        >
-                          {editingId === a._id ? 'Editing…' : 'Edit'}
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-outline btn-sm"
-                          onClick={() => handleDelete(a._id)}
-                          disabled={deletingId === a._id}
-                        >
-                          {deletingId === a._id ? 'Deleting…' : 'Delete'}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {filtered.map((a) => {
+                    const isExpanded = expandedNotes.has(a._id);
+                    return (
+                      <Fragment key={a._id}>
+                        <tr className={flashRowId === a._id ? 'row-flash' : undefined}>
+                          <td>
+                            {a.notes && (
+                              <button
+                                type="button"
+                                className="note-caret"
+                                onClick={() => toggleNote(a._id)}
+                                aria-expanded={isExpanded}
+                                aria-label={isExpanded ? 'Hide note' : 'Show note'}
+                                title={isExpanded ? 'Hide note' : 'Show note'}
+                              >
+                                {isExpanded ? '▾' : '▸'}
+                              </button>
+                            )}
+                            {new Date(a.date).toISOString().slice(0, 10)}
+                          </td>
+                          <td><span className="tag-pill">{a.type}</span></td>
+                          <td>{a.duration} min</td>
+                          <td>{a.intensity}/10</td>
+                          <td><strong>{a.load}</strong></td>
+                          <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                            <button
+                              type="button"
+                              className="btn btn-outline btn-sm"
+                              onClick={() => setEditingActivity(a)}
+                              disabled={deleting && deleteCandidate?._id === a._id}
+                              style={{ marginRight: 6 }}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-outline btn-sm"
+                              onClick={() => setDeleteCandidate(a)}
+                              disabled={deleting && deleteCandidate?._id === a._id}
+                            >
+                              Delete
+                            </button>
+                          </td>
+                        </tr>
+                        {isExpanded && a.notes && (
+                          <tr className={`activity-notes-row${flashRowId === a._id ? ' row-flash' : ''}`}>
+                            <td colSpan={6}>
+                              <div className="activity-note">📝 {a.notes}</div>
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           )}
         </div>
       </div>
+
+      {editingActivity && (
+        <ActivityEditModal
+          activity={editingActivity}
+          onSaved={handleEditSaved}
+          onClose={() => setEditingActivity(null)}
+        />
+      )}
+
+      {deleteCandidate && (
+        <DeleteConfirmModal
+          activity={deleteCandidate}
+          deleting={deleting}
+          error={deleteError}
+          onConfirm={confirmDelete}
+          onClose={closeDeleteModal}
+        />
+      )}
     </DashboardLayout>
   );
 }

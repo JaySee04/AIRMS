@@ -1,6 +1,6 @@
 # FYP I Viva Presentation Script
 
-Aligned to **FYP I VIVA SLIDES (Draft).pdf** (2026-05-25).
+Aligned to **FYP I VIVA SLIDES (Draft).pdf** (updated post-panel feedback; Literature Review 4 is a recent two-paper Session Load Quantification cluster — Inoue 2022 and Yang 2024 — both of which build on and revalidate the established sRPE method).
 
 ---
 
@@ -28,9 +28,9 @@ The system addresses injury analysis by providing a centralised platform with Ro
 
 The first problem is the absence of a dedicated injury tracking and risk management system. Sports institutions like ISN currently rely on fragmented records and manual processes to monitor athlete health, making it difficult to identify injury patterns, flag at-risk athletes, or maintain consistent longitudinal records — a gap also highlighted in the scoping review by Costello et al. in 2024.
 
-The second problem is the lack of workload monitoring for athlete injury risk assessment. Without a system that computes and displays the Acute to Chronic Workload Ratio, or ACWR, athletes and medical staff have no data-driven basis for identifying dangerous workload patterns before injuries occur — a gap reinforced by Andrade et al. in 2020.
+The second problem is the lack of workload monitoring for athlete injury risk assessment. Without a system that computes and displays the Acute to Chronic Workload Ratio, or ACWR, athletes and medical staff have no data-driven basis for identifying dangerous workload patterns before injuries occur — a gap reinforced by the recent systematic review and meta-analysis by Qin et al. in 2025.
 
-The third problem is the absence of a centralised platform for administrative injury analytics. Without structured, consistent data and filtering capabilities, producing summaries for management and policy-level stakeholders is unreliable and time-consuming, limiting the institution's ability to respond proactively to injury trends — which is precisely the standardisation case made by the IOC consensus statement led by Bahr et al. in 2020.
+The third problem is the absence of a centralised platform for administrative injury analytics. Without structured, consistent data and filtering capabilities, producing summaries for management and policy-level stakeholders is unreliable and time-consuming, limiting the institution's ability to respond proactively to injury trends — which is precisely the standardisation case extended by Sprouse et al. in 2024, building on the IOC consensus lineage established by Bahr et al.
 
 ---
 
@@ -46,15 +46,15 @@ My third and final objective is to evaluate the effectiveness and usability of t
 
 ## Slide 6 — Literature Review (title)
 
-Moving on to the Literature Review. I have four papers grounding the design of AIRMS.
+Moving on to the Literature Review. I have four reviews grounding the design of AIRMS, with the fourth covering a two-paper cluster on session load quantification.
 
 ---
 
-## Slide 7 — Literature Review 1: Andrade et al. (2020)
+## Slide 7 — Literature Review 1: Qin et al. (2025)
 
-My first review is *Is the ACWR Associated with Risk of Time-Loss Injury in Professional Team Sports? A Systematic Review*.
+My first review is *Acute to Chronic Workload Ratio (ACWR) for Predicting Sports Injury Risk: A Systematic Review and Meta-Analysis*.
 
-This paper examines the association between the Acute to Chronic Workload Ratio and time-loss injury risk across professional team sports. The key findings establish that ACWR is a practically applicable metric for flagging periods of disproportionate workload, particularly when sudden spikes occur relative to a participant's established baseline. It also finds that presenting workload data visually through risk thresholds — low, moderate, and high — significantly aids practitioners in making timely, informed decisions about participant readiness. Workload spikes relative to a participant's baseline are reported as the strongest predictor of injury risk.
+This systematic review and meta-analysis pools 22 cohort studies to quantify how ACWR predicts time-loss injury risk across team sports. The key findings confirm that ACWR is meaningfully associated with injury risk, with the lowest injury incidence — 56 percent — occurring when athletes' ACWR remains within the 0.8 to 1.3 band. This provides direct empirical support for threshold-based risk categorisation and identifies workload spikes outside the baseline band as the strongest predictor of elevated injury risk.
 
 ---
 
@@ -66,27 +66,29 @@ This scoping review surveys sports injury surveillance systems in current practi
 
 ---
 
-## Slide 9 — Literature Review 3: Bahr et al. (2020)
+## Slide 9 — Literature Review 3: Sprouse et al. (2024)
 
-My third review is the *International Olympic Committee Consensus Statement: Methods for Recording and Reporting of Epidemiological Data on Injury and Illness in Sport 2020*.
+My third review is *Injury and Illness Surveillance Monitoring in Team Sports: A Framework for All*.
 
-This consensus statement establishes internationally recognised methods for recording and reporting epidemiological data on sports injuries, introducing the STROBE-SIIS extension as a standardised framework. The key findings define the essential data variables every credible injury surveillance system should capture — injury type, affected body part, severity, mechanism, and time of occurrence. It also establishes that consistent data structure enables cross-cohort comparison and population-level trend analysis across sport, gender, and age group.
+This framework paper extends the IOC and STROBE-SIIS standardisation lineage established by Bahr et al. into guidance applicable across all standards of sporting participation, not only elite contexts. The key findings reaffirm the essential data variables every credible injury surveillance system should capture — injury type, affected body part, severity, mechanism, and time of occurrence — and add implementation-oriented guidance for non-elite settings. It also establishes that consistent data structure enables cross-cohort comparison and population-level trend analysis across sport, gender, and age group.
 
 ---
 
-## Slide 10 — Literature Review 4: Foster et al. (2001)
+## Slide 10 — Literature Review 4: Session Load Quantification (Inoue 2022, Yang 2024)
 
-My fourth and final review is *A New Approach to Monitoring Exercise Training*.
+My fourth review is a cluster of two recent works covering session load quantification — the foundational metric on which ACWR-based workload monitoring is built. Both papers build on and revalidate the established session-RPE (sRPE) method, in which Session Load equals Duration in minutes multiplied by RPE on a one-to-ten scale, producing a value in Arbitrary Units. AIRMS uses 1-to-10 rather than 0-to-10 to avoid zero-load entries that would zero out ACWR.
 
-This study proposes the session-RPE method as a standardised approach for quantifying internal training load, establishing the foundational load metric — expressed in Arbitrary Units — upon which ACWR-based workload monitoring is built. The formula is Session Load equals Duration in minutes multiplied by RPE on a one-to-ten scale, and it has been validated against objective measures including HR-based TRIMP and blood lactate responses. The method captures internal demand rather than external output, making it applicable across all sports and venues, and it is hardware-free — requiring only athlete self-report approximately thirty minutes post-session.
+Inoue et al. (2022) is a systematic review and meta-analysis of 27 studies which found no significant difference between athlete-perceived sRPE and coach-prescribed loads for overall RPE — confirming the CR-10 rating is interpreted reliably by athletes across diverse sports and competitive levels. Yang et al. (2024) reviews sRPE applications in elite endurance athletes and reports strong, consistent correlation with HR-based TRIMP across varying training intensities, re-establishing the perceptual-to-physiological correspondence in present-day high-performance contexts.
+
+A common limitation across the two works is that self-reported RPE varies by individual perception, so absolute load values are not directly comparable across athletes. This limitation is mitigated within the ACWR framework, which compares each athlete against their own historical baseline rather than across the cohort — making within-individual consistency more important than inter-athlete comparability.
 
 ---
 
 ## Slide 11 — Literature Review Summary
 
-Taken together, these four papers form a connected evidence base that directly informs the design of AIRMS. Foster establishes the session-RPE method as the foundation for measuring training load, which feeds directly into the Activity Tracking Module. Andrade then validates why this load data matters — confirming that ACWR is a meaningful predictor of injury risk, and that visual risk banding aids decision-making, which is reflected in the Dashboard and Workload Module. Costello informs the architecture of the Injury and Recovery Logging Module, specifically the multi-stakeholder reporting pathway and the review workflow between athletes and medical staff. Finally, Bahr provides the data standards that underpin the Admin Injury Analytics Dashboard, ensuring the injury variables captured align with internationally recognised epidemiological frameworks.
+Taken together, these works form a connected evidence base that directly informs the design of AIRMS. The Session Load Quantification cluster — Inoue (2022) and Yang (2024) — provides recent, peer-reviewed evidence that the sRPE method remains valid and reliable for institutional use along the two axes that matter: scale reliability (Inoue) and physiological correspondence (Yang); this feeds directly into the Activity Tracking Module. Qin (2025) then validates why this load data matters — confirming through meta-analysis that ACWR is a meaningful predictor of injury risk and that the 0.8–1.3 band carries the lowest incidence — with Michailidis (2024) further supporting the case for *personalised* rather than universal thresholds, both of which are reflected in the Dashboard and Workload Module. Costello informs the architecture of the Injury and Recovery Logging Module, specifically the multi-stakeholder reporting pathway and the review workflow between athletes and medical staff. Finally, Sprouse (2024) provides the data standards that underpin the Admin Injury Analytics Dashboard, ensuring the injury variables captured align with the IOC/STROBE-SIIS lineage of internationally recognised epidemiological frameworks, with Waldén et al. (2023) evidencing that this lineage is actively maintained and sport-extensible.
 
-Each paper maps directly to a problem statement and a module, giving the system a strong academic grounding.
+Each cluster maps directly to a problem statement and a module, giving the system a strong academic grounding.
 
 ---
 
@@ -276,7 +278,7 @@ Here is the collaboration letter signed by Professor Dr. Nor Liyana Mohd Shuib, 
 
 ## Slide 52 — References
 
-Here are my references for the project development — the four primary papers covered earlier, and the four commercial systems used in the comparison.
+Here are my references for the project development — the five primary papers covered earlier (Qin 2025, Costello 2024, Sprouse 2024, Inoue 2022, and Yang 2024), and the four commercial systems used in the comparison.
 
 ---
 

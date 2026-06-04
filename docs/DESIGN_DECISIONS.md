@@ -23,7 +23,7 @@
 
 **Counter to "but isn't self-reporting gameable?":** The system tracks the *ratio* of acute to chronic. Even if an athlete consistently over- or under-rates, their personal trend is meaningful. Internal consistency matters more than inter-athlete comparability.
 
-**Defensibility one-liner:** *"sRPE is the most widely cited method for capturing internal training load in team-sport literature. Foster et al. (2001) validated it; Gabbett (2016) built ACWR around it. Self-reporting is by design — it captures how the athlete experienced the session, which is what predicts injury risk."*
+**Defensibility one-liner:** *"sRPE is the most widely cited method for capturing internal training load in team-sport literature. Originally proposed by Foster et al. (2001) and revalidated in present-day contexts by Inoue et al. (2022) and Yang et al. (2024); Gabbett (2016) built ACWR around it. Self-reporting is by design — it captures how the athlete experienced the session, which is what predicts injury risk."*
 
 ---
 

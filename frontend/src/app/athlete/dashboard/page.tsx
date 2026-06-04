@@ -1,12 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import BodyMap, { MuscleEntry } from '@/components/dashboard/BodyMap';
 import WorkloadChart from '@/components/dashboard/WorkloadChart';
 import RiskRadar from '@/components/dashboard/RiskRadar';
 import RiskAlert from '@/components/dashboard/RiskAlert';
+import AcwrGauge from '@/components/dashboard/AcwrGauge';
 import { api } from '@/lib/api';
 import { getSession } from '@/lib/auth';
 import { classifyCompositeRisk } from '@/lib/risk';
@@ -18,6 +19,7 @@ interface Activity {
   duration: number;
   intensity: number;
   load: number;
+  notes?: string;
 }
 
 interface AthleteRisks {
@@ -81,6 +83,16 @@ export default function AthleteDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [injuryTab, setInjuryTab] = useState<'active' | 'all'>('active');
+  const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set());
+
+  function toggleNote(id: string) {
+    setExpandedNotes((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   useEffect(() => {
     const session = getSession();
@@ -245,7 +257,7 @@ export default function AthleteDashboard() {
             {risk.level}
             {risk.escalated && (
               <span className="risk-escalation-badge">
-                escalated from {risk.baseCls === 'low' ? 'Optimal' : 'Elevated'}
+                escalated from {risk.baseCls === 'low' ? 'Low Risk' : 'Moderate Risk'}
               </span>
             )}
           </div>
@@ -258,6 +270,13 @@ export default function AthleteDashboard() {
               ))}
             </div>
           )}
+          <AcwrGauge
+            acwr={computed.acwr}
+            lowMin={risk.personalisedRange.lowMin}
+            lowMax={risk.personalisedRange.lowMax}
+            modMax={risk.personalisedRange.modMax}
+            compositeCls={risk.cls}
+          />
           {computed.sharpDip && (
             <div className="risk-hero-prompt">
               <span>
@@ -376,15 +395,41 @@ export default function AthleteDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {recentActivities.map((a) => (
-                    <tr key={a._id}>
-                      <td>{new Date(a.date).toISOString().slice(0, 10)}</td>
-                      <td>{a.type}</td>
-                      <td>{a.duration} min</td>
-                      <td>{a.intensity}/10</td>
-                      <td><strong>{a.load}</strong></td>
-                    </tr>
-                  ))}
+                  {recentActivities.map((a) => {
+                    const isExpanded = expandedNotes.has(a._id);
+                    return (
+                      <Fragment key={a._id}>
+                        <tr>
+                          <td>
+                            {a.notes && (
+                              <button
+                                type="button"
+                                className="note-caret"
+                                onClick={() => toggleNote(a._id)}
+                                aria-expanded={isExpanded}
+                                aria-label={isExpanded ? 'Hide note' : 'Show note'}
+                                title={isExpanded ? 'Hide note' : 'Show note'}
+                              >
+                                {isExpanded ? '▾' : '▸'}
+                              </button>
+                            )}
+                            {new Date(a.date).toISOString().slice(0, 10)}
+                          </td>
+                          <td>{a.type}</td>
+                          <td>{a.duration} min</td>
+                          <td>{a.intensity}/10</td>
+                          <td><strong>{a.load}</strong></td>
+                        </tr>
+                        {isExpanded && a.notes && (
+                          <tr className="activity-notes-row">
+                            <td colSpan={5}>
+                              <div className="activity-note">📝 {a.notes}</div>
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

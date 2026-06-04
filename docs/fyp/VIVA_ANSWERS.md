@@ -10,9 +10,9 @@ Answers grounded in `docs/MASTER_CLARIFICATIONS.md`, `docs/DESIGN_DECISIONS.md`,
 |---|---|---|
 | 1 | Why ISN and not a local sports club / university team? | ISN is the national elite sports institute under the Ministry of Youth & Sports — they run PODIUM and PELAPIS programmes for Malaysia's international-level athletes. Building for elite-tier needs gives the system clinical and operational seriousness that a club setting cannot match, and the data governance is more representative of a real production environment. |
 | 2 | Who is Dr Thung and what was his exact role? | Dr Thung Jin Seng is the ISN representative — domain stakeholder and requirement signatory, not co-developer. He gave problem framing, ranked features (admin holistic + medical per-athlete, age-group filters, prevention insight), and signed the collaboration letter. He validates outputs; the engineering decisions are mine. |
-| 3 | Why "dual-dashboard" rather than one configurable view? | Admin and medical have fundamentally different jobs: admin makes policy decisions across the cohort (epidemiological framing per Bahr 2020), medical makes clinical decisions for one athlete at a time. The information density, filters, and affordances differ — one configurable view would be a worse fit for both. |
+| 3 | Why "dual-dashboard" rather than one configurable view? | Admin and medical have fundamentally different jobs: admin makes policy decisions across the cohort (epidemiological framing per Sprouse 2024 and the IOC/STROBE-SIIS lineage), medical makes clinical decisions for one athlete at a time. The information density, filters, and affordances differ — one configurable view would be a worse fit for both. |
 | 4 | Inherited HTML prototype — what kept, what discarded, why? | Kept: visual layout, brand colours, page-level component composition (sidebar, topbar, card structures) since Shewin/Keying's UX was already approved by Dr Thung. Discarded: all static HTML, mock data, and standalone pages — replaced with a Next.js App Router app, real REST API, real MongoDB, JWT auth, and the composite risk model. |
-| 5 | Without ISN, would the project still be defensible academically? | Yes — the composite risk model is the FYP innovation and stands on Foster/Andrade/Gabbett evidence regardless of the deployment site. What ISN adds is *real* operational requirements and stakeholder validation, which lifts the work from "plausible prototype" to "stakeholder-grounded artefact." |
+| 5 | Without ISN, would the project still be defensible academically? | Yes — the composite risk model is the FYP innovation and stands on Inoue/Yang/Qin/Gabbett evidence regardless of the deployment site. What ISN adds is *real* operational requirements and stakeholder validation, which lifts the work from "plausible prototype" to "stakeholder-grounded artefact." |
 
 ## 2. Problem Statement (Slide 4)
 
@@ -28,16 +28,16 @@ Answers grounded in `docs/MASTER_CLARIFICATIONS.md`, `docs/DESIGN_DECISIONS.md`,
 
 | # | Question | Answer |
 |---|---|---|
-| 4 | Why ACWR specifically — not weekly load, monotony, strain? | ACWR (acute:chronic ratio) captures *relative* change against an athlete's own baseline — Andrade (2020) finds spikes against baseline are the strongest predictor. Absolute weekly load misses that; monotony/strain are complementary but not as well-evidenced for time-loss injury association. |
-| 5 | Was Andrade actually for or against ACWR? | Andrade is cautiously supportive — it concludes ACWR has practical applicability for flagging disproportionate workload, while noting context-sensitivity. I cite it as evidence ACWR is meaningful, not as a magic predictor — that's why AIRMS *adds* personalisation and escalation. |
+| 4 | Why ACWR specifically — not weekly load, monotony, strain? | ACWR (acute:chronic ratio) captures *relative* change against an athlete's own baseline — Qin et al. (2025) finds spikes outside the 0.8–1.3 band carry the highest incidence and are the strongest predictor. Absolute weekly load misses that; monotony/strain are complementary but not as well-evidenced for time-loss injury association. |
+| 5 | Was Qin et al. supportive of ACWR as a predictor? | Cautiously supportive — the meta-analysis confirms ACWR is associated with injury risk and quantifies the 0.8–1.3 band as lowest incidence (56%), while flagging heterogeneity in calculation methods. I cite it as evidence ACWR is meaningful, not as a magic predictor — that's why AIRMS *adds* personalisation and escalation. |
 | 6 | Isn't "no data-driven basis" overclaiming when a coach can read a spreadsheet? | A coach reading a spreadsheet is exactly the failure mode — it relies on individual recall, has no rolling-window mathematics, and isn't visible to the athlete. The problem isn't impossibility, it's lack of a systematic, role-shared, computed view. |
 
 ### PS3 — Lack of centralised admin analytics
 
 | # | Question | Answer |
 |---|---|---|
-| 7 | Why is structured data the bottleneck — not analyst time or politics? | Without structured data you cannot filter, aggregate, or trend at all — analyst time is moot. Bahr (2020) frames standardisation as the precondition for any epidemiological analysis. Politics is downstream. |
-| 8 | How does Bahr (2020) prove this is a real gap, not just convenience? | Bahr's IOC consensus exists precisely *because* fragmented recording impedes cross-cohort comparison. If standardisation were trivial or already solved, there would be no need for a consensus statement. |
+| 7 | Why is structured data the bottleneck — not analyst time or politics? | Without structured data you cannot filter, aggregate, or trend at all — analyst time is moot. Sprouse et al. (2024), extending Bahr's IOC consensus, frames standardisation as the precondition for any epidemiological analysis. Politics is downstream. |
+| 8 | How does Sprouse (2024) prove this is a real gap, not just convenience? | Sprouse et al. published a "framework for all" precisely *because* the IOC/STROBE-SIIS standard (Bahr 2020) was elite-leaning and under-implemented across the wider participation spectrum. A 2024 follow-up framework exists only when the 2020 standard remained a real gap in practice. |
 | 9 | What does the dashboard unlock that weekly meetings cannot? | Filtered ad-hoc analysis (e.g. lower-body injuries in PODIUM females under 21, last quarter), reproducible PDF reports for management, and trend identification at quarter/year scale that meeting minutes never aggregate. |
 
 ## 3. Objectives (Slide 5)
@@ -52,14 +52,14 @@ Answers grounded in `docs/MASTER_CLARIFICATIONS.md`, `docs/DESIGN_DECISIONS.md`,
 
 ## 4. Literature Review (Slides 6–11)
 
-### Andrade et al. (2020)
+### Qin et al. (2025)
 
 | # | Question | Answer |
 |---|---|---|
-| 1 | What evidence level does a systematic review carry vs. RCT, and why is it right here? | Level II — synthesises multiple primary studies. It is *more* appropriate than a single RCT here because injury prediction is multi-factorial; a synthesis across team sports is more generalisable to ISN's multi-sport cohort than any one trial. |
-| 2 | ACWR critics (Impellizzeri 2020) — how do you defend continued use? | I don't claim ACWR is causal — I use it as a *flag* for disproportionate workload, which the critics still acknowledge. The composite model layered on top is *exactly* the response to ACWR's known limitations: personalised thresholds + escalation by injury/biomechanical context. |
+| 1 | What evidence level does a systematic review and meta-analysis carry vs. RCT, and why is it right here? | Level I — a meta-analysis of 22 cohort studies sits at the top of the evidence hierarchy alongside RCTs. It is *more* appropriate than a single RCT here because injury prediction is multi-factorial; a pooled synthesis across team sports is more generalisable to ISN's multi-sport cohort than any one trial. |
+| 2 | ACWR critics (Impellizzeri 2020) — how do you defend continued use? | I don't claim ACWR is causal — I use it as a *flag* for disproportionate workload, which the critics still acknowledge. Qin's 2025 meta-analysis re-confirms the 0.8–1.3 sweet spot empirically. The composite model layered on top is *exactly* the response to ACWR's known limitations: personalised thresholds + escalation by injury/biomechanical context. |
 | 3 | What's the meaningful unit window — 7-day acute / 28-day chronic — why? | This is the Gabbett-standard pairing: 7 days captures fatigue accumulation, 28 days approximates current fitness. Shorter chronic windows over-react to noise; longer ones lag real fitness changes. |
-| 4 | Coupled vs uncoupled ACWR — which do you use, defensible? | AIRMS uses *coupled* ACWR (acute included in chronic). Uncoupled is statistically cleaner but introduces a delay; coupled matches Foster/Gabbett's original published method and what most applied practitioners use. |
+| 4 | Coupled vs uncoupled ACWR — which do you use, defensible? | AIRMS uses *coupled* ACWR (acute included in chronic). Uncoupled is statistically cleaner but introduces a delay; coupled matches Gabbett's original published method and what most applied practitioners use. Qin (2025) reports coupled is the dominant method (95% of pooled studies). |
 
 ### Costello et al. (2024)
 
@@ -69,29 +69,29 @@ Answers grounded in `docs/MASTER_CLARIFICATIONS.md`, `docs/DESIGN_DECISIONS.md`,
 | 6 | Which module translates Costello to code, and where? | Module 3 — the self-report → review → approve/reject → promote-to-Injury flow lives in `backend/src/routes/selfReports.js` (review endpoint promotes a SelfReport into an Injury document). |
 | 7 | Why three review states (Pending/Approved/Rejected), not two or four? | Three is the minimum that preserves clinical accountability: Pending = athlete submitted, Approved = clinician validated and promoted, Rejected = clinician declined with note. Two collapses accountability; four (e.g. "Under Review") adds workflow friction without changing outcomes. |
 
-### Bahr et al. (2020)
+### Sprouse et al. (2024)
 
 | # | Question | Answer |
 |---|---|---|
-| 8 | STROBE-SIIS in plain language — which fields come from it? | STROBE-SIIS is the standard reporting framework for sports injury studies — what data variables every report should capture. From it I take: body part, side, injury type, mechanism, severity, date, and recovery status — all of which are in the `Injury` Mongoose schema. |
+| 8 | STROBE-SIIS in plain language — which fields come from it? | STROBE-SIIS is the standard reporting framework for sports injury studies — what data variables every report should capture. Sprouse (2024) inherits and operationalises these for non-elite settings. From it I take: body part, side, injury type, mechanism, severity, date, and recovery status — all of which are in the `Injury` Mongoose schema. |
 | 9 | Does the Injury schema fully meet STROBE-SIIS? Defend omissions. | Core variables yes. Omitted for FYP scope: exact session in which it occurred (we have date), exposure hours denominator (would require attendance tracking — out of scope), and clinician identifier (we have logging user but not credentialing). All are FYP II extensions. |
-| 10 | Consensus statements aren't peer-reviewed primary research — why is it good evidence? | Consensus statements *aggregate* peer-reviewed evidence under IOC governance — they sit above primary research as the field's authoritative synthesis. For a *standardisation* problem (PS3), the consensus is the strongest possible evidence. |
+| 10 | Sprouse is a framework paper, not primary research — why is it good evidence? | Sprouse explicitly extends the IOC/STROBE-SIIS consensus lineage (Bahr 2020) and aggregates implementation experience across participation levels. For a *standardisation-plus-operationalisation* problem (PS3), a 2024 framework built atop the field's authoritative consensus is the strongest possible evidence. |
 
-### Foster et al. (2001)
+### Inoue et al. (2022) + Yang et al. (2024) — sRPE cluster
 
 | # | Question | Answer |
 |---|---|---|
-| 11 | A 2001 paper — why still canonical 25 years later? | Because no superior internal-load method has displaced it. sRPE validates against HR-TRIMP and blood lactate (Foster's original validation), works hardware-free, scales across sports, and is what every subsequent ACWR study (including Gabbett 2016 and Andrade 2020) builds on. |
-| 12 | Foster validated sRPE — have *you* validated for your athletes? | Not within FYP I (no labelled outcome data). I rely on construct validity: Foster validated the method against physiological references, and applying it the same way (Duration × RPE) inherits that validity. Local re-validation is an FYP II evaluation activity. |
-| 13 | RPE 1–10 — why not Borg 6–20 or CR-10? | Foster's published session-RPE uses a 0–10 modified Borg CR-10 — I use 1–10 to avoid zero-load entries that would produce zero AU. This is consistent with how most ACWR studies operationalise it. |
+| 11 | Why two papers instead of one for session load — does the sRPE method really need that much support? | sRPE is decades-old; one recent citation could look thin. Two papers cover the two axes that matter for institutional use: Inoue (2022) validates *scale reliability* (athletes interpret CR-10 consistently with coaches), and Yang (2024) validates *physiological correspondence* (sRPE tracks HR-TRIMP). Together they justify continued use without leaning on the original 2001 paper. |
+| 12 | Has sRPE been validated for *your* athletes? | Not within FYP I (no labelled outcome data). I rely on construct validity: Inoue (2022) and Yang (2024) both confirm the method generalises across sports and competitive levels, and applying it the same way (Duration × RPE) inherits that validity. Local re-validation is an FYP II evaluation activity. |
+| 13 | RPE 1–10 — why not Borg 6–20 or CR-10? | The published session-RPE method uses a 0–10 modified Borg CR-10 — I use 1–10 to avoid zero-load entries that would produce zero AU. This is consistent with how most ACWR studies (including those pooled in Qin 2025) operationalise it. |
 
 ### Across all four
 
 | # | Question | Answer |
 |---|---|---|
-| 14 | Why four papers — not five or three? | Each maps cleanly to one piece of the system: Foster→load metric, Andrade→ACWR justification, Costello→surveillance architecture, Bahr→data standardisation. A fifth (Gabbett 2016) is referenced in `DESIGN_DECISIONS.md` but not in the slide review because Andrade already synthesises that lineage. |
-| 15 | No CS / SE / HCI papers in the review — defend. | The FYP innovation is sport-science clinical logic, not a software-engineering novelty. The CS contribution is integration (combining workload + screening + injury into one explainable classification). The four papers ground the *what*; the engineering is the *how*, evidenced by the working system. |
-| 16 | Four-way map: paper → problem → module → defence in one breath. | Foster → PS2 → Module 1 (Activity load). Andrade → PS2 → Module 2 (ACWR bands). Costello → PS1 → Module 3 (multi-stakeholder review). Bahr → PS3 → Module 5 (standardised analytics variables). |
+| 14 | Why four review clusters — not five or three? | Each maps cleanly to one piece of the system: sRPE cluster (Inoue + Yang)→load metric, Qin→ACWR justification, Costello→surveillance architecture, Sprouse→data standardisation. Gabbett (2016) is referenced in `DESIGN_DECISIONS.md` but not in the slide review because Qin's 2025 meta-analysis already synthesises that lineage. |
+| 15 | No CS / SE / HCI papers in the review — defend. | The FYP innovation is sport-science clinical logic, not a software-engineering novelty. The CS contribution is integration (combining workload + screening + injury into one explainable classification). The four review clusters ground the *what*; the engineering is the *how*, evidenced by the working system. |
+| 16 | Four-way map: cluster → problem → module → defence in one breath. | sRPE cluster (Inoue + Yang) → PS2 → Module 1 (Activity load). Qin → PS2 → Module 2 (ACWR bands). Costello → PS1 → Module 3 (multi-stakeholder review). Sprouse → PS3 → Module 5 (standardised analytics variables). |
 
 ## 5. Existing Systems Comparison (Slides 12–16)
 
@@ -254,9 +254,9 @@ These are the panel's highest-leverage questions. They test whether the story ho
 
 | # | Question | Answer |
 |---|---|---|
-| 1 | PS1 cites Costello — why not also Bahr (both speak to surveillance)? | Bahr addresses *what variables to record* (standardisation) — that is PS3's gap. Costello addresses *which architecture captures injury data well* (multi-stakeholder workflows) — that is PS1's gap. They are different layers of the surveillance problem; we cite each where it is most evidentially direct. |
-| 2 | Could PS2 stand on Andrade alone, or does it lean on Foster? | It leans on Foster implicitly — ACWR cannot exist without a load metric, and Foster is the load metric. The slide cites Andrade because the *gap* PS2 names is workload monitoring (ACWR), but the full justification chain is Foster → ACWR → Andrade. |
-| 3 | PS3 cites Bahr for standardisation — but Bahr is about variables, not dashboards. Defend the leap. | Standardised variables are the precondition for any dashboard — you cannot filter by injury type if injury type isn't a controlled vocabulary. Bahr establishes that the field's variables can and should be standardised; the dashboard is the *applied surface* on that standardised data. |
+| 1 | PS1 cites Costello — why not also Sprouse (both speak to surveillance)? | Sprouse (extending Bahr's IOC consensus) addresses *what variables to record and how to operationalise them at all participation levels* (standardisation) — that is PS3's gap. Costello addresses *which architecture captures injury data well* (multi-stakeholder workflows) — that is PS1's gap. They are different layers of the surveillance problem; we cite each where it is most evidentially direct. |
+| 2 | Could PS2 stand on Qin alone, or does it lean on the sRPE cluster? | It leans on the sRPE cluster implicitly — ACWR cannot exist without a load metric, and the sRPE method (revalidated by Inoue 2022 and Yang 2024) is the load metric. The slide cites Qin because the *gap* PS2 names is workload monitoring (ACWR), but the full justification chain is sRPE → ACWR → Qin. |
+| 3 | PS3 cites Sprouse for standardisation — but the underlying IOC consensus is about variables, not dashboards. Defend the leap. | Standardised variables are the precondition for any dashboard — you cannot filter by injury type if injury type isn't a controlled vocabulary. Sprouse (2024) and the IOC/STROBE-SIIS lineage establish that the field's variables can and should be standardised; the dashboard is the *applied surface* on that standardised data. |
 | 4 | None of the four papers directly justifies a web platform. Where does that decision get evidence? | The platform itself isn't an academic claim — it is the *delivery vehicle* for the claims. The evidence is operational (ISN's current spreadsheet limitations) and competitive (existing-systems comparison). The four papers justify *what* the platform must compute and capture, not that it should be a web app. |
 
 ## PS ↔ Objective
@@ -271,17 +271,17 @@ These are the panel's highest-leverage questions. They test whether the story ho
 
 | # | Question | Answer |
 |---|---|---|
-| 8 | Foster (2001) → Module 1. Walk from paper to code. | Foster defines `Session Load (AU) = duration (min) × RPE (1–10)`. In `backend/src/models/Activity.js`, the Mongoose pre-save hook computes `this.load = this.duration * this.intensity` on every save. The frontend live-preview in `app/athlete/activity/page.tsx` mirrors this in TS for instant feedback. |
-| 9 | Andrade did not prescribe visual banding — that's interpretation. Defend. | Andrade observes that *threshold-based visual presentation aids practitioner decisions* — that is the direct quotation. We operationalise it as Low/Optimal/Elevated/High with Gabbett's numeric anchors. Interpretation in the engineering, not in the underlying claim. |
+| 8 | sRPE cluster (Inoue 2022 + Yang 2024) → Module 1. Walk from paper to code. | The sRPE method — revalidated by both papers — defines `Session Load (AU) = duration (min) × RPE (1–10)`. In `backend/src/models/Activity.js`, the Mongoose pre-save hook computes `this.load = this.duration * this.intensity` on every save. The frontend live-preview in `app/athlete/activity/page.tsx` mirrors this in TS for instant feedback. |
+| 9 | Qin did not prescribe visual banding — that's interpretation. Defend. | Qin (2025) quantifies the 0.8–1.3 band as lowest injury incidence (56%), giving empirical backing for threshold-based visual presentation. We operationalise it as Low/Optimal/Elevated/High with Gabbett's numeric anchors. Interpretation in the engineering, not in the underlying claim. |
 | 10 | Costello → Module 3. Which surveyed system resembles AIRMS most? | Costello documents that the most effective surveillance systems implement athlete-submission + clinician-review + state machine (Pending/Approved/Rejected). AIRMS's self-report flow is a direct implementation of that architectural pattern. We don't replicate a specific system from the review — we replicate the *pattern*. |
-| 11 | Bahr → Module 5. Map every Bahr variable to your Injury schema. | Bahr variables in our schema: bodyPart ✓, side ✓, injuryType ✓, mechanism ✓, severity ✓, date (onset) ✓, recoveryStatus ✓. Absent: exposure hours denominator (no attendance), specific session linkage (only date), clinician credentials (logging user only). Each absence is FYP II extension. |
+| 11 | Sprouse → Module 5. Map every Sprouse/IOC-inherited variable to your Injury schema. | Variables in our schema: bodyPart ✓, side ✓, injuryType ✓, mechanism ✓, severity ✓, date (onset) ✓, recoveryStatus ✓. Absent: exposure hours denominator (no attendance), specific session linkage (only date), clinician credentials (logging user only). Each absence is FYP II extension. |
 
 ## Literature ↔ Design Decision
 
 | # | Question | Answer |
 |---|---|---|
-| 12 | Composite model goes beyond Andrade/Gabbett. Which citations support personalisation? | None — personalisation is my design call, anchored on the principle that vulnerability differs between athletes. I cite Gabbett's baseline thresholds as the anchor; the ±15% modifier and escalation logic are own contribution. This is disclosed clearly so I am not over-claiming literature support. |
-| 13 | RPE 1–10 vs Borg 6–20 vs CR-10 — defend without "industry standard". | Foster's sRPE specifically uses modified Borg CR-10 (0–10). I shift to 1–10 to avoid zero-load edge cases that would zero out ACWR. Functionally equivalent to CR-10; slide intentionally simplifies for athlete cognitive load. |
+| 12 | Composite model goes beyond Qin/Gabbett. Which citations support personalisation? | Michailidis (2024), reviewing ACWR in professional soccer, concludes precise universal thresholds remain difficult to establish — motivating personalised rather than one-size-fits-all bands. Beyond that, personalisation is my design call, anchored on the principle that vulnerability differs between athletes. I cite Gabbett's baseline thresholds as the anchor; the ±15% modifier and escalation logic are own contribution. This is disclosed clearly so I am not over-claiming literature support. |
+| 13 | RPE 1–10 vs Borg 6–20 vs CR-10 — defend without "industry standard". | The published sRPE method uses modified Borg CR-10 (0–10). I shift to 1–10 to avoid zero-load edge cases that would zero out ACWR. Functionally equivalent to CR-10; slide intentionally simplifies for athlete cognitive load. |
 | 14 | Costello says multi-stakeholder — your impl has only athlete + medical. Why no coach? | ISN's operational model has medical staff as the clinical gatekeeper; coaches feed observations through them. Adding a coach role would change ISN's workflow, not reflect it. Three roles match the institution. |
 
 ## Module ↔ Module
@@ -325,7 +325,7 @@ These are the panel's highest-leverage questions. They test whether the story ho
 
 ## Rehearsal strategy
 
-1. **Drill the four-paper map** — Foster → Module 1 → activity load; Andrade → Module 2 → ACWR bands; Costello → Module 3 → review states; Bahr → Module 5 → STROBE-SIIS variables. Say it in one breath.
+1. **Drill the four-cluster map** — sRPE cluster (Inoue + Yang) → Module 1 → activity load; Qin → Module 2 → ACWR bands; Costello → Module 3 → review states; Sprouse → Module 5 → STROBE-SIIS variables. Say it in one breath.
 2. **Memorise the defensibility one-liners** in `docs/DESIGN_DECISIONS.md`. They are already in viva-voice form.
 3. **Rehearse the worked example** (Interconnecting Q21) — the ACWR-1.1-yet-High walk-through is the single highest-leverage answer for showing the composite model in motion.
 4. **Know the deferred items honestly** — Module 4 muscle-flag lock (external), Module 3 recovery milestones (external), Module 6 watchlist (polish). Owning these earns more marks than hiding them.

@@ -57,7 +57,7 @@ Built on top of a previous prototype (`airms-prototype/`) inherited from prior s
 ### 🟡 READ WHEN YOU NEED CONTEXT
 
 5. **[DESIGN_DECISIONS.md](DESIGN_DECISIONS.md)** — why we made each architectural call
-   - Why sRPE for load calculation (Foster 2001 citation)
+   - Why sRPE for load calculation (method origin Foster 2001; FYP I report cites Inoue 2022 + Yang 2024 as the contemporary validators)
    - Why we built a composite risk model instead of plain Gabbett ACWR
    - Why we use the MIT-licensed react-muscle-highlighter asset
    - Why aggregated body regions instead of per-spreadsheet-muscle granularity
@@ -111,7 +111,7 @@ Specifically: the **composite risk model** (personalised ACWR + screening-data i
 
 ### Golden rule #5 — Self-reported intensity is a feature, not a bug
 
-Athletes log their own RPE intensity. This is deliberate — see [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md) §1. If you ever feel tempted to suggest "but isn't this gameable?" — the answer is in that file. The citation is Foster et al. (2001).
+Athletes log their own RPE intensity. This is deliberate — see [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md) §1. If you ever feel tempted to suggest "but isn't this gameable?" — the answer is in that file. The method origin is Foster et al. (2001); the FYP I report cites Inoue et al. (2022) and Yang et al. (2024) as the contemporary validators.
 
 ---
 

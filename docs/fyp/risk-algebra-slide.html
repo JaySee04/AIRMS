@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>AIRMS — Risk Calculation (Slide)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: #4a4a55;
+    font-family: 'Plus Jakarta Sans', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #1a1a1a;
+  }
+  .slide {
+    position: relative;
+    width: 1456px;
+    height: 819px;
+    background: #ffffff;
+    overflow: hidden;
+    margin: 24px auto;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+  }
+
+  /* ---------- Decorative shapes ---------- */
+  .deco { position: absolute; pointer-events: none; }
+  .deco-tr { top: -90px; right: -120px; width: 540px; }
+  .deco-bl { bottom: -110px; left: -100px; width: 460px; }
+  .deco-tr-dot { top: 60px; right: 280px; width: 60px; height: 60px;
+    border-radius: 50%; background: #2E4A78; }
+  .deco-stripes-tr { top: 20px; right: 60px; width: 180px; opacity: 0.55; }
+  .deco-stripes-bl { bottom: 80px; left: 40px; width: 160px; opacity: 0.55; }
+  .deco-yellow-dot-1 { bottom: 170px; left: 200px; width: 18px; height: 18px;
+    border-radius: 50%; background: #F5C518; }
+  .deco-yellow-dot-2 { top: 220px; right: 90px; width: 14px; height: 14px;
+    border-radius: 50%; background: #F5C518; }
+  .deco-circle-outline { top: 90px; left: 760px; width: 36px; height: 36px;
+    border: 4px solid #2E4A78; border-radius: 50%; opacity: 0.85; }
+
+  /* ---------- Section badge ---------- */
+  .badge {
+    position: absolute; top: 28px; left: 36px;
+    width: 70px; height: 70px; border-radius: 50%;
+    background: #3a6db0;
+    display: flex; align-items: center; justify-content: center;
+    color: #ffffff; font-weight: 800; font-size: 26px;
+    z-index: 3;
+    box-shadow: 0 4px 10px rgba(58,109,176,0.25);
+  }
+
+  /* ---------- Header ---------- */
+  .header {
+    position: relative; z-index: 2;
+    padding: 36px 80px 16px 80px;
+    text-align: center;
+  }
+  .header h1 {
+    margin: 0;
+    font-size: 50px; font-weight: 800; letter-spacing: -0.5px;
+  }
+  .header .sub {
+    margin-top: 6px;
+    font-size: 19px; color: #4a4a55; font-weight: 500;
+    font-style: italic;
+  }
+
+  /* ---------- Two-column body ---------- */
+  .body {
+    position: relative; z-index: 2;
+    padding: 140px 120px 40px 120px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 28px;
+  }
+
+  .card {
+    background: #f0eefa;
+    border: 2px solid #b8a8e0;
+    border-radius: 20px;
+    padding: 18px 22px 20px 22px;
+    display: flex; flex-direction: column;
+  }
+  .card.mid { background: #e7eaf8; border-color: #9aaee0; }
+  .card.right { background: #fff5e0; border-color: #f0c450; }
+  .card.danger { background: #fdecea; border-color: #d99a9a; }
+  .card.danger .tag { background: #b03030; }
+
+  .tag {
+    display: inline-block;
+    background: #3a6db0; color: #fff;
+    font-weight: 800; font-size: 12px;
+    padding: 4px 12px; border-radius: 999px;
+    letter-spacing: 0.6px; text-transform: uppercase;
+    margin-bottom: 10px;
+    align-self: flex-start;
+  }
+  .card.right .tag { background: #c89b3c; }
+
+  .card h2 {
+    margin: 0 0 12px 0;
+    font-size: 22px; font-weight: 800; line-height: 1.2;
+    color: #1a1a1a;
+  }
+
+  .formula {
+    background: #ffffff;
+    border: 1.5px solid #b8a8e0;
+    border-radius: 12px;
+    padding: 10px 12px;
+    margin: 6px 0 10px 0;
+    font-family: 'JetBrains Mono', 'Consolas', monospace;
+    font-size: 14px; font-weight: 700; color: #1a1a1a;
+    text-align: center; line-height: 1.6;
+  }
+  .formula .label {
+    display: block;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 11.5px; font-weight: 600;
+    color: #555; text-transform: uppercase; letter-spacing: 0.5px;
+    margin-bottom: 4px;
+  }
+
+  .step {
+    font-size: 13.5px; line-height: 1.55; color: #2a2a35;
+    margin: 4px 0 8px 0;
+  }
+  .step b { color: #1a1a1a; }
+
+  .arrow-down {
+    text-align: center; font-size: 22px; color: #9aaedc;
+    line-height: 1; margin: -2px 0 -2px 0; font-weight: 800;
+  }
+
+  /* ---------- Glossary slide ---------- */
+  .body.glossary {
+    grid-template-columns: 1fr 1fr;
+    grid-auto-rows: 1fr;
+    gap: 14px 20px;
+    padding: 140px 60px 24px 60px;
+  }
+  .glossary .card { padding: 12px 18px 12px 18px; }
+  .glossary .card h2 { font-size: 17px; margin-bottom: 3px; }
+  .glossary .sublabel {
+    font-size: 11px; color: #555; font-style: italic;
+    margin: 0 0 7px 0; line-height: 1.3;
+  }
+  .glossary-list {
+    display: grid;
+    grid-template-columns: minmax(96px, auto) 1fr;
+    gap: 4px 12px;
+    align-items: baseline;
+    font-size: 12px; line-height: 1.35;
+  }
+  .glossary-list .sym {
+    font-family: 'JetBrains Mono', 'Consolas', monospace;
+    font-weight: 700;
+    color: #1a1a1a;
+    background: #ffffff;
+    border: 1.5px solid #b8a8e0;
+    border-radius: 8px;
+    padding: 1px 7px;
+    font-size: 11px;
+    text-align: center;
+    white-space: nowrap;
+  }
+  .glossary .card.mid .glossary-list .sym { border-color: #9aaee0; }
+  .glossary .card.right .glossary-list .sym { border-color: #f0c450; }
+  .glossary .card.danger .glossary-list .sym { border-color: #d99a9a; }
+  .glossary-list .meaning { color: #2a2a35; }
+  .glossary-list .meaning b { color: #1a1a1a; }
+  .glossary-list .range {
+    display: inline-block;
+    font-size: 11px; color: #555;
+    background: #f7f5fc;
+    border-radius: 6px;
+    padding: 1px 7px;
+    margin-left: 4px;
+  }
+
+  /* Risk pills */
+  .pill-low  { background: #e8f5ea; color: #2d5e36; padding: 2px 9px; border-radius: 999px; font-weight: 700; font-size: 12.5px; }
+  .pill-mod  { background: #fef9e7; color: #8a6b1e; padding: 2px 9px; border-radius: 999px; font-weight: 700; font-size: 12.5px; }
+  .pill-high { background: #fdecea; color: #8a2424; padding: 2px 9px; border-radius: 999px; font-weight: 700; font-size: 12.5px; }
+
+  /* Validation citations */
+  .cite {
+    background: #fff;
+    border: 1.5px solid #f0c450;
+    border-radius: 12px;
+    padding: 9px 12px;
+    margin-bottom: 9px;
+  }
+  .cite .name {
+    font-size: 13px; font-weight: 800; color: #6b4e10;
+    display: block; margin-bottom: 2px;
+  }
+  .cite .what {
+    font-size: 12px; color: #2a2a35; line-height: 1.4;
+  }
+
+  /* Footnote */
+  .footnote {
+    position: absolute;
+    left: 80px; right: 80px;
+    bottom: 14px;
+    text-align: center;
+    font-size: 12.5px;
+    color: #555;
+    font-style: italic;
+    z-index: 2;
+  }
+  .footnote strong { color: #1a1a1a; font-style: normal; }
+
+  @media (max-width: 1500px) {
+    .slide { transform: scale(calc(100vw / 1500)); transform-origin: top center; }
+  }
+</style>
+</head>
+<body>
+
+<div class="slide">
+
+  <!-- Decorative shapes -->
+  <svg class="deco deco-tr" viewBox="0 0 540 540" xmlns="http://www.w3.org/2000/svg">
+    <path d="M270,40 C390,40 500,140 510,260 C520,390 420,500 290,510 C160,520 50,420 40,290 C30,170 150,40 270,40 Z"
+          fill="#dde3f5" opacity="0.75"/>
+  </svg>
+  <svg class="deco deco-bl" viewBox="0 0 460 460" xmlns="http://www.w3.org/2000/svg">
+    <path d="M230,30 C340,30 430,130 430,240 C430,360 330,430 210,430 C90,430 30,330 30,210 C30,110 130,30 230,30 Z"
+          fill="#e3e7f6" opacity="0.85"/>
+  </svg>
+  <svg class="deco deco-stripes-tr" viewBox="0 0 180 180" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <pattern id="stripes1" patternUnits="userSpaceOnUse" width="10" height="10" patternTransform="rotate(45)">
+        <line x1="0" y1="0" x2="0" y2="10" stroke="#9aaedc" stroke-width="3"/>
+      </pattern>
+    </defs>
+    <circle cx="90" cy="90" r="80" fill="url(#stripes1)"/>
+  </svg>
+  <svg class="deco deco-stripes-bl" viewBox="0 0 160 160" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <pattern id="stripes2" patternUnits="userSpaceOnUse" width="10" height="10" patternTransform="rotate(45)">
+        <line x1="0" y1="0" x2="0" y2="10" stroke="#9aaedc" stroke-width="3"/>
+      </pattern>
+    </defs>
+    <circle cx="80" cy="80" r="72" fill="url(#stripes2)"/>
+  </svg>
+  <div class="deco deco-yellow-dot-1"></div>
+  <div class="deco deco-yellow-dot-2"></div>
+
+  <!-- Body -->
+  <div class="body">
+
+    <!-- ========== Column A: ACWR Calculation ========== -->
+    <div class="card">
+      <span class="tag">A &nbsp;&middot;&nbsp; ACWR Calculation</span>
+      <h2>How workload becomes a ratio</h2>
+
+      <div class="formula">
+        <span class="label">Session load (sRPE)</span>
+        Load (AU) = Duration (min) &times; RPE
+      </div>
+      <div class="arrow-down">&darr;</div>
+
+      <div class="formula">
+        <span class="label">Acute load &mdash; last 7 days</span>
+        Acute = &sum; loads over rolling 7 days
+      </div>
+      <div class="arrow-down">&darr;</div>
+
+      <div class="formula">
+        <span class="label">Chronic load &mdash; last 28 days</span>
+        Chronic = mean weekly load over 28 days
+      </div>
+      <div class="arrow-down">&darr;</div>
+
+      <div class="formula" style="background:#3a6db0; color:#fff; border-color:#3a6db0;">
+        <span class="label" style="color:#cfd9ec;">ACWR</span>
+        ACWR = Acute / Chronic
+      </div>
+
+      <p class="step" style="margin-top:10px;">
+        Hardware-free: athlete logs duration and perceived effort &mdash; no GPS or HR strap required.
+      </p>
+    </div>
+
+    <!-- ========== Column B: Compare with screening ========== -->
+    <div class="card mid">
+      <span class="tag">B &nbsp;&middot;&nbsp; Screening &times; ACWR &rarr; Risk</span>
+      <h2>How screening shapes the bands</h2>
+
+      <div class="formula">
+        <span class="label">Vulnerability from screening (0&ndash;1)</span>
+        v = 0.50&middot;ERS + 0.20&middot;MobDef<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;+ 0.15&middot;StbDef + 0.15&middot;SymDef
+      </div>
+
+      <div class="formula">
+        <span class="label">Personalised ACWR thresholds</span>
+        factor = clamp(1 + (v &minus; 0.4) &times; 0.4, &nbsp;0.85, &nbsp;1.15)<br>
+        bands &nbsp;=&nbsp; 0.8&middot;f &nbsp;/&nbsp; 1.3/f &nbsp;/&nbsp; 1.5/f
+      </div>
+
+      <p class="step" style="margin: 6px 0 4px 0;"><b>Classify ACWR</b> against the personalised bands:</p>
+      <div style="font-family:'JetBrains Mono',monospace; font-size:13px; line-height:1.9; background:#fff; border:1.5px solid #9aaee0; border-radius:12px; padding:8px 12px; text-align:left;">
+        &gt; modMax &nbsp;&rarr;&nbsp; <span class="pill-high">High</span><br>
+        &gt; lowMax &nbsp;&rarr;&nbsp; <span class="pill-mod">Moderate</span><br>
+        &ge; lowMin &nbsp;&rarr;&nbsp; <span class="pill-low">Low</span>
+      </div>
+
+      <p class="step" style="margin-top:10px;">
+        <b>Then escalate one notch</b> if active injuries or &ge;5 muscle flags align with the current workload.
+      </p>
+    </div>
+
+  </div>
+
+  <!-- Footnote -->
+  <div class="footnote">
+    <strong>Foundational sRPE and ACWR evidence</strong> lives in Section 04 Literature Review. The personalisation and escalation layers above are AIRMS' contribution &mdash; reviewed and accepted by stakeholder Dr. Thung (ISN).
+  </div>
+
+</div>
+
+
+<!-- ================================================================== -->
+<!-- SLIDE 2 — Variable Reference (plain-English glossary for the panel) -->
+<!-- ================================================================== -->
+<div class="slide">
+
+  <!-- Decorative shapes -->
+  <svg class="deco deco-tr" viewBox="0 0 540 540" xmlns="http://www.w3.org/2000/svg">
+    <path d="M270,40 C390,40 500,140 510,260 C520,390 420,500 290,510 C160,520 50,420 40,290 C30,170 150,40 270,40 Z"
+          fill="#dde3f5" opacity="0.75"/>
+  </svg>
+  <svg class="deco deco-bl" viewBox="0 0 460 460" xmlns="http://www.w3.org/2000/svg">
+    <path d="M230,30 C340,30 430,130 430,240 C430,360 330,430 210,430 C90,430 30,330 30,210 C30,110 130,30 230,30 Z"
+          fill="#e3e7f6" opacity="0.85"/>
+  </svg>
+  <svg class="deco deco-stripes-tr" viewBox="0 0 180 180" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <pattern id="stripes1b" patternUnits="userSpaceOnUse" width="10" height="10" patternTransform="rotate(45)">
+        <line x1="0" y1="0" x2="0" y2="10" stroke="#9aaedc" stroke-width="3"/>
+      </pattern>
+    </defs>
+    <circle cx="90" cy="90" r="80" fill="url(#stripes1b)"/>
+  </svg>
+  <svg class="deco deco-stripes-bl" viewBox="0 0 160 160" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <pattern id="stripes2b" patternUnits="userSpaceOnUse" width="10" height="10" patternTransform="rotate(45)">
+        <line x1="0" y1="0" x2="0" y2="10" stroke="#9aaedc" stroke-width="3"/>
+      </pattern>
+    </defs>
+    <circle cx="80" cy="80" r="72" fill="url(#stripes2b)"/>
+  </svg>
+  <div class="deco deco-yellow-dot-1"></div>
+  <div class="deco deco-yellow-dot-2"></div>
+
+  <!-- 2 × 2 grid -->
+  <div class="body glossary">
+
+    <!-- ========== A · Workload inputs ========== -->
+    <div class="card">
+      <span class="tag">A &nbsp;&middot;&nbsp; Workload</span>
+      <h2>From training sessions</h2>
+      <p class="sublabel">What the athlete logs &mdash; turned into the ACWR ratio.</p>
+      <div class="glossary-list">
+        <span class="sym">Duration</span>
+        <span class="meaning">How long the session lasted <span class="range">minutes</span></span>
+
+        <span class="sym">RPE</span>
+        <span class="meaning">How hard it felt &mdash; Rating of Perceived Exertion <span class="range">1 &ndash; 10</span></span>
+
+        <span class="sym">Load</span>
+        <span class="meaning"><b>Duration &times; RPE</b> &mdash; one session&rsquo;s effort score <span class="range">AU</span></span>
+
+        <span class="sym">Acute</span>
+        <span class="meaning">Sum of session loads in the <b>last 7 days</b> &mdash; recent workload</span>
+
+        <span class="sym">Chronic</span>
+        <span class="meaning">Mean weekly load over the <b>last 28 days</b> &mdash; baseline fitness</span>
+
+        <span class="sym">ACWR</span>
+        <span class="meaning"><b>Acute &divide; Chronic</b> &mdash; recent week vs. baseline. The headline ratio.</span>
+      </div>
+    </div>
+
+    <!-- ========== B · Screening profile ========== -->
+    <div class="card mid">
+      <span class="tag">B &nbsp;&middot;&nbsp; Screening profile</span>
+      <h2>From the athlete&rsquo;s last screening</h2>
+      <p class="sublabel">Uploaded by medical staff via Excel. Higher mobility / stability / symmetry is better; higher ERS is worse.</p>
+      <div class="glossary-list">
+        <span class="sym">ERS</span>
+        <span class="meaning">Exercise Risk Score &mdash; composite from movement-test battery. <b>Higher = more at risk</b> <span class="range">3 &ndash; 12</span></span>
+
+        <span class="sym">Mobility</span>
+        <span class="meaning">Joint range-of-motion score. Higher is better. <span class="range">0 &ndash; 100</span></span>
+
+        <span class="sym">Stability</span>
+        <span class="meaning">Postural / core stability score. Higher is better. <span class="range">0 &ndash; 100</span></span>
+
+        <span class="sym">Symmetry</span>
+        <span class="meaning">Left-vs-right balance score. Higher is better. <span class="range">0 &ndash; 100</span></span>
+
+        <span class="sym">MobDef / StbDef / SymDef</span>
+        <span class="meaning">Their <i>deficits</i>: <b>1 &minus; score/100</b>. Flips them so higher = worse, matching ERS.</span>
+
+        <span class="sym">v</span>
+        <span class="meaning"><b>Vulnerability</b> &mdash; the weighted composite of the four above. <b>0 = robust, 1 = highly vulnerable.</b> <span class="range">0 &ndash; 1</span></span>
+      </div>
+    </div>
+
+    <!-- ========== C · Personalised thresholds ========== -->
+    <div class="card right">
+      <span class="tag">C &nbsp;&middot;&nbsp; Personalised thresholds</span>
+      <h2>How the ACWR bands shift per athlete</h2>
+      <p class="sublabel">The textbook Gabbett thresholds, stretched or tightened by each athlete&rsquo;s vulnerability.</p>
+      <div class="glossary-list">
+        <span class="sym">0.8 / 1.3 / 1.5</span>
+        <span class="meaning">Textbook Gabbett thresholds &mdash; safe lower bound / safe upper bound / danger line</span>
+
+        <span class="sym">0.4</span>
+        <span class="meaning">The vulnerability value treated as <b>population baseline</b>. At v = 0.4, personalised bands equal the textbook exactly.</span>
+
+        <span class="sym">factor (f)</span>
+        <span class="meaning">Per-athlete multiplier. Vulnerable &rarr; f &gt; 1 (tighter bands). Robust &rarr; f &lt; 1 (wider bands). <span class="range">clamped &plusmn;15%</span></span>
+
+        <span class="sym">lowMin</span>
+        <span class="meaning"><b>0.8 &times; f</b> &mdash; below this = under-loaded</span>
+
+        <span class="sym">lowMax</span>
+        <span class="meaning"><b>1.3 / f</b> &mdash; top of the Low band</span>
+
+        <span class="sym">modMax</span>
+        <span class="meaning"><b>1.5 / f</b> &mdash; top of Moderate. Above = High Risk.</span>
+      </div>
+    </div>
+
+    <!-- ========== D · Escalation context ========== -->
+    <div class="card danger">
+      <span class="tag">D &nbsp;&middot;&nbsp; Escalation context</span>
+      <h2>What can bump the risk up one notch</h2>
+      <p class="sublabel">Active injuries and screening flags can lift the class by one level, never beyond High.</p>
+      <div class="glossary-list">
+        <span class="sym">activeInjuries</span>
+        <span class="meaning">Count of injuries with status <b>Recovering</b> or <b>Chronic</b> (excludes Recovered)</span>
+
+        <span class="sym">myodynamia</span>
+        <span class="meaning">Muscles flagged with <b>pain on palpation</b> in the latest screening</span>
+
+        <span class="sym">tension</span>
+        <span class="meaning">Muscles flagged with <b>abnormal tension</b> in the latest screening</span>
+
+        <span class="sym">muscleFlagCount</span>
+        <span class="meaning"><b>myodynamia + tension</b> total. Threshold for escalation: <b>&ge; 5</b></span>
+
+        <span class="sym">baseCls</span>
+        <span class="meaning">Risk class from ACWR alone, <b>before</b> escalation</span>
+
+        <span class="sym">cls</span>
+        <span class="meaning"><b>Final</b> risk class shown to the athlete, after escalation</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Footnote -->
+  <div class="footnote">
+    <strong>How to read this:</strong>&nbsp; A &amp; B feed into C (personalised bands). C classifies the ACWR. D may bump the class up one notch. The athlete sees <code>cls</code>; the UI also exposes <code>baseCls</code> so the clinician can see <i>why</i> the indicator escalated.
+  </div>
+
+</div>
+
+</body>
+</html>

@@ -30,12 +30,16 @@ interface AnalyticsSummary {
   byBodyPart: BucketRow[];
   byType: BucketRow[];
   bySeverity: BucketRow[];
+  bySport: BucketRow[];
+  byGender: BucketRow[];
+  byProgram: BucketRow[];
   byMonth: MonthBucket[];
 }
 
 const BODY_PARTS = ['Neck', 'Shoulder', 'Spine', 'Lumbar/Pelvis', 'Knee', 'Ankle', 'Hip', 'Elbow', 'Wrist', 'Other'];
 const INJURY_TYPES = ['Sprain', 'Strain', 'Tendinitis', 'Bursitis', 'Fracture', 'Contusion', 'Dislocation', 'Other'];
 const GENDERS = ['Male', 'Female'];
+const PROGRAMMES = ['PODIUM', 'PELAPIS', 'OTHERS'];
 
 // Age groups for Dr Thung's "by age group" filter ask.
 const AGE_GROUPS: Array<{ label: string; min?: number; max?: number }> = [
@@ -87,6 +91,7 @@ export default function AdminDashboard() {
   // Refs for the chart canvases
   const bodyPartRef = useRef<HTMLCanvasElement | null>(null);
   const typeRef = useRef<HTMLCanvasElement | null>(null);
+  const sportRef = useRef<HTMLCanvasElement | null>(null);
   const monthRef = useRef<HTMLCanvasElement | null>(null);
   const chartsRef = useRef<Chart[]>([]);
 
@@ -211,6 +216,28 @@ export default function AdminDashboard() {
       }
     }
 
+    // By sport — horizontal bars, already sorted descending by the backend so
+    // the most-affected sport sits at the top. Lets the user filter by injury
+    // type / body part and see at a glance which sports those injuries hit.
+    if (sportRef.current) {
+      const ctx = sportRef.current.getContext('2d');
+      if (ctx) {
+        const sportLabels = summary.bySport.map((s) => s._id || 'Unknown');
+        const sportData = summary.bySport.map((s) => s.count);
+        chartsRef.current.push(new Chart(ctx, {
+          type: 'bar',
+          data: { labels: sportLabels, datasets: [{ label: 'Cases', data: sportData, backgroundColor: NAVY, borderRadius: 4 }] },
+          options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { x: { ticks: { precision: 0 } } },
+          },
+        }));
+      }
+    }
+
     // Trend chart — bucket-aware (monthly or quarterly)
     if (monthRef.current) {
       const ctx = monthRef.current.getContext('2d');
@@ -249,7 +276,16 @@ export default function AdminDashboard() {
     setStartDate(''); setEndDate('');
   }
 
-  const programmes = ['PODIUM', 'PELAPIS', 'OTHERS'];
+  // Hide rule: a chart's dimension is hidden iff a filter narrows it to a
+  // single value. Body region narrows the body-part chart to a subset but
+  // keeps multiple values, so we keep that chart visible.
+  const show = {
+    sport: !sport,
+    bodyPart: !bodyPart,
+    type: !injuryType,
+    gender: !gender,
+    programme: !programme,
+  };
 
   return (
     <DashboardLayout allowedRoles={['admin']} title="Injury Analytics">
@@ -302,7 +338,7 @@ export default function AdminDashboard() {
             <label>Programme</label>
             <select value={programme} onChange={(e) => setProgramme(e.target.value)}>
               <option value="">All</option>
-              {programmes.map((p) => (<option key={p} value={p}>{p}</option>))}
+              {PROGRAMMES.map((p) => (<option key={p} value={p}>{p}</option>))}
             </select>
           </div>
           <div className="form-group" style={{ minWidth: 140, marginBottom: 0 }}>
@@ -361,30 +397,102 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      <div className="grid-2" style={{ marginTop: 20 }}>
-        <div className="card">
-          <div className="card-header">
-            <div>
-              <h2 className="card-title" style={{ marginBottom: 0 }}>Injuries by Body Part</h2>
-              <span className="card-sub">All filtered records</span>
+      {/* Big-chart row — dimensions with the most categories.
+          Auto-fit reflows when a card is hidden so we don't leave a gap. */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20, marginTop: 20 }}>
+        {show.sport && (
+          <div className="card">
+            <div className="card-header">
+              <div>
+                <h2 className="card-title" style={{ marginBottom: 0 }}>Injuries by Sport</h2>
+                <span className="card-sub">
+                  {summary && summary.bySport.length > 0
+                    ? `${summary.bySport.length} sport${summary.bySport.length === 1 ? '' : 's'} affected`
+                    : 'No sports match the current filter'}
+                </span>
+              </div>
+            </div>
+            <div style={{ position: 'relative', height: Math.max(280, (summary?.bySport.length ?? 0) * 24 + 40) }}>
+              <canvas ref={sportRef} />
             </div>
           </div>
-          <div style={{ position: 'relative', height: 280 }}>
-            <canvas ref={bodyPartRef} />
-          </div>
-        </div>
-        <div className="card">
-          <div className="card-header">
-            <div>
-              <h2 className="card-title" style={{ marginBottom: 0 }}>Injuries by Type</h2>
-              <span className="card-sub">All filtered records</span>
+        )}
+        {show.bodyPart && (
+          <div className="card">
+            <div className="card-header">
+              <div>
+                <h2 className="card-title" style={{ marginBottom: 0 }}>Injuries by Body Part</h2>
+                <span className="card-sub">All filtered records</span>
+              </div>
+            </div>
+            <div style={{ position: 'relative', height: 280 }}>
+              <canvas ref={bodyPartRef} />
             </div>
           </div>
-          <div style={{ position: 'relative', height: 280 }}>
-            <canvas ref={typeRef} />
+        )}
+        {show.type && (
+          <div className="card">
+            <div className="card-header">
+              <div>
+                <h2 className="card-title" style={{ marginBottom: 0 }}>Injuries by Type</h2>
+                <span className="card-sub">All filtered records</span>
+              </div>
+            </div>
+            <div style={{ position: 'relative', height: 280 }}>
+              <canvas ref={typeRef} />
+            </div>
           </div>
-        </div>
+        )}
       </div>
+
+      {/* Low-cardinality breakdowns — simple number tiles read better than
+          tiny bar charts for two- or three-value dimensions. */}
+      {(show.gender || show.programme) && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 20, marginTop: 20 }}>
+          {show.gender && (
+            <div className="card">
+              <div className="card-header">
+                <div>
+                  <h2 className="card-title" style={{ marginBottom: 0 }}>Injuries by Gender</h2>
+                  <span className="card-sub">All filtered records</span>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+                {GENDERS.map((g) => {
+                  const n = summary?.byGender.find((x) => x._id === g)?.count ?? 0;
+                  return (
+                    <div key={g} style={{ flex: '1 1 80px' }}>
+                      <div className="stat-tile-label">{g}</div>
+                      <div className="stat-tile-value">{loading ? '…' : n}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          {show.programme && (
+            <div className="card">
+              <div className="card-header">
+                <div>
+                  <h2 className="card-title" style={{ marginBottom: 0 }}>Injuries by Programme</h2>
+                  <span className="card-sub">All filtered records</span>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+                {PROGRAMMES.map((p) => {
+                  const n = summary?.byProgram.find((x) => x._id === p)?.count ?? 0;
+                  return (
+                    <div key={p} style={{ flex: '1 1 70px' }}>
+                      <div className="stat-tile-label">{p}</div>
+                      <div className="stat-tile-value">{loading ? '…' : n}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="card" style={{ marginTop: 20 }}>
         <div className="card-header">

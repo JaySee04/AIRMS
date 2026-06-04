@@ -58,9 +58,13 @@ All six modules are usable end-to-end. Full per-module specs and deferred items:
 
 AIRMS does not apply textbook Gabbett ACWR bands to every athlete. The risk model **personalises** ACWR thresholds based on the athlete's screening data (exercise risk score, mobility, stability, symmetry) and **escalates** the risk band when active injuries or muscle flags align with the current workload.
 
-Citations:
-- Foster et al. (2001). *A New Approach to Monitoring Exercise Training.* J Strength Cond Res, 15(1).
-- Gabbett (2016). *The training-injury prevention paradox.* Br J Sports Med, 50(5).
+Citations (FYP I report — refreshed 2026-06-04 for recency):
+- Qin, W., Li, R., & Chen, L. (2025). *Acute to chronic workload ratio (ACWR) for predicting sports injury risk: a systematic review and meta-analysis.* BMC Sports Sci Med Rehabil, 17(1), 285.
+- Michailidis, Y. (2024). *A systematic review on utilizing the acute to chronic workload ratio for injury prevention among professional soccer players.* Applied Sciences, 14(11), 4449.
+- Inoue, A. et al. (2022). *Internal training load perceived by athletes and planned by coaches: A systematic review and meta-analysis.* Sports Med - Open, 8(1), 35.
+- Yang, C. et al. (2024). *Research application of session-RPE in monitoring the training load of elite endurance athletes.* Frontiers in Physiology, 15, 1341972.
+- Gabbett (2016). *The training-injury prevention paradox.* Br J Sports Med, 50(5) — ACWR formulation, referenced in `docs/DESIGN_DECISIONS.md` but absorbed into Qin (2025) for the lit review.
+- Foster (2001) — sRPE method origin; cited in implementation/architecture docs but no longer a primary lit-review citation (carried by Inoue + Yang).
 
 Implementation: [`frontend/src/lib/risk.ts`](frontend/src/lib/risk.ts).
 Why this matters: [`docs/DESIGN_DECISIONS.md §2`](docs/DESIGN_DECISIONS.md#2-composite-risk-model-fyp-differentiator).

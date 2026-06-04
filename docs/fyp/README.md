@@ -3,9 +3,16 @@
 Drop the canonical FYP I deliverables here for repo-tracked reference:
 
 - `FYP_I_SLIDES.pdf` — Viva slides (54 pages, draft as of 2026-05-25 — `FYP I VIVA SLIDES (Draft).pdf`)
-- `FYP_I_REPORT.pdf` — Full report (60 pages, draft as of 2026-05-25 — `FYP I REPORT (2).pdf`)
+- `FYP_I_REPORT.pdf` — Full report (62 pages, draft as of 2026-06-04 — `FYP I REPORT (1).pdf`)
 
-As of the 2026-05-25 draft, **Abstract and Conclusion (Chapter 7) are now filled in**; the previous Bahr et al. journal mismatch has been resolved (both now cite *British Journal of Sports Medicine*). Remaining gaps are limited to front-matter pages (Table of Contents, List of Figures, List of Symbols and Abbreviations, List of Appendices), the panel names in the Acknowledgements, blank fields on the Original Literary Work Declaration, and supervisor signatures in the project logbook. See `docs/FYP_RUBRICS.md` §5 for the full punch list.
+As of the 2026-06-04 draft, the Literature Review citations have been **refreshed for recency** and the **front-matter pages are now populated**:
+- Andrade et al. (2020) → Qin et al. (2025) + Michailidis (2024) for the workload/ACWR cluster
+- Bahr et al. (2020) → Sprouse et al. (2024) + Waldén et al. (2023) for the standardised-data cluster (Bahr retained as a lineage reference inside Sprouse's paragraph)
+- Foster et al. (2001) dropped as a primary lit-review citation — the sRPE method is now carried by Inoue (2022) + Yang (2024)
+- Section 2.5 Summary Table now spans 7 papers across 4 thematic clusters
+- Table of Contents, List of Figures, List of Tables, List of Symbols and Abbreviations all populated; Acknowledgements panel names filled in
+
+Remaining gaps are limited to blank fields on the Original Literary Work Declaration, supervisor signatures in the project logbook, a duplicate paragraph in §2.1, and a few slides/report consistency items (sprint count, UC-2 user role, slide 38 subheading). See `docs/FYP_RUBRICS.md` §5 for the full punch list.
 
 ## What's in them
 
@@ -15,10 +22,13 @@ As of the 2026-05-25 draft, **Abstract and Conclusion (Chapter 7) are now filled
 
 ## Literature Review citations (used across both)
 
-- **Foster et al. (2001)** — session-RPE method for session load quantification (Load = Duration × RPE, AU)
-- **Andrade et al. (2020)** — ACWR systematic review; validates risk thresholds
+- **Inoue et al. (2022)** — sRPE scale-reliability validation (meta-analysis of 27 studies; no significant athlete–coach difference in sRPE)
+- **Yang et al. (2024)** — sRPE physiological-correspondence validation in elite endurance athletes (sRPE vs HR-TRIMP)
+- **Qin et al. (2025)** — ACWR systematic review and meta-analysis; quantifies lowest-risk band (0.8–1.3, 56% incidence)
+- **Michailidis (2024)** — ACWR review in professional soccer; supports personalised over universal thresholds
 - **Costello et al. (2024)** — sports injury surveillance scoping review; validates multi-stakeholder reporting + review states
-- **Bahr et al. (2020)** — IOC consensus / STROBE-SIIS; data variables for injury surveillance
+- **Sprouse et al. (2024)** — IIS framework for all participation levels; extends IOC/STROBE-SIIS data variables for injury surveillance
+- **Waldén et al. (2023)** — football-specific extension of the IOC consensus; evidences active maintenance of the surveillance standard
 
 ## Existing systems compared
 

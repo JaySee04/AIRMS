@@ -98,11 +98,18 @@ router.get('/analytics/summary', auth, rbac('admin'), async (req, res) => {
       if (endDate) match.date.$lte = new Date(endDate);
     }
 
-    const [total, byBodyPart, byType, bySeverity, byMonth] = await Promise.all([
+    const [total, byBodyPart, byType, bySeverity, bySport, byGender, byProgram, byMonth] = await Promise.all([
       Injury.countDocuments(match),
       Injury.aggregate([{ $match: match }, { $group: { _id: '$bodyPart', count: { $sum: 1 } } }]),
       Injury.aggregate([{ $match: match }, { $group: { _id: '$injuryType', count: { $sum: 1 } } }]),
       Injury.aggregate([{ $match: match }, { $group: { _id: '$severity', count: { $sum: 1 } } }]),
+      Injury.aggregate([
+        { $match: match },
+        { $group: { _id: '$sport', count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+      ]),
+      Injury.aggregate([{ $match: match }, { $group: { _id: '$gender', count: { $sum: 1 } } }]),
+      Injury.aggregate([{ $match: match }, { $group: { _id: '$program', count: { $sum: 1 } } }]),
       Injury.aggregate([
         { $match: match },
         { $group: { _id: { year: { $year: '$date' }, month: { $month: '$date' } }, count: { $sum: 1 } } },
@@ -114,7 +121,19 @@ router.get('/analytics/summary', auth, rbac('admin'), async (req, res) => {
     const athletesAffected = await Injury.distinct('athleteId', match);
     const sportsAffected = await Injury.distinct('sport', match);
 
-    res.json({ total, recovering, athletesAffected: athletesAffected.length, sportsAffected: sportsAffected.length, byBodyPart, byType, bySeverity, byMonth });
+    res.json({
+      total,
+      recovering,
+      athletesAffected: athletesAffected.length,
+      sportsAffected: sportsAffected.length,
+      byBodyPart,
+      byType,
+      bySeverity,
+      bySport,
+      byGender,
+      byProgram,
+      byMonth,
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

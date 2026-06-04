@@ -1,11 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import BodyMap, { MuscleEntry } from '@/components/dashboard/BodyMap';
 import WorkloadChart from '@/components/dashboard/WorkloadChart';
 import RiskRadar from '@/components/dashboard/RiskRadar';
+import AcwrGauge from '@/components/dashboard/AcwrGauge';
 import { api } from '@/lib/api';
 import { classifyCompositeRisk } from '@/lib/risk';
 
@@ -52,6 +53,7 @@ interface Activity {
   duration: number;
   intensity: number;
   load: number;
+  notes?: string;
 }
 
 interface Injury {
@@ -240,6 +242,16 @@ export default function MedicalDashboard() {
   const [selectedActivities, setSelectedActivities] = useState<Activity[]>([]);
   const [selectedInjuries, setSelectedInjuries] = useState<Injury[]>([]);
   const [loadingSelected, setLoadingSelected] = useState(false);
+  const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set());
+
+  function toggleNote(id: string) {
+    setExpandedNotes((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
   const [selectedError, setSelectedError] = useState<string | null>(null);
 
   // Initial roster load + system-wide signals for the empty-state.
@@ -353,6 +365,13 @@ export default function MedicalDashboard() {
     });
     return { weekLabels, weekLoads, weekTypeBreakdowns, acuteLoad, chronicLoad, acwr, cumACWR };
   }, [selectedAthlete, selectedActivities]);
+
+  const recentActivities = useMemo(
+    () => [...selectedActivities]
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 8),
+    [selectedActivities],
+  );
 
   const allInjuries = useMemo(
     () => [...selectedInjuries].sort(
@@ -624,7 +643,7 @@ export default function MedicalDashboard() {
                     {risk.level}
                     {risk.escalated && (
                       <span className="risk-escalation-badge">
-                        escalated from {risk.baseCls === 'low' ? 'Optimal' : 'Elevated'}
+                        escalated from {risk.baseCls === 'low' ? 'Low Risk' : 'Moderate Risk'}
                       </span>
                     )}
                   </div>
@@ -637,6 +656,13 @@ export default function MedicalDashboard() {
                       ))}
                     </div>
                   )}
+                  <AcwrGauge
+                    acwr={workload.acwr}
+                    lowMin={risk.personalisedRange.lowMin}
+                    lowMax={risk.personalisedRange.lowMax}
+                    modMax={risk.personalisedRange.modMax}
+                    compositeCls={risk.cls}
+                  />
                 </div>
                 <div className="risk-hero-acwr">
                   <div className="risk-hero-acwr-val">{workload.acwr.toFixed(2)}</div>
@@ -718,6 +744,69 @@ export default function MedicalDashboard() {
                   myodynamia={selectedAthlete.myodynamia ?? []}
                   tension={selectedAthlete.tension ?? []}
                 />
+              </div>
+
+              {/* Recent activity (athlete-logged sessions, with their notes) */}
+              <div className="card" style={{ marginBottom: 20 }}>
+                <div className="card-header">
+                  <div>
+                    <h2 className="card-title" style={{ marginBottom: 0 }}>Recent Activity</h2>
+                    <span className="card-sub">Athlete-logged sessions · notes shown when present</span>
+                  </div>
+                  <span className="text-muted">
+                    {recentActivities.length} of {selectedActivities.length}
+                  </span>
+                </div>
+                {recentActivities.length === 0 ? (
+                  <div className="empty-state">No activities logged for this athlete.</div>
+                ) : (
+                  <div className="table-wrap">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Date</th><th>Type</th><th>Duration</th><th>Intensity</th><th>Load</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {recentActivities.map((a) => {
+                          const isExpanded = expandedNotes.has(a._id);
+                          return (
+                            <Fragment key={a._id}>
+                              <tr>
+                                <td>
+                                  {a.notes && (
+                                    <button
+                                      type="button"
+                                      className="note-caret"
+                                      onClick={() => toggleNote(a._id)}
+                                      aria-expanded={isExpanded}
+                                      aria-label={isExpanded ? 'Hide note' : 'Show note'}
+                                      title={isExpanded ? 'Hide note' : 'Show note'}
+                                    >
+                                      {isExpanded ? '▾' : '▸'}
+                                    </button>
+                                  )}
+                                  {new Date(a.date).toISOString().slice(0, 10)}
+                                </td>
+                                <td>{a.type}</td>
+                                <td>{a.duration} min</td>
+                                <td>{a.intensity}/10</td>
+                                <td><strong>{a.load}</strong></td>
+                              </tr>
+                              {isExpanded && a.notes && (
+                                <tr className="activity-notes-row">
+                                  <td colSpan={5}>
+                                    <div className="activity-note">📝 {a.notes}</div>
+                                  </td>
+                                </tr>
+                              )}
+                            </Fragment>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
 
               {/* Injury history */}

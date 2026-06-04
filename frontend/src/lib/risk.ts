@@ -1,8 +1,11 @@
 // AIRMS composite injury risk model.
 //
 // Base method: Acute:Chronic Workload Ratio (Gabbett, 2016) with the standard
-// "sweet spot" 0.8–1.3 and danger zone >1.5. Internal load is computed from
-// session RPE (Foster et al., 2001): Load (AU) = duration (min) × RPE.
+// "sweet spot" 0.8–1.3 (empirically reaffirmed by Qin et al. 2025 meta-analysis
+// at 56% lowest injury incidence) and danger zone >1.5. Internal load is
+// computed from session RPE: Load (AU) = duration (min) × RPE — method origin
+// Foster (2001), revalidated by Inoue et al. (2022) for scale reliability and
+// Yang et al. (2024) for physiological correspondence.
 //
 // AIRMS contribution: ACWR bands are *personalised* per athlete using their
 // screening data (exerciseRiskScore, mobility, stability, symmetry), and the
@@ -43,8 +46,8 @@ export interface CompositeRisk {
 }
 
 const LEVEL_LABEL: Record<RiskCls, string> = {
-  low: 'Optimal',
-  mod: 'Elevated',
+  low: 'Low Risk',
+  mod: 'Moderate Risk',
   high: 'High Risk',
   under: 'Low Workload',
 };

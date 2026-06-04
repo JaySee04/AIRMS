@@ -13,26 +13,26 @@ export default function RiskAlert({ risk, acwr }: RiskAlertProps) {
   if (risk.cls !== 'mod' && risk.cls !== 'high') return null;
 
   const isHigh = risk.cls === 'high';
-  const heading = isHigh ? 'High Injury Risk Alert' : 'Elevated Injury Risk';
+  const heading = isHigh ? 'High Injury Risk Alert' : 'Moderate Injury Risk';
   const { lowMin, lowMax, modMax } = risk.personalisedRange;
   const acwrStr = acwr.toFixed(2);
   const rangeStr = `${lowMin.toFixed(2)} – ${lowMax.toFixed(2)}`;
-  const finalLabel = isHigh ? 'High' : 'Elevated';
+  const finalLabel = isHigh ? 'High Risk' : 'Moderate Risk';
 
   // The reason must reflect what the raw ACWR actually did, not just where
   // the final class landed. Escalation can jump low → mod → high in two
   // hops, so a 'high' final class does not imply the ACWR ever crossed the
-  // optimal range. We branch on baseCls (the raw ACWR class) for accuracy.
+  // low-risk range. We branch on baseCls (the raw ACWR class) for accuracy.
   let reason: string;
   if (risk.baseCls === 'high') {
     reason = `Your ACWR of ${acwrStr} exceeds your personalised danger threshold (${modMax.toFixed(2)}).`;
   } else if (risk.baseCls === 'mod' && !risk.escalated) {
-    reason = `Your ACWR of ${acwrStr} is above your optimal range (${rangeStr}).`;
+    reason = `Your ACWR of ${acwrStr} is above your low-risk range (${rangeStr}).`;
   } else if (risk.baseCls === 'mod' && risk.escalated) {
-    reason = `Your ACWR of ${acwrStr} is above your optimal range (${rangeStr}), and active injury or muscle-flag context has escalated your risk to ${finalLabel}.`;
+    reason = `Your ACWR of ${acwrStr} is above your low-risk range (${rangeStr}), and active injury or muscle-flag context has escalated your risk to ${finalLabel}.`;
   } else {
     // baseCls === 'low' (or 'under'), escalated up by context only.
-    reason = `Your ACWR of ${acwrStr} is within your optimal range (${rangeStr}), but active injury or muscle-flag context has escalated your risk to ${finalLabel}.`;
+    reason = `Your ACWR of ${acwrStr} is within your low-risk range (${rangeStr}), but active injury or muscle-flag context has escalated your risk to ${finalLabel}.`;
   }
 
   return (
