@@ -13,6 +13,13 @@ const sequelize = new Sequelize(
     port: Number(process.env.MYSQL_PORT) || 3306,
     dialect: 'mysql',
     logging: process.env.SQL_LOG === '1' ? console.log : false,
+    // mysql2 returns DECIMAL as strings by default. The composite risk model
+    // in frontend/src/lib/risk.ts compares these as numbers and would break
+    // (e.g. "10.4" > 15 is falsy). decimalNumbers: true tells mysql2 to
+    // return DECIMAL columns as JS numbers, matching Mongoose's behaviour.
+    dialectOptions: {
+      decimalNumbers: true,
+    },
     define: {
       charset: 'utf8mb4',
       collate: 'utf8mb4_unicode_ci',

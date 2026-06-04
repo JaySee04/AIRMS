@@ -2,13 +2,25 @@
 // (the Mongo entry) on the feat/mysql-migration branch so both persistence
 // layers can be developed and demoed side-by-side until the switch decision.
 //
-// npm run dev:sql  → start this with nodemon
-// npm run seed:sql → run the SQL seeder (separate file)
+//   npm run dev:sql  → start this with nodemon
+//   npm run seed:sql → run the SQL seeder (separate file)
+//
+// Frontend stays unmodified: every response goes through utils/serialize.js
+// which aliases id → _id and re-assembles Athlete's nested risks/myodynamia/
+// tension shape.
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { connectSqlDB, sequelize } = require('./config/db-sql');
 require('./models-sql'); // register models + associations
+
+const authRoutes = require('./routes-sql/auth');
+const athleteRoutes = require('./routes-sql/athletes');
+const injuryRoutes = require('./routes-sql/injuries');
+const activityRoutes = require('./routes-sql/activities');
+const selfReportRoutes = require('./routes-sql/selfReports');
+const uploadRoutes = require('./routes-sql/upload');
+const reportRoutes = require('./routes-sql/reports');
 
 const app = express();
 
@@ -20,9 +32,14 @@ app.use(cors({ origin: ALLOWED_ORIGINS, credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Routes will be ported one-by-one into backend/src/routes-sql/ and mounted
-// here. For now only /api/health is exposed so we can verify the MySQL
-// connection end-to-end before porting any business logic.
+app.use('/api/auth', authRoutes);
+app.use('/api/athletes', athleteRoutes);
+app.use('/api/injuries', injuryRoutes);
+app.use('/api/activities', activityRoutes);
+app.use('/api/self-reports', selfReportRoutes);
+app.use('/api/upload', uploadRoutes);
+app.use('/api/reports', reportRoutes);
+
 app.get('/api/health', (_req, res) => res.json({
   status: 'ok',
   driver: 'mysql',
@@ -34,13 +51,10 @@ app.use((err, _req, res, _next) => {
   res.status(500).json({ message: 'Internal server error' });
 });
 
-const PORT = process.env.PORT_SQL || process.env.PORT || 5001;
+const PORT = process.env.PORT_SQL || 5001;
 
 (async () => {
   await connectSqlDB();
-  // `sync` creates tables that don't exist; safe for dev. In production we'd
-  // run migrations explicitly. `alter: true` would adjust existing columns
-  // but is risky — left off intentionally.
   if (process.env.SQL_SYNC === '1') {
     await sequelize.sync();
     console.log('Sequelize sync complete (tables created if missing).');
