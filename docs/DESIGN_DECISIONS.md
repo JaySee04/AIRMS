@@ -85,22 +85,45 @@
 
 ---
 
-## 5. MongoDB Atlas (NoSQL) over a relational DB
+## 5. Dual persistence layer — MongoDB Atlas for FYP I, MySQL for ISN production
 
-**Decision:** MongoDB Atlas as the cloud datastore, via Mongoose.
+**Decision:** AIRMS is implemented against **both** MongoDB (Atlas) and MySQL, side-by-side. The Mongo stack is the FYP I demo; the MySQL stack is the deployment target for ISN's production environment. Both backends expose an identical REST API; the Next.js frontend is unmodified across the swap.
 
-**Why:**
-- ISN screening data is **denormalised by nature** — each athlete has a profile with sub-documents for myodynamia (muscle weakness flags) and tension (muscle over-activation flags), each a list of `{muscle, side}` entries
-- Mongoose embedded documents map naturally to this — no awkward join tables
-- Cloud-hosted free tier removes infra concerns for an undergrad FYP
-- Activities, injuries, self-reports are all athlete-scoped — read patterns are "give me everything about athlete X", which is fast with MongoDB document store
-- Node.js + Mongoose is a well-trodden stack; tooling and documentation are mature
+| Stack | Backend entry | Port | Models | Status |
+|---|---|---|---|---|
+| MongoDB | `backend/src/server.js` | 5000 | `models/` (Mongoose) | Default demo path |
+| MySQL | `backend/src/server-sql.js` | 5001 | `models-sql/` (Sequelize) | Verified end-to-end on `feat/mysql-migration` |
 
-**Rejected alternatives:**
-- **PostgreSQL** — would force the nested screening data into either JSON columns (mostly equivalent to Mongo) or a normalised muscle-flags table (joining for every read)
-- **Local SQLite** — fine for dev, but ISN may want to host this on their own infra later, and Mongo Atlas-style cloud hosting is a more realistic production path
+See [DB_SWITCHING.md](DB_SWITCHING.md) for the swap procedure and [MYSQL_MIGRATION_PLAN.md](MYSQL_MIGRATION_PLAN.md) for the migration design.
 
-**Defensibility one-liner:** *"Athlete screening data is hierarchical: profile → biometrics → 8 risk indicators → 2 muscle flag arrays each with side info. Mongoose embedded documents represent this without joins. The cost is loss of relational guarantees, which we don't need — every read is athlete-scoped."*
+**Why this framing matters:** A reviewer of the FYP I draft flagged the MongoDB choice as "highly questionable" for a medical/injury tracking system, citing ACID and FK concerns. Rather than ship only one stack and argue, AIRMS now demonstrates that:
+
+1. The MongoDB choice was deliberate — see hierarchical-data justification below — not "vague".
+2. The relational-integrity concerns are addressed concretely, not rhetorically — there is a working MySQL backend with engine-enforced FKs, ACID transactions, and the same demo data, runnable from `feat/mysql-migration`.
+3. ISN's production deployment runs MySQL (Dr Thung confirmed) — the migration was always in scope for FYP II, just delivered earlier.
+
+### Why MongoDB suits FYP I
+
+- ISN screening data is **hierarchical by nature** — each athlete has a profile with embedded `myodynamia[]` and `tension[]` arrays of `{muscle, side}` flags, plus an 8-field nested `risks` object. Mongoose embedded documents represent this in one round-trip; a normalised relational schema needs 2–3 join tables for one logical entity.
+- Read patterns are **athlete-scoped** — every dashboard load is "give me everything about ATH0001". Document stores are optimised for that exact query shape.
+- **Healthcare standards already use document stores.** FHIR (Fast Healthcare Interoperability Resources — the HL7 standard the WHO endorses) is JSON-native; FHIR servers commonly use MongoDB or document databases. The "medical = relational" framing is conventional wisdom, not a standard.
+- Cloud-hosted Atlas free tier removes infra concerns for an undergrad FYP — fewer moving parts in a demo.
+
+### Counter-arguments to the panel's concerns
+
+**"NoSQL lacks ACID."** Out of date. MongoDB 4.0 (2018) introduced multi-document ACID transactions for replica sets; 4.2 extended it to sharded clusters. AIRMS's Atlas cluster is a replica set — full ACID is available. The self-report → injury promotion uses `mongoose.startSession()` + transaction in production.
+
+**"No foreign-key constraints."** Mongoose schemas enforce referential validation at the application layer — every `Activity.athleteId`, `Injury.athleteId`, etc. is validated against the `Athlete` collection at the route layer. The constraint exists, it's enforced by the application rather than the engine. The MySQL stack adds engine-level FKs on top of this, which the FYP II production deployment inherits.
+
+**"Risk of medical-data corruption."** The semantic invariants in a clinical record ("recovery_date must not precede onset_date", "active injuries cannot have a recovery_date") are app-layer checks regardless of database engine — FK constraints don't protect against these. Both stacks enforce them identically.
+
+### Rejected single-stack alternatives
+
+- **MongoDB-only.** Leaves the panel's criticism unaddressed and provides no migration path for ISN's MySQL production.
+- **MySQL-only from the start.** Would have meant rewriting all the hierarchical screening models against join tables 6 months ago, before the data model was stable. Premature relational normalisation when the schema was still moving.
+- **PostgreSQL.** Reasonable alternative to MySQL but doesn't match ISN's production target.
+
+**Defensibility one-liner:** *"AIRMS ships a dual persistence layer. Mongo handles the hierarchical screening data with one round-trip per read; MySQL gives engine-level relational integrity and matches ISN's production environment. Both back the same frontend via a serialiser layer. The panel's concerns about ACID and FK constraints are addressed by the MySQL stack; the explainability and demo simplicity are preserved by the Mongo stack."*
 
 ---
 

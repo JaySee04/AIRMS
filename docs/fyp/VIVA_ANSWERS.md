@@ -109,7 +109,7 @@ Answers grounded in `docs/MASTER_CLARIFICATIONS.md`, `docs/DESIGN_DECISIONS.md`,
 |---|---|---|
 | 1 | Why Agile, not Waterfall for an FYP? | ISN's data was still being cleaned when development began, so requirements were known to evolve (e.g. Dr Thung's "by age group" + "prevention insight" asks emerged in the 2026-04-24 meeting after Sprint 1). Agile iteration absorbed this; Waterfall would have frozen the wrong baseline. |
 | 2 | What shipped in each sprint? | Sprint 1 (Sem 1): Modules 1+2 + auth + core schema. Sprint 2 (Break): Module 3 self-report flow + Module 5 analytics + PDF generation. Sprint 3 (Sem 2 — in progress): Module 6 prevention insight + Module 4 ISN format lock + audit fixes. |
-| 3 | Evidence of iteration — a user story that changed shape? | Module 5 filter strip — initial design had sport+gender+date only. After Dr Thung's 2026-04-24 ask for "age group" and "body region (upper/lower)", filters expanded to 8, plus a body-region chip row was added. |
+| 3 | Evidence of iteration — a user story that changed shape? | Module 5 filter strip — initial design had sport+gender+date only. After Dr Thung's 2026-04-24 ask for "age group" and "body region (upper/lower)", filters expanded to 8. An upper/trunk/lower chip row was prototyped on top of that, but a later UX review removed it: the 10-option body-part dropdown already covered every region query and the chips were visual clutter that paid no analytical dividend. That iteration loop — add, evaluate, remove — is the story. |
 | 4 | Has ISN signed off via UAT? | No — UAT and effectiveness evaluation are Objective 3, FYP II deliverables. ISN have validated requirements; usability/effectiveness sign-off is the next phase. |
 | 5 | Agile vs fixed FDD — contradiction? | The FDD names the *modules*; the use cases within them are what iterated. Module count is the scope ceiling (a stakeholder contract); module *content* is Agile. This is roughly how Scrum scope-locks epics while iterating stories. |
 
@@ -240,7 +240,7 @@ Answers grounded in `docs/MASTER_CLARIFICATIONS.md`, `docs/DESIGN_DECISIONS.md`,
 
 | # | Question | Answer |
 |---|---|---|
-| 1 | How many meetings with Dr Thung — what changed? | One formal stakeholder meeting (2026-04-24) — transcript on file. Directly produced: age-group filter on Module 5, body-region chip row (upper/lower), prevention insight card on Module 6, PDF report builder requirement. Pre-meeting Module 5 had 3 filters; post-meeting it has 8. |
+| 1 | How many meetings with Dr Thung — what changed? | One formal stakeholder meeting (2026-04-24) — transcript on file. Directly produced: age-group filter on Module 5, expanded body-part dropdown coverage (Dr Thung's "upper/lower" ask), prevention insight card on Module 6, PDF report builder requirement. Pre-meeting Module 5 had 3 filters; post-meeting it has 8. |
 | 2 | Is the signed collaboration letter just a formality? | No — it formalises Dr Thung's commitment to provide data (within ISN's data-governance constraints), validates the requirements as authentic stakeholder asks, and earns the "Exceeds" tier on the Stakeholder Collaboration rubric (2% of viva). |
 | 3 | Did Dr Hoo and Dr Thung ever disagree on direction? | Not on substance — Dr Hoo guides academic framing (rubrics, defensibility), Dr Thung guides operational fit. Where their guidance intersected (e.g. scope of evaluation), Dr Hoo's academic framing prevailed because the artefact is graded, not deployed. |
 
@@ -297,7 +297,7 @@ These are the panel's highest-leverage questions. They test whether the story ho
 | # | Question | Answer |
 |---|---|---|
 | 18 | Modules 1–2 audit-fixed and locked while 3–6 still iterate — genuinely Agile or de-facto Waterfall? | Genuinely Agile — Modules 1–2 went through Sprint 1 + audit fix iteration, then declared "stable" (DoD met). Modules 3–6 are in Sprint 3. Stabilising a delivered increment while iterating on later increments is exactly the Scrum cadence; it is not Waterfall because nothing was big-bang released. |
-| 19 | Show one user story that changed shape after a sprint review. | Module 5 filter strip: original Sprint 2 design had sport + gender + date range. After Dr Thung's 2026-04-24 review, expanded to age group + programme + body part + injury type + body-region chips. The story didn't move — the acceptance criteria expanded. |
+| 19 | Show one user story that changed shape after a sprint review. | Module 5 filter strip: original Sprint 2 design had sport + gender + date range. After Dr Thung's 2026-04-24 review, expanded to age group + programme + body part + injury type — eight filters total. The story didn't move; the acceptance criteria expanded. A subsequent iteration also added then removed an upper/trunk/lower chip row after concluding the body-part dropdown already covered the same query without the visual clutter. |
 
 ## Composite Risk ↔ Everything
 
