@@ -127,9 +127,9 @@ Modules 1+2 are the FYP showcases requiring no further iteration. Modules 3–6 
 **Current state (functional):**
 - ✅ Page at `/admin/dashboard` renders the filter bar — sport, gender, programme, body part, injury type, **age group**, date range — all POST through to the backend
 - ✅ Backend `GET /api/injuries/analytics/summary` extended to accept all 8 filter params including `ageMin`/`ageMax` (driven from age-group dropdown) for Dr Thung's "by age group" ask
-- ✅ **Body region chip row** above the filter strip (Upper body / Trunk / Lower body) — quick slicer that complements the body-part dropdown, addressing Dr Thung's "by region (upper/lower)" preference
 - ✅ 4 KPI cards (Total Cases / Athletes Affected / Currently Recovering / Sports Affected) re-fetch live on filter change
-- ✅ Body part distribution bar chart (Chart.js, navy) — uses canonical ordering, fills missing categories with 0; honours body-region chip filtering
+- ✅ Body part distribution bar chart (Chart.js, navy) — uses canonical ordering, fills missing categories with 0
+- ✅ Active dashboard filters (sport, gender, programme, body part, injury type, age group, date range) carry into `/admin/reports` via URL query params on the "Generate PDF Report" link, so the analyst doesn't re-enter what they already chose
 - ✅ Injury type distribution bar chart (Chart.js, gold) — same pattern
 - ✅ Monthly cases line chart — Chart.js, smooth curve, fed by Mongo aggregation by year+month
 - ✅ "Generate PDF Report" button navigates to `/admin/reports`
@@ -188,8 +188,8 @@ Mapping of Dr Thung's stated requirements (transcript: [stakeholder/meeting-2026
 | Dr Thung's ask | Where it lives |
 |---|---|
 | Two distinct dashboards — admin (holistic) + medical (individual) | Module 5 (`/admin/dashboard`) + Module 6 (`/medical/dashboard`) |
-| Admin: cohort summary with filters/slicers (sport, gender, **age group**) | Filter bar + body region chips on `/admin/dashboard` |
-| Admin: body region breakdown (upper/lower, left/right) | Body region chips + side stored on every `Injury` (Left / Right / Both / N/A) |
+| Admin: cohort summary with filters/slicers (sport, gender, **age group**) | 8-filter strip on `/admin/dashboard` (sport, gender, programme, body part, injury type, age group, date range) |
+| Admin: body region breakdown (upper/lower, left/right) | Body part dropdown covers all 10 regions (Neck/Shoulder/Spine/Lumbar-Pelvis/Knee/Ankle/Hip/Elbow/Wrist/Other); side stored on every `Injury` (Left / Right / Both / N/A). An earlier upper/trunk/lower chip row was prototyped and removed after UX review — the dropdown already covered the same query with less visual clutter |
 | Admin: time-series trend (year-to-year, quarter-to-quarter) | "Cases Over Time" monthly line chart |
 | Medical: per-athlete history "trace through" view | `/medical/dashboard` injury list + workload trend + body map |
 | Medical: surface prominent likely injuries + prevention advice | **Prevention insight card** on `/medical/dashboard` |

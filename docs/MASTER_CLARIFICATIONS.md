@@ -20,7 +20,7 @@ The project is an iteration on a previous HTML prototype (`airms-prototype/`) in
 |---|---|
 | Frontend framework | **Next.js 14 (App Router)** with TypeScript |
 | Backend framework | **Node.js + Express** |
-| Database | **MongoDB Atlas** (cloud cluster) via **Mongoose** |
+| Database | **MongoDB Atlas** (cloud cluster) via **Mongoose** — FYP I demo path. A parallel **MySQL 8.x** stack via **Sequelize** lives on `feat/mysql-migration` for ISN's production deployment; see [DESIGN_DECISIONS.md §5](DESIGN_DECISIONS.md#5-dual-persistence-layer--mongodb-atlas-for-fyp-i-mysql-for-isn-production) and [DB_SWITCHING.md](DB_SWITCHING.md). |
 | Authentication | **JWT** stored in `localStorage` |
 | Charts | **Chart.js** + **react-chartjs-2** |
 | Body map asset | **react-muscle-highlighter** (MIT) — path data copied into project, NOT installed as dependency |
@@ -223,7 +223,8 @@ These rules came from JC's Figma mockups and explicit feedback. **Do not deviate
 - The body map asset source and MIT attribution
 - The aggregation policy (figure shows regions, cards show specific muscles)
 - The Figma-derived UI design (split login card, sidebar branding, topbar dropdown)
-- The MongoDB schema for `Activity`, `Athlete`, `Injury`
+- The MongoDB schema for `Activity`, `Athlete`, `Injury` (and its MySQL mirror — both stacks track schema changes together)
+- The dual-persistence direction itself: Mongo for FYP I demo, MySQL for ISN production. Don't drop either without discussion
 - The ACWR thresholds 0.8 / 1.3 / 1.5 as the baseline (personalised modifiers are ±15% around these)
 
 If JC ever says "redesign the body map" or "let me self-report intensity differently" or "switch to PostgreSQL," ask one clarifying question before acting — these touch FYP-defensibility.
