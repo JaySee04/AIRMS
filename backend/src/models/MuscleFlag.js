@@ -1,9 +1,9 @@
-const { DataTypes } = require('sequelize');
-const { sequelize } = require('../config/db-sql');
+﻿const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/db');
 
-// Single table for both myodynamia (weakness) and tension flags.
-// In Mongo these were two parallel sub-document arrays on Athlete;
-// relational design collapses them into one table discriminated by `flagType`.
+// One table for both myodynamia (weakness) and tension flags, discriminated
+// by `flagType`. The route serialiser splits rows by flag_type back into the
+// myodynamia[] / tension[] arrays the frontend reads.
 const MuscleFlag = sequelize.define('MuscleFlag', {
   id: {
     type: DataTypes.INTEGER,

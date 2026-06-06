@@ -11,7 +11,7 @@
 **Decision:** Load (AU) = Duration (min) × RPE (1–10), self-reported by the athlete.
 
 **Why:**
-- Validated method per Foster et al. (2001), "A New Approach to Monitoring Exercise Training"
+- Validated method per Inoue et al. (2022) and Yang et al. (2024); method origin Foster et al. (2001), "A New Approach to Monitoring Exercise Training"
 - Captures **internal** load (how hard the athlete experienced the session) rather than external load (HR, GPS, power)
 - Scales without any sensor hardware — works for every sport at every venue
 - ISN does not have universal HRM/GPS coverage across its athlete pool
@@ -85,45 +85,50 @@
 
 ---
 
-## 5. Dual persistence layer — MongoDB Atlas for FYP I, MySQL for ISN production
+## 5. MySQL with Sequelize (single persistence layer)
 
-**Decision:** AIRMS is implemented against **both** MongoDB (Atlas) and MySQL, side-by-side. The Mongo stack is the FYP I demo; the MySQL stack is the deployment target for ISN's production environment. Both backends expose an identical REST API; the Next.js frontend is unmodified across the swap.
+**Decision:** AIRMS persists all data in **MySQL** via Sequelize. There is one backend, one model tree, one seeder. The Next.js frontend reads a stable JSON shape, with Sequelize's numeric `id` exposed as a stringified `_id` field through `backend/src/utils/serialize.js` so frontend components have a consistent identifier to use as a React key.
 
-| Stack | Backend entry | Port | Models | Status |
-|---|---|---|---|---|
-| MongoDB | `backend/src/server.js` | 5000 | `models/` (Mongoose) | Default demo path |
-| MySQL | `backend/src/server-sql.js` | 5001 | `models-sql/` (Sequelize) | Verified end-to-end on `feat/mysql-migration` |
+| Layer | File |
+|---|---|
+| Entry | [`backend/src/server.js`](../backend/src/server.js) (port 5000) |
+| Connection | [`backend/src/config/db.js`](../backend/src/config/db.js) |
+| Models | [`backend/src/models/`](../backend/src/models/) (Sequelize) |
+| Seeder | [`backend/src/utils/seeder.js`](../backend/src/utils/seeder.js) (deterministic, seed=42) |
+| Routes | [`backend/src/routes/`](../backend/src/routes/) |
+| Response shaper | [`backend/src/utils/serialize.js`](../backend/src/utils/serialize.js) |
 
-See [DB_SWITCHING.md](DB_SWITCHING.md) for the swap procedure and [MYSQL_MIGRATION_PLAN.md](MYSQL_MIGRATION_PLAN.md) for the migration design.
+### Why MySQL
 
-**Why this framing matters:** A reviewer of the FYP I draft flagged the MongoDB choice as "highly questionable" for a medical/injury tracking system, citing ACID and FK concerns. Rather than ship only one stack and argue, AIRMS now demonstrates that:
+- **ISN's production environment is MySQL.** Anything that gets deployed at ISN must run against MySQL; using it during development eliminates the cost of a future translation step.
+- **Engine-level relational integrity.** Foreign keys on `athleteId` are enforced by MySQL itself across `activities`, `injuries`, `self_reports`, and `muscle_flags`. Orphaned clinical records cannot exist regardless of how badly a route handler is written.
+- **ACID transactions are first-class.** The self-report → injury promotion in Module 3 is wrapped in `sequelize.transaction()` so the status update and the new injury insert either both commit or both roll back.
+- **Mature tooling.** MySQL Workbench gives a working schema inspector and query workbench out of the box, which made schema work during the migration much faster.
 
-1. The MongoDB choice was deliberate — see hierarchical-data justification below — not "vague".
-2. The relational-integrity concerns are addressed concretely, not rhetorically — there is a working MySQL backend with engine-enforced FKs, ACID transactions, and the same demo data, runnable from `feat/mysql-migration`.
-3. ISN's production deployment runs MySQL (Dr Thung confirmed) — the migration was always in scope for FYP II, just delivered earlier.
+### Why not MongoDB
 
-### Why MongoDB suits FYP I
+MongoDB was the original FYP I demo stack — see [`MONGO_RECOVERY.md`](MONGO_RECOVERY.md) for the historical record and an emergency restoration procedure. The reasons it was retired:
 
-- ISN screening data is **hierarchical by nature** — each athlete has a profile with embedded `myodynamia[]` and `tension[]` arrays of `{muscle, side}` flags, plus an 8-field nested `risks` object. Mongoose embedded documents represent this in one round-trip; a normalised relational schema needs 2–3 join tables for one logical entity.
-- Read patterns are **athlete-scoped** — every dashboard load is "give me everything about ATH0001". Document stores are optimised for that exact query shape.
-- **Healthcare standards already use document stores.** FHIR (Fast Healthcare Interoperability Resources — the HL7 standard the WHO endorses) is JSON-native; FHIR servers commonly use MongoDB or document databases. The "medical = relational" framing is conventional wisdom, not a standard.
-- Cloud-hosted Atlas free tier removes infra concerns for an undergrad FYP — fewer moving parts in a demo.
+- **The FYP I review panel flagged document storage as inappropriate for a clinical-record system**, citing ACID and foreign-key concerns. The concerns are answerable on MongoDB 4.x+ (which has both), but defending the choice in viva voce is meaningfully harder than just using a relational engine when the deployment target is relational anyway.
+- **Two backends, one frontend** was unsustainable maintenance overhead once the schema stabilised. Every model change had to be made twice; every route had to be ported.
+- **The serialisation shim** ([`backend/src/utils/serialize.js`](../backend/src/utils/serialize.js)) proved the frontend never needed to know which database it was talking to. Once that was true, keeping both backends had no remaining technical justification.
 
-### Counter-arguments to the panel's concerns
+### Rejected alternatives
 
-**"NoSQL lacks ACID."** Out of date. MongoDB 4.0 (2018) introduced multi-document ACID transactions for replica sets; 4.2 extended it to sharded clusters. AIRMS's Atlas cluster is a replica set — full ACID is available. The self-report → injury promotion uses `mongoose.startSession()` + transaction in production.
+- **MongoDB-only.** Leaves the panel's criticism unanswered and forces a migration before any ISN deployment can happen.
+- **PostgreSQL.** Reasonable on technical merit but doesn't match ISN's production target.
+- **SQLite.** Fine for local dev but doesn't represent the production environment and would have to be replaced before deployment anyway.
 
-**"No foreign-key constraints."** Mongoose schemas enforce referential validation at the application layer — every `Activity.athleteId`, `Injury.athleteId`, etc. is validated against the `Athlete` collection at the route layer. The constraint exists, it's enforced by the application rather than the engine. The MySQL stack adds engine-level FKs on top of this, which the FYP II production deployment inherits.
+### Hierarchical-data note
 
-**"Risk of medical-data corruption."** The semantic invariants in a clinical record ("recovery_date must not precede onset_date", "active injuries cannot have a recovery_date") are app-layer checks regardless of database engine — FK constraints don't protect against these. Both stacks enforce them identically.
+The original Mongo rationale leaned on the hierarchical shape of athlete screening data — embedded `myodynamia[]` and `tension[]` arrays, a nested `risks` object. The Sequelize implementation handles this with:
 
-### Rejected single-stack alternatives
+- A single `muscle_flags` table discriminated by `flag_type` (`'myodynamia'` | `'tension'`), with an index on `(athlete_id, flag_type)` so the join is essentially free at read time.
+- The 8 risk indicators stored as flat columns on `athletes`; reassembled into a nested `risks` object by the serialiser before the frontend sees the response.
 
-- **MongoDB-only.** Leaves the panel's criticism unaddressed and provides no migration path for ISN's MySQL production.
-- **MySQL-only from the start.** Would have meant rewriting all the hierarchical screening models against join tables 6 months ago, before the data model was stable. Premature relational normalisation when the schema was still moving.
-- **PostgreSQL.** Reasonable alternative to MySQL but doesn't match ISN's production target.
+The net result is the same JSON shape on the wire, with engine-enforced integrity behind it.
 
-**Defensibility one-liner:** *"AIRMS ships a dual persistence layer. Mongo handles the hierarchical screening data with one round-trip per read; MySQL gives engine-level relational integrity and matches ISN's production environment. Both back the same frontend via a serialiser layer. The panel's concerns about ACID and FK constraints are addressed by the MySQL stack; the explainability and demo simplicity are preserved by the Mongo stack."*
+**Defensibility one-liner:** *"MySQL matches ISN's production environment, provides engine-level foreign keys and ACID transactions for clinical records, and lets the same Sequelize model layer drive both schema validation and derived-field hooks like sRPE load computation. The original document-store choice is documented in MONGO_RECOVERY.md as a historical record."*
 
 ---
 
@@ -133,7 +138,7 @@ See [DB_SWITCHING.md](DB_SWITCHING.md) for the swap procedure and [MYSQL_MIGRATI
 
 **Why:**
 - Filesystem routing maps cleanly to the role-based URL structure (`app/athlete/dashboard/page.tsx` → `/athlete/dashboard`)
-- TypeScript catches data-shape mismatches between frontend and Mongoose-defined backend models — important for an FYP where there's no QA team
+- TypeScript catches data-shape mismatches between frontend and Sequelize-defined backend models — important for an FYP where there's no QA team
 - Client components (`'use client'`) handle interactivity; server components stay out of the way (we don't really use SSR here since the app is fully authenticated)
 - `npm run dev` HMR is fast and reliable
 - Easy to deploy to Vercel later if needed
@@ -143,7 +148,7 @@ See [DB_SWITCHING.md](DB_SWITCHING.md) for the swap procedure and [MYSQL_MIGRATI
 - **Vite + React Router** — would require manually setting up TS configs, routing, build pipeline
 - **Plain CRA** — deprecated, slow build
 
-**Defensibility one-liner:** *"App Router gives filesystem-driven routing that matches our role-based URL hierarchy. TypeScript catches schema drift between frontend and Mongoose models. No special build infrastructure needed."*
+**Defensibility one-liner:** *"App Router gives filesystem-driven routing that matches our role-based URL hierarchy. TypeScript catches schema drift between frontend and Sequelize models. No special build infrastructure needed."*
 
 ---
 

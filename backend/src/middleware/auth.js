@@ -1,9 +1,8 @@
-const jwt = require('jsonwebtoken');
-const { User } = require('../models-sql');
+﻿const jwt = require('jsonwebtoken');
+const { User } = require('../models');
 
-// Sequelize variant of middleware/auth.js. Same contract: sets req.user to
-// the User row (without the password column) so RBAC + downstream routes
-// can read req.user.role / req.user.athleteId identically to the Mongo path.
+// JWT verify + populate req.user with the matching User row. RBAC + route
+// handlers downstream read req.user.role / req.user.athleteId.
 module.exports = async (req, res, next) => {
   const header = req.headers.authorization;
   if (!header || !header.startsWith('Bearer ')) {

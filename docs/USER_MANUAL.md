@@ -124,7 +124,7 @@ Full-width banner. Colour-coded by current risk band:
 - 🟢 **Optimal** — green tint
 - 🟡 **Elevated** — amber tint
 - 🔴 **High Risk** — red tint
-- 🔵 **Low Workload** — blue tint
+- 🔵 **Detraining Risk** — blue tint
 
 Layout:
 - **Left**: "Current Status" label → big risk level → explanation paragraph

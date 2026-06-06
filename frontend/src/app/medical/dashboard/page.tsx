@@ -40,7 +40,6 @@ interface AthleteFull extends AthleteListItem {
   mobility?: number;
   stability?: number;
   symmetry?: number;
-  exerciseRiskScore?: number;
   risks: AthleteRisks;
   myodynamia: MuscleEntry[];
   tension: MuscleEntry[];
@@ -148,6 +147,29 @@ interface PreventionInsight {
   actions: string[];
 }
 
+interface CountBucket { _id: string; count: number; }
+interface SportContext {
+  total: number;
+  athletesAffected: number;
+  byBodyPart: CountBucket[];
+  byType: CountBucket[];
+  bySeverity: CountBucket[];
+}
+
+interface RecoveryBaselineRow {
+  _id: string;
+  athleteId: string;
+  snapshotAcwr: number;
+  chronicLoad: number;
+  targetLowMin: number;
+  targetLowMax: number;
+  triggerCls: 'mod' | 'high' | 'under';
+  triggerLevel: string;
+  factors?: string | null;
+  resolvedAt?: string | null;
+  createdAt: string;
+}
+
 function buildPreventionInsight(
   athlete: AthleteFull,
   injuries: Injury[],
@@ -241,6 +263,8 @@ export default function MedicalDashboard() {
   const [selectedAthlete, setSelectedAthlete] = useState<AthleteFull | null>(null);
   const [selectedActivities, setSelectedActivities] = useState<Activity[]>([]);
   const [selectedInjuries, setSelectedInjuries] = useState<Injury[]>([]);
+  const [sportContext, setSportContext] = useState<SportContext | null>(null);
+  const [activeBaseline, setActiveBaseline] = useState<RecoveryBaselineRow | null>(null);
   const [loadingSelected, setLoadingSelected] = useState(false);
   const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set());
 
@@ -290,22 +314,36 @@ export default function MedicalDashboard() {
       setSelectedAthlete(null);
       setSelectedActivities([]);
       setSelectedInjuries([]);
+      setSportContext(null);
+      setActiveBaseline(null);
       return;
     }
     let cancelled = false;
     (async () => {
       try {
         setLoadingSelected(true);
-        const [a, acts, injs] = await Promise.all([
+        const [a, acts, injs, baselines] = await Promise.all([
           api.get<AthleteFull>(`/athletes/${selectedId}`),
           api.get<Activity[]>(`/activities/athlete/${selectedId}`).catch(() => [] as Activity[]),
           api.get<Injury[]>(`/injuries/athlete/${selectedId}`).catch(() => [] as Injury[]),
+          api.get<RecoveryBaselineRow[]>(`/recovery-baselines/athlete/${selectedId}?active=1`).catch(() => [] as RecoveryBaselineRow[]),
         ]);
         if (!cancelled) {
           setSelectedAthlete(a);
           setSelectedActivities(acts);
           setSelectedInjuries(injs);
+          setActiveBaseline(baselines[0] ?? null);
           setSelectedError(null);
+        }
+        // Sport-level context: aggregated injuries filtered to this athlete's sport.
+        // Fired in a second pass because it depends on the athlete record we just fetched.
+        if (a?.sport) {
+          const ctx = await api
+            .get<SportContext>(`/injuries/analytics/summary?sport=${encodeURIComponent(a.sport)}`)
+            .catch(() => null);
+          if (!cancelled) setSportContext(ctx);
+        } else if (!cancelled) {
+          setSportContext(null);
         }
       } catch (e) {
         if (!cancelled) setSelectedError(e instanceof Error ? e.message : 'Failed to load athlete');
@@ -393,6 +431,59 @@ export default function MedicalDashboard() {
     if (!selectedAthlete || !risk) return null;
     return buildPreventionInsight(selectedAthlete, allInjuries, risk.cls);
   }, [selectedAthlete, allInjuries, risk]);
+
+  // Recovery baseline auto-trigger. Opens a baseline when composite risk
+  // first lands outside Low; resolves the active baseline once the athlete
+  // returns to Low (or Detraining, which is its own forward-looking flag,
+  // not an injury-context elevation).
+  useEffect(() => {
+    if (!selectedAthlete || !risk || !workload) return;
+    const nonLow = risk.cls === 'mod' || risk.cls === 'high';
+    const cancelled = { v: false };
+    (async () => {
+      if (nonLow && !activeBaseline) {
+        const created = await api
+          .post<RecoveryBaselineRow>('/recovery-baselines', {
+            athleteId: selectedAthlete.athleteId,
+            snapshotAcwr: +workload.acwr.toFixed(2),
+            chronicLoad: +workload.chronicLoad.toFixed(0),
+            targetLowMin: risk.personalisedRange.lowMin,
+            targetLowMax: risk.personalisedRange.lowMax,
+            triggerCls: risk.cls,
+            triggerLevel: risk.level,
+            factors: risk.factors,
+          })
+          .catch(() => null);
+        if (!cancelled.v && created) setActiveBaseline(created);
+      } else if (!nonLow && activeBaseline) {
+        await api
+          .patch<RecoveryBaselineRow>(`/recovery-baselines/athlete/${selectedAthlete.athleteId}/resolve`, {})
+          .catch(() => null);
+        if (!cancelled.v) setActiveBaseline(null);
+      }
+    })();
+    return () => { cancelled.v = true; };
+  }, [selectedAthlete, risk, workload, activeBaseline]);
+
+  // Sport context: top body parts / injury types within the athlete's sport,
+  // with this athlete's own injury body parts and types marked so the clinician
+  // can read individual cases against the sport-wide pattern in one glance.
+  const athleteBodyParts = useMemo(
+    () => new Set(allInjuries.map((i) => i.bodyPart)),
+    [allInjuries],
+  );
+  const athleteInjuryTypes = useMemo(
+    () => new Set(allInjuries.map((i) => i.injuryType)),
+    [allInjuries],
+  );
+  const sportTopBodyParts = useMemo(() => {
+    if (!sportContext) return [];
+    return [...sportContext.byBodyPart].sort((a, b) => b.count - a.count).slice(0, 5);
+  }, [sportContext]);
+  const sportTopTypes = useMemo(() => {
+    if (!sportContext) return [];
+    return [...sportContext.byType].sort((a, b) => b.count - a.count).slice(0, 5);
+  }, [sportContext]);
 
   // Distinct programmes available in the roster (for the filter dropdown)
   const programmes = useMemo(() => {
@@ -662,6 +753,7 @@ export default function MedicalDashboard() {
                     lowMax={risk.personalisedRange.lowMax}
                     modMax={risk.personalisedRange.modMax}
                     compositeCls={risk.cls}
+                    compositeLabel={risk.level}
                   />
                 </div>
                 <div className="risk-hero-acwr">
@@ -673,6 +765,45 @@ export default function MedicalDashboard() {
                   </div>
                 </div>
               </div>
+
+              {/* Recovery baseline — open snapshot of pre-elevation training state.
+                  Auto-created when composite risk first leaves Low; auto-resolved
+                  when the athlete returns to Low. Acts as a clinician-facing
+                  return-to-play target. */}
+              {activeBaseline && (
+                <div className="card" style={{ marginTop: 16, borderLeft: '4px solid var(--brand-gold)' }}>
+                  <div className="card-header" style={{ marginBottom: 8 }}>
+                    <div>
+                      <h2 className="card-title" style={{ marginBottom: 0 }}>Recovery baseline</h2>
+                      <span className="card-sub">
+                        Opened {new Date(activeBaseline.createdAt).toISOString().slice(0, 10)} ·
+                        triggered by <strong>{activeBaseline.triggerLevel}</strong>
+                      </span>
+                    </div>
+                  </div>
+                  <div className="kv-grid">
+                    <div>
+                      <span>Return-to-Low band</span>
+                      <strong>
+                        {activeBaseline.targetLowMin.toFixed(2)} – {activeBaseline.targetLowMax.toFixed(2)} ACWR
+                      </strong>
+                    </div>
+                    <div>
+                      <span>Snapshot ACWR</span>
+                      <strong>{activeBaseline.snapshotAcwr.toFixed(2)}</strong>
+                    </div>
+                    <div>
+                      <span>Chronic load at snapshot</span>
+                      <strong>{Math.round(activeBaseline.chronicLoad)} AU</strong>
+                    </div>
+                  </div>
+                  {activeBaseline.factors && (
+                    <div className="text-muted" style={{ fontSize: '0.82rem', marginTop: 10 }}>
+                      Trigger factors: {activeBaseline.factors}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Prevention insight — clinical advice tailored to this athlete */}
               {insight && (
@@ -808,6 +939,110 @@ export default function MedicalDashboard() {
                   </div>
                 )}
               </div>
+
+              {/* Sport context — situates this athlete against their sport's overall injury pattern */}
+              {sportContext && sportContext.total > 0 && (
+                <div className="card" style={{ marginBottom: 20 }}>
+                  <div className="card-header">
+                    <div>
+                      <h2 className="card-title" style={{ marginBottom: 0 }}>
+                        Sport Context — {selectedAthlete.sport}
+                      </h2>
+                      <span className="card-sub">
+                        How {selectedAthlete.name.split(' ')[0]}&apos;s injuries compare to the sport&apos;s overall pattern
+                      </span>
+                    </div>
+                  </div>
+                  <div className="stat-grid" style={{ marginBottom: 16 }}>
+                    <div className="stat-tile">
+                      <div className="stat-tile-label">Total cases ({selectedAthlete.sport})</div>
+                      <div className="stat-tile-value">{sportContext.total}</div>
+                      <div className="stat-tile-delta">All time</div>
+                    </div>
+                    <div className="stat-tile">
+                      <div className="stat-tile-label">Athletes affected</div>
+                      <div className="stat-tile-value">{sportContext.athletesAffected}</div>
+                      <div className="stat-tile-delta">Within {selectedAthlete.sport}</div>
+                    </div>
+                    <div className="stat-tile">
+                      <div className="stat-tile-label">This athlete</div>
+                      <div className="stat-tile-value">{allInjuries.length}</div>
+                      <div className="stat-tile-delta">
+                        {sportContext.total > 0
+                          ? `${((allInjuries.length / sportContext.total) * 100).toFixed(1)}% of sport`
+                          : '—'}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="grid-2">
+                    <div>
+                      <strong style={{ fontSize: '0.82rem' }}>Top body parts in {selectedAthlete.sport}</strong>
+                      {sportTopBodyParts.length === 0 ? (
+                        <div className="empty-state">No data</div>
+                      ) : (
+                        <ul className="insight-list" style={{ marginTop: 8 }}>
+                          {sportTopBodyParts.map((b) => {
+                            const pct = (b.count / sportContext.total) * 100;
+                            const overlap = athleteBodyParts.has(b._id);
+                            return (
+                              <li key={b._id}>
+                                <strong>{b._id}</strong> — {b.count} ({pct.toFixed(0)}%)
+                                {overlap && (
+                                  <span className="badge-moderate" style={{ marginLeft: 8 }}>
+                                    also seen in this athlete
+                                  </span>
+                                )}
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
+                    </div>
+                    <div>
+                      <strong style={{ fontSize: '0.82rem' }}>Top injury types in {selectedAthlete.sport}</strong>
+                      {sportTopTypes.length === 0 ? (
+                        <div className="empty-state">No data</div>
+                      ) : (
+                        <ul className="insight-list" style={{ marginTop: 8 }}>
+                          {sportTopTypes.map((t) => {
+                            const pct = (t.count / sportContext.total) * 100;
+                            const overlap = athleteInjuryTypes.has(t._id);
+                            return (
+                              <li key={t._id}>
+                                <strong>{t._id}</strong> — {t.count} ({pct.toFixed(0)}%)
+                                {overlap && (
+                                  <span className="badge-moderate" style={{ marginLeft: 8 }}>
+                                    also seen in this athlete
+                                  </span>
+                                )}
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                  {sportContext.bySeverity.length > 0 && (
+                    <div style={{ marginTop: 14 }}>
+                      <strong style={{ fontSize: '0.82rem' }}>Severity mix</strong>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+                        {sportContext.bySeverity.map((s) => {
+                          const cls = s._id === 'Severe'
+                            ? 'badge-high'
+                            : s._id === 'Moderate'
+                              ? 'badge-moderate'
+                              : 'badge-low';
+                          return (
+                            <span key={s._id} className={cls}>
+                              {s._id}: {s.count}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Injury history */}
               <div className="card">

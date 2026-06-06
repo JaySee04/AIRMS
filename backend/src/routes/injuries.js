@@ -1,7 +1,7 @@
 const express = require('express');
 const { Op, fn, col, literal } = require('sequelize');
-const { Injury, Athlete } = require('../models-sql');
-const auth = require('../middleware/auth-sql');
+const { Injury, Athlete } = require('../models');
+const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
 const { serializeGeneric, serializeMany } = require('../utils/serialize');
 
@@ -43,13 +43,13 @@ router.get('/', auth, rbac('medical', 'admin'), async (req, res) => {
 // GET /api/injuries/analytics/summary — aggregated KPIs for admin dashboard
 // Must be declared BEFORE /athlete/:id and other dynamic routes so Express
 // matches `analytics/summary` before treating "analytics" as an id segment.
-router.get('/analytics/summary', auth, rbac('admin'), async (req, res) => {
+router.get('/analytics/summary', auth, rbac('admin', 'medical'), async (req, res) => {
   try {
     const where = buildWhere(req.query);
 
-    // Mirrors the Mongo pipeline: one aggregation per axis, plus a couple of
-    // scalars. Each Sequelize call returns [{ _id, count }, ...] so the
-    // response shape matches what the admin dashboard already reads.
+    // One aggregation per axis plus a couple of scalars. Each Sequelize call
+    // returns [{ _id, count }, ...] (the `_id` alias is the GROUP BY value),
+    // which is exactly the envelope the admin dashboard reads.
     const groupBy = (field, opts = {}) =>
       Injury.findAll({
         where,
@@ -69,9 +69,8 @@ router.get('/analytics/summary', auth, rbac('admin'), async (req, res) => {
       groupBy('program'),
     ]);
 
-    // Monthly aggregation — MySQL has YEAR()/MONTH() built-ins. Returns
-    // rows with { year, month, count } that we reshape to match Mongo's
-    // { _id: { year, month }, count } envelope.
+    // Monthly aggregation via YEAR()/MONTH(). Returned as
+    // { _id: { year, month }, count } so the chart can render directly.
     const monthRows = await Injury.findAll({
       where,
       attributes: [

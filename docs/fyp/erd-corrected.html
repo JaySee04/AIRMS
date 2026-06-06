@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>AIRMS — Entity Relationship Diagram</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #fff;
+    color: #1a1a1a;
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 12px;
+  }
+  .page {
+    width: 1500px;
+    margin: 16px auto;
+    padding: 0 16px;
+    box-sizing: border-box;
+  }
+  h1 {
+    margin: 0 0 14px;
+    font-size: 17px;
+    font-weight: 700;
+    text-align: center;
+    letter-spacing: 0.3px;
+  }
+  .canvas {
+    position: relative;
+    width: 1500px;
+    height: 780px;
+    background: #fff;
+  }
+  .lines {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .table {
+    position: absolute;
+    background: #fff;
+    border: 1px solid #6c8ebf;
+    border-radius: 3px;
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 12px;
+    box-shadow: 1px 1px 2px rgba(0,0,0,0.08);
+  }
+  .table .title {
+    background: #dae8fc;
+    border-bottom: 1px solid #6c8ebf;
+    padding: 6px 10px;
+    text-align: center;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    font-size: 13px;
+    color: #1a1a1a;
+  }
+  .table table { border-collapse: collapse; width: 100%; table-layout: fixed; }
+  .table td {
+    padding: 4px 10px;
+    border-bottom: 1px solid #ececec;
+    vertical-align: middle;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-family: Helvetica, Arial, sans-serif;
+  }
+  .table tr:last-child td { border-bottom: none; }
+
+  .key {
+    width: 44px;
+    text-align: center;
+    font-weight: 700;
+    font-size: 10.5px;
+    padding: 4px 0;
+    background: #eaf1fa;
+    color: #1a5490;
+    border-right: 1px solid #d8e2ee;
+    letter-spacing: 0.5px;
+  }
+  .key.fk {
+    background: #f3ebfa;
+    color: #6c3fb8;
+    border-right-color: #e4d6f1;
+  }
+  .col { font-weight: 500; color: #1a1a1a; }
+
+  .relname {
+    position: absolute;
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 11px;
+    color: #666;
+    background: #fff;
+    padding: 0 6px;
+    font-style: italic;
+    letter-spacing: 0.2px;
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <h1>AIRMS — Entity Relationship Diagram</h1>
+
+  <div class="canvas">
+
+    <svg class="lines" viewBox="0 0 1500 780" preserveAspectRatio="none">
+      <defs>
+        <marker id="many" viewBox="0 0 16 16" refX="15" refY="8" markerWidth="16" markerHeight="16" orient="auto-start-reverse">
+          <path d="M0,8 L14,1 M0,8 L14,8 M0,8 L14,15" fill="none" stroke="#444" stroke-width="1.4"/>
+        </marker>
+        <marker id="one" viewBox="0 0 10 16" refX="5" refY="8" markerWidth="10" markerHeight="16" orient="auto-start-reverse">
+          <path d="M5,1 L5,15" fill="none" stroke="#444" stroke-width="1.6"/>
+        </marker>
+        <marker id="zeroOne" viewBox="0 0 16 16" refX="3" refY="8" markerWidth="16" markerHeight="16" orient="auto-start-reverse">
+          <circle cx="5" cy="8" r="3.2" fill="#fff" stroke="#444" stroke-width="1.2"/>
+          <path d="M12,2 L12,14" fill="none" stroke="#444" stroke-width="1.4"/>
+        </marker>
+      </defs>
+
+      <!-- users ──── athletes (vertical) -->
+      <path d="M 550 244 L 550 280"
+            stroke="#444" stroke-width="1.4" fill="none"
+            marker-start="url(#zeroOne)" marker-end="url(#one)"/>
+
+      <!-- users ──── import_records (L-shape to right) -->
+      <path d="M 660 132 L 780 132 L 780 78 L 900 78"
+            stroke="#444" stroke-width="1.4" fill="none"
+            marker-start="url(#one)" marker-end="url(#many)"/>
+
+      <!-- athletes ──── activities (L-shape, top-left) -->
+      <path d="M 440 320 L 360 320 L 360 132 L 280 132"
+            stroke="#444" stroke-width="1.4" fill="none"
+            marker-start="url(#one)" marker-end="url(#many)"/>
+
+      <!-- athletes ──── muscle_flags (straight horizontal) -->
+      <path d="M 440 396 L 280 396"
+            stroke="#444" stroke-width="1.4" fill="none"
+            marker-start="url(#one)" marker-end="url(#many)"/>
+
+      <!-- athletes ──── recovery_baselines (straight horizontal) -->
+      <path d="M 440 595 L 280 595"
+            stroke="#444" stroke-width="1.4" fill="none"
+            marker-start="url(#one)" marker-end="url(#many)"/>
+
+      <!-- athletes ──── injuries (L-shape, top-right) -->
+      <path d="M 660 320 L 1100 320 L 1100 186 L 1200 186"
+            stroke="#444" stroke-width="1.4" fill="none"
+            marker-start="url(#one)" marker-end="url(#many)"/>
+
+      <!-- athletes ──── self_reports (straight horizontal) -->
+      <path d="M 660 548 L 1200 548"
+            stroke="#444" stroke-width="1.4" fill="none"
+            marker-start="url(#one)" marker-end="url(#many)"/>
+    </svg>
+
+    <!-- Relationship verb labels -->
+    <div class="relname" style="left: 562px; top: 246px;">has profile</div>
+    <div class="relname" style="left: 790px; top: 96px;">uploads</div>
+    <div class="relname" style="left: 300px; top: 304px;">logs</div>
+    <div class="relname" style="left: 320px; top: 378px;">flagged with</div>
+    <div class="relname" style="left: 320px; top: 577px;">tracked by</div>
+    <div class="relname" style="left: 1110px; top: 280px;">sustains</div>
+    <div class="relname" style="left: 880px; top: 530px;">submits</div>
+
+
+    <!-- ===== USERS (top-center) ===== -->
+    <div class="table" style="left: 440px; top: 20px; width: 220px;">
+      <div class="title">users</div>
+      <table>
+        <colgroup><col style="width:44px"><col></colgroup>
+        <tr><td class="key">PK</td><td class="col">id</td></tr>
+        <tr><td></td><td class="col">name</td></tr>
+        <tr><td></td><td class="col">email</td></tr>
+        <tr><td></td><td class="col">password</td></tr>
+        <tr><td></td><td class="col">role</td></tr>
+        <tr><td class="key fk">FK</td><td class="col">athlete_id</td></tr>
+        <tr><td></td><td class="col">is_active</td></tr>
+        <tr><td></td><td class="col">reset_token_hash</td></tr>
+        <tr><td></td><td class="col">reset_token_expires_at</td></tr>
+        <tr><td></td><td class="col">created_at</td></tr>
+        <tr><td></td><td class="col">updated_at</td></tr>
+      </table>
+    </div>
+
+    <!-- ===== ATHLETES (center) ===== -->
+    <div class="table" style="left: 440px; top: 280px; width: 220px;">
+      <div class="title">athletes</div>
+      <table>
+        <colgroup><col style="width:44px"><col></colgroup>
+        <tr><td class="key">PK</td><td class="col">athlete_id</td></tr>
+        <tr><td></td><td class="col">name</td></tr>
+        <tr><td></td><td class="col">age</td></tr>
+        <tr><td></td><td class="col">gender</td></tr>
+        <tr><td></td><td class="col">weight</td></tr>
+        <tr><td></td><td class="col">height</td></tr>
+        <tr><td></td><td class="col">sport</td></tr>
+        <tr><td></td><td class="col">program</td></tr>
+        <tr><td></td><td class="col">overall_activity_score</td></tr>
+        <tr><td></td><td class="col">injury_risk_index</td></tr>
+        <tr><td></td><td class="col">mobility</td></tr>
+        <tr><td></td><td class="col">stability</td></tr>
+        <tr><td></td><td class="col">symmetry</td></tr>
+        <tr><td></td><td class="col">exercise_risk_score</td></tr>
+        <tr><td></td><td class="col">neck_injury_risk</td></tr>
+        <tr><td></td><td class="col">shoulder_injury_risk</td></tr>
+        <tr><td></td><td class="col">scoliosis</td></tr>
+        <tr><td></td><td class="col">spinal_disc_herniation</td></tr>
+        <tr><td></td><td class="col">lumbar_pelvis_injury</td></tr>
+        <tr><td></td><td class="col">joint_pain</td></tr>
+        <tr><td></td><td class="col">knee_injury_risk</td></tr>
+        <tr><td></td><td class="col">ankle_injury_risk</td></tr>
+        <tr><td></td><td class="col">is_active</td></tr>
+      </table>
+    </div>
+
+    <!-- ===== IMPORT_RECORDS (top-right of users) ===== -->
+    <div class="table" style="left: 900px; top: 20px; width: 220px;">
+      <div class="title">import_records</div>
+      <table>
+        <colgroup><col style="width:44px"><col></colgroup>
+        <tr><td class="key">PK</td><td class="col">id</td></tr>
+        <tr><td class="key fk">FK</td><td class="col">user_id</td></tr>
+        <tr><td></td><td class="col">file_name</td></tr>
+        <tr><td></td><td class="col">file_attachment</td></tr>
+        <tr><td></td><td class="col">records_added</td></tr>
+        <tr><td></td><td class="col">imported_at</td></tr>
+      </table>
+    </div>
+
+    <!-- ===== ACTIVITIES (top-left) ===== -->
+    <div class="table" style="left: 60px; top: 20px; width: 220px;">
+      <div class="title">activities</div>
+      <table>
+        <colgroup><col style="width:44px"><col></colgroup>
+        <tr><td class="key">PK</td><td class="col">id</td></tr>
+        <tr><td class="key fk">FK</td><td class="col">athlete_id</td></tr>
+        <tr><td></td><td class="col">date</td></tr>
+        <tr><td></td><td class="col">type</td></tr>
+        <tr><td></td><td class="col">duration</td></tr>
+        <tr><td></td><td class="col">intensity</td></tr>
+        <tr><td></td><td class="col">load</td></tr>
+        <tr><td></td><td class="col">notes</td></tr>
+        <tr><td></td><td class="col">created_at</td></tr>
+        <tr><td></td><td class="col">updated_at</td></tr>
+        <tr><td></td><td class="col">deleted_at</td></tr>
+      </table>
+    </div>
+
+    <!-- ===== MUSCLE_FLAGS (middle-left) ===== -->
+    <div class="table" style="left: 60px; top: 320px; width: 220px;">
+      <div class="title">muscle_flags</div>
+      <table>
+        <colgroup><col style="width:44px"><col></colgroup>
+        <tr><td class="key">PK</td><td class="col">id</td></tr>
+        <tr><td class="key fk">FK</td><td class="col">athlete_id</td></tr>
+        <tr><td></td><td class="col">flag_type</td></tr>
+        <tr><td></td><td class="col">muscle</td></tr>
+        <tr><td></td><td class="col">side</td></tr>
+        <tr><td></td><td class="col">created_at</td></tr>
+      </table>
+    </div>
+
+    <!-- ===== RECOVERY_BASELINES (bottom-left) ===== -->
+    <div class="table" style="left: 60px; top: 500px; width: 220px;">
+      <div class="title">recovery_baselines</div>
+      <table>
+        <colgroup><col style="width:44px"><col></colgroup>
+        <tr><td class="key">PK</td><td class="col">id</td></tr>
+        <tr><td class="key fk">FK</td><td class="col">athlete_id</td></tr>
+        <tr><td></td><td class="col">snapshot_acwr</td></tr>
+        <tr><td></td><td class="col">chronic_load</td></tr>
+        <tr><td></td><td class="col">target_low_min</td></tr>
+        <tr><td></td><td class="col">target_low_max</td></tr>
+        <tr><td></td><td class="col">trigger_cls</td></tr>
+        <tr><td></td><td class="col">trigger_level</td></tr>
+        <tr><td></td><td class="col">factors</td></tr>
+        <tr><td></td><td class="col">resolved_at</td></tr>
+      </table>
+    </div>
+
+    <!-- ===== INJURIES (top-right) ===== -->
+    <div class="table" style="left: 1200px; top: 20px; width: 220px;">
+      <div class="title">injuries</div>
+      <table>
+        <colgroup><col style="width:44px"><col></colgroup>
+        <tr><td class="key">PK</td><td class="col">id</td></tr>
+        <tr><td class="key fk">FK</td><td class="col">athlete_id</td></tr>
+        <tr><td></td><td class="col">athlete_name</td></tr>
+        <tr><td></td><td class="col">sport</td></tr>
+        <tr><td></td><td class="col">gender</td></tr>
+        <tr><td></td><td class="col">program</td></tr>
+        <tr><td></td><td class="col">athlete_age</td></tr>
+        <tr><td></td><td class="col">body_part</td></tr>
+        <tr><td></td><td class="col">side</td></tr>
+        <tr><td></td><td class="col">injury_type</td></tr>
+        <tr><td></td><td class="col">severity</td></tr>
+        <tr><td></td><td class="col">mechanism</td></tr>
+        <tr><td></td><td class="col">date</td></tr>
+        <tr><td></td><td class="col">recovery_status</td></tr>
+        <tr><td></td><td class="col">source</td></tr>
+        <tr><td></td><td class="col">logged_by</td></tr>
+        <tr><td></td><td class="col">notes</td></tr>
+      </table>
+    </div>
+
+    <!-- ===== SELF_REPORTS (bottom-right) ===== -->
+    <div class="table" style="left: 1200px; top: 400px; width: 220px;">
+      <div class="title">self_reports</div>
+      <table>
+        <colgroup><col style="width:44px"><col></colgroup>
+        <tr><td class="key">PK</td><td class="col">id</td></tr>
+        <tr><td class="key fk">FK</td><td class="col">athlete_id</td></tr>
+        <tr><td></td><td class="col">athlete_name</td></tr>
+        <tr><td></td><td class="col">sport</td></tr>
+        <tr><td></td><td class="col">body_part</td></tr>
+        <tr><td></td><td class="col">side</td></tr>
+        <tr><td></td><td class="col">injury_type</td></tr>
+        <tr><td></td><td class="col">severity</td></tr>
+        <tr><td></td><td class="col">description</td></tr>
+        <tr><td></td><td class="col">attachment</td></tr>
+        <tr><td></td><td class="col">status</td></tr>
+        <tr><td></td><td class="col">review_note</td></tr>
+        <tr><td></td><td class="col">reviewed_by</td></tr>
+        <tr><td></td><td class="col">reviewed_at</td></tr>
+        <tr><td></td><td class="col">created_at</td></tr>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>

@@ -8,6 +8,7 @@
 
 | # | Module | Role | Status | Pages | Backend route(s) |
 |---|---|---|---|---|---|
+| **G** | **General (auth + RBAC)** | **all** | ✅ **fully complete** | `/`, `/forgot-password`, `/reset-password/[token]`, `<role>/profile` | `/api/auth/login`, `/api/auth/forgot-password`, `/api/auth/reset-password`, `/api/auth/change-password`, `/api/auth/me` |
 | 1 | Activity Tracking & Logging | athlete | ✅ **fully complete** | `/athlete/activity` | `/api/activities` |
 | 2 | Athlete Dashboard / Workload | athlete | ✅ **fully complete** | `/athlete/dashboard` | `/api/athletes/:id`, `/api/activities/athlete/:id`, `/api/injuries/athlete/:id` |
 | 3 | Injury & Recovery Logging | medical (+ athlete self-report) | 🟢 **functional, deferred polish** | `/medical/injury-log`, `/medical/review-reports`, `/athlete/injury-report` | `/api/injuries`, `/api/self-reports` |
@@ -21,6 +22,40 @@
 - 🟡 Infrastructure complete — full pipeline works; one external dependency unresolved
 
 Modules 1+2 are the FYP showcases requiring no further iteration. Modules 3–6 are now functional enough for the system to be used end-to-end across all three roles, with each known gap explicitly tied to either an external dependency (Module 4 → ISN canonical schema) or a deferred polish item (Module 3 recovery milestones, Module 5 server-side PDF, Module 6 watchlist).
+
+---
+
+## General Module — Authentication, RBAC, Password Management ✅
+
+**What it does:** Cross-cutting authentication and account-management capability used by every protected route in the system.
+
+**Use cases covered:**
+- **UC-1 Login (JWT)** — All three roles authenticate via [`POST /api/auth/login`](../backend/src/routes/auth.js); JWT signed HS256 with `JWT_SECRET`; bearer token persisted in `localStorage` and auto-attached by [`frontend/src/lib/api.ts`](../frontend/src/lib/api.ts).
+- **UC-2 Reset Password via email** — [`POST /api/auth/forgot-password`](../backend/src/routes/auth.js) issues a single-use token, hashes it with SHA-256, stores the hash + 60-minute TTL on the user row, and sends a branded HTML email via [`utils/mailer.js`](../backend/src/utils/mailer.js) (env-driven SMTP, falls back to a console transport when `SMTP_HOST` is unset). [`POST /api/auth/reset-password`](../backend/src/routes/auth.js) consumes the token. The flow is open to all three roles, not just medical/admin as Slide 21 originally framed it — athletes can reset too via the email link.
+- **UC-3 Role-Based Access Control** — Backend `rbac()` middleware on every protected route; frontend `DashboardLayout` mirrors the gate so unauthorized users can't even render the page.
+
+**Additional capability beyond Slide 21:**
+- **In-place change password** — [`POST /api/auth/change-password`](../backend/src/routes/auth.js) lets an already-logged-in user rotate their password without leaving the app. Surfaced as an inline card on `/athlete/profile` and as a modal on `/medical/profile` and `/admin/profile`. Same password policy as the reset flow.
+
+**Password policy** (applied consistently by both `change-password` and `reset-password`, mirrored client-side at [`lib/passwordPolicy.ts`](../frontend/src/lib/passwordPolicy.ts) and server-side at [`utils/passwordPolicy.js`](../backend/src/utils/passwordPolicy.js)):
+
+- Minimum 10 characters
+- At least one uppercase letter
+- At least one lowercase letter
+- At least one number
+- At least one symbol (non-alphanumeric)
+
+**Security design notes** (for viva):
+- Token entropy: 32 random bytes from `crypto.randomBytes` → 256-bit
+- Token at rest: SHA-256 hash only — DB compromise leaks no active tokens
+- TTL: 60 minutes, cleared on success (single-use)
+- Generic responses on `/forgot-password` — no user enumeration possible
+- Fire-and-forget mail send — client response time doesn't depend on SMTP latency
+- bcrypt password hashing via existing `User.beforeSave` hook (work factor 12)
+- Defense in depth — every client-side rule re-checked server-side
+- Outstanding reset tokens cleared on in-place change-password success
+
+**FYP defensibility hook:** All three UC-1/2/3 use cases ship as a complete, security-defensible auth surface. The email-reset flow runs against any SMTP provider (Gmail, Mailtrap, SendGrid) by env config, with a console-mailer fallback so the system works end-to-end without credentials.
 
 ---
 
@@ -131,10 +166,10 @@ Modules 1+2 are the FYP showcases requiring no further iteration. Modules 3–6 
 - ✅ Body part distribution bar chart (Chart.js, navy) — uses canonical ordering, fills missing categories with 0
 - ✅ Active dashboard filters (sport, gender, programme, body part, injury type, age group, date range) carry into `/admin/reports` via URL query params on the "Generate PDF Report" link, so the analyst doesn't re-enter what they already chose
 - ✅ Injury type distribution bar chart (Chart.js, gold) — same pattern
-- ✅ Monthly cases line chart — Chart.js, smooth curve, fed by Mongo aggregation by year+month
+- ✅ Monthly cases line chart — Chart.js, smooth curve, fed by Sequelize `GROUP BY YEAR(date), MONTH(date)` aggregation
 - ✅ "Generate PDF Report" button navigates to `/admin/reports`
 - ✅ `/admin/reports` page is a **live PDF generator**: the same filter inputs as the analytics dashboard (report type, period, sport, programme, gender, body part, injury type, age group, plus section toggles for severity/recovery, monthly trend, athlete index). Submitting POSTs to `/api/reports/injuries-pdf` and streams a fresh PDF straight to the browser as a download. Server-side rendering via `pdfkit`
-- ✅ Backend `POST /api/reports/injuries-pdf` (admin only) reads the live `Injury` collection against the filters and assembles a multi-page PDF: cover with AIRMS branding, executive summary table, body-part distribution chart, injury-type distribution chart, optional severity + recovery breakdowns, optional monthly trend, optional athlete index (paginated), appendix with filter context. Page numbers in the footer
+- ✅ Backend `POST /api/reports/injuries-pdf` (admin only) reads the live `Injury` table against the filters and assembles a multi-page PDF: cover with AIRMS branding, executive summary table, body-part distribution chart, injury-type distribution chart, optional severity + recovery breakdowns, optional monthly trend, optional athlete index (paginated), appendix with filter context. Page numbers in the footer
 
 **Deferred (not blocking system use):**
 - **Severity × time heatmap** — designed in prototype, not yet built
@@ -216,4 +251,4 @@ The umbrella message: *"All six modules are functional. The remaining work on Mo
 
 ---
 
-*Last updated: 2026-05-25. Module statuses unchanged since 2026-05-18 (live PDF generation via pdfkit on Module 5; functional Medical + Admin profile pages). Recent: report + slides drafts (2026-05-25) close the pre-viva rubric gaps — see `docs/FYP_RUBRICS.md` §5.*
+*Last updated: 2026-06-07. **General Module shipped fully** — UC-1 login, UC-2 email-based password reset, UC-3 RBAC. Added in-place change-password on profile pages, password policy (10+ chars + mixed case + digit + symbol), and an env-driven SMTP mailer with console fallback. Previous: 2026-05-25 (report + slides drafts close pre-viva rubric gaps).*

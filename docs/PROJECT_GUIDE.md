@@ -12,7 +12,7 @@
 AIRMS (JC FYP)/
 ├── airms-prototype/          # Original HTML prototype from prior students
 ├── assets/                   # Original source logos (logo1, logo2, logofull)
-├── backend/                  # Node.js / Express / MongoDB API
+├── backend/                  # Node.js / Express / MySQL API (Sequelize)
 ├── docs/                     # All project documentation (this folder)
 │   ├── stakeholder/          # Meeting transcripts
 │   └── data-samples/         # ISN-provided sample files
@@ -30,28 +30,37 @@ AIRMS (JC FYP)/
 
 ### Entry point
 
-[backend/src/server.js](../backend/src/server.js) — boots Express, connects to MongoDB, registers routes.
+[backend/src/server.js](../backend/src/server.js) — boots Express, connects to MySQL via Sequelize, registers routes.
 
 ### Environment
 
 `backend/.env` (not committed):
 ```
-MONGO_URI=mongodb+srv://...      # URL-encoded password
+PORT=5000
 JWT_SECRET=...
 JWT_EXPIRES_IN=7d
 FRONTEND_URL=http://localhost:3000,http://localhost:3001
-PORT=5000
+
+MYSQL_HOST=localhost
+MYSQL_PORT=3306
+MYSQL_USER=root
+MYSQL_PASSWORD='...'             # wrap in single quotes if it contains # $ % ^
+MYSQL_DATABASE=airms
 ```
 
 ### Models — `backend/src/models/`
 
+All Sequelize models. The `index.js` registers them and wires up associations (`Athlete.hasMany(Activity)` etc.) with `athleteId` as the cross-table key.
+
 | File | Schema | Notes |
 |---|---|---|
-| [User.js](../backend/src/models/User.js) | email, password (hashed), role, name, athleteId? | Mongoose pre-save hook bcrypts password |
-| [Athlete.js](../backend/src/models/Athlete.js) | athleteId, name, sport, programme, biometrics, screening scores, risks (8 indicators), myodynamia[], tension[] | `athleteId` is the canonical FK (NOT `_id`) |
-| [Activity.js](../backend/src/models/Activity.js) | athleteId, date, type, duration, intensity, load, notes | Pre-save: auto-computes `load = duration × intensity` |
-| [Injury.js](../backend/src/models/Injury.js) | athleteId, bodyPart, side, injuryType, severity, mechanism, date, recoveryStatus, source, notes | Enum values locked — see [MASTER_CLARIFICATIONS.md §9](MASTER_CLARIFICATIONS.md#9-locked-data-shapes-do-not-change-without-migrating-data) |
-| [SelfReport.js](../backend/src/models/SelfReport.js) | athleteId, bodyPart, side, suspectedType, severity, onsetDate, description, status (Pending/Approved/Rejected), reviewedBy, reviewNote | Approved reports get promoted into an `Injury` document |
+| [User.js](../backend/src/models/User.js) | email, password (hashed), role, name, athleteId? | `beforeSave` hook bcrypts the password column |
+| [Athlete.js](../backend/src/models/Athlete.js) | athleteId, name, sport, programme, biometrics, 8 flat risk-indicator columns | `athleteId` (VARCHAR) is the PK and the cross-table FK; risks reassembled into a nested `risks` object by the serialiser |
+| [MuscleFlag.js](../backend/src/models/MuscleFlag.js) | id, athleteId, flagType (`myodynamia`\|`tension`), muscle, side | Single table for both flag categories, discriminated by `flagType`; serialiser splits rows into the `myodynamia[]` / `tension[]` arrays the frontend expects |
+| [Activity.js](../backend/src/models/Activity.js) | id, athleteId, date, type, duration, intensity, load, notes | `beforeValidate` hook auto-computes `load = duration × intensity` |
+| [Injury.js](../backend/src/models/Injury.js) | id, athleteId, bodyPart, side, injuryType, severity, mechanism, date, recoveryStatus, source, notes | Enum values locked — see [MASTER_CLARIFICATIONS.md §9](MASTER_CLARIFICATIONS.md#9-locked-data-shapes-do-not-change-without-migrating-data) |
+| [SelfReport.js](../backend/src/models/SelfReport.js) | id, athleteId, bodyPart, side, suspectedType, severity, onsetDate, description, status (Pending/Approved/Rejected), reviewedBy, reviewNote | Approved reports get promoted into a new `Injury` row inside a single `sequelize.transaction()` |
+| [index.js](../backend/src/models/index.js) | — | Registers models + their `hasMany` / `belongsTo` associations |
 
 ### Routes — `backend/src/routes/`
 
@@ -74,8 +83,9 @@ PORT=5000
 
 ### Other backend files
 
-- [config/db.js](../backend/src/config/db.js) — `connectDB()` using `mongoose.connect(MONGO_URI)`
-- [utils/seeder.js](../backend/src/utils/seeder.js) — `npm run seed` from `backend/`. Drops + reseeds users/athletes/activities/injuries with deterministic PRNG (seed=42)
+- [config/db.js](../backend/src/config/db.js) — `connectDB()` opens the Sequelize connection to MySQL using the `MYSQL_*` env vars
+- [utils/seeder.js](../backend/src/utils/seeder.js) — `npm run seed` from `backend/`. `sequelize.sync({ force: true })` drops the schema, then reseeds users/athletes/muscle_flags/activities/injuries with deterministic PRNG (seed=42)
+- [utils/serialize.js](../backend/src/utils/serialize.js) — response shaper. Aliases Sequelize's numeric `id` to a stringified `_id` field and reassembles Athlete's flat columns into nested `risks`/`myodynamia[]`/`tension[]` shape
 
 ---
 

@@ -1,5 +1,5 @@
-const { DataTypes } = require('sequelize');
-const { sequelize } = require('../config/db-sql');
+﻿const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/db');
 
 // Mirrors backend/src/models/SelfReport.js. Intentionally less constrained
 // than Injury: bodyPart/injuryType are free-form strings (athletes submit

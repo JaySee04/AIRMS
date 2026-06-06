@@ -1,26 +1,25 @@
-// Parallel entry point for the MySQL stack. Runs alongside src/server.js
-// (the Mongo entry) on the feat/mysql-migration branch so both persistence
-// layers can be developed and demoed side-by-side until the switch decision.
+// AIRMS backend entry point. Express + Sequelize against MySQL.
 //
-//   npm run dev:sql  → start this with nodemon
-//   npm run seed:sql → run the SQL seeder (separate file)
+//   npm run dev   → start with nodemon
+//   npm run seed  → drop and reseed all tables
 //
-// Frontend stays unmodified: every response goes through utils/serialize.js
-// which aliases id → _id and re-assembles Athlete's nested risks/myodynamia/
-// tension shape.
+// Every response goes through utils/serialize.js, which aliases Sequelize's
+// numeric `id` to a string `_id` for frontend consumers and reassembles the
+// Athlete nested risks/myodynamia/tension shape.
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const { connectSqlDB, sequelize } = require('./config/db-sql');
-require('./models-sql'); // register models + associations
+const { connectDB, sequelize } = require('./config/db');
+require('./models'); // register models + associations
 
-const authRoutes = require('./routes-sql/auth');
-const athleteRoutes = require('./routes-sql/athletes');
-const injuryRoutes = require('./routes-sql/injuries');
-const activityRoutes = require('./routes-sql/activities');
-const selfReportRoutes = require('./routes-sql/selfReports');
-const uploadRoutes = require('./routes-sql/upload');
-const reportRoutes = require('./routes-sql/reports');
+const authRoutes = require('./routes/auth');
+const athleteRoutes = require('./routes/athletes');
+const injuryRoutes = require('./routes/injuries');
+const activityRoutes = require('./routes/activities');
+const selfReportRoutes = require('./routes/selfReports');
+const uploadRoutes = require('./routes/upload');
+const reportRoutes = require('./routes/reports');
+const recoveryBaselineRoutes = require('./routes/recoveryBaselines');
 
 const app = express();
 
@@ -39,6 +38,7 @@ app.use('/api/activities', activityRoutes);
 app.use('/api/self-reports', selfReportRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/recovery-baselines', recoveryBaselineRoutes);
 
 app.get('/api/health', (_req, res) => res.json({
   status: 'ok',
@@ -51,13 +51,13 @@ app.use((err, _req, res, _next) => {
   res.status(500).json({ message: 'Internal server error' });
 });
 
-const PORT = process.env.PORT_SQL || 5001;
+const PORT = process.env.PORT || 5000;
 
 (async () => {
-  await connectSqlDB();
+  await connectDB();
   if (process.env.SQL_SYNC === '1') {
     await sequelize.sync();
     console.log('Sequelize sync complete (tables created if missing).');
   }
-  app.listen(PORT, () => console.log(`AIRMS backend (SQL) running on port ${PORT}`));
+  app.listen(PORT, () => console.log(`AIRMS backend running on port ${PORT}`));
 })();

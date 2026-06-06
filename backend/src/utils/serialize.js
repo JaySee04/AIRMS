@@ -1,24 +1,20 @@
-// Frontend-compatibility shim for the SQL backend.
+// API response shaper. Every route emits its rows through one of these
+// helpers, which:
+//   - expose Sequelize's numeric `id` as a stringified `_id` field too,
+//     so the frontend has a stable string identifier to use as a React key
+//   - reassemble Athlete's flat risk-indicator columns into a nested
+//     `risks` object, and split muscle_flags rows by flag_type into
+//     myodynamia[] / tension[] arrays for the frontend to consume.
 //
-// The Next.js client was written against Mongoose responses, which expose
-// documents with a string `_id` field. Sequelize returns rows with a numeric
-// `id`. To avoid touching the frontend at all, every route response goes
-// through one of these helpers, which:
-//   - aliases id → _id (stringified, so React keys behave the same)
-//   - keeps id available too (some places use both)
-//   - re-assembles Athlete's nested `risks` object and splits muscle_flags
-//     back into the myodynamia[] / tension[] arrays the frontend expects.
-//
-// When the migration is complete and Mongo is retired, the frontend can be
-// gradually moved off `_id` and this layer deleted — but until then it's
-// what keeps the SQL backend a drop-in replacement.
+// The `_id` field name is the only piece of legacy nomenclature on the wire;
+// it has no engine semantics — it is just a string version of the row id.
 
 function plainOf(instance) {
   if (instance == null) return instance;
   return typeof instance.get === 'function' ? instance.get({ plain: true }) : instance;
 }
 
-function withMongoId(obj) {
+function withStringId(obj) {
   if (obj == null) return obj;
   if (obj.id !== undefined && obj._id === undefined) {
     obj._id = String(obj.id);
@@ -27,7 +23,7 @@ function withMongoId(obj) {
 }
 
 function serializeGeneric(instance) {
-  return withMongoId(plainOf(instance));
+  return withStringId(plainOf(instance));
 }
 
 function serializeMany(rows) {
@@ -61,7 +57,7 @@ function serializeAthlete(instance) {
 
   return {
     ...rest,
-    _id: rest.athleteId, // Mongo used ObjectId here; athleteId is the cross-table key
+    _id: rest.athleteId, // athleteId is the cross-table identifier
     risks: {
       neckInjuryRisk: Number(neckInjuryRisk) || 0,
       shoulderInjuryRisk: Number(shoulderInjuryRisk) || 0,

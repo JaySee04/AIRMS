@@ -30,7 +30,7 @@ The first problem is the absence of a dedicated injury tracking and risk managem
 
 The second problem is the lack of workload monitoring for athlete injury risk assessment. Without a system that computes and displays the Acute to Chronic Workload Ratio, or ACWR, athletes and medical staff have no data-driven basis for identifying dangerous workload patterns before injuries occur — a gap reinforced by the recent systematic review and meta-analysis by Qin et al. in 2025.
 
-The third problem is the absence of a centralised platform for administrative injury analytics. Without structured, consistent data and filtering capabilities, producing summaries for management and policy-level stakeholders is unreliable and time-consuming, limiting the institution's ability to respond proactively to injury trends — which is precisely the standardisation case extended by Sprouse et al. in 2024, building on the IOC consensus lineage established by Bahr et al.
+The third problem is the absence of a centralised platform for administrative injury analytics. Without structured, consistent data and filtering capabilities, producing summaries for management and policy-level stakeholders is unreliable and time-consuming, limiting the institution's ability to respond proactively to injury trends — which is precisely the standardisation case extended by Sprouse et al. in 2024, framed within the IOC/STROBE-SIIS consensus lineage.
 
 ---
 
@@ -142,7 +142,7 @@ Now, my project requirements.
 
 ## Slide 20 — Functional Requirements: General Module
 
-The General Module covers three use cases. UC-1 *Login Account* allows all three roles — Athlete, Medical Staff, and Administrator — to log in with authenticated session management. UC-2 *Reset Password* is the documented password recovery use case for Medical Staff and Administrator roles, planned for full email-driven implementation as part of the deployment phase. UC-3 *Role-Based Access Control* restricts access to features and pages based on the assigned user role, and is the security backbone of the system.
+The General Module covers three use cases. UC-1 *Login Account* allows all three roles — Athlete, Medical Staff, and Administrator — to log in via JWT bearer tokens. UC-2 *Reset Password* is the email-driven password recovery flow, available to every role: the user requests a link from the login page, receives a branded email with a single-use, hash-stored, sixty-minute token, and chooses a new password against the system password policy. UC-3 *Role-Based Access Control* restricts access to features and pages based on the assigned user role, and is the security backbone of the system — enforced on every protected backend route and mirrored on the frontend as a UX guard.
 
 ---
 
@@ -154,33 +154,33 @@ For the Activity Tracking and Logging Module, UC-4 lets athletes log activities 
 
 ## Slide 22 — Functional Requirements: Athlete Dashboard / Workload Module
 
-For the Athlete Dashboard and Workload Module, UC-9 computes the acute one-week and chronic four-week rolling average load to derive the ACWR. UC-10 displays the workload data to the athlete through charts. UC-11 applies rule-based thresholds to the ACWR value to classify current injury risk as Low, Moderate, or High — and as a system-level extension, AIRMS personalises these thresholds per athlete using their screening data, and escalates the risk band when active injuries or muscle flags are present. This composite layer integrates workload, biomechanical profile, and injury history into a single classification, which is the main system contribution of this project. UC-12 displays the risk level to the athlete with a clear visual indicator and brief explanation. UC-13 generates a prominent alert on the dashboard when the athlete's risk level is Moderate or High.
+For the Athlete Dashboard and Workload Module, UC-9 computes the acute one-week and chronic four-week rolling average load to derive the ACWR. UC-10 displays the workload data to the athlete through charts. UC-11 applies rule-based thresholds to the ACWR value to classify current injury risk as Low, Moderate, or High — and as a system-level extension, AIRMS personalises these thresholds per athlete using their screening data, and escalates the risk band when active injuries or muscle flags are present. This composite layer integrates workload, biomechanical profile, and injury history into a single classification, which is the main system contribution of this project. UC-12 displays the risk level to the athlete with a clear visual indicator and brief explanation.
 
 ---
 
 ## Slide 23 — Functional Requirements: Injury & Recovery Logging Module
 
-For the Injury and Recovery Logging Module, UC-14 lets medical staff log official injuries against an athlete, including body part, side, injury type, severity, and date. UC-15 covers updating the recovery status of a logged injury. UC-16 lets medical staff and administrators view all official injury records associated with a specific athlete, and UC-17 covers deletion of records.
+For the Injury and Recovery Logging Module, UC-13 lets medical staff log official injuries against an athlete, including body part, side, injury type, severity, and date. UC-14 covers updating the recovery status of a logged injury. UC-15 lets medical staff and administrators view all official injury records associated with a specific athlete, and UC-16 covers deletion of records.
 
-UC-18 lets athletes submit a self-reported injury, which enters a Pending state awaiting medical staff review. UC-19 is the review action — medical staff review the pending report and either approve it into the official record or reject it with a note. UC-20 lets athletes view the status of their submitted reports — Pending, Approved, or Rejected — along with any reviewer notes attached.
+UC-17 lets athletes submit a self-reported injury, which enters a Pending state awaiting medical staff review. UC-18 is the review action — medical staff review the pending report and either approve it into the official record or reject it with a note. UC-19 lets athletes view the status of their submitted reports — Pending, Approved, or Rejected — along with any reviewer notes attached.
 
 ---
 
 ## Slide 24 — Functional Requirements: Data Management Module
 
-For the Data Management Module, UC-21 lets medical staff and administrators upload an Excel file containing screening data, with column validation before committing to the database. UC-22 is the system validation step — checking the uploaded file for missing fields, incorrect formats, and duplicate records before commitment. UC-23 provides administrators with a log of past data imports, and UC-24 lets them remove a previously imported dataset from the system when needed.
+For the Data Management Module, UC-20 lets medical staff and administrators upload an Excel file containing screening data, with column validation before committing to the database. UC-21 is the system validation step — checking the uploaded file for missing fields, incorrect formats, and duplicate records before commitment. UC-22 provides administrators with a log of past data imports, and UC-23 lets them remove a previously imported dataset from the system when needed.
 
 ---
 
 ## Slide 25 — Functional Requirements: Admin Injury Analytics Dashboard Module
 
-For the Admin Injury Analytics Dashboard Module, UC-25 displays a holistic summary of all injury records, including total cases, injury type distribution, and body part breakdown. UC-26 lets administrators filter the injury overview by sport, gender, age group, body part, injury type, and date range. UC-27 displays injury trends over time at monthly, quarterly, and yearly intervals to identify peak risk periods. UC-28 generates a downloadable PDF report based on currently applied filters and displayed data.
+For the Admin Injury Analytics Dashboard Module, UC-24 displays a holistic summary of all injury records, including total cases, injury type distribution, and body part breakdown. UC-25 lets administrators filter the injury overview by sport, gender, age group, body part, injury type, and date range. UC-26 displays injury trends over time at monthly, quarterly, and yearly intervals to identify peak risk periods. UC-27 generates a downloadable PDF report based on currently applied filters and displayed data.
 
 ---
 
 ## Slide 26 — Functional Requirements: Medical Staff Dashboard Module
 
-For the Medical Staff Dashboard Module, UC-29 lets medical staff search for a specific athlete by name or ID. UC-30 displays the athlete's profile summary — personal details, sport, age, gender, and physical information in a single view. UC-31 displays the full chronological injury history of the selected athlete. UC-32 shows how the athlete's injury patterns have developed over time. UC-33 contextualises the athlete against their sport's general patterns, so medical staff can interpret the individual against their cohort. UC-34 displays the logged activity and ACWR trend of the athlete from the medical staff's perspective, mirroring the athlete's own dashboard so the clinician sees the same composite-risk picture the athlete sees.
+For the Medical Staff Dashboard Module, UC-28 lets medical staff search for a specific athlete by name or ID. UC-29 displays the athlete's profile summary — personal details, sport, age, gender, and physical information in a single view. UC-30 displays the full chronological injury history of the selected athlete. UC-31 shows how the athlete's injury patterns have developed over time. UC-32 contextualises the athlete against their sport's general patterns, so medical staff can interpret the individual against their cohort. UC-33 displays the logged activity and ACWR trend of the athlete from the medical staff's perspective, mirroring the athlete's own dashboard so the clinician sees the same composite-risk picture the athlete sees.
 
 ---
 
@@ -216,19 +216,19 @@ Here is my Entity Relationship Diagram. The core entities are User, Athlete, Med
 
 ## Slide 38 — Activity Diagram: Data Import Workflow
 
-This activity diagram covers UC-21 to UC-22, the Data Import Workflow. The user uploads the Excel file; the system reads the structure, checks for required column headers, validates each row for missing values and duplicate records, and either returns an error report with affected rows or commits all records and saves an import log.
+This activity diagram covers UC-20 to UC-21, the Data Import Workflow. The user uploads the Excel file; the system reads the structure, checks for required column headers, validates each row for missing values and duplicate records, and either returns an error report with affected rows or commits all records and saves an import log.
 
 ---
 
 ## Slide 39 — Activity Diagram: Admin Injury Analytics Dashboard
 
-This activity diagram covers UC-25 to UC-28. The administrator navigates to the dashboard, the system retrieves and aggregates all injury records, renders the overview, and re-renders on filter or temporal-view change. PDF generation is an extension flow that compiles the displayed data into a downloadable file.
+This activity diagram covers UC-24 to UC-27. The administrator navigates to the dashboard, the system retrieves and aggregates all injury records, renders the overview, and re-renders on filter or temporal-view change. PDF generation is an extension flow that compiles the displayed data into a downloadable file.
 
 ---
 
 ## Slide 40 — Activity Diagram: Self-Reported Injury Workflow
 
-This activity diagram covers UC-18 to UC-20, the Self-Reported Injury Workflow. The athlete submits a report which the system validates and saves with status Pending. Medical staff navigates to the submissions list, reads the submission, and decides — approval creates an official Injury Record and links the submission to it, while rejection saves a rejection note. The athlete can then view the final status.
+This activity diagram covers UC-17 to UC-19, the Self-Reported Injury Workflow. The athlete submits a report which the system validates and saves with status Pending. Medical staff navigates to the submissions list, reads the submission, and decides — approval creates an official Injury Record and links the submission to it, while rejection saves a rejection note. The athlete can then view the final status.
 
 ---
 
@@ -254,7 +254,7 @@ And the shared **Data Upload Page** with drag-drop, file validation, and recent 
 
 ## Slide 48 — Technical Implementation
 
-This is the technical stack I am using. **Next.js** for the frontend, **Node.js with Express** for the backend, and **MongoDB** for the database. The frontend communicates with the backend through a REST API protected by authenticated session management.
+This is the technical stack I am using. **Next.js** for the frontend, **Node.js with Express** for the backend, and **MySQL** for the database via the **Sequelize** ORM. The frontend communicates with the backend through a REST API protected by JWT-based authentication. MySQL was chosen because it matches the production environment at ISN and provides engine-level foreign-key constraints and ACID transactions, which are appropriate for a clinical-record system.
 
 ---
 

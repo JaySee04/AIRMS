@@ -11,7 +11,7 @@
 ## Who the user is
 
 - **JC** — final-year computer science student, doing his FYP with ISN as the stakeholder
-- **Stack he knows**: Next.js, Node.js, MongoDB. Not deep in DevOps, infra, or library evaluation — he relies on you to make those judgment calls and explain them
+- **Stack he knows**: Next.js, Node.js, MySQL (Sequelize). Originally built AIRMS on MongoDB; migrated to MySQL once ISN's production target was confirmed. Not deep in DevOps, infra, or library evaluation — he relies on you to make those judgment calls and explain them
 - **Communication style**: Direct, sometimes terse. Will tell you when something doesn't match his vision (Figma designs, body map quality, etc.) — listen and iterate
 - **Has Memory entries about him**: see `~/.claude/projects/.../memory/MEMORY.md` for persistent context across sessions
 

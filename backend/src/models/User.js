@@ -1,6 +1,6 @@
-const { DataTypes } = require('sequelize');
+﻿const { DataTypes } = require('sequelize');
 const bcrypt = require('bcryptjs');
-const { sequelize } = require('../config/db-sql');
+const { sequelize } = require('../config/db');
 
 const User = sequelize.define('User', {
   id: {
@@ -38,14 +38,33 @@ const User = sequelize.define('User', {
     defaultValue: true,
     field: 'is_active',
   },
+  // Password-reset token state. Stored as SHA-256 hash so a DB compromise
+  // doesn't leak any active reset tokens. Populated by /auth/forgot-password,
+  // consumed by /auth/reset-password, cleared on use or expiry.
+  resetTokenHash: {
+    type: DataTypes.STRING(64),
+    allowNull: true,
+    field: 'reset_token_hash',
+  },
+  resetTokenExpiresAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    field: 'reset_token_expires_at',
+  },
+  lastLoginAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    field: 'last_login_at',
+  },
 }, {
   tableName: 'users',
   underscored: true,
   defaultScope: {
-    attributes: { exclude: ['password'] },
+    attributes: { exclude: ['password', 'resetTokenHash', 'resetTokenExpiresAt'] },
   },
   scopes: {
     withPassword: { attributes: { include: ['password'] } },
+    withResetToken: { attributes: { include: ['resetTokenHash', 'resetTokenExpiresAt'] } },
   },
   hooks: {
     beforeSave: async (user) => {

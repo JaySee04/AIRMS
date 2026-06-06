@@ -1,5 +1,5 @@
-const { DataTypes } = require('sequelize');
-const { sequelize } = require('../config/db-sql');
+﻿const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/db');
 
 // Mirrors backend/src/models/Injury.js. The denormalised athlete fields
 // (athleteName, sport, gender, program, athleteAge) are kept on the row so

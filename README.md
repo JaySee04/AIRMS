@@ -12,7 +12,7 @@ A web application for **Institut Sukan Negara (ISN)** Malaysia to predict and ma
 # First time only
 npm install            # installs concurrently at root
 npm run install:all    # installs deps in root + backend + frontend
-npm run seed           # seeds MongoDB Atlas with sample data
+npm run seed           # drops + reseeds the MySQL schema with sample data
 
 # Daily use
 npm run dev            # starts backend (:5000) + frontend (:3000) in one terminal
@@ -33,8 +33,8 @@ Then open <http://localhost:3000>.
 ## Stack
 
 - **Frontend:** Next.js 14 (App Router) · TypeScript · Chart.js · plain CSS with variables
-- **Backend:** Node.js · Express · Mongoose · JWT auth
-- **Database:** MongoDB Atlas (cloud)
+- **Backend:** Node.js · Express · Sequelize · JWT auth
+- **Database:** MySQL 8.x (local, matches ISN's production target)
 - **Body map:** path data from [`react-muscle-highlighter`](https://github.com/soroojshehryar/react-muscle-highlighter) (MIT, by Sorooj Shehryar), aggregated to ISN regions
 
 ---
@@ -77,7 +77,7 @@ Why this matters: [`docs/DESIGN_DECISIONS.md §2`](docs/DESIGN_DECISIONS.md#2-co
 .
 ├── airms-prototype/          Original HTML prototype (reference only)
 ├── assets/                   Original source logos
-├── backend/                  Node + Express + Mongoose API
+├── backend/                  Node + Express + Sequelize (MySQL) API
 ├── docs/                     Project documentation (start here)
 │   ├── stakeholder/          Meeting transcripts
 │   └── data-samples/         ISN data samples

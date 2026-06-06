@@ -1,8 +1,8 @@
 const express = require('express');
 const multer = require('multer');
 const XLSX = require('xlsx');
-const { sequelize, Athlete } = require('../models-sql');
-const auth = require('../middleware/auth-sql');
+const { sequelize, Athlete } = require('../models');
+const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
 
 const router = express.Router();
@@ -46,7 +46,10 @@ function normaliseRow(row) {
       mobility: get('Mobility', 'mobility'),
       stability: get('Stability', 'stability'),
       symmetry: get('Symmetry', 'symmetry'),
-      exerciseRiskScore: get('Exercise Risk Score', 'exerciseRiskScore'),
+      // "Exercise Risk Score" in the Excel is a column-GROUP header spanning
+      // the five injury-risk indicators (neck, shoulder, scoliosis, spinal
+      // disc, lumbar-pelvis), not a leaf value of its own. The previous
+      // extraction here misread it and produced null on every row.
     },
   };
 }

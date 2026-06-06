@@ -95,7 +95,7 @@ The latest report draft closes another round of items on top of the 2026-05-25 c
 2. **Section 2.1 — duplicate paragraph** — the "In conclusion, while ACWR represents..." paragraph appears twice (p. 19). Delete the second occurrence.
 3. **Sprint count inconsistency** — report (p. 29) says "two broad sprints"; slides 18/20 mention "three broad sprints". Align to one count across both artefacts.
 4. **UC-2 reset password user role mismatch** — slide 20 says "Medical Staff, Administrator"; report p. 33 still lists "Athlete, Medical Staff, Administrator". Pick one (slides version matches the seeded-credentials model).
-5. **Slides p. 38 subheading** — Data Import activity diagram is labelled "UC-21 to UC-22: Self-Reported Injury Workflow"; should read "Data Import Workflow".
+5. **Slides p. 38 subheading** — Data Import activity diagram is labelled "UC-20 to UC-21: Self-Reported Injury Workflow"; should read "Data Import Workflow".
 6. **Project Logbook (slides pp. 52–53)** — Supervisor signature column still blank for all 7 entries.
 7. **List of Appendices** — not yet generated in the report front-matter (only Table of Contents / Figures / Tables / Symbols are populated). Confirm whether the FYP I report template requires this — if so, generate before submission.
 

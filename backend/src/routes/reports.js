@@ -1,8 +1,8 @@
 const express = require('express');
 const { Op } = require('sequelize');
 const PDFDocument = require('pdfkit');
-const { Injury } = require('../models-sql');
-const auth = require('../middleware/auth-sql');
+const { Injury } = require('../models');
+const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
 
 const router = express.Router();

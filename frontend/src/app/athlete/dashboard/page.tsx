@@ -6,7 +6,6 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import BodyMap, { MuscleEntry } from '@/components/dashboard/BodyMap';
 import WorkloadChart from '@/components/dashboard/WorkloadChart';
 import RiskRadar from '@/components/dashboard/RiskRadar';
-import RiskAlert from '@/components/dashboard/RiskAlert';
 import AcwrGauge from '@/components/dashboard/AcwrGauge';
 import { api } from '@/lib/api';
 import { getSession } from '@/lib/auth';
@@ -40,7 +39,8 @@ interface Athlete {
   risks: AthleteRisks;
   myodynamia: MuscleEntry[];
   tension: MuscleEntry[];
-  exerciseRiskScore?: number;
+  overallActivityScore?: number;
+  injuryRiskIndex?: number;
   mobility?: number;
   stability?: number;
   symmetry?: number;
@@ -202,6 +202,30 @@ export default function AthleteDashboard() {
     () => classifyCompositeRisk(computed.acwr, athlete ?? {}, activeInjuries),
     [computed.acwr, athlete, activeInjuries],
   );
+
+  // Fire-and-forget baseline trigger. POST is idempotent against an open
+  // baseline (server returns the existing row), so this is safe to call
+  // unconditionally on every dashboard load when risk is non-Low. The
+  // PATCH-resolve fires when the athlete has returned to Low — the
+  // resolve endpoint is a no-op when no baseline is active.
+  useEffect(() => {
+    if (!athlete) return;
+    const nonLow = risk.cls === 'mod' || risk.cls === 'high';
+    if (nonLow) {
+      api.post('/recovery-baselines', {
+        athleteId: athlete.athleteId,
+        snapshotAcwr: +computed.acwr.toFixed(2),
+        chronicLoad: +computed.chronicLoad.toFixed(0),
+        targetLowMin: risk.personalisedRange.lowMin,
+        targetLowMax: risk.personalisedRange.lowMax,
+        triggerCls: risk.cls,
+        triggerLevel: risk.level,
+        factors: risk.factors,
+      }).catch(() => null);
+    } else {
+      api.patch(`/recovery-baselines/athlete/${athlete.athleteId}/resolve`, {}).catch(() => null);
+    }
+  }, [athlete, risk, computed.acwr, computed.chronicLoad]);
   const shownInjuries = injuryTab === 'active' ? activeInjuries : allInjuries;
 
   const recentActivities = useMemo(
@@ -246,9 +270,6 @@ export default function AthleteDashboard() {
 
   return (
     <DashboardLayout allowedRoles={['athlete']} title="My Dashboard">
-      {/* UC-13: prominent alert, renders only at Moderate/High risk */}
-      <RiskAlert risk={risk} acwr={computed.acwr} />
-
       {/* Risk hero */}
       <div className={`risk-hero risk-hero--${risk.cls}`}>
         <div style={{ flex: 1 }}>
@@ -276,6 +297,7 @@ export default function AthleteDashboard() {
             lowMax={risk.personalisedRange.lowMax}
             modMax={risk.personalisedRange.modMax}
             compositeCls={risk.cls}
+            compositeLabel={risk.level}
           />
           {computed.sharpDip && (
             <div className="risk-hero-prompt">

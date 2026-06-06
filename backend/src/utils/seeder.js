@@ -1,15 +1,14 @@
 /**
  * Seed script — populates MySQL with the AIRMS prototype mock data.
- * Mirrors backend/src/utils/seeder.js (the Mongo seeder) row-for-row.
  *
- * Run once: npm run seed:sql
+ * Run once: npm run seed
  * Safe to re-run: drops + recreates the schema before inserting.
  */
 require('dotenv').config({ path: require('path').join(__dirname, '../../.env') });
 
-const { sequelize, User, Athlete, MuscleFlag, Activity, Injury, SelfReport } = require('../models-sql');
+const { sequelize, User, Athlete, MuscleFlag, Activity, Injury, SelfReport } = require('../models');
 
-// ── Deterministic PRNG (same as Mongo seeder, seed=42) ──────────────────────
+// ── Deterministic PRNG (seed=42 — same demo data on every reseed) ──────────
 let _seed = 42;
 function rnd() { _seed = (_seed * 9301 + 49297) % 233280; return _seed / 233280; }
 function pick(arr) { return arr[Math.floor(rnd() * arr.length)]; }
@@ -86,7 +85,6 @@ function buildAthletes() {
       mobility: rfloat(60, 90, 2),
       stability: rfloat(60, 90, 2),
       symmetry: rfloat(60, 95, 2),
-      exerciseRiskScore: rfloat(3, 12, 2),
       neckInjuryRisk: rfloat(5, 30, 1),
       shoulderInjuryRisk: rfloat(5, 30, 1),
       scoliosis: rfloat(5, 30, 1),
@@ -100,7 +98,11 @@ function buildAthletes() {
     });
   }
 
-  // Anchor athlete — John Doe, matches ISN Excel sample exactly
+  // Anchor athlete — John Doe, matches ISN Excel sample exactly.
+  // Note: "Exercise risk score" in the Excel is a column-GROUP header, not a
+  // leaf value. The five injury-risk indicators that follow are its grouped
+  // sub-columns. Earlier seeder revisions misread that header and offset all
+  // values by one position; the layout below is the corrected attribution.
   athletes[0] = {
     athleteId: 'ATH0001',
     name: 'John Doe',
@@ -111,15 +113,16 @@ function buildAthletes() {
     overallActivityScore: 80.28,
     injuryRiskIndex: 10.4,
     mobility: 79.94, stability: 77.62, symmetry: 82.49,
-    exerciseRiskScore: 5.49,
-    neckInjuryRisk: 7.27,
-    shoulderInjuryRisk: 8.03,
-    scoliosis: 14.51,
+    // Five "Exercise risk score" sub-indicators from the Excel sample
+    neckInjuryRisk: 5.49,
+    shoulderInjuryRisk: 7.27,
+    scoliosis: 8.03,
     spinalDiscHerniation: 14.51,
-    lumbarPelvisInjury: 5.62,
-    jointPain: 0,
-    kneeInjuryRisk: 20.24,
-    ankleInjuryRisk: 22.44,
+    lumbarPelvisInjury: 14.51,
+    // Three additional risk indicators; values shifted from the prior offset
+    jointPain: 5.62,
+    kneeInjuryRisk: 0,
+    ankleInjuryRisk: 20.24,
     // Below the 5-flag escalation threshold in `classifyCompositeRisk` so
     // John's demo lands at "Elevated" via injury escalation, not "High Risk".
     _myodynamia: [
@@ -300,8 +303,8 @@ async function seed() {
   await sequelize.authenticate();
   console.log(`Connected to MySQL: ${sequelize.config.host}:${sequelize.config.port}/${sequelize.config.database}`);
 
-  // Drop + recreate every table managed by these models. Equivalent to the
-  // Mongo seeder's deleteMany() block but cleaner — no FK ordering trap.
+  // Drop + recreate every table managed by these models. Sequelize handles
+  // FK ordering automatically so we don't have to delete in any specific order.
   await sequelize.sync({ force: true });
   console.log('Schema recreated (force sync)');
 

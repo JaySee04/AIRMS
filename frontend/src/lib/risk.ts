@@ -8,11 +8,11 @@
 // Yang et al. (2024) for physiological correspondence.
 //
 // AIRMS contribution: ACWR bands are *personalised* per athlete using their
-// screening data (exerciseRiskScore, mobility, stability, symmetry), and the
-// resulting risk level is *escalated* when active injuries or a high muscle-
-// flag count are present. This integrates the three data layers AIRMS stores
-// (workload, biomechanical profile, injury history) into a single judgement
-// instead of treating them as independent dashboards.
+// screening data (injuryRiskIndex, overallActivityScore, mobility, stability,
+// symmetry), and the resulting risk level is *escalated* when active injuries
+// or a high muscle-flag count are present. This integrates the three data
+// layers AIRMS stores (workload, biomechanical profile, injury history) into
+// a single judgement instead of treating them as independent dashboards.
 
 export type RiskCls = 'low' | 'mod' | 'high' | 'under';
 
@@ -22,10 +22,11 @@ export interface MuscleEntry {
 }
 
 export interface AthleteProfile {
-  exerciseRiskScore?: number; // 3–12 typical (seeded). Higher = more at risk.
-  mobility?: number;          // 0–100. Higher is better.
-  stability?: number;         // 0–100.
-  symmetry?: number;          // 0–100.
+  overallActivityScore?: number; // 0–100. Higher = better-conditioned.
+  injuryRiskIndex?: number;      // 0–40 typical (seeded 8–35). Higher = more at risk.
+  mobility?: number;             // 0–100. Higher is better.
+  stability?: number;            // 0–100.
+  symmetry?: number;             // 0–100.
   myodynamia?: MuscleEntry[];
   tension?: MuscleEntry[];
 }
@@ -45,11 +46,20 @@ export interface CompositeRisk {
   escalated: boolean;
 }
 
+// Pure ACWR-driven labels (no escalation applied).
 const LEVEL_LABEL: Record<RiskCls, string> = {
   low: 'Low Risk',
   mod: 'Moderate Risk',
   high: 'High Risk',
-  under: 'Low Workload',
+  under: 'Detraining Risk',
+};
+
+// Compound labels — used only when classifyCompositeRisk escalates the band
+// because active injuries or muscle flags align with the current workload.
+// Only mod/high outcomes can be escalated, so only these two have compound forms.
+const COMPOUND_LABEL: Partial<Record<RiskCls, string>> = {
+  mod: 'Compound Moderate Risk',
+  high: 'Compound High Risk',
 };
 
 const LEVEL_MSG: Record<RiskCls, string> = {
@@ -59,16 +69,38 @@ const LEVEL_MSG: Record<RiskCls, string> = {
   under: 'Fitness at risk of declining. Your recent training is well below your usual baseline — check whether this is intentional rest or an unplanned drop.',
 };
 
+// Compound-outcome messages. These deliberately do NOT claim workload itself
+// is elevated, because compound escalation can fire when the raw ACWR band
+// was Low — the elevation comes from the combination with injury/biomech
+// context, not workload alone.
+const COMPOUND_MSG: Partial<Record<RiskCls, string>> = {
+  mod: 'Workload by itself sits within safe ranges, but combining it with your current injury or biomechanical context elevates your overall risk. Monitor recovery closely and avoid stacking high-intensity sessions until the context clears.',
+  high: 'Workload combined with active injury and biomechanical context places you at high risk. Reduce intensity for the next 2–3 sessions and confirm return-to-play criteria with your medical staff.',
+};
+
 // Vulnerability score from screening data. 0 = robust, 1 = highly vulnerable.
-// Weights chosen so exerciseRiskScore dominates (it is itself a composite) but
-// raw mobility/stability/symmetry deficits also nudge the score.
+// Inputs are the five screening columns ISN actually captures per athlete:
+//   - injuryRiskIndex          — ISN's direct injury-risk composite (heaviest weight)
+//   - overallActivityScore     — composite conditioning score (deficit = poorer recoverability)
+//   - mobility / stability / symmetry — movement-quality components
+// Weights chosen so the two ISN-composite inputs together carry 0.50 (split
+// 0.30 / 0.20 — injury-risk dominates), matching the original design where
+// the composite layer carried half the score. The three movement-quality
+// scores retain their 0.50 sum with the original split.
+const IRI_MAX = 40; // normalization cap for injuryRiskIndex (seeded synthetic max 35)
 export function computeVulnerability(a: AthleteProfile): number {
-  const ers = a.exerciseRiskScore ?? 7.5;
-  const ersNorm = Math.max(0, Math.min(1, (ers - 3) / 9));
-  const mobDef = Math.max(0, Math.min(1, 1 - (a.mobility ?? 80) / 100));
-  const stbDef = Math.max(0, Math.min(1, 1 - (a.stability ?? 80) / 100));
-  const symDef = Math.max(0, Math.min(1, 1 - (a.symmetry ?? 80) / 100));
-  return ersNorm * 0.5 + mobDef * 0.2 + stbDef * 0.15 + symDef * 0.15;
+  const iri      = a.injuryRiskIndex      ?? 15;
+  const overall  = a.overallActivityScore ?? 80;
+  const iriNorm  = Math.max(0, Math.min(1, iri / IRI_MAX));
+  const overDef  = Math.max(0, Math.min(1, 1 - overall / 100));
+  const mobDef   = Math.max(0, Math.min(1, 1 - (a.mobility  ?? 80) / 100));
+  const stbDef   = Math.max(0, Math.min(1, 1 - (a.stability ?? 80) / 100));
+  const symDef   = Math.max(0, Math.min(1, 1 - (a.symmetry  ?? 80) / 100));
+  return iriNorm * 0.30
+       + overDef * 0.20
+       + mobDef  * 0.20
+       + stbDef  * 0.15
+       + symDef  * 0.15;
 }
 
 // Personalised ACWR thresholds. A vulnerability of 0.4 corresponds to the
@@ -124,14 +156,18 @@ export function classifyCompositeRisk(
     cls = escalate(cls);
   }
 
+  const escalated = cls !== baseCls;
+  const level = escalated ? (COMPOUND_LABEL[cls] ?? LEVEL_LABEL[cls]) : LEVEL_LABEL[cls];
+  const msg = escalated ? (COMPOUND_MSG[cls] ?? LEVEL_MSG[cls]) : LEVEL_MSG[cls];
+
   return {
     cls,
     baseCls,
-    level: LEVEL_LABEL[cls],
-    msg: LEVEL_MSG[cls],
+    level,
+    msg,
     factors,
     personalisedRange: thresholds,
     vulnerability: +vulnerability.toFixed(2),
-    escalated: cls !== baseCls,
+    escalated,
   };
 }

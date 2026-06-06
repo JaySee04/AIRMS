@@ -1,7 +1,7 @@
 const express = require('express');
 const { Op } = require('sequelize');
-const { Activity } = require('../models-sql');
-const auth = require('../middleware/auth-sql');
+const { Activity } = require('../models');
+const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
 const { serializeGeneric, serializeMany } = require('../utils/serialize');
 
@@ -18,19 +18,34 @@ function isFutureDate(value) {
   return d.getTime() > today.getTime();
 }
 
-// GET /api/activities/athlete/:id — activity log for an athlete
+// GET /api/activities/athlete/:id — activity log for an athlete.
+// Default window: last 12 weeks (covers the 8-week dashboard chart + 4-week
+// buffer). Pass ?weeks=N for a custom recent window, ?from=YYYY-MM-DD
+// and/or ?to=YYYY-MM-DD for a specific range, or ?all=1 to opt out of
+// windowing entirely (intended for admin audit / PDF report builders).
+const DEFAULT_WINDOW_WEEKS = 12;
+
 router.get('/athlete/:id', auth, async (req, res) => {
   try {
     if (req.user.role === 'athlete' && req.user.athleteId !== req.params.id) {
       return res.status(403).json({ message: 'Access denied' });
     }
-    const { weeks } = req.query;
+    const { weeks, from, to, all } = req.query;
     const where = { athleteId: req.params.id };
-    if (weeks) {
+
+    if (all === '1' || all === 'true') {
+      // No date constraint — full history.
+    } else if (from || to) {
+      where.date = {};
+      if (from) where.date[Op.gte] = new Date(from);
+      if (to)   where.date[Op.lte] = new Date(to);
+    } else {
+      const windowWeeks = weeks ? parseInt(weeks, 10) : DEFAULT_WINDOW_WEEKS;
       const since = new Date();
-      since.setDate(since.getDate() - parseInt(weeks, 10) * 7);
+      since.setDate(since.getDate() - windowWeeks * 7);
       where.date = { [Op.gte]: since };
     }
+
     const rows = await Activity.findAll({ where, order: [['date', 'DESC']] });
     res.json(serializeMany(rows));
   } catch (err) {

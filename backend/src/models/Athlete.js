@@ -1,10 +1,10 @@
-const { DataTypes } = require('sequelize');
-const { sequelize } = require('../config/db-sql');
+﻿const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/db');
 
-// Mirrors backend/src/models/Athlete.js. The 8 risk indicators are flattened
-// to columns (Mongoose nested them under `risks`); the API serialiser
-// reassembles the nested shape so the frontend reads the same response shape.
-// myodynamia[] and tension[] are normalised into the muscle_flags table.
+// Athlete row. The 8 injury-risk indicators are flattened to columns; the
+// API serialiser reassembles them into a nested `risks` object that the
+// frontend consumes. myodynamia[] and tension[] flags live in the
+// muscle_flags table and are joined in at serialisation time.
 const Athlete = sequelize.define('Athlete', {
   athleteId: {
     type: DataTypes.STRING(16),
@@ -53,8 +53,9 @@ const Athlete = sequelize.define('Athlete', {
   ],
 });
 
-// Reassemble the nested `risks` object the Mongoose model exposed, so the
-// frontend response shape stays identical across the two persistence layers.
+// Convenience: produce the nested `risks` shape directly off the instance.
+// The route serialiser does the same reshape inline; this is just for the
+// rare case a route wants to emit a single athlete without going through it.
 Athlete.prototype.toJSONNested = function () {
   const plain = this.get({ plain: true });
   const {

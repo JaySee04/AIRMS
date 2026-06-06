@@ -8,7 +8,7 @@
 
 ## 1. What AIRMS is (one paragraph)
 
-AIRMS is a web app that helps **Institut Sukan Negara (ISN)** manage and predict injury risk for national-level Malaysian athletes. Athletes log their training; medical staff log injuries and review screenings; admins oversee analytics and data uploads. Built on Next.js / Node.js / MongoDB. Submitted as **JC's Final Year Project** with **Dr Thung** (ISN) as stakeholder and **Dr Hoo Wai Lam** as academic supervisor.
+AIRMS is a web app that helps **Institut Sukan Negara (ISN)** manage and predict injury risk for national-level Malaysian athletes. Athletes log their training; medical staff log injuries and review screenings; admins oversee analytics and data uploads. Built on Next.js / Node.js / MySQL. Submitted as **JC's Final Year Project** with **Dr Thung** (ISN) as stakeholder and **Dr Hoo Wai Lam** as academic supervisor.
 
 The project is an iteration on a previous HTML prototype (`airms-prototype/`) inherited from prior students Shewin and Keying. AIRMS rebuilds the prototype on a real fullstack codebase and adds new analytical capabilities — most importantly the **composite risk model** (see §6).
 
@@ -20,7 +20,7 @@ The project is an iteration on a previous HTML prototype (`airms-prototype/`) in
 |---|---|
 | Frontend framework | **Next.js 14 (App Router)** with TypeScript |
 | Backend framework | **Node.js + Express** |
-| Database | **MongoDB Atlas** (cloud cluster) via **Mongoose** — FYP I demo path. A parallel **MySQL 8.x** stack via **Sequelize** lives on `feat/mysql-migration` for ISN's production deployment; see [DESIGN_DECISIONS.md §5](DESIGN_DECISIONS.md#5-dual-persistence-layer--mongodb-atlas-for-fyp-i-mysql-for-isn-production) and [DB_SWITCHING.md](DB_SWITCHING.md). |
+| Database | **MySQL 8.x** via **Sequelize**. See [DESIGN_DECISIONS.md §5](DESIGN_DECISIONS.md#5-mysql-with-sequelize-single-persistence-layer); the prior MongoDB stack is preserved on the `main` branch and documented in [MONGO_RECOVERY.md](MONGO_RECOVERY.md). |
 | Authentication | **JWT** stored in `localStorage` |
 | Charts | **Chart.js** + **react-chartjs-2** |
 | Body map asset | **react-muscle-highlighter** (MIT) — path data copied into project, NOT installed as dependency |
@@ -35,13 +35,23 @@ The project is an iteration on a previous HTML prototype (`airms-prototype/`) in
 
 | Role | Demo email | Landing page | Scope |
 |---|---|---|---|
-| **athlete** | `john.doe@isn.gov.my` | `/athlete/dashboard` | Self only — sees own activity, injuries, risk |
-| **medical** | `dr.lim@isn.gov.my` | `/medical/dashboard` | All athletes — can log injuries, review self-reports |
-| **admin** | `admin@isn.gov.my` | `/admin/dashboard` | Full system — analytics, data uploads, PDF reports |
+| **athlete** | `athlete@isn.gov.my` / `athlete123` | `/athlete/dashboard` | Self only — sees own activity, injuries, risk |
+| **medical** | `medical@isn.gov.my` / `medical123` | `/medical/dashboard` | All athletes — can log injuries, review self-reports |
+| **admin** | `admin@isn.gov.my` / `admin123` | `/admin/dashboard` | Full system — analytics, data uploads, PDF reports |
+| **admin** (SMTP demo) | `poseidonapollo11@gmail.com` / `admin123` | `/admin/dashboard` | Identical privileges; created so the email-reset flow can demo against a real Gmail inbox |
 
-Seeded demo password is the same for all three (check `backend/src/utils/seeder.js`).
+Each role's seeded password is `<role>123` (e.g. `admin123`). Confirmed in `backend/src/utils/seeder.js`. The seeded passwords do **not** satisfy the 10-char + complexity policy — that's intentional (the policy gates user-driven password setting, not seeded fixtures). If you ever reset a seeded user's password via the live UI, pick something that satisfies the policy (e.g. `ISN#admin2026`).
 
-Role gating is done client-side in `frontend/src/components/layout/DashboardLayout.tsx` via the `allowedRoles` prop. Backend enforces RBAC at every protected route via `apps/middleware/rbac.js`.
+Role gating is done client-side in `frontend/src/components/layout/DashboardLayout.tsx` via the `allowedRoles` prop. Backend enforces RBAC at every protected route via `backend/src/middleware/rbac.js`.
+
+Auth routes live in `backend/src/routes/auth.js`:
+- `POST /api/auth/login` — issues JWT, updates `lastLoginAt`
+- `POST /api/auth/forgot-password` — issues SHA-256-hashed reset token (60 min TTL), sends email
+- `POST /api/auth/reset-password` — consumes a reset token
+- `POST /api/auth/change-password` — in-place rotation for authenticated users
+- `GET /api/auth/me` — returns the current user including `createdAt` + `lastLoginAt`
+
+Password policy is enforced server-side at `backend/src/utils/passwordPolicy.js` and mirrored at `frontend/src/lib/passwordPolicy.ts`: ≥10 characters, uppercase + lowercase + digit + symbol.
 
 ---
 
@@ -91,7 +101,7 @@ Frontend recomputes ACWR locally in the dashboard for finer-grained per-week bre
 
 AIRMS does **not** apply textbook ACWR bands directly to every athlete. Instead, it:
 
-1. Computes a **vulnerability score** from the athlete's screening data (exercise risk score, mobility, stability, symmetry)
+1. Computes a **vulnerability score** from the athlete's screening data (injury risk index, overall activity score, mobility, stability, symmetry)
 2. **Personalises** the ACWR thresholds based on vulnerability (±~15% swing around the literature baseline)
 3. **Escalates** the risk band if active injuries or muscle flags align with the current workload
 
@@ -164,32 +174,33 @@ These rules came from JC's Figma mockups and explicit feedback. **Do not deviate
 --risk-low:          green   — Optimal ACWR band (0.8–1.3)
 --risk-moderate:     amber   — Elevated (1.3–1.5)
 --risk-high:         red     — High Risk (>1.5)
---risk-undertrained: blue    — Low Workload (<0.8)
+--risk-undertrained: blue    — Detraining Risk (<0.8)
 ```
 
 ---
 
 ## 9. Locked data shapes (do NOT change without migrating data)
 
-### `Activity` (MongoDB)
+### `Activity` (MySQL `activities` table)
 ```typescript
 {
   athleteId: string;          // "ATH0001" format
   date: Date;
   type: 'Strength' | 'Endurance' | 'Speed' | 'Skill' | 'Match' | 'Recovery';
-  duration: number;           // minutes, 1–240
+  duration: number;           // minutes, 10–240
   intensity: number;          // RPE 1–10
-  load: number;               // auto-computed: duration × intensity
+  load: number;               // auto-computed: duration × intensity (Sequelize hook)
   notes?: string;
 }
 ```
 
-### `Athlete` (MongoDB)
-- `athleteId` (e.g. `ATH0001`) is the canonical foreign key — **not** Mongo `_id`
-- `myodynamia` and `tension` are arrays of `{ muscle, side }` sub-documents (NOT a flat object)
-- See [backend/src/models/Athlete.js](../backend/src/models/Athlete.js)
+### `Athlete` (MySQL `athletes` table)
+- `athleteId` (e.g. `ATH0001`) is the primary key and the cross-table foreign key
+- The 8 injury-risk indicators are stored as flat columns and reassembled into a nested `risks` object by the response serialiser
+- `myodynamia` and `tension` flags live in the normalised `muscle_flags` table, discriminated by `flag_type`; the serialiser splits them back into two arrays for the frontend
+- See [backend/src/models/Athlete.js](../backend/src/models/Athlete.js) and [backend/src/models/MuscleFlag.js](../backend/src/models/MuscleFlag.js)
 
-### `Injury` (MongoDB)
+### `Injury` (MySQL `injuries` table)
 - `bodyPart` enum: `Neck`, `Shoulder`, `Spine`, `Lumbar/Pelvis`, `Knee`, `Ankle`, `Hip`, `Elbow`, `Wrist`, `Other`
 - `injuryType` enum: `Sprain`, `Strain`, `Tendinitis`, `Bursitis`, `Fracture`, `Contusion`, `Dislocation`, `Other`
 - `mechanism` enum: `Contact`, `Non-contact`, `Overuse`, `Recurrent` — **note `Overuse` is a mechanism, not an injuryType**
@@ -209,9 +220,11 @@ These rules came from JC's Figma mockups and explicit feedback. **Do not deviate
 ## 11. Known dev-environment gotchas
 
 1. **Stale Next.js process holds port 3000** → new instance bumps to 3001 → CORS blocks API calls. Fix: kill stale node processes via PowerShell `Stop-Process -Id <pid> -Force` then restart `npm run dev`.
-2. **MongoDB password has special characters** → must be URL-encoded in `MONGO_URI`. `ISN123456!@#$%^` → `ISN123456%21%40%23%24%25%5E`.
+2. **MySQL password has special characters** (`#`, `$`, `%`, `^`) → wrap the whole value in single quotes in `backend/.env` so `dotenv` doesn't interpret them. e.g. `MYSQL_PASSWORD='ISN123456!@#$%^'`.
 3. **Seeder validation errors** if enum values don't match the model. Most common: `'Overuse'` is a `mechanism`, not an `injuryType`. Use `'Other'` for `injuryType` and `BODY_PARTS`.
 4. **`npm install` at the root** is required once for `concurrently`. After that, `npm run dev` works from root.
+5. **SMTP env not loading** — when you change `SMTP_*` values in `backend/.env`, the running backend keeps using the previously-built mailer transport (cached on first use). Always restart the backend after editing SMTP env vars. If `SMTP_HOST` is empty, the mailer falls back to a console transport that prints the email body to the backend terminal — useful for dev without credentials.
+6. **Gmail app password format** — paste it as 16 contiguous characters (the spaces Google shows are visual only). Wrong format manifests as a 535 auth error from Gmail.
 
 ---
 
@@ -223,8 +236,8 @@ These rules came from JC's Figma mockups and explicit feedback. **Do not deviate
 - The body map asset source and MIT attribution
 - The aggregation policy (figure shows regions, cards show specific muscles)
 - The Figma-derived UI design (split login card, sidebar branding, topbar dropdown)
-- The MongoDB schema for `Activity`, `Athlete`, `Injury` (and its MySQL mirror — both stacks track schema changes together)
-- The dual-persistence direction itself: Mongo for FYP I demo, MySQL for ISN production. Don't drop either without discussion
+- The MySQL schema for `Activity`, `Athlete`, `Injury`, `MuscleFlag`, `SelfReport` (see [backend/src/models/](../backend/src/models/))
+- The single-database direction: AIRMS persists to MySQL. The historical MongoDB stack is documented in [MONGO_RECOVERY.md](MONGO_RECOVERY.md) as an emergency restoration path, not a supported alternative
 - The ACWR thresholds 0.8 / 1.3 / 1.5 as the baseline (personalised modifiers are ±15% around these)
 
 If JC ever says "redesign the body map" or "let me self-report intensity differently" or "switch to PostgreSQL," ask one clarifying question before acting — these touch FYP-defensibility.

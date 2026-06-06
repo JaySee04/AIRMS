@@ -1,7 +1,7 @@
 const express = require('express');
 const { Op } = require('sequelize');
-const { Athlete, MuscleFlag } = require('../models-sql');
-const auth = require('../middleware/auth-sql');
+const { Athlete, MuscleFlag } = require('../models');
+const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
 const { serializeAthlete, serializeAthleteList } = require('../utils/serialize');
 
@@ -17,7 +17,7 @@ router.get('/', auth, rbac('medical', 'admin'), async (req, res) => {
     if (gender) where.gender = gender;
     if (search) where.name = { [Op.like]: `%${search}%` };
 
-    // List view omits muscle flags for payload size — matches Mongo route.
+    // List view omits muscle flags for payload size; detail view includes them.
     const rows = await Athlete.findAll({
       where,
       order: [['name', 'ASC']],

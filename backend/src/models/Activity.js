@@ -1,5 +1,5 @@
 const { DataTypes } = require('sequelize');
-const { sequelize } = require('../config/db-sql');
+const { sequelize } = require('../config/db');
 
 const Activity = sequelize.define('Activity', {
   id: {
@@ -41,12 +41,18 @@ const Activity = sequelize.define('Activity', {
 }, {
   tableName: 'activities',
   underscored: true,
+  // Soft-delete: DELETE sets deleted_at instead of dropping the row, and
+  // default queries auto-exclude soft-deleted rows. Preserves audit trail
+  // without growing the dataset visibly. Pass { paranoid: false } on a
+  // findAll call to retrieve including-deleted rows for audit/admin use.
+  paranoid: true,
   indexes: [
     { fields: ['athlete_id', 'date'] },
   ],
   hooks: {
     beforeValidate: (activity) => {
-      // Mirrors the Mongoose pre-save hook: load = duration × intensity (sRPE).
+      // sRPE: load = duration × intensity, computed at write time so the
+      // value is always consistent with the inputs it was derived from.
       if (activity.duration != null && activity.intensity != null) {
         activity.load = Number(activity.duration) * Number(activity.intensity);
       }

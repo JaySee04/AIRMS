@@ -1,6 +1,6 @@
 const express = require('express');
-const { sequelize, SelfReport, Injury, Athlete } = require('../models-sql');
-const auth = require('../middleware/auth-sql');
+const { sequelize, SelfReport, Injury, Athlete } = require('../models');
+const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
 const { serializeGeneric, serializeMany } = require('../utils/serialize');
 

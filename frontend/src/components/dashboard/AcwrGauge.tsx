@@ -8,6 +8,9 @@ interface AcwrGaugeProps {
   lowMax: number;
   modMax: number;
   compositeCls?: RiskCls;
+  /** Final risk label after composite escalation (e.g. "Compound Moderate Risk").
+   *  Falls back to the matching band label when omitted. */
+  compositeLabel?: string;
 }
 
 const AXIS_MAX = 2.0;
@@ -20,10 +23,10 @@ function computeBaseCls(acwr: number, lowMin: number, lowMax: number, modMax: nu
   return 'under';
 }
 
-export default function AcwrGauge({ acwr, lowMin, lowMax, modMax, compositeCls }: AcwrGaugeProps) {
+export default function AcwrGauge({ acwr, lowMin, lowMax, modMax, compositeCls, compositeLabel }: AcwrGaugeProps) {
   const markerPos = (Math.max(0, Math.min(AXIS_MAX, acwr)) / AXIS_MAX) * 100;
   const bands = [
-    { cls: 'low',  label: 'Low Workload',  pct: (lowMin / AXIS_MAX) * 100 },
+    { cls: 'low',  label: 'Detraining Risk', pct: (lowMin / AXIS_MAX) * 100 },
     { cls: 'opt',  label: 'Low Risk',      pct: ((lowMax - lowMin) / AXIS_MAX) * 100 },
     { cls: 'mod',  label: 'Moderate Risk', pct: ((modMax - lowMax) / AXIS_MAX) * 100 },
     { cls: 'high', label: 'High Risk',     pct: ((AXIS_MAX - modMax) / AXIS_MAX) * 100 },
@@ -68,14 +71,14 @@ export default function AcwrGauge({ acwr, lowMin, lowMax, modMax, compositeCls }
         ))}
       </div>
       <div className="acwr-gauge-legend">
-        <span className="acwr-gauge-legend-item acwr-gauge-legend-item--low">Low Workload</span>
+        <span className="acwr-gauge-legend-item acwr-gauge-legend-item--low">Detraining Risk</span>
         <span className="acwr-gauge-legend-item acwr-gauge-legend-item--opt">Low Risk</span>
         <span className="acwr-gauge-legend-item acwr-gauge-legend-item--mod">Moderate Risk</span>
         <span className="acwr-gauge-legend-item acwr-gauge-legend-item--high">High Risk</span>
       </div>
       {showComposite && (
         <div className="acwr-gauge-note">
-          ACWR alone classifies as <strong>{bands[rawIdx].label}</strong>; composite escalation places final risk in <strong>{bands[compositeIdx].label}</strong>.
+          Workload alone (ACWR) classifies as <strong>{bands[rawIdx].label}</strong>. Active injury or biomechanical context escalates the final composite classification to <strong>{compositeLabel ?? bands[compositeIdx].label}</strong>.
         </div>
       )}
     </div>

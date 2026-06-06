@@ -293,7 +293,7 @@
 
       <div class="formula">
         <span class="label">Vulnerability from screening (0&ndash;1)</span>
-        v = 0.50&middot;ERS + 0.20&middot;MobDef<br>
+        v = 0.30&middot;IRI + 0.20&middot;OvrDef + 0.20&middot;MobDef<br>
         &nbsp;&nbsp;&nbsp;&nbsp;+ 0.15&middot;StbDef + 0.15&middot;SymDef
       </div>
 
@@ -391,10 +391,13 @@
     <div class="card mid">
       <span class="tag">B &nbsp;&middot;&nbsp; Screening profile</span>
       <h2>From the athlete&rsquo;s last screening</h2>
-      <p class="sublabel">Uploaded by medical staff via Excel. Higher mobility / stability / symmetry is better; higher ERS is worse.</p>
+      <p class="sublabel">Uploaded by medical staff via Excel. Higher mobility / stability / symmetry / overall-activity is better; higher injury-risk index is worse.</p>
       <div class="glossary-list">
-        <span class="sym">ERS</span>
-        <span class="meaning">Exercise Risk Score &mdash; composite from movement-test battery. <b>Higher = more at risk</b> <span class="range">3 &ndash; 12</span></span>
+        <span class="sym">IRI</span>
+        <span class="meaning"><b>Injury Risk Index</b> &mdash; ISN&rsquo;s direct composite injury-risk metric. <b>Higher = more at risk</b>. Normalised by IRI / 40. <span class="range">0 &ndash; 40</span></span>
+
+        <span class="sym">Overall Activity</span>
+        <span class="meaning">Composite conditioning score from the screening battery. Higher is better. <span class="range">0 &ndash; 100</span></span>
 
         <span class="sym">Mobility</span>
         <span class="meaning">Joint range-of-motion score. Higher is better. <span class="range">0 &ndash; 100</span></span>
@@ -405,11 +408,11 @@
         <span class="sym">Symmetry</span>
         <span class="meaning">Left-vs-right balance score. Higher is better. <span class="range">0 &ndash; 100</span></span>
 
-        <span class="sym">MobDef / StbDef / SymDef</span>
-        <span class="meaning">Their <i>deficits</i>: <b>1 &minus; score/100</b>. Flips them so higher = worse, matching ERS.</span>
+        <span class="sym">OvrDef / MobDef / StbDef / SymDef</span>
+        <span class="meaning">Their <i>deficits</i>: <b>1 &minus; score/100</b>. Flips them so higher = worse, matching IRI.</span>
 
         <span class="sym">v</span>
-        <span class="meaning"><b>Vulnerability</b> &mdash; the weighted composite of the four above. <b>0 = robust, 1 = highly vulnerable.</b> <span class="range">0 &ndash; 1</span></span>
+        <span class="meaning"><b>Vulnerability</b> &mdash; the weighted composite of the five inputs above. <b>0 = robust, 1 = highly vulnerable.</b> <span class="range">0 &ndash; 1</span></span>
       </div>
     </div>
 

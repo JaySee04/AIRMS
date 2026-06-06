@@ -2,7 +2,9 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { api } from '@/lib/api';
 import { clearSession, getSession, SessionUser } from '@/lib/auth';
+import { passwordRules, validatePassword, PASSWORD_MIN_LENGTH } from '@/lib/passwordPolicy';
 
 interface StatTile {
   label: string;
@@ -32,8 +34,8 @@ function getInitials(name: string): string {
  * Shared profile page chrome used by /medical/profile and /admin/profile.
  * Renders: hero (avatar + identity), stat tiles, account info, account actions.
  *
- * Password change is mocked — clicking the button shows a transient toast.
- * Real password rotation is out of scope until the backend exposes that flow.
+ * Password change is wired to POST /api/auth/change-password — same policy
+ * (10 chars, mixed case, digit, symbol) as the email-reset flow.
  */
 export default function ProfileShell({ stats: initialStats, onLoadStats, roleBlurb }: ProfileShellProps) {
   const router = useRouter();
@@ -46,6 +48,10 @@ export default function ProfileShell({ stats: initialStats, onLoadStats, roleBlu
   const [pwNext, setPwNext] = useState('');
   const [pwConfirm, setPwConfirm] = useState('');
   const [pwMessage, setPwMessage] = useState<string | null>(null);
+  const [pwShowCurrent, setPwShowCurrent] = useState(false);
+  const [pwShowNext, setPwShowNext] = useState(false);
+  const [pwShowConfirm, setPwShowConfirm] = useState(false);
+  const [pwSubmitting, setPwSubmitting] = useState(false);
 
   useEffect(() => {
     const session = getSession();
@@ -78,21 +84,32 @@ export default function ProfileShell({ stats: initialStats, onLoadStats, roleBlu
     router.push('/');
   }
 
-  function handlePasswordSubmit(e: React.FormEvent) {
+  async function handlePasswordSubmit(e: React.FormEvent) {
     e.preventDefault();
     setPwMessage(null);
+    const policyError = validatePassword(pwNext);
+    if (policyError) {
+      setPwMessage('error:' + policyError);
+      return;
+    }
     if (pwNext !== pwConfirm) {
-      setPwMessage('error:Passwords do not match.');
+      setPwMessage('error:New passwords do not match.');
       return;
     }
-    if (pwNext.length < 8) {
-      setPwMessage('error:New password must be at least 8 characters.');
+    if (pwNext === pwCurrent) {
+      setPwMessage('error:New password must differ from your current password.');
       return;
     }
-    // The backend exposes no password-change endpoint yet — keep the form
-    // honest about what just happened instead of pretending it did anything.
-    setPwMessage('info:Demo build — password update is not wired to the server yet.');
-    setPwCurrent(''); setPwNext(''); setPwConfirm('');
+    setPwSubmitting(true);
+    try {
+      await api.post('/auth/change-password', { currentPassword: pwCurrent, newPassword: pwNext });
+      setPwMessage('success:Password updated. Use your new password on your next sign-in.');
+      setPwCurrent(''); setPwNext(''); setPwConfirm('');
+    } catch (err: unknown) {
+      setPwMessage('error:' + (err instanceof Error ? err.message : 'Password change failed'));
+    } finally {
+      setPwSubmitting(false);
+    }
   }
 
   if (!user) {
@@ -166,46 +183,104 @@ export default function ProfileShell({ stats: initialStats, onLoadStats, roleBlu
             <form onSubmit={handlePasswordSubmit}>
               <div className="modal-body">
                 {pwMessage && (
-                  <div className={pwMessage.startsWith('error:') ? 'alert alert-error' : 'alert alert-info'}>
-                    {pwMessage.replace(/^(error|info):/, '')}
+                  <div className={
+                    pwMessage.startsWith('error:')
+                      ? 'alert alert-error'
+                      : pwMessage.startsWith('success:')
+                        ? 'alert alert-success'
+                        : 'alert alert-info'
+                  }>
+                    {pwMessage.replace(/^(error|info|success):/, '')}
                   </div>
                 )}
                 <div className="form-group">
                   <label htmlFor="pw-current">Current password</label>
-                  <input
-                    id="pw-current"
-                    type="password"
-                    value={pwCurrent}
-                    onChange={(e) => setPwCurrent(e.target.value)}
-                    required
-                  />
+                  <div className="password-input-wrap">
+                    <input
+                      id="pw-current"
+                      type={pwShowCurrent ? 'text' : 'password'}
+                      value={pwCurrent}
+                      onChange={(e) => setPwCurrent(e.target.value)}
+                      autoComplete="current-password"
+                      required
+                    />
+                    <button
+                      type="button"
+                      className="password-toggle"
+                      onClick={() => setPwShowCurrent((v) => !v)}
+                      aria-label={pwShowCurrent ? 'Hide password' : 'Show password'}
+                      aria-pressed={pwShowCurrent}
+                    >
+                      {pwShowCurrent ? 'Hide' : 'Show'}
+                    </button>
+                  </div>
                 </div>
                 <div className="form-group">
                   <label htmlFor="pw-next">New password</label>
-                  <input
-                    id="pw-next"
-                    type="password"
-                    value={pwNext}
-                    onChange={(e) => setPwNext(e.target.value)}
-                    minLength={8}
-                    required
-                  />
+                  <div className="password-input-wrap">
+                    <input
+                      id="pw-next"
+                      type={pwShowNext ? 'text' : 'password'}
+                      value={pwNext}
+                      onChange={(e) => setPwNext(e.target.value)}
+                      placeholder={`At least ${PASSWORD_MIN_LENGTH} characters`}
+                      minLength={PASSWORD_MIN_LENGTH}
+                      autoComplete="new-password"
+                      aria-describedby="pw-rules"
+                      required
+                    />
+                    <button
+                      type="button"
+                      className="password-toggle"
+                      onClick={() => setPwShowNext((v) => !v)}
+                      aria-label={pwShowNext ? 'Hide password' : 'Show password'}
+                      aria-pressed={pwShowNext}
+                    >
+                      {pwShowNext ? 'Hide' : 'Show'}
+                    </button>
+                  </div>
+                  {pwNext.length > 0 && (
+                    <ul id="pw-rules" className="password-rules">
+                      {passwordRules.map((rule) => {
+                        const pass = rule.test(pwNext);
+                        return (
+                          <li key={rule.id} className={pass ? 'password-rule--pass' : 'password-rule--fail'}>
+                            <span aria-hidden>{pass ? '✓' : '○'}</span> {rule.label}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
                 </div>
                 <div className="form-group">
                   <label htmlFor="pw-confirm">Confirm new password</label>
-                  <input
-                    id="pw-confirm"
-                    type="password"
-                    value={pwConfirm}
-                    onChange={(e) => setPwConfirm(e.target.value)}
-                    minLength={8}
-                    required
-                  />
+                  <div className="password-input-wrap">
+                    <input
+                      id="pw-confirm"
+                      type={pwShowConfirm ? 'text' : 'password'}
+                      value={pwConfirm}
+                      onChange={(e) => setPwConfirm(e.target.value)}
+                      minLength={PASSWORD_MIN_LENGTH}
+                      autoComplete="new-password"
+                      required
+                    />
+                    <button
+                      type="button"
+                      className="password-toggle"
+                      onClick={() => setPwShowConfirm((v) => !v)}
+                      aria-label={pwShowConfirm ? 'Hide password' : 'Show password'}
+                      aria-pressed={pwShowConfirm}
+                    >
+                      {pwShowConfirm ? 'Hide' : 'Show'}
+                    </button>
+                  </div>
                 </div>
               </div>
               <div className="modal-footer">
-                <button type="button" className="btn btn-outline" onClick={() => setPwModalOpen(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary">Update password</button>
+                <button type="button" className="btn btn-outline" onClick={() => setPwModalOpen(false)} disabled={pwSubmitting}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={pwSubmitting}>
+                  {pwSubmitting ? 'Updating…' : 'Update password'}
+                </button>
               </div>
             </form>
           </div>

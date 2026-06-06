@@ -1,9 +1,7 @@
 const { Sequelize } = require('sequelize');
 
-// MySQL connection for the parallel SQL stack.
-// Mongo path remains the source of truth on `main`; this exists so the
-// MySQL migration can be developed and demoed side-by-side until the
-// switchover decision is made before viva.
+// MySQL connection for AIRMS. ISN's production environment standardises on
+// MySQL, so this is the only persistence layer the system supports.
 const sequelize = new Sequelize(
   process.env.MYSQL_DATABASE || 'airms',
   process.env.MYSQL_USER || 'root',
@@ -16,7 +14,7 @@ const sequelize = new Sequelize(
     // mysql2 returns DECIMAL as strings by default. The composite risk model
     // in frontend/src/lib/risk.ts compares these as numbers and would break
     // (e.g. "10.4" > 15 is falsy). decimalNumbers: true tells mysql2 to
-    // return DECIMAL columns as JS numbers, matching Mongoose's behaviour.
+    // return DECIMAL columns as JS numbers.
     dialectOptions: {
       decimalNumbers: true,
     },
@@ -27,7 +25,7 @@ const sequelize = new Sequelize(
   }
 );
 
-const connectSqlDB = async () => {
+const connectDB = async () => {
   try {
     await sequelize.authenticate();
     console.log(`MySQL connected: ${sequelize.config.host}:${sequelize.config.port}/${sequelize.config.database}`);
@@ -37,4 +35,4 @@ const connectSqlDB = async () => {
   }
 };
 
-module.exports = { sequelize, connectSqlDB };
+module.exports = { sequelize, connectDB };

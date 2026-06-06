@@ -1,10 +1,8 @@
 # AIRMS — MySQL Migration Plan
 
-> Contingency plan for porting AIRMS from MongoDB Atlas + Mongoose to MySQL + an SQL ORM.
+> **Status: EXECUTED (2026-06-05).** AIRMS now runs MySQL-only — see [DESIGN_DECISIONS.md §5](DESIGN_DECISIONS.md#5-mysql-with-sequelize-single-persistence-layer). The MongoDB stack has been removed; recovery procedure is in [MONGO_RECOVERY.md](MONGO_RECOVERY.md).
 >
-> **Status: NOT executed.** This document exists so the migration can be triggered with low planning overhead if (a) the FYP panel rules the MongoDB choice unacceptable, or (b) ISN's production deployment forces it earlier than FYP II.
->
-> See [DESIGN_DECISIONS.md §5](DESIGN_DECISIONS.md) for the defense of staying on MongoDB for FYP I.
+> This document is kept as the historical migration design record — it explains *why* the MySQL schema looks the way it does (column choices, the `muscle_flags` discriminator pattern, the serialiser shim). Useful for anyone asking how the relational schema maps to the original document layout.
 
 ---
 
@@ -12,7 +10,7 @@
 
 - ISN's production environment uses MySQL — Dr Thung confirmed verbally (2026-06).
 - Panel feedback on the FYP I draft flagged MongoDB as a "highly questionable architectural choice" citing ACID and FK concerns.
-- Current recommendation: defend MongoDB for FYP I, schedule MySQL migration as FYP II scope. This plan is the fallback if that recommendation is overruled.
+- Decision (2026-06-05): execute the migration now rather than after FYP I, so the demonstrated system matches the deployment target and the panel's concerns are answered structurally rather than rhetorically.
 
 ## 2. Tooling choices
 

@@ -502,6 +502,11 @@ button { cursor: pointer; font-family: inherit; }
   border: 1px solid var(--border);
   margin-bottom: 20px;
 }
+/* The left column inside the hero hosts long, wrappable text (the level,
+   message, factor chips, the gauge). min-width: 0 lets it shrink properly
+   inside the flex row so the right-hand ACWR card never gets pushed off
+   the viewport when the level or message is long (e.g. compound labels). */
+.risk-hero > div:first-child { min-width: 0; }
 .risk-hero--low      { background: var(--risk-low-bg);         border-color: rgba(61, 124, 71, 0.3); }
 .risk-hero--mod      { background: var(--risk-moderate-bg);    border-color: rgba(200, 155, 60, 0.4); }
 .risk-hero--high     { background: var(--risk-high-bg);        border-color: rgba(176, 48, 48, 0.4); }
@@ -526,10 +531,9 @@ button { cursor: pointer; font-family: inherit; }
 .risk-hero-msg {
   font-size: 0.92rem;
   line-height: 1.5;
-  /* Shrink-to-fit: the box is only as wide as the text needs (single line
-     when there's room), but capped at the flex container's width so it
-     wraps gracefully on narrower viewports instead of overflowing. */
-  width: max-content;
+  /* Flows at the column's available width and wraps gracefully. The longer
+     compound-risk messages would otherwise force the column wide enough to
+     push the ACWR card off the viewport edge. */
   max-width: 100%;
 }
 .risk-hero-acwr {
@@ -565,43 +569,6 @@ button { cursor: pointer; font-family: inherit; }
   flex-wrap: wrap;
 }
 [data-theme="dark"] .risk-hero-prompt { background: rgba(255,255,255,0.07); }
-
-/* UC-13 Risk Alert — prominent warning shown only at Moderate/High risk. */
-.risk-alert {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 14px 18px;
-  border-radius: 10px;
-  margin-bottom: 16px;
-  border-left: 5px solid;
-  font-size: 0.9rem;
-}
-.risk-alert--mod  { background: var(--risk-moderate-bg); border-left-color: var(--risk-moderate, #c89b3c); color: #6b4f12; }
-.risk-alert--high { background: var(--risk-high-bg);     border-left-color: var(--risk-high);              color: var(--risk-high); }
-[data-theme="dark"] .risk-alert--mod  { color: #e6c170; }
-[data-theme="dark"] .risk-alert--high { color: #ff8a8a; }
-.risk-alert-icon {
-  font-size: 1.4rem;
-  line-height: 1;
-}
-.risk-alert--high .risk-alert-icon {
-  animation: risk-alert-pulse 1.6s ease-in-out infinite;
-}
-@keyframes risk-alert-pulse {
-  0%, 100% { opacity: 1; }
-  50%      { opacity: 0.4; }
-}
-.risk-alert-body { flex: 1; }
-.risk-alert-heading {
-  font-weight: 700;
-  font-size: 0.95rem;
-  margin-bottom: 2px;
-}
-.risk-alert-reason {
-  font-size: 0.85rem;
-  opacity: 0.9;
-}
 
 /* Risk modifiers (composite-risk factors and personalised band) */
 .risk-escalation-badge {
@@ -1661,6 +1628,58 @@ tr.row-flash > td { animation: row-flash 1.6s ease-out; }
   color: #6b7280;
 }
 .login-forgot:hover { color: #1a2533; }
+
+/* Show / Hide password toggle, used on the login and reset-password forms */
+.password-input-wrap {
+  position: relative;
+}
+.password-input-wrap input {
+  padding-right: 64px;
+  width: 100%;
+}
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 4px 8px;
+  border-radius: 6px;
+  letter-spacing: 0.02em;
+}
+.password-toggle:hover {
+  color: var(--text);
+  background: rgba(0, 0, 0, 0.04);
+}
+[data-theme="dark"] .password-toggle:hover { background: rgba(255, 255, 255, 0.08); }
+.password-toggle:focus-visible {
+  outline: 2px solid var(--brand-navy);
+  outline-offset: 1px;
+}
+
+/* Password-policy checklist on the reset-password form */
+.password-rules {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.82rem;
+  line-height: 1.7;
+}
+.password-rule--pass { color: var(--risk-low, #3d7c47); }
+.password-rule--fail { color: var(--text-muted); }
+.password-rules span[aria-hidden] {
+  display: inline-block;
+  width: 1em;
+  font-weight: 700;
+}
 
 /* ── Placeholder (development only) ─────────────────────────────────────────── */
 .placeholder-notice {
