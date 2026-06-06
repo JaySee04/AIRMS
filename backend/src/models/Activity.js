@@ -1,25 +1,57 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/db-sql');
 
-const activitySchema = new mongoose.Schema({
-  athleteId: { type: String, required: true, ref: 'Athlete' },
-  date: { type: Date, required: true },
-  type: {
-    type: String,
-    enum: ['Strength', 'Endurance', 'Speed', 'Skill', 'Match', 'Recovery'],
-    required: true,
+const Activity = sequelize.define('Activity', {
+  id: {
+    type: DataTypes.INTEGER,
+    autoIncrement: true,
+    primaryKey: true,
   },
-  duration: { type: Number, required: true, min: 10, max: 240 }, // minutes
-  intensity: { type: Number, required: true, min: 1, max: 10 }, // RPE scale
-  load: { type: Number }, // computed: duration × intensity
-  notes: { type: String },
-}, { timestamps: true });
-
-// Auto-compute load before saving
-activitySchema.pre('save', function (next) {
-  this.load = this.duration * this.intensity;
-  next();
+  athleteId: {
+    type: DataTypes.STRING(16),
+    allowNull: false,
+    field: 'athlete_id',
+  },
+  date: {
+    type: DataTypes.DATEONLY,
+    allowNull: false,
+  },
+  type: {
+    type: DataTypes.ENUM('Strength', 'Endurance', 'Speed', 'Skill', 'Match', 'Recovery'),
+    allowNull: false,
+  },
+  duration: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    validate: { min: 10, max: 240 },
+  },
+  intensity: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    validate: { min: 1, max: 10 },
+  },
+  load: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+  },
+  notes: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
+}, {
+  tableName: 'activities',
+  underscored: true,
+  indexes: [
+    { fields: ['athlete_id', 'date'] },
+  ],
+  hooks: {
+    beforeValidate: (activity) => {
+      // Mirrors the Mongoose pre-save hook: load = duration × intensity (sRPE).
+      if (activity.duration != null && activity.intensity != null) {
+        activity.load = Number(activity.duration) * Number(activity.intensity);
+      }
+    },
+  },
 });
 
-activitySchema.index({ athleteId: 1, date: -1 });
-
-module.exports = mongoose.model('Activity', activitySchema);
+module.exports = Activity;

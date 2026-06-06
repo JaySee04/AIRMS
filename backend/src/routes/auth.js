@@ -1,7 +1,7 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
-const authMiddleware = require('../middleware/auth');
+const { User } = require('../models-sql');
+const authMiddleware = require('../middleware/auth-sql');
 
 const router = express.Router();
 
@@ -16,16 +16,19 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ message: 'Email and password are required' });
     }
 
-    const user = await User.findOne({ email }).select('+password');
+    // Need the password column on this query (it's excluded by defaultScope).
+    const user = await User.scope('withPassword').findOne({
+      where: { email: String(email).trim().toLowerCase() },
+    });
     if (!user || !user.isActive || !(await user.comparePassword(password))) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    const token = signToken(user._id);
+    const token = signToken(user.id);
     res.json({
       token,
       user: {
-        id: user._id,
+        id: user.id,
         name: user.name,
         email: user.email,
         role: user.role,
@@ -41,7 +44,7 @@ router.post('/login', async (req, res) => {
 router.get('/me', authMiddleware, (req, res) => {
   res.json({
     user: {
-      id: req.user._id,
+      id: req.user.id,
       name: req.user.name,
       email: req.user.email,
       role: req.user.role,

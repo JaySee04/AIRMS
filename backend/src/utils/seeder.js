@@ -1,19 +1,15 @@
 /**
- * Seed script — populates MongoDB with the AIRMS prototype mock data.
- * Run once: npm run seed
- * Safe to re-run: clears existing data before inserting.
+ * Seed script — populates MySQL with the AIRMS prototype mock data.
+ * Mirrors backend/src/utils/seeder.js (the Mongo seeder) row-for-row.
+ *
+ * Run once: npm run seed:sql
+ * Safe to re-run: drops + recreates the schema before inserting.
  */
 require('dotenv').config({ path: require('path').join(__dirname, '../../.env') });
-const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
 
-const Athlete = require('../models/Athlete');
-const Injury = require('../models/Injury');
-const Activity = require('../models/Activity');
-const SelfReport = require('../models/SelfReport');
-const User = require('../models/User');
+const { sequelize, User, Athlete, MuscleFlag, Activity, Injury, SelfReport } = require('../models-sql');
 
-// ── Deterministic PRNG (same as prototype mockdata.js, seed=42) ──────────────
+// ── Deterministic PRNG (same as Mongo seeder, seed=42) ──────────────────────
 let _seed = 42;
 function rnd() { _seed = (_seed * 9301 + 49297) % 233280; return _seed / 233280; }
 function pick(arr) { return arr[Math.floor(rnd() * arr.length)]; }
@@ -26,20 +22,19 @@ function maybeFlag(p) {
 }
 function buildFlags(muscles, p) {
   const out = {};
-  muscles.forEach(m => { const f = maybeFlag(p); if (f) out[m] = f; });
+  muscles.forEach((m) => { const f = maybeFlag(p); if (f) out[m] = f; });
   return out;
 }
 function objToArray(obj) {
   return Object.entries(obj).map(([muscle, side]) => ({ muscle, side }));
 }
 
-// ── Reference data ────────────────────────────────────────────────────────────
+// ── Reference data ──────────────────────────────────────────────────────────
 const SPORTS = [
   'Badminton','Swimming','Athletics','Cycling','Diving','Squash','Archery','Bowling',
   'Karate','Taekwondo','Wushu','Silat','Gymnastics','Weightlifting','Sailing',
   'Shooting','Rugby','Football','Hockey','Netball','Sepak Takraw','Bowls','Pencak Silat',
 ];
-const PROGRAMS = ['PELAPIS', 'PODIUM', 'OTHERS'];
 const GENDERS = ['Male', 'Female'];
 const BODY_PARTS = ['Neck','Shoulder','Spine','Lumbar/Pelvis','Knee','Ankle','Wrist','Elbow','Hip','Other'];
 const SIDES = ['Left','Right','Both','N/A'];
@@ -67,7 +62,7 @@ function pickProgram(age) {
   return 'OTHERS';
 }
 
-// ── Build athletes ────────────────────────────────────────────────────────────
+// ── Build athletes ──────────────────────────────────────────────────────────
 function buildAthletes() {
   const athletes = [];
   for (let i = 1; i <= 60; i++) {
@@ -92,18 +87,16 @@ function buildAthletes() {
       stability: rfloat(60, 90, 2),
       symmetry: rfloat(60, 95, 2),
       exerciseRiskScore: rfloat(3, 12, 2),
-      risks: {
-        neckInjuryRisk: rfloat(5, 30, 1),
-        shoulderInjuryRisk: rfloat(5, 30, 1),
-        scoliosis: rfloat(5, 30, 1),
-        spinalDiscHerniation: rfloat(5, 30, 1),
-        lumbarPelvisInjury: rfloat(5, 30, 1),
-        jointPain: rfloat(0, 20, 1),
-        kneeInjuryRisk: rfloat(5, 30, 1),
-        ankleInjuryRisk: rfloat(5, 30, 1),
-      },
-      myodynamia: objToArray(defFlags),
-      tension: objToArray(tensionFlags),
+      neckInjuryRisk: rfloat(5, 30, 1),
+      shoulderInjuryRisk: rfloat(5, 30, 1),
+      scoliosis: rfloat(5, 30, 1),
+      spinalDiscHerniation: rfloat(5, 30, 1),
+      lumbarPelvisInjury: rfloat(5, 30, 1),
+      jointPain: rfloat(0, 20, 1),
+      kneeInjuryRisk: rfloat(5, 30, 1),
+      ankleInjuryRisk: rfloat(5, 30, 1),
+      _myodynamia: objToArray(defFlags),
+      _tension: objToArray(tensionFlags),
     });
   }
 
@@ -119,23 +112,21 @@ function buildAthletes() {
     injuryRiskIndex: 10.4,
     mobility: 79.94, stability: 77.62, symmetry: 82.49,
     exerciseRiskScore: 5.49,
-    risks: {
-      neckInjuryRisk: 7.27,
-      shoulderInjuryRisk: 8.03,
-      scoliosis: 14.51,
-      spinalDiscHerniation: 14.51,
-      lumbarPelvisInjury: 5.62,
-      jointPain: 0,
-      kneeInjuryRisk: 20.24,
-      ankleInjuryRisk: 22.44,
-    },
-    // Kept below the 5-flag escalation threshold in `classifyCompositeRisk`
-    // so John's demo lands at "Elevated" via injury escalation, not "High Risk".
-    myodynamia: [
+    neckInjuryRisk: 7.27,
+    shoulderInjuryRisk: 8.03,
+    scoliosis: 14.51,
+    spinalDiscHerniation: 14.51,
+    lumbarPelvisInjury: 5.62,
+    jointPain: 0,
+    kneeInjuryRisk: 20.24,
+    ankleInjuryRisk: 22.44,
+    // Below the 5-flag escalation threshold in `classifyCompositeRisk` so
+    // John's demo lands at "Elevated" via injury escalation, not "High Risk".
+    _myodynamia: [
       { muscle: 'Vastus Lateralis', side: 'R' },
       { muscle: 'Gluteus Medius', side: 'L' },
     ],
-    tension: [
+    _tension: [
       { muscle: 'Upper Trapezius', side: 'L' },
       { muscle: 'Iliopsoas', side: 'R' },
     ],
@@ -144,22 +135,30 @@ function buildAthletes() {
   return athletes;
 }
 
-// ── Build activity logs (John Doe, 8 weeks) ────────────────────────────────
-function buildActivities(athletes) {
+function flattenMuscleFlags(athletes) {
+  const rows = [];
+  athletes.forEach((a) => {
+    a._myodynamia.forEach((m) => rows.push({
+      athleteId: a.athleteId, flagType: 'myodynamia', muscle: m.muscle, side: m.side,
+    }));
+    a._tension.forEach((m) => rows.push({
+      athleteId: a.athleteId, flagType: 'tension', muscle: m.muscle, side: m.side,
+    }));
+  });
+  return rows;
+}
+
+// ── Build activity logs (John Doe, 8 weeks) ─────────────────────────────────
+function buildActivities() {
   const types = ['Strength','Endurance','Speed','Skill','Match','Recovery'];
   const intensityMap = {
     Recovery: [3,5], Skill: [4,6], Speed: [6,8],
     Strength: [6,9], Endurance: [5,8], Match: [7,10],
   };
   const logs = [];
-  // Anchor the seed window to real "now" so the dashboard's rolling 8-week
-  // computation always sees fresh activity regardless of when the seed runs.
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // Random fill for weeks 5–8 only (cosmetic — they sit outside the chronic
-  // window so they do not affect ACWR). Weeks 1–4 are fully curated below so
-  // the demo's composite-risk classification is deterministic across re-seeds.
   for (let day = 56; day >= 28; day--) {
     if (rnd() < 0.3) continue;
     const date = new Date(today);
@@ -177,34 +176,23 @@ function buildActivities(athletes) {
     });
   }
 
-  // Curated sessions: weeks 1–4 (the full chronic window).
-  // - Acute (days 0–6):  3040 AU — moderately demanding training block
-  // - Week 2 (7–13):     2280 AU — typical week
-  // - Week 3 (14–20):    2240 AU — typical week
-  // - Week 4 (21–27):    2270 AU — typical week
-  // chronic = 2458 AU, ACWR = 3040/2458 = 1.237 — inside John's personalised
-  // "Optimal" band (0.75–1.39) but above the 1.0 injury-escalation threshold.
-  // The 2 active injuries promote the band to "Elevated". The 4 muscle flags
-  // stay below the 5-flag threshold so no second escalation to "High Risk".
+  // Curated sessions: weeks 1–4 (the full chronic window). See seeder.js
+  // for the ACWR maths that justifies the exact numbers.
   const curated = [
-    // Acute week
     { offset: 0, type: 'Match',     duration: 90, intensity: 9 },
     { offset: 1, type: 'Strength',  duration: 75, intensity: 8 },
     { offset: 3, type: 'Speed',     duration: 60, intensity: 8 },
     { offset: 4, type: 'Endurance', duration: 70, intensity: 7 },
     { offset: 5, type: 'Skill',     duration: 80, intensity: 6 },
     { offset: 6, type: 'Recovery',  duration: 45, intensity: 4 },
-    // Week 2
     { offset: 7,  type: 'Strength',  duration: 75, intensity: 8 },
     { offset: 9,  type: 'Endurance', duration: 80, intensity: 7 },
     { offset: 11, type: 'Speed',     duration: 70, intensity: 7 },
     { offset: 13, type: 'Skill',     duration: 90, intensity: 6 },
-    // Week 3
     { offset: 14, type: 'Match',     duration: 80, intensity: 8 },
     { offset: 16, type: 'Strength',  duration: 70, intensity: 8 },
     { offset: 18, type: 'Endurance', duration: 70, intensity: 6 },
     { offset: 20, type: 'Speed',     duration: 60, intensity: 7 },
-    // Week 4
     { offset: 22, type: 'Strength',  duration: 70, intensity: 8 },
     { offset: 24, type: 'Endurance', duration: 80, intensity: 7 },
     { offset: 25, type: 'Speed',     duration: 55, intensity: 7 },
@@ -226,7 +214,7 @@ function buildActivities(athletes) {
   return logs;
 }
 
-// ── Build injuries ─────────────────────────────────────────────────────────
+// ── Build injuries ──────────────────────────────────────────────────────────
 function buildInjuries(athletes) {
   const injuries = [];
   for (let i = 0; i < 220; i++) {
@@ -252,7 +240,6 @@ function buildInjuries(athletes) {
     });
   }
 
-  // John Doe's curated injuries
   injuries.push(
     { athleteId: 'ATH0001', athleteName: 'John Doe', sport: 'Badminton', gender: 'Male', program: 'PODIUM', athleteAge: 19,
       bodyPart: 'Ankle', side: 'Right', injuryType: 'Sprain', severity: 'Moderate', mechanism: 'Non-contact',
@@ -270,7 +257,7 @@ function buildInjuries(athletes) {
   return injuries;
 }
 
-// ── Build self-reports ─────────────────────────────────────────────────────
+// ── Build self-reports ──────────────────────────────────────────────────────
 function buildSelfReports() {
   return [
     { athleteId: 'ATH0007', athleteName: 'Aiman Hassan', sport: 'Football',
@@ -288,65 +275,77 @@ function buildSelfReports() {
     { athleteId: 'ATH0009', athleteName: 'Lina Yusoff', sport: 'Squash',
       bodyPart: 'Wrist', side: 'Left', injuryType: 'Strain', severity: 'Minor',
       description: 'Slight wrist pain. Suspect from gym session over weekend.',
-      status: 'Approved', reviewNote: 'Approved — added to official record.', reviewedBy: 'Dr. Aisyah Rahman', reviewedAt: new Date('2026-05-06') },
+      status: 'Approved', reviewNote: 'Approved — added to official record.',
+      reviewedBy: 'Dr. Aisyah Rahman', reviewedAt: new Date('2026-05-06') },
     { athleteId: 'ATH0030', athleteName: 'Adam Latif', sport: 'Karate',
       bodyPart: 'Hip', side: 'Right', injuryType: 'Strain', severity: 'Moderate',
       description: 'Pulled hip flexor at home doing yoga. Painful walking.',
-      status: 'Rejected', reviewNote: 'Insufficient detail to confirm — please book consult.', reviewedBy: 'Dr. Aisyah Rahman', reviewedAt: new Date('2026-05-05') },
+      status: 'Rejected', reviewNote: 'Insufficient detail to confirm — please book consult.',
+      reviewedBy: 'Dr. Aisyah Rahman', reviewedAt: new Date('2026-05-05') },
   ];
 }
 
-// ── Demo users ─────────────────────────────────────────────────────────────
-async function buildUsers() {
-  const hash = (pw) => bcrypt.hash(pw, 12);
+function buildUsers() {
+  // Plain-text passwords here — the User model's beforeSave hook hashes
+  // them when bulkCreate runs with individualHooks: true.
   return [
-    { name: 'Admin User', email: 'admin@isn.gov.my', password: await hash('admin123'), role: 'admin' },
-    { name: 'Dr. Aisyah Rahman', email: 'medical@isn.gov.my', password: await hash('medical123'), role: 'medical' },
-    { name: 'John Doe', email: 'athlete@isn.gov.my', password: await hash('athlete123'), role: 'athlete', athleteId: 'ATH0001' },
+    { name: 'Admin User', email: 'admin@isn.gov.my', password: 'admin123', role: 'admin' },
+    { name: 'Dr. Aisyah Rahman', email: 'medical@isn.gov.my', password: 'medical123', role: 'medical' },
+    { name: 'John Doe', email: 'athlete@isn.gov.my', password: 'athlete123', role: 'athlete', athleteId: 'ATH0001' },
   ];
 }
 
-// ── Main ───────────────────────────────────────────────────────────────────
+// ── Main ────────────────────────────────────────────────────────────────────
 async function seed() {
-  await mongoose.connect(process.env.MONGO_URI);
-  console.log('Connected to MongoDB');
+  await sequelize.authenticate();
+  console.log(`Connected to MySQL: ${sequelize.config.host}:${sequelize.config.port}/${sequelize.config.database}`);
 
-  await Promise.all([
-    Athlete.deleteMany({}),
-    Injury.deleteMany({}),
-    Activity.deleteMany({}),
-    SelfReport.deleteMany({}),
-    User.deleteMany({}),
-  ]);
-  console.log('Cleared existing data');
+  // Drop + recreate every table managed by these models. Equivalent to the
+  // Mongo seeder's deleteMany() block but cleaner — no FK ordering trap.
+  await sequelize.sync({ force: true });
+  console.log('Schema recreated (force sync)');
 
   const athletes = buildAthletes();
-  await Athlete.insertMany(athletes);
-  console.log(`Inserted ${athletes.length} athletes`);
+  const muscleFlags = flattenMuscleFlags(athletes);
 
-  const activities = buildActivities(athletes);
-  await Activity.insertMany(activities);
-  console.log(`Inserted ${activities.length} activity logs`);
+  // Drop the helper sub-arrays before bulk-inserting Athlete rows.
+  const athleteRows = athletes.map(({ _myodynamia, _tension, ...rest }) => rest);
 
-  const injuries = buildInjuries(athletes);
-  await Injury.insertMany(injuries);
-  console.log(`Inserted ${injuries.length} injury records`);
+  await sequelize.transaction(async (t) => {
+    await Athlete.bulkCreate(athleteRows, { transaction: t });
+    console.log(`Inserted ${athleteRows.length} athletes`);
 
-  const selfReports = buildSelfReports();
-  await SelfReport.insertMany(selfReports);
-  console.log(`Inserted ${selfReports.length} self-reports`);
+    await MuscleFlag.bulkCreate(muscleFlags, { transaction: t });
+    console.log(`Inserted ${muscleFlags.length} muscle flags`);
 
-  const users = await buildUsers();
-  await User.insertMany(users);
-  console.log(`Inserted ${users.length} demo users`);
+    const activities = buildActivities();
+    await Activity.bulkCreate(activities, { transaction: t, individualHooks: false });
+    console.log(`Inserted ${activities.length} activity logs`);
+
+    const injuries = buildInjuries(athletes);
+    await Injury.bulkCreate(injuries, { transaction: t });
+    console.log(`Inserted ${injuries.length} injury records`);
+
+    const selfReports = buildSelfReports();
+    await SelfReport.bulkCreate(selfReports, { transaction: t });
+    console.log(`Inserted ${selfReports.length} self-reports`);
+
+    const users = buildUsers();
+    await User.bulkCreate(users, { transaction: t, individualHooks: true });
+    console.log(`Inserted ${users.length} demo users`);
+  });
 
   console.log('\nDemo credentials:');
   console.log('  Admin:   admin@isn.gov.my   / admin123');
   console.log('  Medical: medical@isn.gov.my / medical123');
   console.log('  Athlete: athlete@isn.gov.my / athlete123');
 
-  await mongoose.disconnect();
+  await sequelize.close();
   console.log('\nSeeding complete.');
 }
 
-seed().catch((err) => { console.error(err); process.exit(1); });
+seed().catch(async (err) => {
+  console.error(err);
+  try { await sequelize.close(); } catch (_) {}
+  process.exit(1);
+});

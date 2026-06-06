@@ -1,6 +1,9 @@
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+const { User } = require('../models-sql');
 
+// Sequelize variant of middleware/auth.js. Same contract: sets req.user to
+// the User row (without the password column) so RBAC + downstream routes
+// can read req.user.role / req.user.athleteId identically to the Mongo path.
 module.exports = async (req, res, next) => {
   const header = req.headers.authorization;
   if (!header || !header.startsWith('Bearer ')) {
@@ -9,10 +12,11 @@ module.exports = async (req, res, next) => {
   const token = header.split(' ')[1];
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = await User.findById(decoded.id).select('-password');
-    if (!req.user || !req.user.isActive) {
+    const user = await User.findByPk(decoded.id);
+    if (!user || !user.isActive) {
       return res.status(401).json({ message: 'User not found or inactive' });
     }
+    req.user = user;
     next();
   } catch {
     res.status(401).json({ message: 'Invalid or expired token' });

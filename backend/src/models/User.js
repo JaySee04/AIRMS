@@ -1,23 +1,63 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
 const bcrypt = require('bcryptjs');
+const { sequelize } = require('../config/db-sql');
 
-const userSchema = new mongoose.Schema({
-  name: { type: String, required: true, trim: true },
-  email: { type: String, required: true, unique: true, lowercase: true, trim: true },
-  password: { type: String, required: true, select: false },
-  role: { type: String, enum: ['athlete', 'medical', 'admin'], required: true },
-  athleteId: { type: String, default: null }, // populated only for athlete role
-  isActive: { type: Boolean, default: true },
-}, { timestamps: true });
-
-userSchema.pre('save', async function (next) {
-  if (!this.isModified('password')) return next();
-  this.password = await bcrypt.hash(this.password, 12);
-  next();
+const User = sequelize.define('User', {
+  id: {
+    type: DataTypes.INTEGER,
+    autoIncrement: true,
+    primaryKey: true,
+  },
+  name: {
+    type: DataTypes.STRING(120),
+    allowNull: false,
+  },
+  email: {
+    type: DataTypes.STRING(160),
+    allowNull: false,
+    unique: true,
+    set(value) {
+      this.setDataValue('email', String(value).trim().toLowerCase());
+    },
+  },
+  password: {
+    type: DataTypes.STRING(255),
+    allowNull: false,
+  },
+  role: {
+    type: DataTypes.ENUM('athlete', 'medical', 'admin'),
+    allowNull: false,
+  },
+  athleteId: {
+    type: DataTypes.STRING(16),
+    allowNull: true,
+    field: 'athlete_id',
+  },
+  isActive: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: true,
+    field: 'is_active',
+  },
+}, {
+  tableName: 'users',
+  underscored: true,
+  defaultScope: {
+    attributes: { exclude: ['password'] },
+  },
+  scopes: {
+    withPassword: { attributes: { include: ['password'] } },
+  },
+  hooks: {
+    beforeSave: async (user) => {
+      if (user.changed('password')) {
+        user.password = await bcrypt.hash(user.password, 12);
+      }
+    },
+  },
 });
 
-userSchema.methods.comparePassword = function (candidate) {
+User.prototype.comparePassword = function (candidate) {
   return bcrypt.compare(candidate, this.password);
 };
 
-module.exports = mongoose.model('User', userSchema);
+module.exports = User;

@@ -1,7 +1,8 @@
 const express = require('express');
+const { Op } = require('sequelize');
 const PDFDocument = require('pdfkit');
-const Injury = require('../models/Injury');
-const auth = require('../middleware/auth');
+const { Injury } = require('../models-sql');
+const auth = require('../middleware/auth-sql');
 const rbac = require('../middleware/rbac');
 
 const router = express.Router();
@@ -15,24 +16,24 @@ const BODY_PARTS = ['Neck', 'Shoulder', 'Spine', 'Lumbar/Pelvis', 'Knee', 'Ankle
 const INJURY_TYPES = ['Sprain', 'Strain', 'Tendinitis', 'Bursitis', 'Fracture', 'Contusion', 'Dislocation', 'Other'];
 const SEVERITIES = ['Minor', 'Moderate', 'Severe'];
 
-function buildMatchFromQuery(q) {
-  const match = {};
-  if (q.sport)       match.sport = q.sport;
-  if (q.program)     match.program = q.program;
-  if (q.gender)      match.gender = q.gender;
-  if (q.bodyPart)    match.bodyPart = q.bodyPart;
-  if (q.injuryType)  match.injuryType = q.injuryType;
+function buildWhere(q) {
+  const where = {};
+  if (q.sport)       where.sport = q.sport;
+  if (q.program)     where.program = q.program;
+  if (q.gender)      where.gender = q.gender;
+  if (q.bodyPart)    where.bodyPart = q.bodyPart;
+  if (q.injuryType)  where.injuryType = q.injuryType;
   if (q.ageMin || q.ageMax) {
-    match.athleteAge = {};
-    if (q.ageMin) match.athleteAge.$gte = Number(q.ageMin);
-    if (q.ageMax) match.athleteAge.$lte = Number(q.ageMax);
+    where.athleteAge = {};
+    if (q.ageMin) where.athleteAge[Op.gte] = Number(q.ageMin);
+    if (q.ageMax) where.athleteAge[Op.lte] = Number(q.ageMax);
   }
   if (q.startDate || q.endDate) {
-    match.date = {};
-    if (q.startDate) match.date.$gte = new Date(q.startDate);
-    if (q.endDate)   match.date.$lte = new Date(q.endDate);
+    where.date = {};
+    if (q.startDate) where.date[Op.gte] = new Date(q.startDate);
+    if (q.endDate)   where.date[Op.lte] = new Date(q.endDate);
   }
-  return match;
+  return where;
 }
 
 function buildFilterSummary(q) {
@@ -128,15 +129,16 @@ function drawHr(doc, y) {
 }
 
 // POST /api/reports/injuries-pdf — stream a filtered injury report as PDF
-// Body params (all optional): same as /api/injuries/analytics/summary
-// + `reportType` (monthly/quarterly/custom), `includeRecovery`, `includeTrends`,
-// `includeAthleteIndex`.
 router.post('/injuries-pdf', auth, rbac('admin'), async (req, res) => {
   try {
     const q = req.body || {};
-    const match = buildMatchFromQuery(q);
+    const where = buildWhere(q);
 
-    const injuries = await Injury.find(match).sort({ date: -1 }).lean();
+    const injuries = await Injury.findAll({
+      where,
+      order: [['date', 'DESC']],
+      raw: true,
+    });
     const total = injuries.length;
     const athletesAffected = new Set(injuries.map((i) => i.athleteId)).size;
     const sportsAffected = new Set(injuries.filter((i) => i.sport).map((i) => i.sport)).size;
@@ -198,7 +200,7 @@ router.post('/injuries-pdf', auth, rbac('admin'), async (req, res) => {
     });
     doc.pipe(res);
 
-    // ── Cover ───────────────────────────────────────────────────────────────
+    // Cover
     doc.save();
     doc.rect(0, 0, doc.page.width, 90).fill(NAVY);
     doc.restore();
@@ -221,7 +223,7 @@ router.post('/injuries-pdf', auth, rbac('admin'), async (req, res) => {
     doc.fillColor(TEXT).fontSize(10).text(buildFilterSummary(q));
     doc.moveDown(1);
 
-    // ── Executive summary ───────────────────────────────────────────────────
+    // Executive summary
     drawHeading(doc, 'Executive summary');
     const summaryRows = [
       ['Total cases', String(total)],
@@ -245,19 +247,19 @@ router.post('/injuries-pdf', auth, rbac('admin'), async (req, res) => {
     // row-by-row across pages. Heights below match the bar-chart row height
     // (24 per row) plus heading + breathing room.
 
-    // ── Body part distribution — 10 categories ──────────────────────────────
+    // Body part distribution — 10 categories
     ensureRoom(doc, 24 + 10 * 24 + 12);
     drawHeading(doc, 'Distribution by body part');
     doc.y = drawBarChart(doc, byBodyPart, { x: 50, y: doc.y, width: 495, height: 240, color: NAVY });
     doc.moveDown(0.6);
 
-    // ── Injury type distribution — 8 categories ─────────────────────────────
+    // Injury type distribution — 8 categories
     ensureRoom(doc, 24 + 8 * 24 + 12);
     drawHeading(doc, 'Distribution by injury type');
     doc.y = drawBarChart(doc, byType, { x: 50, y: doc.y, width: 495, height: 192, color: GOLD });
     doc.moveDown(0.6);
 
-    // ── Severity + Recovery (optional) — 3 categories each ──────────────────
+    // Severity + Recovery (optional) — 3 categories each
     if (q.includeRecovery !== false) {
       ensureRoom(doc, 24 + 3 * 24 + 12);
       drawHeading(doc, 'Distribution by severity');
@@ -275,7 +277,7 @@ router.post('/injuries-pdf', auth, rbac('admin'), async (req, res) => {
       doc.moveDown(0.6);
     }
 
-    // ── Monthly trend ───────────────────────────────────────────────────────
+    // Monthly trend
     if (q.includeTrends !== false && byMonth.length > 0) {
       const trendRows = byMonth.map((m) => ({ label: m.label, count: m.count }));
       ensureRoom(doc, 24 + trendRows.length * 24 + 12);
@@ -284,13 +286,12 @@ router.post('/injuries-pdf', auth, rbac('admin'), async (req, res) => {
       doc.moveDown(0.6);
     }
 
-    // ── Athlete index ───────────────────────────────────────────────────────
+    // Athlete index
     if (q.includeAthleteIndex !== false && athleteIndex.length > 0) {
       doc.addPage();
       drawHeading(doc, `Athlete index (${athleteIndex.length} unique athletes)`);
       const colW = [70, 180, 110, 80, 50];
       const header = ['ID', 'Name', 'Sport', 'Programme', 'Cases'];
-      // header row
       let cx = 50;
       doc.save();
       doc.rect(50, doc.y, 495, 20).fill('#f4f6fa');
@@ -302,11 +303,8 @@ router.post('/injuries-pdf', auth, rbac('admin'), async (req, res) => {
       });
       doc.moveDown(0.4);
       doc.y += 6;
-      // rows
       athleteIndex.slice(0, 80).forEach((a, idx) => {
-        if (doc.y > doc.page.height - 60) {
-          doc.addPage();
-        }
+        if (doc.y > doc.page.height - 60) doc.addPage();
         if (idx % 2 === 0) {
           doc.save();
           doc.rect(50, doc.y, 495, 18).fill('#fafbfd');
@@ -328,7 +326,7 @@ router.post('/injuries-pdf', auth, rbac('admin'), async (req, res) => {
       }
     }
 
-    // ── Appendix ────────────────────────────────────────────────────────────
+    // Appendix
     ensureRoom(doc, 140);
     doc.moveDown(1);
     drawHr(doc, doc.y);
@@ -338,7 +336,7 @@ router.post('/injuries-pdf', auth, rbac('admin'), async (req, res) => {
     doc.fillColor(MUTED).fontSize(9);
     doc.text('Report version: 1.0 · AIRMS analytics pipeline');
     doc.x = doc.page.margins.left;
-    doc.text(`Data source: live Injury collection, filtered query at generation time`);
+    doc.text(`Data source: live Injury table (MySQL), filtered query at generation time`);
     doc.x = doc.page.margins.left;
     doc.text(`Records included: ${total}`);
     doc.x = doc.page.margins.left;

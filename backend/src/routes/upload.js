@@ -1,8 +1,8 @@
 const express = require('express');
 const multer = require('multer');
 const XLSX = require('xlsx');
-const Athlete = require('../models/Athlete');
-const auth = require('../middleware/auth');
+const { sequelize, Athlete } = require('../models-sql');
+const auth = require('../middleware/auth-sql');
 const rbac = require('../middleware/rbac');
 
 const router = express.Router();
@@ -21,7 +21,7 @@ const upload = multer({
 });
 
 // Shared row → Athlete payload normaliser. Tolerates many column-name variants
-// because Dr Tong's final canonical schema is still being defined.
+// because Dr Thung's final canonical schema is still being defined.
 function normaliseRow(row) {
   const get = (...keys) => {
     for (const k of keys) {
@@ -78,7 +78,7 @@ router.post('/screening/preview', auth, rbac('medical', 'admin'), upload.single(
       const errors = validateRow(data);
       let action = 'create';
       if (athleteId) {
-        const existing = await Athlete.findOne({ athleteId });
+        const existing = await Athlete.findOne({ where: { athleteId }, attributes: ['athleteId'] });
         if (existing) action = 'update';
       }
       return { index, athleteId, name: data.name, sport: data.sport, action, errors, data };
@@ -96,7 +96,9 @@ router.post('/screening/preview', auth, rbac('medical', 'admin'), upload.single(
   }
 });
 
-// POST /api/upload/screening — import athlete screening data from Excel
+// POST /api/upload/screening — import athlete screening data from Excel.
+// Wrapped in a transaction so a mid-batch failure rolls back atomically —
+// matches the "relational integrity" claim defended in DESIGN_DECISIONS §5.
 router.post('/screening', auth, rbac('medical', 'admin'), upload.single('file'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
@@ -107,25 +109,27 @@ router.post('/screening', auth, rbac('medical', 'admin'), upload.single('file'),
 
     const results = { created: 0, updated: 0, errors: [] };
 
-    for (const row of rows) {
-      try {
-        const { athleteId, data } = normaliseRow(row);
-        if (!athleteId) { results.errors.push({ row, reason: 'Missing Athlete ID' }); continue; }
-        const valErrors = validateRow(data);
-        if (valErrors.length) { results.errors.push({ row, reason: valErrors.join('; ') }); continue; }
+    await sequelize.transaction(async (t) => {
+      for (const row of rows) {
+        try {
+          const { athleteId, data } = normaliseRow(row);
+          if (!athleteId) { results.errors.push({ row, reason: 'Missing Athlete ID' }); continue; }
+          const valErrors = validateRow(data);
+          if (valErrors.length) { results.errors.push({ row, reason: valErrors.join('; ') }); continue; }
 
-        const existing = await Athlete.findOne({ athleteId });
-        if (existing) {
-          await Athlete.findOneAndUpdate({ athleteId }, data);
-          results.updated++;
-        } else {
-          await Athlete.create(data);
-          results.created++;
+          const existing = await Athlete.findOne({ where: { athleteId }, transaction: t });
+          if (existing) {
+            await Athlete.update(data, { where: { athleteId }, transaction: t });
+            results.updated++;
+          } else {
+            await Athlete.create(data, { transaction: t });
+            results.created++;
+          }
+        } catch (err) {
+          results.errors.push({ row, reason: err.message });
         }
-      } catch (err) {
-        results.errors.push({ row, reason: err.message });
       }
-    }
+    });
 
     res.json({ message: 'Import complete', ...results, total: rows.length });
   } catch (err) {

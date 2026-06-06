@@ -1,23 +1,46 @@
-const mongoose = require('mongoose');
+const { DataTypes } = require('sequelize');
+const { sequelize } = require('../config/db-sql');
 
-const selfReportSchema = new mongoose.Schema({
-  athleteId: { type: String, required: true, ref: 'Athlete' },
-  athleteName: { type: String },
-  sport: { type: String },
+// Mirrors backend/src/models/SelfReport.js. Intentionally less constrained
+// than Injury: bodyPart/injuryType are free-form strings (athletes submit
+// raw descriptions that the medical reviewer normalises before promotion).
+const SelfReport = sequelize.define('SelfReport', {
+  id: {
+    type: DataTypes.INTEGER,
+    autoIncrement: true,
+    primaryKey: true,
+  },
+  athleteId: {
+    type: DataTypes.STRING(16),
+    allowNull: false,
+    field: 'athlete_id',
+  },
+  athleteName: { type: DataTypes.STRING(120), allowNull: true, field: 'athlete_name' },
+  sport: { type: DataTypes.STRING(64), allowNull: true },
 
-  bodyPart: { type: String, required: true },
-  side: { type: String, enum: ['Left', 'Right', 'Both', 'N/A'], default: 'N/A' },
-  injuryType: { type: String },
-  severity: { type: String, enum: ['Minor', 'Moderate', 'Severe'] },
-  description: { type: String },
+  bodyPart: { type: DataTypes.STRING(64), allowNull: false, field: 'body_part' },
+  side: {
+    type: DataTypes.ENUM('Left', 'Right', 'Both', 'N/A'),
+    defaultValue: 'N/A',
+  },
+  injuryType: { type: DataTypes.STRING(64), allowNull: true, field: 'injury_type' },
+  severity: { type: DataTypes.ENUM('Minor', 'Moderate', 'Severe'), allowNull: true },
+  description: { type: DataTypes.TEXT, allowNull: true },
 
-  status: { type: String, enum: ['Pending', 'Approved', 'Rejected'], default: 'Pending' },
-  reviewNote: { type: String },
-  reviewedBy: { type: String },
-  reviewedAt: { type: Date },
-}, { timestamps: true });
+  status: {
+    type: DataTypes.ENUM('Pending', 'Approved', 'Rejected'),
+    defaultValue: 'Pending',
+  },
+  reviewNote: { type: DataTypes.TEXT, allowNull: true, field: 'review_note' },
+  reviewedBy: { type: DataTypes.STRING(120), allowNull: true, field: 'reviewed_by' },
+  reviewedAt: { type: DataTypes.DATE, allowNull: true, field: 'reviewed_at' },
+}, {
+  tableName: 'self_reports',
+  underscored: true,
+  indexes: [
+    { fields: ['athlete_id'] },
+    { fields: ['status'] },
+  ],
+});
 
-selfReportSchema.index({ athleteId: 1 });
-selfReportSchema.index({ status: 1 });
-
-module.exports = mongoose.model('SelfReport', selfReportSchema);
+module.exports = SelfReport;

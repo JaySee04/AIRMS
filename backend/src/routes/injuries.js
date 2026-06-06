@@ -1,29 +1,116 @@
 const express = require('express');
-const Injury = require('../models/Injury');
-const Athlete = require('../models/Athlete');
-const auth = require('../middleware/auth');
+const { Op, fn, col, literal } = require('sequelize');
+const { Injury, Athlete } = require('../models-sql');
+const auth = require('../middleware/auth-sql');
 const rbac = require('../middleware/rbac');
+const { serializeGeneric, serializeMany } = require('../utils/serialize');
 
 const router = express.Router();
+
+function buildWhere(q) {
+  const where = {};
+  if (q.athleteId) where.athleteId = q.athleteId;
+  if (q.bodyPart) where.bodyPart = q.bodyPart;
+  if (q.sport) where.sport = q.sport;
+  if (q.program) where.program = q.program;
+  if (q.gender) where.gender = q.gender;
+  if (q.injuryType) where.injuryType = q.injuryType;
+  if (q.severity) where.severity = q.severity;
+  if (q.ageMin || q.ageMax) {
+    where.athleteAge = {};
+    if (q.ageMin) where.athleteAge[Op.gte] = Number(q.ageMin);
+    if (q.ageMax) where.athleteAge[Op.lte] = Number(q.ageMax);
+  }
+  if (q.startDate || q.endDate) {
+    where.date = {};
+    if (q.startDate) where.date[Op.gte] = new Date(q.startDate);
+    if (q.endDate) where.date[Op.lte] = new Date(q.endDate);
+  }
+  return where;
+}
 
 // GET /api/injuries — filtered injury list (medical, admin)
 router.get('/', auth, rbac('medical', 'admin'), async (req, res) => {
   try {
-    const { athleteId, bodyPart, sport, program, gender, severity, startDate, endDate } = req.query;
-    const filter = {};
-    if (athleteId) filter.athleteId = athleteId;
-    if (bodyPart) filter.bodyPart = bodyPart;
-    if (sport) filter.sport = sport;
-    if (program) filter.program = program;
-    if (gender) filter.gender = gender;
-    if (severity) filter.severity = severity;
-    if (startDate || endDate) {
-      filter.date = {};
-      if (startDate) filter.date.$gte = new Date(startDate);
-      if (endDate) filter.date.$lte = new Date(endDate);
-    }
-    const injuries = await Injury.find(filter).sort({ date: -1 });
-    res.json(injuries);
+    const where = buildWhere(req.query);
+    const rows = await Injury.findAll({ where, order: [['date', 'DESC']] });
+    res.json(serializeMany(rows));
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// GET /api/injuries/analytics/summary — aggregated KPIs for admin dashboard
+// Must be declared BEFORE /athlete/:id and other dynamic routes so Express
+// matches `analytics/summary` before treating "analytics" as an id segment.
+router.get('/analytics/summary', auth, rbac('admin'), async (req, res) => {
+  try {
+    const where = buildWhere(req.query);
+
+    // Mirrors the Mongo pipeline: one aggregation per axis, plus a couple of
+    // scalars. Each Sequelize call returns [{ _id, count }, ...] so the
+    // response shape matches what the admin dashboard already reads.
+    const groupBy = (field, opts = {}) =>
+      Injury.findAll({
+        where,
+        attributes: [[col(field), '_id'], [fn('COUNT', col('id')), 'count']],
+        group: [col(field)],
+        order: opts.sortByCount ? [[literal('count'), 'DESC']] : undefined,
+        raw: true,
+      });
+
+    const [total, byBodyPart, byType, bySeverity, bySport, byGender, byProgram] = await Promise.all([
+      Injury.count({ where }),
+      groupBy('body_part'),
+      groupBy('injury_type'),
+      groupBy('severity'),
+      groupBy('sport', { sortByCount: true }),
+      groupBy('gender'),
+      groupBy('program'),
+    ]);
+
+    // Monthly aggregation — MySQL has YEAR()/MONTH() built-ins. Returns
+    // rows with { year, month, count } that we reshape to match Mongo's
+    // { _id: { year, month }, count } envelope.
+    const monthRows = await Injury.findAll({
+      where,
+      attributes: [
+        [fn('YEAR', col('date')), 'year'],
+        [fn('MONTH', col('date')), 'month'],
+        [fn('COUNT', col('id')), 'count'],
+      ],
+      group: [fn('YEAR', col('date')), fn('MONTH', col('date'))],
+      order: [
+        [fn('YEAR', col('date')), 'ASC'],
+        [fn('MONTH', col('date')), 'ASC'],
+      ],
+      raw: true,
+    });
+    const byMonth = monthRows.map((r) => ({
+      _id: { year: Number(r.year), month: Number(r.month) },
+      count: Number(r.count),
+    }));
+
+    const recovering = await Injury.count({ where: { ...where, recoveryStatus: 'Recovering' } });
+    const athletesAffected = await Injury.aggregate('athleteId', 'COUNT', { where, distinct: true });
+    const sportsAffected = await Injury.aggregate('sport', 'COUNT', { where, distinct: true });
+
+    // Normalise count to Number (mysql2 returns BIGINT as string).
+    const normalise = (rows) => rows.map((r) => ({ _id: r._id, count: Number(r.count) }));
+
+    res.json({
+      total,
+      recovering,
+      athletesAffected,
+      sportsAffected,
+      byBodyPart: normalise(byBodyPart),
+      byType: normalise(byType),
+      bySeverity: normalise(bySeverity),
+      bySport: normalise(bySport),
+      byGender: normalise(byGender),
+      byProgram: normalise(byProgram),
+      byMonth,
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -35,8 +122,11 @@ router.get('/athlete/:id', auth, async (req, res) => {
     if (req.user.role === 'athlete' && req.user.athleteId !== req.params.id) {
       return res.status(403).json({ message: 'Access denied' });
     }
-    const injuries = await Injury.find({ athleteId: req.params.id }).sort({ date: -1 });
-    res.json(injuries);
+    const rows = await Injury.findAll({
+      where: { athleteId: req.params.id },
+      order: [['date', 'DESC']],
+    });
+    res.json(serializeMany(rows));
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -45,19 +135,19 @@ router.get('/athlete/:id', auth, async (req, res) => {
 // POST /api/injuries — log a new injury (medical, admin)
 router.post('/', auth, rbac('medical', 'admin'), async (req, res) => {
   try {
-    // Enrich with athlete metadata if not provided
-    if (req.body.athleteId) {
-      const athlete = await Athlete.findOne({ athleteId: req.body.athleteId });
+    const payload = { ...req.body };
+    if (payload.athleteId) {
+      const athlete = await Athlete.findOne({ where: { athleteId: payload.athleteId } });
       if (athlete) {
-        if (!req.body.athleteName) req.body.athleteName = athlete.name;
-        if (!req.body.sport)       req.body.sport       = athlete.sport;
-        if (!req.body.gender)      req.body.gender      = athlete.gender;
-        if (!req.body.program)     req.body.program     = athlete.program;
-        if (req.body.athleteAge === undefined) req.body.athleteAge = athlete.age;
+        if (!payload.athleteName) payload.athleteName = athlete.name;
+        if (!payload.sport)       payload.sport       = athlete.sport;
+        if (!payload.gender)      payload.gender      = athlete.gender;
+        if (!payload.program)     payload.program     = athlete.program;
+        if (payload.athleteAge === undefined) payload.athleteAge = athlete.age;
       }
     }
-    const injury = await Injury.create({ ...req.body, loggedBy: req.user.name });
-    res.status(201).json(injury);
+    const injury = await Injury.create({ ...payload, loggedBy: req.user.name });
+    res.status(201).json(serializeGeneric(injury));
   } catch (err) {
     res.status(400).json({ message: err.message });
   }
@@ -66,76 +156,12 @@ router.post('/', auth, rbac('medical', 'admin'), async (req, res) => {
 // PATCH /api/injuries/:id — update injury record (medical, admin)
 router.patch('/:id', auth, rbac('medical', 'admin'), async (req, res) => {
   try {
-    const injury = await Injury.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true,
-    });
+    const injury = await Injury.findByPk(req.params.id);
     if (!injury) return res.status(404).json({ message: 'Injury not found' });
-    res.json(injury);
+    await injury.update(req.body);
+    res.json(serializeGeneric(injury));
   } catch (err) {
     res.status(400).json({ message: err.message });
-  }
-});
-
-// GET /api/injuries/analytics/summary — aggregated KPIs for admin dashboard
-router.get('/analytics/summary', auth, rbac('admin'), async (req, res) => {
-  try {
-    const { sport, program, gender, bodyPart, injuryType, ageMin, ageMax, startDate, endDate } = req.query;
-    const match = {};
-    if (sport) match.sport = sport;
-    if (program) match.program = program;
-    if (gender) match.gender = gender;
-    if (bodyPart) match.bodyPart = bodyPart;
-    if (injuryType) match.injuryType = injuryType;
-    if (ageMin || ageMax) {
-      match.athleteAge = {};
-      if (ageMin) match.athleteAge.$gte = Number(ageMin);
-      if (ageMax) match.athleteAge.$lte = Number(ageMax);
-    }
-    if (startDate || endDate) {
-      match.date = {};
-      if (startDate) match.date.$gte = new Date(startDate);
-      if (endDate) match.date.$lte = new Date(endDate);
-    }
-
-    const [total, byBodyPart, byType, bySeverity, bySport, byGender, byProgram, byMonth] = await Promise.all([
-      Injury.countDocuments(match),
-      Injury.aggregate([{ $match: match }, { $group: { _id: '$bodyPart', count: { $sum: 1 } } }]),
-      Injury.aggregate([{ $match: match }, { $group: { _id: '$injuryType', count: { $sum: 1 } } }]),
-      Injury.aggregate([{ $match: match }, { $group: { _id: '$severity', count: { $sum: 1 } } }]),
-      Injury.aggregate([
-        { $match: match },
-        { $group: { _id: '$sport', count: { $sum: 1 } } },
-        { $sort: { count: -1 } },
-      ]),
-      Injury.aggregate([{ $match: match }, { $group: { _id: '$gender', count: { $sum: 1 } } }]),
-      Injury.aggregate([{ $match: match }, { $group: { _id: '$program', count: { $sum: 1 } } }]),
-      Injury.aggregate([
-        { $match: match },
-        { $group: { _id: { year: { $year: '$date' }, month: { $month: '$date' } }, count: { $sum: 1 } } },
-        { $sort: { '_id.year': 1, '_id.month': 1 } },
-      ]),
-    ]);
-
-    const recovering = await Injury.countDocuments({ ...match, recoveryStatus: 'Recovering' });
-    const athletesAffected = await Injury.distinct('athleteId', match);
-    const sportsAffected = await Injury.distinct('sport', match);
-
-    res.json({
-      total,
-      recovering,
-      athletesAffected: athletesAffected.length,
-      sportsAffected: sportsAffected.length,
-      byBodyPart,
-      byType,
-      bySeverity,
-      bySport,
-      byGender,
-      byProgram,
-      byMonth,
-    });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
   }
 });
 
