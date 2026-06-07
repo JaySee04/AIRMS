@@ -327,7 +327,7 @@ Every page has a footer with "AIRMS · Page X of Y".
 
 Accessed from the topbar avatar dropdown's "My Profile" link. Both pages share the same `ProfileShell` component; the role-specific stats are the only difference.
 
-**Hero** — large initials avatar (e.g. "DA" for "Dr. Aisyah Rahman", honorifics filtered), display name, email, role chip (gold), and a role-specific blurb.
+**Hero** — large initials avatar (e.g. "MD" for "Medical Demo 01"), display name, email, role chip (gold), and a role-specific blurb.
 
 **Stat tiles** — live KPIs loaded on mount:
 - **Medical:** Athletes under care · Recovering injuries · Self-reports pending review · Total injuries on record

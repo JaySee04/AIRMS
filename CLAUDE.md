@@ -49,7 +49,7 @@ No automated test suite exists in either backend or frontend. Verification is ma
 | Role | Email | Password |
 |---|---|---|
 | athlete | `athlete@isn.gov.my` | `athlete123` (linked to ATH0001 — John Doe) |
-| medical | `medical@isn.gov.my` | `medical123` (Dr. Aisyah Rahman) |
+| medical | `medical@isn.gov.my` | `medical123` (Medical Demo 01) |
 | admin | `admin@isn.gov.my` | `admin123` |
 | admin (SMTP demo) | `poseidonapollo11@gmail.com` | `admin123` (real-Gmail account so the email-reset flow demos against an inbox you can check) |
 

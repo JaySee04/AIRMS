@@ -333,7 +333,7 @@ Two defaults that show up as design constants in the system, both anchored to th
 ```
 Anything inside this window can be re-rendered into the dashboard chart and still produce correct ACWR values. Older data is preserved in MySQL but is not loaded into the dashboard request by default ([STORAGE_MECHANISMS.md](STORAGE_MECHANISMS.md) §1).
 
-**Soft-delete behaviour:** activity rows tombstoned via `deleted_at` are excluded from all default queries — including all ACWR and chronic-load calculations — but remain in MySQL for audit. To audit deleted entries, pass `{ paranoid: false }` to Sequelize.
+**Delete behaviour:** `DELETE /api/activities/:id` removes the row outright. Activities are athlete-owned training data, so deletion is honoured rather than tombstoned. ACWR and chronic-load calculations therefore read the data as the athlete sees it in their history table.
 
 ---
 

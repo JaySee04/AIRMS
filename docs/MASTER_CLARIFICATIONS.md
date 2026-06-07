@@ -45,11 +45,14 @@ Each role's seeded password is `<role>123` (e.g. `admin123`). Confirmed in `back
 Role gating is done client-side in `frontend/src/components/layout/DashboardLayout.tsx` via the `allowedRoles` prop. Backend enforces RBAC at every protected route via `backend/src/middleware/rbac.js`.
 
 Auth routes live in `backend/src/routes/auth.js`:
-- `POST /api/auth/login` — issues JWT, updates `lastLoginAt`
-- `POST /api/auth/forgot-password` — issues SHA-256-hashed reset token (60 min TTL), sends email
-- `POST /api/auth/reset-password` — consumes a reset token
+- `POST /api/auth/login` — issues JWT, updates `lastLoginAt`. Error response is deliberately generic to avoid account enumeration.
+- `POST /api/auth/forgot-password` — issues a 6-digit OTP (SHA-256 hashed, 10-min TTL), emails it, resets the per-user attempt counter. Returns the same response regardless of whether the email matched an account.
+- `POST /api/auth/verify-otp` — verifies the OTP, invalidates it after 5 wrong attempts, and on success swaps in a 32-byte verification token (SHA-256 hashed, 5-min TTL) that the client holds in `sessionStorage` for step 3.
+- `POST /api/auth/reset-password` — takes email + verification token + new password; the OTP itself never travels in the reset payload.
 - `POST /api/auth/change-password` — in-place rotation for authenticated users
 - `GET /api/auth/me` — returns the current user including `createdAt` + `lastLoginAt`
+
+The forgot-password flow is a 3-page sequence in the frontend (`/forgot-password` → `/verify-otp` → `/reset-password`), all running in one browser tab. Each page is single-purpose; direct navigation to a later page without going through the earlier ones bounces back to `/forgot-password`.
 
 Password policy is enforced server-side at `backend/src/utils/passwordPolicy.js` and mirrored at `frontend/src/lib/passwordPolicy.ts`: ≥10 characters, uppercase + lowercase + digit + symbol.
 

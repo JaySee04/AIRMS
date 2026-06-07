@@ -41,20 +41,29 @@ const Activity = sequelize.define('Activity', {
 }, {
   tableName: 'activities',
   underscored: true,
-  // Soft-delete: DELETE sets deleted_at instead of dropping the row, and
-  // default queries auto-exclude soft-deleted rows. Preserves audit trail
-  // without growing the dataset visibly. Pass { paranoid: false } on a
-  // findAll call to retrieve including-deleted rows for audit/admin use.
-  paranoid: true,
   indexes: [
     { fields: ['athlete_id', 'date'] },
   ],
   hooks: {
+    // sRPE: load = duration × intensity, computed at write time so the value
+    // is always consistent with the inputs it was derived from. We hook BOTH
+    // beforeValidate (so the field is populated before allowNull validation
+    // runs on a fresh insert) AND beforeSave (so the value is recomputed and
+    // explicitly marked dirty on every update — Sequelize's UPDATE field
+    // set is locked in before beforeValidate, so a mutation there alone is
+    // not persisted).
     beforeValidate: (activity) => {
-      // sRPE: load = duration × intensity, computed at write time so the
-      // value is always consistent with the inputs it was derived from.
       if (activity.duration != null && activity.intensity != null) {
         activity.load = Number(activity.duration) * Number(activity.intensity);
+      }
+    },
+    beforeSave: (activity) => {
+      if (activity.duration != null && activity.intensity != null) {
+        const newLoad = Number(activity.duration) * Number(activity.intensity);
+        if (activity.load !== newLoad) {
+          activity.load = newLoad;
+          activity.changed('load', true);
+        }
       }
     },
   },

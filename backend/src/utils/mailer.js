@@ -51,51 +51,27 @@ async function sendMail({ to, subject, text, html }) {
   return transport.sendMail({ from, to, subject, text, html });
 }
 
-// Email-template builder for password reset. The HTML uses inline styles so
-// it renders consistently across mail clients (Gmail strips <style> blocks).
-function buildResetEmail({ name, resetUrl, expiresInMinutes }) {
-  const subject = 'AIRMS — Password Reset Request';
+// Email-template builder for password reset OTP. Plain text only — the
+// recipient reads the 6-digit code and enters it back on the reset screen
+// in the SAME tab. This keeps the whole flow in one tab and eliminates the
+// orphaned-tab UX issue that a link-based flow has.
+function buildResetEmail({ code, expiresInMinutes, maxAttempts }) {
+  const subject = 'AIRMS — Password Reset Code';
   const text = [
-    `Hi ${name || 'there'},`,
+    'Password reset code',
     '',
-    'We received a request to reset the password on your AIRMS account.',
-    `Use the link below within the next ${expiresInMinutes} minutes:`,
+    `Your AIRMS password reset code is:`,
     '',
-    resetUrl,
+    `    ${code}`,
     '',
-    "If you didn't request this, you can safely ignore this email — your password will remain unchanged.",
+    `Enter this code on the password reset screen in your browser to continue. The code expires in ${expiresInMinutes} minutes and is single-use. After ${maxAttempts} incorrect entries it is automatically invalidated, and you will need to request a new one.`,
+    '',
+    "If you did not request this reset, you can ignore this email — your current password is unchanged and the code will expire on its own. As a precaution, sign in to AIRMS normally and rotate your password from My Profile if you suspect any unauthorised activity.",
     '',
     '— AIRMS · Institut Sukan Negara',
   ].join('\n');
 
-  const html = `<!doctype html>
-<html><body style="margin:0;background:#f1f3f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1a1d2e">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:32px 0">
-    <tr><td align="center">
-      <table role="presentation" width="540" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;box-shadow:0 2px 12px rgba(20,30,70,0.08);overflow:hidden">
-        <tr><td style="background:#0f2c4a;padding:24px 32px;color:#fff">
-          <div style="font-size:20px;font-weight:700;letter-spacing:0.04em">AIRMS</div>
-          <div style="font-size:12px;color:#f5c518;letter-spacing:0.1em;text-transform:uppercase;margin-top:2px">Sports Health</div>
-        </td></tr>
-        <tr><td style="padding:32px">
-          <h1 style="font-size:20px;margin:0 0 12px">Password reset request</h1>
-          <p style="font-size:14px;line-height:1.6;color:#2c3142">Hi ${name || 'there'},</p>
-          <p style="font-size:14px;line-height:1.6;color:#2c3142">We received a request to reset the password on your AIRMS account. Use the button below within the next <strong>${expiresInMinutes} minutes</strong>:</p>
-          <p style="text-align:center;margin:28px 0">
-            <a href="${resetUrl}" style="display:inline-block;background:#0f2c4a;color:#fff;text-decoration:none;padding:14px 28px;border-radius:8px;font-weight:600;font-size:14px">Reset Password</a>
-          </p>
-          <p style="font-size:12px;color:#6b7280;line-height:1.6">If the button doesn't work, copy and paste this URL into your browser:</p>
-          <p style="font-size:12px;color:#3373c4;word-break:break-all"><a href="${resetUrl}" style="color:#3373c4">${resetUrl}</a></p>
-          <hr style="border:none;border-top:1px solid #e7eaf2;margin:24px 0">
-          <p style="font-size:12px;color:#6b7280;line-height:1.6">If you didn't request this, you can safely ignore this email — your password will remain unchanged.</p>
-          <p style="font-size:11px;color:#9aa3b2;margin-top:24px">— AIRMS · Institut Sukan Negara</p>
-        </td></tr>
-      </table>
-    </td></tr>
-  </table>
-</body></html>`;
-
-  return { subject, text, html };
+  return { subject, text };
 }
 
 module.exports = { sendMail, buildResetEmail };

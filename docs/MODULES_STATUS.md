@@ -8,7 +8,7 @@
 
 | # | Module | Role | Status | Pages | Backend route(s) |
 |---|---|---|---|---|---|
-| **G** | **General (auth + RBAC)** | **all** | ✅ **fully complete** | `/`, `/forgot-password`, `/reset-password/[token]`, `<role>/profile` | `/api/auth/login`, `/api/auth/forgot-password`, `/api/auth/reset-password`, `/api/auth/change-password`, `/api/auth/me` |
+| **G** | **General (auth + RBAC)** | **all** | ✅ **fully complete** | `/`, `/forgot-password`, `/verify-otp`, `/reset-password`, `<role>/profile` | `/api/auth/login`, `/api/auth/forgot-password`, `/api/auth/verify-otp`, `/api/auth/reset-password`, `/api/auth/change-password`, `/api/auth/me` |
 | 1 | Activity Tracking & Logging | athlete | ✅ **fully complete** | `/athlete/activity` | `/api/activities` |
 | 2 | Athlete Dashboard / Workload | athlete | ✅ **fully complete** | `/athlete/dashboard` | `/api/athletes/:id`, `/api/activities/athlete/:id`, `/api/injuries/athlete/:id` |
 | 3 | Injury & Recovery Logging | medical (+ athlete self-report) | 🟢 **functional, deferred polish** | `/medical/injury-log`, `/medical/review-reports`, `/athlete/injury-report` | `/api/injuries`, `/api/self-reports` |
@@ -30,8 +30,12 @@ Modules 1+2 are the FYP showcases requiring no further iteration. Modules 3–6 
 **What it does:** Cross-cutting authentication and account-management capability used by every protected route in the system.
 
 **Use cases covered:**
-- **UC-1 Login (JWT)** — All three roles authenticate via [`POST /api/auth/login`](../backend/src/routes/auth.js); JWT signed HS256 with `JWT_SECRET`; bearer token persisted in `localStorage` and auto-attached by [`frontend/src/lib/api.ts`](../frontend/src/lib/api.ts).
-- **UC-2 Reset Password via email** — [`POST /api/auth/forgot-password`](../backend/src/routes/auth.js) issues a single-use token, hashes it with SHA-256, stores the hash + 60-minute TTL on the user row, and sends a branded HTML email via [`utils/mailer.js`](../backend/src/utils/mailer.js) (env-driven SMTP, falls back to a console transport when `SMTP_HOST` is unset). [`POST /api/auth/reset-password`](../backend/src/routes/auth.js) consumes the token. The flow is open to all three roles, not just medical/admin as Slide 21 originally framed it — athletes can reset too via the email link.
+- **UC-1 Login (JWT)** — All three roles authenticate via [`POST /api/auth/login`](../backend/src/routes/auth.js); JWT signed HS256 with `JWT_SECRET`; bearer token persisted in `localStorage` and auto-attached by [`frontend/src/lib/api.ts`](../frontend/src/lib/api.ts). The login error message is deliberately generic — it doesn't reveal whether the email or the password was wrong, preserving the same no-enumeration property as the forgot-password endpoint.
+- **UC-2 Reset Password via email OTP — 3-page flow** —
+  - **Page 1 (`/forgot-password`)** — email entry. [`POST /api/auth/forgot-password`](../backend/src/routes/auth.js) issues a single-use 6-digit code, hashes it with SHA-256, stores the hash + 10-minute TTL + a per-user attempt counter on the user row, and emails the code via [`utils/mailer.js`](../backend/src/utils/mailer.js) (env-driven SMTP, falls back to a console transport when `SMTP_HOST` is unset).
+  - **Page 2 (`/verify-otp`)** — code entry. [`POST /api/auth/verify-otp`](../backend/src/routes/auth.js) verifies the code; after 5 wrong entries the code is invalidated. On success the OTP hash is swapped on the user row for a 32-byte verification-token hash with a 5-minute TTL, and the raw token is returned to the client.
+  - **Page 3 (`/reset-password`)** — password entry. The frontend holds the verification token in `sessionStorage` (so it never appears in any URL or browser history). [`POST /api/auth/reset-password`](../backend/src/routes/auth.js) takes email + verification token + new password; the OTP itself never travels in the reset payload. On success all reset state is cleared.
+  - Whole flow runs in a single browser tab — no orphaned-tab UX. Open to all three roles.
 - **UC-3 Role-Based Access Control** — Backend `rbac()` middleware on every protected route; frontend `DashboardLayout` mirrors the gate so unauthorized users can't even render the page.
 
 **Additional capability beyond Slide 21:**
@@ -46,14 +50,18 @@ Modules 1+2 are the FYP showcases requiring no further iteration. Modules 3–6 
 - At least one symbol (non-alphanumeric)
 
 **Security design notes** (for viva):
-- Token entropy: 32 random bytes from `crypto.randomBytes` → 256-bit
-- Token at rest: SHA-256 hash only — DB compromise leaks no active tokens
-- TTL: 60 minutes, cleared on success (single-use)
-- Generic responses on `/forgot-password` — no user enumeration possible
+- OTP entropy: 6 decimal digits generated with `crypto.randomInt` — uniform across the 1M-code space
+- OTP at rest: SHA-256 hash only — DB compromise leaks no active codes
+- OTP TTL: 10 minutes, cleared on verification (single-use)
+- Brute-force mitigation: code invalidated after 5 wrong entries via the `reset_code_attempts` counter on the user row
+- Verification token: 32 bytes from `crypto.randomBytes` (256-bit), SHA-256 hashed at rest, 5-minute TTL, single-use, held client-side in `sessionStorage` (per-tab, ephemeral) so it never appears in any URL or browser history
+- Generic responses on both `/forgot-password` (no user enumeration) and `/login` (doesn't reveal whether email or password was wrong)
 - Fire-and-forget mail send — client response time doesn't depend on SMTP latency
 - bcrypt password hashing via existing `User.beforeSave` hook (work factor 12)
 - Defense in depth — every client-side rule re-checked server-side
-- Outstanding reset tokens cleared on in-place change-password success
+- Outstanding reset codes cleared on in-place change-password success
+- Single-tab UX: the whole forgot-password flow happens in one tab, removing the cross-tab synchronisation that a link-based reset would require
+- Direct-navigation protection: `/verify-otp` bounces to `/forgot-password` if no email is supplied; `/reset-password` bounces if no verification token is held in `sessionStorage`
 
 **FYP defensibility hook:** All three UC-1/2/3 use cases ship as a complete, security-defensible auth surface. The email-reset flow runs against any SMTP provider (Gmail, Mailtrap, SendGrid) by env config, with a console-mailer fallback so the system works end-to-end without credentials.
 
@@ -251,4 +259,4 @@ The umbrella message: *"All six modules are functional. The remaining work on Mo
 
 ---
 
-*Last updated: 2026-06-07. **General Module shipped fully** — UC-1 login, UC-2 email-based password reset, UC-3 RBAC. Added in-place change-password on profile pages, password policy (10+ chars + mixed case + digit + symbol), and an env-driven SMTP mailer with console fallback. Previous: 2026-05-25 (report + slides drafts close pre-viva rubric gaps).*
+*Last updated: 2026-06-08. **General Module shipped fully** — UC-1 login (non-enumerating error message), UC-2 email-OTP password reset (3-page flow: email → OTP → password, 10-min OTP TTL, 5-attempt cap, 5-min verification token in sessionStorage), UC-3 RBAC. In-place change-password on profile pages, password policy (10+ chars + mixed case + digit + symbol), env-driven SMTP mailer with console fallback. Previous: 2026-06-07 (initial OTP-based UC-2 implementation).*

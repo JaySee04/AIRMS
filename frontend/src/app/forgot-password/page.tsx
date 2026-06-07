@@ -1,13 +1,18 @@
 'use client';
 
 import { useState, FormEvent } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { api } from '@/lib/api';
 
+// Step 1 of the password-reset flow: ask the user which account to reset.
+// On submit, the backend emails a 6-digit code; we navigate to /verify-otp
+// to collect that code. Returning the same response in every case prevents
+// account-enumeration via this endpoint.
 export default function ForgotPasswordPage() {
+  const router = useRouter();
   const [email, setEmail] = useState('');
-  const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -17,10 +22,10 @@ export default function ForgotPasswordPage() {
     setLoading(true);
     try {
       await api.post('/auth/forgot-password', { email });
-      // The backend deliberately returns the same response whether the email
-      // matched an account or not, so an attacker can't enumerate users.
-      // The UI mirrors that — we always show the same confirmation.
-      setSubmitted(true);
+      // Navigate to the OTP entry page regardless of whether the email
+      // matched an account — the backend's silent-failure policy means
+      // we cannot tell the user any different from here.
+      router.push(`/verify-otp?email=${encodeURIComponent(email)}`);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Request failed');
     } finally {
@@ -49,33 +54,26 @@ export default function ForgotPasswordPage() {
           <div className="login-form-wrap">
             <h1 className="login-heading">Forgot password?</h1>
             <p className="login-subtext">
-              Enter the email address associated with your AIRMS account and we&apos;ll send you a link to reset your password.
+              Enter the email address associated with your AIRMS account and we&apos;ll send you a 6-digit code to reset your password.
             </p>
-
-            {submitted ? (
-              <div className="alert alert-success" style={{ marginTop: 12 }}>
-                If an account exists for <strong>{email}</strong>, a password reset link has been sent. Check your inbox — the link expires in 60 minutes.
+            <form onSubmit={handleSubmit}>
+              {error && <div className="alert alert-error">{error}</div>}
+              <div className="form-group">
+                <label htmlFor="email">Email</label>
+                <input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@isn.gov.my"
+                  required
+                  autoComplete="email"
+                />
               </div>
-            ) : (
-              <form onSubmit={handleSubmit}>
-                {error && <div className="alert alert-error">{error}</div>}
-                <div className="form-group">
-                  <label htmlFor="email">Email</label>
-                  <input
-                    id="email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="you@isn.gov.my"
-                    required
-                    autoComplete="email"
-                  />
-                </div>
-                <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
-                  {loading ? 'Sending…' : 'Send reset link'}
-                </button>
-              </form>
-            )}
+              <button type="submit" className="btn btn-primary btn-full" disabled={loading || !email}>
+                {loading ? 'Sending…' : 'Send reset code'}
+              </button>
+            </form>
 
             <Link href="/" className="login-forgot">Back to sign in</Link>
           </div>

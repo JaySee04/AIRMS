@@ -38,9 +38,11 @@ const User = sequelize.define('User', {
     defaultValue: true,
     field: 'is_active',
   },
-  // Password-reset token state. Stored as SHA-256 hash so a DB compromise
-  // doesn't leak any active reset tokens. Populated by /auth/forgot-password,
-  // consumed by /auth/reset-password, cleared on use or expiry.
+  // Password-reset OTP state. The 6-digit code is stored as a SHA-256 hash
+  // so a DB compromise doesn't leak any active codes. resetCodeAttempts
+  // tracks failed entries — the code is invalidated after 5 wrong attempts
+  // to make brute force against a 6-digit space infeasible. Fields kept
+  // under their legacy `reset_token_*` column names to avoid a schema rename.
   resetTokenHash: {
     type: DataTypes.STRING(64),
     allowNull: true,
@@ -51,6 +53,12 @@ const User = sequelize.define('User', {
     allowNull: true,
     field: 'reset_token_expires_at',
   },
+  resetCodeAttempts: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 0,
+    field: 'reset_code_attempts',
+  },
   lastLoginAt: {
     type: DataTypes.DATE,
     allowNull: true,
@@ -60,11 +68,11 @@ const User = sequelize.define('User', {
   tableName: 'users',
   underscored: true,
   defaultScope: {
-    attributes: { exclude: ['password', 'resetTokenHash', 'resetTokenExpiresAt'] },
+    attributes: { exclude: ['password', 'resetTokenHash', 'resetTokenExpiresAt', 'resetCodeAttempts'] },
   },
   scopes: {
     withPassword: { attributes: { include: ['password'] } },
-    withResetToken: { attributes: { include: ['resetTokenHash', 'resetTokenExpiresAt'] } },
+    withResetToken: { attributes: { include: ['resetTokenHash', 'resetTokenExpiresAt', 'resetCodeAttempts'] } },
   },
   hooks: {
     beforeSave: async (user) => {

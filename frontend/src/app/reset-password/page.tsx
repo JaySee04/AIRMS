@@ -1,17 +1,20 @@
 'use client';
 
-import { useState, FormEvent } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useState, useEffect, FormEvent } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { api } from '@/lib/api';
 import { passwordRules, validatePassword, PASSWORD_MIN_LENGTH } from '@/lib/passwordPolicy';
 
+// Step 3 of the password-reset flow: collect the new password. This page is
+// gated by the verification token that /verify-otp wrote to sessionStorage.
+// Without a token the user is bounced back to step 1 — they can't land here
+// by deep-linking.
 export default function ResetPasswordPage() {
-  const params = useParams<{ token: string }>();
   const router = useRouter();
-  const token = params?.token ?? '';
-
+  const [email, setEmail] = useState('');
+  const [token, setToken] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -19,6 +22,20 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState('');
   const [done, setDone] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // Pull verification context out of sessionStorage; redirect to step 1 if
+  // anything's missing (direct navigation, refresh after success, etc.).
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const e = sessionStorage.getItem('airms_reset_email');
+    const t = sessionStorage.getItem('airms_reset_verification_token');
+    if (!e || !t) {
+      router.replace('/forgot-password');
+      return;
+    }
+    setEmail(e);
+    setToken(t);
+  }, [router]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -34,12 +51,21 @@ export default function ResetPasswordPage() {
     }
     setLoading(true);
     try {
-      await api.post('/auth/reset-password', { token, password });
+      await api.post('/auth/reset-password', { email, verificationToken: token, password });
+      sessionStorage.removeItem('airms_reset_email');
+      sessionStorage.removeItem('airms_reset_verification_token');
       setDone(true);
-      // Short delay so the user reads the success message before redirect.
-      setTimeout(() => router.push('/'), 2500);
+      setTimeout(() => router.push('/'), 1800);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Reset failed');
+      const msg = err instanceof Error ? err.message : 'Reset failed';
+      setError(msg);
+      // If the server says the verification expired, bounce back to step 1
+      // so the user can request a fresh code rather than retry hopelessly.
+      if (/expired|invalid/i.test(msg)) {
+        sessionStorage.removeItem('airms_reset_email');
+        sessionStorage.removeItem('airms_reset_verification_token');
+        setTimeout(() => router.push('/forgot-password'), 1800);
+      }
     } finally {
       setLoading(false);
     }
@@ -137,7 +163,7 @@ export default function ResetPasswordPage() {
                     </button>
                   </div>
                 </div>
-                <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
+                <button type="submit" className="btn btn-primary btn-full" disabled={loading || !token}>
                   {loading ? 'Updating…' : 'Update password'}
                 </button>
               </form>

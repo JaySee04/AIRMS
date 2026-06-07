@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
-import ChangePasswordCard from '@/components/auth/ChangePasswordCard';
+import ProfileShell from '@/components/profile/ProfileShell';
 import { api } from '@/lib/api';
 import { getSession } from '@/lib/auth';
 
-// Athlete record shape used by this page. The fields that aren't displayed
-// are still listed so the type guards the api.get() return value.
+// Athlete record shape used by the personal-info + screening cards below
+// the standard profile chrome.
 interface AthleteRecord {
   athleteId: string;
   name: string;
@@ -25,15 +25,9 @@ interface AthleteRecord {
   symmetry?: number;
 }
 
-interface SessionUser {
-  id: number;
-  name: string;
-  email: string;
-  role: string;
-  athleteId?: string | null;
-  createdAt?: string;
-  lastLoginAt?: string | null;
-}
+interface Activity { _id: string; date: string; load: number }
+interface Injury { _id: string; recoveryStatus: 'Recovering' | 'Recovered' | 'Chronic' }
+interface SelfReport { _id: string; status: 'Pending' | 'Approved' | 'Rejected' }
 
 function fmt(value: unknown, suffix = ''): string {
   if (value === null || value === undefined || value === '') return '—';
@@ -45,37 +39,17 @@ function fmtScore(value: number | undefined): string {
   return Number(value).toFixed(2);
 }
 
-function fmtDate(value: string | null | undefined): string {
-  if (!value) return '—';
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return '—';
-  return d.toISOString().slice(0, 10);
-}
-
-function fmtDateTime(value: string | null | undefined): string {
-  if (!value) return '—';
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return '—';
-  return d.toISOString().slice(0, 16).replace('T', ' ');
-}
-
 export default function AthleteProfilePage() {
   const [athlete, setAthlete] = useState<AthleteRecord | null>(null);
-  const [user, setUser] = useState<SessionUser | null>(null);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Load athlete record for the personal-info + screening cards. Account
+  // chrome (avatar, email, role, last login etc.) is rendered by ProfileShell.
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        // Pull the fresh /me payload so createdAt and lastLoginAt are current.
-        const meResp = await api.get<{ user: SessionUser }>('/auth/me');
-        const me = meResp.user;
-        if (cancelled) return;
-        setUser(me);
-
-        const athleteId = me.athleteId || getSession()?.user?.athleteId;
+        const athleteId = getSession()?.user?.athleteId;
         if (!athleteId) {
           setError('No athlete record linked to your account. Contact your programme coordinator.');
           return;
@@ -83,58 +57,75 @@ export default function AthleteProfilePage() {
         const a = await api.get<AthleteRecord>(`/athletes/${athleteId}`);
         if (!cancelled) setAthlete(a);
       } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load profile');
-      } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load athlete profile');
       }
     })();
     return () => { cancelled = true; };
   }, []);
 
+  // Stats shown under the hero — biographical training-record counts that
+  // give the athlete a quick sense of their footprint in the system.
+  const loadStats = useCallback(async () => {
+    const athleteId = getSession()?.user?.athleteId;
+    if (!athleteId) return [];
+    const [acts, injs, reports] = await Promise.all([
+      api.get<Activity[]>(`/activities/athlete/${athleteId}?all=1`).catch(() => [] as Activity[]),
+      api.get<Injury[]>(`/injuries/athlete/${athleteId}`).catch(() => [] as Injury[]),
+      api.get<SelfReport[]>('/self-reports/mine').catch(() => [] as SelfReport[]),
+    ]);
+    const totalLoad = acts.reduce((s, a) => s + (a.load || 0), 0);
+    const cutoff30d = Date.now() - 30 * 86400000;
+    const sessions30d = acts.filter((a) => new Date(a.date).getTime() >= cutoff30d).length;
+    const activeInjuries = injs.filter((i) => i.recoveryStatus !== 'Recovered').length;
+    const pendingReports = reports.filter((r) => r.status === 'Pending').length;
+    return [
+      { label: 'Sessions logged (lifetime)', value: acts.length, hint: 'All-time training log' },
+      { label: 'Sessions in last 30 days', value: sessions30d, hint: 'Recent training' },
+      { label: 'Total training load (AU)', value: totalLoad.toLocaleString(), hint: 'Sum of all session loads' },
+      { label: 'Active injuries', value: activeInjuries, hint: pendingReports > 0 ? `${pendingReports} self-report pending review` : 'Recovering or chronic' },
+    ];
+  }, []);
+
   const programme = athlete?.programme ?? athlete?.program;
+  const roleBlurb = athlete?.sport
+    ? `${athlete.sport}${programme ? ` · ${programme}` : ''}`
+    : 'Athlete — training log and personal risk monitoring';
 
   return (
     <DashboardLayout allowedRoles={['athlete']} title="My Profile">
-      <div className="alert alert-info" style={{ marginBottom: 20 }}>
-        Personal details and biometric data are maintained by the medical and administrative teams.
-        If anything below is incorrect, please contact your physio or programme coordinator.
-      </div>
-
-      {loading ? (
-        <p className="text-muted">Loading profile…</p>
-      ) : error ? (
+      {error ? (
         <div className="alert alert-error">{error}</div>
-      ) : athlete && user ? (
-        <div className="grid-2-1">
-          {/* Left: Personal information */}
-          <div className="card">
-            <div className="card-header">
-              <h2 className="card-title" style={{ marginBottom: 0 }}>Personal Information</h2>
-              <span className="card-sub">Read-only · {athlete.athleteId}</span>
-            </div>
-            <div className="kv-grid" style={{ marginTop: 12 }}>
-              <div><span>Full Name</span><strong>{athlete.name}</strong></div>
-              <div><span>Athlete ID</span><strong>{athlete.athleteId}</strong></div>
-              <div><span>Age</span><strong>{fmt(athlete.age, ' yrs')}</strong></div>
-              <div><span>Gender</span><strong>{fmt(athlete.gender)}</strong></div>
-              <div><span>Height</span><strong>{fmt(athlete.height, ' cm')}</strong></div>
-              <div><span>Weight</span><strong>{fmt(athlete.weight, ' kg')}</strong></div>
-              <div><span>Sport</span><strong>{fmt(athlete.sport)}</strong></div>
-              <div><span>Programme</span><strong>{fmt(programme)}</strong></div>
-            </div>
+      ) : (
+        <ProfileShell
+          stats={[
+            { label: 'Sessions logged (lifetime)', value: '…' },
+            { label: 'Sessions in last 30 days', value: '…' },
+            { label: 'Total training load (AU)', value: '…' },
+            { label: 'Active injuries', value: '…' },
+          ]}
+          onLoadStats={loadStats}
+          roleBlurb={roleBlurb}
+        >
+          <div className="alert alert-info" style={{ marginBottom: 20 }}>
+            Personal details and biometric data are maintained by the medical and administrative teams.
+            If anything below is incorrect, please contact your physio or programme coordinator.
           </div>
 
-          {/* Right: Account + screening snapshot */}
-          <div>
-            <div className="card" style={{ marginBottom: 20 }}>
+          <div className="grid-2">
+            <div className="card">
               <div className="card-header">
-                <h2 className="card-title" style={{ marginBottom: 0 }}>Account</h2>
+                <h2 className="card-title" style={{ marginBottom: 0 }}>Personal Information</h2>
+                <span className="card-sub">Read-only · {athlete?.athleteId ?? ''}</span>
               </div>
               <div className="kv-grid" style={{ marginTop: 12 }}>
-                <div><span>Email</span><strong>{user.email}</strong></div>
-                <div><span>Role</span><strong style={{ textTransform: 'capitalize' }}>{user.role}</strong></div>
-                <div><span>Joined</span><strong>{fmtDate(user.createdAt)}</strong></div>
-                <div><span>Last Login</span><strong>{fmtDateTime(user.lastLoginAt)}</strong></div>
+                <div><span>Full Name</span><strong>{athlete?.name ?? '—'}</strong></div>
+                <div><span>Athlete ID</span><strong>{athlete?.athleteId ?? '—'}</strong></div>
+                <div><span>Age</span><strong>{fmt(athlete?.age, ' yrs')}</strong></div>
+                <div><span>Gender</span><strong>{fmt(athlete?.gender)}</strong></div>
+                <div><span>Height</span><strong>{fmt(athlete?.height, ' cm')}</strong></div>
+                <div><span>Weight</span><strong>{fmt(athlete?.weight, ' kg')}</strong></div>
+                <div><span>Sport</span><strong>{fmt(athlete?.sport)}</strong></div>
+                <div><span>Programme</span><strong>{fmt(programme)}</strong></div>
               </div>
             </div>
 
@@ -144,24 +135,19 @@ export default function AthleteProfilePage() {
                 <span className="card-sub">From the most recent ISN screening</span>
               </div>
               <div className="kv-grid" style={{ marginTop: 12 }}>
-                <div><span>Overall Activity Score</span><strong>{fmtScore(athlete.overallActivityScore)}</strong></div>
-                <div><span>Injury Risk Index</span><strong>{fmtScore(athlete.injuryRiskIndex)}</strong></div>
-                <div><span>Mobility</span><strong>{fmtScore(athlete.mobility)}</strong></div>
-                <div><span>Stability</span><strong>{fmtScore(athlete.stability)}</strong></div>
-                <div><span>Symmetry</span><strong>{fmtScore(athlete.symmetry)}</strong></div>
+                <div><span>Overall Activity Score</span><strong>{fmtScore(athlete?.overallActivityScore)}</strong></div>
+                <div><span>Injury Risk Index</span><strong>{fmtScore(athlete?.injuryRiskIndex)}</strong></div>
+                <div><span>Mobility</span><strong>{fmtScore(athlete?.mobility)}</strong></div>
+                <div><span>Stability</span><strong>{fmtScore(athlete?.stability)}</strong></div>
+                <div><span>Symmetry</span><strong>{fmtScore(athlete?.symmetry)}</strong></div>
               </div>
               <p className="text-muted" style={{ fontSize: '0.8rem', marginTop: 14, marginBottom: 0 }}>
                 Screenings are scheduled on-site at ISN. Speak to your physio to confirm your next session.
               </p>
             </div>
           </div>
-
-          {/* Change Password — spans both columns under the rest of the profile */}
-          <div style={{ gridColumn: '1 / -1' }}>
-            <ChangePasswordCard />
-          </div>
-        </div>
-      ) : null}
+        </ProfileShell>
+      )}
     </DashboardLayout>
   );
 }

@@ -19,6 +19,10 @@ interface ProfileShellProps {
   onLoadStats?: () => Promise<StatTile[]>;
   /** Long-form blurb under the role chip in the hero. */
   roleBlurb: string;
+  /** Optional role-specific content rendered below the standard chrome and
+   *  above the account-actions modal. Used by the athlete profile for the
+   *  Personal Information + Latest Screening Snapshot cards. */
+  children?: React.ReactNode;
 }
 
 function getInitials(name: string): string {
@@ -37,7 +41,7 @@ function getInitials(name: string): string {
  * Password change is wired to POST /api/auth/change-password — same policy
  * (10 chars, mixed case, digit, symbol) as the email-reset flow.
  */
-export default function ProfileShell({ stats: initialStats, onLoadStats, roleBlurb }: ProfileShellProps) {
+export default function ProfileShell({ stats: initialStats, onLoadStats, roleBlurb, children }: ProfileShellProps) {
   const router = useRouter();
   const [user, setUser] = useState<SessionUser | null>(null);
   const [stats, setStats] = useState<StatTile[]>(initialStats);
@@ -144,6 +148,10 @@ export default function ProfileShell({ stats: initialStats, onLoadStats, roleBlu
         ))}
       </div>
       {statsError && <div className="alert alert-error" style={{ marginTop: 12 }}>{statsError}</div>}
+
+      {/* Role-specific content slot (athlete uses this for Personal Info +
+          Screening Snapshot; medical/admin leave it empty). */}
+      {children && <div style={{ marginTop: 20 }}>{children}</div>}
 
       {/* Account info + actions */}
       <div className="grid-2" style={{ marginTop: 20 }}>

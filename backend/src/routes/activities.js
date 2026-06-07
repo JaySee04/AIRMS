@@ -123,6 +123,12 @@ router.put('/:id', auth, rbac('athlete'), async (req, res) => {
     if (duration !== undefined) activity.duration = duration;
     if (intensity !== undefined) activity.intensity = intensity;
     if (notes !== undefined) activity.notes = notes;
+    // Explicitly recompute load BEFORE save(). The model's beforeValidate /
+    // beforeSave hook also computes this, but Sequelize freezes its dirty-
+    // field set before those hooks fire, so a recompute in a hook never
+    // makes it into the UPDATE statement. Setting `load` here puts it in
+    // the dirty set, which makes the UPDATE include it.
+    activity.load = Number(activity.duration) * Number(activity.intensity);
     await activity.save();
     res.json(serializeGeneric(activity));
   } catch (err) {

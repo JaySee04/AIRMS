@@ -239,7 +239,7 @@ function buildInjuries(athletes) {
       date: dt,
       recoveryStatus: pick(RECOVERY),
       source: rnd() < 0.7 ? 'Medical Log' : 'Athlete Self-Report',
-      loggedBy: 'Dr. Aisyah Rahman',
+      loggedBy: 'Medical Demo 01',
     });
   }
 
@@ -247,15 +247,15 @@ function buildInjuries(athletes) {
     { athleteId: 'ATH0001', athleteName: 'John Doe', sport: 'Badminton', gender: 'Male', program: 'PODIUM', athleteAge: 19,
       bodyPart: 'Ankle', side: 'Right', injuryType: 'Sprain', severity: 'Moderate', mechanism: 'Non-contact',
       date: new Date('2025-11-12'), recoveryStatus: 'Recovered', source: 'Medical Log',
-      loggedBy: 'Dr. Aisyah Rahman', notes: 'Lateral ankle sprain during match. Returned to play after 3 weeks.' },
+      loggedBy: 'Medical Demo 01', notes: 'Lateral ankle sprain during match. Returned to play after 3 weeks.' },
     { athleteId: 'ATH0001', athleteName: 'John Doe', sport: 'Badminton', gender: 'Male', program: 'PODIUM', athleteAge: 19,
       bodyPart: 'Knee', side: 'Right', injuryType: 'Tendinitis', severity: 'Minor', mechanism: 'Overuse',
       date: new Date('2026-02-04'), recoveryStatus: 'Recovering', source: 'Medical Log',
-      loggedBy: 'Dr. Aisyah Rahman', notes: 'Patellar tendinitis. Modified training plan in place.' },
+      loggedBy: 'Medical Demo 01', notes: 'Patellar tendinitis. Modified training plan in place.' },
     { athleteId: 'ATH0001', athleteName: 'John Doe', sport: 'Badminton', gender: 'Male', program: 'PODIUM', athleteAge: 19,
       bodyPart: 'Shoulder', side: 'Right', injuryType: 'Strain', severity: 'Minor', mechanism: 'Overuse',
       date: new Date('2026-04-22'), recoveryStatus: 'Recovering', source: 'Athlete Self-Report',
-      loggedBy: 'Dr. Aisyah Rahman', notes: 'Rotator cuff irritation. Smash technique under review.' }
+      loggedBy: 'Medical Demo 01', notes: 'Rotator cuff irritation. Smash technique under review.' }
   );
   return injuries;
 }
@@ -279,12 +279,12 @@ function buildSelfReports() {
       bodyPart: 'Wrist', side: 'Left', injuryType: 'Strain', severity: 'Minor',
       description: 'Slight wrist pain. Suspect from gym session over weekend.',
       status: 'Approved', reviewNote: 'Approved — added to official record.',
-      reviewedBy: 'Dr. Aisyah Rahman', reviewedAt: new Date('2026-05-06') },
+      reviewedBy: 'Medical Demo 01', reviewedAt: new Date('2026-05-06') },
     { athleteId: 'ATH0030', athleteName: 'Adam Latif', sport: 'Karate',
       bodyPart: 'Hip', side: 'Right', injuryType: 'Strain', severity: 'Moderate',
       description: 'Pulled hip flexor at home doing yoga. Painful walking.',
       status: 'Rejected', reviewNote: 'Insufficient detail to confirm — please book consult.',
-      reviewedBy: 'Dr. Aisyah Rahman', reviewedAt: new Date('2026-05-05') },
+      reviewedBy: 'Medical Demo 01', reviewedAt: new Date('2026-05-05') },
   ];
 }
 
@@ -293,7 +293,7 @@ function buildUsers() {
   // them when bulkCreate runs with individualHooks: true.
   return [
     { name: 'Admin User', email: 'admin@isn.gov.my', password: 'admin123', role: 'admin' },
-    { name: 'Dr. Aisyah Rahman', email: 'medical@isn.gov.my', password: 'medical123', role: 'medical' },
+    { name: 'Medical Demo 01', email: 'medical@isn.gov.my', password: 'medical123', role: 'medical' },
     { name: 'John Doe', email: 'athlete@isn.gov.my', password: 'athlete123', role: 'athlete', athleteId: 'ATH0001' },
   ];
 }
