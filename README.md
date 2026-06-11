@@ -64,7 +64,7 @@ Citations (FYP I report — refreshed 2026-06-04 for recency):
 - Inoue, A. et al. (2022). *Internal training load perceived by athletes and planned by coaches: A systematic review and meta-analysis.* Sports Med - Open, 8(1), 35.
 - Yang, C. et al. (2024). *Research application of session-RPE in monitoring the training load of elite endurance athletes.* Frontiers in Physiology, 15, 1341972.
 - Gabbett (2016). *The training-injury prevention paradox.* Br J Sports Med, 50(5) — ACWR formulation, referenced in `docs/DESIGN_DECISIONS.md` but absorbed into Qin (2025) for the lit review.
-- Foster (2001) — sRPE method origin; cited in implementation/architecture docs but no longer a primary lit-review citation (carried by Inoue + Yang).
+
 
 Implementation: [`frontend/src/lib/risk.ts`](frontend/src/lib/risk.ts).
 Why this matters: [`docs/DESIGN_DECISIONS.md §2`](docs/DESIGN_DECISIONS.md#2-composite-risk-model-fyp-differentiator).

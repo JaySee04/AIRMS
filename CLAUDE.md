@@ -90,7 +90,7 @@ From `docs/MASTER_CLARIFICATIONS.md §12`:
 
 - The 3-role model (athlete / medical / admin)
 - The composite risk model formula
-- sRPE method for load calculation (`load = duration × intensity`) — method origin Foster (2001); FYP I report cites Inoue (2022) + Yang (2024) as contemporary validators
+- sRPE method for load calculation (`load = duration × intensity`) — validated by Inoue (2022) for scale reliability and Yang (2024) for physiological correspondence
 - The body map asset source — path data adapted from MIT-licensed [`react-muscle-highlighter`](https://github.com/soroojshehryar/react-muscle-highlighter) by Sorooj Shehryar; lives in `frontend/src/components/dashboard/bodymap-data/` with MIT attribution preserved at the top of every file. **This attribution must stay in the FYP references section.**
 - The aggregation policy: figure shows regions, side cards show specific muscles
 - The Figma-derived UI (split login card, sidebar branding, topbar dropdown)

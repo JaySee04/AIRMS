@@ -11,7 +11,7 @@
 **Decision:** Load (AU) = Duration (min) × RPE (1–10), self-reported by the athlete.
 
 **Why:**
-- Validated method per Inoue et al. (2022) and Yang et al. (2024); method origin Foster et al. (2001), "A New Approach to Monitoring Exercise Training"
+- Validated method per Inoue et al. (2022) and Yang et al. (2024)
 - Captures **internal** load (how hard the athlete experienced the session) rather than external load (HR, GPS, power)
 - Scales without any sensor hardware — works for every sport at every venue
 - ISN does not have universal HRM/GPS coverage across its athlete pool
@@ -23,7 +23,7 @@
 
 **Counter to "but isn't self-reporting gameable?":** The system tracks the *ratio* of acute to chronic. Even if an athlete consistently over- or under-rates, their personal trend is meaningful. Internal consistency matters more than inter-athlete comparability.
 
-**Defensibility one-liner:** *"sRPE is the most widely cited method for capturing internal training load in team-sport literature. Originally proposed by Foster et al. (2001) and revalidated in present-day contexts by Inoue et al. (2022) and Yang et al. (2024); Gabbett (2016) built ACWR around it. Self-reporting is by design — it captures how the athlete experienced the session, which is what predicts injury risk."*
+**Defensibility one-liner:** *"sRPE is the most widely cited method for capturing internal training load in team-sport literature, validated in contemporary contexts by Inoue et al. (2022) and Yang et al. (2024); Gabbett (2016) built ACWR around it. Self-reporting is by design — it captures how the athlete experienced the session, which is what predicts injury risk."*
 
 ---
 
@@ -127,6 +127,14 @@ The original Mongo rationale leaned on the hierarchical shape of athlete screeni
 - The 8 risk indicators stored as flat columns on `athletes`; reassembled into a nested `risks` object by the serialiser before the frontend sees the response.
 
 The net result is the same JSON shape on the wire, with engine-enforced integrity behind it.
+
+### Intentional snapshot denormalisation in `injuries` and `self_reports`
+
+Both tables store `athlete_name`, `sport`, `gender`, and `athlete_age` as columns even though the same data exists on the `athletes` table. This is deliberate: an injury record is a clinical snapshot that must remain accurate regardless of future profile edits (name correction, sport transfer, etc.). The denormalised fields are written once at record creation and never updated. This is the same pattern used in financial ledgers — the line-item records the price at the time of the transaction, not the current catalogue price.
+
+The `athletes` table and the normalised `muscle_flags` / `recovery_baselines` tables are fully normalised. Only the two event-log tables (`injuries`, `self_reports`) carry intentional snapshot columns.
+
+**Defensibility one-liner:** *"Clinical and financial records both snapshot the relevant context at the time of creation. The athlete could be transferred to a different sport next month — the injury record from today must still reflect the sport they were playing when they were injured."*
 
 **Defensibility one-liner:** *"MySQL matches ISN's production environment, provides engine-level foreign keys and ACID transactions for clinical records, and lets the same Sequelize model layer drive both schema validation and derived-field hooks like sRPE load computation. The original document-store choice is documented in MONGO_RECOVERY.md as a historical record."*
 
@@ -245,4 +253,4 @@ Minor calls that didn't get a full section but are worth recording:
 
 ---
 
-*Last updated: 2026-05-17. Update whenever a meaningful architectural call is made.*
+*Last updated: 2026-06-11. Update whenever a meaningful architectural call is made.*

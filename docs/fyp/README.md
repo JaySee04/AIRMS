@@ -8,7 +8,7 @@ Drop the canonical FYP I deliverables here for repo-tracked reference:
 As of the 2026-06-04 draft, the Literature Review citations have been **refreshed for recency** and the **front-matter pages are now populated**:
 - Andrade et al. (2020) → Qin et al. (2025) + Michailidis (2024) for the workload/ACWR cluster
 - Bahr et al. (2020) → Sprouse et al. (2024) + Waldén et al. (2023) for the standardised-data cluster (Bahr retained as a lineage reference inside Sprouse's paragraph)
-- Foster et al. (2001) dropped as a primary lit-review citation — the sRPE method is now carried by Inoue (2022) + Yang (2024)
+- sRPE method carried by Inoue (2022) + Yang (2024)
 - Section 2.5 Summary Table now spans 7 papers across 4 thematic clusters
 - Table of Contents, List of Figures, List of Tables, List of Symbols and Abbreviations all populated; Acknowledgements panel names filled in
 

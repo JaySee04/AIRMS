@@ -88,7 +88,7 @@ Modules 1+2 are the FYP showcases requiring no further iteration. Modules 3–6 
 - Error and success states surfaced inline
 - ACWR feeds Module 2 dashboard via the shared backend route
 
-**FYP defensibility hook:** This module is the canonical demonstration of the **sRPE method**. The method originates with Foster et al. (2001) but is cited in the FYP I report via its contemporary validators — Inoue et al. (2022) for scale reliability and Yang et al. (2024) for physiological correspondence. The live load preview teaches the formula to the user. See [DESIGN_DECISIONS.md §1](DESIGN_DECISIONS.md#1-srpe-for-internal-load).
+**FYP defensibility hook:** This module is the canonical demonstration of the **sRPE method**, cited via its contemporary validators — Inoue et al. (2022) for scale reliability and Yang et al. (2024) for physiological correspondence. The live load preview teaches the formula to the user. See [DESIGN_DECISIONS.md §1](DESIGN_DECISIONS.md#1-srpe-for-internal-load).
 
 ---
 

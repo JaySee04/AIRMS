@@ -72,32 +72,37 @@ Total 100% across four components:
 
 ## 5. Outstanding items before viva
 
-### Resolved in 2026-06-04 draft (`FYP I REPORT (1).pdf`)
+### Previously resolved (pre-2026-06-11)
 
-The latest report draft closes another round of items on top of the 2026-05-25 carry-over:
+- ✅ Literature review citation refresh — Qin (2025) + Michailidis (2024) + Sprouse (2024) + Inoue (2022) + Yang (2024) carry the sRPE/ACWR/surveillance clusters
+- ✅ Section 2.5 Summary Table — 7 papers across 4 clusters
+- ✅ Front-matter pages — TOC, List of Figures, List of Tables, Symbols all populated
+- ✅ Acknowledgements — panel names (Dr. Fairuz Amalina, Dr. Maizatul Akmar Ismail) filled in
+- ✅ Chapter 2.6 Existing Systems — Kitman Labs, Teamworks, Catapult Sports, ATS each with table + screenshot
+- ✅ Analysis & Design corrections — UC labels, figure titles, actor labels all corrected
+- ✅ Abstract — 300 words, covers intro/objective/method/findings/discussion
+- ✅ Conclusion Chapter 7 — present and complete
+- ✅ Project Logbook signatures — present in `FYP I REPORT (3).pdf` appendix
 
-- ✅ **Literature review citation refresh** — Andrade et al. (2020) replaced by Qin et al. (2025) + Michailidis (2024); Bahr et al. (2020) replaced by Sprouse et al. (2024) + Waldén et al. (2023); Foster et al. (2001) dropped as a primary citation (sRPE method now carried by Inoue 2022 + Yang 2024). References list (p. 60) is internally consistent — no in-text citation resolves to a missing entry.
-- ✅ **Section 2.5 Summary Table expanded** — now contains 7 papers across 4 thematic clusters (Workload/ACWR: Qin + Michailidis · Surveillance: Costello · Standards: Sprouse + Waldén · Session Load: Inoue + Yang). Foster row removed.
-- ✅ **Front-matter pages generated** — Table of Contents (p. 8), List of Figures (p. 10), List of Tables (p. 11), List of Symbols and Abbreviations (pp. 12–13) all populated.
-- ✅ **Acknowledgements (p. 6)** — panel names filled in (Dr. Fairuz Amalina and Dr. Maizatul Akmar Ismail).
-- ✅ **Existing systems comparison (Chapter 2.6)** — repositioned correctly with detailed sub-sections for Kitman Labs, Teamworks, Catapult Sports, ATS each with table + URL + screenshot.
+### Issues found in 2026-06-11 review (`FYP I REPORT (3).pdf`) — fix in Word document
 
-### Resolved in 2026-05-25 draft
+1. **§ Abbreviations (pp. 12–13)** — `NoSQL` and `ODM` listed but neither term has any referent in the MySQL/Sequelize stack. Remove both rows.
+2. **§2.4 (p. 23)** — "a Mongoose pre-save hook automatically computes the AU load" — system uses Sequelize, not Mongoose. Change to "a Sequelize model hook automatically computes the AU load at write time, persisting the derived value."
+3. **§2.1–2.3 and §2.6 framing** — repeated "student wellness," "student sports portal," "university sports environments," "university student athletes," "open-access platform." AIRMS serves ISN national elite athletes, not university students. Replace with institutional/ISN/elite framing throughout; remove "open-access" (contradicts the NDA).
+4. **Conclusion (p. 59–61) — overclaims for FYP I** — "all three project objectives were successfully achieved," "end-to-end testing confirm," "usability assessment with medical practitioners confirming." No evaluation chapter, no participants, no results exist in this report. Objective 3 is planned, not complete. Soften to expected/planned outcomes.
+5. **§5.1.1 (p. 47) — normalisation claim vs ERD** — "Its normalised relational model" but `injuries` and `self_reports` snapshot `athlete_name`, `sport`, `gender`, `athlete_age` (visible in ERD Fig 4.9). Qualify: intentional snapshot denormalisation in event-log tables; `athletes`, `muscle_flags`, `recovery_baselines` are normalised.
+6. **§5.1.1 (p. 48) — "Module 3 promotion"** — modules are not numbered anywhere else in Ch. 5. Change to "the self-report approval workflow's promotion."
+7. **Conclusion (p. 61) — SHA-256 and password policy specifics** — "SHA-256-hashed single-use tokens … complexity policy of at least ten characters with mixed case, digit, and symbol" never appear as requirements in Chapter 4. Trim to "an email-driven password reset flow, and an in-place change-password capability with complexity enforcement."
+8. **Table 5.1 (p. 47) — Database label** — table shows MySQL logo but the label underneath reads "MongoDB." Change label to "MySQL."
 
-- ✅ **Analysis & Design corrections** — UC-1 now "Login Account"; Medical Staff Dashboard actor labelled "Medical Staff"; Figures 4.10 / 4.11 / 4.12 correctly titled; Figure 4.16 shows the Athlete Injury Report page; Figure 4.20 (Medical Report Review) no longer duplicated.
-- ✅ **Abstract** — 300-word abstract present (report p. 7), covers intro / objective / method / findings / discussion.
-- ✅ **Conclusion (Chapter 7)** — full chapter present.
-- ✅ **Figure 5.1 (System Architecture)** — removed from Chapter 5.
-
-### Still outstanding (as of 2026-06-04)
+### Still outstanding from earlier reviews
 
 1. **Original Literary Work Declaration (p. 4)** — "Field of Study" still blank; Witness Signature / Name / Designation still blank.
-2. **Section 2.1 — duplicate paragraph** — the "In conclusion, while ACWR represents..." paragraph appears twice (p. 19). Delete the second occurrence.
-3. **Sprint count inconsistency** — report (p. 29) says "two broad sprints"; slides 18/20 mention "three broad sprints". Align to one count across both artefacts.
-4. **UC-2 reset password user role mismatch** — slide 20 says "Medical Staff, Administrator"; report p. 33 still lists "Athlete, Medical Staff, Administrator". Pick one (slides version matches the seeded-credentials model).
-5. **Slides p. 38 subheading** — Data Import activity diagram is labelled "UC-20 to UC-21: Self-Reported Injury Workflow"; should read "Data Import Workflow".
-6. **Project Logbook (slides pp. 52–53)** — Supervisor signature column still blank for all 7 entries.
-7. **List of Appendices** — not yet generated in the report front-matter (only Table of Contents / Figures / Tables / Symbols are populated). Confirm whether the FYP I report template requires this — if so, generate before submission.
+2. **§2.1 duplicate paragraph** — "In conclusion, while ACWR represents..." appears twice (p. 19). Delete the second occurrence.
+3. **Sprint count inconsistency** — report (p. 29) says "two broad sprints"; slides mention "three." Align across both artefacts.
+4. **UC-2 reset password user role** — slide says "Medical Staff, Administrator"; report (p. 33) lists all three roles. Pick one.
+5. **Slides p. 38 subheading** — Data Import activity diagram mislabelled as "Self-Reported Injury Workflow."
+6. **List of Appendices** — not in report front-matter TOC; confirm whether template requires it.
 
 ---
 
@@ -107,4 +112,4 @@ Different rubrics will apply (heavier weight on system implementation, full depl
 
 ---
 
-*Updated 2026-06-04 after diffing `FYP I REPORT (1).pdf` against the previous 2026-05-25 outstanding-items list.*
+*Updated 2026-06-11 after reviewing `FYP I REPORT (3).pdf`.*

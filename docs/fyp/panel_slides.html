@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>AIRMS Panel Defence Slides</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0d1b2a;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      padding: 24px 0;
+    }
+
+    /* ── Slide shell ── */
+    .slide {
+      display: none;
+      width: 960px;
+      min-height: 540px;
+      background: #fff;
+      border-radius: 6px;
+      overflow: hidden;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+      flex-direction: column;
+    }
+    .slide.active { display: flex; }
+
+    /* ── Header bar ── */
+    .slide-header {
+      background: #1b3a6b;
+      padding: 22px 36px 18px;
+      color: #fff;
+      flex-shrink: 0;
+    }
+    .slide-header .eyebrow {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 2.5px;
+      color: #7aafd4;
+      margin-bottom: 6px;
+    }
+    .slide-header h2 { font-size: 22px; font-weight: 700; line-height: 1.25; }
+
+    /* ── Body ── */
+    .slide-body {
+      padding: 24px 36px 20px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Navigation ── */
+    .nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 960px;
+      padding: 14px 0 0;
+    }
+    .nav button {
+      background: rgba(255,255,255,0.08);
+      color: #ccd9e8;
+      border: 1px solid rgba(255,255,255,0.15);
+      padding: 8px 22px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: background 0.15s;
+    }
+    .nav button:hover:not(:disabled) { background: rgba(255,255,255,0.18); }
+    .nav button:disabled { opacity: 0.25; cursor: not-allowed; }
+    .slide-counter { color: rgba(255,255,255,0.45); font-size: 13px; }
+
+    /* ── Typography helpers ── */
+    p   { font-size: 13px; color: #2d3748; line-height: 1.65; margin: 5px 0; }
+    ul  { font-size: 13px; color: #2d3748; line-height: 1.75; padding-left: 18px; }
+    ol  { font-size: 12px; color: #2d3748; line-height: 1.8;  padding-left: 16px; }
+
+    .section-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: #1b7fc4;
+      margin: 14px 0 6px;
+    }
+
+    /* ── Layout helpers ── */
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+    .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+
+    /* ── Formula box ── */
+    .formula {
+      background: #f0f6ff;
+      border-left: 3px solid #1b7fc4;
+      padding: 10px 14px;
+      font-family: 'SFMono-Regular', 'Consolas', monospace;
+      font-size: 12px;
+      color: #1a2940;
+      border-radius: 0 4px 4px 0;
+      margin: 6px 0;
+      white-space: pre;
+      line-height: 1.7;
+    }
+
+    /* ── Pipeline ── */
+    .pipeline {
+      display: flex;
+      align-items: stretch;
+      gap: 0;
+      margin: 16px 0;
+    }
+    .pipeline-step {
+      flex: 1;
+      background: #f4f9ff;
+      border: 1.5px solid #c5daf0;
+      border-radius: 6px;
+      padding: 12px 10px;
+      text-align: center;
+    }
+    .pipeline-step.highlight {
+      background: #eafaf3;
+      border-color: #7ecfab;
+    }
+    .step-eyebrow {
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: #1b7fc4;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .pipeline-step.highlight .step-eyebrow { color: #0a8a5c; }
+    .step-name  { font-size: 13px; font-weight: 700; color: #1b3a6b; margin-bottom: 5px; }
+    .step-formula { font-family: monospace; font-size: 11.5px; color: #444; }
+    .step-example { font-size: 11px; font-weight: 700; color: #1b7fc4; margin-top: 4px; }
+    .pipeline-step.highlight .step-example { color: #0a8a5c; }
+    .pipe-arrow {
+      display: flex; align-items: center; padding: 0 8px;
+      color: #1b7fc4; font-size: 18px; flex-shrink: 0;
+    }
+
+    /* ── Tables ── */
+    table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin: 8px 0; }
+    th {
+      background: #1b3a6b; color: #fff;
+      padding: 8px 12px; text-align: left; font-weight: 600; font-size: 12px;
+    }
+    td { padding: 7px 12px; border-bottom: 1px solid #eaeef4; color: #2d3748; vertical-align: top; }
+    tr:nth-child(even) td { background: #f8fafc; }
+
+    /* ── Tags ── */
+    .tag {
+      display: inline-block; padding: 2px 8px;
+      border-radius: 3px; font-size: 11px; font-weight: 600;
+    }
+    .tag-blue   { background: #dbeeff; color: #0059a8; }
+    .tag-green  { background: #d6f5e8; color: #006644; }
+    .tag-amber  { background: #fff3cc; color: #7a5000; }
+    .tag-red    { background: #fde2e8; color: #a80030; }
+
+    /* ── Point cards ── */
+    .point-card {
+      background: #f8fafc;
+      border: 1.5px solid #dde6f0;
+      border-radius: 8px;
+      padding: 16px;
+    }
+    .pc-number {
+      font-size: 26px; font-weight: 800;
+      color: #1b7fc4; line-height: 1; margin-bottom: 6px;
+    }
+    .pc-title  { font-size: 13px; font-weight: 700; color: #1b3a6b; margin-bottom: 6px; }
+    .pc-body   { font-size: 12px; color: #4a5568; line-height: 1.55; }
+
+    /* ── Callout ── */
+    .callout {
+      background: #fffbea;
+      border-left: 3px solid #e8a000;
+      padding: 10px 14px;
+      border-radius: 0 4px 4px 0;
+      font-size: 12px; color: #5a3e00;
+      font-style: italic; line-height: 1.6;
+      margin: 10px 0;
+    }
+
+    /* ── Weight bars ── */
+    .weight-row { display: flex; align-items: center; gap: 10px; margin: 4px 0; font-size: 12px; }
+    .weight-label { width: 195px; color: #2d3748; flex-shrink: 0; font-size: 11.5px; }
+    .weight-bar-bg { flex: 1; background: #dde9f5; height: 12px; border-radius: 6px; overflow: hidden; }
+    .weight-bar    { height: 100%; background: #1b7fc4; border-radius: 6px; }
+    .weight-val    { width: 32px; text-align: right; font-weight: 700; color: #1b3a6b; font-size: 12px; }
+
+    /* ── Gate boxes ── */
+    .gate-box {
+      border: 1.5px solid #dde6f0;
+      border-radius: 6px;
+      padding: 10px 13px;
+      margin: 6px 0;
+      background: #f8fbff;
+    }
+    .gate-name {
+      font-size: 10px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 1px;
+      color: #1b3a6b; margin-bottom: 4px;
+    }
+    .gate-condition { font-family: monospace; font-size: 11.5px; color: #0059a8; line-height: 1.5; }
+    .gate-effect    { font-size: 11.5px; color: #2d3748; margin-top: 4px; }
+
+    /* ── Step circles ── */
+    .step-row { display: flex; gap: 10px; align-items: flex-start; margin: 5px 0; }
+    .step-circle {
+      width: 22px; height: 22px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700; flex-shrink: 0; margin-top: 1px;
+    }
+
+    /* ── Cover slide ── */
+    .cover-body {
+      flex: 1;
+      background: linear-gradient(135deg, #1b3a6b 0%, #0d1f3c 100%);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      text-align: center; padding: 40px 60px; color: #fff;
+    }
+    .cover-eyebrow {
+      font-size: 10px; text-transform: uppercase;
+      letter-spacing: 3px; color: #7aafd4; margin-bottom: 14px;
+    }
+    .cover-title { font-size: 30px; font-weight: 700; line-height: 1.2; margin-bottom: 10px; }
+    .cover-subtitle { font-size: 15px; color: #7aafd4; margin-bottom: 36px; }
+    .cover-meta { display: flex; gap: 40px; }
+    .meta-label { font-size: 9px; text-transform: uppercase; letter-spacing: 2px; color: #7aafd4; margin-bottom: 2px; }
+    .meta-val   { font-size: 13px; font-weight: 600; }
+  </style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════
+     SLIDE 0 — Cover
+════════════════════════════════════════════════ -->
+<div class="slide active" id="slide-0">
+  <div class="cover-body">
+    <div class="cover-eyebrow">FYP II · Panel Defence</div>
+    <div class="cover-title">Interactive Student Sports Portal<br>with Health Dashboard</div>
+    <div class="cover-subtitle">AIRMS — Athlete Injury Risk Management System</div>
+    <div class="cover-meta">
+      <div>
+        <div class="meta-label">Stakeholder</div>
+        <div class="meta-val">Dr Thung · Institut Sukan Negara</div>
+      </div>
+      <div>
+        <div class="meta-label">Supervisor</div>
+        <div class="meta-val">Dr Hoo Wai Lam</div>
+      </div>
+      <div>
+        <div class="meta-label">Stack</div>
+        <div class="meta-val">Next.js 14 · Node/Express · MySQL</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     SLIDE 1 — sRPE → ACWR Pipeline
+════════════════════════════════════════════════ -->
+<div class="slide" id="slide-1">
+  <div class="slide-header">
+    <div class="eyebrow">System Mathematics · Part 1 of 2</div>
+    <h2>Training Load Pipeline — sRPE to ACWR</h2>
+  </div>
+  <div class="slide-body">
+
+    <div class="pipeline">
+      <div class="pipeline-step">
+        <div class="step-eyebrow">Step 1</div>
+        <div class="step-name">Session Load</div>
+        <div class="step-formula">duration × RPE</div>
+        <div class="step-example">75 min × RPE 8 = 600 AU</div>
+      </div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipeline-step">
+        <div class="step-eyebrow">Step 2</div>
+        <div class="step-name">Acute Load</div>
+        <div class="step-formula">Σ loads, last 7 days</div>
+        <div class="step-example">John: 2,860 AU</div>
+      </div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipeline-step">
+        <div class="step-eyebrow">Step 3</div>
+        <div class="step-name">Chronic Load</div>
+        <div class="step-formula">(wk₁+wk₂+wk₃+wk₄) / 4</div>
+        <div class="step-example">John: 8,775 / 4 = 2,194 AU</div>
+      </div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipeline-step highlight">
+        <div class="step-eyebrow">Step 4</div>
+        <div class="step-name">ACWR</div>
+        <div class="step-formula">acute / chronic</div>
+        <div class="step-example">John: 2,860 / 2,194 = 1.30</div>
+      </div>
+    </div>
+
+    <div class="two-col" style="margin-top:6px; flex:1;">
+      <div>
+        <div class="section-label">sRPE Method</div>
+        <ul>
+          <li>Modified Borg CR-10 scale — clamped to <strong>1–10</strong> (not 0–10)</li>
+          <li>Lower bound of 1 prevents zero-load sessions from collapsing the chronic average</li>
+          <li>Captures cardiovascular, neuromuscular &amp; metabolic strain in a single number</li>
+        </ul>
+        <p style="margin-top:8px;font-size:11px;color:#666;">
+          Inoue (2022) — scale reliability meta-analysis &nbsp;·&nbsp;
+          Yang (2024) — sRPE vs HR-TRIMP physiological correspondence
+        </p>
+      </div>
+      <div>
+        <div class="section-label">ACWR Zones — Gabbett (2016) · Reaffirmed Qin (2025)</div>
+        <table>
+          <tr><th>Band</th><th>ACWR</th><th>Interpretation</th></tr>
+          <tr><td><span class="tag tag-blue">Detraining Risk</span></td><td>&lt; 0.80</td><td>Load too low; fitness decay risk</td></tr>
+          <tr><td><span class="tag tag-green">Low Risk</span></td><td>0.80 – 1.30</td><td>Safe training zone (56% lowest injury incidence)</td></tr>
+          <tr><td><span class="tag tag-amber">Moderate</span></td><td>1.30 – 1.50</td><td>Elevated; monitor recovery</td></tr>
+          <tr><td><span class="tag tag-red">High Risk</span></td><td>&gt; 1.50</td><td>Danger zone; spike risk</td></tr>
+        </table>
+        <p style="font-size:11px;color:#666;margin-top:4px;">Coupled ACWR (acute included in chronic) — dominant protocol in ~95% of pooled studies (Qin 2025)</p>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     SLIDE 2 — Personalised Risk Model
+════════════════════════════════════════════════ -->
+<div class="slide" id="slide-2">
+  <div class="slide-header">
+    <div class="eyebrow">System Mathematics · Part 2 of 2 — AIRMS Differentiator</div>
+    <h2>Personalised Thresholds + Composite Escalation</h2>
+  </div>
+  <div class="slide-body">
+    <div class="two-col" style="flex:1;">
+
+      <!-- Left column -->
+      <div>
+        <div class="section-label">Step 5 — Vulnerability Score &nbsp;<span style="font-size:10px;font-weight:400;color:#888;">(range 0 = robust → 1 = vulnerable)</span></div>
+        <div class="weight-row"><span class="weight-label">injuryRiskIndex (ISN composite)</span><div class="weight-bar-bg"><div class="weight-bar" style="width:60%"></div></div><span class="weight-val">0.30</span></div>
+        <div class="weight-row"><span class="weight-label">overallActivityScore deficit</span><div class="weight-bar-bg"><div class="weight-bar" style="width:40%"></div></div><span class="weight-val">0.20</span></div>
+        <div class="weight-row"><span class="weight-label">mobility deficit</span><div class="weight-bar-bg"><div class="weight-bar" style="width:40%"></div></div><span class="weight-val">0.20</span></div>
+        <div class="weight-row"><span class="weight-label">stability deficit</span><div class="weight-bar-bg"><div class="weight-bar" style="width:30%"></div></div><span class="weight-val">0.15</span></div>
+        <div class="weight-row"><span class="weight-label">symmetry deficit</span><div class="weight-bar-bg"><div class="weight-bar" style="width:30%"></div></div><span class="weight-val">0.15</span></div>
+        <p style="font-size:11px;color:#666;margin-top:5px;">All inputs normalised &amp; clamped to [0,1]. &nbsp;John: <strong>vulnerability = 0.217</strong></p>
+
+        <div class="section-label" style="margin-top:12px;">Step 6 — Personalised Thresholds</div>
+        <div class="formula">factor = clamp(1 + (vuln − 0.4) × 0.4,  0.85, 1.15)
+lowMin = 0.80 × factor
+lowMax = 1.30 / factor
+modMax = 1.50 / factor</div>
+        <table style="margin-top:6px;">
+          <tr><th>Athlete</th><th>factor</th><th>lowMin</th><th>lowMax</th><th>modMax</th></tr>
+          <tr><td>Baseline (vuln=0.40)</td><td>1.000</td><td>0.80</td><td>1.30</td><td>1.50</td></tr>
+          <tr><td><strong>John (vuln=0.217)</strong></td><td>0.927</td><td><strong>0.74</strong></td><td><strong>1.40</strong></td><td><strong>1.62</strong></td></tr>
+          <tr><td>High-risk (vuln=0.85)</td><td>1.15†</td><td>0.92</td><td>1.13</td><td>1.30</td></tr>
+        </table>
+        <p style="font-size:10px;color:#888;">† clamped at max 1.15 — band stays within ±15% of Gabbett thresholds</p>
+      </div>
+
+      <!-- Right column -->
+      <div>
+        <div class="section-label">Step 7 — Composite Escalation Gates</div>
+        <div class="gate-box">
+          <div class="gate-name">Gate 1 — Active Injuries</div>
+          <div class="gate-condition">injuryCount &gt; 0
+AND (baseCls = 'mod'
+     OR (baseCls = 'low' AND ACWR &gt; 1.0))</div>
+          <div class="gate-effect">→ escalate(cls): low→mod · mod→high</div>
+        </div>
+        <div class="gate-box">
+          <div class="gate-name">Gate 2 — Muscle Flags &nbsp;<em style="font-style:normal;color:#888;">(runs on post-Gate-1 state)</em></div>
+          <div class="gate-condition">flagCount ≥ 5
+AND (cls = 'mod'
+     OR (cls = 'low' AND ACWR &gt; 1.1))</div>
+          <div class="gate-effect">→ escalate(cls) — double-escalation possible: low→mod→high</div>
+        </div>
+
+        <div class="section-label" style="margin-top:12px;">John Doe — End-to-End</div>
+        <p style="font-size:11.5px;color:#555;margin-bottom:6px;">ACWR 1.30 &nbsp;·&nbsp; 5 active injuries &nbsp;·&nbsp; 4 muscle flags &nbsp;·&nbsp; bands 0.74/1.40/1.62</p>
+        <ol>
+          <li>baseCls = <span class="tag tag-green">low</span> &nbsp;(1.30 ≥ 0.74 and 1.30 ≤ 1.40)</li>
+          <li>Gate 1 fires → cls = <span class="tag tag-amber">mod</span> &nbsp;(5 injuries, ACWR &gt; 1.0)</li>
+          <li>Gate 2: 4 flags &lt; 5 → does not fire</li>
+          <li>escalated = true → <strong>Compound Moderate Risk</strong></li>
+        </ol>
+        <div class="callout" style="margin-top:10px;">
+          Gates compose sequentially — Gate 2 checks cls after Gate 1, enabling low → mod → high when both fire simultaneously.
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     SLIDE 3 — Title Defence
+════════════════════════════════════════════════ -->
+<div class="slide" id="slide-3">
+  <div class="slide-header">
+    <div class="eyebrow">Panel Response</div>
+    <h2>Why the Title Stays: "Interactive Student Sports Portal with Health Dashboard"</h2>
+  </div>
+  <div class="slide-body">
+    <div class="three-col" style="flex:1;align-items:stretch;">
+      <div class="point-card">
+        <div class="pc-number">3</div>
+        <div class="pc-title">Generations of ISN Collaboration</div>
+        <div class="pc-body">
+          This title has been the collaboration umbrella across <strong>three consecutive FYP cohorts</strong> at ISN.
+          <br><br>
+          <strong>Shewin → Keying → JC</strong>
+          <br><br>
+          ISN signed the stakeholder collaboration letter under this exact title. Renaming now creates a mismatch with an institutional artefact spanning all three generations — a worse problem than the panel's positioning concern.
+        </div>
+      </div>
+      <div class="point-card">
+        <div class="pc-number">"Student"</div>
+        <div class="pc-title">Accurate Scope, Not Underselling</div>
+        <div class="pc-body">
+          ISN's development-pathway athletes are student-athletes — the label is factually correct for the cohort.
+          <br><br>
+          A clinical title (e.g. "Medical Decision Support System") would imply IRB approval and regulatory certification that a single-semester FYP cannot claim.
+          <br><br>
+          <em>Modest and accurate beats ambitious and overpromising.</em>
+        </div>
+      </div>
+      <div class="point-card">
+        <div class="pc-number">AIRMS</div>
+        <div class="pc-title">Title = Product · AIRMS = Engineering</div>
+        <div class="pc-body">
+          The title names the <strong>product surface</strong> — a multi-role web portal with a health dashboard. That is what the end-user touches.
+          <br><br>
+          The engineering contribution — personalised ACWR, composite escalation, dual-role dashboards — is documented and graded as <strong>AIRMS</strong> throughout the codebase and FYP report.
+          <br><br>
+          Both layers are present; they do not need to share a name.
+        </div>
+      </div>
+    </div>
+    <div class="callout" style="margin-top:12px;">
+      Panel feedback was considered carefully. Title retained on grounds of stakeholder continuity across three ISN collaboration generations, aligned with supervisor Dr Hoo and the ISN collaboration letter.
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     SLIDE 4 — MySQL Migration
+════════════════════════════════════════════════ -->
+<div class="slide" id="slide-4">
+  <div class="slide-header">
+    <div class="eyebrow">Architecture · Database — Panel Response</div>
+    <h2>Database: MongoDB → MySQL &nbsp;<span style="font-size:14px;font-weight:400;color:#7aafd4;">Panel concern was valid — and already resolved</span></h2>
+  </div>
+  <div class="slide-body">
+
+    <table>
+      <tr>
+        <th>Requirement</th>
+        <th>MongoDB &nbsp;<span style="font-weight:400;font-size:11px;">(NoSQL · inherited prototype)</span></th>
+        <th>MySQL &nbsp;<span style="font-weight:400;font-size:11px;">(relational · current system)</span></th>
+      </tr>
+      <tr>
+        <td>Athlete → Injury → Activity links</td>
+        <td>Manual references only — no FK enforcement</td>
+        <td>Engine-level foreign keys — referential integrity guaranteed</td>
+      </tr>
+      <tr>
+        <td>ACID transactions</td>
+        <td>Optional from v4.0+, session-scoped, added complexity</td>
+        <td>Native — used for SelfReport → Injury promotion atomically</td>
+      </tr>
+      <tr>
+        <td>Schema enforcement</td>
+        <td>Schema-less by default; malformed medical records silently accepted</td>
+        <td>Strict schema — invalid rows rejected at write time</td>
+      </tr>
+      <tr>
+        <td>Cross-entity queries</td>
+        <td>Aggregation pipelines — verbose, error-prone</td>
+        <td>SQL JOIN — concise, auditable, familiar to medical IT</td>
+      </tr>
+      <tr>
+        <td>Data corruption risk</td>
+        <td>High — no FK constraints, history chains can orphan</td>
+        <td>Low — FK constraints + Sequelize hooks enforce write-time consistency</td>
+      </tr>
+    </table>
+
+    <div class="two-col" style="margin-top:10px;">
+      <div>
+        <div class="section-label">ACID in Practice — SelfReport Approval Flow</div>
+        <p>When a medical user approves a self-report, the server atomically: <strong>(1)</strong> marks the SelfReport as approved and <strong>(2)</strong> inserts a new Injury row — inside a single Sequelize transaction. Both succeed or neither commits. This is a correctness hard requirement for medical data — not optional.</p>
+      </div>
+      <div>
+        <div class="section-label">Why Not PostgreSQL?</div>
+        <p>PostgreSQL and MySQL are architecturally equivalent for this use case — both relational, ACID-compliant, and support FK constraints. MySQL was selected for tooling availability. The panel's concern (NoSQL vs relational) is fully addressed by the migration; the choice between two RDBMSes is secondary.</p>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     SLIDE 5 — RPE Whole-Body Load
+════════════════════════════════════════════════ -->
+<div class="slide" id="slide-5">
+  <div class="slide-header">
+    <div class="eyebrow">Clinical Justification — Escalation Gate Design</div>
+    <h2>sRPE Captures Total Body Stress — Not Regional Load</h2>
+  </div>
+  <div class="slide-body">
+    <div class="two-col" style="flex:1;">
+
+      <div>
+        <div class="section-label">What sRPE Actually Measures</div>
+        <p>Session RPE on the Borg CR-10 scale reflects the athlete's <strong>global perceived exertion</strong> — cardiovascular strain, neuromuscular fatigue, and metabolic stress integrated across the entire session. It is not region-specific.</p>
+        <p style="margin-top:8px;">A 90-minute match is a 90-minute match whether the athlete's left hamstring is compromised or not. ACWR sees total load — it cannot see where load is going internally.</p>
+
+        <div class="section-label" style="margin-top:14px;">The Compensation Cascade</div>
+        <div class="step-row">
+          <div class="step-circle" style="background:#1b7fc4;color:#fff;">1</div>
+          <p style="margin:0;">Athlete sustains injury — continues training at comparable overall intensity</p>
+        </div>
+        <div class="step-row">
+          <div class="step-circle" style="background:#1b7fc4;color:#fff;">2</div>
+          <p style="margin:0;">Adjacent and contralateral muscles absorb redistributed mechanical load</p>
+        </div>
+        <div class="step-row">
+          <div class="step-circle" style="background:#1b7fc4;color:#fff;">3</div>
+          <p style="margin:0;">Those structures were already being loaded — now exceed individual capacity</p>
+        </div>
+        <div class="step-row">
+          <div class="step-circle" style="background:#c0003a;color:#fff;">!</div>
+          <p style="margin:0;">ACWR remains unchanged — it only sees total load holding steady</p>
+        </div>
+      </div>
+
+      <div>
+        <div class="callout">
+          "New injuries frequently co-occur alongside existing ones, precisely because the athlete's overall training load remains high even when one limb is compromised; the rest of the body absorbs a comparable or greater workload and may already be near its own threshold."
+          <br><br>
+          — <strong>Dr Thung, ISN</strong> (raised directly in stakeholder meeting)
+        </div>
+
+        <div class="section-label" style="margin-top:12px;">Why Any Active Injury Escalates — Not Just Same-Region</div>
+        <ul>
+          <li>sRPE captures systemic load — the whole body operates at the ACWR-implied stress level</li>
+          <li>Injury redistributes internal load onto structures already near their own threshold</li>
+          <li>Region-specific silencing would miss exactly the co-occurrence risk Dr Thung described</li>
+          <li>Gate still requires ACWR &gt; 1.0 — a genuinely low-load session does not escalate</li>
+        </ul>
+
+        <div class="section-label" style="margin-top:12px;">Region-Aware Escalation — Future Enhancement</div>
+        <p>Escalating only when the session's targeted muscles overlap with the injury region was discussed with Dr Thung and Dr Hoo. It is a meaningful refinement earmarked for a future iteration. It does not invalidate current behaviour — it refines it.</p>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     SLIDE 6 — Security: JWT + RBAC
+════════════════════════════════════════════════ -->
+<div class="slide" id="slide-6">
+  <div class="slide-header">
+    <div class="eyebrow">Security — Panel Question</div>
+    <h2>How Does AIRMS Prevent an Athlete from Calling a Medical API Endpoint?</h2>
+  </div>
+  <div class="slide-body">
+    <div class="two-col" style="flex:1;">
+
+      <div>
+        <div class="section-label">Two Middleware Layers — Applied to Every Protected Route</div>
+
+        <div class="gate-box" style="margin-bottom:10px;">
+          <div class="gate-name">Layer 1 — auth.js &nbsp;·&nbsp; JWT Verification</div>
+          <div class="gate-condition">Authorization: Bearer &lt;token&gt;</div>
+          <div class="gate-effect" style="margin-top:6px;">
+            Verifies the token on every request. If the token is missing, expired, or tampered with — the request is rejected before it reaches any route handler. The decoded payload carries the user's <strong>role</strong>.
+          </div>
+        </div>
+
+        <div class="gate-box">
+          <div class="gate-name">Layer 2 — rbac.js &nbsp;·&nbsp; Role-Based Access Control</div>
+          <div class="gate-condition">rbac('medical', 'admin')</div>
+          <div class="gate-effect" style="margin-top:6px;">
+            Sits on top of auth. Each route declares which roles are permitted. If the authenticated user's role is not in that list — even with a valid token — they receive a <strong>403 Forbidden</strong> before the handler runs.
+          </div>
+        </div>
+
+        <div class="section-label" style="margin-top:14px;">The Attack Path — and Where It Fails</div>
+        <div class="step-row">
+          <div class="step-circle" style="background:#1b7fc4;color:#fff;">1</div>
+          <p style="margin:0;">Athlete logs in → receives a <strong>valid JWT</strong> with role = <code>athlete</code></p>
+        </div>
+        <div class="step-row">
+          <div class="step-circle" style="background:#1b7fc4;color:#fff;">2</div>
+          <p style="margin:0;">Athlete manually calls <code>GET /api/injuries</code> with that token</p>
+        </div>
+        <div class="step-row">
+          <div class="step-circle" style="background:#1b7fc4;color:#fff;">3</div>
+          <p style="margin:0;">Layer 1 passes — token is valid and not expired</p>
+        </div>
+        <div class="step-row">
+          <div class="step-circle" style="background:#c0003a;color:#fff;">✕</div>
+          <p style="margin:0;">Layer 2 rejects — role <code>athlete</code> is not in <code>rbac('medical', 'admin')</code> → <strong>403</strong></p>
+        </div>
+      </div>
+
+      <div>
+        <div class="section-label">Frontend Gating vs Backend Security</div>
+        <table>
+          <tr><th>Layer</th><th>Mechanism</th><th>Role</th></tr>
+          <tr>
+            <td>Frontend</td>
+            <td><code>DashboardLayout allowedRoles</code></td>
+            <td>UX boundary only — prevents accidental navigation. Can be bypassed by a determined user.</td>
+          </tr>
+          <tr>
+            <td>Backend</td>
+            <td><code>auth.js</code> + <code>rbac.js</code></td>
+            <td><strong>Actual security.</strong> Enforced on every API call regardless of how the request originates.</td>
+          </tr>
+        </table>
+
+        <div class="callout" style="margin-top:14px;">
+          A user who bypasses the frontend entirely — curl, Postman, a custom script — still hits the same two middleware layers on every request. The frontend is never the trust boundary.
+        </div>
+
+        <div class="section-label" style="margin-top:14px;">Additional Scope Enforcement</div>
+        <p>Even within a permitted role, athlete-owned data is further scoped by <code>athleteId</code>. An authenticated athlete can only read their own activity records — the route checks <code>req.user.athleteId === req.params.id</code> before querying, preventing horizontal privilege escalation between athletes.</p>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     Navigation
+════════════════════════════════════════════════ -->
+<div class="nav">
+  <button id="btn-prev" onclick="navigate(-1)" disabled>← Previous</button>
+  <span class="slide-counter" id="counter">1 / 7</span>
+  <button id="btn-next" onclick="navigate(1)">Next →</button>
+</div>
+
+<script>
+  let cur = 0;
+  const total = document.querySelectorAll('.slide').length;
+
+  function navigate(dir) {
+    document.getElementById('slide-' + cur).classList.remove('active');
+    cur = Math.max(0, Math.min(total - 1, cur + dir));
+    document.getElementById('slide-' + cur).classList.add('active');
+    document.getElementById('counter').textContent = (cur + 1) + ' / ' + total;
+    document.getElementById('btn-prev').disabled = cur === 0;
+    document.getElementById('btn-next').disabled = cur === total - 1;
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') navigate(1);
+    if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   navigate(-1);
+  });
+</script>
+
+</body>
+</html>

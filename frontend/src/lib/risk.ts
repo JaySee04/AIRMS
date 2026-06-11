@@ -3,9 +3,9 @@
 // Base method: Acute:Chronic Workload Ratio (Gabbett, 2016) with the standard
 // "sweet spot" 0.8–1.3 (empirically reaffirmed by Qin et al. 2025 meta-analysis
 // at 56% lowest injury incidence) and danger zone >1.5. Internal load is
-// computed from session RPE: Load (AU) = duration (min) × RPE — method origin
-// Foster (2001), revalidated by Inoue et al. (2022) for scale reliability and
-// Yang et al. (2024) for physiological correspondence.
+// computed from session RPE: Load (AU) = duration (min) × RPE, validated by
+// Inoue et al. (2022) for scale reliability and Yang et al. (2024) for
+// physiological correspondence.
 //
 // AIRMS contribution: ACWR bands are *personalised* per athlete using their
 // screening data (injuryRiskIndex, overallActivityScore, mobility, stability,

@@ -82,7 +82,7 @@ JC needs **more than 2 fully working core modules** to score full marks on the T
 Acute:Chronic Workload Ratio per Gabbett (2016):
 
 ```
-session_load (AU) = duration_minutes × RPE (1–10)            [Foster et al., 2001]
+session_load (AU) = duration_minutes × RPE (1–10)
 acute_load        = sum of session_load over the last 7 days
 chronic_load      = average of weekly load over the last 4 weeks
 ACWR              = acute_load / chronic_load
@@ -113,10 +113,7 @@ Lives in [frontend/src/lib/risk.ts](../frontend/src/lib/risk.ts) → `classifyCo
 **Why this matters:** A textbook ACWR pipeline ignores the screening data AIRMS already stores. The composite model integrates **workload + biomechanical profile + injury history** into a single judgement. **This is the FYP innovation.** It is what makes AIRMS more than "a reimplementation of Gabbett's formula in JavaScript."
 
 **Citations to keep:**
-- Foster et al. (2001). *A New Approach to Monitoring Exercise Training.* J Strength Cond Res, 15(1), 109–115.
 - Gabbett (2016). *The training-injury prevention paradox.* Br J Sports Med, 50(5), 273–280.
-
-Memory entry tracks this: see [`memory/project_risk_model.md`](../.claude/projects/.../memory/project_risk_model.md).
 
 ---
 
@@ -261,4 +258,4 @@ Do not let this file drift from reality. When code and this doc disagree, fix wh
 
 ---
 
-*Last updated: 2026-05-17 · All 6 modules functional. Modules 1+2 fully complete; 3–6 have explicit deferred items (ISN schema, PDF renderer, watchlist). Composite risk model + react-muscle-highlighter body map locked. Audit-driven fixes applied to Modules 1+2 (week-bucket year-boundary fix, threshold inversion clamp, defensive date parsing, deletingId guard, toast timer leak).*
+*Last updated: 2026-06-11 · All 6 modules functional. Modules 1+2 fully complete; 3–6 have explicit deferred items. Composite risk model + body map locked. Intentional snapshot denormalisation in injuries/self_reports documented in DESIGN_DECISIONS.md §5.*

@@ -20,11 +20,11 @@ session_load (AU) = duration_minutes × intensity_RPE
 - `intensity_RPE` — integer in `[1, 10]` on the modified Borg CR-10 scale
 - `session_load` — Arbitrary Units (AU). No physical interpretation; comparable within an athlete over time
 
-**Why 1–10 (not 0–10):** Foster's original CR-10 starts at 0, but AIRMS clamps to 1 so a logged session never produces zero load — that would make the chronic average drift toward zero and bring ACWR with it. The lower bound only matters when an athlete logged a session; the absence of sessions is what zeros acute load.
+**Why 1–10 (not 0–10):** The original CR-10 starts at 0, but AIRMS clamps to 1 so a logged session never produces zero load — that would make the chronic average drift toward zero and bring ACWR with it. The lower bound only matters when an athlete logged a session; the absence of sessions is what zeros acute load.
 
-**Citation lineage:** Foster (2001) established the method; Inoue (2022) confirmed scale reliability across athletes vs coaches (meta-analysis of 27 studies); Yang (2024) re-validated physiological correspondence (sRPE vs HR-based TRIMP).
+**Citation lineage:** Inoue (2022) confirmed scale reliability across athletes vs coaches (meta-analysis of 27 studies); Yang (2024) re-validated physiological correspondence (sRPE vs HR-based TRIMP).
 
-**Where it lives:** `Activity` model hook at [backend/src/models/Activity.js:48–54](../backend/src/models/Activity.js#L48-L54). Computed at write time, persisted to the `load` column, so the value is always consistent with the inputs it derived from.
+**Where it lives:** `Activity` model hook at [backend/src/models/Activity.js:48–65](../backend/src/models/Activity.js#L48-L65). Computed at write time, persisted to the `load` column, so the value is always consistent with the inputs it derived from.
 
 **Worked example.** A 75-minute strength session at RPE 8 → `session_load = 75 × 8 = 600 AU`.
 
@@ -40,10 +40,10 @@ The athlete's most-recent week of training, summed.
 acute_load = Σ session_load over the last 7 calendar days
 ```
 
-**Worked example.** John Doe (ATH0001) at snapshot time had 6 sessions in the last 7 days summing to 3,040 AU. After soft-deleting those 6 sessions, his acute load drops to 0 AU.
+**Worked example.** John Doe (ATH0001) at snapshot time had 6 sessions in the last 7 days summing to 2,860 AU. After soft-deleting those 6 sessions, his acute load drops to 0 AU.
 
 **Where it lives:** computed inline in two places:
-- Backend: [backend/src/routes/activities.js:48–64](../backend/src/routes/activities.js#L48-L64) (the `/acwr` endpoint)
+- Backend: [backend/src/routes/activities.js:57–90](../backend/src/routes/activities.js#L57-L90) (the `/acwr` endpoint)
 - Frontend: `computed` block in [athlete dashboard](../frontend/src/app/athlete/dashboard/page.tsx) and the `workload` memo in [medical dashboard](../frontend/src/app/medical/dashboard/page.tsx)
 
 The frontend recomputation produces an 8-week trend that the backend single-value endpoint cannot.
@@ -67,7 +67,7 @@ where `weekly_load_1` is the most recent week and `weekly_load_4` is the oldest 
 
 **Minimum data.** The chronic average is only academically meaningful after **4 weeks of continuous logging**. With less, you are averaging across an incomplete window. Practical stability arrives at **6–8 weeks** as the chronic baseline matures. AIRMS displays an 8-week trend on the dashboard, deliberately covering both the stability threshold and the 4-week chronic memory.
 
-**Worked example.** John's 4 weekly loads sum to ~9,440 AU → chronic_load = 2,360 AU.
+**Worked example.** John's 4 weekly loads (2,860 + 1,830 + 2,160 + 1,925) sum to 8,775 AU → chronic_load = 8,775 / 4 = 2,194 AU.
 
 ---
 
@@ -83,13 +83,13 @@ ACWR = acute_load / chronic_load
 
 Output is unitless. The textbook Gabbett (2016) safe-zone is **0.8 – 1.3**, validated empirically by Qin (2025) which found the lowest pooled injury incidence (56%) within this band.
 
-**Worked example.** With acute = 1,890 AU and chronic = 2,073 AU, `ACWR = 1,890 / 2,073 = 0.91`.
+**Worked example.** John at snapshot time: acute = 2,860 AU, chronic = 2,194 AU → `ACWR = 2,860 / 2,194 ≈ 1.30`.
 
 **Edge cases.**
 - `chronic_load = 0` → ACWR forced to 0 to avoid divide-by-zero (athlete has no chronic history yet)
 - ACWR is clamped at the display layer to `[0, 2.0]` for gauge rendering — the underlying value is unbounded but extreme highs all read as "well above 1.5" anyway
 
-**Where it lives:** computed in `computeBaseCls` / `classifyACWR` at [risk.ts:90](../frontend/src/lib/risk.ts#L90).
+**Where it lives:** `classifyACWR` at [risk.ts:122](../frontend/src/lib/risk.ts#L122).
 
 ---
 
@@ -124,7 +124,7 @@ vulnerability = 0.30 × iriNorm
 
 **Why 40 as the cap on `injuryRiskIndex`.** The seeded synthetic athletes draw from `rfloat(8, 35)`; the real ISN sample (John) sits at 10.4. Capping the normalisation at 40 gives genuine outliers headroom without saturating the score at the synthetic maximum.
 
-**Where it lives:** `computeVulnerability` at [risk.ts:84–101](../frontend/src/lib/risk.ts#L84-L101).
+**Where it lives:** `computeVulnerability` at [risk.ts:91–104](../frontend/src/lib/risk.ts#L91-L104).
 
 **Worked example.**
 
@@ -160,7 +160,7 @@ The constant **0.4** is the population-baseline vulnerability (an "average" athl
 
 The ±15% clamp prevents the model from drifting so far from Gabbett that the literature stops applying — a hard guarantee that the personalised band is always within 15% of the published thresholds.
 
-**Where it lives:** `personalisedThresholds` at [risk.ts:78–88](../frontend/src/lib/risk.ts#L78-L88).
+**Where it lives:** `personalisedThresholds` at [risk.ts:110–120](../frontend/src/lib/risk.ts#L110-L120).
 
 **Worked examples.**
 
@@ -189,7 +189,7 @@ otherwise          → "under"   (Detraining Risk)
 
 The four bands are exhaustive and disjoint. **Detraining Risk is the only band below `lowMin`** and is treated as a forward-looking warning (the danger is the rebound spike when training resumes), not an injury-risk present-state.
 
-**Where it lives:** `classifyACWR` at [risk.ts:90–95](../frontend/src/lib/risk.ts#L90-L95).
+**Where it lives:** `classifyACWR` at [risk.ts:122–127](../frontend/src/lib/risk.ts#L122-L127).
 
 ---
 
@@ -228,10 +228,10 @@ escalate("high")  → "high"   (no further escalation)
 escalate("under") → "under"  (no escalation from Detraining)
 ```
 
-**Where it lives:** `classifyCompositeRisk` at [risk.ts:103–137](../frontend/src/lib/risk.ts#L103-L137).
+**Where it lives:** `classifyCompositeRisk` at [risk.ts:135–173](../frontend/src/lib/risk.ts#L135-L173).
 
 **Worked example.** John (original screening) at ACWR 1.30, with 5 active injuries and 4 muscle flags:
-1. Base classification → `low` (1.30 < lowMax 1.39, ≥ lowMin 0.75)
+1. Base classification → `low` (1.30 < lowMax 1.40, ≥ lowMin 0.74)
 2. Injury gate: 5 active injuries AND ACWR (1.30) > 1.0 → escalate → `mod`. Factors include "5 active injury records".
 3. Muscle-flag gate: 4 muscle flags is NOT ≥ 5 → gate does not fire.
 4. Final: `cls = "mod"`, `baseCls = "low"`, `escalated = true` → **"Compound Moderate Risk"**.
@@ -260,7 +260,7 @@ msg   = escalated ? COMPOUND_MSG[cls]   : LEVEL_MSG[cls]
 
 The compound message text is deliberately worded to **not** claim workload alone is elevated — because compound escalation can fire when raw ACWR was Low, and saying "your workload is elevated" would be factually wrong in that case.
 
-**Where it lives:** `LEVEL_LABEL` / `COMPOUND_LABEL` / `LEVEL_MSG` / `COMPOUND_MSG` and selection logic at [risk.ts:48–137](../frontend/src/lib/risk.ts#L48-L137).
+**Where it lives:** `LEVEL_LABEL` / `COMPOUND_LABEL` / `LEVEL_MSG` / `COMPOUND_MSG` and selection logic at [risk.ts:50–173](../frontend/src/lib/risk.ts#L50-L173).
 
 ---
 

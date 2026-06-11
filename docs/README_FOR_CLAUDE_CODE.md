@@ -57,7 +57,7 @@ Built on top of a previous prototype (`airms-prototype/`) inherited from prior s
 ### 🟡 READ WHEN YOU NEED CONTEXT
 
 5. **[DESIGN_DECISIONS.md](DESIGN_DECISIONS.md)** — why we made each architectural call
-   - Why sRPE for load calculation (method origin Foster 2001; FYP I report cites Inoue 2022 + Yang 2024 as the contemporary validators)
+   - Why sRPE for load calculation (validated by Inoue 2022 + Yang 2024)
    - Why we built a composite risk model instead of plain Gabbett ACWR
    - Why we use the MIT-licensed react-muscle-highlighter asset
    - Why aggregated body regions instead of per-spreadsheet-muscle granularity
@@ -111,7 +111,7 @@ Specifically: the **composite risk model** (personalised ACWR + screening-data i
 
 ### Golden rule #5 — Self-reported intensity is a feature, not a bug
 
-Athletes log their own RPE intensity. This is deliberate — see [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md) §1. If you ever feel tempted to suggest "but isn't this gameable?" — the answer is in that file. The method origin is Foster et al. (2001); the FYP I report cites Inoue et al. (2022) and Yang et al. (2024) as the contemporary validators.
+Athletes log their own RPE intensity. This is deliberate — see [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md) §1. If you ever feel tempted to suggest "but isn't this gameable?" — the answer is in that file. The method is validated by Inoue et al. (2022) and Yang et al. (2024).
 
 ---
 
@@ -149,14 +149,14 @@ When genuinely unsure, ask one short clarifying question rather than guessing.
 ## Quick start (after reading the docs above)
 
 ```powershell
-cd "c:\Users\posei\Documents\VSCode Projects Folder\AIRMS (JC FYP)"
+cd "c:\Users\posei\OneDrive\Documents\VSCode Projects Folder\AIRMS (JC FYP)"
 npm install       # only first time; installs concurrently at root
 npm run dev       # runs backend (:5000) + frontend (:3000) together
 ```
 
-Demo login: `john.doe@isn.gov.my` / `password123` (athlete; seeded as ATH0001)
-Full credentials in [PROJECT_GUIDE.md](PROJECT_GUIDE.md) §6.
+Demo login: `athlete@isn.gov.my` / `athlete123` (athlete; seeded as ATH0001 — John Doe)
+Full credentials in [CLAUDE.md](../CLAUDE.md) §Demo credentials or [MASTER_CLARIFICATIONS.md](MASTER_CLARIFICATIONS.md) §3.
 
 ---
 
-*Last updated: 2026-05-26 — added pointer to root `CLAUDE.md`. All 6 modules functional. Modules 1+2 fully complete, audit-fixed; Modules 3–6 functional with deferred polish items documented per-module.*
+*Last updated: 2026-06-11 — fixed demo credentials, removed stale Foster citation references, added intentional snapshot denormalisation note to DESIGN_DECISIONS.md §5.*
