@@ -13,13 +13,16 @@ const { connectDB, sequelize } = require('./config/db');
 require('./models'); // register models + associations
 
 const authRoutes = require('./routes/auth');
+const userRoutes = require('./routes/users');
 const athleteRoutes = require('./routes/athletes');
 const injuryRoutes = require('./routes/injuries');
 const activityRoutes = require('./routes/activities');
 const selfReportRoutes = require('./routes/selfReports');
 const uploadRoutes = require('./routes/upload');
 const reportRoutes = require('./routes/reports');
+const exportRoutes = require('./routes/export');
 const recoveryBaselineRoutes = require('./routes/recoveryBaselines');
+const coachRoutes = require('./routes/coach');
 
 const app = express();
 
@@ -32,13 +35,16 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
 app.use('/api/athletes', athleteRoutes);
 app.use('/api/injuries', injuryRoutes);
 app.use('/api/activities', activityRoutes);
 app.use('/api/self-reports', selfReportRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/export', exportRoutes);
 app.use('/api/recovery-baselines', recoveryBaselineRoutes);
+app.use('/api/coach', coachRoutes);
 
 app.get('/api/health', (_req, res) => res.json({
   status: 'ok',

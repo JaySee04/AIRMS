@@ -11,6 +11,7 @@ const ROLE_REDIRECTS: Record<string, string> = {
   athlete: '/athlete/dashboard',
   medical: '/medical/dashboard',
   admin: '/admin/dashboard',
+  coach: '/coach/dashboard',
 };
 
 export default function LoginPage() {

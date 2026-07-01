@@ -179,27 +179,27 @@ function buildActivities() {
     });
   }
 
-  // Curated sessions: weeks 1–4 (the full chronic window). See seeder.js
-  // for the ACWR maths that justifies the exact numbers.
   const curated = [
-    { offset: 0, type: 'Match',     duration: 90, intensity: 9 },
-    { offset: 1, type: 'Strength',  duration: 75, intensity: 8 },
-    { offset: 3, type: 'Speed',     duration: 60, intensity: 8 },
-    { offset: 4, type: 'Endurance', duration: 70, intensity: 7 },
-    { offset: 5, type: 'Skill',     duration: 80, intensity: 6 },
-    { offset: 6, type: 'Recovery',  duration: 45, intensity: 4 },
-    { offset: 7,  type: 'Strength',  duration: 75, intensity: 8 },
-    { offset: 9,  type: 'Endurance', duration: 80, intensity: 7 },
-    { offset: 11, type: 'Speed',     duration: 70, intensity: 7 },
-    { offset: 13, type: 'Skill',     duration: 90, intensity: 6 },
+    { offset:  0, type: 'Match',     duration: 65, intensity: 8 },
+    { offset:  1, type: 'Recovery',  duration: 45, intensity: 4 },
+    { offset:  3, type: 'Skill',     duration: 55, intensity: 6 },
+    { offset:  4, type: 'Speed',     duration: 50, intensity: 7 },
+    { offset:  6, type: 'Endurance', duration: 60, intensity: 7 },
+    { offset:  7, type: 'Strength',  duration: 70, intensity: 8 },
+    { offset:  8, type: 'Recovery',  duration: 45, intensity: 4 },
+    { offset:  9, type: 'Endurance', duration: 65, intensity: 7 },
+    { offset: 11, type: 'Speed',     duration: 55, intensity: 8 },
+    { offset: 13, type: 'Skill',     duration: 70, intensity: 7 },
     { offset: 14, type: 'Match',     duration: 80, intensity: 8 },
+    { offset: 15, type: 'Recovery',  duration: 40, intensity: 4 },
     { offset: 16, type: 'Strength',  duration: 70, intensity: 8 },
-    { offset: 18, type: 'Endurance', duration: 70, intensity: 6 },
-    { offset: 20, type: 'Speed',     duration: 60, intensity: 7 },
-    { offset: 22, type: 'Strength',  duration: 70, intensity: 8 },
-    { offset: 24, type: 'Endurance', duration: 80, intensity: 7 },
+    { offset: 18, type: 'Endurance', duration: 65, intensity: 7 },
+    { offset: 20, type: 'Speed',     duration: 55, intensity: 7 },
+    { offset: 21, type: 'Recovery',  duration: 40, intensity: 4 },
+    { offset: 22, type: 'Strength',  duration: 65, intensity: 8 },
+    { offset: 24, type: 'Endurance', duration: 70, intensity: 7 },
     { offset: 25, type: 'Speed',     duration: 55, intensity: 7 },
-    { offset: 27, type: 'Skill',     duration: 95, intensity: 7 },
+    { offset: 27, type: 'Skill',     duration: 75, intensity: 7 },
   ];
   curated.forEach((c) => {
     const date = new Date(today);
@@ -293,8 +293,12 @@ function buildUsers() {
   // them when bulkCreate runs with individualHooks: true.
   return [
     { name: 'Admin User', email: 'admin@isn.gov.my', password: 'admin123', role: 'admin' },
+    { name: 'Admin Demo', email: 'poseidonapollo11@gmail.com', password: 'admin123', role: 'admin' },
     { name: 'Medical Demo 01', email: 'medical@isn.gov.my', password: 'medical123', role: 'medical' },
     { name: 'John Doe', email: 'athlete@isn.gov.my', password: 'athlete123', role: 'athlete', athleteId: 'ATH0001' },
+    // Experimental coach role — sees only athletes in their assigned sports.
+    // Badminton includes ATH0001 (John Doe) so the demo has overlapping data.
+    { name: 'Coach Demo 01', email: 'coach@isn.gov.my', password: 'coach123', role: 'coach', coachSports: ['Badminton', 'Swimming'] },
   ];
 }
 
@@ -339,9 +343,11 @@ async function seed() {
   });
 
   console.log('\nDemo credentials:');
-  console.log('  Admin:   admin@isn.gov.my   / admin123');
-  console.log('  Medical: medical@isn.gov.my / medical123');
-  console.log('  Athlete: athlete@isn.gov.my / athlete123');
+  console.log('  Admin:   admin@isn.gov.my              / admin123');
+  console.log('  Admin:   poseidonapollo11@gmail.com    / admin123');
+  console.log('  Medical: medical@isn.gov.my            / medical123');
+  console.log('  Athlete: athlete@isn.gov.my            / athlete123');
+  console.log('  Coach:   coach@isn.gov.my              / coach123');
 
   await sequelize.close();
   console.log('\nSeeding complete.');
