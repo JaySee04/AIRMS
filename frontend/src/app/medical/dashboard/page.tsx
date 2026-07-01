@@ -7,6 +7,7 @@ import BodyMap, { MuscleEntry } from '@/components/dashboard/BodyMap';
 import WorkloadChart from '@/components/dashboard/WorkloadChart';
 import RiskRadar from '@/components/dashboard/RiskRadar';
 import AcwrGauge from '@/components/dashboard/AcwrGauge';
+import ScreeningAlertBanner from '@/components/dashboard/ScreeningAlertBanner';
 import { api } from '@/lib/api';
 import { classifyCompositeRisk } from '@/lib/risk';
 
@@ -524,7 +525,7 @@ export default function MedicalDashboard() {
   }, [allInjuriesAcrossSystem]);
 
   return (
-    <DashboardLayout allowedRoles={['medical']} title="Athlete Dashboard">
+    <DashboardLayout allowedRoles={['medical']} requiredPermission="viewRecords" title="Athlete Dashboard">
       <div className="medical-shell">
         {/* ── Left rail ───────────────────────────────────────────────────── */}
         <aside className="medical-rail">
@@ -725,6 +726,10 @@ export default function MedicalDashboard() {
                   <div><span>Injury Risk Index</span><strong>{selectedAthlete.injuryRiskIndex?.toFixed(1) ?? '—'}</strong></div>
                 </div>
               </div>
+
+              {/* Sport-aware screening alert — flags a critical body region
+                  that's out of range before the workload signal */}
+              <ScreeningAlertBanner risks={selectedAthlete.risks} sport={selectedAthlete.sport} audience="staff" />
 
               {/* Composite risk hero (mirrors athlete dashboard) */}
               <div className={`risk-hero risk-hero--${risk.cls}`}>

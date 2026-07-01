@@ -7,6 +7,7 @@ import BodyMap, { MuscleEntry } from '@/components/dashboard/BodyMap';
 import WorkloadChart from '@/components/dashboard/WorkloadChart';
 import RiskRadar from '@/components/dashboard/RiskRadar';
 import AcwrGauge from '@/components/dashboard/AcwrGauge';
+import ScreeningAlertBanner from '@/components/dashboard/ScreeningAlertBanner';
 import { api } from '@/lib/api';
 import { getSession } from '@/lib/auth';
 import { classifyCompositeRisk } from '@/lib/risk';
@@ -270,6 +271,10 @@ export default function AthleteDashboard() {
 
   return (
     <DashboardLayout allowedRoles={['athlete']} title="My Dashboard">
+      {/* Sport-aware screening alert — fires before the workload signal when a
+          body region important for the athlete's sport is out of range */}
+      <ScreeningAlertBanner risks={athlete.risks} sport={athlete.sport} audience="self" />
+
       {/* Risk hero */}
       <div className={`risk-hero risk-hero--${risk.cls}`}>
         <div style={{ flex: 1 }}>

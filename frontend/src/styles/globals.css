@@ -1451,6 +1451,48 @@ tr.row-flash > td { animation: row-flash 1.6s ease-out; }
 }
 .insight-list li { margin-bottom: 4px; }
 
+/* ── Sport-aware screening alert banner ────────────────────────────────────── */
+.screening-alert {
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--risk-mod);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 20px;
+}
+.screening-alert--mod  { background: var(--risk-mod-bg, #fef6e7);  border-left-color: var(--risk-mod); }
+.screening-alert--high { background: var(--risk-high-bg);          border-left-color: var(--risk-high); }
+.screening-alert-head { display: flex; align-items: flex-start; gap: 10px; }
+.screening-alert-icon {
+  width: 28px; height: 28px; flex: none;
+  border-radius: 8px;
+  background: var(--risk-high);
+  color: white;
+  display: grid; place-items: center;
+  font-size: 1rem;
+}
+.screening-alert--mod .screening-alert-icon { background: var(--risk-mod); }
+.screening-alert-title { font-weight: 700; font-size: 0.95rem; }
+.screening-alert-sub { font-size: 0.82rem; color: var(--text-muted); margin-top: 2px; }
+.screening-alert-list { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.screening-alert-item {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--card-bg, #fff);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 12px 4px 4px;
+  font-size: 0.84rem;
+}
+.screening-alert-item.is-critical { border-color: var(--risk-high); }
+.screening-chip {
+  font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+  padding: 2px 8px; border-radius: 999px; color: #fff;
+}
+.screening-chip--watch { background: var(--risk-mod); }
+.screening-chip--high  { background: var(--risk-high); }
+.screening-alert-label { font-weight: 600; }
+.screening-alert-crit { color: var(--risk-high); font-weight: 600; font-size: 0.76rem; }
+.screening-alert-val { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+
 /* ── Region chips (admin analytics shortcut row) ───────────────────────────── */
 .region-chip {
   appearance: none;
