@@ -12,7 +12,7 @@
 | 1 | Activity Tracking & Logging | athlete | ✅ **fully complete** | `/athlete/activity` | `/api/activities` |
 | 2 | Athlete Dashboard / Workload | athlete | ✅ **fully complete** | `/athlete/dashboard` | `/api/athletes/:id`, `/api/activities/athlete/:id`, `/api/injuries/athlete/:id` |
 | 3 | Injury & Recovery Logging | medical (+ athlete self-report) | 🟢 **functional, deferred polish** | `/medical/injury-log`, `/medical/review-reports`, `/athlete/injury-report` | `/api/injuries`, `/api/self-reports` |
-| 4 | Data Management | admin | 🟡 **infrastructure complete, awaits ISN format lock** | `/admin/data-upload`, `/medical/data-upload` | `/api/upload/screening/preview`, `/api/upload/screening` |
+| 4 | Data Management | admin | 🟢 **functional — Excel + HoloMotion PDF ingestion + data backup** | `/admin/data-upload`, `/medical/data-upload` | `/api/upload/screening[/preview]`, `/api/upload/screening/pdf[/preview\|/status]`, `/api/export/backup.xlsx` |
 | 5 | Injury Analytics | admin | ✅ **fully complete** | `/admin/dashboard`, `/admin/reports` | `/api/injuries/analytics/summary`, `/api/injuries`, `/api/reports/injuries-pdf` |
 | 6 | Medical Dashboard | medical | 🟢 **functional, watchlist deferred** | `/medical/dashboard` | `/api/athletes`, `/api/athletes/:id` |
 
@@ -21,7 +21,7 @@
 - 🟢 Functional — system clicks through end-to-end; one or two minor refinements deferred
 - 🟡 Infrastructure complete — full pipeline works; one external dependency unresolved
 
-Modules 1+2 are the FYP showcases requiring no further iteration. Modules 3–6 are now functional enough for the system to be used end-to-end across all three roles, with each known gap explicitly tied to either an external dependency (Module 4 → ISN canonical schema) or a deferred polish item (Module 3 recovery milestones, Module 5 server-side PDF, Module 6 watchlist).
+Modules 1+2 are the FYP showcases requiring no further iteration. Modules 3–6 are now functional enough for the system to be used end-to-end across all three roles, with each known gap explicitly tied to either an external dependency (Module 4 → ISN canonical schema) or a deferred polish item (Module 3 recovery milestones, Module 5 severity×time heatmap, Module 6 watchlist).
 
 ---
 
@@ -40,6 +40,7 @@ Modules 1+2 are the FYP showcases requiring no further iteration. Modules 3–6 
 
 **Additional capability beyond Slide 21:**
 - **In-place change password** — [`POST /api/auth/change-password`](../backend/src/routes/auth.js) lets an already-logged-in user rotate their password without leaving the app. Surfaced as an inline card on `/athlete/profile` and as a modal on `/medical/profile` and `/admin/profile`. Same password policy as the reset flow.
+- **Per-user feature permissions for medical staff (admin-controlled)** — beyond coarse RBAC, the admin can revoke individual capabilities (`viewRecords`, `uploadData`, `reviewReports`, `injuryReports`) from a specific medical staffer, or deactivate the account entirely. Opt-out model: every capability is granted unless explicitly revoked. Enforced server-side by [`requirePermission()`](../backend/src/middleware/permission.js) on the athlete/injury/self-report/upload routes, mirrored in the frontend so a revoked feature disappears from the sidebar and its page shows an access-denied panel. Admin UI: [`/admin/staff`](../frontend/src/app/admin/staff/page.tsx); backend: [`/api/users`](../backend/src/routes/users.js); catalogue + helpers in [`utils/permissions.js`](../backend/src/utils/permissions.js). athlete/admin roles are never constrained by this layer.
 
 **Password policy** (applied consistently by both `change-password` and `reset-password`, mirrored client-side at [`lib/passwordPolicy.ts`](../frontend/src/lib/passwordPolicy.ts) and server-side at [`utils/passwordPolicy.js`](../backend/src/utils/passwordPolicy.js)):
 
@@ -114,6 +115,7 @@ Modules 1+2 are the FYP showcases requiring no further iteration. Modules 3–6 
 - 8-indicator radar from screening data
 - Body map shows muscle flags aggregated by region; flag cards below preserve per-muscle granularity; only ISN-scoped regions are interactive
 - Recent activity table + tabbed injury records (Active / All History)
+- Dedicated **HoloMotion screening report** at [`/athlete/screening`](../frontend/src/app/athlete/screening/page.tsx) via the shared [`ScreeningReport`](../frontend/src/components/dashboard/ScreeningReport.tsx) component (score gauges + risk radar + muscle-flag body map) — the athlete's read-only view of their own ingested screening
 
 **FYP defensibility hook:** The **composite risk model** is the FYP innovation. It integrates workload + biomechanical screening + injury history into one classification, instead of the textbook Gabbett ACWR bands. See [DESIGN_DECISIONS.md §2](DESIGN_DECISIONS.md#2-composite-risk-model).
 
@@ -140,26 +142,33 @@ Modules 1+2 are the FYP showcases requiring no further iteration. Modules 3–6 
 
 ---
 
-## Module 4 — Data Management (CSV upload) 🟡
+## Module 4 — Data Management (screening ingestion + backup) 🟢
 
-**What it does (full vision):** Admin (and medical) staff upload the ISN screening Excel file containing athlete biometrics, injury risk indicators, and per-muscle deficiency/tension flags. System validates against schema, shows preview with row-by-row errors, commits on confirm.
+**What it does (full vision):** Admin (and medical) staff bring athlete screening data — biometrics, injury-risk indicators, per-muscle deficiency/tension flags — into the system. Two ingestion paths now coexist: the original Excel upload, and the newer **HoloMotion PDF** path that Dr Thung's real workflow produces. The admin can also export the whole dataset as an Excel backup.
 
-**Current state (infrastructure complete, awaits ISN format lock):**
-- ✅ Upload page at `/admin/data-upload` and `/medical/data-upload`, both wrapping the shared [`ScreeningUpload`](../frontend/src/components/upload/ScreeningUpload.tsx) component
-- ✅ Drag-drop and click-to-browse file picker with name + size feedback
-- ✅ Backend `POST /api/upload/screening/preview` parses + validates the workbook (column-name tolerant), returns row-by-row preview with `action: create|update` and per-row error list. Does NOT commit
-- ✅ Frontend shows preview table with row counts, valid/invalid breakdown, and red highlight on rows with errors
-- ✅ Backend `POST /api/upload/screening` performs the actual upsert with the same normalisation + validation logic. Frontend prompts confirm when committing with any invalid rows
-- ✅ Validation enforces required fields (Athlete ID, Name, Sport) and known enums (Gender, Program)
+**Current state (functional):**
 
-**Awaiting ISN input (the one external dependency):**
-- **Canonical column structure** — Dr Thung has not yet finalised the column order, exact field names, or how muscle deficiency/tension flags will be laid out. The sample we have ([docs/data-samples/isn-csv-template.xlsx](data-samples/isn-csv-template.xlsx)) is one row (John Doe). We need 2–3 real screening sessions across different athletes before we can lock the parser's muscle-flag column handling
-- **Date column format expectation** — currently any ISO-parseable string; ISN may use DD/MM/YYYY
-- **Versioning / re-upload semantics** — currently same-`athleteId` uploads update in place (latest wins). If ISN wants history, we'd add a `screeningHistory` sub-document
+*Excel path (original):*
+- ✅ Shared [`ScreeningUpload`](../frontend/src/components/upload/ScreeningUpload.tsx) on `/admin/data-upload` + `/medical/data-upload`; drag-drop/browse; column-name-tolerant parse
+- ✅ `POST /api/upload/screening/preview` validates + returns a row-by-row preview (`action: create|update`, per-row errors), no commit; `POST /api/upload/screening` upserts. Required-field + enum validation (Athlete ID, Name, Sport, Gender, Program)
+
+*HoloMotion PDF path (new — vision-AI ingestion):*
+- ✅ [`PdfScreeningUpload`](../frontend/src/components/upload/PdfScreeningUpload.tsx) sits alongside the Excel uploader on both pages
+- ✅ The report has **no text layer** (jsPDF bakes everything in as graphics — verified pdf-parse/pdfjs extract zero text), so the backend renders pages 1–3 to images ([`pdfRender.js`](../backend/src/utils/pdfRender.js)) and a configurable vision model reads them ([`visionClient.js`](../backend/src/utils/visionClient.js)), returning structured JSON mapped onto `Athlete` columns + `muscle_flags` ([`holomotionExtract.js`](../backend/src/utils/holomotionExtract.js))
+- ✅ Two-step flow: `POST /api/upload/screening/pdf/preview` (render + extract, no commit) → `POST /api/upload/screening/pdf` (commit as JSON, so no second vision call). `GET /api/upload/screening/pdf/status` lets the UI self-disable when no provider is configured
+- ✅ Operator supplies only the three fields the report never contains — Athlete ID, Sport, Program
+- ✅ Provider-agnostic: OpenAI / Qwen / OpenRouter / local Ollama (OpenAI-compatible) or Anthropic, by `VISION_*` env vars. See [DESIGN_DECISIONS.md §13](DESIGN_DECISIONS.md#13-excelholomotion-pdf-ingestion-vision-ai)
+
+*Data backup:*
+- ✅ [`DataBackupCard`](../frontend/src/components/upload/DataBackupCard.tsx) on `/admin/data-upload` → `GET /api/export/backup.xlsx` streams a multi-sheet workbook (athletes + injuries + muscle flags), preserving the Excel-era dataset as ingestion shifts to HoloMotion
+
+**Deferred / notes:**
+- The vision HTTP call hasn't been exercised against a live key in this environment (no key/Ollama available); render + parse + map are verified end-to-end. One real upload should confirm gauge-number accuracy before a demo
+- Versioning / re-upload: same-`athleteId` upserts in place (latest wins); muscle flags are replaced wholesale per import
 
 **Prototype reference:** [airms-prototype/admin/data-upload.html](../airms-prototype/admin/data-upload.html)
 
-**Pitch line for FYP defence (re: ISN dependency):** *"The infrastructure is complete — upload, parse, validate, preview, confirm-commit, upsert. Module 4 doesn't depend on ISN to function; only the muscle-flag column expansion is gated on Dr Thung delivering 2–3 confirmed screening exports so we can lock that part of the schema. Building it against a draft sample would create technical debt the moment the real format arrives."*
+**Pitch line for FYP defence:** *"Module 4 ingests screening data two ways — the Excel upload and, matching Dr Thung's real HoloMotion workflow, an AI-assisted PDF path. Because the HoloMotion report is image-only, the system renders its pages and reads them with a vision model — provider-agnostic, so any OpenAI-compatible or Anthropic key works — then maps the result onto the same athlete schema. The admin can snapshot the whole dataset to Excel at any time."*
 
 ---
 
@@ -202,6 +211,7 @@ Modules 1+2 are the FYP showcases requiring no further iteration. Modules 3–6 
 - ✅ Reuses [`WorkloadChart`](../frontend/src/components/dashboard/WorkloadChart.tsx), [`RiskRadar`](../frontend/src/components/dashboard/RiskRadar.tsx), and [`BodyMap`](../frontend/src/components/dashboard/BodyMap.tsx) from Module 2 verbatim
 - ✅ **Prevention insight card** — addresses Dr Thung's hard requirement *"this spot, what are the prominent kind of injury and when going to happen? So you can also give them a good advice."* Cross-references composite risk + elevated risk indicators (>15) + muscle flags + prior injuries (last 12 months) into a ranked "watch points" list plus recommended actions. Implementation: `buildPreventionInsight()` in [medical/dashboard/page.tsx](../frontend/src/app/medical/dashboard/page.tsx) using `MUSCLE_REGION` + `RISK_REGION` mappings
 - ✅ Full injury history list at the bottom with severity-coloured status badges
+- ✅ Dedicated **HoloMotion screening report** at [`/medical/screening`](../frontend/src/app/medical/screening/page.tsx) — searchable athlete picker → shared [`ScreeningReport`](../frontend/src/components/dashboard/ScreeningReport.tsx) view (same component the athlete sees). Gated by the `viewRecords` permission
 
 **Deferred (not blocking system use):**
 - **Watchlist / starred athletes** — designed in prototype, not built
@@ -252,11 +262,11 @@ Best answer per module:
 
 - **Module 3:** "Yes — athletes submit self-reports, medical reviews them, approved reports promote to the official injury record, medical logs injuries directly. End-to-end. Recovery milestone tracking is deferred because Dr Thung has not specified the standardised recovery phase schema yet."
 - **Module 4:** "Yes — file drop, parse, validate, row-by-row preview with errors, confirm-and-commit, with create/update detection. The only ISN-gated piece is the muscle-flag column expansion, which needs 2–3 confirmed screening exports to lock."
-- **Module 5:** "Yes — 7-filter live analytics dashboard with KPI cards, body part + injury type distribution charts, and monthly trend. Report builder fully captures configuration with a structural preview. The only thing missing is server-side PDF rendering, which is ~half a day."
+- **Module 5:** "Yes — 7-filter live analytics dashboard with KPI cards, body part + injury type distribution charts, and monthly trend. The report builder generates the PDF server-side via `pdfkit` (cover, executive summary, distribution charts, optional severity/recovery/monthly sections, athlete index). Deferred polish: the severity×time heatmap and an explicit PODIUM-vs-PELAPIS comparison view."
 - **Module 6:** "Yes — search/filter the athlete roster, select an athlete, and you see the same composite-risk hero, workload chart, risk radar, body map, and injury history as that athlete sees on their own dashboard, plus a deep-linked '+ Log Injury' button. The watchlist and team-summary KPI cards are deferred."
 
 The umbrella message: *"All six modules are functional. The remaining work on Modules 3–6 is either external (Dr Thung's schema lock) or deferred polish (PDF renderer, watchlist) — none of it gates the system from being used today."*
 
 ---
 
-*Last updated: 2026-06-08. **General Module shipped fully** — UC-1 login (non-enumerating error message), UC-2 email-OTP password reset (3-page flow: email → OTP → password, 10-min OTP TTL, 5-attempt cap, 5-min verification token in sessionStorage), UC-3 RBAC. In-place change-password on profile pages, password policy (10+ chars + mixed case + digit + symbol), env-driven SMTP mailer with console fallback. Previous: 2026-06-07 (initial OTP-based UC-2 implementation).*
+*Last updated: 2026-06-28. **Module 4 expanded** — HoloMotion PDF (vision-AI) ingestion added alongside Excel upload; admin Excel data backup. **General Module** gained admin-controlled per-user feature permissions for medical staff. **Modules 2 & 6** gained dedicated HoloMotion screening-report pages. Previous: 2026-06-08 (General Module shipped fully — UC-1/2/3, change-password, password policy, SMTP mailer).*

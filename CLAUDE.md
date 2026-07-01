@@ -122,6 +122,15 @@ SMTP_SECURE=true
 SMTP_USER=...@gmail.com          # any provider works; Gmail / Mailtrap / SendGrid all tested
 SMTP_PASS=...                    # for Gmail use a 16-char App Password (NOT your normal password)
 SMTP_FROM='AIRMS <...@gmail.com>'
+
+# Vision provider for HoloMotion PDF (Module 4) ingestion. If unset, the PDF
+# uploader self-disables and the Excel path still works. Provider-agnostic:
+# the 'openai' wire format covers OpenAI / Qwen (DashScope) / OpenRouter /
+# Ollama; 'anthropic' is the native format. Switch with env only.
+VISION_PROVIDER=openai           # openai | anthropic
+VISION_API_KEY=...               # leave blank to disable PDF ingestion
+VISION_BASE_URL=                 # optional endpoint override (Qwen/OpenRouter/Ollama)
+VISION_MODEL=gpt-4o-mini         # any vision-capable model id
 ```
 
 When you change `SMTP_*` values, restart the backend — the mailer transport is built once and cached.
@@ -138,6 +147,7 @@ NEXT_PUBLIC_API_URL=http://localhost:5000/api
 3. **Seeder enum errors** — when adding seed data, double-check Injury enums against the schemas in `backend/src/models/Injury.js`.
 4. **`Access denied for user 'root'@'localhost'`** during seed/boot means either the password is wrong or MySQL isn't running. Confirm with `Get-NetTCPConnection -LocalPort 3306`.
 5. **The prototype folder** `airms-prototype/` is the inherited HTML reference from prior students (Shewin, Keying). It is **not deployed**, but design copy and component layouts are cherry-picked from it. Don't delete it.
+6. **HoloMotion PDF rendering uses a `canvas` npm alias** → `@napi-rs/canvas` (prebuilt, declared in `backend/package.json`). Do **not** `npm install canvas` (node-canvas) — it needs a native compiler and fails on this Windows/Node setup. The alias is what lets `pdfjs` render the image-only HoloMotion PDFs. See [docs/DESIGN_DECISIONS.md §13](docs/DESIGN_DECISIONS.md).
 
 ## Submission workflow
 

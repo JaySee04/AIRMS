@@ -46,6 +46,16 @@ MYSQL_PORT=3306
 MYSQL_USER=root
 MYSQL_PASSWORD='...'             # wrap in single quotes if it contains # $ % ^
 MYSQL_DATABASE=airms
+
+# SMTP for password-reset OTP emails (console-fallback when unset)
+SMTP_HOST=... SMTP_PORT=465 SMTP_SECURE=true SMTP_USER=... SMTP_PASS=... SMTP_FROM=...
+
+# Vision provider for HoloMotion PDF ingestion (feature self-disables when unset).
+# 'openai' wire format covers OpenAI / Qwen / OpenRouter / Ollama; 'anthropic' is native.
+VISION_PROVIDER=openai          # openai | anthropic
+VISION_API_KEY=...
+VISION_BASE_URL=...             # optional endpoint override (Qwen/OpenRouter/Ollama)
+VISION_MODEL=gpt-4o-mini        # any vision-capable model id
 ```
 
 ### Models — `backend/src/models/`
@@ -54,7 +64,7 @@ All Sequelize models. The `index.js` registers them and wires up associations (`
 
 | File | Schema | Notes |
 |---|---|---|
-| [User.js](../backend/src/models/User.js) | email, password (hashed), role, name, athleteId? | `beforeSave` hook bcrypts the password column |
+| [User.js](../backend/src/models/User.js) | email, password (hashed), role, name, athleteId?, permissions (JSON), isActive | `beforeSave` hook bcrypts the password column. `permissions` is the per-user medical-staff feature opt-out map (see middleware/permission.js) |
 | [Athlete.js](../backend/src/models/Athlete.js) | athleteId, name, sport, programme, biometrics, 8 flat risk-indicator columns | `athleteId` (VARCHAR) is the PK and the cross-table FK; risks reassembled into a nested `risks` object by the serialiser |
 | [MuscleFlag.js](../backend/src/models/MuscleFlag.js) | id, athleteId, flagType (`myodynamia`\|`tension`), muscle, side | Single table for both flag categories, discriminated by `flagType`; serialiser splits rows into the `myodynamia[]` / `tension[]` arrays the frontend expects |
 | [Activity.js](../backend/src/models/Activity.js) | id, athleteId, date, type, duration, intensity, load, notes | `beforeValidate` hook auto-computes `load = duration × intensity` |
@@ -67,12 +77,14 @@ All Sequelize models. The `index.js` registers them and wires up associations (`
 | File | Mount point | Public endpoints |
 |---|---|---|
 | [auth.js](../backend/src/routes/auth.js) | `/api/auth` | `POST /login`, `GET /me` |
+| [users.js](../backend/src/routes/users.js) | `/api/users` | admin-only: `GET /` (list medical staff), `GET /permission-meta`, `PATCH /:id` (set per-user permissions + active status) |
 | [athletes.js](../backend/src/routes/athletes.js) | `/api/athletes` | `GET /` (list, medical/admin), `GET /:id`, `POST /` (admin), `PATCH /:id`, `DELETE /:id` (soft), `GET /meta/sports` |
 | [activities.js](../backend/src/routes/activities.js) | `/api/activities` | `GET /athlete/:id`, `GET /athlete/:id/acwr`, `POST /`, `PUT /:id`, `DELETE /:id` |
 | [injuries.js](../backend/src/routes/injuries.js) | `/api/injuries` | `GET /` (filtered), `GET /athlete/:id`, `POST /`, `PATCH /:id`, `GET /analytics/summary` |
 | [selfReports.js](../backend/src/routes/selfReports.js) | `/api/self-reports` | `GET /` (medical), `GET /athlete/:id`, `POST /`, `PATCH /:id/review` (approve→creates Injury) |
-| [upload.js](../backend/src/routes/upload.js) | `/api/upload` | `POST /screening/preview` (parse + validate, no commit), `POST /screening` (upsert) |
+| [upload.js](../backend/src/routes/upload.js) | `/api/upload` | **Excel:** `POST /screening/preview`, `POST /screening` (upsert). **HoloMotion PDF:** `GET /screening/pdf/status`, `POST /screening/pdf/preview` (render + vision-extract, no commit), `POST /screening/pdf` (commit JSON). All gated by `requirePermission('uploadData')` |
 | [reports.js](../backend/src/routes/reports.js) | `/api/reports` | `POST /injuries-pdf` (admin only) — server-side `pdfkit` rendering of filtered injury report; streams `application/pdf` |
+| [export.js](../backend/src/routes/export.js) | `/api/export` | `GET /backup.xlsx` (admin only) — streams a multi-sheet Excel snapshot (athletes + injuries + muscle flags) as the Excel-era data backup |
 
 ### Middleware — `backend/src/middleware/`
 
@@ -80,12 +92,17 @@ All Sequelize models. The `index.js` registers them and wires up associations (`
 |---|---|
 | [auth.js](../backend/src/middleware/auth.js) | Verifies JWT from `Authorization: Bearer <token>`, attaches `req.user` |
 | [rbac.js](../backend/src/middleware/rbac.js) | `rbac('athlete', 'medical')` → 403 if `req.user.role` is not in the list |
+| [permission.js](../backend/src/middleware/permission.js) | `requirePermission('uploadData')` → 403 if a **medical** user has had that capability revoked by an admin (opt-out model). admin/athlete pass through untouched |
 
 ### Other backend files
 
 - [config/db.js](../backend/src/config/db.js) — `connectDB()` opens the Sequelize connection to MySQL using the `MYSQL_*` env vars
 - [utils/seeder.js](../backend/src/utils/seeder.js) — `npm run seed` from `backend/`. `sequelize.sync({ force: true })` drops the schema, then reseeds users/athletes/muscle_flags/activities/injuries with deterministic PRNG (seed=42)
 - [utils/serialize.js](../backend/src/utils/serialize.js) — response shaper. Aliases Sequelize's numeric `id` to a stringified `_id` field and reassembles Athlete's flat columns into nested `risks`/`myodynamia[]`/`tension[]` shape
+- [utils/permissions.js](../backend/src/utils/permissions.js) — per-user medical-staff feature permissions: the key catalogue (`viewRecords`, `uploadData`, `reviewReports`, `injuryReports`), `hasPermission()`, and `sanitizePermissions()`. Opt-out model — a capability is granted unless explicitly set `false`
+- [utils/pdfRender.js](../backend/src/utils/pdfRender.js) — renders HoloMotion PDF pages (1–3) to base64 PNGs via `pdfjs-dist` + the `canvas`→`@napi-rs/canvas` npm alias. HoloMotion PDFs have no text layer (jsPDF-baked graphics), so vision is the only reliable read
+- [utils/visionClient.js](../backend/src/utils/visionClient.js) — provider-agnostic vision call. OpenAI-compatible adapter (OpenAI / Qwen / OpenRouter / Ollama) + Anthropic native adapter, selected by `VISION_*` env vars; `isVisionConfigured()` lets routes self-disable cleanly
+- [utils/holomotionExtract.js](../backend/src/utils/holomotionExtract.js) — full pipeline: render → vision prompt → strict JSON → mapped onto the flat `Athlete` columns + `muscle_flags` rows
 
 ---
 
@@ -102,23 +119,26 @@ NEXT_PUBLIC_API_URL=http://localhost:5000/api
 
 ### App routes — `frontend/src/app/`
 
-13 pages mapped to the 3 roles + 3 profile pages:
+Pages mapped to the 3 roles + profile pages:
 
 | Path | Role | Purpose |
 |---|---|---|
 | [`/`](../frontend/src/app/page.tsx) | public | Login |
 | [`/athlete/dashboard`](../frontend/src/app/athlete/dashboard/page.tsx) | athlete | Module 2 — composite risk dashboard |
+| [`/athlete/screening`](../frontend/src/app/athlete/screening/page.tsx) | athlete | HoloMotion screening report (own) |
 | [`/athlete/activity`](../frontend/src/app/athlete/activity/page.tsx) | athlete | Module 1 — activity tracking |
 | [`/athlete/injury-report`](../frontend/src/app/athlete/injury-report/page.tsx) | athlete | Module 3 — self-report form |
 | [`/athlete/profile`](../frontend/src/app/athlete/profile/page.tsx) | athlete | Profile |
 | [`/medical/dashboard`](../frontend/src/app/medical/dashboard/page.tsx) | medical | Module 6 — athlete search/view |
+| [`/medical/screening`](../frontend/src/app/medical/screening/page.tsx) | medical | HoloMotion screening report (any athlete; `viewRecords` gated) |
 | [`/medical/injury-log`](../frontend/src/app/medical/injury-log/page.tsx) | medical | Module 3 — log official injury |
 | [`/medical/review-reports`](../frontend/src/app/medical/review-reports/page.tsx) | medical | Module 3 — review athlete self-reports |
-| [`/medical/data-upload`](../frontend/src/app/medical/data-upload/page.tsx) | medical | Module 4 — screening upload |
+| [`/medical/data-upload`](../frontend/src/app/medical/data-upload/page.tsx) | medical | Module 4 — screening upload (Excel + HoloMotion PDF) |
 | [`/medical/profile`](../frontend/src/app/medical/profile/page.tsx) | medical | Profile |
 | [`/admin/dashboard`](../frontend/src/app/admin/dashboard/page.tsx) | admin | Module 5 — injury analytics |
 | [`/admin/reports`](../frontend/src/app/admin/reports/page.tsx) | admin | Module 5 — PDF report builder |
-| [`/admin/data-upload`](../frontend/src/app/admin/data-upload/page.tsx) | admin | Module 4 — screening upload |
+| [`/admin/staff`](../frontend/src/app/admin/staff/page.tsx) | admin | Medical-staff permission control + account activation |
+| [`/admin/data-upload`](../frontend/src/app/admin/data-upload/page.tsx) | admin | Module 4 — screening upload (Excel + HoloMotion PDF) + data backup |
 | [`/admin/profile`](../frontend/src/app/admin/profile/page.tsx) | admin | Profile |
 
 ### Layout components — `frontend/src/components/layout/`
@@ -140,12 +160,16 @@ NEXT_PUBLIC_API_URL=http://localhost:5000/api
 | [bodymap-data/bodyBack.ts](../frontend/src/components/dashboard/bodymap-data/bodyBack.ts) | MIT-licensed path data (back view) |
 | [bodymap-data/outlines.ts](../frontend/src/components/dashboard/bodymap-data/outlines.ts) | Single-path silhouette outlines for front + back |
 | [bodymap-data/types.ts](../frontend/src/components/dashboard/bodymap-data/types.ts) | `BodyPart` interface |
+| [ScreeningReport.tsx](../frontend/src/components/dashboard/ScreeningReport.tsx) | `/athlete/screening` + `/medical/screening`. Shared HoloMotion snapshot — five score gauges, 8-indicator risk radar, muscle flags + body map |
+| [ScreeningAlertBanner.tsx](../frontend/src/components/dashboard/ScreeningAlertBanner.tsx) | Athlete + Medical dashboards. Renders the sport-aware screening alert (a body region critical for the athlete's sport whose HoloMotion indicator is out of range). Backed by `lib/screeningAlerts.ts`; renders nothing when there's nothing to flag |
 
 ### Upload component — `frontend/src/components/upload/`
 
 | File | Used by |
 |---|---|
-| [ScreeningUpload.tsx](../frontend/src/components/upload/ScreeningUpload.tsx) | Admin + Medical data-upload pages. Drag-drop + preview + commit flow against `/api/upload/screening` |
+| [ScreeningUpload.tsx](../frontend/src/components/upload/ScreeningUpload.tsx) | Admin + Medical data-upload pages. Excel drag-drop + preview + commit flow against `/api/upload/screening` |
+| [PdfScreeningUpload.tsx](../frontend/src/components/upload/PdfScreeningUpload.tsx) | Admin + Medical data-upload pages. HoloMotion PDF flow — vision-extract preview, then commit with operator-supplied athleteId/sport/program. Self-disables when the vision provider is unconfigured |
+| [DataBackupCard.tsx](../frontend/src/components/upload/DataBackupCard.tsx) | Admin data-upload page. One-click download of the Excel-era data backup from `/api/export/backup.xlsx` |
 
 ### Profile component — `frontend/src/components/profile/`
 
@@ -158,8 +182,9 @@ NEXT_PUBLIC_API_URL=http://localhost:5000/api
 | File | Exports |
 |---|---|
 | [api.ts](../frontend/src/lib/api.ts) | `api.get / post / patch / delete` — thin fetch wrapper that attaches the JWT from `localStorage` |
-| [auth.ts](../frontend/src/lib/auth.ts) | `saveSession`, `getSession`, `clearSession`, `requireRole`, `SessionUser` type |
+| [auth.ts](../frontend/src/lib/auth.ts) | `saveSession`, `getSession`, `clearSession`, `requireRole`, `SessionUser` type, plus `hasPermission()` + `PermissionKey` for the medical-staff feature opt-out (mirrors backend `utils/permissions.js`) |
 | [risk.ts](../frontend/src/lib/risk.ts) | `classifyCompositeRisk()` + `computeVulnerability()` + `personalisedThresholds()` — the FYP differentiator |
+| [screeningAlerts.ts](../frontend/src/lib/screeningAlerts.ts) | `computeBodyPartAlerts()` + `SPORT_CRITICAL_REGIONS` map — sport-aware screening alerts. A **separate** layer from `risk.ts` (does not modify `classifyCompositeRisk()`); flags per-region exercise-risk indicators that are out of range in a sport-critical region |
 
 ### Styles
 
@@ -237,9 +262,10 @@ If port 3000 is held: kill the stale process (`Stop-Process -Id <pid> -Force` in
 
 | Role | Email | Password | Athlete linked |
 |---|---|---|---|
-| athlete | `john.doe@isn.gov.my` | `password123` | ATH0001 |
-| medical | `dr.lim@isn.gov.my` | `password123` | — |
-| admin | `admin@isn.gov.my` | `password123` | — |
+| athlete | `athlete@isn.gov.my` | `athlete123` | ATH0001 (John Doe) |
+| medical | `medical@isn.gov.my` | `medical123` | — |
+| admin | `admin@isn.gov.my` | `admin123` | — |
+| admin (SMTP demo) | `poseidonapollo11@gmail.com` | `admin123` | — |
 
 Other seeded athletes (ATH0002–ATH0060) all have random Malaysian-style names per the seeder PRNG.
 
@@ -256,4 +282,4 @@ Other seeded athletes (ATH0002–ATH0060) all have random Malaysian-style names 
 
 ---
 
-*Last updated: 2026-05-26 — added `CLAUDE.md` to the folder tree + docs table.*
+*Last updated: 2026-06-28 — documented HoloMotion PDF (vision-AI) ingestion, per-user medical-staff permissions, Excel data backup, and the athlete/medical screening-report pages. Corrected demo credentials. Added SMTP + VISION env vars.*

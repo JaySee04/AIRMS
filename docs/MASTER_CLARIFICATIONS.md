@@ -67,7 +67,7 @@ Per JC's FDD, AIRMS has **exactly 6 modules**. Don't propose new ones.
 | 1 | Activity Tracking & Logging | athlete | ✅ fully complete |
 | 2 | Athlete Dashboard / Workload | athlete | ✅ fully complete |
 | 3 | Injury & Recovery Logging | medical | 🟢 functional, recovery milestones deferred |
-| 4 | Data Management (CSV upload) | admin | 🟡 infrastructure complete, ISN muscle-flag column lock pending |
+| 4 | Data Management (Excel + HoloMotion PDF) | admin | 🟢 functional — Excel upload + vision-AI PDF ingestion + Excel data backup |
 | 5 | Injury Analytics | admin | ✅ fully complete (live PDF generation via pdfkit) |
 | 6 | Medical Dashboard | medical | 🟢 functional, watchlist deferred |
 
@@ -140,8 +140,8 @@ These rules came from JC's Figma mockups and explicit feedback. **Do not deviate
 - Split card on cream gradient background (`--brand-navy` left panel, white right panel)
 - Card width 760px, min-height 480px, border-radius 14px, drop shadow
 - **Left panel**: full logo (`logofull.png`, 210×72), AIRMS heading, ISN address, version footer
-- **Right panel**: heading + subtext + role selector (athlete/medical/admin tabs) + email/password form + "Forgot password" link
-- Role tabs are **visual only** — they don't pre-fill credentials. Selecting a role just affects which sidebar/landing page the user sees post-login
+- **Right panel**: "Sign in" heading + subtext + email/password form (with show/hide toggle) + "Forgot password" link
+- **No role tabs.** The early Figma had an athlete/medical/admin tab strip; the shipped login is a plain email + password form. Role is read from the JWT after login and drives the landing-page redirect (`ROLE_REDIRECTS` in [`app/page.tsx`](../frontend/src/app/page.tsx)). There is nothing for a role tab to do, so it was dropped.
 
 ### Sidebar (when logged in)
 
@@ -225,6 +225,8 @@ These rules came from JC's Figma mockups and explicit feedback. **Do not deviate
 4. **`npm install` at the root** is required once for `concurrently`. After that, `npm run dev` works from root.
 5. **SMTP env not loading** — when you change `SMTP_*` values in `backend/.env`, the running backend keeps using the previously-built mailer transport (cached on first use). Always restart the backend after editing SMTP env vars. If `SMTP_HOST` is empty, the mailer falls back to a console transport that prints the email body to the backend terminal — useful for dev without credentials.
 6. **Gmail app password format** — paste it as 16 contiguous characters (the spaces Google shows are visual only). Wrong format manifests as a 535 auth error from Gmail.
+7. **HoloMotion PDF ingestion needs a vision provider** — set `VISION_API_KEY` + `VISION_MODEL` (and optionally `VISION_PROVIDER` / `VISION_BASE_URL`) in `backend/.env`. If unset, the PDF uploader self-disables with a config message; the Excel path still works. Provider-agnostic — OpenAI / Qwen / OpenRouter / Ollama (OpenAI-compatible) or Anthropic. See [DESIGN_DECISIONS.md §13](DESIGN_DECISIONS.md#13-excelholomotion-pdf-ingestion-vision-ai).
+8. **Do NOT `npm install canvas` (node-canvas)** — it needs a native compiler and fails on this Windows/Node setup. `pdfjs` rendering instead uses an npm alias `canvas` → `@napi-rs/canvas` (a prebuilt binary) declared in `backend/package.json`. Keep the alias; don't replace it with real node-canvas.
 
 ---
 

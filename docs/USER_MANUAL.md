@@ -12,9 +12,10 @@
 
 | Role | Email | Password |
 |---|---|---|
-| Athlete | `john.doe@isn.gov.my` | `password123` |
-| Medical | `dr.lim@isn.gov.my` | `password123` |
-| Admin | `admin@isn.gov.my` | `password123` |
+| Athlete | `athlete@isn.gov.my` | `athlete123` |
+| Medical | `medical@isn.gov.my` | `medical123` |
+| Admin | `admin@isn.gov.my` | `admin123` |
+| Admin (SMTP demo) | `poseidonapollo11@gmail.com` | `admin123` |
 
 (Run `npm run seed` from project root to reseed.)
 
@@ -34,9 +35,9 @@ Opens backend on `http://localhost:5000` and frontend on `http://localhost:3000`
 
 Split-card layout on a cream gradient background.
 - **Left panel (navy)**: AIRMS full logo, tagline, ISN address, version footer
-- **Right panel (white)**: "Welcome Back" heading, role selector (Athlete / Medical / Admin tabs), email + password fields, **Sign In** button, "Forgot password" link
+- **Right panel (white)**: "Sign in" heading, email + password fields (with a show/hide password toggle), **Sign in** button, "Forgot password" link
 
-Selecting a role tab is visual only — credentials still drive which role you actually authenticate as. After successful login the system reads the user's role from the JWT and redirects to that role's landing page.
+There is no role selector — you just enter your email and password. After successful login the system reads your role from the JWT and redirects to that role's landing page.
 
 ### Sidebar
 
@@ -50,9 +51,12 @@ Per-role nav:
 | Athlete | Medical | Admin |
 |---|---|---|
 | My Dashboard | Athlete Dashboard | Injury Analytics |
-| Activity Tracking | Injury Logging | PDF Reports |
+| Screening Report | Screening Reports | PDF Reports |
+| Activity Tracking | Injury Logging | Staff Permissions |
 | Injury Reporting | Self-Report Review | Data Uploading |
 |  | Data Uploading |  |
+
+Medical nav links are hidden individually when an admin has revoked that capability for the staff member (see §15).
 
 **Note:** "My Profile" is **not** in the sidebar — it lives in the topbar avatar dropdown.
 
@@ -117,6 +121,10 @@ Every activity saved here updates the athlete's ACWR calculation in real time on
 ## 4. Athlete Dashboard — `/athlete/dashboard` (Athlete only)
 
 The athlete's home page. Vertical sections from top to bottom:
+
+### 4.0 Sport-Critical Screening Alert (when triggered)
+
+At the very top — *above* the risk hero — a red/amber alert banner appears when a HoloMotion screening indicator for a body region **important to the athlete's sport** is out of a healthy range (e.g. an Ankle indicator for a Badminton player). It lists each flagged region with a Watch/High chip. Renders nothing when everything is in range. Full behaviour in [§13](#13-sport-critical-screening-alerts).
 
 ### 4.1 Composite Risk Hero
 
@@ -254,6 +262,7 @@ The medical staff's home page — **search → select athlete → see their full
 
 **On selection** — full athlete view renders below the roster:
 - **Profile header card** with avatar, name, sport · programme · age · gender, "+ Log Injury" button (deep-links to `/medical/injury-log?athleteId=...`), and key-value grid of biometrics + screening scores
+- **Sport-Critical Screening Alert** — the same banner the athlete sees, flagging a sport-important body region that's out of screening range (see [§13](#13-sport-critical-screening-alerts))
 - **Composite Risk hero** — same component logic as the athlete's own dashboard. Shows the personalised band, escalation badge if triggered, and risk modifier chips
 - **Workload Trend chart** + **Risk Indicators radar** (side by side, identical to the athlete dashboard)
 - **Muscle Assessment Map** — front + back silhouette with flagged regions, plus the granular flag cards below
@@ -336,7 +345,7 @@ Accessed from the topbar avatar dropdown's "My Profile" link. Both pages share t
 **Account information** — read-only card listing display name, email, role, athlete ID (if applicable), and user ID.
 
 **Account actions:**
-- **Change password** opens a modal with current / new / confirm fields. Submitting performs client-side validation (≥8 chars, confirmation match) and shows a transparent demo-build notice — the backend password-rotation endpoint is intentionally not wired yet
+- **Change password** opens a modal with current / new / confirm fields. Submitting calls `POST /api/auth/change-password` after enforcing the password policy (≥10 chars, upper + lower + digit + symbol, confirmation match)
 - **Sign out** prompts a confirm, then clears the JWT and redirects to login
 
 ---
@@ -356,6 +365,53 @@ Both pages render the same shared [`ScreeningUpload`](../frontend/src/components
 - After running preview: a green banner showing valid/invalid counts, plus a scrollable table of every row with action badge and error column (errored rows highlighted in red)
 - After running commit: a green success banner with created / updated counts
 
+### 12.1 HoloMotion PDF import (AI-assisted)
+
+Below the Excel uploader sits a second card, **Import from HoloMotion PDF** — the path matching Dr Thung's real workflow. HoloMotion reports are image-only PDFs (no text), so the system renders the pages and a vision model reads them.
+
+- **Drop a `.pdf`** → **Read & extract**. The backend renders the report's data pages and a configurable vision model returns the scores, the eight exercise-risk indicators, and the muscle flags. They appear in an "Extracted data" panel for review
+- Because the report never contains them, you fill in three fields by hand: **Athlete ID, Sport, Program**
+- **Confirm & import** upserts the athlete and replaces their muscle flags. No second AI call is made (the reviewed data is sent back directly)
+- If no vision provider is configured (`VISION_API_KEY` / `VISION_MODEL` in the backend env), the card self-disables with a setup message — the Excel path is unaffected. Any OpenAI-compatible provider (OpenAI, Qwen, OpenRouter, local Ollama) or Anthropic works
+
+### 12.2 Data Backup (admin only)
+
+On `/admin/data-upload`, a **Data Backup** card offers a one-click **Download backup (.xlsx)** — a multi-sheet Excel workbook (Athletes + Injuries + Muscle Flags) snapshotting the whole dataset. Keep this as a record of the Excel-era data as ingestion shifts to HoloMotion.
+
 ---
 
-*Last updated: 2026-05-18. Add a new section here whenever a feature ships.*
+## 13. Sport-Critical Screening Alerts
+
+A sport-aware injury alert shown on the **athlete** and **medical** dashboards. Different sports stress different body regions — a runner's knees and ankles matter more than their neck — so the system flags a screening problem *in a region that matters for that athlete's sport* before the general workload signal.
+
+**How it decides:**
+- Each sport has a set of **critical body regions** (e.g. Swimming → Shoulder / Neck / Lumbar-Pelvis; Athletics → Knee / Ankle / Lumbar-Pelvis)
+- It reads the eight HoloMotion exercise-risk indicators (0–40, lower is better) and bands each: **≤15 OK · 16–25 Watch · >25 High**
+- An indicator is alerted when its region is **sport-critical and elevated**, or when it is **High for any region** (safety net)
+
+**What you see:** a red (High) or amber (Watch) banner at the top of the dashboard listing each flagged region with a Watch/High chip and the value; sport-critical entries are marked. The banner is hidden entirely when nothing is out of range. It is informational and does not change the composite-risk classification.
+
+---
+
+## 14. Screening Report — `/athlete/screening` and `/medical/screening`
+
+A dedicated read-only view of an athlete's latest HoloMotion screening, shared by both roles via the same component.
+
+- **Athlete (`/athlete/screening`)** — the athlete's own report: five score gauges (Total Score, ROM, Stability, Symmetry, Exercise Risks), the 8-indicator risk radar, the myodynamia/tension flag lists, and the muscle-assessment body map
+- **Medical (`/medical/screening`)** — a searchable athlete picker (name or ID) → the same report for any athlete. Gated by the `viewRecords` permission (see §15)
+
+---
+
+## 15. Staff Permissions (Admin) — `/admin/staff`
+
+Lets an admin control exactly what each **medical** staff member can do, beyond their role.
+
+- A table lists every medical user with a checkbox per capability: **View athlete records**, **Upload screening data**, **Review/approve self-reports**, **View injury log & generate reports**
+- **Opt-out model** — every capability is on by default; unchecking one revokes it for that staffer. The change saves immediately
+- A revoked feature disappears from that user's sidebar and its page shows an access-denied message; the backend also blocks the underlying API calls
+- An **Active / Inactive** toggle deactivates an account entirely (blocks sign-in)
+- Athlete and admin accounts are not affected by this layer
+
+---
+
+*Last updated: 2026-06-28 — corrected demo credentials; documented HoloMotion PDF import (§12.1), data backup (§12.2), sport-critical screening alerts (§13), screening-report pages (§14), and staff permissions (§15); fixed the change-password note. Previous: 2026-05-18.*
