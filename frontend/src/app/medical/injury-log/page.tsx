@@ -131,7 +131,7 @@ function InjuryLogInner() {
   }
 
   return (
-    <DashboardLayout allowedRoles={['medical']} title="Injury Logging">
+    <DashboardLayout allowedRoles={['medical']} requiredPermission="injuryReports" title="Injury Logging">
       <div className="grid-1-2">
         <div className="card">
           <h2 className="card-title">Log Official Injury</h2>

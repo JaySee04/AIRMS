@@ -25,13 +25,31 @@ const User = sequelize.define('User', {
     allowNull: false,
   },
   role: {
-    type: DataTypes.ENUM('athlete', 'medical', 'admin'),
+    type: DataTypes.ENUM('athlete', 'medical', 'admin', 'coach'),
     allowNull: false,
   },
   athleteId: {
     type: DataTypes.STRING(16),
     allowNull: true,
     field: 'athlete_id',
+  },
+  // Sports a coach is assigned to. Coaches only see athletes whose sport is in
+  // this list (see routes/coach.js). Stored as a JSON array of sport names;
+  // null/empty means the coach sees no athletes until an admin assigns one.
+  // Experimental 4th role — not part of the locked 3-role model.
+  coachSports: {
+    type: DataTypes.JSON,
+    allowNull: true,
+    defaultValue: null,
+    field: 'coach_sports',
+  },
+  // Per-user feature toggles for medical staff (opt-out model — null means all
+  // capabilities granted). Stored as JSON { key: boolean }; see
+  // utils/permissions.js for the key list and enforcement helper.
+  permissions: {
+    type: DataTypes.JSON,
+    allowNull: true,
+    defaultValue: null,
   },
   isActive: {
     type: DataTypes.BOOLEAN,

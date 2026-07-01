@@ -3,6 +3,7 @@ const { Op, fn, col, literal } = require('sequelize');
 const { Injury, Athlete } = require('../models');
 const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
+const requirePermission = require('../middleware/permission');
 const { serializeGeneric, serializeMany } = require('../utils/serialize');
 
 const router = express.Router();
@@ -30,7 +31,7 @@ function buildWhere(q) {
 }
 
 // GET /api/injuries — filtered injury list (medical, admin)
-router.get('/', auth, rbac('medical', 'admin'), async (req, res) => {
+router.get('/', auth, rbac('medical', 'admin'), requirePermission('injuryReports'), async (req, res) => {
   try {
     const where = buildWhere(req.query);
     const rows = await Injury.findAll({ where, order: [['date', 'DESC']] });
@@ -43,7 +44,7 @@ router.get('/', auth, rbac('medical', 'admin'), async (req, res) => {
 // GET /api/injuries/analytics/summary — aggregated KPIs for admin dashboard
 // Must be declared BEFORE /athlete/:id and other dynamic routes so Express
 // matches `analytics/summary` before treating "analytics" as an id segment.
-router.get('/analytics/summary', auth, rbac('admin', 'medical'), async (req, res) => {
+router.get('/analytics/summary', auth, rbac('admin', 'medical'), requirePermission('injuryReports'), async (req, res) => {
   try {
     const where = buildWhere(req.query);
 
@@ -116,7 +117,7 @@ router.get('/analytics/summary', auth, rbac('admin', 'medical'), async (req, res
 });
 
 // GET /api/injuries/athlete/:id — injuries for a specific athlete
-router.get('/athlete/:id', auth, async (req, res) => {
+router.get('/athlete/:id', auth, requirePermission('injuryReports'), async (req, res) => {
   try {
     if (req.user.role === 'athlete' && req.user.athleteId !== req.params.id) {
       return res.status(403).json({ message: 'Access denied' });
@@ -132,7 +133,7 @@ router.get('/athlete/:id', auth, async (req, res) => {
 });
 
 // POST /api/injuries — log a new injury (medical, admin)
-router.post('/', auth, rbac('medical', 'admin'), async (req, res) => {
+router.post('/', auth, rbac('medical', 'admin'), requirePermission('injuryReports'), async (req, res) => {
   try {
     const payload = { ...req.body };
     if (payload.athleteId) {
@@ -153,7 +154,7 @@ router.post('/', auth, rbac('medical', 'admin'), async (req, res) => {
 });
 
 // PATCH /api/injuries/:id — update injury record (medical, admin)
-router.patch('/:id', auth, rbac('medical', 'admin'), async (req, res) => {
+router.patch('/:id', auth, rbac('medical', 'admin'), requirePermission('injuryReports'), async (req, res) => {
   try {
     const injury = await Injury.findByPk(req.params.id);
     if (!injury) return res.status(404).json({ message: 'Injury not found' });

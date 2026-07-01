@@ -2,12 +2,13 @@ const express = require('express');
 const { sequelize, SelfReport, Injury, Athlete } = require('../models');
 const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
+const requirePermission = require('../middleware/permission');
 const { serializeGeneric, serializeMany } = require('../utils/serialize');
 
 const router = express.Router();
 
 // GET /api/self-reports — all reports for review (medical, admin)
-router.get('/', auth, rbac('medical', 'admin'), async (req, res) => {
+router.get('/', auth, rbac('medical', 'admin'), requirePermission('reviewReports'), async (req, res) => {
   try {
     const { status } = req.query;
     const where = {};
@@ -52,7 +53,7 @@ router.post('/', auth, rbac('athlete'), async (req, res) => {
 // On Approval, atomically create an Injury record from the report payload.
 // Wrapped in a transaction so the report status + the new Injury insert
 // commit together — the relational integrity claim the panel cited.
-router.patch('/:id/review', auth, rbac('medical'), async (req, res) => {
+router.patch('/:id/review', auth, rbac('medical'), requirePermission('reviewReports'), async (req, res) => {
   try {
     const { status, reviewNote } = req.body;
     if (!['Approved', 'Rejected'].includes(status)) {

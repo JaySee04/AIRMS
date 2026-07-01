@@ -2,8 +2,24 @@ export interface SessionUser {
   id: string;
   name: string;
   email: string;
-  role: 'athlete' | 'medical' | 'admin';
+  role: 'athlete' | 'medical' | 'admin' | 'coach';
   athleteId?: string;
+  // Per-feature toggles for medical staff (opt-out model). null/undefined or a
+  // missing key means the capability is granted. Only `false` blocks.
+  permissions?: Record<string, boolean> | null;
+}
+
+// Feature keys the admin can revoke for individual medical staff. Mirrors
+// backend/src/utils/permissions.js.
+export type PermissionKey = 'viewRecords' | 'uploadData' | 'reviewReports' | 'injuryReports';
+
+// True unless this is a medical user with the capability explicitly revoked.
+// athlete/admin are never constrained by this layer.
+export function hasPermission(user: SessionUser | null | undefined, key: PermissionKey): boolean {
+  if (!user || user.role !== 'medical') return true;
+  const perms = user.permissions;
+  if (!perms) return true;
+  return perms[key] !== false;
 }
 
 export function saveSession(token: string, user: SessionUser): void {
@@ -29,7 +45,7 @@ export function clearSession(): void {
 }
 
 export function requireRole(
-  allowedRoles: Array<'athlete' | 'medical' | 'admin'>
+  allowedRoles: Array<'athlete' | 'medical' | 'admin' | 'coach'>
 ): SessionUser | null {
   const session = getSession();
   if (!session) return null;

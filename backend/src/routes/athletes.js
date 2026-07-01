@@ -3,12 +3,13 @@ const { Op } = require('sequelize');
 const { Athlete, MuscleFlag } = require('../models');
 const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
+const requirePermission = require('../middleware/permission');
 const { serializeAthlete, serializeAthleteList } = require('../utils/serialize');
 
 const router = express.Router();
 
 // GET /api/athletes — list athletes (medical, admin)
-router.get('/', auth, rbac('medical', 'admin'), async (req, res) => {
+router.get('/', auth, rbac('medical', 'admin'), requirePermission('viewRecords'), async (req, res) => {
   try {
     const { sport, program, gender, search } = req.query;
     const where = { isActive: true };
@@ -30,7 +31,7 @@ router.get('/', auth, rbac('medical', 'admin'), async (req, res) => {
 
 // GET /api/athletes/meta/sports — list of distinct sports (for filter dropdowns)
 // Must be declared BEFORE /:id so Express doesn't match "meta" as an id.
-router.get('/meta/sports', auth, rbac('medical', 'admin'), async (req, res) => {
+router.get('/meta/sports', auth, rbac('medical', 'admin'), requirePermission('viewRecords'), async (req, res) => {
   try {
     const rows = await Athlete.findAll({
       attributes: ['sport'],
@@ -44,8 +45,10 @@ router.get('/meta/sports', auth, rbac('medical', 'admin'), async (req, res) => {
   }
 });
 
-// GET /api/athletes/:id — single athlete full detail (with muscle flags)
-router.get('/:id', auth, async (req, res) => {
+// GET /api/athletes/:id — single athlete full detail (with muscle flags).
+// requirePermission only constrains medical staff; athletes (own record) and
+// admin pass through, with the athlete ownership check enforced below.
+router.get('/:id', auth, requirePermission('viewRecords'), async (req, res) => {
   try {
     if (req.user.role === 'athlete' && req.user.athleteId !== req.params.id) {
       return res.status(403).json({ message: 'Access denied' });
@@ -92,7 +95,7 @@ router.post('/', auth, rbac('admin'), async (req, res) => {
 });
 
 // PATCH /api/athletes/:id — update athlete record (medical, admin)
-router.patch('/:id', auth, rbac('medical', 'admin'), async (req, res) => {
+router.patch('/:id', auth, rbac('medical', 'admin'), requirePermission('viewRecords'), async (req, res) => {
   try {
     const { risks, myodynamia, tension, ...rest } = req.body;
     const payload = { ...rest, ...(risks || {}) };

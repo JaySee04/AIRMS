@@ -116,7 +116,7 @@ export default function ReviewReportsPage() {
   }
 
   return (
-    <DashboardLayout allowedRoles={['medical']} title="Self-Report Review">
+    <DashboardLayout allowedRoles={['medical']} requiredPermission="reviewReports" title="Self-Report Review">
       {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
 
       <div className="tabs" style={{ marginBottom: 18 }}>
