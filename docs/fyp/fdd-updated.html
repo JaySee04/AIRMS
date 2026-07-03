@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>AIRMS — Functional Decomposition Diagram</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #fff;
+    color: #1a1a1a;
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 12px;
+  }
+  .page {
+    width: 1560px;
+    margin: 16px auto;
+    padding: 0 16px;
+    box-sizing: border-box;
+  }
+  h1 {
+    margin: 0 0 14px;
+    font-size: 17px;
+    font-weight: 700;
+    text-align: center;
+    letter-spacing: 0.3px;
+  }
+  .canvas { width: 1530px; margin: 0 auto; }
+
+  .root {
+    width: 260px;
+    margin: 0 auto;
+    background: #dae8fc;
+    border: 1px solid #6c8ebf;
+    border-radius: 3px;
+    text-align: center;
+    font-weight: 700;
+    font-size: 14px;
+    padding: 10px 8px;
+    letter-spacing: 0.3px;
+    box-shadow: 1px 1px 2px rgba(0,0,0,0.08);
+  }
+
+  .connector { display: block; }
+
+  .modules {
+    display: grid;
+    grid-template-columns: repeat(7, 210px);
+    column-gap: 10px;
+    align-items: start;
+  }
+  .module { display: flex; flex-direction: column; align-items: center; }
+  .module-title {
+    width: 100%;
+    box-sizing: border-box;
+    background: #dae8fc;
+    border: 1px solid #6c8ebf;
+    border-radius: 3px;
+    text-align: center;
+    font-weight: 700;
+    font-size: 12px;
+    padding: 8px 6px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 1px 1px 2px rgba(0,0,0,0.08);
+  }
+  .leaf {
+    width: 92%;
+    box-sizing: border-box;
+    background: #fff;
+    border: 1px solid #6c8ebf;
+    border-radius: 3px;
+    text-align: center;
+    font-size: 11.5px;
+    padding: 7px 6px;
+    line-height: 1.3;
+    box-shadow: 1px 1px 2px rgba(0,0,0,0.06);
+  }
+  .vline {
+    width: 1px;
+    height: 12px;
+    background: #6c8ebf;
+  }
+  .new { }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <h1>AIRMS — Functional Decomposition Diagram</h1>
+
+  <div class="canvas">
+
+    <div class="root">Athlete Injury Risk<br/>Management System (AIRMS)</div>
+
+    <!-- root → module bar. Column centers at x = 105 + n·220 -->
+    <svg class="connector" width="1530" height="42" viewBox="0 0 1530 42">
+      <path d="M 765 0 L 765 16" stroke="#6c8ebf" stroke-width="1.2" fill="none"/>
+      <path d="M 105 16 L 1425 16" stroke="#6c8ebf" stroke-width="1.2" fill="none"/>
+      <path d="M 105 16 L 105 42 M 325 16 L 325 42 M 545 16 L 545 42 M 765 16 L 765 42 M 985 16 L 985 42 M 1205 16 L 1205 42 M 1425 16 L 1425 42"
+            stroke="#6c8ebf" stroke-width="1.2" fill="none"/>
+    </svg>
+
+    <div class="modules">
+
+      <div class="module">
+        <div class="module-title">General Module</div>
+        <div class="vline"></div><div class="leaf">Login (JWT)</div>
+        <div class="vline"></div><div class="leaf">Reset Password<br/>(Email OTP)</div>
+        <div class="vline"></div><div class="leaf">Change Password</div>
+        <div class="vline"></div><div class="leaf">Manage User Profile</div>
+        <div class="vline"></div><div class="leaf">Role-Based<br/>Access Control</div>
+        <div class="vline"></div><div class="leaf new">Manage Staff<br/>Permissions</div>
+      </div>
+
+      <div class="module">
+        <div class="module-title">Activity Tracking<br/>&amp; Logging</div>
+        <div class="vline"></div><div class="leaf">Log Activity</div>
+        <div class="vline"></div><div class="leaf">View Activity History</div>
+        <div class="vline"></div><div class="leaf">Delete Activity</div>
+        <div class="vline"></div><div class="leaf">Compute Session<br/>Load (sRPE)</div>
+      </div>
+
+      <div class="module">
+        <div class="module-title">Athlete Dashboard /<br/>Workload</div>
+        <div class="vline"></div><div class="leaf">Calculate ACWR</div>
+        <div class="vline"></div><div class="leaf">Classify Composite<br/>Injury Risk</div>
+        <div class="vline"></div><div class="leaf">Display Workload<br/>Trend</div>
+        <div class="vline"></div><div class="leaf">Display Risk<br/>Indicator Radar</div>
+        <div class="vline"></div><div class="leaf">Display Muscle<br/>Body Map</div>
+        <div class="vline"></div><div class="leaf new">View Screening<br/>Report</div>
+        <div class="vline"></div><div class="leaf new">Sport-Critical<br/>Screening Alert</div>
+      </div>
+
+      <div class="module">
+        <div class="module-title">Injury &amp; Recovery<br/>Logging</div>
+        <div class="vline"></div><div class="leaf">Log Official Injury</div>
+        <div class="vline"></div><div class="leaf">Update Recovery<br/>Status</div>
+        <div class="vline"></div><div class="leaf">View Injury Records</div>
+        <div class="vline"></div><div class="leaf">Submit Self-Report</div>
+        <div class="vline"></div><div class="leaf">Review &amp; Approve<br/>Self-Report</div>
+        <div class="vline"></div><div class="leaf">Track Self-Report<br/>Status</div>
+      </div>
+
+      <div class="module">
+        <div class="module-title">Data Management</div>
+        <div class="vline"></div><div class="leaf">Import Excel<br/>Screening Data</div>
+        <div class="vline"></div><div class="leaf new">Import HoloMotion<br/>PDF (AI Vision)</div>
+        <div class="vline"></div><div class="leaf">Validate &amp; Preview<br/>Import</div>
+        <div class="vline"></div><div class="leaf new">Export Data Backup</div>
+      </div>
+
+      <div class="module">
+        <div class="module-title">Admin Injury<br/>Analytics</div>
+        <div class="vline"></div><div class="leaf">View Injury<br/>Overview (KPIs)</div>
+        <div class="vline"></div><div class="leaf">Filter Injury Data</div>
+        <div class="vline"></div><div class="leaf">View Temporal<br/>Trends</div>
+        <div class="vline"></div><div class="leaf">Generate PDF Report</div>
+      </div>
+
+      <div class="module">
+        <div class="module-title">Medical Staff<br/>Dashboard</div>
+        <div class="vline"></div><div class="leaf">Search Athlete</div>
+        <div class="vline"></div><div class="leaf">View Athlete Profile<br/>Summary</div>
+        <div class="vline"></div><div class="leaf">View Injury History</div>
+        <div class="vline"></div><div class="leaf">View Workload &amp;<br/>Risk Overview</div>
+        <div class="vline"></div><div class="leaf new">View Screening<br/>Report</div>
+        <div class="vline"></div><div class="leaf">Prevention Insight</div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

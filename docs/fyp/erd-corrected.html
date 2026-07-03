@@ -124,11 +124,6 @@
             stroke="#444" stroke-width="1.4" fill="none"
             marker-start="url(#zeroOne)" marker-end="url(#one)"/>
 
-      <!-- users ──── import_records (L-shape to right) -->
-      <path d="M 660 132 L 780 132 L 780 78 L 900 78"
-            stroke="#444" stroke-width="1.4" fill="none"
-            marker-start="url(#one)" marker-end="url(#many)"/>
-
       <!-- athletes ──── activities (L-shape, top-left) -->
       <path d="M 440 320 L 360 320 L 360 132 L 280 132"
             stroke="#444" stroke-width="1.4" fill="none"
@@ -157,7 +152,6 @@
 
     <!-- Relationship verb labels -->
     <div class="relname" style="left: 562px; top: 246px;">has profile</div>
-    <div class="relname" style="left: 790px; top: 96px;">uploads</div>
     <div class="relname" style="left: 300px; top: 304px;">logs</div>
     <div class="relname" style="left: 320px; top: 378px;">flagged with</div>
     <div class="relname" style="left: 320px; top: 577px;">tracked by</div>
@@ -176,11 +170,12 @@
         <tr><td></td><td class="col">password</td></tr>
         <tr><td></td><td class="col">role</td></tr>
         <tr><td class="key fk">FK</td><td class="col">athlete_id</td></tr>
+        <tr><td></td><td class="col">permissions</td></tr>
         <tr><td></td><td class="col">is_active</td></tr>
         <tr><td></td><td class="col">reset_token_hash</td></tr>
         <tr><td></td><td class="col">reset_token_expires_at</td></tr>
-        <tr><td></td><td class="col">created_at</td></tr>
-        <tr><td></td><td class="col">updated_at</td></tr>
+        <tr><td></td><td class="col">reset_code_attempts</td></tr>
+        <tr><td></td><td class="col">last_login_at</td></tr>
       </table>
     </div>
 
@@ -212,20 +207,6 @@
         <tr><td></td><td class="col">knee_injury_risk</td></tr>
         <tr><td></td><td class="col">ankle_injury_risk</td></tr>
         <tr><td></td><td class="col">is_active</td></tr>
-      </table>
-    </div>
-
-    <!-- ===== IMPORT_RECORDS (top-right of users) ===== -->
-    <div class="table" style="left: 900px; top: 20px; width: 220px;">
-      <div class="title">import_records</div>
-      <table>
-        <colgroup><col style="width:44px"><col></colgroup>
-        <tr><td class="key">PK</td><td class="col">id</td></tr>
-        <tr><td class="key fk">FK</td><td class="col">user_id</td></tr>
-        <tr><td></td><td class="col">file_name</td></tr>
-        <tr><td></td><td class="col">file_attachment</td></tr>
-        <tr><td></td><td class="col">records_added</td></tr>
-        <tr><td></td><td class="col">imported_at</td></tr>
       </table>
     </div>
 

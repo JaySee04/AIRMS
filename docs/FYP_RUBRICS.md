@@ -104,6 +104,20 @@ Total 100% across four components:
 5. **Slides p. 38 subheading** — Data Import activity diagram mislabelled as "Self-Reported Injury Workflow."
 6. **List of Appendices** — not in report front-matter TOC; confirm whether template requires it.
 
+### Deliverables-shift items (2026-07-03 review — report + slides vs. shipped system)
+
+The report/slides drafts predate the HoloMotion pivot and its sibling features. Full replacement text in [`docs/fyp/REPORT_EDIT_PACK.md`](fyp/REPORT_EDIT_PACK.md); summary:
+
+1. **Module 4 described as Excel-only** in §1.4 scope, §3.2.1 key feature 4, Table 4.1 UCs, FDD (Fig 4.1), Data Management UC diagram (Fig 4.6), data-import activity diagram, and the §2.5/2.6 comparison "Bulk Data Import" column. Must add: HoloMotion PDF vision-AI ingestion (primary, matches Dr Thung's real workflow), Excel as secondary, admin backup export. The comparison cell is also an unclaimed differentiator — no compared system does AI-assisted ingestion of image-only clinical PDFs.
+2. **Overclaimed Module 4 UCs** — "import history log" (comparison table + UC-25) and "delete imported dataset" (UC-26) are not built. Drop or mark future work.
+3. **Stale General-module UCs** — self-registration doesn't exist; login is JWT/localStorage not "cookies"; reset is email OTP not "token link". Missing: in-place change-password, admin per-user feature permissions for medical staff (`/admin/staff`).
+4. **Missing screening surfaces** — `/athlete/screening` + `/medical/screening` report pages and the sport-critical screening alerts have no requirement/mention (Modules 2 and 6).
+5. **Ch 5 lacks the vision-AI pipeline** (pdfjs render → provider-agnostic vision model → preview/commit) and must present the composite risk model, not plain Gabbett.
+6. **Slides predate the MySQL migration** (2026-05-25 draft) — check every tech-stack slide for MongoDB; "33 use cases" count changes with the UC edits; consider mockup slides for the PDF uploader / screening report / alert banner.
+7. **Coach role stays OUT of FYP I artifacts** (locked 3-role model; experimental). One future-work sentence in Ch 7 at most.
+8. **react-muscle-highlighter MIT attribution** must appear in the references (locked decision) — absent from the old draft; verify in current.
+9. **Repo hygiene** — `reports/FYP-I-Report.pdf` is a stale pre-refresh draft (51 pp); replace with the current draft and add the slides PDF to `docs/fyp/` per its README.
+
 ---
 
 ## 6. FYP II — future reference

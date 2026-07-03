@@ -5,6 +5,18 @@ Drop the canonical FYP I deliverables here for repo-tracked reference:
 - `FYP_I_SLIDES.pdf` — Viva slides (54 pages, draft as of 2026-05-25 — `FYP I VIVA SLIDES (Draft).pdf`)
 - `FYP_I_REPORT.pdf` — Full report (62 pages, draft as of 2026-06-04 — `FYP I REPORT (1).pdf`)
 
+> ⚠ **2026-07-03:** `reports/FYP-I-Report.pdf` in the repo is a stale 51-page pre-refresh draft — replace it with the current one. The deliverables shift (HoloMotion PDF ingestion, backup export, screening pages, staff permissions, sport-critical alerts) is **not yet reflected in either artifact**; apply [`REPORT_EDIT_PACK.md`](REPORT_EDIT_PACK.md) (R1–R10, paste-ready text) and see `FYP_RUBRICS.md` §5 "Deliverables-shift items".
+
+## Screenshot-ready diagram sources (open in browser → screenshot into the doc)
+
+| File | Report figure |
+|---|---|
+| [`fdd-updated.html`](fdd-updated.html) | Fig 4.1 Functional Decomposition Diagram |
+| [`uc-general-updated.html`](uc-general-updated.html) | Fig 4.2 General Module use-case diagram |
+| [`uc-datamgmt-updated.html`](uc-datamgmt-updated.html) | Fig 4.6 Data Management use-case diagram |
+| [`activity-dataimport-updated.html`](activity-dataimport-updated.html) | Data-import activity diagram |
+| [`erd-corrected.html`](erd-corrected.html) | Fig 4.9 ERD — updated 2026-07-03 (`import_records` removed, `users` columns corrected) |
+
 As of the 2026-06-04 draft, the Literature Review citations have been **refreshed for recency** and the **front-matter pages are now populated**:
 - Andrade et al. (2020) → Qin et al. (2025) + Michailidis (2024) for the workload/ACWR cluster
 - Bahr et al. (2020) → Sprouse et al. (2024) + Waldén et al. (2023) for the standardised-data cluster (Bahr retained as a lineage reference inside Sprouse's paragraph)

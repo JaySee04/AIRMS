@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>AIRMS — Use Case Diagram: General Module</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #fff; color: #1a1a1a; font-family: Helvetica, Arial, sans-serif; }
+  .page { width: 1120px; margin: 16px auto; }
+  h1 { margin: 0 0 10px; font-size: 17px; font-weight: 700; text-align: center; letter-spacing: 0.3px; }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Use Case Diagram — General Module</h1>
+
+  <svg width="1100" height="640" viewBox="0 0 1100 640" font-family="Helvetica, Arial, sans-serif">
+
+    <!-- System boundary -->
+    <rect x="300" y="40" width="500" height="560" fill="#fff" stroke="#6c8ebf" stroke-width="1.4"/>
+    <text x="550" y="62" text-anchor="middle" font-size="13" font-weight="bold">AIRMS — General Module</text>
+
+    <!-- ── Associations ── -->
+    <g stroke="#444" stroke-width="1.2">
+      <!-- Athlete -->
+      <line x1="138" y1="150" x2="435" y2="112"/>
+      <line x1="138" y1="158" x2="435" y2="190"/>
+      <line x1="138" y1="166" x2="435" y2="266"/>
+      <line x1="138" y1="174" x2="435" y2="344"/>
+      <!-- Medical Staff -->
+      <line x1="138" y1="390" x2="435" y2="122"/>
+      <line x1="138" y1="398" x2="435" y2="196"/>
+      <line x1="138" y1="406" x2="435" y2="274"/>
+      <line x1="138" y1="414" x2="435" y2="352"/>
+      <!-- Administrator -->
+      <line x1="962" y1="200" x2="665" y2="112"/>
+      <line x1="962" y1="208" x2="665" y2="190"/>
+      <line x1="962" y1="216" x2="665" y2="270"/>
+      <line x1="962" y1="224" x2="665" y2="350"/>
+      <line x1="962" y1="232" x2="665" y2="440"/>
+      <!-- System -->
+      <line x1="962" y1="512" x2="665" y2="520"/>
+    </g>
+
+    <!-- ── Use cases ── -->
+    <g>
+      <ellipse cx="550" cy="110" rx="115" ry="27" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.3"/>
+      <text x="550" y="114" text-anchor="middle" font-size="12">Login (JWT)</text>
+
+      <ellipse cx="550" cy="190" rx="115" ry="27" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.3"/>
+      <text x="550" y="187" text-anchor="middle" font-size="12">Reset Password</text>
+      <text x="550" y="201" text-anchor="middle" font-size="11">(email OTP)</text>
+
+      <ellipse cx="550" cy="270" rx="115" ry="27" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.3"/>
+      <text x="550" y="274" text-anchor="middle" font-size="12">Change Password</text>
+
+      <ellipse cx="550" cy="350" rx="115" ry="27" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.3"/>
+      <text x="550" y="354" text-anchor="middle" font-size="12">Manage User Profile</text>
+
+      <ellipse cx="550" cy="440" rx="115" ry="27" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.3"/>
+      <text x="550" y="437" text-anchor="middle" font-size="12">Manage Staff</text>
+      <text x="550" y="451" text-anchor="middle" font-size="12">Permissions</text>
+
+      <ellipse cx="550" cy="520" rx="115" ry="27" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.3"/>
+      <text x="550" y="517" text-anchor="middle" font-size="12">Enforce Role-Based</text>
+      <text x="550" y="531" text-anchor="middle" font-size="12">Access Control</text>
+    </g>
+
+    <!-- ── Actors ── -->
+    <!-- Athlete -->
+    <g stroke="#1a1a1a" stroke-width="1.5" fill="none">
+      <circle cx="110" cy="110" r="11"/>
+      <line x1="110" y1="121" x2="110" y2="152"/>
+      <line x1="94" y1="132" x2="126" y2="132"/>
+      <line x1="110" y1="152" x2="96" y2="176"/>
+      <line x1="110" y1="152" x2="124" y2="176"/>
+    </g>
+    <text x="110" y="194" text-anchor="middle" font-size="12" font-weight="bold">Athlete</text>
+
+    <!-- Medical Staff -->
+    <g stroke="#1a1a1a" stroke-width="1.5" fill="none">
+      <circle cx="110" cy="350" r="11"/>
+      <line x1="110" y1="361" x2="110" y2="392"/>
+      <line x1="94" y1="372" x2="126" y2="372"/>
+      <line x1="110" y1="392" x2="96" y2="416"/>
+      <line x1="110" y1="392" x2="124" y2="416"/>
+    </g>
+    <text x="110" y="434" text-anchor="middle" font-size="12" font-weight="bold">Medical Staff</text>
+
+    <!-- Administrator -->
+    <g stroke="#1a1a1a" stroke-width="1.5" fill="none">
+      <circle cx="990" cy="160" r="11"/>
+      <line x1="990" y1="171" x2="990" y2="202"/>
+      <line x1="974" y1="182" x2="1006" y2="182"/>
+      <line x1="990" y1="202" x2="976" y2="226"/>
+      <line x1="990" y1="202" x2="1004" y2="226"/>
+    </g>
+    <text x="990" y="244" text-anchor="middle" font-size="12" font-weight="bold">Administrator</text>
+
+    <!-- System -->
+    <g stroke="#1a1a1a" stroke-width="1.5" fill="none">
+      <circle cx="990" cy="472" r="11"/>
+      <line x1="990" y1="483" x2="990" y2="514"/>
+      <line x1="974" y1="494" x2="1006" y2="494"/>
+      <line x1="990" y1="514" x2="976" y2="538"/>
+      <line x1="990" y1="514" x2="1004" y2="538"/>
+    </g>
+    <text x="990" y="556" text-anchor="middle" font-size="12" font-weight="bold">System</text>
+
+  </svg>
+</div>
+</body>
+</html>
