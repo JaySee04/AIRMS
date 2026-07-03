@@ -171,7 +171,7 @@ export default function CoachDashboard() {
               <li key={row.athleteId} className="screening-alert-item is-critical">
                 <span className="screening-alert-label">{row.name}</span>
                 <span className="text-muted" style={{ fontSize: '0.78rem' }}>
-                  {screening.alerts.filter((a) => a.critical).map((a) => a.label).join(', ')}
+                  {screening.criticalAlerts.map((a) => a.label).join(', ')}
                 </span>
               </li>
             ))}
@@ -224,13 +224,15 @@ export default function CoachDashboard() {
                     </td>
                     <td style={{ textAlign: 'center' }}>
                       {screening.hasCriticalAlert ? (
-                        <span className="badge-high" title={screening.alerts.filter((a) => a.critical).map((a) => `${a.label} ${a.value.toFixed(0)}`).join(', ')}>
-                          ⚠ {screening.criticalRegions.length ? 'critical' : 'alert'}
+                        <span className="badge-high" title={screening.criticalAlerts.map((a) => `${a.label} ${a.value.toFixed(0)}`).join(', ')}>
+                          ⚠ critical
                         </span>
                       ) : screening.topBand === 'high' ? (
                         <span className="badge-moderate" title={screening.alerts.map((a) => `${a.label} ${a.value.toFixed(0)}`).join(', ')}>
                           elevated
                         </span>
+                      ) : !screening.hasData ? (
+                        <span className="text-muted" title="No HoloMotion screening ingested for this athlete yet">no data</span>
                       ) : (
                         '—'
                       )}

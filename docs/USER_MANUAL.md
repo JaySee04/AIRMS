@@ -386,10 +386,13 @@ A sport-aware injury alert shown on the **athlete** and **medical** dashboards. 
 
 **How it decides:**
 - Each sport has a set of **critical body regions** (e.g. Swimming → Shoulder / Neck / Lumbar-Pelvis; Athletics → Knee / Ankle / Lumbar-Pelvis)
+- Sport names are matched case- and whitespace-insensitively, and common variants map to the curated sets (e.g. *Running / Track & Field* → Athletics, *Soccer* → Football)
 - It reads the eight HoloMotion exercise-risk indicators (0–40, lower is better) and bands each: **≤15 OK · 16–25 Watch · >25 High**
 - An indicator is alerted when its region is **sport-critical and elevated**, or when it is **High for any region** (safety net)
 
-**What you see:** a red (High) or amber (Watch) banner at the top of the dashboard listing each flagged region with a Watch/High chip and the value; sport-critical entries are marked. The banner is hidden entirely when nothing is out of range. It is informational and does not change the composite-risk classification.
+**What you see:** a red (High) or amber (Watch) banner at the top of the dashboard listing each flagged region with a Watch/High chip and the value; sport-critical entries are marked, and the banner ends with a one-line recommended action matched to the severity. The banner is hidden entirely when nothing is out of range. It is informational and does not change the composite-risk classification.
+
+The coach Squad Readiness table's Screening column also distinguishes athletes with **no ingested screening** (shown as *no data*) from athletes whose screening is simply in range (shown as —).
 
 ---
 

@@ -5,7 +5,7 @@
 // for the athlete's sport. Shared by the athlete and medical dashboards.
 // Renders nothing when there is nothing to flag.
 
-import { AthleteRisks, computeBodyPartAlerts } from '@/lib/screeningAlerts';
+import { AthleteRisks, computeBodyPartAlerts, recommendedAction } from '@/lib/screeningAlerts';
 
 interface Props {
   risks: AthleteRisks | undefined | null;
@@ -15,7 +15,8 @@ interface Props {
 }
 
 export default function ScreeningAlertBanner({ risks, sport, audience = 'staff' }: Props) {
-  const { alerts, criticalRegions, topBand, hasCriticalAlert } = computeBodyPartAlerts(risks, sport);
+  const result = computeBodyPartAlerts(risks, sport);
+  const { alerts, criticalRegions, topBand, hasCriticalAlert } = result;
   if (alerts.length === 0) return null;
 
   const tone = topBand === 'high' ? 'high' : 'mod';
@@ -38,6 +39,7 @@ export default function ScreeningAlertBanner({ risks, sport, audience = 'staff' 
             {criticalRegions.length > 0 && (
               <> Critical regions for {sport}: <strong>{criticalRegions.join(', ')}</strong>.</>
             )}
+            {' '}{recommendedAction(result, audience)}
           </div>
         </div>
       </div>

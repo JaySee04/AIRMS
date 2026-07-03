@@ -39,7 +39,7 @@ const INDICATORS: Array<{ key: keyof AthleteRisks; region: BodyRegion; label: st
 ];
 
 // Exercise-risk indicators are 0–40, lower is better. Bands mirror the medical
-// dashboard's existing >15 "elevated" threshold.
+// dashboard's "elevated over 15" convention: ≤15 OK · 16–25 Watch · >25 High.
 export const WATCH_THRESHOLD = 15;
 export const HIGH_THRESHOLD = 25;
 
@@ -73,6 +73,30 @@ export const SPORT_CRITICAL_REGIONS: Record<string, BodyRegion[]> = {
   'Sepak Takraw': ['Knee', 'Ankle', 'Lumbar/Pelvis'],
 };
 
+// Athlete.sport is free text (STRING(64)) — admins can type variants of the
+// same sport. Normalise before lookup so "badminton", " Sepak takraw " or
+// "Track & Field" still map to their curated region sets.
+const normalizeSport = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ');
+
+// Common variants → the canonical key in SPORT_CRITICAL_REGIONS.
+const SPORT_ALIASES: Record<string, string> = {
+  'running': 'Athletics',
+  'track & field': 'Athletics',
+  'track and field': 'Athletics',
+  'sprinting': 'Athletics',
+  'marathon': 'Athletics',
+  'soccer': 'Football',
+  'lawn bowls': 'Bowls',
+  'weight lifting': 'Weightlifting',
+  'ten-pin bowling': 'Bowling',
+  'tenpin bowling': 'Bowling',
+};
+
+// Canonical map re-keyed by normalised name, built once at module load.
+const REGIONS_BY_NORMALIZED: Record<string, BodyRegion[]> = Object.fromEntries(
+  Object.entries(SPORT_CRITICAL_REGIONS).map(([name, regions]) => [normalizeSport(name), regions]),
+);
+
 export interface BodyPartAlert {
   region: BodyRegion;
   label: string;          // the indicator label (e.g. "Knee")
@@ -83,20 +107,38 @@ export interface BodyPartAlert {
 
 export interface ScreeningAlertResult {
   alerts: BodyPartAlert[];          // sorted worst-first
+  criticalAlerts: BodyPartAlert[];  // just the sport-critical subset (same order)
   criticalRegions: BodyRegion[];    // the sport's critical regions (for display)
   topBand: 'none' | 'watch' | 'high';
   hasCriticalAlert: boolean;        // a sport-critical region is out of range
+  hasData: boolean;                 // false when no screening has been ingested
 }
 
 export function criticalRegionsFor(sport: string | undefined): BodyRegion[] {
   if (!sport) return [];
-  return SPORT_CRITICAL_REGIONS[sport] ?? [];
+  const norm = normalizeSport(sport);
+  const canonical = SPORT_ALIASES[norm];
+  return REGIONS_BY_NORMALIZED[canonical ? normalizeSport(canonical) : norm] ?? [];
 }
 
 function bandOf(value: number): 'ok' | 'watch' | 'high' {
   if (value > HIGH_THRESHOLD) return 'high';
   if (value > WATCH_THRESHOLD) return 'watch';
   return 'ok';
+}
+
+// One-line follow-up for the banner, matched to severity. Copy stays neutral
+// so the same line works for the athlete ("self") and staff views.
+export function recommendedAction(result: ScreeningAlertResult, audience: 'self' | 'staff' = 'staff'): string {
+  if (result.topBand === 'none') return '';
+  if (result.topBand === 'high') {
+    return audience === 'self'
+      ? 'Raise this with your medical team before the next high-load session.'
+      : 'Review before clearing the athlete for the next high-load session.';
+  }
+  return audience === 'self'
+    ? 'Keep an eye on this region during training and mention it at your next screening.'
+    : 'Monitor this region during training and recheck at the next screening.';
 }
 
 // Produce sport-aware alerts. An indicator is alerted when:
@@ -110,10 +152,17 @@ export function computeBodyPartAlerts(
   const criticalRegions = criticalRegionsFor(sport);
   const critSet = new Set<BodyRegion>(criticalRegions);
   const alerts: BodyPartAlert[] = [];
+  let hasData = false;
 
   if (risks) {
     for (const ind of INDICATORS) {
-      const value = Number(risks[ind.key] ?? 0);
+      const raw = Number(risks[ind.key]);
+      // Guard malformed ingestion values: non-finite/negative → treat as 0.
+      const value = Number.isFinite(raw) && raw > 0 ? raw : 0;
+      // All-zero indicators mean no screening report has been ingested yet
+      // (columns default to 0) — expose that so views can say "no data"
+      // instead of implying a clean bill of health.
+      if (value > 0) hasData = true;
       const b = bandOf(value);
       if (b === 'ok') continue;
       const critical = critSet.has(ind.region);
@@ -130,10 +179,17 @@ export function computeBodyPartAlerts(
     b.value - a.value,
   );
 
-  const hasCriticalAlert = alerts.some((a) => a.critical);
+  const criticalAlerts = alerts.filter((a) => a.critical);
   const topBand: 'none' | 'watch' | 'high' = alerts.length
     ? (alerts.some((a) => a.band === 'high') ? 'high' : 'watch')
     : 'none';
 
-  return { alerts, criticalRegions, topBand, hasCriticalAlert };
+  return {
+    alerts,
+    criticalAlerts,
+    criticalRegions,
+    topBand,
+    hasCriticalAlert: criticalAlerts.length > 0,
+    hasData,
+  };
 }

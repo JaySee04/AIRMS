@@ -10,6 +10,7 @@ import AcwrGauge from '@/components/dashboard/AcwrGauge';
 import ScreeningAlertBanner from '@/components/dashboard/ScreeningAlertBanner';
 import { api } from '@/lib/api';
 import { classifyCompositeRisk } from '@/lib/risk';
+import { WATCH_THRESHOLD } from '@/lib/screeningAlerts';
 
 interface AthleteRisks {
   neckInjuryRisk: number;
@@ -176,10 +177,10 @@ function buildPreventionInsight(
   injuries: Injury[],
   riskLevel: 'low' | 'mod' | 'high' | 'under',
 ): PreventionInsight | null {
-  // Top elevated risk indicators (over the standard alert threshold of 15)
+  // Top elevated risk indicators (over the shared screening watch threshold)
   const elevated = RISK_KEYS
     .map((k) => ({ key: k, label: RISK_LABEL[k], value: athlete.risks[k] ?? 0, region: RISK_REGION[k] }))
-    .filter((r) => r.value >= 15)
+    .filter((r) => r.value > WATCH_THRESHOLD)
     .sort((a, b) => b.value - a.value)
     .slice(0, 3);
 
