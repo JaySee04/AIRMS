@@ -39,14 +39,41 @@ function isVisionConfigured() {
   return Boolean(c.apiKey && c.model);
 }
 
-async function callOpenAICompatible(cfg, prompt, images) {
-  const content = [
-    { type: 'text', text: prompt },
-    ...images.map((img) => ({
+// Interleave a short caption before each image so the model knows which report
+// section a crop came from, then close with the instruction prompt. Captions
+// cost a handful of tokens and measurably reduce misreads on cropped sections;
+// images-before-question is also the layout vision providers recommend.
+function buildOpenAIContent(prompt, images) {
+  const content = [];
+  images.forEach((img, i) => {
+    if (img.label) content.push({ type: 'text', text: `Image ${i + 1}: ${img.label}` });
+    content.push({
       type: 'image_url',
       image_url: { url: `data:${img.mediaType};base64,${img.base64}` },
-    })),
-  ];
+    });
+  });
+  content.push({ type: 'text', text: prompt });
+  return content;
+}
+
+function buildAnthropicContent(prompt, images) {
+  const content = [];
+  images.forEach((img, i) => {
+    if (img.label) content.push({ type: 'text', text: `Image ${i + 1}: ${img.label}` });
+    content.push({
+      type: 'image',
+      source: { type: 'base64', media_type: img.mediaType, data: img.base64 },
+    });
+  });
+  content.push({ type: 'text', text: prompt });
+  return content;
+}
+
+// The extraction JSON tops out around 500 tokens even with long muscle lists;
+// 800 leaves headroom without letting a rambling model burn output budget.
+const MAX_OUTPUT_TOKENS = 800;
+
+async function callOpenAICompatible(cfg, prompt, images) {
   const res = await fetch(`${cfg.baseUrl}/chat/completions`, {
     method: 'POST',
     headers: {
@@ -55,9 +82,9 @@ async function callOpenAICompatible(cfg, prompt, images) {
     },
     body: JSON.stringify({
       model: cfg.model,
-      messages: [{ role: 'user', content }],
+      messages: [{ role: 'user', content: buildOpenAIContent(prompt, images) }],
       temperature: 0,
-      max_tokens: 1500,
+      max_tokens: MAX_OUTPUT_TOKENS,
     }),
   });
   if (!res.ok) {
@@ -69,13 +96,6 @@ async function callOpenAICompatible(cfg, prompt, images) {
 }
 
 async function callAnthropic(cfg, prompt, images) {
-  const content = [
-    { type: 'text', text: prompt },
-    ...images.map((img) => ({
-      type: 'image',
-      source: { type: 'base64', media_type: img.mediaType, data: img.base64 },
-    })),
-  ];
   const res = await fetch(`${cfg.baseUrl}/v1/messages`, {
     method: 'POST',
     headers: {
@@ -85,9 +105,9 @@ async function callAnthropic(cfg, prompt, images) {
     },
     body: JSON.stringify({
       model: cfg.model,
-      max_tokens: 1500,
+      max_tokens: MAX_OUTPUT_TOKENS,
       temperature: 0,
-      messages: [{ role: 'user', content }],
+      messages: [{ role: 'user', content: buildAnthropicContent(prompt, images) }],
     }),
   });
   if (!res.ok) {
@@ -99,7 +119,9 @@ async function callAnthropic(cfg, prompt, images) {
 }
 
 // Send a prompt + images, return the model's raw text reply.
-// `images` is [{ base64, mediaType }] from pdfRender.renderPdfPages().
+// `images` is [{ base64, mediaType, label? }] from pdfRender.renderPdfRegions()
+// (or renderPdfPages()); when a label is present it is sent as a caption
+// immediately before its image.
 async function visionComplete(prompt, images) {
   const cfg = visionConfig();
   if (!cfg.apiKey || !cfg.model) {

@@ -131,6 +131,9 @@ VISION_PROVIDER=openai           # openai | anthropic
 VISION_API_KEY=...               # leave blank to disable PDF ingestion
 VISION_BASE_URL=                 # optional endpoint override (Qwen/OpenRouter/Ollama)
 VISION_MODEL=gpt-4o-mini         # any vision-capable model id
+VISION_FULL_PAGES=               # set 1 to send whole pages instead of the cropped
+                                 # data bands (troubleshoot a HoloMotion layout drift)
+VISION_RENDER_SCALE=             # render scale 1-4 (default 2); lower = fewer tokens
 ```
 
 When you change `SMTP_*` values, restart the backend — the mailer transport is built once and cached.
