@@ -24,6 +24,11 @@
   --risk-high-bg: #fdecea;
   --risk-undertrained: #2a6391;
   --risk-undertrained-bg: #e8f0fa;
+  /* Short aliases used by the screening-alert layer and newer components.
+     Kept as aliases so there is a single source of truth for the moderate
+     hue and they inherit the dark-mode overrides automatically. */
+  --risk-mod: var(--risk-moderate);
+  --risk-mod-bg: var(--risk-moderate-bg);
 
   --shadow-sm: 0 1px 3px rgba(0,0,0,.08);
   --shadow-md: 0 4px 12px rgba(0,0,0,.10);
@@ -43,6 +48,21 @@
   --text-muted: #8899aa;
   --shadow-sm: 0 1px 3px rgba(0,0,0,.3);
   --shadow-md: 0 4px 12px rgba(0,0,0,.4);
+
+  /* Risk palette for dark mode. Foregrounds are lifted so risk-coloured text
+     and badges stay legible on dark surfaces; the tinted backgrounds become
+     translucent dark washes of the same hue (matching the risk-hero tints)
+     so badges, alerts, and the screening-alert banner read as dark-mode
+     surfaces instead of bright pastel blocks. Solid-fill uses (gauge bands,
+     alert icons with white text) remain saturated enough to carry white text. */
+  --risk-low: #5cc47a;
+  --risk-low-bg: rgba(61, 124, 71, 0.16);
+  --risk-moderate: #e6b84e;
+  --risk-moderate-bg: rgba(200, 155, 60, 0.16);
+  --risk-high: #e57373;
+  --risk-high-bg: rgba(176, 48, 48, 0.18);
+  --risk-undertrained: #6bb0e0;
+  --risk-undertrained-bg: rgba(42, 99, 145, 0.18);
 }
 
 /* ── Reset ────────────────────────────────────────────────────────────────────── */
@@ -1476,7 +1496,7 @@ tr.row-flash > td { animation: row-flash 1.6s ease-out; }
 .screening-alert-list { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
 .screening-alert-item {
   display: inline-flex; align-items: center; gap: 8px;
-  background: var(--card-bg, #fff);
+  background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 999px;
   padding: 4px 12px 4px 4px;

@@ -43,7 +43,7 @@ const RISK_LABELS = ['Neck', 'Shoulder', 'Scoliosis', 'Spinal Disc', 'Lumbar/Pel
 // HoloMotion Excellent/Good/Average/Below-Average tiers.
 function qualityBand(v: number): { label: string; color: string } {
   if (v >= 85) return { label: 'Excellent', color: 'var(--risk-low, #2e9e5b)' };
-  if (v >= 75) return { label: 'Good', color: '#2f7fd1' };
+  if (v >= 75) return { label: 'Good', color: 'var(--risk-undertrained)' };
   if (v >= 60) return { label: 'Average', color: 'var(--risk-mod, #d99a16)' };
   return { label: 'Below Average', color: 'var(--risk-high, #d14b4b)' };
 }

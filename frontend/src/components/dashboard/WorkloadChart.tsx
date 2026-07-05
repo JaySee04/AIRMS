@@ -14,6 +14,7 @@ import {
   Tooltip,
   Title,
 } from 'chart.js';
+import { useIsDark, chartPalette } from '@/lib/chartTheme';
 
 Chart.register(
   BarController, BarElement,
@@ -32,17 +33,16 @@ interface WorkloadChartProps {
   typeBreakdowns?: Array<Record<string, number>>;
 }
 
-const NAVY = '#0f2c4a';
-const GOLD = '#c89b3c';
-
 export default function WorkloadChart({ labels, weeklyLoads, acwrSeries, typeBreakdowns }: WorkloadChartProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const chartRef = useRef<Chart | null>(null);
+  const isDark = useIsDark();
 
   useEffect(() => {
     if (!canvasRef.current) return;
     const ctx = canvasRef.current.getContext('2d');
     if (!ctx) return;
+    const pal = chartPalette(isDark);
 
     chartRef.current?.destroy();
     chartRef.current = new Chart(ctx, {
@@ -54,7 +54,7 @@ export default function WorkloadChart({ labels, weeklyLoads, acwrSeries, typeBre
             type: 'bar',
             label: 'Weekly Load',
             data: weeklyLoads,
-            backgroundColor: NAVY,
+            backgroundColor: pal.bar,
             borderRadius: 4,
             yAxisID: 'y',
           },
@@ -63,11 +63,11 @@ export default function WorkloadChart({ labels, weeklyLoads, acwrSeries, typeBre
             label: 'ACWR',
             data: acwrSeries,
             yAxisID: 'y1',
-            borderColor: GOLD,
+            borderColor: pal.gold,
             backgroundColor: 'transparent',
             tension: 0.35,
             pointRadius: 4,
-            pointBackgroundColor: GOLD,
+            pointBackgroundColor: pal.gold,
           },
         ],
       },
@@ -75,16 +75,26 @@ export default function WorkloadChart({ labels, weeklyLoads, acwrSeries, typeBre
         responsive: true,
         maintainAspectRatio: false,
         scales: {
-          y: { title: { display: true, text: 'Load (AU)' }, beginAtZero: true },
+          y: {
+            title: { display: true, text: 'Load (AU)', color: pal.tick },
+            beginAtZero: true,
+            grid: { color: pal.grid },
+            ticks: { color: pal.tick },
+          },
           y1: {
             position: 'right',
-            title: { display: true, text: 'ACWR' },
+            title: { display: true, text: 'ACWR', color: pal.tick },
             grid: { display: false },
+            ticks: { color: pal.tick },
             suggestedMax: 2.0,
+          },
+          x: {
+            grid: { color: pal.grid },
+            ticks: { color: pal.tick },
           },
         },
         plugins: {
-          legend: { position: 'bottom' },
+          legend: { position: 'bottom', labels: { color: pal.tick } },
           tooltip: {
             callbacks: {
               afterBody: (items) => {
@@ -109,7 +119,7 @@ export default function WorkloadChart({ labels, weeklyLoads, acwrSeries, typeBre
       chartRef.current?.destroy();
       chartRef.current = null;
     };
-  }, [labels, weeklyLoads, acwrSeries, typeBreakdowns]);
+  }, [labels, weeklyLoads, acwrSeries, typeBreakdowns, isDark]);
 
   return (
     <div style={{ position: 'relative', height: 300 }}>

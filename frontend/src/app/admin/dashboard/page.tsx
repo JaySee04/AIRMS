@@ -11,6 +11,7 @@ import {
 } from 'chart.js';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { api } from '@/lib/api';
+import { useIsDark, chartPalette } from '@/lib/chartTheme';
 
 Chart.register(
   BarController, BarElement,
@@ -50,9 +51,6 @@ const AGE_GROUPS: Array<{ label: string; min?: number; max?: number }> = [
   { label: '30+ (veteran)', min: 30 },
 ];
 
-const NAVY = '#0f2c4a';
-const GOLD = '#c89b3c';
-
 export default function AdminDashboard() {
   const [summary, setSummary] = useState<AnalyticsSummary | null>(null);
   const [sports, setSports] = useState<string[]>([]);
@@ -71,6 +69,8 @@ export default function AdminDashboard() {
   // Trend chart bucketing — Dr Thung asked for both monthly (default) and
   // quarterly views to spot Q-to-Q seasonality (e.g. "Q4 high knee risk").
   const [trendBucket, setTrendBucket] = useState<'monthly' | 'quarterly'>('monthly');
+
+  const isDark = useIsDark();
 
   // Refs for the chart canvases
   const bodyPartRef = useRef<HTMLCanvasElement | null>(null);
@@ -159,6 +159,11 @@ export default function AdminDashboard() {
     chartsRef.current = [];
     if (!summary) return;
 
+    const pal = chartPalette(isDark);
+    // Shared axis styling so grid lines + ticks stay legible in both themes.
+    const cat = { grid: { color: pal.grid }, ticks: { color: pal.tick } };
+    const val = { grid: { color: pal.grid }, ticks: { color: pal.tick, precision: 0 }, beginAtZero: true };
+
     // By body part — ordered to match BODY_PARTS list
     const bpData = BODY_PARTS.map((b) => summary.byBodyPart.find((x) => x._id === b)?.count ?? 0);
     if (bodyPartRef.current) {
@@ -166,8 +171,8 @@ export default function AdminDashboard() {
       if (ctx) {
         chartsRef.current.push(new Chart(ctx, {
           type: 'bar',
-          data: { labels: BODY_PARTS, datasets: [{ label: 'Cases', data: bpData, backgroundColor: NAVY, borderRadius: 4 }] },
-          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } },
+          data: { labels: BODY_PARTS, datasets: [{ label: 'Cases', data: bpData, backgroundColor: pal.bar, borderRadius: 4 }] },
+          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: cat, y: val } },
         }));
       }
     }
@@ -179,8 +184,8 @@ export default function AdminDashboard() {
       if (ctx) {
         chartsRef.current.push(new Chart(ctx, {
           type: 'bar',
-          data: { labels: INJURY_TYPES, datasets: [{ label: 'Cases', data: itData, backgroundColor: GOLD, borderRadius: 4 }] },
-          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } },
+          data: { labels: INJURY_TYPES, datasets: [{ label: 'Cases', data: itData, backgroundColor: pal.gold, borderRadius: 4 }] },
+          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: cat, y: val } },
         }));
       }
     }
@@ -195,13 +200,13 @@ export default function AdminDashboard() {
         const sportData = summary.bySport.map((s) => s.count);
         chartsRef.current.push(new Chart(ctx, {
           type: 'bar',
-          data: { labels: sportLabels, datasets: [{ label: 'Cases', data: sportData, backgroundColor: NAVY, borderRadius: 4 }] },
+          data: { labels: sportLabels, datasets: [{ label: 'Cases', data: sportData, backgroundColor: pal.bar, borderRadius: 4 }] },
           options: {
             indexAxis: 'y',
             responsive: true,
             maintainAspectRatio: false,
             plugins: { legend: { display: false } },
-            scales: { x: { ticks: { precision: 0 } } },
+            scales: { x: val, y: cat },
           },
         }));
       }
@@ -218,16 +223,16 @@ export default function AdminDashboard() {
             datasets: [{
               label: 'Cases',
               data: trend.values,
-              borderColor: NAVY,
-              backgroundColor: 'rgba(15,44,74,0.1)',
+              borderColor: pal.bar,
+              backgroundColor: pal.barFill,
               tension: 0.3,
               // Highlight the peak point in gold so the "critical time" is
               // visible at a glance, not just buried in the line shape.
-              pointBackgroundColor: trend.values.map((_, i) => (trend.peak && trend.labels[i] === trend.peak.label ? GOLD : NAVY)),
+              pointBackgroundColor: trend.values.map((_, i) => (trend.peak && trend.labels[i] === trend.peak.label ? pal.gold : pal.bar)),
               pointRadius: trend.values.map((_, i) => (trend.peak && trend.labels[i] === trend.peak.label ? 6 : 4)),
             }],
           },
-          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } },
+          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: cat, y: val } },
         }));
       }
     }
@@ -236,7 +241,7 @@ export default function AdminDashboard() {
       chartsRef.current.forEach((c) => c.destroy());
       chartsRef.current = [];
     };
-  }, [summary, trend]);
+  }, [summary, trend, isDark]);
 
   function reset() {
     setSport(''); setGender(''); setProgramme('');
