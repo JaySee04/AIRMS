@@ -2,6 +2,8 @@
 
 Aligned to **FYP I VIVA SLIDES (Draft).pdf** (updated post-panel feedback; Literature Review 4 is a recent two-paper Session Load Quantification cluster — Inoue 2022 and Yang 2024 — both of which build on and revalidate the established sRPE method).
 
+> **2026-07-05:** Slides 16, 20, 24, 29, 37, 38 and the UI walkthrough updated for the deliverables shift (HoloMotion PDF vision-AI ingestion, backup export, staff permissions, screening pages, corrected ERD). Deliver these versions only against slides updated per `REPORT_EDIT_PACK.md` — the old narration described entities and use cases that no longer exist.
+
 ---
 
 ## Slide 1 — Title
@@ -108,7 +110,7 @@ Now we will look at the existing system comparisons. I have reviewed four commer
 
 ## Slide 16 — Existing Systems Comparison (full table)
 
-Summarising the comparison, AIRMS will have the most comprehensive functional coverage across the six features assessed — workload and ACWR monitoring, athlete-facing risk display, medical staff injury recording, athlete self-reported injury with a review workflow, a filterable admin injury analytics dashboard, and Excel file upload with validation. The only area where AIRMS does not compete is hardware integration, since that requires users to own specific devices, which is intentionally outside the scope of an institution-accessible web platform.
+Summarising the comparison, AIRMS will have the most comprehensive functional coverage across the six features assessed — workload and ACWR monitoring, athlete-facing risk display, medical staff injury recording, athlete self-reported injury with a review workflow, a filterable admin injury analytics dashboard, and bulk screening ingestion: a validated Excel upload plus AI-assisted import of ISN's image-only HoloMotion screening PDFs, which none of the compared systems can ingest. The only area where AIRMS does not compete is hardware integration, since that requires users to own specific devices, which is intentionally outside the scope of an institution-accessible web platform.
 
 ---
 
@@ -144,6 +146,8 @@ Now, my project requirements.
 
 The General Module covers three use cases. UC-1 *Login Account* allows all three roles — Athlete, Medical Staff, and Administrator — to log in via JWT bearer tokens, with a deliberately generic error message that doesn't reveal whether the email or the password was wrong. UC-2 *Reset Password* is the email-OTP password recovery flow, available to every role and presented as a three-page sequence in one browser tab: the user enters their email and the system sends a six-digit code with a ten-minute expiry; the user enters that code on the verification page, and on success the system issues a short-lived verification token that grants access to the third page where the new password is set. After five wrong code entries the system invalidates the code and forces a fresh request. UC-3 *Role-Based Access Control* restricts access to features and pages based on the assigned user role, and is the security backbone of the system — enforced on every protected backend route and mirrored on the frontend as a UX guard.
 
+Beyond these, the shipped General Module also includes an in-place change-password with a complexity policy, and admin-controlled per-user feature permissions for medical staff — the administrator can revoke individual capabilities such as record viewing or data upload from a specific staffer, enforced server-side on every affected route.
+
 ---
 
 ## Slide 21 — Functional Requirements: Activity Tracking & Logging Module
@@ -168,7 +172,7 @@ UC-17 lets athletes submit a self-reported injury, which enters a Pending state 
 
 ## Slide 24 — Functional Requirements: Data Management Module
 
-For the Data Management Module, UC-20 lets medical staff and administrators upload an Excel file containing screening data, with column validation before committing to the database. UC-21 is the system validation step — checking the uploaded file for missing fields, incorrect formats, and duplicate records before commitment. UC-22 provides administrators with a log of past data imports, and UC-23 lets them remove a previously imported dataset from the system when needed.
+For the Data Management Module, UC-20 lets medical staff and administrators upload an Excel file containing screening data, with column validation and a row-by-row preview before committing to the database. UC-21 lets them import an athlete's HoloMotion screening report directly — the PDF is image-only, so the system renders its data sections to images and reads them with a vision AI model, presenting every extracted value for confirmation before commit; the operator supplies only the three fields the report does not contain — Athlete ID, sport, and programme. UC-22 is the system validation step shared by both paths — nothing is written to the database during preview. And UC-23 lets administrators export the complete dataset as a multi-sheet Excel backup at any time.
 
 ---
 
@@ -198,7 +202,7 @@ Moving on to System Analysis and Design.
 
 ## Slide 29 — Functional Decomposition Diagram
 
-This is my Functional Decomposition Diagram. The root system decomposes into six modules — Activity Tracking and Logging, Athlete Dashboard and Workload, Injury and Recovery Logging, Data Management, Admin Injury Analytics Dashboard, and Medical Staff Dashboard — each broken down further into their respective use cases.
+This is my Functional Decomposition Diagram. The root system decomposes into the cross-cutting General Module plus six functional modules — Activity Tracking and Logging, Athlete Dashboard and Workload, Injury and Recovery Logging, Data Management, Admin Injury Analytics Dashboard, and Medical Staff Dashboard — each broken down further into their respective functions, including the two Data Management ingestion paths and the backup export.
 
 ---
 
@@ -210,13 +214,13 @@ I have one Use Case Diagram per module, giving seven UC diagrams in total coveri
 
 ## Slide 37 — Entity Relationship Diagram
 
-Here is my Entity Relationship Diagram. The core entities are User, Athlete, Medical Staff, Administrator, Activity Log, Injury Record, Self-Report Submission, and Import Record. The User entity links the three role-specific tables. Activity Log and Self-Report Submission both reference Athlete; Injury Record links Athlete and Medical Staff. Self-Report Submission links to Injury Record on approval, capturing the promotion flow from self-report to official record.
+Here is my Entity Relationship Diagram. The core entities are User, Athlete, Activity, Injury, Self-Report, Muscle Flag, and Recovery Baseline. A single `users` table carries the role; an athlete account links to its athlete profile through the athlete ID — ISN's own identifier — which is the canonical key referenced by activities, injuries, self-reports, and muscle flags. Self-Report captures the promotion flow: on approval, a new Injury row is created inside a single database transaction. Muscle Flag stores the per-muscle screening flags that the HoloMotion import populates, and Recovery Baseline snapshots an athlete's workload state when a high-risk episode begins, supporting the recovery-tracking view.
 
 ---
 
 ## Slide 38 — Activity Diagram: Data Import Workflow
 
-This activity diagram covers UC-20 to UC-21, the Data Import Workflow. The user uploads the Excel file; the system reads the structure, checks for required column headers, validates each row for missing values and duplicate records, and either returns an error report with affected rows or commits all records and saves an import log.
+This activity diagram covers the Screening Data Import workflow, which branches by file type. For an Excel file, the system parses the workbook and validates each row, marking it as a create or an update and attaching any row-level errors. For a HoloMotion PDF, the system renders the report's data sections to images, a vision AI model extracts the values as structured data, and the operator supplies the athlete ID, sport, and programme. Both paths converge on a preview — nothing is committed at this point — and only on the operator's explicit confirmation does the system upsert the athlete record and replace their muscle flags, after which every dashboard reflects the new screening data.
 
 ---
 
@@ -248,7 +252,7 @@ The **Medical Report Review Page** with tabbed Pending, Approved, and Rejected s
 
 The **Admin Dashboard Page** with the filter strip, KPI cards, body part and injury type distribution charts, and the temporal trend, alongside the **Admin Report Page** with the report builder and live preview.
 
-And the shared **Data Upload Page** with drag-drop, file validation, and recent imports list, along with the shared **Profile Page** used by all three roles.
+And the shared **Data Upload Page** with the drag-drop Excel uploader, the AI-assisted HoloMotion PDF uploader with its extraction preview, and — on the admin side — the data backup export card, along with the shared **Profile Page** used by all three roles.
 
 ---
 
