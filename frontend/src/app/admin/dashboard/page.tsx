@@ -43,6 +43,16 @@ const GENDERS = ['Male', 'Female'];
 const PROGRAMMES = ['PODIUM', 'PELAPIS', 'OTHERS'];
 
 // Age groups for Dr Thung's "by age group" filter ask.
+interface ScreeningCohort {
+  totalAthletes: number;
+  screened: number;
+  unscreened: number;
+  averages: Record<string, number | null>;
+  indicators: Array<{ key: string; label: string; ok: number; watch: number; high: number }>;
+  topMyodynamia: Array<{ muscle: string; count: number }>;
+  topTension: Array<{ muscle: string; count: number }>;
+}
+
 const AGE_GROUPS: Array<{ label: string; min?: number; max?: number }> = [
   { label: 'All ages' },
   { label: 'Under 18', max: 17 },
@@ -71,6 +81,15 @@ export default function AdminDashboard() {
   const [trendBucket, setTrendBucket] = useState<'monthly' | 'quarterly'>('monthly');
 
   const isDark = useIsDark();
+
+  // Cohort-wide HoloMotion screening picture — fetched once (screening data
+  // is per-athlete-latest, so the injury filters don't apply to it).
+  const [screeningCohort, setScreeningCohort] = useState<ScreeningCohort | null>(null);
+  useEffect(() => {
+    api.get<ScreeningCohort>('/athletes/analytics/screening')
+      .then(setScreeningCohort)
+      .catch(() => setScreeningCohort(null));
+  }, []);
 
   // Refs for the chart canvases
   const bodyPartRef = useRef<HTMLCanvasElement | null>(null);
@@ -489,6 +508,114 @@ export default function AdminDashboard() {
           <canvas ref={monthRef} />
         </div>
       </div>
+
+      {/* ── HoloMotion screening cohort ─────────────────────────────────────
+          The screening side of the athlete population — sourced from the
+          ingested HoloMotion reports (not the injury log). Proportion bars
+          show how each risk indicator distributes across the report's own
+          OK / Watch / High bands. */}
+      {screeningCohort && (
+        <>
+          <div className="section-divider" style={{ marginTop: 28 }}>
+            <h2 style={{ margin: 0, fontSize: '1.05rem' }}>Screening Cohort — HoloMotion</h2>
+            <span className="text-muted" style={{ fontSize: '0.8rem' }}>
+              Latest ingested report per athlete · cohort-wide (injury filters don&apos;t apply)
+            </span>
+          </div>
+
+          <div className="stat-grid" style={{ marginTop: 14 }}>
+            <div className="stat-tile">
+              <div className="stat-tile-label">Athletes Screened</div>
+              <div className="stat-tile-value">{screeningCohort.screened}<span style={{ fontSize: '0.95rem', color: 'var(--text-muted)' }}> / {screeningCohort.totalAthletes}</span></div>
+              <div className="stat-tile-delta">{screeningCohort.unscreened} awaiting a report</div>
+            </div>
+            <div className="stat-tile">
+              <div className="stat-tile-label">Avg Total Score</div>
+              <div className="stat-tile-value">{screeningCohort.averages.overallActivityScore ?? '—'}</div>
+              <div className="stat-tile-delta">Physical quality · / 100</div>
+            </div>
+            <div className="stat-tile">
+              <div className="stat-tile-label">Avg Exercise Risks</div>
+              <div className="stat-tile-value">{screeningCohort.averages.injuryRiskIndex ?? '—'}</div>
+              <div className="stat-tile-delta">Lower is better</div>
+            </div>
+            <div className="stat-tile">
+              <div className="stat-tile-label">High Indicators</div>
+              <div className="stat-tile-value">
+                {screeningCohort.indicators.reduce((s, i) => s + i.high, 0)}
+              </div>
+              <div className="stat-tile-delta">Indicator readings above {'>'}25</div>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 20, marginTop: 20 }}>
+            <div className="card">
+              <div className="card-header">
+                <div>
+                  <h2 className="card-title" style={{ marginBottom: 0 }}>Risk Indicators Across the Cohort</h2>
+                  <span className="card-sub">Share of screened athletes in each band, per indicator</span>
+                </div>
+              </div>
+              <div className="cohort-bars">
+                {screeningCohort.indicators.map((ind) => {
+                  const total = ind.ok + ind.watch + ind.high || 1;
+                  return (
+                    <div
+                      key={ind.key}
+                      className="cohort-bar-row"
+                      title={`${ind.label}: ${ind.ok} OK · ${ind.watch} Watch · ${ind.high} High`}
+                    >
+                      <div className="cohort-bar-label">{ind.label}</div>
+                      <div className="cohort-bar-track">
+                        {ind.ok > 0 && <div className="cohort-bar-seg cohort-bar-seg--ok" style={{ width: `${(ind.ok / total) * 100}%` }}>{ind.ok}</div>}
+                        {ind.watch > 0 && <div className="cohort-bar-seg cohort-bar-seg--watch" style={{ width: `${(ind.watch / total) * 100}%` }}>{ind.watch}</div>}
+                        {ind.high > 0 && <div className="cohort-bar-seg cohort-bar-seg--high" style={{ width: `${(ind.high / total) * 100}%` }}>{ind.high}</div>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="screening-strip-legend">
+                <span><span className="legend-swatch legend-swatch--ok" /> OK ≤ 15</span>
+                <span><span className="legend-swatch legend-swatch--watch" /> Watch 16–25</span>
+                <span><span className="legend-swatch legend-swatch--high" /> High &gt; 25</span>
+              </div>
+            </div>
+
+            <div className="card">
+              <div className="card-header">
+                <div>
+                  <h2 className="card-title" style={{ marginBottom: 0 }}>Most-Flagged Muscles</h2>
+                  <span className="card-sub">Across all latest reports · myodynamia deficiency &amp; tension</span>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+                {([['Myodynamia Deficiency', screeningCohort.topMyodynamia, 'myo'], ['Muscle Tension', screeningCohort.topTension, 'tension']] as const).map(([title, list, tone]) => {
+                  const max = Math.max(1, ...list.map((m) => m.count));
+                  return (
+                    <div key={title} style={{ flex: '1 1 220px' }}>
+                      <div className={`muscle-chip-title muscle-chip-title--${tone}`}>{title}</div>
+                      {list.length === 0 ? (
+                        <div className="text-muted" style={{ fontSize: '0.82rem', marginTop: 6 }}>No flags on record</div>
+                      ) : (
+                        <div className="muscle-rank" style={{ marginTop: 8 }}>
+                          {list.map((m) => (
+                            <div key={m.muscle} className="muscle-rank-row" title={`${m.muscle}: flagged for ${m.count} athlete${m.count === 1 ? '' : 's'}`}>
+                              <span className="muscle-rank-name">{m.muscle}</span>
+                              <span className={`muscle-rank-bar muscle-rank-bar--${tone}`} style={{ width: `${(m.count / max) * 100}%` }} />
+                              <span className="muscle-rank-count">{m.count}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </DashboardLayout>
   );
 }

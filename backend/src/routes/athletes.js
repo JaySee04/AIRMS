@@ -45,6 +45,75 @@ router.get('/meta/sports', auth, rbac('medical', 'admin'), requirePermission('vi
   }
 });
 
+// GET /api/athletes/analytics/screening — cohort view of the ingested
+// HoloMotion screening data (admin analytics). Declared BEFORE /:id.
+// Returns, across active athletes:
+//   - screened / unscreened counts (screened = any headline score present)
+//   - per-indicator OK / Watch / High counts (report bands: ≤15 / ≤25 / >25)
+//   - cohort averages for the five headline gauges
+//   - most-flagged muscles for each flag type
+router.get('/analytics/screening', auth, rbac('admin'), async (_req, res) => {
+  try {
+    const WATCH = 15;
+    const HIGH = 25;
+    const INDICATORS = [
+      { key: 'neckInjuryRisk', label: 'Neck' },
+      { key: 'shoulderInjuryRisk', label: 'Shoulder' },
+      { key: 'scoliosis', label: 'Scoliosis' },
+      { key: 'spinalDiscHerniation', label: 'Spinal Disc' },
+      { key: 'lumbarPelvisInjury', label: 'Lumbar/Pelvis' },
+      { key: 'jointPain', label: 'Joint Pain' },
+      { key: 'kneeInjuryRisk', label: 'Knee' },
+      { key: 'ankleInjuryRisk', label: 'Ankle' },
+    ];
+    const SCORES = ['overallActivityScore', 'injuryRiskIndex', 'mobility', 'stability', 'symmetry'];
+
+    const rows = await Athlete.findAll({ where: { isActive: true }, raw: true });
+    const screenedRows = rows.filter((r) => SCORES.some((k) => r[k] !== null && r[k] !== undefined));
+
+    const indicators = INDICATORS.map(({ key, label }) => {
+      let ok = 0, watch = 0, high = 0;
+      screenedRows.forEach((r) => {
+        const v = Number(r[key] ?? 0);
+        if (v > HIGH) high++;
+        else if (v > WATCH) watch++;
+        else ok++;
+      });
+      return { key, label, ok, watch, high };
+    });
+
+    const averages = {};
+    SCORES.forEach((k) => {
+      const vals = screenedRows.map((r) => Number(r[k])).filter((v) => Number.isFinite(v));
+      averages[k] = vals.length ? +(vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1) : null;
+    });
+
+    const flags = await MuscleFlag.findAll({ raw: true });
+    const topMuscles = (type) => {
+      const counts = new Map();
+      flags.filter((f) => f.flagType === type).forEach((f) => {
+        counts.set(f.muscle, (counts.get(f.muscle) ?? 0) + 1);
+      });
+      return [...counts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 6)
+        .map(([muscle, count]) => ({ muscle, count }));
+    };
+
+    res.json({
+      totalAthletes: rows.length,
+      screened: screenedRows.length,
+      unscreened: rows.length - screenedRows.length,
+      averages,
+      indicators,
+      topMyodynamia: topMuscles('myodynamia'),
+      topTension: topMuscles('tension'),
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // GET /api/athletes/:id — single athlete full detail (with muscle flags).
 // requirePermission only constrains medical staff; athletes (own record) and
 // admin pass through, with the athlete ownership check enforced below.
