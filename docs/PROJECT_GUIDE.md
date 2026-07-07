@@ -124,13 +124,11 @@ Pages mapped to the 3 roles + profile pages:
 | Path | Role | Purpose |
 |---|---|---|
 | [`/`](../frontend/src/app/page.tsx) | public | Login |
-| [`/athlete/dashboard`](../frontend/src/app/athlete/dashboard/page.tsx) | athlete | Module 2 — composite risk dashboard |
-| [`/athlete/screening`](../frontend/src/app/athlete/screening/page.tsx) | athlete | HoloMotion screening report (own) |
+| [`/athlete/dashboard`](../frontend/src/app/athlete/dashboard/page.tsx) | athlete | Module 2 — composite risk dashboard + embedded HoloMotion screening panel |
 | [`/athlete/activity`](../frontend/src/app/athlete/activity/page.tsx) | athlete | Module 1 — activity tracking |
 | [`/athlete/injury-report`](../frontend/src/app/athlete/injury-report/page.tsx) | athlete | Module 3 — self-report form |
 | [`/athlete/profile`](../frontend/src/app/athlete/profile/page.tsx) | athlete | Profile |
-| [`/medical/dashboard`](../frontend/src/app/medical/dashboard/page.tsx) | medical | Module 6 — athlete search/view |
-| [`/medical/screening`](../frontend/src/app/medical/screening/page.tsx) | medical | HoloMotion screening report (any athlete; `viewRecords` gated) |
+| [`/medical/dashboard`](../frontend/src/app/medical/dashboard/page.tsx) | medical | Module 6 — athlete search/view + embedded HoloMotion screening panel |
 | [`/medical/injury-log`](../frontend/src/app/medical/injury-log/page.tsx) | medical | Module 3 — log official injury |
 | [`/medical/review-reports`](../frontend/src/app/medical/review-reports/page.tsx) | medical | Module 3 — review athlete self-reports |
 | [`/medical/data-upload`](../frontend/src/app/medical/data-upload/page.tsx) | medical | Module 4 — screening upload (Excel + HoloMotion PDF) |
@@ -160,7 +158,7 @@ Pages mapped to the 3 roles + profile pages:
 | [bodymap-data/bodyBack.ts](../frontend/src/components/dashboard/bodymap-data/bodyBack.ts) | MIT-licensed path data (back view) |
 | [bodymap-data/outlines.ts](../frontend/src/components/dashboard/bodymap-data/outlines.ts) | Single-path silhouette outlines for front + back |
 | [bodymap-data/types.ts](../frontend/src/components/dashboard/bodymap-data/types.ts) | `BodyPart` interface |
-| [ScreeningReport.tsx](../frontend/src/components/dashboard/ScreeningReport.tsx) | `/athlete/screening` + `/medical/screening`. Shared HoloMotion snapshot — five score gauges, 8-indicator risk radar, muscle flags + body map |
+| [ScreeningPanel.tsx](../frontend/src/components/dashboard/ScreeningPanel.tsx) | Athlete + Medical dashboards (embedded). The latest HoloMotion report read against its thresholds — five tier-ticked score gauges, eight indicator threshold strips (OK/Watch/High zones, sport-critical regions starred via `lib/screeningAlerts.ts`), myodynamia/tension chips |
 | [ScreeningAlertBanner.tsx](../frontend/src/components/dashboard/ScreeningAlertBanner.tsx) | Athlete + Medical dashboards. Renders the sport-aware screening alert (a body region critical for the athlete's sport whose HoloMotion indicator is out of range). Backed by `lib/screeningAlerts.ts`; renders nothing when there's nothing to flag |
 
 ### Upload component — `frontend/src/components/upload/`

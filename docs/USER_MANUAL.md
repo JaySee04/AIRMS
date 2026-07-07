@@ -396,12 +396,14 @@ The coach Squad Readiness table's Screening column also distinguishes athletes w
 
 ---
 
-## 14. Screening Report — `/athlete/screening` and `/medical/screening`
+## 14. Screening Panel — embedded on the dashboards
 
-A dedicated read-only view of an athlete's latest HoloMotion screening, shared by both roles via the same component.
+The athlete's latest HoloMotion screening lives directly on the **athlete dashboard** and inside the **medical dashboard's** per-athlete view (there is no separate screening page — the dashboard is the working surface). The shared panel renders the report *against its thresholds*:
 
-- **Athlete (`/athlete/screening`)** — the athlete's own report: five score gauges (Total Score, ROM, Stability, Symmetry, Exercise Risks), the 8-indicator risk radar, the myodynamia/tension flag lists, and the muscle-assessment body map
-- **Medical (`/medical/screening`)** — a searchable athlete picker (name or ID) → the same report for any athlete. Gated by the `viewRecords` permission (see §15)
+- **Five score gauges** (Total Score, ROM, Stability, Symmetry on 0–100; Exercise Risks on the risk scale) with tick marks at the HoloMotion tier boundaries (60 / 75 / 85) and the tier name coloured by band
+- **Eight indicator threshold strips** — each exercise-risk indicator drawn on its OK ≤15 / Watch ≤25 / High >25 zones with a marker at the athlete's value, coloured green / amber / red by the zone it lands in; regions critical for the athlete's sport are starred (same mapping as the §13 alerts)
+- **Muscle-flag chips** — the report's Myodynamia Deficiency and Muscle Tension lists with side tags, alongside the body-map figure
+- Athletes with no ingested report see an explicit "no screening ingested yet" state instead of empty charts
 
 ---
 
@@ -411,7 +413,7 @@ Lets an admin control exactly what each **medical** staff member can do, beyond 
 
 - A table lists every medical user with a checkbox per capability: **View athlete records**, **Upload screening data**, **Review/approve self-reports**, **View injury log & generate reports**
 - **Opt-out model** — every capability is on by default; unchecking one revokes it for that staffer. The change saves immediately
-- A revoked feature disappears from that user's sidebar and its page shows an access-denied message; the backend also blocks the underlying API calls
+- A revoked feature simply ceases to exist for that user: it disappears from the sidebar, and navigating to its URL directly redirects to their first still-permitted page (no dead-end error screen). The backend blocks the underlying API calls regardless. Revocations take effect on the staffer's next page navigation — the app refreshes its session from the server on every dashboard load, no re-login needed
 - An **Active / Inactive** toggle deactivates an account entirely (blocks sign-in)
 - Athlete and admin accounts are not affected by this layer
 

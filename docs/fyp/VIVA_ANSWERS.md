@@ -184,7 +184,7 @@ Answers grounded in `docs/MASTER_CLARIFICATIONS.md`, `docs/DESIGN_DECISIONS.md`,
 |---|---|---|
 | 18 | UC-33 mirrors athlete dashboard — clinical justification? | Dr Thung explicitly asked for "trace through" — the clinician should see exactly what the athlete sees so consultations align on the same picture. Adding clinical affordances (Log Injury deep-link, prevention insight) without removing athlete-facing detail is the design principle. |
 | 19 | UC-32 — what's the cohort baseline? | Aggregated injury distribution within the selected athlete's sport, computed live from the Injury collection at view time. It's a comparison context, not a statistical model — explainability over sophistication. |
-| 20 | Where do users actually *see* the ingested HoloMotion data? | Dedicated screening-report pages — `/athlete/screening` (own report) and `/medical/screening` (searchable athlete picker) — sharing one `ScreeningReport` component: five score gauges, the 8-indicator risk radar, the myodynamia/tension flag lists, and the muscle body map. The medical page is gated by the `viewRecords` permission. |
+| 20 | Where do users actually *see* the ingested HoloMotion data? | Directly on the dashboards — the athlete and medical dashboards embed a shared screening panel: five tier-ticked score gauges, the eight indicators as threshold strips (OK / Watch / High zones with the athlete's value marked and sport-critical regions starred), the muscle-flag chips, plus the body map. There is deliberately no separate screening page — the dashboard is the working surface, so the report lives where decisions are made. |
 
 ## 8. Non-Functional Requirements (Slide 27)
 
