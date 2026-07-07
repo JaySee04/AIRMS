@@ -67,13 +67,11 @@ const IconPulse = () => (
 const NAV: Record<'athlete' | 'medical' | 'admin' | 'coach', NavItem[]> = {
   athlete: [
     { href: '/athlete/dashboard',     label: 'My Dashboard',      icon: <IconHome /> },
-    { href: '/athlete/screening',     label: 'Screening Report',   icon: <IconPulse /> },
     { href: '/athlete/activity',      label: 'Activity Tracking',  icon: <IconActivity /> },
     { href: '/athlete/injury-report', label: 'Injury Reporting',   icon: <IconWarning /> },
   ],
   medical: [
     { href: '/medical/dashboard',      label: 'Athlete Dashboard',  icon: <IconHome />,        perm: 'viewRecords' },
-    { href: '/medical/screening',      label: 'Screening Reports',  icon: <IconPulse />,       perm: 'viewRecords' },
     { href: '/medical/injury-log',     label: 'Injury Logging',     icon: <IconClipboard />,   perm: 'injuryReports' },
     { href: '/medical/review-reports', label: 'Self-Report Review', icon: <IconCheckCircle />, perm: 'reviewReports' },
     { href: '/medical/data-upload',    label: 'Data Uploading',     icon: <IconUpload />,      perm: 'uploadData' },

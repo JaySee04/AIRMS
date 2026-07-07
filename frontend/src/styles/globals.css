@@ -1788,3 +1788,173 @@ tbody tr:hover { background: var(--bg); }
 .gap-3 { gap: 12px; }
 .items-center { align-items: center; }
 .justify-between { justify-content: space-between; }
+
+/* ── HoloMotion screening panel (threshold strips + muscle chips) ───────────── */
+.screening-strips { display: flex; flex-direction: column; gap: 10px; }
+.screening-strip {
+  display: grid;
+  grid-template-columns: 130px 1fr 96px;
+  align-items: center;
+  gap: 12px;
+}
+.screening-strip-label { font-size: 0.84rem; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+.screening-strip-star { color: var(--secondary, #c89b3c); font-size: 0.8rem; line-height: 1; }
+.screening-strip-track {
+  position: relative;
+  height: 12px;
+  display: flex;
+  border-radius: 6px;
+  overflow: visible;
+}
+.screening-strip-zone { height: 100%; }
+.screening-strip-zone--ok    { background: var(--risk-low-bg); border-radius: 6px 0 0 6px; }
+.screening-strip-zone--watch { background: var(--risk-moderate-bg); }
+.screening-strip-zone--high  { background: var(--risk-high-bg); border-radius: 0 6px 6px 0; }
+.screening-strip-marker {
+  position: absolute;
+  top: 50%;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  border: 2px solid var(--bg-card);
+  box-shadow: var(--shadow-sm);
+}
+.screening-strip-marker--ok    { background: var(--risk-low); }
+.screening-strip-marker--watch { background: var(--risk-moderate); }
+.screening-strip-marker--high  { background: var(--risk-high); }
+.screening-strip-value { font-size: 0.9rem; font-weight: 700; text-align: right; display: flex; align-items: baseline; justify-content: flex-end; gap: 6px; }
+.screening-strip-band { font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+.screening-strip-legend {
+  display: flex; flex-wrap: wrap; gap: 16px;
+  margin-top: 14px; padding-top: 10px;
+  border-top: 1px solid var(--border);
+  font-size: 0.76rem; color: var(--text-muted);
+}
+.screening-strip-legend > span { display: inline-flex; align-items: center; gap: 6px; }
+.legend-swatch { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.legend-swatch--ok    { background: var(--risk-low-bg); border: 1px solid var(--risk-low); }
+.legend-swatch--watch { background: var(--risk-moderate-bg); border: 1px solid var(--risk-moderate); }
+.legend-swatch--high  { background: var(--risk-high-bg); border: 1px solid var(--risk-high); }
+@media (max-width: 640px) {
+  .screening-strip { grid-template-columns: 100px 1fr 84px; }
+}
+
+.muscle-chip-title { font-size: 0.85rem; font-weight: 700; }
+.muscle-chip-title--myo { color: var(--risk-undertrained); }
+.muscle-chip-title--tension { color: var(--risk-high); }
+.muscle-chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.muscle-chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 0.8rem; font-weight: 500;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 4px 3px 12px;
+}
+.muscle-chip--myo { border-color: var(--risk-undertrained); }
+.muscle-chip--tension { border-color: var(--risk-high); }
+.muscle-chip-side {
+  font-size: 0.7rem; font-weight: 700;
+  background: var(--bg);
+  border-radius: 999px;
+  padding: 2px 8px;
+  color: var(--text-muted);
+}
+
+/* ── Admin screening-cohort section ─────────────────────────────────────────── */
+.section-divider {
+  display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--border);
+}
+.cohort-bars { display: flex; flex-direction: column; gap: 8px; }
+.cohort-bar-row {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  align-items: center;
+  gap: 12px;
+}
+.cohort-bar-label { font-size: 0.82rem; font-weight: 600; }
+.cohort-bar-track { display: flex; gap: 2px; height: 20px; border-radius: 5px; overflow: hidden; }
+.cohort-bar-seg {
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.7rem; font-weight: 700;
+  color: #fff;
+  min-width: 18px;
+  transition: width 0.3s ease;
+}
+.cohort-bar-seg--ok    { background: var(--risk-low); }
+.cohort-bar-seg--watch { background: var(--risk-moderate); color: #1a2533; }
+.cohort-bar-seg--high  { background: var(--risk-high); }
+.muscle-rank { display: flex; flex-direction: column; gap: 6px; }
+.muscle-rank-row {
+  display: grid;
+  grid-template-columns: 150px 1fr 28px;
+  align-items: center;
+  gap: 8px;
+}
+.muscle-rank-name { font-size: 0.8rem; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.muscle-rank-bar { height: 10px; border-radius: 5px; display: inline-block; min-width: 4px; }
+.muscle-rank-bar--myo { background: var(--risk-undertrained); }
+.muscle-rank-bar--tension { background: var(--risk-high); }
+.muscle-rank-count { font-size: 0.78rem; font-weight: 700; text-align: right; }
+
+/* ── Structured injury-intake form ──────────────────────────────────────────── */
+.form-section { margin-bottom: 18px; padding-bottom: 4px; }
+.form-section-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 6px;
+  margin-bottom: 12px;
+}
+.clinical-context {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  margin-top: -6px;
+  margin-bottom: 4px;
+}
+.clinical-context-name { font-size: 0.84rem; font-weight: 700; margin-bottom: 4px; }
+.clinical-context-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 0.8rem; }
+.clinical-context-list .badge-moderate, .clinical-context-list .badge-high { font-size: 0.66rem; }
+.form-hint {
+  font-size: 0.8rem;
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  margin-top: -4px;
+  margin-bottom: 4px;
+}
+.form-hint--warn {
+  background: var(--risk-moderate-bg);
+  border: 1px solid var(--risk-moderate);
+}
+.link-btn {
+  background: none; border: none; padding: 0;
+  color: var(--risk-undertrained);
+  font: inherit; font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.seg-group { display: inline-flex; gap: 0; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.seg-btn {
+  background: var(--bg-card);
+  border: none;
+  border-right: 1px solid var(--border);
+  padding: 8px 16px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.seg-btn:last-child { border-right: none; }
+.seg-btn:hover { background: var(--bg); }
+.seg-btn.active { background: var(--brand-navy, #0f2c4a); color: #fff; }
+.seg-btn--minor.active    { background: var(--risk-low); color: #fff; }
+.seg-btn--moderate.active { background: var(--risk-moderate); color: #1a2533; }
+.seg-btn--severe.active   { background: var(--risk-high); color: #fff; }

@@ -8,6 +8,7 @@ import WorkloadChart from '@/components/dashboard/WorkloadChart';
 import RiskRadar from '@/components/dashboard/RiskRadar';
 import AcwrGauge from '@/components/dashboard/AcwrGauge';
 import ScreeningAlertBanner from '@/components/dashboard/ScreeningAlertBanner';
+import ScreeningPanel from '@/components/dashboard/ScreeningPanel';
 import { api } from '@/lib/api';
 import { classifyCompositeRisk } from '@/lib/risk';
 import { WATCH_THRESHOLD } from '@/lib/screeningAlerts';
@@ -704,7 +705,8 @@ export default function MedicalDashboard() {
                   <div style={{ flex: 1 }}>
                     <h2 style={{ margin: 0 }}>{selectedAthlete.name}</h2>
                     <div className="text-muted" style={{ fontSize: '0.9rem' }}>
-                      {selectedAthlete.sport} · {selectedAthlete.programme ?? selectedAthlete.program} ·{' '}
+                      {selectedAthlete.athleteId} · {selectedAthlete.sport} ·{' '}
+                      {selectedAthlete.programme ?? selectedAthlete.program} ·{' '}
                       {selectedAthlete.age ? `${selectedAthlete.age}y` : '—'}{' '}·{' '}
                       {selectedAthlete.gender ?? '—'}
                     </div>
@@ -715,16 +717,6 @@ export default function MedicalDashboard() {
                   >
                     + Log Injury
                   </Link>
-                </div>
-                <div className="kv-grid" style={{ marginTop: 16 }}>
-                  <div><span>Athlete ID</span><strong>{selectedAthlete.athleteId}</strong></div>
-                  <div><span>Height</span><strong>{selectedAthlete.height ?? '—'} cm</strong></div>
-                  <div><span>Weight</span><strong>{selectedAthlete.weight ?? '—'} kg</strong></div>
-                  <div><span>Overall Activity</span><strong>{selectedAthlete.overallActivityScore?.toFixed(1) ?? '—'}</strong></div>
-                  <div><span>Mobility</span><strong>{selectedAthlete.mobility?.toFixed(1) ?? '—'}</strong></div>
-                  <div><span>Stability</span><strong>{selectedAthlete.stability?.toFixed(1) ?? '—'}</strong></div>
-                  <div><span>Symmetry</span><strong>{selectedAthlete.symmetry?.toFixed(1) ?? '—'}</strong></div>
-                  <div><span>Injury Risk Index</span><strong>{selectedAthlete.injuryRiskIndex?.toFixed(1) ?? '—'}</strong></div>
                 </div>
               </div>
 
@@ -839,8 +831,15 @@ export default function MedicalDashboard() {
                 </div>
               )}
 
+              {/* HoloMotion screening — the athlete's latest report read
+                  against its thresholds (gauges + indicator strips + muscle
+                  flags), embedded here instead of a separate screening page. */}
+              <div style={{ marginTop: 20 }}>
+                <ScreeningPanel athlete={selectedAthlete} />
+              </div>
+
               {/* Workload + risk charts */}
-              <div className="grid-2-1" style={{ marginTop: 20 }}>
+              <div className="grid-2-1">
                 <div className="card">
                   <div className="card-header">
                     <div>

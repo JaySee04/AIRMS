@@ -26,8 +26,9 @@ export interface AthleteRisks {
 // into these — two spine indicators (scoliosis, spinal disc) share "Spine".
 export type BodyRegion = 'Neck' | 'Shoulder' | 'Spine' | 'Lumbar/Pelvis' | 'Joint' | 'Knee' | 'Ankle';
 
-// Each stored indicator → its region + a human label.
-const INDICATORS: Array<{ key: keyof AthleteRisks; region: BodyRegion; label: string }> = [
+// Each stored indicator → its region + a human label. Exported so screening
+// visualisations share the same region mapping the alert layer uses.
+export const INDICATORS: Array<{ key: keyof AthleteRisks; region: BodyRegion; label: string }> = [
   { key: 'neckInjuryRisk', region: 'Neck', label: 'Neck' },
   { key: 'shoulderInjuryRisk', region: 'Shoulder', label: 'Shoulder' },
   { key: 'scoliosis', region: 'Spine', label: 'Scoliosis' },

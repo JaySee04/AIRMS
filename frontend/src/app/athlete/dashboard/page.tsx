@@ -8,6 +8,7 @@ import WorkloadChart from '@/components/dashboard/WorkloadChart';
 import RiskRadar from '@/components/dashboard/RiskRadar';
 import AcwrGauge from '@/components/dashboard/AcwrGauge';
 import ScreeningAlertBanner from '@/components/dashboard/ScreeningAlertBanner';
+import ScreeningPanel from '@/components/dashboard/ScreeningPanel';
 import { api } from '@/lib/api';
 import { getSession } from '@/lib/auth';
 import { classifyCompositeRisk } from '@/lib/risk';
@@ -37,6 +38,8 @@ interface Athlete {
   athleteId: string;
   name: string;
   sport: string;
+  age?: number;
+  gender?: string;
   risks: AthleteRisks;
   myodynamia: MuscleEntry[];
   tension: MuscleEntry[];
@@ -392,6 +395,11 @@ export default function AthleteDashboard() {
       </div>
 
       <div style={{ height: 20 }} />
+
+      {/* HoloMotion screening — gauges, indicator threshold strips, muscle
+          flags. The full latest report, read against its thresholds, lives
+          here on the dashboard rather than on a separate page. */}
+      <ScreeningPanel athlete={athlete} />
 
       {/* Body map */}
       <div className="card" style={{ marginBottom: 20 }}>

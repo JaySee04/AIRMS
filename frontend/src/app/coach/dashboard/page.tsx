@@ -108,7 +108,7 @@ export default function CoachDashboard() {
             <h2 className="card-title" style={{ marginBottom: 0 }}>Squad Readiness Overview</h2>
             <span className="card-sub">
               {data?.sports.length ? `Assigned sports: ${data.sports.join(', ')}` : 'No sports assigned to your account yet'}
-              {' · '}read-only · readiness derived from composite injury-risk model
+              {' · '}read-only · readiness from the composite risk model · screening flags from each athlete&apos;s latest HoloMotion report
             </span>
           </div>
         </div>
