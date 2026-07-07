@@ -1,5 +1,14 @@
 'use client';
 
+// Official injury intake — structured the way professional sports-medicine
+// teams record injuries (IOC / STROBE-SIIS variable set): WHO (athlete, with
+// their clinical context surfaced at selection), WHEN & HOW (onset date +
+// mechanism), WHERE (anatomical location + side), WHAT (diagnosis type +
+// severity graded by expected time loss), and PLAN (status + structured
+// clinical note). Recurrence is flagged automatically from the athlete's
+// existing record. The stored fields are unchanged — this page upgrades the
+// capture workflow, not the schema.
+
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import DashboardLayout from '@/components/layout/DashboardLayout';
@@ -11,6 +20,20 @@ const INJURY_TYPES = ['Sprain', 'Strain', 'Tendinitis', 'Bursitis', 'Fracture', 
 const SEVERITIES = ['Minor', 'Moderate', 'Severe'] as const;
 const MECHANISMS = ['Contact', 'Non-contact', 'Overuse', 'Recurrent'] as const;
 const RECOVERY = ['Recovering', 'Recovered', 'Chronic'] as const;
+
+// Time-loss anchors — the consensus convention pro teams grade severity by.
+const SEVERITY_HINT: Record<typeof SEVERITIES[number], string> = {
+  Minor: 'expected time loss 1–7 days',
+  Moderate: 'expected time loss 8–28 days',
+  Severe: 'expected time loss over 28 days',
+};
+
+const MECHANISM_HINT: Record<typeof MECHANISMS[number], string> = {
+  'Contact': 'collision with player, object, or surface',
+  'Non-contact': 'acute onset without external contact',
+  'Overuse': 'gradual onset from repetitive load',
+  'Recurrent': 'same site as a previous recorded injury',
+};
 
 interface AthleteOption {
   athleteId: string;
@@ -60,6 +83,10 @@ function InjuryLogInner() {
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  // Clinical context for the selected athlete — their existing injury record,
+  // fetched as soon as a valid athlete is picked.
+  const [history, setHistory] = useState<Injury[]>([]);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -89,6 +116,29 @@ function InjuryLogInner() {
     () => new Map(athletes.map((a) => [a.athleteId, a])),
     [athletes],
   );
+  const validAthlete = athleteIndex.get(athleteId);
+
+  useEffect(() => {
+    if (!validAthlete) { setHistory([]); return; }
+    let cancelled = false;
+    api.get<Injury[]>(`/injuries/athlete/${validAthlete.athleteId}`)
+      .then((rows) => { if (!cancelled) setHistory(rows); })
+      .catch(() => { if (!cancelled) setHistory([]); });
+    return () => { cancelled = true; };
+  }, [validAthlete]);
+
+  const activeInjuries = useMemo(
+    () => history.filter((i) => i.recoveryStatus !== 'Recovered'),
+    [history],
+  );
+
+  // Subsequent-injury check (STROBE-SIIS): a prior record at the same site
+  // suggests the mechanism may be Recurrent.
+  const priorSameSite = useMemo(
+    () => (bodyPart ? history.filter((i) => i.bodyPart === bodyPart) : []),
+    [history, bodyPart],
+  );
+  const suggestRecurrent = priorSameSite.length > 0 && mechanism !== 'Recurrent';
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -112,6 +162,7 @@ function InjuryLogInner() {
         notes: notes || undefined,
       });
       setRecent((prev) => [created, ...prev].slice(0, 8));
+      setHistory((prev) => [created, ...prev]);
       setSuccess(`Injury logged for ${created.athleteName ?? athleteId}.`);
       // Reset (but keep athleteId so you can add multiple injuries for the same athlete)
       setBodyPart('');
@@ -138,29 +189,77 @@ function InjuryLogInner() {
           {success && <div className="alert alert-success">{success}</div>}
           {error && <div className="alert alert-error">{error}</div>}
           <form onSubmit={handleSubmit}>
-            <div className="form-group">
-              <label htmlFor="inj-athlete">Athlete</label>
-              <input
-                id="inj-athlete"
-                list="athlete-list"
-                value={athleteId}
-                onChange={(e) => setAthleteId(e.target.value)}
-                placeholder="Search by name or athlete ID…"
-                required
-              />
-              <datalist id="athlete-list">
-                {athletes.map((a) => (
-                  <option key={a.athleteId} value={a.athleteId}>{a.name} — {a.sport}</option>
-                ))}
-              </datalist>
-              {athleteId && athleteIndex.has(athleteId) && (
-                <small className="text-muted">
-                  Selected: {athleteIndex.get(athleteId)?.name} · {athleteIndex.get(athleteId)?.sport}
-                </small>
+            {/* ── 1 · Athlete ─────────────────────────────────────────── */}
+            <div className="form-section">
+              <div className="form-section-title">1 · Athlete</div>
+              <div className="form-group">
+                <label htmlFor="inj-athlete">Athlete</label>
+                <input
+                  id="inj-athlete"
+                  list="athlete-list"
+                  value={athleteId}
+                  onChange={(e) => setAthleteId(e.target.value)}
+                  placeholder="Search by name or athlete ID…"
+                  required
+                />
+                <datalist id="athlete-list">
+                  {athletes.map((a) => (
+                    <option key={a.athleteId} value={a.athleteId}>{a.name} — {a.sport}</option>
+                  ))}
+                </datalist>
+              </div>
+              {validAthlete && (
+                <div className="clinical-context">
+                  <div className="clinical-context-name">
+                    {validAthlete.name} · {validAthlete.sport}
+                  </div>
+                  {activeInjuries.length > 0 ? (
+                    <ul className="clinical-context-list">
+                      {activeInjuries.map((i) => (
+                        <li key={i._id}>
+                          <span className={i.recoveryStatus === 'Chronic' ? 'badge-high' : 'badge-moderate'}>
+                            {i.recoveryStatus}
+                          </span>{' '}
+                          {i.bodyPart} ({i.side}) — {i.injuryType}, {new Date(i.date).toISOString().slice(0, 10)}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div className="text-muted" style={{ fontSize: '0.8rem' }}>
+                      No active injuries on record · {history.length} total in history
+                    </div>
+                  )}
+                </div>
               )}
             </div>
 
-            <div className="form-row-2">
+            {/* ── 2 · Incident ────────────────────────────────────────── */}
+            <div className="form-section">
+              <div className="form-section-title">2 · Incident — when &amp; how</div>
+              <div className="form-row-2">
+                <div className="form-group">
+                  <label htmlFor="inj-date">Date of Onset</label>
+                  <input id="inj-date" type="date" value={date} max={todayISO()} onChange={(e) => setDate(e.target.value)} required />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="inj-mech">Mechanism</label>
+                  <select id="inj-mech" value={mechanism} onChange={(e) => setMechanism(e.target.value as typeof MECHANISMS[number])}>
+                    {MECHANISMS.map((m) => (<option key={m} value={m}>{m}</option>))}
+                  </select>
+                  <small className="text-muted">{MECHANISM_HINT[mechanism]}</small>
+                </div>
+              </div>
+              {suggestRecurrent && (
+                <div className="form-hint form-hint--warn">
+                  {validAthlete?.name.split(' ')[0] ?? 'This athlete'} has {priorSameSite.length} prior {bodyPart} record{priorSameSite.length === 1 ? '' : 's'} —
+                  if this is the same site, consider mechanism <button type="button" className="link-btn" onClick={() => setMechanism('Recurrent')}>Recurrent</button>.
+                </div>
+              )}
+            </div>
+
+            {/* ── 3 · Location ────────────────────────────────────────── */}
+            <div className="form-section">
+              <div className="form-section-title">3 · Location — where</div>
               <div className="form-group">
                 <label htmlFor="inj-bp">Body Part</label>
                 <select id="inj-bp" value={bodyPart} onChange={(e) => setBodyPart(e.target.value)} required>
@@ -169,14 +268,27 @@ function InjuryLogInner() {
                 </select>
               </div>
               <div className="form-group">
-                <label htmlFor="inj-side">Side</label>
-                <select id="inj-side" value={side} onChange={(e) => setSide(e.target.value as typeof SIDES[number])}>
-                  {SIDES.map((s) => (<option key={s} value={s}>{s}</option>))}
-                </select>
+                <label>Side</label>
+                <div className="seg-group" role="radiogroup" aria-label="Side">
+                  {SIDES.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      role="radio"
+                      aria-checked={side === s}
+                      className={`seg-btn${side === s ? ' active' : ''}`}
+                      onClick={() => setSide(s)}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
-            <div className="form-row-2">
+            {/* ── 4 · Classification ──────────────────────────────────── */}
+            <div className="form-section">
+              <div className="form-section-title">4 · Classification — what</div>
               <div className="form-group">
                 <label htmlFor="inj-type">Injury Type</label>
                 <select id="inj-type" value={injuryType} onChange={(e) => setInjuryType(e.target.value)} required>
@@ -185,42 +297,44 @@ function InjuryLogInner() {
                 </select>
               </div>
               <div className="form-group">
-                <label htmlFor="inj-sev">Severity</label>
-                <select id="inj-sev" value={severity} onChange={(e) => setSeverity(e.target.value as typeof SEVERITIES[number])}>
-                  {SEVERITIES.map((s) => (<option key={s} value={s}>{s}</option>))}
+                <label>Severity</label>
+                <div className="seg-group" role="radiogroup" aria-label="Severity">
+                  {SEVERITIES.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      role="radio"
+                      aria-checked={severity === s}
+                      className={`seg-btn seg-btn--${s.toLowerCase()}${severity === s ? ' active' : ''}`}
+                      onClick={() => setSeverity(s)}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+                <small className="text-muted">{SEVERITY_HINT[severity]}</small>
+              </div>
+            </div>
+
+            {/* ── 5 · Plan ────────────────────────────────────────────── */}
+            <div className="form-section">
+              <div className="form-section-title">5 · Plan — status &amp; notes</div>
+              <div className="form-group">
+                <label htmlFor="inj-status">Recovery Status</label>
+                <select id="inj-status" value={recoveryStatus} onChange={(e) => setRecoveryStatus(e.target.value as typeof RECOVERY[number])}>
+                  {RECOVERY.map((r) => (<option key={r} value={r}>{r}</option>))}
                 </select>
               </div>
-            </div>
-
-            <div className="form-row-2">
               <div className="form-group">
-                <label htmlFor="inj-mech">Mechanism</label>
-                <select id="inj-mech" value={mechanism} onChange={(e) => setMechanism(e.target.value as typeof MECHANISMS[number])}>
-                  {MECHANISMS.map((m) => (<option key={m} value={m}>{m}</option>))}
-                </select>
+                <label htmlFor="inj-notes">Clinical Notes</label>
+                <textarea
+                  id="inj-notes"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder={'Assessment: …\nTreatment: …\nReturn-to-play criteria: …'}
+                  rows={4}
+                />
               </div>
-              <div className="form-group">
-                <label htmlFor="inj-date">Date of Injury</label>
-                <input id="inj-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="inj-status">Recovery Status</label>
-              <select id="inj-status" value={recoveryStatus} onChange={(e) => setRecoveryStatus(e.target.value as typeof RECOVERY[number])}>
-                {RECOVERY.map((r) => (<option key={r} value={r}>{r}</option>))}
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="inj-notes">Clinical Notes</label>
-              <textarea
-                id="inj-notes"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Findings, treatment plan, return-to-play criteria…"
-                rows={4}
-              />
             </div>
 
             <button type="submit" className="btn btn-primary btn-full" disabled={submitting}>
