@@ -4,14 +4,19 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
-import { getSession, clearSession, SessionUser, PermissionKey, hasPermission } from '@/lib/auth';
+import { api } from '@/lib/api';
+import {
+  getSession, saveSession, clearSession,
+  SessionUser, PermissionKey, hasPermission, firstPermittedPath,
+} from '@/lib/auth';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
   allowedRoles: Array<'athlete' | 'medical' | 'admin' | 'coach'>;
   title: string;
-  // When set, medical staff lacking this capability see an access-denied
-  // message instead of the page body. athlete/admin are unaffected.
+  // When set, medical staff lacking this capability are routed to their first
+  // still-permitted page — revoked features simply don't exist for them (no
+  // sidebar entry, no dead-end denial page). athlete/admin are unaffected.
   requiredPermission?: PermissionKey;
 }
 
@@ -29,6 +34,20 @@ export default function DashboardLayout({ children, allowedRoles, title, require
     setUser(session.user);
     const saved = localStorage.getItem('airms_theme') as 'light' | 'dark' | null;
     if (saved) setTheme(saved);
+
+    // Permissions are admin-editable at any time, but the session user in
+    // localStorage is a login-time snapshot. Refresh it from the server so a
+    // revocation takes effect on the staffer's next navigation, not their
+    // next login. Backend routes enforce live permissions regardless — this
+    // keeps the UI (sidebar, page gates) in agreement with them.
+    if (session.user.role === 'medical') {
+      api.get<{ user: SessionUser }>('/auth/me')
+        .then(({ user: fresh }) => {
+          saveSession(session.token, fresh);
+          setUser(fresh);
+        })
+        .catch(() => null); // offline/expired: keep the snapshot; API gates still hold
+    }
   }, [allowedRoles, router]);
 
   useEffect(() => {
@@ -36,14 +55,18 @@ export default function DashboardLayout({ children, allowedRoles, title, require
     localStorage.setItem('airms_theme', theme);
   }, [theme]);
 
+  // Route away from pages whose capability has been revoked.
+  const blocked = user && requiredPermission ? !hasPermission(user, requiredPermission) : false;
+  useEffect(() => {
+    if (user && blocked) router.replace(firstPermittedPath(user));
+  }, [user, blocked, router]);
+
   function handleLogout() {
     clearSession();
     router.push('/');
   }
 
   if (!user) return null;
-
-  const blocked = requiredPermission ? !hasPermission(user, requiredPermission) : false;
 
   return (
     <div className="app-shell">
@@ -57,13 +80,7 @@ export default function DashboardLayout({ children, allowedRoles, title, require
           onLogout={handleLogout}
         />
         <main className="page-content">
-          {blocked ? (
-            <div className="alert alert-error">
-              This feature has been disabled for your account by an administrator.
-            </div>
-          ) : (
-            children
-          )}
+          {blocked ? null : children}
         </main>
       </div>
     </div>

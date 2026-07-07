@@ -52,3 +52,19 @@ export function requireRole(
   if (!allowedRoles.includes(session.user.role)) return null;
   return session.user;
 }
+
+// First page a medical staffer is still permitted to see — used to route them
+// away from a revoked page instead of showing a dead-end denial message.
+// Profile is the unconditional fallback (never permission-gated).
+const MEDICAL_PAGES: Array<{ path: string; perm: PermissionKey }> = [
+  { path: '/medical/dashboard', perm: 'viewRecords' },
+  { path: '/medical/injury-log', perm: 'injuryReports' },
+  { path: '/medical/review-reports', perm: 'reviewReports' },
+  { path: '/medical/data-upload', perm: 'uploadData' },
+];
+
+export function firstPermittedPath(user: SessionUser): string {
+  if (user.role !== 'medical') return '/';
+  const open = MEDICAL_PAGES.find((p) => hasPermission(user, p.perm));
+  return open ? open.path : '/medical/profile';
+}

@@ -12,7 +12,7 @@ const PERMISSION_LABELS = {
   viewRecords: 'View athlete records',
   uploadData: 'Upload screening data',
   reviewReports: 'Review/approve self-reports',
-  injuryReports: 'View injury log & generate reports',
+  injuryReports: 'Log & view injuries',
 };
 
 // True unless this user is a medical staffer with the capability explicitly
