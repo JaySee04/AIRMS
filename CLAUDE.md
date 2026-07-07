@@ -49,6 +49,7 @@ No automated test suite exists in either backend or frontend. Verification is ma
 | Role | Email | Password |
 |---|---|---|
 | athlete | `athlete@isn.gov.my` | `athlete123` (linked to ATH0001 — John Doe) |
+| athlete | `thung@isn.gov.my` | `thung123` (ATH0061 — Thung Jin Seng, seeded 1:1 from the sample HoloMotion PDF as ground truth) |
 | medical | `medical@isn.gov.my` | `medical123` (Medical Demo 01) |
 | admin | `admin@isn.gov.my` | `admin123` |
 | admin (SMTP demo) | `poseidonapollo11@gmail.com` | `admin123` (real-Gmail account so the email-reset flow demos against an inbox you can check) |

@@ -62,69 +62,72 @@ function pickProgram(age) {
 }
 
 // ── Build athletes ──────────────────────────────────────────────────────────
+// All screening values mirror what a HoloMotion "Report of Physical Quality
+// and Exercise Risks" actually carries: integer gauge scores (Total Score,
+// ROM, Stability, Symmetry on 0–100; Exercise Risks and the eight per-region
+// indicators on the report's risk scale, lower = better) plus the two muscle
+// lists. Fields the report does NOT contain (weight, height) are left null —
+// AIRMS stores only what its real ingestion source provides. sport/program
+// are operator-supplied at import time, so they are always present.
 function buildAthletes() {
   const athletes = [];
   for (let i = 1; i <= 60; i++) {
     const gender = pick(GENDERS);
     const age = range(15, 32);
     const sport = pick(SPORTS);
-    const defFlags = buildFlags(MUSCLES_DEFICIENCY, 0.18);
-    const tensionFlags = buildFlags(MUSCLES_TENSION, 0.18);
+    // Roughly 1 in 10 athletes has no HoloMotion report ingested yet — their
+    // scores stay null / indicators 0 so the "no data" states are demoable.
+    const screened = rnd() > 0.1;
+    const defFlags = screened ? buildFlags(MUSCLES_DEFICIENCY, 0.18) : {};
+    const tensionFlags = screened ? buildFlags(MUSCLES_TENSION, 0.18) : {};
     athletes.push({
       athleteId: 'ATH' + String(i).padStart(4, '0'),
       name: `${pick(FIRST_NAMES)} ${pick(LAST_NAMES)}`,
       age,
       gender,
-      sex: gender === 'Male' ? 'M' : 'F',
-      weight: rfloat(50, 90),
-      height: range(155, 195),
       sport,
       program: pickProgram(age),
-      overallActivityScore: rfloat(65, 95, 2),
-      injuryRiskIndex: rfloat(8, 35, 2),
-      mobility: rfloat(60, 90, 2),
-      stability: rfloat(60, 90, 2),
-      symmetry: rfloat(60, 95, 2),
-      neckInjuryRisk: rfloat(5, 30, 1),
-      shoulderInjuryRisk: rfloat(5, 30, 1),
-      scoliosis: rfloat(5, 30, 1),
-      spinalDiscHerniation: rfloat(5, 30, 1),
-      lumbarPelvisInjury: rfloat(5, 30, 1),
-      jointPain: rfloat(0, 20, 1),
-      kneeInjuryRisk: rfloat(5, 30, 1),
-      ankleInjuryRisk: rfloat(5, 30, 1),
+      overallActivityScore: screened ? range(55, 95) : null,
+      injuryRiskIndex: screened ? range(3, 30) : null,
+      mobility: screened ? range(55, 95) : null,
+      stability: screened ? range(55, 95) : null,
+      symmetry: screened ? range(55, 95) : null,
+      neckInjuryRisk: screened ? range(2, 28) : 0,
+      shoulderInjuryRisk: screened ? range(2, 28) : 0,
+      scoliosis: screened ? range(2, 28) : 0,
+      spinalDiscHerniation: screened ? range(2, 28) : 0,
+      lumbarPelvisInjury: screened ? range(2, 28) : 0,
+      jointPain: screened ? range(0, 20) : 0,
+      kneeInjuryRisk: screened ? range(2, 28) : 0,
+      ankleInjuryRisk: screened ? range(2, 28) : 0,
       _myodynamia: objToArray(defFlags),
       _tension: objToArray(tensionFlags),
     });
   }
 
-  // Anchor athlete — John Doe, matches ISN Excel sample exactly.
-  // Note: "Exercise risk score" in the Excel is a column-GROUP header, not a
-  // leaf value. The five injury-risk indicators that follow are its grouped
-  // sub-columns. Earlier seeder revisions misread that header and offset all
-  // values by one position; the layout below is the corrected attribution.
+  // Anchor athlete — John Doe, the athlete-login demo (ATH0001). Values are
+  // HoloMotion-shaped integers preserving the profile the Module 2 walkthrough
+  // depends on: healthy overall, moderate spinal-disc / lumbar indicators, an
+  // elevated ankle, and 2+2 muscle flags — below the 5-flag escalation
+  // threshold in classifyCompositeRisk so his band escalates via active
+  // injuries ("Elevated"), not muscle-flag pile-up ("High Risk").
   athletes[0] = {
     athleteId: 'ATH0001',
     name: 'John Doe',
     age: 19,
-    gender: 'Male', sex: 'M',
-    weight: 69.4, height: 173,
+    gender: 'Male',
     sport: 'Badminton', program: 'PODIUM',
-    overallActivityScore: 80.28,
-    injuryRiskIndex: 10.4,
-    mobility: 79.94, stability: 77.62, symmetry: 82.49,
-    // Five "Exercise risk score" sub-indicators from the Excel sample
-    neckInjuryRisk: 5.49,
-    shoulderInjuryRisk: 7.27,
-    scoliosis: 8.03,
-    spinalDiscHerniation: 14.51,
-    lumbarPelvisInjury: 14.51,
-    // Three additional risk indicators; values shifted from the prior offset
-    jointPain: 5.62,
-    kneeInjuryRisk: 0,
-    ankleInjuryRisk: 20.24,
-    // Below the 5-flag escalation threshold in `classifyCompositeRisk` so
-    // John's demo lands at "Elevated" via injury escalation, not "High Risk".
+    overallActivityScore: 80,
+    injuryRiskIndex: 10,
+    mobility: 80, stability: 78, symmetry: 82,
+    neckInjuryRisk: 5,
+    shoulderInjuryRisk: 7,
+    scoliosis: 8,
+    spinalDiscHerniation: 15,
+    lumbarPelvisInjury: 15,
+    jointPain: 6,
+    kneeInjuryRisk: 3,
+    ankleInjuryRisk: 20,
     _myodynamia: [
       { muscle: 'Vastus Lateralis', side: 'R' },
       { muscle: 'Gluteus Medius', side: 'L' },
@@ -134,6 +137,43 @@ function buildAthletes() {
       { muscle: 'Iliopsoas', side: 'R' },
     ],
   };
+
+  // Reference athlete — transcribed 1:1 from Dr Thung's own HoloMotion report
+  // (thung jin seng, assessed 2024-07-19). Every value below is read straight
+  // off the sample PDF, so the whole pipeline can be validated against ground
+  // truth: an ingest of the same PDF must produce exactly this row, and every
+  // dashboard visual can be cross-checked against the printed report.
+  // sport/program are operator-supplied (not on the report).
+  athletes.push({
+    athleteId: 'ATH0061',
+    name: 'Thung Jin Seng',
+    age: 51,
+    gender: 'Male',
+    sport: 'Badminton', program: 'OTHERS',
+    overallActivityScore: 77,  // Total Score gauge — "Good"
+    injuryRiskIndex: 12,       // Exercise Risks gauge — "Low Risk"
+    mobility: 88,              // ROM — "Excellent"
+    stability: 72,             // "Average"
+    symmetry: 75,              // "Good"
+    neckInjuryRisk: 23,        // Neck Pain — Medium Risk
+    shoulderInjuryRisk: 11,    // Shoulder Pain — Low Risk
+    scoliosis: 11,             // Low Risk
+    spinalDiscHerniation: 17,  // Lumbar Disc Herniation — Medium Risk
+    lumbarPelvisInjury: 17,    // Anterior Pelvic Tilt — Medium Risk
+    jointPain: 3,              // Low Risk
+    kneeInjuryRisk: 18,        // Ligament Strain — Medium Risk
+    ankleInjuryRisk: 19,       // Ankle Sprain — Medium Risk
+    _myodynamia: [
+      { muscle: 'Sartorius', side: 'R' },
+      { muscle: 'Gluteus Maximus', side: 'L' },
+      { muscle: 'Gluteus Maximus', side: 'R' },
+    ],
+    _tension: [
+      { muscle: 'Biceps Brachii', side: 'L' },
+      { muscle: 'Pectoralis Major', side: 'R' },
+      { muscle: 'Pectoralis Major', side: 'L' },
+    ],
+  });
 
   return athletes;
 }
@@ -151,7 +191,7 @@ function flattenMuscleFlags(athletes) {
   return rows;
 }
 
-// ── Build activity logs (John Doe, 8 weeks) ─────────────────────────────────
+// ── Build activity logs (demo athletes, 8 weeks) ────────────────────────────
 function buildActivities() {
   const types = ['Strength','Endurance','Speed','Skill','Match','Recovery'];
   const intensityMap = {
@@ -171,6 +211,26 @@ function buildActivities() {
     const intensity = range(intensityMap[type][0], intensityMap[type][1]);
     logs.push({
       athleteId: 'ATH0001',
+      date,
+      type,
+      duration,
+      intensity,
+      load: duration * intensity,
+    });
+  }
+
+  // Thung Jin Seng (ATH0061) — steady low-to-moderate masters-athlete volume,
+  // ~3 sessions/week over the full 8-week window, so his ACWR/dashboard view
+  // renders a stable baseline to hold his HoloMotion screening against.
+  for (let day = 56; day >= 0; day -= 2) {
+    if (rnd() < 0.35) continue;
+    const date = new Date(today);
+    date.setDate(date.getDate() - day);
+    const type = pick(['Skill', 'Endurance', 'Recovery', 'Strength']);
+    const duration = range(35, 70);
+    const intensity = range(3, 6);
+    logs.push({
+      athleteId: 'ATH0061',
       date,
       type,
       duration,
@@ -296,8 +356,11 @@ function buildUsers() {
     { name: 'Admin Demo', email: 'poseidonapollo11@gmail.com', password: 'admin123', role: 'admin' },
     { name: 'Medical Demo 01', email: 'medical@isn.gov.my', password: 'medical123', role: 'medical' },
     { name: 'John Doe', email: 'athlete@isn.gov.my', password: 'athlete123', role: 'athlete', athleteId: 'ATH0001' },
+    // Ground-truth athlete login — Dr Thung's own HoloMotion report seeded
+    // 1:1 as ATH0061, so the athlete view can be checked against the PDF.
+    { name: 'Thung Jin Seng', email: 'thung@isn.gov.my', password: 'thung123', role: 'athlete', athleteId: 'ATH0061' },
     // Experimental coach role — sees only athletes in their assigned sports.
-    // Badminton includes ATH0001 (John Doe) so the demo has overlapping data.
+    // Badminton includes ATH0001 (John Doe) + ATH0061 (Thung) for overlap.
     { name: 'Coach Demo 01', email: 'coach@isn.gov.my', password: 'coach123', role: 'coach', coachSports: ['Badminton', 'Swimming'] },
   ];
 }
@@ -346,7 +409,8 @@ async function seed() {
   console.log('  Admin:   admin@isn.gov.my              / admin123');
   console.log('  Admin:   poseidonapollo11@gmail.com    / admin123');
   console.log('  Medical: medical@isn.gov.my            / medical123');
-  console.log('  Athlete: athlete@isn.gov.my            / athlete123');
+  console.log('  Athlete: athlete@isn.gov.my            / athlete123   (John Doe, ATH0001)');
+  console.log('  Athlete: thung@isn.gov.my              / thung123     (Thung Jin Seng, ATH0061 — 1:1 with the sample HoloMotion PDF)');
   console.log('  Coach:   coach@isn.gov.my              / coach123');
 
   await sequelize.close();

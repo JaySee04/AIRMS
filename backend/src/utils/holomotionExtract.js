@@ -61,11 +61,16 @@ function parseJsonReply(text) {
 const num = (v) => (v === null || v === undefined || v === '' || Number.isNaN(Number(v)) ? null : Number(v));
 
 // Normalise a muscle list into the MuscleFlag shape, dropping unusable rows.
+// Muscle names are Title-Cased because the HoloMotion report prints them
+// lowercase ("gluteus maximus") while the body-map component and the rest of
+// the muscle-flag vocabulary match on Title Case ("Gluteus Maximus").
+const titleCase = (s) => s.replace(/\S+/g, (w) => w[0].toUpperCase() + w.slice(1).toLowerCase());
+
 function normaliseMuscles(list) {
   if (!Array.isArray(list)) return [];
   return list
     .map((m) => ({
-      muscle: String(m?.muscle ?? '').trim(),
+      muscle: titleCase(String(m?.muscle ?? '').trim()),
       side: ['L', 'R', 'B'].includes(m?.side) ? m.side : 'B',
     }))
     .filter((m) => m.muscle.length > 0);
