@@ -130,7 +130,7 @@ Add (locked decision — the body-map asset attribution must appear):
 4. Diagram slides: mirror R6, including the p. 38 mislabel
 5. UC-2 reset-password roles: align with report (all three roles) — existing punch item
 6. Sprint count: align with report (R2)
-7. Consider 1–3 new screenshots: PDF uploader, screening report page, sport-critical alert banner
+7. Consider 1–3 new screenshots: PDF uploader, the dashboard's HoloMotion screening panel (tier-ticked gauges + threshold strips), sport-critical alert banner
 
 ---
 

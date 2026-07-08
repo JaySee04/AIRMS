@@ -297,6 +297,29 @@ Minor calls that didn't get a full section but are worth recording:
 
 **Defensibility one-liner:** *"RBAC sets the role; the permission layer lets an admin fine-tune exactly which features each medical staffer can use, enforced at every route. It's opt-out, so it changes nothing until an admin deliberately restricts someone."*
 
+**Refinement (2026-07-06):** a revoked feature now *vanishes* rather than dead-ending — sidebar entry hidden, direct navigation redirects to the staffer's first still-permitted page, and the layout refreshes the session user from `/api/auth/me` on every load so revocations take effect without re-login. The access-denied panel was rejected as a dead end that advertises the existence of a feature the user can't reach.
+
 ---
 
-*Last updated: 2026-06-28 — added §13 (HoloMotion vision-AI ingestion) and §14 (per-user medical-staff permissions). Previous: 2026-06-11.*
+## 15. Screening lives on the dashboards; the data is HoloMotion-only
+
+**Decision:** The athlete's latest HoloMotion screening renders **inside the athlete and medical dashboards** (shared [`ScreeningPanel`](../frontend/src/components/dashboard/ScreeningPanel.tsx)) — there are no standalone screening pages. And AIRMS stores/seeds **only fields the HoloMotion report actually carries**: integer gauge scores, the eight risk indicators, and the two muscle lists. Weight/height (never on the report) are left null; sport/programme are operator-supplied at import.
+
+**Implementation:** `ScreeningPanel` = five score gauges with tick marks at HoloMotion's own 60/75/85 tier boundaries + the eight indicators as **threshold strips** (tinted OK ≤15 / Watch ≤25 / High >25 zones, marker coloured by the zone it lands in, sport-critical regions starred via [`screeningAlerts.ts`](../frontend/src/lib/screeningAlerts.ts)'s shared region map). Seeder anchors: John Doe (Module 2 demo profile) and **ATH0061 Thung Jin Seng — transcribed 1:1 from the sample HoloMotion PDF** as pipeline ground truth (`thung@isn.gov.my / thung123`).
+
+**Why:**
+- The dashboard is where decisions are made — a separate screening page forced a context switch to read data that directly feeds the composite risk model shown on the same screen
+- Threshold strips show the athlete's values *on their thresholds* (the report's own risk bands) instead of restating the report's numbers — colour + position answer "is this a problem?" at a glance
+- Storing only report-carried fields keeps every displayed value traceable to the real ingestion source — nothing on screen is data the system couldn't actually have
+- The ground-truth athlete makes the vision pipeline testable: an ingest of the sample PDF must reproduce ATH0061's row exactly
+
+**Rejected alternatives:**
+- **Keeping the standalone screening pages** — duplicated the dashboard's audience with a poorer context; two places to maintain one view
+- **Radar-only presentation** — the radar shows the *shape* of risk across regions but not threshold state; the strips carry the band semantics (the radar stays as the shape view)
+- **Seeding Excel-era decimal values** — looked plausible but could not have come from the actual ingestion source; indefensible under "where did this number come from?"
+
+**Defensibility one-liner:** *"Everything on the dashboard is the HoloMotion report, read against the report's own thresholds — and one seeded athlete is Dr Thung's actual report transcribed 1:1, so the whole pipeline can be checked against ground truth."*
+
+---
+
+*Last updated: 2026-07-06 — added §15 (dashboard-embedded screening + HoloMotion-only data policy); §14 refined (revoked features vanish + live session refresh). Previous: 2026-06-28 (§13 HoloMotion vision-AI ingestion, §14 permissions).*

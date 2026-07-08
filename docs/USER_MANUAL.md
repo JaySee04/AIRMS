@@ -12,7 +12,8 @@
 
 | Role | Email | Password |
 |---|---|---|
-| Athlete | `athlete@isn.gov.my` | `athlete123` |
+| Athlete | `athlete@isn.gov.my` | `athlete123` (John Doe, ATH0001) |
+| Athlete | `thung@isn.gov.my` | `thung123` (Thung Jin Seng, ATH0061 — seeded 1:1 from the sample HoloMotion PDF) |
 | Medical | `medical@isn.gov.my` | `medical123` |
 | Admin | `admin@isn.gov.my` | `admin123` |
 | Admin (SMTP demo) | `poseidonapollo11@gmail.com` | `admin123` |
@@ -51,10 +52,9 @@ Per-role nav:
 | Athlete | Medical | Admin |
 |---|---|---|
 | My Dashboard | Athlete Dashboard | Injury Analytics |
-| Screening Report | Screening Reports | PDF Reports |
-| Activity Tracking | Injury Logging | Staff Permissions |
-| Injury Reporting | Self-Report Review | Data Uploading |
-|  | Data Uploading |  |
+| Activity Tracking | Injury Logging | PDF Reports |
+| Injury Reporting | Self-Report Review | Staff Permissions |
+|  | Data Uploading | Data Uploading |
 
 Medical nav links are hidden individually when an admin has revoked that capability for the staff member (see §15).
 
@@ -158,7 +158,15 @@ Layout:
 
 8-axis radar chart of ISN screening risks: Neck, Shoulder, Scoliosis, Spinal Disc, Lumbar/Pelvis, Joint Pain, Knee, Ankle. Values 0–30 (lower is better). Filled with translucent gold.
 
-### 4.5 Muscle Assessment Map
+### 4.5 HoloMotion Screening panel
+
+The athlete's latest ingested report, read against its thresholds (full detail in [§14](#14-screening-panel--embedded-on-the-dashboards)):
+
+- **Five score gauges** — Total Score, ROM, Stability, Symmetry, Exercise Risks — with tick marks at HoloMotion's 60/75/85 tier boundaries and the tier label coloured by band
+- **Eight indicator threshold strips** — each indicator on tinted OK/Watch/High zones with a marker at the value, coloured by the zone it lands in; the athlete's sport-critical regions are starred
+- Athletes with no ingested report see a "no screening ingested yet" state
+
+### 4.6 Muscle Assessment Map
 
 **Front + back** athletic silhouettes side-by-side. Adapted from the MIT-licensed `react-muscle-highlighter` library.
 
@@ -179,11 +187,11 @@ Layout:
 
 Tooltip on hover shows which specific AIRMS muscles map to the region you're hovering ("Vastus Lateralis — weak", "Rectus Femoris — tight", etc.).
 
-### 4.6 Recent Activity table
+### 4.7 Recent Activity table
 
 Last 6 sessions in compact form. "View All →" link to `/athlete/activity`.
 
-### 4.7 Injury Records
+### 4.8 Injury Records
 
 Tabbed view:
 - **Active** — injuries with `recoveryStatus !== 'Recovered'`
@@ -218,20 +226,15 @@ Self-reports do **not** appear on the official injury record until a medical sta
 
 ## 6. Injury Logging (Medical) — `/medical/injury-log`
 
-Two-column layout. **Left card** is the injury log form, **right card** shows the last 8 entries across all athletes.
+Two-column layout. **Left card** is the intake form, **right card** shows the last 8 entries across all athletes. The form follows the five-step structure professional sports-medicine teams record injuries in (IOC / STROBE-SIIS variable set) — same stored fields, better capture workflow:
 
-**Form fields:**
-- **Athlete picker** — `<input list="...">` datalist combining all athletes (search by name or ATH0001 ID). The page accepts `?athleteId=ATH0001` query param to deep-link from `/medical/dashboard`. Live validation shows "Selected: {name} · {sport}" when a valid ID is entered
-- **Body Part** (10 options, locked enum)
-- **Side** (Left / Right / Both / N/A)
-- **Injury Type** (8 options, locked enum)
-- **Severity** (Minor / Moderate / Severe)
-- **Mechanism** (Contact / Non-contact / Overuse / Recurrent)
-- **Date of Injury**
-- **Recovery Status** — pre-set to Recovering, editable to Recovered / Chronic
-- **Clinical Notes** — free-text textarea
+1. **Athlete** — datalist picker (search by name or ATH0001 ID; accepts `?athleteId=` deep-link from `/medical/dashboard`). Selecting a valid athlete surfaces their **clinical context**: active injuries with status badges, or "no active injuries · N total in history"
+2. **Incident — when & how** — date of onset (capped at today) + mechanism, with a helper line explaining the selected mechanism. If the athlete has prior records at the chosen body part, a **recurrence hint** appears with a one-click "Recurrent" apply
+3. **Location — where** — body part (10 options, locked enum) + side as segmented buttons (Left / Right / Both / N/A)
+4. **Classification — what** — injury type (8 options, locked enum) + severity as segmented buttons with **time-loss anchors** (Minor 1–7 days · Moderate 8–28 · Severe >28)
+5. **Plan — status & notes** — recovery status (pre-set Recovering) + clinical notes with an Assessment / Treatment / RTP-criteria prompt
 
-Submit posts to `POST /api/injuries` and prepends the new entry to the "Recent Injury Logs" card on the right. The athlete picker is **not** reset after submit (allows logging multiple injuries for the same athlete in sequence).
+Submit posts to `POST /api/injuries` and prepends the new entry to the "Recent Injury Logs" card. The athlete picker is **not** reset after submit (allows logging multiple injuries for the same athlete in sequence).
 
 ---
 
@@ -256,17 +259,19 @@ Approving calls `PATCH /api/self-reports/:id/review` with status=Approved, which
 
 The medical staff's home page — **search → select athlete → see their full risk picture**.
 
-**Top filter strip** — search box (name or ATH0001 ID, free text), Sport filter dropdown (populated from `/api/athletes/meta/sports`), Programme filter (auto-derived from roster).
+**Left rail** — search box (name or ATH0001 ID), Sport + Programme filter dropdowns, athlete count, and the scrollable athlete list (initials avatar, name, sport · ID; the selected row is highlighted).
 
-**Roster grid** below — auto-fit grid of athlete cards (initials avatar, name, sport · programme, ID). Click selects (active card has gold border).
+**Right pane, before any selection** — the clinician's entry points: roster/active-injury/pending-report stat tiles, plus two quick-access lists (athletes with active injuries; injuries logged in the last 14 days) that select the athlete on click.
 
-**On selection** — full athlete view renders below the roster:
-- **Profile header card** with avatar, name, sport · programme · age · gender, "+ Log Injury" button (deep-links to `/medical/injury-log?athleteId=...`), and key-value grid of biometrics + screening scores
+**On selection** — the full athlete view renders in the right pane:
+- **Profile header card** — avatar, ID · sport · programme · age · gender, "+ Log Injury" button (deep-links to `/medical/injury-log?athleteId=...`)
 - **Sport-Critical Screening Alert** — the same banner the athlete sees, flagging a sport-important body region that's out of screening range (see [§13](#13-sport-critical-screening-alerts))
 - **Composite Risk hero** — same component logic as the athlete's own dashboard. Shows the personalised band, escalation badge if triggered, and risk modifier chips
+- **Recovery baseline card** (when open) + **Prevention insight card** — clinician-facing return-to-play target and cross-referenced watch points
+- **HoloMotion Screening panel** — the same tier-ticked gauges + indicator threshold strips the athlete sees (see [§14](#14-screening-panel--embedded-on-the-dashboards))
 - **Workload Trend chart** + **Risk Indicators radar** (side by side, identical to the athlete dashboard)
 - **Muscle Assessment Map** — front + back silhouette with flagged regions, plus the granular flag cards below
-- **Injury History** — chronological list with severity-coloured recovery status badges
+- **Recent Activity** (athlete-logged sessions with notes), **Sport Context**, and the **Injury History** list with severity-coloured recovery status badges
 
 The medical view is intentionally **read-only** for the screening data. Edits flow through Module 4 (data re-upload).
 
@@ -411,7 +416,7 @@ The athlete's latest HoloMotion screening lives directly on the **athlete dashbo
 
 Lets an admin control exactly what each **medical** staff member can do, beyond their role.
 
-- A table lists every medical user with a checkbox per capability: **View athlete records**, **Upload screening data**, **Review/approve self-reports**, **View injury log & generate reports**
+- A table lists every medical user with a checkbox per capability: **View athlete records**, **Upload screening data**, **Review/approve self-reports**, **Log & view injuries**
 - **Opt-out model** — every capability is on by default; unchecking one revokes it for that staffer. The change saves immediately
 - A revoked feature simply ceases to exist for that user: it disappears from the sidebar, and navigating to its URL directly redirects to their first still-permitted page (no dead-end error screen). The backend blocks the underlying API calls regardless. Revocations take effect on the staffer's next page navigation — the app refreshes its session from the server on every dashboard load, no re-login needed
 - An **Active / Inactive** toggle deactivates an account entirely (blocks sign-in)
@@ -419,4 +424,4 @@ Lets an admin control exactly what each **medical** staff member can do, beyond 
 
 ---
 
-*Last updated: 2026-06-28 — corrected demo credentials; documented HoloMotion PDF import (§12.1), data backup (§12.2), sport-critical screening alerts (§13), screening-report pages (§14), and staff permissions (§15); fixed the change-password note. Previous: 2026-05-18.*
+*Last updated: 2026-07-06 — §14 rewritten for the dashboard-embedded screening panel (the standalone screening pages are gone); §15 permission revocations now vanish features (hide + redirect, live refresh) and the injuries label corrected; structured injury intake documented per the new five-step flow. Previous: 2026-06-28 (HoloMotion PDF import, backup, alerts, screening pages, staff permissions).*

@@ -78,9 +78,9 @@ All Sequelize models. The `index.js` registers them and wires up associations (`
 |---|---|---|
 | [auth.js](../backend/src/routes/auth.js) | `/api/auth` | `POST /login`, `GET /me` |
 | [users.js](../backend/src/routes/users.js) | `/api/users` | admin-only: `GET /` (list medical staff), `GET /permission-meta`, `PATCH /:id` (set per-user permissions + active status) |
-| [athletes.js](../backend/src/routes/athletes.js) | `/api/athletes` | `GET /` (list, medical/admin), `GET /:id`, `POST /` (admin), `PATCH /:id`, `DELETE /:id` (soft), `GET /meta/sports` |
+| [athletes.js](../backend/src/routes/athletes.js) | `/api/athletes` | `GET /` (list, medical/admin), `GET /:id`, `POST /` (admin), `PATCH /:id`, `DELETE /:id` (soft), `GET /meta/sports`, `GET /analytics/screening` (admin — HoloMotion cohort: band counts per indicator, averages, top-flagged muscles) |
 | [activities.js](../backend/src/routes/activities.js) | `/api/activities` | `GET /athlete/:id`, `GET /athlete/:id/acwr`, `POST /`, `PUT /:id`, `DELETE /:id` |
-| [injuries.js](../backend/src/routes/injuries.js) | `/api/injuries` | `GET /` (filtered), `GET /athlete/:id`, `POST /`, `PATCH /:id`, `GET /analytics/summary` |
+| [injuries.js](../backend/src/routes/injuries.js) | `/api/injuries` | `GET /` (filtered; `?limit=N` caps payload), `GET /athlete/:id`, `POST /`, `PATCH /:id`, `GET /analytics/summary` |
 | [selfReports.js](../backend/src/routes/selfReports.js) | `/api/self-reports` | `GET /` (medical), `GET /athlete/:id`, `POST /`, `PATCH /:id/review` (approve→creates Injury) |
 | [upload.js](../backend/src/routes/upload.js) | `/api/upload` | **Excel:** `POST /screening/preview`, `POST /screening` (upsert). **HoloMotion PDF:** `GET /screening/pdf/status`, `POST /screening/pdf/preview` (render + vision-extract, no commit), `POST /screening/pdf` (commit JSON). All gated by `requirePermission('uploadData')` |
 | [reports.js](../backend/src/routes/reports.js) | `/api/reports` | `POST /injuries-pdf` (admin only) — server-side `pdfkit` rendering of filtered injury report; streams `application/pdf` |
@@ -97,7 +97,7 @@ All Sequelize models. The `index.js` registers them and wires up associations (`
 ### Other backend files
 
 - [config/db.js](../backend/src/config/db.js) — `connectDB()` opens the Sequelize connection to MySQL using the `MYSQL_*` env vars
-- [utils/seeder.js](../backend/src/utils/seeder.js) — `npm run seed` from `backend/`. `sequelize.sync({ force: true })` drops the schema, then reseeds users/athletes/muscle_flags/activities/injuries with deterministic PRNG (seed=42)
+- [utils/seeder.js](../backend/src/utils/seeder.js) — `npm run seed` from `backend/`. `sequelize.sync({ force: true })` drops the schema, then reseeds users/athletes/muscle_flags/activities/injuries with deterministic PRNG (seed=42). All screening values are HoloMotion-shaped (integer gauge scores, report-band indicators; weight/height null — not on the report; ~1 in 10 athletes unscreened). Anchors: ATH0001 John Doe (Module 2 demo) and ATH0061 Thung Jin Seng (transcribed 1:1 from the sample HoloMotion PDF — pipeline ground truth)
 - [utils/serialize.js](../backend/src/utils/serialize.js) — response shaper. Aliases Sequelize's numeric `id` to a stringified `_id` field and reassembles Athlete's flat columns into nested `risks`/`myodynamia[]`/`tension[]` shape
 - [utils/permissions.js](../backend/src/utils/permissions.js) — per-user medical-staff feature permissions: the key catalogue (`viewRecords`, `uploadData`, `reviewReports`, `injuryReports`), `hasPermission()`, and `sanitizePermissions()`. Opt-out model — a capability is granted unless explicitly set `false`
 - [utils/pdfRender.js](../backend/src/utils/pdfRender.js) — renders HoloMotion PDF pages (1–3) to base64 PNGs via `pdfjs-dist` + the `canvas`→`@napi-rs/canvas` npm alias. HoloMotion PDFs have no text layer (jsPDF-baked graphics), so vision is the only reliable read
@@ -265,7 +265,7 @@ If port 3000 is held: kill the stale process (`Stop-Process -Id <pid> -Force` in
 | admin | `admin@isn.gov.my` | `admin123` | — |
 | admin (SMTP demo) | `poseidonapollo11@gmail.com` | `admin123` | — |
 
-Other seeded athletes (ATH0002–ATH0060) all have random Malaysian-style names per the seeder PRNG.
+Other seeded athletes (ATH0002–ATH0060) all have random Malaysian-style names per the seeder PRNG. ATH0061 is Thung Jin Seng — Dr Thung's own HoloMotion report transcribed 1:1, with an athlete login (`thung@isn.gov.my / thung123`) for ground-truth checking.
 
 ---
 
