@@ -1842,24 +1842,7 @@ tbody tr:hover { background: var(--bg); }
 .muscle-chip-title { font-size: 0.85rem; font-weight: 700; }
 .muscle-chip-title--myo { color: var(--risk-undertrained); }
 .muscle-chip-title--tension { color: var(--risk-high); }
-.muscle-chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
-.muscle-chip {
-  display: inline-flex; align-items: center; gap: 8px;
-  font-size: 0.8rem; font-weight: 500;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 3px 4px 3px 12px;
-}
-.muscle-chip--myo { border-color: var(--risk-undertrained); }
-.muscle-chip--tension { border-color: var(--risk-high); }
-.muscle-chip-side {
-  font-size: 0.7rem; font-weight: 700;
-  background: var(--bg);
-  border-radius: 999px;
-  padding: 2px 8px;
-  color: var(--text-muted);
-}
+
 
 /* ── Admin screening-cohort section ─────────────────────────────────────────── */
 .section-divider {

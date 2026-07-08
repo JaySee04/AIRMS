@@ -30,11 +30,18 @@ function buildWhere(q) {
   return where;
 }
 
-// GET /api/injuries — filtered injury list (medical, admin)
+// GET /api/injuries — filtered injury list (medical, admin).
+// Optional ?limit=N caps the payload for callers that only render the
+// newest few rows (e.g. the injury-log "recent entries" card).
 router.get('/', auth, rbac('medical', 'admin'), requirePermission('injuryReports'), async (req, res) => {
   try {
     const where = buildWhere(req.query);
-    const rows = await Injury.findAll({ where, order: [['date', 'DESC']] });
+    const limit = Math.min(500, parseInt(req.query.limit, 10) || 0);
+    const rows = await Injury.findAll({
+      where,
+      order: [['date', 'DESC']],
+      ...(limit > 0 ? { limit } : {}),
+    });
     res.json(serializeMany(rows));
   } catch (err) {
     res.status(500).json({ message: err.message });

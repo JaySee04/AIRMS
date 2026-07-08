@@ -94,11 +94,11 @@ function InjuryLogInner() {
         setLoading(true);
         const [list, injuries] = await Promise.all([
           api.get<AthleteOption[]>('/athletes'),
-          api.get<Injury[]>('/injuries').catch(() => [] as Injury[]),
+          api.get<Injury[]>('/injuries?limit=8').catch(() => [] as Injury[]),
         ]);
         if (!cancelled) {
           setAthletes(list);
-          setRecent(injuries.slice(0, 8));
+          setRecent(injuries);
           setError(null);
         }
       } catch (e) {

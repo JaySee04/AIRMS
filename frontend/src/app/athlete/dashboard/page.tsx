@@ -1,12 +1,18 @@
 'use client';
 
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
-import BodyMap, { MuscleEntry } from '@/components/dashboard/BodyMap';
-import WorkloadChart from '@/components/dashboard/WorkloadChart';
-import RiskRadar from '@/components/dashboard/RiskRadar';
+import type { MuscleEntry } from '@/components/dashboard/BodyMap';
 import AcwrGauge from '@/components/dashboard/AcwrGauge';
+
+// Chart.js and the body-map path data are the heaviest client code on this
+// page and render nothing on the server anyway — split them out so the
+// dashboard shell paints without them.
+const BodyMap = dynamic(() => import('@/components/dashboard/BodyMap'), { ssr: false, loading: () => <div style={{ minHeight: 300 }} /> });
+const WorkloadChart = dynamic(() => import('@/components/dashboard/WorkloadChart'), { ssr: false, loading: () => <div style={{ height: 300 }} /> });
+const RiskRadar = dynamic(() => import('@/components/dashboard/RiskRadar'), { ssr: false, loading: () => <div style={{ height: 300 }} /> });
 import ScreeningAlertBanner from '@/components/dashboard/ScreeningAlertBanner';
 import ScreeningPanel from '@/components/dashboard/ScreeningPanel';
 import { api } from '@/lib/api';

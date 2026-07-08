@@ -4,7 +4,7 @@
 // its thresholds rather than restated as numbers. Embedded directly in the
 // athlete and medical dashboards (there is no separate screening page).
 //
-// Three blocks, each showing ONLY data the HoloMotion report carries:
+// Two blocks, each showing ONLY data the HoloMotion report carries:
 //   1. Score gauges  — Total Score / ROM / Stability / Symmetry (0–100,
 //      higher better, HoloMotion tier bands) + Exercise Risks (risk scale,
 //      lower better).
@@ -13,14 +13,13 @@
 //      at the athlete's value coloured by which zone it lands in, and the
 //      athlete's sport-critical regions starred (same region map + thresholds
 //      as the alert layer in lib/screeningAlerts.ts).
-//   3. Muscle flags — the Myodynamia Deficiency / Muscle Tension lists as
-//      side-tagged chips. The body-map figure stays a separate card on the
-//      dashboards, so it is not duplicated here.
+// The report's muscle lists are NOT rendered here — the BodyMap card that
+// sits next to this panel on both dashboards already shows them (figure +
+// per-category flag cards), so repeating them would be noise.
 
 import {
   AthleteRisks, INDICATORS, WATCH_THRESHOLD, HIGH_THRESHOLD, criticalRegionsFor,
 } from '@/lib/screeningAlerts';
-import { MuscleEntry } from './BodyMap';
 
 export interface ScreeningData {
   name: string;
@@ -33,8 +32,6 @@ export interface ScreeningData {
   stability?: number | null;
   symmetry?: number | null;
   risks: AthleteRisks;
-  myodynamia: MuscleEntry[];
-  tension: MuscleEntry[];
 }
 
 // Indicator display scale. The report prints Low 0–15 / Medium 16–55 /
@@ -134,26 +131,6 @@ function IndicatorStrip({ label, value, critical }: { label: string; value: numb
   );
 }
 
-function MuscleChips({ title, entries, tone }: { title: string; entries: MuscleEntry[]; tone: 'myo' | 'tension' }) {
-  return (
-    <div style={{ flex: 1, minWidth: 180 }}>
-      <div className={`muscle-chip-title muscle-chip-title--${tone}`}>{title} ({entries.length})</div>
-      {entries.length === 0 ? (
-        <div className="text-muted" style={{ fontSize: '0.82rem', marginTop: 6 }}>None flagged</div>
-      ) : (
-        <div className="muscle-chip-row">
-          {entries.map((m, i) => (
-            <span key={i} className={`muscle-chip muscle-chip--${tone}`}>
-              {m.muscle}
-              <span className="muscle-chip-side">{m.side}</span>
-            </span>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 export default function ScreeningPanel({ athlete }: { athlete: ScreeningData }) {
   const scores = [athlete.overallActivityScore, athlete.injuryRiskIndex, athlete.mobility, athlete.stability, athlete.symmetry];
   const hasReport = scores.some((v) => v !== undefined && v !== null);
@@ -223,20 +200,6 @@ export default function ScreeningPanel({ athlete }: { athlete: ScreeningData }) 
           <span><span className="legend-swatch legend-swatch--watch" /> Watch {WATCH_THRESHOLD + 1}–{HIGH_THRESHOLD}</span>
           <span><span className="legend-swatch legend-swatch--high" /> High &gt; {HIGH_THRESHOLD}</span>
           <span>★ sport-critical region</span>
-        </div>
-      </div>
-
-      {/* Muscle flags — the report's two lists as side-tagged chips */}
-      <div className="card" style={{ marginBottom: 20 }}>
-        <div className="card-header">
-          <div>
-            <h2 className="card-title" style={{ marginBottom: 0 }}>Muscle Flags</h2>
-            <span className="card-sub">Myodynamia deficiency &amp; muscle tension · L = left, R = right, B = both</span>
-          </div>
-        </div>
-        <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
-          <MuscleChips title="Myodynamia Deficiency" entries={athlete.myodynamia ?? []} tone="myo" />
-          <MuscleChips title="Muscle Tension" entries={athlete.tension ?? []} tone="tension" />
         </div>
       </div>
     </>
