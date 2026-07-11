@@ -18,8 +18,11 @@
 // per-category flag cards), so repeating them would be noise.
 
 import {
-  AthleteRisks, INDICATORS, WATCH_THRESHOLD, HIGH_THRESHOLD, criticalRegionsFor,
+  AthleteRisks, INDICATORS, WATCH_THRESHOLD, HIGH_THRESHOLD,
+  TIGHT_WATCH_THRESHOLD, TIGHT_HIGH_THRESHOLD,
+  RegionThresholds, thresholdsFor, bandFor, criticalRegionsFor,
 } from '@/lib/screeningAlerts';
+import { buildTrainingFocus } from '@/lib/trainingFocus';
 
 export interface ScreeningData {
   name: string;
@@ -48,11 +51,20 @@ function qualityBand(v: number): { label: string; color: string } {
   return { label: 'Below Average', color: 'var(--risk-high, #d14b4b)' };
 }
 
-// Risk bands for lower-is-better values (Exercise Risks gauge + indicators).
-function riskBand(v: number): { label: string; color: string; cls: 'ok' | 'watch' | 'high' } {
-  if (v > HIGH_THRESHOLD) return { label: 'High Risk', color: 'var(--risk-high, #d14b4b)', cls: 'high' };
-  if (v > WATCH_THRESHOLD) return { label: 'Watch', color: 'var(--risk-mod, #d99a16)', cls: 'watch' };
-  return { label: 'OK', color: 'var(--risk-low, #2e9e5b)', cls: 'ok' };
+// Presentation for a lower-is-better band (Exercise Risks gauge + indicators).
+const BAND_META = {
+  ok: { label: 'OK', color: 'var(--risk-low, #2e9e5b)' },
+  watch: { label: 'Watch', color: 'var(--risk-mod, #d99a16)' },
+  high: { label: 'High Risk', color: 'var(--risk-high, #d14b4b)' },
+} as const;
+
+// The overall Exercise Risks gauge is banded on the instrument's own scale —
+// it has no body region, so sport tightening doesn't apply to it.
+const INSTRUMENT_BANDS: RegionThresholds = { watch: WATCH_THRESHOLD, high: HIGH_THRESHOLD, tightened: false };
+
+function riskBand(v: number, t: RegionThresholds = INSTRUMENT_BANDS) {
+  const cls = bandFor(v, t);
+  return { cls, ...BAND_META[cls] };
 }
 
 // Ring gauge with tier tick marks so the value is read against its
@@ -101,21 +113,23 @@ function ScoreGauge({ value, max, label, band, ticks }: {
   );
 }
 
-// One bullet-style indicator strip: tinted OK/Watch/High zones + a marker at
-// the value, coloured by the zone it lands in.
-function IndicatorStrip({ label, value, critical }: { label: string; value: number; critical: boolean }) {
-  const band = riskBand(value);
+// One bullet-style indicator strip: tinted OK/Watch/High zones sized by THIS
+// region's sport-specific thresholds, + a marker at the value coloured by the
+// zone it lands in. Sport-critical regions show visibly shorter OK/Watch
+// zones — the tightened standard is drawn, not just annotated.
+function IndicatorStrip({ label, value, t }: { label: string; value: number; t: RegionThresholds }) {
+  const band = riskBand(value, t);
   const pos = Math.max(0, Math.min(1, value / STRIP_MAX)) * 100;
-  const okW = (WATCH_THRESHOLD / STRIP_MAX) * 100;
-  const watchW = ((HIGH_THRESHOLD - WATCH_THRESHOLD) / STRIP_MAX) * 100;
+  const okW = (t.watch / STRIP_MAX) * 100;
+  const watchW = ((t.high - t.watch) / STRIP_MAX) * 100;
   return (
     <div
       className="screening-strip"
-      title={`${label}: ${value.toFixed(0)} — ${band.label}${critical ? ' · critical region for this sport' : ''} (OK ≤ ${WATCH_THRESHOLD} · Watch ≤ ${HIGH_THRESHOLD} · High > ${HIGH_THRESHOLD})`}
+      title={`${label}: ${value.toFixed(0)} — ${band.label} (OK ≤ ${t.watch} · Watch ≤ ${t.high} · High > ${t.high}${t.tightened ? ' — tightened: critical region for this sport' : ''})`}
     >
       <div className="screening-strip-label">
         {label}
-        {critical && <span className="screening-strip-star" aria-label="sport-critical region">★</span>}
+        {t.tightened && <span className="screening-strip-star" aria-label="sport-critical region — tightened thresholds">★</span>}
       </div>
       <div className="screening-strip-track" aria-hidden>
         <div className="screening-strip-zone screening-strip-zone--ok" style={{ width: `${okW}%` }} />
@@ -174,14 +188,18 @@ export default function ScreeningPanel({ athlete }: { athlete: ScreeningData }) 
         </div>
       </div>
 
-      {/* Indicator threshold strips — the athlete's problems, placed on their thresholds */}
+      {/* Indicator threshold strips — the athlete's problems, placed on
+          their SPORT'S thresholds. Same eight tests for everyone; the zones
+          each test is judged against depend on the sport. */}
       <div className="card" style={{ marginBottom: 20 }}>
         <div className="card-header">
           <div>
-            <h2 className="card-title" style={{ marginBottom: 0 }}>Exercise Risk Indicators — Thresholds</h2>
+            <h2 className="card-title" style={{ marginBottom: 0 }}>Exercise Risk Indicators — Sport Thresholds</h2>
             <span className="card-sub">
               Marker shows the indicator on its risk zones · lower is better
-              {criticalSet.size > 0 && athlete.sport ? <> · ★ critical regions for {athlete.sport}</> : null}
+              {criticalSet.size > 0 && athlete.sport
+                ? <> · thresholds personalised for {athlete.sport}</>
+                : null}
             </span>
           </div>
         </div>
@@ -191,17 +209,73 @@ export default function ScreeningPanel({ athlete }: { athlete: ScreeningData }) 
               key={ind.key}
               label={ind.label}
               value={Math.max(0, Number(athlete.risks[ind.key] ?? 0))}
-              critical={criticalSet.has(ind.region)}
+              t={thresholdsFor(athlete.sport, ind.region)}
             />
           ))}
         </div>
         <div className="screening-strip-legend">
-          <span><span className="legend-swatch legend-swatch--ok" /> OK ≤ {WATCH_THRESHOLD}</span>
-          <span><span className="legend-swatch legend-swatch--watch" /> Watch {WATCH_THRESHOLD + 1}–{HIGH_THRESHOLD}</span>
-          <span><span className="legend-swatch legend-swatch--high" /> High &gt; {HIGH_THRESHOLD}</span>
-          <span>★ sport-critical region</span>
+          <span><span className="legend-swatch legend-swatch--ok" /> OK</span>
+          <span><span className="legend-swatch legend-swatch--watch" /> Watch</span>
+          <span><span className="legend-swatch legend-swatch--high" /> High</span>
+          <span>standard bands ≤{WATCH_THRESHOLD} / ≤{HIGH_THRESHOLD}</span>
+          <span>★ sport-critical — tightened to ≤{TIGHT_WATCH_THRESHOLD} / ≤{TIGHT_HIGH_THRESHOLD}</span>
         </div>
       </div>
+
+      {/* Training focus — AIRMS' counterpart of the report's closing Training
+          Prescription: corrective exercises for the regions that breached
+          their sport thresholds, worst first. */}
+      <TrainingFocus athlete={athlete} />
     </>
+  );
+}
+
+function TrainingFocus({ athlete }: { athlete: ScreeningData }) {
+  const focus = buildTrainingFocus(athlete.risks, athlete.sport);
+  return (
+    <div className="card" style={{ marginBottom: 20 }}>
+      <div className="card-header">
+        <div>
+          <h2 className="card-title" style={{ marginBottom: 0 }}>Training Focus</h2>
+          <span className="card-sub">
+            Corrective work for out-of-range regions · format mirrors the HoloMotion Training Prescription
+          </span>
+        </div>
+      </div>
+      {focus.length === 0 ? (
+        <div className="empty-state">
+          All indicators are within their sport thresholds — maintain the current programme and reassess at the next screening.
+        </div>
+      ) : (
+        <>
+          <div className="focus-grid">
+            {focus.map((f) => (
+              <div key={f.region} className={`focus-block focus-block--${f.band}`}>
+                <div className="focus-block-head">
+                  <span className="focus-block-region">
+                    {f.label}{f.critical && <span className="screening-strip-star" aria-label="sport-critical region"> ★</span>}
+                  </span>
+                  <span className={f.band === 'high' ? 'badge-high' : 'badge-moderate'}>
+                    {f.band === 'high' ? 'High' : 'Watch'} · {f.value.toFixed(0)}
+                  </span>
+                </div>
+                <ul className="focus-exercises">
+                  {f.exercises.map((e) => (
+                    <li key={e.name}>
+                      <span className="focus-exercise-name">{e.name}</span>
+                      <span className="focus-exercise-dose">{e.dose}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+          <p className="text-muted" style={{ fontSize: '0.76rem', marginTop: 12, marginBottom: 0 }}>
+            Derived from the flagged screening indicators using the HoloMotion prescription exercise vocabulary.
+            Informational — confirm with medical staff before changing the training programme.
+          </p>
+        </>
+      )}
+    </div>
   );
 }

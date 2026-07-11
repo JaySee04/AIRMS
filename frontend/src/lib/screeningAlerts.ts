@@ -39,10 +39,44 @@ export const INDICATORS: Array<{ key: keyof AthleteRisks; region: BodyRegion; la
   { key: 'ankleInjuryRisk', region: 'Ankle', label: 'Ankle' },
 ];
 
-// Exercise-risk indicators are 0–40, lower is better. Bands mirror the medical
-// dashboard's "elevated over 15" convention: ≤15 OK · 16–25 Watch · >25 High.
+// Exercise-risk indicators are 0–40, lower is better. The base bands are the
+// HoloMotion report's own risk legend (Low ≤15) split conservatively:
+// ≤15 OK · 16–25 Watch · >25 High.
 export const WATCH_THRESHOLD = 15;
 export const HIGH_THRESHOLD = 25;
+
+// Sport-tightened bands. Every athlete takes the SAME eight tests, but the
+// thresholds each test is judged against depend on the athlete's sport: a
+// region the sport loads heavily is held to a stricter standard (~20% tighter,
+// mirroring the composite risk model's ±15% personalisation scale), while all
+// other regions keep the instrument's own bands. Tightening-only by design —
+// AIRMS never waits LONGER than the report's own Low boundary to flag a
+// problem, so no sport/region pair is less protected than the instrument.
+export const TIGHT_WATCH_THRESHOLD = 12;
+export const TIGHT_HIGH_THRESHOLD = 20;
+
+export interface RegionThresholds {
+  watch: number;
+  high: number;
+  tightened: boolean; // true when this sport holds this region to the stricter bands
+}
+
+// The (watch, high) pair a given indicator region is judged against for a
+// given sport — the single source of truth used by the alert layer, the
+// dashboard threshold strips, and the training-focus recommendations.
+export function thresholdsFor(sport: string | undefined, region: BodyRegion): RegionThresholds {
+  const tightened = criticalRegionsFor(sport).includes(region);
+  return tightened
+    ? { watch: TIGHT_WATCH_THRESHOLD, high: TIGHT_HIGH_THRESHOLD, tightened }
+    : { watch: WATCH_THRESHOLD, high: HIGH_THRESHOLD, tightened };
+}
+
+// Band a value against a threshold pair (lower value = better).
+export function bandFor(value: number, t: RegionThresholds): 'ok' | 'watch' | 'high' {
+  if (value > t.high) return 'high';
+  if (value > t.watch) return 'watch';
+  return 'ok';
+}
 
 // Sport → regions that matter most for that sport. Defaults to no critical
 // regions for unmapped sports (those still get a safety-net alert on any
@@ -122,11 +156,6 @@ export function criticalRegionsFor(sport: string | undefined): BodyRegion[] {
   return REGIONS_BY_NORMALIZED[canonical ? normalizeSport(canonical) : norm] ?? [];
 }
 
-function bandOf(value: number): 'ok' | 'watch' | 'high' {
-  if (value > HIGH_THRESHOLD) return 'high';
-  if (value > WATCH_THRESHOLD) return 'watch';
-  return 'ok';
-}
 
 // One-line follow-up for the banner, matched to severity. Copy stays neutral
 // so the same line works for the athlete ("self") and staff views.
@@ -142,9 +171,10 @@ export function recommendedAction(result: ScreeningAlertResult, audience: 'self'
     : 'Monitor this region during training and recheck at the next screening.';
 }
 
-// Produce sport-aware alerts. An indicator is alerted when:
-//   - its region is sport-critical AND it's above the watch threshold, OR
-//   - it's above the HIGH threshold regardless of sport (safety net).
+// Produce sport-aware alerts. Every indicator is banded against ITS region's
+// sport-specific thresholds (thresholdsFor). An indicator is alerted when:
+//   - its region is sport-critical AND it's out of the tightened bands, OR
+//   - it's above its region's HIGH threshold regardless (safety net).
 // Sorted so sport-critical + high severity float to the top.
 export function computeBodyPartAlerts(
   risks: AthleteRisks | undefined | null,
@@ -164,7 +194,8 @@ export function computeBodyPartAlerts(
       // (columns default to 0) — expose that so views can say "no data"
       // instead of implying a clean bill of health.
       if (value > 0) hasData = true;
-      const b = bandOf(value);
+      const t = thresholdsFor(sport, ind.region);
+      const b = bandFor(value, t);
       if (b === 'ok') continue;
       const critical = critSet.has(ind.region);
       if (critical || b === 'high') {

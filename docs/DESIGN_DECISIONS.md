@@ -320,6 +320,10 @@ Minor calls that didn't get a full section but are worth recording:
 
 **Defensibility one-liner:** *"Everything on the dashboard is the HoloMotion report, read against the report's own thresholds — and one seeded athlete is Dr Thung's actual report transcribed 1:1, so the whole pipeline can be checked against ground truth."*
 
+**Extension (2026-07-08) — per-sport thresholds + training focus:**
+- Every athlete takes the same eight tests, but each indicator is banded against **its region's sport-specific thresholds** ([`thresholdsFor()`](../frontend/src/lib/screeningAlerts.ts)): sport-critical regions are tightened to 12/20 (~20% stricter — deliberately the same personalisation scale as the composite model's ±15%), all others keep the instrument's 15/25. **Tightening only** — relaxing beyond the report's own Low boundary was rejected as clinically indefensible ("why did AIRMS wait longer than the instrument?"). The threshold strips draw each region's actual zones, so the tightened standard is visible, not just annotated.
+- The panel closes with **Training Focus** ([`trainingFocus.ts`](../frontend/src/lib/trainingFocus.ts)) — AIRMS' counterpart of the report's closing Training Prescription: up to three out-of-range regions (sport-critical first) with corrective exercises and reps × sets · rest dosing, using the HoloMotion prescription exercise vocabulary. Rule-based, no model call. Ground-truth validated: for the sample report it selects Ankle / Knee / Neck — the same three problems the report's own summary flags ("neck pain, ankle sprain, ligament strain").
+
 ---
 
 *Last updated: 2026-07-06 — added §15 (dashboard-embedded screening + HoloMotion-only data policy); §14 refined (revoked features vanish + live session refresh). Previous: 2026-06-28 (§13 HoloMotion vision-AI ingestion, §14 permissions).*

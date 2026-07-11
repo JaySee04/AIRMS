@@ -182,7 +182,8 @@ Pages mapped to the 3 roles + profile pages:
 | [api.ts](../frontend/src/lib/api.ts) | `api.get / post / patch / delete` — thin fetch wrapper that attaches the JWT from `localStorage` |
 | [auth.ts](../frontend/src/lib/auth.ts) | `saveSession`, `getSession`, `clearSession`, `requireRole`, `SessionUser` type, plus `hasPermission()` + `PermissionKey` for the medical-staff feature opt-out (mirrors backend `utils/permissions.js`) |
 | [risk.ts](../frontend/src/lib/risk.ts) | `classifyCompositeRisk()` + `computeVulnerability()` + `personalisedThresholds()` — the FYP differentiator |
-| [screeningAlerts.ts](../frontend/src/lib/screeningAlerts.ts) | `computeBodyPartAlerts()` + `SPORT_CRITICAL_REGIONS` map — sport-aware screening alerts. A **separate** layer from `risk.ts` (does not modify `classifyCompositeRisk()`); flags per-region exercise-risk indicators that are out of range in a sport-critical region |
+| [screeningAlerts.ts](../frontend/src/lib/screeningAlerts.ts) | `computeBodyPartAlerts()` + `SPORT_CRITICAL_REGIONS` map + `thresholdsFor()` — sport-aware screening alerts with per-sport per-region thresholds (critical regions tightened to 12/20, others keep the instrument's 15/25). A **separate** layer from `risk.ts` (does not modify `classifyCompositeRisk()`) |
+| [trainingFocus.ts](../frontend/src/lib/trainingFocus.ts) | `buildTrainingFocus()` — the screening panel's Training Focus block: corrective exercises (HoloMotion prescription vocabulary, reps × sets · rest dosing) for up to three out-of-range regions, sport-critical first. Rule-based counterpart of the report's closing Training Prescription |
 
 ### Styles
 

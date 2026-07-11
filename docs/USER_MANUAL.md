@@ -392,8 +392,8 @@ A sport-aware injury alert shown on the **athlete** and **medical** dashboards. 
 **How it decides:**
 - Each sport has a set of **critical body regions** (e.g. Swimming → Shoulder / Neck / Lumbar-Pelvis; Athletics → Knee / Ankle / Lumbar-Pelvis)
 - Sport names are matched case- and whitespace-insensitively, and common variants map to the curated sets (e.g. *Running / Track & Field* → Athletics, *Soccer* → Football)
-- It reads the eight HoloMotion exercise-risk indicators (0–40, lower is better) and bands each: **≤15 OK · 16–25 Watch · >25 High**
-- An indicator is alerted when its region is **sport-critical and elevated**, or when it is **High for any region** (safety net)
+- Every athlete takes the same eight tests, but each indicator is banded against **its region's sport-specific thresholds**: standard regions use the instrument's own bands (**≤15 OK · 16–25 Watch · >25 High**), while the sport's critical regions are held to **tightened bands (≤12 OK · 13–20 Watch · >20 High)** — tightening only, so no region is ever less protected than the report's own scale
+- An indicator is alerted when its region is **sport-critical and out of its tightened bands**, or when it is **High for any region** (safety net)
 
 **What you see:** a red (High) or amber (Watch) banner at the top of the dashboard listing each flagged region with a Watch/High chip and the value; sport-critical entries are marked, and the banner ends with a one-line recommended action matched to the severity. The banner is hidden entirely when nothing is out of range. It is informational and does not change the composite-risk classification.
 
@@ -406,8 +406,9 @@ The coach Squad Readiness table's Screening column also distinguishes athletes w
 The athlete's latest HoloMotion screening lives directly on the **athlete dashboard** and inside the **medical dashboard's** per-athlete view (there is no separate screening page — the dashboard is the working surface). The shared panel renders the report *against its thresholds*:
 
 - **Five score gauges** (Total Score, ROM, Stability, Symmetry on 0–100; Exercise Risks on the risk scale) with tick marks at the HoloMotion tier boundaries (60 / 75 / 85) and the tier name coloured by band
-- **Eight indicator threshold strips** — each exercise-risk indicator drawn on its OK ≤15 / Watch ≤25 / High >25 zones with a marker at the athlete's value, coloured green / amber / red by the zone it lands in; regions critical for the athlete's sport are starred (same mapping as the §13 alerts)
-- **Muscle-flag chips** — the report's Myodynamia Deficiency and Muscle Tension lists with side tags, alongside the body-map figure
+- **Eight indicator threshold strips** — each exercise-risk indicator drawn on **its sport's zones** (standard ≤15/≤25; sport-critical regions tightened to ≤12/≤20, visibly shorter OK/Watch zones and starred) with a marker at the athlete's value, coloured green / amber / red by the zone it lands in — same threshold source as the §13 alerts
+- **Training Focus** — the panel's counterpart of the report's closing *Training Prescription*: for up to the three most pressing out-of-range regions (sport-critical first), a block of corrective exercises with reps × sets · rest dosing, drawn from the HoloMotion prescription exercise vocabulary. Shows a "maintain current programme" state when everything is within thresholds. Informational — medical staff remain the authority
+- The muscle lists render on the adjacent **body-map card** (figure + per-category flag cards)
 - Athletes with no ingested report see an explicit "no screening ingested yet" state instead of empty charts
 
 ---
