@@ -136,7 +136,7 @@ function printReport({ rows, failures }) {
     console.error('Example (Gemini free tier via its OpenAI-compatible endpoint):');
     console.error('  VISION_PROVIDER=openai');
     console.error('  VISION_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai');
-    console.error('  VISION_MODEL=gemini-2.0-flash');
+    console.error('  VISION_MODEL=gemini-flash-lite-latest');
     console.error('  VISION_API_KEY=<AI Studio key>');
     process.exit(2);
   }

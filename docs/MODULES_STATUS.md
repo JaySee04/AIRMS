@@ -163,7 +163,7 @@ Modules 1+2 are the FYP showcases requiring no further iteration. Modules 3–6 
 - ✅ [`DataBackupCard`](../frontend/src/components/upload/DataBackupCard.tsx) on `/admin/data-upload` → `GET /api/export/backup.xlsx` streams a multi-sheet workbook (athletes + injuries + muscle flags), preserving the Excel-era dataset as ingestion shifts to HoloMotion
 
 **Deferred / notes:**
-- The vision HTTP call hasn't been exercised against a live key in this environment (no key/Ollama available); render + parse + map are verified end-to-end. One real upload should confirm gauge-number accuracy before a demo
+- ✅ **Live-verified 2026-07-12** — the full pipeline was run against the sample HoloMotion PDF on Gemini's free tier (`gemini-flash-lite-latest` via the OpenAI-compatible endpoint) and reproduced the seeded ground-truth row (ATH0061) **18/18 fields** in ~5s, muscle lists included. Re-run anytime with `npm run verify:vision -- "<sample.pdf>"` from `backend/`
 - Versioning / re-upload: same-`athleteId` upserts in place (latest wins); muscle flags are replaced wholesale per import
 
 **Prototype reference:** [airms-prototype/admin/data-upload.html](../airms-prototype/admin/data-upload.html)

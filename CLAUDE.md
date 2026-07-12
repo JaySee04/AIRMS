@@ -131,7 +131,9 @@ SMTP_FROM='AIRMS <...@gmail.com>'
 # Gemini free tier (AI Studio key) via its OpenAI-compatible endpoint:
 #   VISION_PROVIDER=openai
 #   VISION_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
-#   VISION_MODEL=gemini-2.0-flash
+#   VISION_MODEL=gemini-flash-lite-latest   # verified 18/18 vs ground truth 2026-07-12
+#   (gemini-2.0-flash has zero free quota; gemini-2.5-flash-lite is closed
+#   to new users — use the -latest aliases)
 # Ground-truth test once a key is set (from backend/):
 #   npm run verify:vision -- "<path to thung jin seng_0122663031.pdf>"
 VISION_PROVIDER=openai           # openai | anthropic
