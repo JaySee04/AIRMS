@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "seed": "node src/utils/seeder.js"
+    "seed": "node src/utils/seeder.js",
+    "verify:vision": "node scripts/verify-holomotion-extract.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

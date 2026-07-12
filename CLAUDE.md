@@ -126,8 +126,14 @@ SMTP_FROM='AIRMS <...@gmail.com>'
 
 # Vision provider for HoloMotion PDF (Module 4) ingestion. If unset, the PDF
 # uploader self-disables and the Excel path still works. Provider-agnostic:
-# the 'openai' wire format covers OpenAI / Qwen (DashScope) / OpenRouter /
-# Ollama; 'anthropic' is the native format. Switch with env only.
+# the 'openai' wire format covers OpenAI / Gemini / Qwen (DashScope) /
+# OpenRouter / Ollama; 'anthropic' is the native format. Switch with env only.
+# Gemini free tier (AI Studio key) via its OpenAI-compatible endpoint:
+#   VISION_PROVIDER=openai
+#   VISION_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
+#   VISION_MODEL=gemini-2.0-flash
+# Ground-truth test once a key is set (from backend/):
+#   npm run verify:vision -- "<path to thung jin seng_0122663031.pdf>"
 VISION_PROVIDER=openai           # openai | anthropic
 VISION_API_KEY=...               # leave blank to disable PDF ingestion
 VISION_BASE_URL=                 # optional endpoint override (Qwen/OpenRouter/Ollama)

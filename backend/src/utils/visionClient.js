@@ -3,7 +3,8 @@
 //
 // Two wire formats cover essentially every vision provider:
 //   - 'openai'    → POST {baseUrl}/chat/completions with image_url content.
-//                   Works for OpenAI, Qwen/DashScope (compatible-mode), OpenRouter,
+//                   Works for OpenAI, Gemini (generativelanguage.googleapis.com
+//                   /v1beta/openai), Qwen/DashScope (compatible-mode), OpenRouter,
 //                   Together, Groq, and local Ollama / LM Studio — just change
 //                   VISION_BASE_URL + VISION_MODEL + VISION_API_KEY.
 //   - 'anthropic' → POST https://api.anthropic.com/v1/messages with image blocks.
