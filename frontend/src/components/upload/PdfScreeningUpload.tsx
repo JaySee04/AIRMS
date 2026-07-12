@@ -112,9 +112,18 @@ export default function PdfScreeningUpload() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [status, setStatus] = useState<StatusResponse | null>(null);
   const [roster, setRoster] = useState<RosterAthlete[] | null>(null);
+  // Ref mirror of the roster so long-running batch loops (whose closures
+  // captured an older render) always match against the latest list — e.g. an
+  // athlete created by file 1's commit is matchable by file 3's extraction.
+  const rosterRef = useRef<RosterAthlete[] | null>(null);
   const [items, setItems] = useState<QueueItem[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const [busy, setBusy] = useState(false); // a batch extract or commit-all is running
+
+  function updateRoster(next: RosterAthlete[] | null) {
+    rosterRef.current = next;
+    setRoster(next);
+  }
 
   useEffect(() => {
     (async () => {
@@ -126,7 +135,7 @@ export default function PdfScreeningUpload() {
         // Roster for name-matching. Optional: if this user can't view records,
         // matching silently degrades to manual entry.
         const res = await fetch(`${BASE}/athletes`, { headers: authHeaders() });
-        if (res.ok) setRoster(await res.json());
+        if (res.ok) updateRoster(await res.json());
       } catch { /* no roster → manual entry */ }
     })();
   }, []);
@@ -162,10 +171,12 @@ export default function PdfScreeningUpload() {
 
   // Match the extracted name against the roster (trimmed, case-insensitive).
   // Exactly one match → auto-fill; zero or ambiguous → manual entry.
+  // Reads the ref so mid-batch matches see commits made earlier in the batch.
   function matchByName(name: string | undefined): RosterAthlete | null {
-    if (!name || !roster) return null;
+    const list = rosterRef.current;
+    if (!name || !list) return null;
     const key = name.trim().toLowerCase();
-    const hits = roster.filter((a) => a.name.trim().toLowerCase() === key);
+    const hits = list.filter((a) => a.name.trim().toLowerCase() === key);
     return hits.length === 1 ? hits[0] : null;
   }
 
@@ -236,6 +247,15 @@ export default function PdfScreeningUpload() {
         status: 'done',
         doneNote: `${data.action === 'updated' ? 'Updated' : 'Created'} ${data.athleteId} · ${data.muscleFlags} muscle flag(s)`,
       });
+      // Fold the committed athlete into the roster so the rest of the batch
+      // (and the ID datalist) can match them immediately.
+      const committed: RosterAthlete = {
+        athleteId: item.athleteId.trim(),
+        name: item.preview.athlete.name ?? item.athleteId.trim(),
+        sport: item.sport.trim(),
+        program: item.program,
+      };
+      updateRoster([...(rosterRef.current ?? []).filter((a) => a.athleteId !== committed.athleteId), committed]);
     } catch (e) {
       patchItem(item.id, { status: 'ready', error: e instanceof Error ? e.message : 'Failed to import' });
     }

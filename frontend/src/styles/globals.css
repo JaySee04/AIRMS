@@ -2003,3 +2003,28 @@ tbody tr:hover { background: var(--bg); }
 .pdf-status--committing { background: var(--risk-undertrained-bg); color: var(--risk-undertrained); }
 .pdf-status--done       { background: var(--risk-low-bg); color: var(--risk-low); }
 .pdf-status--error      { background: var(--risk-high-bg); color: var(--risk-high); }
+
+/* ── Accessibility ──────────────────────────────────────────────────────────── */
+/* Visible keyboard focus on every interactive control, without affecting
+   mouse users (focus-visible only). Gold ring reads on both themes. */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[role="button"]:focus-visible,
+[role="option"]:focus-visible {
+  outline: 2px solid var(--brand-gold, #c89b3c);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Respect the OS reduced-motion preference: collapse transitions and
+   animations to effectively instant. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

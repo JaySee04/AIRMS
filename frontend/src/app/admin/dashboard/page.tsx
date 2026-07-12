@@ -2,23 +2,24 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Chart,
-  BarController, BarElement,
-  LineController, LineElement, PointElement,
-  LinearScale, CategoryScale,
-  Legend, Tooltip, Title,
-} from 'chart.js';
+import type { Chart as ChartType } from 'chart.js';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { api } from '@/lib/api';
 import { useIsDark, chartPalette } from '@/lib/chartTheme';
 
-Chart.register(
-  BarController, BarElement,
-  LineController, LineElement, PointElement,
-  LinearScale, CategoryScale,
-  Legend, Tooltip, Title,
-);
+// Chart.js is loaded on demand inside the chart effect (dynamic import) so it
+// stays out of this page's initial bundle — same treatment the athlete and
+// medical dashboards give their chart components. Registration is idempotent.
+async function loadChartJs() {
+  const m = await import('chart.js');
+  m.Chart.register(
+    m.BarController, m.BarElement,
+    m.LineController, m.LineElement, m.PointElement,
+    m.LinearScale, m.CategoryScale,
+    m.Legend, m.Tooltip, m.Title,
+  );
+  return m.Chart;
+}
 
 interface BucketRow { _id: string; count: number; }
 interface MonthBucket { _id: { year: number; month: number }; count: number; }
@@ -96,7 +97,7 @@ export default function AdminDashboard() {
   const typeRef = useRef<HTMLCanvasElement | null>(null);
   const sportRef = useRef<HTMLCanvasElement | null>(null);
   const monthRef = useRef<HTMLCanvasElement | null>(null);
-  const chartsRef = useRef<Chart[]>([]);
+  const chartsRef = useRef<ChartType[]>([]);
 
   async function fetchSummary() {
     try {
@@ -172,11 +173,18 @@ export default function AdminDashboard() {
     return { labels, values, peak };
   }, [summary, trendBucket]);
 
-  // Render the charts
+  // Render the charts. Chart.js arrives via dynamic import, so this effect is
+  // async with a cancellation flag — a re-run (filter/theme change) or unmount
+  // while the library is still loading must not paint stale charts.
   useEffect(() => {
     chartsRef.current.forEach((c) => c.destroy());
     chartsRef.current = [];
     if (!summary) return;
+
+    let cancelled = false;
+    (async () => {
+    const Chart = await loadChartJs();
+    if (cancelled) return;
 
     const pal = chartPalette(isDark);
     // Shared axis styling so grid lines + ticks stay legible in both themes.
@@ -255,8 +263,10 @@ export default function AdminDashboard() {
         }));
       }
     }
+    })();
 
     return () => {
+      cancelled = true;
       chartsRef.current.forEach((c) => c.destroy());
       chartsRef.current = [];
     };

@@ -125,6 +125,8 @@ function IndicatorStrip({ label, value, t }: { label: string; value: number; t: 
   return (
     <div
       className="screening-strip"
+      role="img"
+      aria-label={`${label}: ${value.toFixed(0)} — ${band.label}. Thresholds: OK up to ${t.watch}, Watch up to ${t.high}, High above ${t.high}${t.tightened ? ' (tightened — critical region for this sport)' : ''}`}
       title={`${label}: ${value.toFixed(0)} — ${band.label} (OK ≤ ${t.watch} · Watch ≤ ${t.high} · High > ${t.high}${t.tightened ? ' — tightened: critical region for this sport' : ''})`}
     >
       <div className="screening-strip-label">
