@@ -266,7 +266,7 @@ If port 3000 is held: kill the stale process (`Stop-Process -Id <pid> -Force` in
 | admin | `admin@isn.gov.my` | `admin123` | — |
 | admin (SMTP demo) | `poseidonapollo11@gmail.com` | `admin123` | — |
 
-Other seeded athletes (ATH0002–ATH0060) all have random Malaysian-style names per the seeder PRNG. ATH0061 is Thung Jin Seng — Dr Thung's own HoloMotion report transcribed 1:1, with an athlete login (`thung@isn.gov.my / thung123`) for ground-truth checking.
+Other seeded athletes (ATH0002–ATH0060) all have random Malaysian-style names per the seeder PRNG. ATH0061 is Thung Jin Seng (`thung@isn.gov.my / thung123`) — seeded as a deliberately **stale earlier assessment** (modelled on the worse 07-17 test shown on the sample report's own trend page), so importing the sample HoloMotion PDF visibly updates his dashboard to the printed 07-19 values. The printed values themselves are the extraction ground truth in `backend/scripts/verify-holomotion-extract.js`.
 
 ---
 

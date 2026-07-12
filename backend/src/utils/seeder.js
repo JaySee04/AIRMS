@@ -138,40 +138,41 @@ function buildAthletes() {
     ],
   };
 
-  // Reference athlete — transcribed 1:1 from Dr Thung's own HoloMotion report
-  // (thung jin seng, assessed 2024-07-19). Every value below is read straight
-  // off the sample PDF, so the whole pipeline can be validated against ground
-  // truth: an ingest of the same PDF must produce exactly this row, and every
-  // dashboard visual can be cross-checked against the printed report.
-  // sport/program are operator-supplied (not on the report).
+  // Reference athlete — Dr Thung (thung jin seng). Deliberately seeded as a
+  // STALE earlier assessment (modelled on the worse 07-17 test the sample
+  // report's own "Multi Move Tendency" page shows preceding the printed
+  // 07-19 results), so that importing the sample HoloMotion PDF visibly
+  // updates every value on his dashboard to the printed report:
+  //   Total 68→77 · ExRisks 21→12 · ROM 74→88 · Stab 65→72 · Symm 70→75
+  //   Knee 26→18 (High→Watch) · Ankle 27→19 · Lumbar 24→17 · muscle flags swap
+  // The extraction ground truth (the printed 07-19 values) lives in
+  // scripts/verify-holomotion-extract.js. sport/program are operator-supplied.
   athletes.push({
     athleteId: 'ATH0061',
     name: 'Thung Jin Seng',
     age: 51,
     gender: 'Male',
     sport: 'Badminton', program: 'OTHERS',
-    overallActivityScore: 77,  // Total Score gauge — "Good"
-    injuryRiskIndex: 12,       // Exercise Risks gauge — "Low Risk"
-    mobility: 88,              // ROM — "Excellent"
-    stability: 72,             // "Average"
-    symmetry: 75,              // "Good"
-    neckInjuryRisk: 23,        // Neck Pain — Medium Risk
-    shoulderInjuryRisk: 11,    // Shoulder Pain — Low Risk
-    scoliosis: 11,             // Low Risk
-    spinalDiscHerniation: 17,  // Lumbar Disc Herniation — Medium Risk
-    lumbarPelvisInjury: 17,    // Anterior Pelvic Tilt — Medium Risk
-    jointPain: 3,              // Low Risk
-    kneeInjuryRisk: 18,        // Ligament Strain — Medium Risk
-    ankleInjuryRisk: 19,       // Ankle Sprain — Medium Risk
+    overallActivityScore: 68,
+    injuryRiskIndex: 21,
+    mobility: 74,
+    stability: 65,
+    symmetry: 70,
+    neckInjuryRisk: 15,
+    shoulderInjuryRisk: 18,
+    scoliosis: 14,
+    spinalDiscHerniation: 22,
+    lumbarPelvisInjury: 24,
+    jointPain: 9,
+    kneeInjuryRisk: 26,
+    ankleInjuryRisk: 27,
     _myodynamia: [
-      { muscle: 'Sartorius', side: 'R' },
-      { muscle: 'Gluteus Maximus', side: 'L' },
-      { muscle: 'Gluteus Maximus', side: 'R' },
+      { muscle: 'Rectus Femoris', side: 'L' },
+      { muscle: 'Upper Trapezius', side: 'R' },
     ],
     _tension: [
-      { muscle: 'Biceps Brachii', side: 'L' },
-      { muscle: 'Pectoralis Major', side: 'R' },
-      { muscle: 'Pectoralis Major', side: 'L' },
+      { muscle: 'Iliopsoas', side: 'R' },
+      { muscle: 'Sternocleidomastoid', side: 'L' },
     ],
   });
 

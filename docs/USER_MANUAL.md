@@ -13,7 +13,7 @@
 | Role | Email | Password |
 |---|---|---|
 | Athlete | `athlete@isn.gov.my` | `athlete123` (John Doe, ATH0001) |
-| Athlete | `thung@isn.gov.my` | `thung123` (Thung Jin Seng, ATH0061 — seeded 1:1 from the sample HoloMotion PDF) |
+| Athlete | `thung@isn.gov.my` | `thung123` (Thung Jin Seng, ATH0061 — seeded as a stale earlier assessment; import the sample HoloMotion PDF to watch his dashboard update to the printed report) |
 | Medical | `medical@isn.gov.my` | `medical123` |
 | Admin | `admin@isn.gov.my` | `admin123` |
 | Admin (SMTP demo) | `poseidonapollo11@gmail.com` | `admin123` |
