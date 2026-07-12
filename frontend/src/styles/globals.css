@@ -1971,3 +1971,35 @@ tbody tr:hover { background: var(--bg); }
 .focus-exercises li:last-child { border-bottom: none; padding-bottom: 0; }
 .focus-exercise-name { font-weight: 500; }
 .focus-exercise-dose { color: var(--text-muted); font-size: 0.74rem; white-space: nowrap; }
+
+/* ── PDF import queue ───────────────────────────────────────────────────────── */
+.pdf-queue-item {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+}
+.pdf-queue-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+.pdf-queue-body {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) minmax(220px, 1fr);
+  gap: 18px;
+  margin-top: 12px;
+}
+@media (max-width: 760px) {
+  .pdf-queue-body { grid-template-columns: 1fr; }
+}
+.pdf-status {
+  font-size: 0.72rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.05em;
+  border-radius: 999px;
+  padding: 3px 10px;
+  white-space: nowrap;
+}
+.pdf-status--queued     { background: var(--bg); color: var(--text-muted); }
+.pdf-status--extracting { background: var(--risk-undertrained-bg); color: var(--risk-undertrained); }
+.pdf-status--ready      { background: var(--risk-moderate-bg); color: var(--risk-moderate); }
+.pdf-status--committing { background: var(--risk-undertrained-bg); color: var(--risk-undertrained); }
+.pdf-status--done       { background: var(--risk-low-bg); color: var(--risk-low); }
+.pdf-status--error      { background: var(--risk-high-bg); color: var(--risk-high); }

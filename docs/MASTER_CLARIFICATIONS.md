@@ -67,7 +67,7 @@ Per JC's FDD, AIRMS has **exactly 6 modules**. Don't propose new ones.
 | 1 | Activity Tracking & Logging | athlete | ✅ fully complete |
 | 2 | Athlete Dashboard / Workload | athlete | ✅ fully complete |
 | 3 | Injury & Recovery Logging | medical | 🟢 functional, recovery milestones deferred |
-| 4 | Data Management (Excel + HoloMotion PDF) | admin | 🟢 functional — Excel upload + vision-AI PDF ingestion + Excel data backup |
+| 4 | Data Management (HoloMotion PDF) | admin | 🟢 functional — vision-AI PDF ingestion (batch + name-match autofill) + Excel data backup. Excel *import* retired 2026-07-12 (archived in `archive/excel-upload/`) |
 | 5 | Injury Analytics | admin | ✅ fully complete (live PDF generation via pdfkit) |
 | 6 | Medical Dashboard | medical | 🟢 functional, watchlist deferred |
 
@@ -225,7 +225,7 @@ These rules came from JC's Figma mockups and explicit feedback. **Do not deviate
 4. **`npm install` at the root** is required once for `concurrently`. After that, `npm run dev` works from root.
 5. **SMTP env not loading** — when you change `SMTP_*` values in `backend/.env`, the running backend keeps using the previously-built mailer transport (cached on first use). Always restart the backend after editing SMTP env vars. If `SMTP_HOST` is empty, the mailer falls back to a console transport that prints the email body to the backend terminal — useful for dev without credentials.
 6. **Gmail app password format** — paste it as 16 contiguous characters (the spaces Google shows are visual only). Wrong format manifests as a 535 auth error from Gmail.
-7. **HoloMotion PDF ingestion needs a vision provider** — set `VISION_API_KEY` + `VISION_MODEL` (and optionally `VISION_PROVIDER` / `VISION_BASE_URL`) in `backend/.env`. If unset, the PDF uploader self-disables with a config message; the Excel path still works. Provider-agnostic — OpenAI / Qwen / OpenRouter / Ollama (OpenAI-compatible) or Anthropic. See [DESIGN_DECISIONS.md §13](DESIGN_DECISIONS.md#13-excelholomotion-pdf-ingestion-vision-ai).
+7. **HoloMotion PDF ingestion needs a vision provider** — set `VISION_API_KEY` + `VISION_MODEL` (and optionally `VISION_PROVIDER` / `VISION_BASE_URL`) in `backend/.env`. If unset, the PDF uploader self-disables with a config message — and it is the sole import path (Excel import retired 2026-07-12, archived in `archive/excel-upload/`; the backup *export* still works). Provider-agnostic — Gemini / OpenAI / Qwen / OpenRouter / Ollama (OpenAI-compatible) or Anthropic. See [DESIGN_DECISIONS.md §13](DESIGN_DECISIONS.md#13-excelholomotion-pdf-ingestion-vision-ai).
 8. **Do NOT `npm install canvas` (node-canvas)** — it needs a native compiler and fails on this Windows/Node setup. `pdfjs` rendering instead uses an npm alias `canvas` → `@napi-rs/canvas` (a prebuilt binary) declared in `backend/package.json`. Keep the alias; don't replace it with real node-canvas.
 
 ---

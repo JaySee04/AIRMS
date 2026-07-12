@@ -110,7 +110,7 @@ Now we will look at the existing system comparisons. I have reviewed four commer
 
 ## Slide 16 — Existing Systems Comparison (full table)
 
-Summarising the comparison, AIRMS will have the most comprehensive functional coverage across the six features assessed — workload and ACWR monitoring, athlete-facing risk display, medical staff injury recording, athlete self-reported injury with a review workflow, a filterable admin injury analytics dashboard, and bulk screening ingestion: a validated Excel upload plus AI-assisted import of ISN's image-only HoloMotion screening PDFs, which none of the compared systems can ingest. The only area where AIRMS does not compete is hardware integration, since that requires users to own specific devices, which is intentionally outside the scope of an institution-accessible web platform.
+Summarising the comparison, AIRMS will have the most comprehensive functional coverage across the six features assessed — workload and ACWR monitoring, athlete-facing risk display, medical staff injury recording, athlete self-reported injury with a review workflow, a filterable admin injury analytics dashboard, and bulk screening ingestion: batch AI-assisted import of ISN's image-only HoloMotion screening PDFs with athlete name-matching, which none of the compared systems can ingest, plus a full Excel dataset backup export. The only area where AIRMS does not compete is hardware integration, since that requires users to own specific devices, which is intentionally outside the scope of an institution-accessible web platform.
 
 ---
 
@@ -172,7 +172,7 @@ UC-17 lets athletes submit a self-reported injury, which enters a Pending state 
 
 ## Slide 24 — Functional Requirements: Data Management Module
 
-For the Data Management Module, UC-20 lets medical staff and administrators upload an Excel file containing screening data, with column validation and a row-by-row preview before committing to the database. UC-21 lets them import an athlete's HoloMotion screening report directly — the PDF is image-only, so the system renders its data sections to images and reads them with a vision AI model, presenting every extracted value for confirmation before commit; the operator supplies only the three fields the report does not contain — Athlete ID, sport, and programme. UC-22 is the system validation step shared by both paths — nothing is written to the database during preview. And UC-23 lets administrators export the complete dataset as a multi-sheet Excel backup at any time.
+For the Data Management Module, UC-20 lets medical staff and administrators import HoloMotion screening reports — one PDF or a whole batch at once. The report is image-only, so the system renders its data sections to images and reads them with a vision AI model, one call per file. UC-21 is the athlete-matching step: the name printed on each report is matched against the roster, auto-filling the Athlete ID, sport, and programme; a new athlete is entered manually, with the sport chosen from a searchable list of ISN's fifty-two sports. UC-22 is validation and preview — every extracted value is shown for confirmation, and nothing is written to the database until the operator confirms each report. And UC-23 lets administrators export the complete dataset as a multi-sheet Excel backup at any time.
 
 ---
 
@@ -220,7 +220,7 @@ Here is my Entity Relationship Diagram. The core entities are User, Athlete, Act
 
 ## Slide 38 — Activity Diagram: Data Import Workflow
 
-This activity diagram covers the Screening Data Import workflow, which branches by file type. For an Excel file, the system parses the workbook and validates each row, marking it as a create or an update and attaching any row-level errors. For a HoloMotion PDF, the system renders the report's data sections to images, a vision AI model extracts the values as structured data, and the operator supplies the athlete ID, sport, and programme. Both paths converge on a preview — nothing is committed at this point — and only on the operator's explicit confirmation does the system upsert the athlete record and replace their muscle flags, after which every dashboard reflects the new screening data.
+This activity diagram covers the Screening Data Import workflow. The operator drops one or more HoloMotion PDFs; for each report, the system renders its data sections to images and a vision AI model extracts the values as structured data. The extracted athlete name is then matched against the roster — a match auto-fills the athlete ID, sport, and programme, while a new athlete's details are entered by the operator. Each report lands in a preview — nothing is committed at this point — and only on the operator's explicit confirmation does the system upsert the athlete record and replace their muscle flags. The loop repeats for the remaining reports, after which every dashboard reflects the new screening data.
 
 ---
 
@@ -252,7 +252,7 @@ The **Medical Report Review Page** with tabbed Pending, Approved, and Rejected s
 
 The **Admin Dashboard Page** with the filter strip, KPI cards, body part and injury type distribution charts, and the temporal trend, alongside the **Admin Report Page** with the report builder and live preview.
 
-And the shared **Data Upload Page** with the drag-drop Excel uploader, the AI-assisted HoloMotion PDF uploader with its extraction preview, and — on the admin side — the data backup export card, along with the shared **Profile Page** used by all three roles.
+And the shared **Data Upload Page** with the batch HoloMotion PDF uploader — drag-drop queue, per-report extraction preview, and athlete name-match autofill — and, on the admin side, the data backup export card, along with the shared **Profile Page** used by all three roles.
 
 ---
 

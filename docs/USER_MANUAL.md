@@ -357,31 +357,19 @@ Accessed from the topbar avatar dropdown's "My Profile" link. Both pages share t
 
 ## 12. Data Uploading — `/admin/data-upload` and `/medical/data-upload`
 
-Both pages render the same shared [`ScreeningUpload`](../frontend/src/components/upload/ScreeningUpload.tsx) component — the role just gates access. Two-column layout.
+Screening data enters AIRMS one way: **importing HoloMotion report PDFs** — the artefact Dr Thung's real workflow produces. HoloMotion reports are image-only PDFs (no text layer), so the system renders their pages and a vision model reads them. *(The original Excel import was retired 2026-07-12; its code is archived in `archive/excel-upload/`. The Excel backup **export** in §12.2 is unaffected.)*
 
-**Left card** — upload + actions:
-- **Schema-in-flux infobox** at top making the ISN-format dependency explicit
-- **Dropzone** accepting `.xlsx` / `.xls` via drag-drop or click. Shows filename and size when a file is selected
-- **Preview & validate** button → `POST /api/upload/screening/preview` — parses the workbook, returns row-by-row preview with action (create / update) and per-row error list. Does NOT commit
-- **Confirm & import** button → `POST /api/upload/screening` — actual upsert. Prompts a confirm if any preview rows have errors (errored rows are skipped)
+### 12.1 HoloMotion PDF import (AI-assisted, batch-capable)
 
-**Right card** — tips + preview/result panel:
-- Schema hints: ISO date format, muscle flag values (L / R / B), de-dup behaviour, never-commit-without-confirm
-- After running preview: a green banner showing valid/invalid counts, plus a scrollable table of every row with action badge and error column (errored rows highlighted in red)
-- After running commit: a green success banner with created / updated counts
-
-### 12.1 HoloMotion PDF import (AI-assisted)
-
-Below the Excel uploader sits a second card, **Import from HoloMotion PDF** — the path matching Dr Thung's real workflow. HoloMotion reports are image-only PDFs (no text), so the system renders the pages and a vision model reads them.
-
-- **Drop a `.pdf`** → **Read & extract**. The backend renders the report's data pages and a configurable vision model returns the scores, the eight exercise-risk indicators, and the muscle flags. They appear in an "Extracted data" panel for review
-- Because the report never contains them, you fill in three fields by hand: **Athlete ID, Sport, Program**
-- **Confirm & import** upserts the athlete and replaces their muscle flags. No second AI call is made (the reviewed data is sent back directly)
-- If no vision provider is configured (`VISION_API_KEY` / `VISION_MODEL` in the backend env), the card self-disables with a setup message — the Excel path is unaffected. Any OpenAI-compatible provider (OpenAI, Qwen, OpenRouter, local Ollama) or Anthropic works
+- **Drop one or many `.pdf` files** into the dropzone (or click to browse — multi-select works). Each file appears in a queue with a status chip (Queued → Reading → Ready to import → Imported)
+- **Read & extract** processes the queue sequentially — one vision call per file, spaced 3 seconds apart to stay inside free-tier rate limits. Importing afterwards costs no further calls
+- **Name-match autofill:** the athlete name printed on each report is matched against the existing roster (case-insensitive, must be unambiguous). A match auto-fills **Athlete ID, Sport, and Programme** — editable, in case the match is the wrong person. A new name gets manual entry: the Athlete ID field offers the roster as a suggestion list, the **Sport field is a searchable dropdown of ISN's 52 sports**, and Programme is PODIUM / PELAPIS / OTHERS
+- Each queue item shows the extracted scores, the eight risk indicators, and both muscle lists for review — **nothing is committed until you confirm that item** (or use *Import all ready* for the batch)
+- If no vision provider is configured (`VISION_API_KEY` / `VISION_MODEL` in the backend env), the card self-disables with a setup message. Any OpenAI-compatible provider (Gemini, OpenAI, Qwen, OpenRouter, local Ollama) or Anthropic works
 
 ### 12.2 Data Backup (admin only)
 
-On `/admin/data-upload`, a **Data Backup** card offers a one-click **Download backup (.xlsx)** — a multi-sheet Excel workbook (Athletes + Injuries + Muscle Flags) snapshotting the whole dataset. Keep this as a record of the Excel-era data as ingestion shifts to HoloMotion.
+On `/admin/data-upload`, a **Data Backup** card offers a one-click **Download backup (.xlsx)** — a multi-sheet Excel workbook (Athletes + Injuries + Muscle Flags) snapshotting the whole dataset at any time.
 
 ---
 

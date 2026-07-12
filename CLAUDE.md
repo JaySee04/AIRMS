@@ -68,7 +68,7 @@ Three-tier monorepo orchestrated by `concurrently` from the root `package.json`.
 - Every response goes through `utils/serialize.js`, which aliases the numeric `id` to a stringified `_id` field and reassembles Athlete's flat columns into the nested `risks` / `myodynamia[]` / `tension[]` shape the frontend reads
 - Module 3 has an important cross-table behaviour: approving a `SelfReport` server-side promotes it into a new `Injury` row inside a single Sequelize transaction (`routes/selfReports.js`)
 - Module 5 PDF generation streams `application/pdf` directly from `routes/reports.js` using `pdfkit` (no temp files)
-- Module 4 upload uses a two-step flow: `POST /api/upload/screening/preview` validates without committing; `POST /api/upload/screening` upserts
+- Module 4 ingestion is **HoloMotion PDF only** (the Excel import was retired 2026-07-12; code archived in `archive/excel-upload/`). Two-step flow: `POST /api/upload/screening/pdf/preview` (render + vision-extract, no commit) → `POST /api/upload/screening/pdf` (commit the previewed JSON). The uploader is batch-capable (sequential extraction) and auto-fills Athlete ID/sport/programme when the extracted name matches the roster; the Excel **backup export** (`GET /api/export/backup.xlsx`) remains
 
 **Frontend** (`frontend/`, Next.js 14 App Router, TypeScript, plain CSS with variables):
 - Pages live under `frontend/src/app/<role>/<slug>/page.tsx` — the URL hierarchy is the role-based access boundary (`/athlete/*`, `/medical/*`, `/admin/*`)
@@ -124,8 +124,9 @@ SMTP_USER=...@gmail.com          # any provider works; Gmail / Mailtrap / SendGr
 SMTP_PASS=...                    # for Gmail use a 16-char App Password (NOT your normal password)
 SMTP_FROM='AIRMS <...@gmail.com>'
 
-# Vision provider for HoloMotion PDF (Module 4) ingestion. If unset, the PDF
-# uploader self-disables and the Excel path still works. Provider-agnostic:
+# Vision provider for HoloMotion PDF (Module 4) ingestion — the sole screening
+# import path (Excel import retired; archive/excel-upload/). If unset, the PDF
+# uploader self-disables (backup export unaffected). Provider-agnostic:
 # the 'openai' wire format covers OpenAI / Gemini / Qwen (DashScope) /
 # OpenRouter / Ollama; 'anthropic' is the native format. Switch with env only.
 # Gemini free tier (AI Studio key) via its OpenAI-compatible endpoint:

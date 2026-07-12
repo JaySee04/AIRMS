@@ -82,7 +82,7 @@ All Sequelize models. The `index.js` registers them and wires up associations (`
 | [activities.js](../backend/src/routes/activities.js) | `/api/activities` | `GET /athlete/:id`, `GET /athlete/:id/acwr`, `POST /`, `PUT /:id`, `DELETE /:id` |
 | [injuries.js](../backend/src/routes/injuries.js) | `/api/injuries` | `GET /` (filtered; `?limit=N` caps payload), `GET /athlete/:id`, `POST /`, `PATCH /:id`, `GET /analytics/summary` |
 | [selfReports.js](../backend/src/routes/selfReports.js) | `/api/self-reports` | `GET /` (medical), `GET /athlete/:id`, `POST /`, `PATCH /:id/review` (approve→creates Injury) |
-| [upload.js](../backend/src/routes/upload.js) | `/api/upload` | **Excel:** `POST /screening/preview`, `POST /screening` (upsert). **HoloMotion PDF:** `GET /screening/pdf/status`, `POST /screening/pdf/preview` (render + vision-extract, no commit), `POST /screening/pdf` (commit JSON). All gated by `requirePermission('uploadData')` |
+| [upload.js](../backend/src/routes/upload.js) | `/api/upload` | **HoloMotion PDF (sole import path):** `GET /screening/pdf/status`, `POST /screening/pdf/preview` (render + vision-extract, no commit), `POST /screening/pdf` (commit JSON). Gated by `requirePermission('uploadData')`. Excel import retired 2026-07-12 → `archive/excel-upload/` |
 | [reports.js](../backend/src/routes/reports.js) | `/api/reports` | `POST /injuries-pdf` (admin only) — server-side `pdfkit` rendering of filtered injury report; streams `application/pdf` |
 | [export.js](../backend/src/routes/export.js) | `/api/export` | `GET /backup.xlsx` (admin only) — streams a multi-sheet Excel snapshot (athletes + injuries + muscle flags) as the Excel-era data backup |
 
@@ -131,12 +131,12 @@ Pages mapped to the 3 roles + profile pages:
 | [`/medical/dashboard`](../frontend/src/app/medical/dashboard/page.tsx) | medical | Module 6 — athlete search/view + embedded HoloMotion screening panel |
 | [`/medical/injury-log`](../frontend/src/app/medical/injury-log/page.tsx) | medical | Module 3 — log official injury |
 | [`/medical/review-reports`](../frontend/src/app/medical/review-reports/page.tsx) | medical | Module 3 — review athlete self-reports |
-| [`/medical/data-upload`](../frontend/src/app/medical/data-upload/page.tsx) | medical | Module 4 — screening upload (Excel + HoloMotion PDF) |
+| [`/medical/data-upload`](../frontend/src/app/medical/data-upload/page.tsx) | medical | Module 4 — HoloMotion PDF import (batch + name-match) |
 | [`/medical/profile`](../frontend/src/app/medical/profile/page.tsx) | medical | Profile |
 | [`/admin/dashboard`](../frontend/src/app/admin/dashboard/page.tsx) | admin | Module 5 — injury analytics |
 | [`/admin/reports`](../frontend/src/app/admin/reports/page.tsx) | admin | Module 5 — PDF report builder |
 | [`/admin/staff`](../frontend/src/app/admin/staff/page.tsx) | admin | Medical-staff permission control + account activation |
-| [`/admin/data-upload`](../frontend/src/app/admin/data-upload/page.tsx) | admin | Module 4 — screening upload (Excel + HoloMotion PDF) + data backup |
+| [`/admin/data-upload`](../frontend/src/app/admin/data-upload/page.tsx) | admin | Module 4 — HoloMotion PDF import (batch + name-match) + data backup |
 | [`/admin/profile`](../frontend/src/app/admin/profile/page.tsx) | admin | Profile |
 
 ### Layout components — `frontend/src/components/layout/`
@@ -165,8 +165,7 @@ Pages mapped to the 3 roles + profile pages:
 
 | File | Used by |
 |---|---|
-| [ScreeningUpload.tsx](../frontend/src/components/upload/ScreeningUpload.tsx) | Admin + Medical data-upload pages. Excel drag-drop + preview + commit flow against `/api/upload/screening` |
-| [PdfScreeningUpload.tsx](../frontend/src/components/upload/PdfScreeningUpload.tsx) | Admin + Medical data-upload pages. HoloMotion PDF flow — vision-extract preview, then commit with operator-supplied athleteId/sport/program. Self-disables when the vision provider is unconfigured |
+| [PdfScreeningUpload.tsx](../frontend/src/components/upload/PdfScreeningUpload.tsx) | Admin + Medical data-upload pages. Batch HoloMotion PDF queue: sequential vision extraction, roster name-match autofill (ID/sport/programme), searchable 52-sport datalist ([`lib/sports.ts`](../frontend/src/lib/sports.ts)), per-file preview → confirm. Self-disables when the vision provider is unconfigured |
 | [DataBackupCard.tsx](../frontend/src/components/upload/DataBackupCard.tsx) | Admin data-upload page. One-click download of the Excel-era data backup from `/api/export/backup.xlsx` |
 
 ### Profile component — `frontend/src/components/profile/`

@@ -26,36 +26,35 @@
 
     <!-- ── Associations ── -->
     <g stroke="#444" stroke-width="1.2">
-      <!-- Medical Staff → both imports -->
-      <line x1="138" y1="140" x2="435" y2="112"/>
-      <line x1="138" y1="148" x2="435" y2="206"/>
-      <!-- Administrator → both imports + backup -->
-      <line x1="138" y1="400" x2="435" y2="122"/>
-      <line x1="138" y1="408" x2="435" y2="216"/>
+      <!-- Medical Staff → import -->
+      <line x1="138" y1="144" x2="435" y2="106"/>
+      <!-- Administrator → import + backup -->
+      <line x1="138" y1="400" x2="435" y2="116"/>
       <line x1="138" y1="416" x2="435" y2="452"/>
-      <!-- Vision AI Provider → Import HoloMotion -->
-      <line x1="962" y1="150" x2="665" y2="206"/>
-      <!-- System → Validate & Preview -->
-      <line x1="962" y1="430" x2="665" y2="336"/>
+      <!-- Vision AI Provider → Import -->
+      <line x1="962" y1="140" x2="665" y2="110"/>
+      <!-- System → Match by Name + Validate & Preview -->
+      <line x1="962" y1="424" x2="665" y2="222"/>
+      <line x1="962" y1="432" x2="665" y2="336"/>
     </g>
 
     <!-- ── «include» dependencies ── -->
     <g stroke="#444" stroke-width="1.2" stroke-dasharray="6 4" fill="none">
-      <line x1="520" y1="137" x2="500" y2="305" marker-end="url(#openArrow)"/>
-      <line x1="560" y1="237" x2="572" y2="305" marker-end="url(#openArrow)"/>
+      <line x1="530" y1="137" x2="540" y2="188" marker-end="url(#openArrow)"/>
+      <line x1="570" y1="137" x2="590" y2="305" marker-end="url(#openArrow)"/>
     </g>
-    <text x="482" y="230" text-anchor="middle" font-size="11" font-style="italic">&#171;include&#187;</text>
-    <text x="608" y="278" text-anchor="middle" font-size="11" font-style="italic">&#171;include&#187;</text>
+    <text x="478" y="168" text-anchor="middle" font-size="11" font-style="italic">&#171;include&#187;</text>
+    <text x="640" y="240" text-anchor="middle" font-size="11" font-style="italic">&#171;include&#187;</text>
 
     <!-- ── Use cases ── -->
     <g>
-      <ellipse cx="550" cy="110" rx="115" ry="27" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.3"/>
-      <text x="550" y="107" text-anchor="middle" font-size="12">Import Excel</text>
-      <text x="550" y="121" text-anchor="middle" font-size="12">Screening Data</text>
+      <ellipse cx="550" cy="110" rx="120" ry="27" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.3"/>
+      <text x="550" y="107" text-anchor="middle" font-size="12">Import HoloMotion</text>
+      <text x="550" y="121" text-anchor="middle" font-size="12">PDF Report(s) — batch</text>
 
-      <ellipse cx="550" cy="210" rx="115" ry="27" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.3"/>
-      <text x="550" y="207" text-anchor="middle" font-size="12">Import HoloMotion</text>
-      <text x="550" y="221" text-anchor="middle" font-size="12">PDF Report</text>
+      <ellipse cx="550" cy="215" rx="115" ry="27" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.3"/>
+      <text x="550" y="212" text-anchor="middle" font-size="12">Match Athlete</text>
+      <text x="550" y="226" text-anchor="middle" font-size="12">by Name</text>
 
       <ellipse cx="550" cy="335" rx="120" ry="28" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.3"/>
       <text x="550" y="332" text-anchor="middle" font-size="12">Validate &amp; Preview</text>

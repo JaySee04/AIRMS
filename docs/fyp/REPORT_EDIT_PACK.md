@@ -17,13 +17,13 @@
 
 **Replace with:**
 
-> A dedicated data management module brings athlete screening data into the system through two ingestion paths. The primary path accepts the HoloMotion screening report — the per-athlete biomechanical assessment PDF produced by ISN's actual screening workflow. Because these reports contain no machine-readable text layer, the system renders their pages to images and extracts the structured values using a vision-capable AI model, presenting a full preview for operator confirmation before any data is committed. A secondary path supports validated Excel uploads, and administrators can export the complete dataset as an Excel backup at any time, ensuring the database can be updated efficiently and safely as new assessments are conducted.
+> A dedicated data management module brings athlete screening data into the system by importing the HoloMotion screening report — the per-athlete biomechanical assessment PDF produced by ISN's actual screening workflow. Because these reports contain no machine-readable text layer, the system renders their pages to images and extracts the structured values using a vision-capable AI model, presenting a full preview for operator confirmation before any data is committed. Reports can be imported singly or as a batch, and athletes already on record are matched automatically by the name printed on each report. Administrators can additionally export the complete dataset as an Excel backup at any time, ensuring the database can be updated efficiently and safely as new assessments are conducted.
 
 ## R2 · §3.1.3 Development — Sprint 2 deliverables
 
 Where Sprint 2's deliverables are listed, extend the Data Management wording:
 
-> …Data Management Module (Excel and AI-assisted HoloMotion PDF ingestion, with dataset backup export)…
+> …Data Management Module (batch AI-assisted HoloMotion PDF ingestion with athlete name-matching, plus dataset backup export)…
 
 Also resolve the sprint-count inconsistency here (report "two broad sprints" vs slides "three") — pick one and align both artifacts.
 
@@ -33,7 +33,7 @@ Also resolve the sprint-count inconsistency here (report "two broad sprints" vs 
 
 **Replace with:**
 
-> **Data Management Module** — A simple upload mechanism that allows new screening data to be added to the system and reflected in the dashboards without complex steps. Because ISN's screening workflow produces per-athlete HoloMotion report PDFs rather than spreadsheets, the module ingests these reports directly using AI-assisted extraction, alongside a validated Excel path and a dataset backup export.
+> **Data Management Module** — A simple upload mechanism that allows new screening data to be added to the system and reflected in the dashboards without complex steps. Because ISN's screening workflow produces per-athlete HoloMotion report PDFs rather than spreadsheets, the module ingests these reports directly using AI-assisted extraction — singly or in batches, with athletes matched automatically by the name on each report — alongside a dataset backup export.
 
 (This *strengthens* stakeholder traceability — Dr Thung's clinic produces HoloMotion PDFs, so the pivot moves the system closer to his stated "easy upload" requirement.)
 
@@ -55,9 +55,9 @@ Renumber to fit the current draft's UC sequence; titles below are descriptive.
 
 | UC | Title | Description | User Role |
 |---|---|---|---|
-| UC-a | Import Excel Screening Data | Upload an Excel file containing screening data; the system validates columns and required fields and returns a row-by-row preview (create/update per row, per-row errors) before committing to the database | Medical Staff, Administrator |
-| UC-b | Import HoloMotion Screening Report | Upload a per-athlete HoloMotion PDF; the system renders the report pages and extracts scores, injury-risk indicators, and muscle flags using a vision AI model, returning a preview for confirmation before commit. The operator supplies only the fields absent from the report (Athlete ID, sport, program) | Medical Staff, Administrator |
-| UC-c | Validate Import Data | System checks uploaded data for missing fields, incorrect formats, and existing-athlete conflicts before committing; nothing is written during preview | System |
+| UC-a | Import HoloMotion Screening Report(s) | Upload one or many per-athlete HoloMotion PDFs; for each, the system renders the report pages and extracts scores, injury-risk indicators, and muscle flags using a vision AI model, returning a preview for confirmation before commit | Medical Staff, Administrator |
+| UC-b | Match Athlete by Name | The extracted athlete name is matched against the existing roster; a match auto-fills Athlete ID, sport, and programme, while a new athlete's details are supplied by the operator (sport selected from ISN's 52-sport list) | System |
+| UC-c | Validate Import Data | System checks extracted data for missing fields and existing-athlete conflicts before committing; nothing is written during preview | System |
 | UC-d | Export Data Backup | Download the complete athlete, injury, and screening dataset as a multi-sheet Excel workbook for backup and offline analysis | Administrator |
 
 **Remove:** *View Import History* and *Delete Import Record* — not built. If the marker will compare against an earlier submitted table, keep them but mark "(future work)".
@@ -81,7 +81,7 @@ Update the total use-case count **everywhere it is quoted** (report prose + slid
 
 **"Bulk Data Import" cell for AIRMS/SSP 3.0 — replace with:**
 
-> Excel upload with column validation and row-level preview; AI-assisted ingestion of image-only HoloMotion screening PDFs with confirm-before-commit; full dataset backup export
+> Batch AI-assisted ingestion of image-only HoloMotion screening PDFs with athlete name-matching and confirm-before-commit; full dataset backup export (Excel)
 
 **Add to the closing narrative paragraph:**
 
@@ -96,7 +96,7 @@ Redrawn HTML diagrams (open in a browser at 100% zoom, screenshot, paste into th
 - **Fig 4.1 FDD** → [`fdd-updated.html`](fdd-updated.html) — Data Management gains *Import HoloMotion PDF (AI Vision)* + *Export Data Backup*; General gains *Change Password* + *Manage Staff Permissions* (no *Register*); dashboards gain *View Screening Report* + *Sport-Critical Screening Alert*
 - **Fig 4.2 General UC diagram** → [`uc-general-updated.html`](uc-general-updated.html) — Login (JWT), Reset Password (email OTP), Change Password, Manage User Profile, Manage Staff Permissions (admin), RBAC (system)
 - **Fig 4.6 Data Management UC diagram** → [`uc-datamgmt-updated.html`](uc-datamgmt-updated.html) — both import paths with «include» → Validate & Preview, Export Data Backup, and the Vision AI Provider as an «external system» actor
-- **Data-import activity diagram** → [`activity-dataimport-updated.html`](activity-dataimport-updated.html) — dual-branch: Excel parse/validate vs PDF render → vision extraction → operator context, converging on preview → confirm → commit. (Slides: this diagram is also mislabelled "Self-Reported Injury Workflow" on p. 38 — existing punch item)
+- **Data-import activity diagram** → [`activity-dataimport-updated.html`](activity-dataimport-updated.html) — single PDF path with a batch loop: render → vision extraction → name-match decision (auto-fill vs manual entry) → preview → confirm → commit → next report. (Slides: this diagram is also mislabelled "Self-Reported Injury Workflow" on p. 38 — existing punch item)
 - **Fig 4.9 ERD** → [`erd-corrected.html`](erd-corrected.html) **updated 2026-07-03**: removed the `import_records` table (no such model exists — it was an overclaim), and corrected `users` columns (`permissions`, `reset_code_attempts`, `last_login_at`; audit timestamps trimmed). `coach_sports` deliberately omitted (coach stays out of FYP I). No new tables for HoloMotion — it maps onto `athletes` + `muscle_flags`. **Re-screenshot Fig 4.9.**
 
 ## R7 · Chapter 5 — new subsection: AI-assisted screening ingestion

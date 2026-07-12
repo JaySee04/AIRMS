@@ -12,7 +12,7 @@
 | 1 | Activity Tracking & Logging | athlete | ✅ **fully complete** | `/athlete/activity` | `/api/activities` |
 | 2 | Athlete Dashboard / Workload | athlete | ✅ **fully complete** | `/athlete/dashboard` | `/api/athletes/:id`, `/api/activities/athlete/:id`, `/api/injuries/athlete/:id` |
 | 3 | Injury & Recovery Logging | medical (+ athlete self-report) | 🟢 **functional, deferred polish** | `/medical/injury-log`, `/medical/review-reports`, `/athlete/injury-report` | `/api/injuries`, `/api/self-reports` |
-| 4 | Data Management | admin | 🟢 **functional — Excel + HoloMotion PDF ingestion + data backup** | `/admin/data-upload`, `/medical/data-upload` | `/api/upload/screening[/preview]`, `/api/upload/screening/pdf[/preview\|/status]`, `/api/export/backup.xlsx` |
+| 4 | Data Management | admin | 🟢 **functional — HoloMotion PDF ingestion (batch + name-match) + data backup** | `/admin/data-upload`, `/medical/data-upload` | `/api/upload/screening/pdf[/preview\|/status]`, `/api/export/backup.xlsx` |
 | 5 | Injury Analytics | admin | ✅ **fully complete** | `/admin/dashboard`, `/admin/reports` | `/api/injuries/analytics/summary`, `/api/injuries`, `/api/reports/injuries-pdf` |
 | 6 | Medical Dashboard | medical | 🟢 **functional, watchlist deferred** | `/medical/dashboard` | `/api/athletes`, `/api/athletes/:id` |
 
@@ -144,23 +144,19 @@ Modules 1+2 are the FYP showcases requiring no further iteration. Modules 3–6 
 
 ## Module 4 — Data Management (screening ingestion + backup) 🟢
 
-**What it does (full vision):** Admin (and medical) staff bring athlete screening data — biometrics, injury-risk indicators, per-muscle deficiency/tension flags — into the system. Two ingestion paths now coexist: the original Excel upload, and the newer **HoloMotion PDF** path that Dr Thung's real workflow produces. The admin can also export the whole dataset as an Excel backup.
+**What it does (full vision):** Admin (and medical) staff bring athlete screening data — injury-risk indicators, headline scores, per-muscle deficiency/tension flags — into the system by importing the **HoloMotion report PDFs** Dr Thung's real workflow produces. The admin can also export the whole dataset as an Excel backup. *(The original Excel import was retired 2026-07-12 once batch import + name-match autofill made it redundant; the code is archived in [`archive/excel-upload/`](../archive/excel-upload/README.md).)*
 
 **Current state (functional):**
 
-*Excel path (original):*
-- ✅ Shared [`ScreeningUpload`](../frontend/src/components/upload/ScreeningUpload.tsx) on `/admin/data-upload` + `/medical/data-upload`; drag-drop/browse; column-name-tolerant parse
-- ✅ `POST /api/upload/screening/preview` validates + returns a row-by-row preview (`action: create|update`, per-row errors), no commit; `POST /api/upload/screening` upserts. Required-field + enum validation (Athlete ID, Name, Sport, Gender, Program)
-
-*HoloMotion PDF path (new — vision-AI ingestion):*
-- ✅ [`PdfScreeningUpload`](../frontend/src/components/upload/PdfScreeningUpload.tsx) sits alongside the Excel uploader on both pages
-- ✅ The report has **no text layer** (jsPDF bakes everything in as graphics — verified pdf-parse/pdfjs extract zero text), so the backend renders pages 1–3 to images ([`pdfRender.js`](../backend/src/utils/pdfRender.js)) and a configurable vision model reads them ([`visionClient.js`](../backend/src/utils/visionClient.js)), returning structured JSON mapped onto `Athlete` columns + `muscle_flags` ([`holomotionExtract.js`](../backend/src/utils/holomotionExtract.js))
-- ✅ Two-step flow: `POST /api/upload/screening/pdf/preview` (render + extract, no commit) → `POST /api/upload/screening/pdf` (commit as JSON, so no second vision call). `GET /api/upload/screening/pdf/status` lets the UI self-disable when no provider is configured
-- ✅ Operator supplies only the three fields the report never contains — Athlete ID, Sport, Program
-- ✅ Provider-agnostic: OpenAI / Qwen / OpenRouter / local Ollama (OpenAI-compatible) or Anthropic, by `VISION_*` env vars. See [DESIGN_DECISIONS.md §13](DESIGN_DECISIONS.md#13-excelholomotion-pdf-ingestion-vision-ai)
+*HoloMotion PDF ingestion (the sole import path):*
+- ✅ [`PdfScreeningUpload`](../frontend/src/components/upload/PdfScreeningUpload.tsx) on `/admin/data-upload` + `/medical/data-upload` — **batch-capable**: drop one or many PDFs; extraction runs sequentially with 3s spacing (one vision call per file, inside free-tier rate limits)
+- ✅ **Name-match autofill** — each extracted athlete name is matched (trimmed, case-insensitive, must be unambiguous) against the roster: a match auto-fills Athlete ID / sport / programme; new names are entered manually, with the sport picked from a **searchable list of ISN's 52 sports** ([`lib/sports.ts`](../frontend/src/lib/sports.ts)) and the Athlete ID field offering the roster as a datalist
+- ✅ The report has **no text layer** (jsPDF bakes everything in as graphics — verified pdf-parse/pdfjs extract zero text), so the backend renders the data-bearing bands to images ([`pdfRender.js`](../backend/src/utils/pdfRender.js)) and a configurable vision model reads them ([`visionClient.js`](../backend/src/utils/visionClient.js)), returning structured JSON mapped onto `Athlete` columns + `muscle_flags` ([`holomotionExtract.js`](../backend/src/utils/holomotionExtract.js))
+- ✅ Two-step flow per file: `POST /api/upload/screening/pdf/preview` (render + extract, no commit) → `POST /api/upload/screening/pdf` (commit as JSON, so no second vision call). `GET /api/upload/screening/pdf/status` lets the UI self-disable when no provider is configured
+- ✅ Provider-agnostic: Gemini / OpenAI / Qwen / OpenRouter / local Ollama (OpenAI-compatible) or Anthropic, by `VISION_*` env vars. See [DESIGN_DECISIONS.md §13](DESIGN_DECISIONS.md#13-excelholomotion-pdf-ingestion-vision-ai)
 
 *Data backup:*
-- ✅ [`DataBackupCard`](../frontend/src/components/upload/DataBackupCard.tsx) on `/admin/data-upload` → `GET /api/export/backup.xlsx` streams a multi-sheet workbook (athletes + injuries + muscle flags), preserving the Excel-era dataset as ingestion shifts to HoloMotion
+- ✅ [`DataBackupCard`](../frontend/src/components/upload/DataBackupCard.tsx) on `/admin/data-upload` → `GET /api/export/backup.xlsx` streams a multi-sheet workbook (athletes + injuries + muscle flags) — the dataset snapshot path, unaffected by the import retirement
 
 **Deferred / notes:**
 - ✅ **Live-verified 2026-07-12** — the full pipeline was run against the sample HoloMotion PDF on Gemini's free tier (`gemini-flash-lite-latest` via the OpenAI-compatible endpoint) and reproduced the seeded ground-truth row (ATH0061) **18/18 fields** in ~5s, muscle lists included. Re-run anytime with `npm run verify:vision -- "<sample.pdf>"` from `backend/`
@@ -168,7 +164,7 @@ Modules 1+2 are the FYP showcases requiring no further iteration. Modules 3–6 
 
 **Prototype reference:** [airms-prototype/admin/data-upload.html](../airms-prototype/admin/data-upload.html)
 
-**Pitch line for FYP defence:** *"Module 4 ingests screening data two ways — the Excel upload and, matching Dr Thung's real HoloMotion workflow, an AI-assisted PDF path. Because the HoloMotion report is image-only, the system renders its pages and reads them with a vision model — provider-agnostic, so any OpenAI-compatible or Anthropic key works — then maps the result onto the same athlete schema. The admin can snapshot the whole dataset to Excel at any time."*
+**Pitch line for FYP defence:** *"Module 4 ingests screening data the way ISN actually produces it — the HoloMotion report PDF. The report is image-only, so the system renders its pages and reads them with a vision model — provider-agnostic, so any OpenAI-compatible or Anthropic key works — then maps the result onto the athlete schema. It handles a whole squad's reports in one batch, matches athletes by the name printed on each report, and every import is preview-before-commit. The admin can snapshot the whole dataset to Excel at any time."*
 
 ---
 
@@ -261,7 +257,7 @@ Worst-case question: *"Are modules 3–6 working?"*
 Best answer per module:
 
 - **Module 3:** "Yes — athletes submit self-reports, medical reviews them, approved reports promote to the official injury record, medical logs injuries directly. End-to-end. Recovery milestone tracking is deferred because Dr Thung has not specified the standardised recovery phase schema yet."
-- **Module 4:** "Yes — two ingestion paths, both preview-before-commit. Excel: drop, parse, validate, row-by-row preview with create/update detection. HoloMotion PDF: render → vision-AI extraction → confirm — matching Dr Thung's real workflow, and it reads the muscle lists straight off the report, which closed the old Excel column-lock dependency. Plus a full Excel backup export."
+- **Module 4:** "Yes — HoloMotion PDF ingestion end-to-end, preview-before-commit: render → vision-AI extraction → confirm. It matches Dr Thung's real workflow, handles a whole squad's reports in one batch, auto-matches athletes by the printed name, and reads the muscle lists straight off the report. The old Excel import was deliberately retired once this made it redundant (code archived); the Excel backup *export* remains."
 - **Module 5:** "Yes — 7-filter live analytics dashboard with KPI cards, body part + injury type distribution charts, and monthly trend. The report builder generates the PDF server-side via `pdfkit` (cover, executive summary, distribution charts, optional severity/recovery/monthly sections, athlete index). Deferred polish: the severity×time heatmap and an explicit PODIUM-vs-PELAPIS comparison view."
 - **Module 6:** "Yes — search/filter the athlete roster, select an athlete, and you see the same composite-risk hero, workload chart, risk radar, body map, and injury history as that athlete sees on their own dashboard, plus a deep-linked '+ Log Injury' button. The watchlist and team-summary KPI cards are deferred."
 
