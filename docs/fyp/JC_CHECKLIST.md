@@ -60,6 +60,23 @@
 ## Stage E — email alerts (upcoming)
 - [ ] Provide the dedicated test Gmail so alert mail can be verified against a
   real inbox.
+- [ ] **Stray bounce mail (one-off, 2026-07-15)** — while testing the new
+  post-import queue I discovered `SMTP_HOST` is now live (Gmail), so one real
+  alert email went out to the seeded fake addresses
+  (`medical@isn.gov.my`, `coach@isn.gov.my`). Expect 1–2 bounce-backs in the
+  poseidonapollo11 inbox; safe to delete. Subsequent tests forced the console
+  mailer.
+
+## Perf pass 2 — post-import queue (2026-07-15)
+- [ ] **Commit responses are now instant** — the cohort/indicator recompute +
+  alerts run in a debounced background queue (~1.5s) after each commit, and a
+  batch of N PDFs coalesces into ONE recompute instead of N. Trade-off: for a
+  couple of seconds after an import commits, a dashboard you already have open
+  may still show the pre-import indicator until the queue flushes (a refresh
+  after that shows the new value). Verified live: 3-commit burst → 1 recompute,
+  alert only for the red athlete. Confirm the demo flow feels right (import →
+  open dashboard) — if the gap ever shows in a viva demo, we can re-await the
+  queue on single-file commits.
 
 ## Decisions already logged (no action needed, just FYI)
 - ACWR **demoted**, not deleted (secondary training-load view; rebuild spec to

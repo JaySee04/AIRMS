@@ -137,12 +137,14 @@ router.get('/individual/:id.pdf', auth, requirePermission('viewRecords'), async 
     if (req.user.role === 'athlete' && req.user.athleteId !== req.params.id) {
       return res.status(403).json({ message: 'Access denied' });
     }
-    const athlete = await Athlete.findOne({ where: { athleteId: req.params.id }, raw: true });
+    const [athlete, history, settings] = await Promise.all([
+      Athlete.findOne({ where: { athleteId: req.params.id }, raw: true }),
+      Screening.findAll({ where: { athleteId: req.params.id }, order: [['assessedAt', 'DESC'], ['id', 'DESC']], raw: true }),
+      getSettings(),
+    ]);
     if (!athlete) return res.status(404).json({ message: 'Athlete not found' });
-    const history = await Screening.findAll({ where: { athleteId: req.params.id }, order: [['assessedAt', 'DESC'], ['id', 'DESC']], raw: true });
     if (!history.length) return res.status(404).json({ message: 'No screening on record for this athlete' });
     const latest = history[0];
-    const settings = await getSettings();
     const cohort = await resolveCohortStats(athlete, { minN: settings.min_cohort_n, fallbackEnabled: settings.fallback_enabled });
 
     const doc = startDoc(res, `AIRMS-individual-${athlete.athleteId}.pdf`);
@@ -157,7 +159,7 @@ router.get('/individual/:id.pdf', auth, requirePermission('viewRecords'), async 
     // Scores vs peers (cohort mean marker)
     sectionTitle(doc, cohort ? `Scores vs Cohort (${cohort.tier}, n=${cohort.n})` : 'Scores (no cohort norm yet)');
     for (const [key, label, max] of SCORE_ROWS) {
-      const ref = cohort && cohort.stats[key === 'totalScore' ? 'totalScore' : key] ? cohort.stats[key].mean : null;
+      const ref = cohort && cohort.stats[key] ? cohort.stats[key].mean : null;
       bar(doc, label, Number(latest[key]), max, NAVY, { ref });
     }
     doc.moveDown(0.2).fontSize(8).fillColor(MUTED).text('Navy marker = cohort average.', 50);

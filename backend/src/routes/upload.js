@@ -6,9 +6,7 @@ const rbac = require('../middleware/rbac');
 const requirePermission = require('../middleware/permission');
 const { extractFromPdf } = require('../utils/holomotionExtract');
 const { isVisionConfigured, visionConfig } = require('../utils/visionClient');
-const { recomputeCohorts } = require('../utils/cohorts');
-const { recomputeIndicators } = require('../utils/overallIndicator');
-const { alertIfNeeded } = require('../utils/alerts');
+const { queuePostImport } = require('../utils/postImport');
 
 // NOTE: the original Excel screening-upload path (multer excel filter,
 // normaliseRow/validateRow, POST /screening/preview + /screening) was retired
@@ -153,19 +151,13 @@ router.post('/screening/pdf', auth, rbac('medical', 'admin'), requirePermission(
       await Screening.create(screeningRow, { transaction: t });
     });
 
-    // New screening data → refresh cohort norms and re-score every athlete's
-    // overall indicator. Non-fatal: the import already committed, and a failed
-    // recompute is corrected by the next import or an admin recompute.
-    try {
-      await recomputeCohorts();
-      await recomputeIndicators();
-      // Alert medical staff + the sport's coaches if this athlete now lands
-      // amber/red — assess immediately rather than let the finding sit.
-      await alertIfNeeded(data.athleteId);
-    } catch (e) {
-      // eslint-disable-next-line no-console
-      console.error('Post-import recompute/alert failed:', e.message);
-    }
+    // New screening data → refresh cohort norms, re-score the indicators, and
+    // alert on any athlete now at amber/red. Queued + debounced: a batch of N
+    // commits coalesces into ONE recompute pass, and the response returns
+    // immediately instead of waiting seconds. Non-fatal by the same contract
+    // as before — a failed recompute is corrected by the next import or the
+    // admin "Recompute" button.
+    queuePostImport(data.athleteId);
 
     res.json({ message: 'Import complete', action, athleteId: data.athleteId, muscleFlags: flagRows.length });
   } catch (err) {
