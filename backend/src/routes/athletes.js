@@ -1,6 +1,30 @@
 const express = require('express');
 const { Op } = require('sequelize');
-const { Athlete, MuscleFlag } = require('../models');
+const { Athlete, MuscleFlag, Screening } = require('../models');
+
+// Latest screening's overall indicator for an athlete, with the clinician
+// override applied as the effective band. Returns null when no screening.
+async function latestIndicator(athleteId) {
+  const s = await Screening.findOne({
+    where: { athleteId },
+    order: [['assessedAt', 'DESC'], ['id', 'DESC']],
+    raw: true,
+  });
+  if (!s) return null;
+  return {
+    screeningId: s.id,
+    assessedAt: s.assessedAt,
+    overallIndicator: s.overallIndicator,
+    overallBand: s.overallBand,
+    escalations: s.escalations,
+    overrideBand: s.overrideBand,
+    overrideNote: s.overrideNote,
+    overrideBy: s.overrideBy,
+    overrideAt: s.overrideAt,
+    // The band clinicians/coaches act on: an override wins until the next import.
+    effectiveBand: s.overrideBand || s.overallBand,
+  };
+}
 const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
 const requirePermission = require('../middleware/permission');
@@ -127,7 +151,9 @@ router.get('/:id', auth, requirePermission('viewRecords'), async (req, res) => {
       include: [{ model: MuscleFlag, as: 'muscleFlags' }],
     });
     if (!athlete) return res.status(404).json({ message: 'Athlete not found' });
-    res.json(serializeAthlete(athlete));
+    const out = serializeAthlete(athlete);
+    out.screening = await latestIndicator(req.params.id);
+    res.json(out);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

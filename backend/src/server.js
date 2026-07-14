@@ -24,6 +24,7 @@ const exportRoutes = require('./routes/export');
 const recoveryBaselineRoutes = require('./routes/recoveryBaselines');
 const coachRoutes = require('./routes/coach');
 const cohortRoutes = require('./routes/cohorts');
+const screeningRoutes = require('./routes/screenings');
 
 const app = express();
 
@@ -47,6 +48,7 @@ app.use('/api/export', exportRoutes);
 app.use('/api/recovery-baselines', recoveryBaselineRoutes);
 app.use('/api/coach', coachRoutes);
 app.use('/api/cohorts', cohortRoutes);
+app.use('/api/screenings', screeningRoutes);
 
 app.get('/api/health', (_req, res) => res.json({
   status: 'ok',

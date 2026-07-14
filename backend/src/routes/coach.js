@@ -10,7 +10,7 @@
 // muscle flags + active-injury list the frontend needs to classify readiness.
 const express = require('express');
 const { Op } = require('sequelize');
-const { Athlete, Activity, Injury, MuscleFlag } = require('../models');
+const { Athlete, Activity, Injury, MuscleFlag, Screening } = require('../models');
 const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
 
@@ -55,7 +55,7 @@ router.get('/readiness', auth, rbac('coach'), async (req, res) => {
     if (ids.length === 0) return res.json({ sports, athletes: [] });
 
     const since = new Date(Date.now() - 28 * DAY);
-    const [activities, injuries] = await Promise.all([
+    const [activities, injuries, screenings] = await Promise.all([
       Activity.findAll({
         where: { athleteId: { [Op.in]: ids }, date: { [Op.gte]: since } },
         attributes: ['athleteId', 'date', 'load'],
@@ -66,7 +66,23 @@ router.get('/readiness', auth, rbac('coach'), async (req, res) => {
         attributes: ['athleteId', 'recoveryStatus'],
         raw: true,
       }),
+      Screening.findAll({
+        where: { athleteId: { [Op.in]: ids } },
+        order: [['assessedAt', 'DESC'], ['id', 'DESC']],
+        attributes: ['athleteId', 'overallIndicator', 'overallBand', 'escalations', 'overrideBand'],
+        raw: true,
+      }),
     ]);
+    // Latest screening indicator per athlete (the HoloMotion risk comparison).
+    const indicatorByAthlete = new Map();
+    for (const s of screenings) if (!indicatorByAthlete.has(s.athleteId)) {
+      indicatorByAthlete.set(s.athleteId, {
+        overallIndicator: s.overallIndicator,
+        overallBand: s.overallBand,
+        escalations: s.escalations,
+        effectiveBand: s.overrideBand || s.overallBand,
+      });
+    }
 
     // Group activities + injuries by athlete for O(1) lookup.
     const loadsByAthlete = new Map();
@@ -110,6 +126,8 @@ router.get('/readiness', auth, rbac('coach'), async (req, res) => {
         myodynamia: flags.filter((f) => f.flagType === 'myodynamia').map(({ muscle, side }) => ({ muscle, side })),
         tension: flags.filter((f) => f.flagType === 'tension').map(({ muscle, side }) => ({ muscle, side })),
         activeInjuries: injuriesByAthlete.get(a.athleteId) || [],
+        // HoloMotion overall risk indicator (cohort-normed), for squad comparison.
+        screening: indicatorByAthlete.get(a.athleteId) || null,
       };
     });
 

@@ -6,6 +6,7 @@ import { Fragment, useEffect, useMemo, useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import type { MuscleEntry } from '@/components/dashboard/BodyMap';
 import AcwrGauge from '@/components/dashboard/AcwrGauge';
+import OverallRiskBadge, { ScreeningIndicator } from '@/components/dashboard/OverallRiskBadge';
 
 // Chart.js and the body-map path data are the heaviest client code on this
 // page and render nothing on the server anyway — split them out so the
@@ -52,6 +53,7 @@ interface AthleteFull extends AthleteListItem {
   risks: AthleteRisks;
   myodynamia: MuscleEntry[];
   tension: MuscleEntry[];
+  screening?: (ScreeningIndicator & { screeningId?: number }) | null;
 }
 
 interface Activity {
@@ -532,6 +534,22 @@ export default function MedicalDashboard() {
       .slice(0, 6);
   }, [allInjuriesAcrossSystem]);
 
+  // Clinician override of the overall risk band after a real assessment.
+  async function setOverride(band: 'green' | 'amber' | 'red' | null) {
+    const sid = selectedAthlete?.screening?.screeningId;
+    if (!sid) return;
+    let note = '';
+    if (band) {
+      note = window.prompt(`Assessment note for setting risk to "${band}" (required):`) || '';
+      if (!note.trim()) return;
+    }
+    try {
+      await api.patch(`/screenings/${sid}/override`, band ? { band, note } : {});
+      const a = await api.get<AthleteFull>(`/athletes/${selectedId}`);
+      setSelectedAthlete(a);
+    } catch { /* surfaced by the effect on next load */ }
+  }
+
   return (
     <DashboardLayout allowedRoles={['medical']} requiredPermission="viewRecords" title="Athlete Dashboard">
       <div className="medical-shell">
@@ -729,6 +747,24 @@ export default function MedicalDashboard() {
               {/* Sport-aware screening alert — flags a critical body region
                   that's out of range before the workload signal */}
               <ScreeningAlertBanner risks={selectedAthlete.risks} sport={selectedAthlete.sport} audience="staff" />
+
+              {/* Overall HoloMotion risk indicator + clinician override */}
+              {selectedAthlete.screening && (
+                <div style={{ marginBottom: 20 }}>
+                  <OverallRiskBadge screening={selectedAthlete.screening} />
+                  {selectedAthlete.screening.screeningId && (
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8, flexWrap: 'wrap' }}>
+                      <span className="text-muted" style={{ fontSize: '0.78rem' }}>After assessment, set band:</span>
+                      <button type="button" className="btn btn-outline btn-sm" onClick={() => setOverride('green')}>Green</button>
+                      <button type="button" className="btn btn-outline btn-sm" onClick={() => setOverride('amber')}>Amber</button>
+                      <button type="button" className="btn btn-outline btn-sm" onClick={() => setOverride('red')}>Red</button>
+                      {selectedAthlete.screening.overrideBand && (
+                        <button type="button" className="btn btn-outline btn-sm" onClick={() => setOverride(null)}>Clear override</button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Composite risk hero (mirrors athlete dashboard) */}
               <div className={`risk-hero risk-hero--${risk.cls}`}>

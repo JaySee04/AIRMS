@@ -12,6 +12,7 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import { api } from '@/lib/api';
 import { classifyCompositeRisk, RiskCls, MuscleEntry } from '@/lib/risk';
 import { computeBodyPartAlerts, AthleteRisks } from '@/lib/screeningAlerts';
+import OverallRiskBadge, { ScreeningIndicator } from '@/components/dashboard/OverallRiskBadge';
 
 interface ReadinessRow {
   athleteId: string;
@@ -27,6 +28,7 @@ interface ReadinessRow {
   myodynamia: MuscleEntry[];
   tension: MuscleEntry[];
   activeInjuries: Array<{ recoveryStatus: 'Recovering' | 'Recovered' | 'Chronic' }>;
+  screening?: ScreeningIndicator | null;
 }
 
 interface ReadinessResponse {
@@ -193,6 +195,7 @@ export default function CoachDashboard() {
                 <tr>
                   <th>Athlete</th>
                   <th>Sport</th>
+                  <th style={{ textAlign: 'center' }}>HoloMotion Risk</th>
                   <th style={{ textAlign: 'center' }}>Readiness</th>
                   <th style={{ textAlign: 'center' }}>ACWR</th>
                   <th>Risk level</th>
@@ -208,6 +211,9 @@ export default function CoachDashboard() {
                       <div className="text-muted" style={{ fontSize: '0.78rem' }}>{row.athleteId}</div>
                     </td>
                     <td>{row.sport}</td>
+                    <td style={{ textAlign: 'center' }}>
+                      <OverallRiskBadge screening={row.screening} compact />
+                    </td>
                     <td style={{ textAlign: 'center' }}>
                       <span className={BAND_META[band].badge}>{BAND_META[band].label}</span>
                     </td>

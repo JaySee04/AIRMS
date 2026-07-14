@@ -15,6 +15,7 @@ const WorkloadChart = dynamic(() => import('@/components/dashboard/WorkloadChart
 const RiskRadar = dynamic(() => import('@/components/dashboard/RiskRadar'), { ssr: false, loading: () => <div style={{ height: 300 }} /> });
 import ScreeningAlertBanner from '@/components/dashboard/ScreeningAlertBanner';
 import ScreeningPanel from '@/components/dashboard/ScreeningPanel';
+import OverallRiskBadge, { ScreeningIndicator } from '@/components/dashboard/OverallRiskBadge';
 import { api } from '@/lib/api';
 import { getSession } from '@/lib/auth';
 import { classifyCompositeRisk } from '@/lib/risk';
@@ -54,6 +55,7 @@ interface Athlete {
   mobility?: number;
   stability?: number;
   symmetry?: number;
+  screening?: ScreeningIndicator | null;
 }
 
 interface Injury {
@@ -283,6 +285,13 @@ export default function AthleteDashboard() {
       {/* Sport-aware screening alert — fires before the workload signal when a
           body region important for the athlete's sport is out of range */}
       <ScreeningAlertBanner risks={athlete.risks} sport={athlete.sport} audience="self" />
+
+      {/* Overall HoloMotion risk indicator — cohort-normed traffic-light */}
+      {athlete.screening && (
+        <div style={{ marginBottom: 20 }}>
+          <OverallRiskBadge screening={athlete.screening} />
+        </div>
+      )}
 
       {/* Risk hero */}
       <div className={`risk-hero risk-hero--${risk.cls}`}>
