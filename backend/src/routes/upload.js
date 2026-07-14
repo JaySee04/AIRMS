@@ -6,6 +6,8 @@ const rbac = require('../middleware/rbac');
 const requirePermission = require('../middleware/permission');
 const { extractFromPdf } = require('../utils/holomotionExtract');
 const { isVisionConfigured, visionConfig } = require('../utils/visionClient');
+const { recomputeCohorts } = require('../utils/cohorts');
+const { recomputeIndicators } = require('../utils/overallIndicator');
 
 // NOTE: the original Excel screening-upload path (multer excel filter,
 // normaliseRow/validateRow, POST /screening/preview + /screening) was retired
@@ -149,6 +151,17 @@ router.post('/screening/pdf', auth, rbac('medical', 'admin'), requirePermission(
       if (flagRows.length) await MuscleFlag.bulkCreate(flagRows, { transaction: t });
       await Screening.create(screeningRow, { transaction: t });
     });
+
+    // New screening data → refresh cohort norms and re-score every athlete's
+    // overall indicator. Non-fatal: the import already committed, and a failed
+    // recompute is corrected by the next import or an admin recompute.
+    try {
+      await recomputeCohorts();
+      await recomputeIndicators();
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error('Post-import recompute failed:', e.message);
+    }
 
     res.json({ message: 'Import complete', action, athleteId: data.athleteId, muscleFlags: flagRows.length });
   } catch (err) {

@@ -6,7 +6,7 @@
  */
 require('dotenv').config({ path: require('path').join(__dirname, '../../.env') });
 
-const { sequelize, User, Athlete, MuscleFlag, Activity, Injury, SelfReport, Screening } = require('../models');
+const { sequelize, User, Athlete, MuscleFlag, Activity, Injury, SelfReport, Screening, CohortThreshold } = require('../models');
 
 // ── Deterministic PRNG (seed=42 — same demo data on every reseed) ──────────
 let _seed = 42;
@@ -69,12 +69,19 @@ function pickProgram(age) {
 // lists. Fields the report does NOT contain (weight, height) are left null —
 // AIRMS stores only what its real ingestion source provides. sport/program
 // are operator-supplied at import time, so they are always present.
+// Concentrate the seeded roster into a handful of sports so the cohort-norm
+// engine has n>=5 per group (a standard deviation over 1-2 athletes is
+// meaningless). Seed-only — real ISN imports use the full 52-sport list. This
+// also exercises the fallback ladder: sport+programme+gender cohorts stay
+// small, so most athletes norm against the sport+gender or sport tier.
+const DEMO_SPORTS = ['Badminton', 'Swimming', 'Athletics', 'Football', 'Hockey'];
+
 function buildAthletes() {
   const athletes = [];
   for (let i = 1; i <= 60; i++) {
     const gender = pick(GENDERS);
     const age = range(15, 32);
-    const sport = pick(SPORTS);
+    const sport = pick(DEMO_SPORTS);
     // Roughly 1 in 10 athletes has no HoloMotion report ingested yet — their
     // scores stay null / indicators 0 so the "no data" states are demoable.
     const screened = rnd() > 0.1;
@@ -498,6 +505,20 @@ async function seed() {
     await User.bulkCreate(users, { transaction: t, individualHooks: true });
     console.log(`Inserted ${users.length} demo users`);
   });
+
+  // Cohort norms + overall indicators. Compute the cohort thresholds, auto-
+  // approve them (so the demo has live norms without a manual approval pass —
+  // real imports leave new cohorts pending for admin review), then score every
+  // athlete's overall indicator against them.
+  const { recomputeCohorts } = require('./cohorts');
+  const { recomputeIndicators } = require('./overallIndicator');
+  const c = await recomputeCohorts();
+  await CohortThreshold.update(
+    { status: 'approved', approvedAt: new Date(), approvedBy: 'Seed' },
+    { where: {} },
+  );
+  const ind = await recomputeIndicators();
+  console.log(`Computed ${c.cohorts} cohorts (auto-approved); scored ${ind.scored}/${ind.athletes} athletes`);
 
   console.log('\nDemo credentials:');
   console.log('  Admin:   admin@isn.gov.my              / admin123');

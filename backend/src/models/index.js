@@ -10,6 +10,8 @@ const Injury = require('./Injury');
 const SelfReport = require('./SelfReport');
 const RecoveryBaseline = require('./RecoveryBaseline');
 const Screening = require('./Screening');
+const Setting = require('./Setting');
+const CohortThreshold = require('./CohortThreshold');
 
 // Athlete ↔ MuscleFlag (1:N) — using athleteId VARCHAR as the FK so the
 // canonical "ATH0001" identifier stays the cross-table key.
@@ -46,4 +48,6 @@ module.exports = {
   SelfReport,
   RecoveryBaseline,
   Screening,
+  Setting,
+  CohortThreshold,
 };
