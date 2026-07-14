@@ -328,4 +328,50 @@ Minor calls that didn't get a full section but are worth recording:
 
 ---
 
-*Last updated: 2026-07-06 — added §15 (dashboard-embedded screening + HoloMotion-only data policy); §14 refined (revoked features vanish + live session refresh). Previous: 2026-06-28 (§13 HoloMotion vision-AI ingestion, §14 permissions).*
+## 16. FYP II — cohort-normed overall risk indicator (ACWR demoted)
+
+**Decision:** make a **cohort-normed HoloMotion overall risk indicator** the
+primary risk signal, and **demote** the ACWR/composite-workload model to a
+secondary "Training Load" view (not deleted — see [`ACWR_REBUILD.md`](fyp/ACWR_REBUILD.md)).
+Full design in [`FYP2_REDESIGN_SPEC.md`](fyp/FYP2_REDESIGN_SPEC.md).
+
+**Method (Total Score of Athleticism):** each athlete's oriented screening
+components (Total Score, ROM, Stability, Symmetry, inverted exercise-risk
+burden over the 7 *shown* indicators, and L/R asymmetry from the subitem
+scores) are **z-scored against the athlete's cohort** (sport + programme +
+gender, with a spg → sg → s → all fallback) and averaged. z-score +
+traffic-light against a sport/sex reference is the accepted sports-science
+standard for cohort-normed screening; equal-weighted standardised components is
+the published TSA default (removes arbitrary weighting).
+
+**Escalation band (Dr Thung's spec):** base green; **+1 escalation** if below
+the cohort mean, **+1** if in the cohort's bottom-k → 0 = green (safe), 1 =
+amber (needs attention), 2 = red (immediate assessment). So a good raw score
+that is below cohort and among the worst performers still escalates to red.
+
+**Governance:** cohort thresholds are auto-computed but **admin-approved** (the
+computed averages are pre-filled and editable); a **clinician can override** an
+athlete's band after a real assessment (note required, auto-expires on the next
+import). Minimum cohort size + fallback are **admin settings**. New amber/red
+imports **email** medical staff + the sport's coaches.
+
+**Why exclude Lumbar Disc Herniation** from all displays/scoring (still stored):
+Dr Thung's direction — ISN's current facilities don't support that assessment,
+so surfacing it would imply a capability the institute doesn't have.
+
+**Rejected alternatives:** deleting ACWR outright (it is the FYP I graded
+differentiator and lit-review anchor — demote + preserve instead); absolute
+per-metric cutoffs (cohort-normed z-scores are the sports-science standard and
+adapt per sport/sex); hand-picked component weights (equal-weighted z-scores
+are the published TSA method).
+
+**Defensibility one-liner:** *"FYP I personalised workload thresholds by an
+athlete's own vulnerability; FYP II extends the same normed-threshold
+philosophy to the screening domain — z-scoring each athlete against their
+sport/programme/gender cohort, the accepted sports-science standard, with
+admin-approved norms, clinician override, and escalation for the athletes who
+look fine on paper but sit at the bottom of their group."*
+
+---
+
+*Last updated: 2026-07-13 — added §16 (FYP II cohort-normed overall indicator + ACWR demotion). Previous: 2026-07-06 (§15 dashboard-embedded screening), 2026-06-28 (§13–14).*

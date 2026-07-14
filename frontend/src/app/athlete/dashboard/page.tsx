@@ -286,12 +286,19 @@ export default function AthleteDashboard() {
           body region important for the athlete's sport is out of range */}
       <ScreeningAlertBanner risks={athlete.risks} sport={athlete.sport} audience="self" />
 
-      {/* Overall HoloMotion risk indicator — cohort-normed traffic-light */}
+      {/* Overall HoloMotion risk indicator — cohort-normed traffic-light.
+          This is the PRIMARY risk signal; the ACWR training-load view below is
+          now secondary (see docs/fyp/ACWR_REBUILD.md). */}
       {athlete.screening && (
         <div style={{ marginBottom: 20 }}>
           <OverallRiskBadge screening={athlete.screening} />
         </div>
       )}
+
+      {/* Secondary — training-load (ACWR) view */}
+      <div className="text-muted" style={{ fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '4px 0 8px' }}>
+        Secondary · Training Load (ACWR)
+      </div>
 
       {/* Risk hero */}
       <div className={`risk-hero risk-hero--${risk.cls}`}>

@@ -766,6 +766,12 @@ export default function MedicalDashboard() {
                 </div>
               )}
 
+              {/* Secondary — training-load (ACWR) view. The HoloMotion overall
+                  indicator above is the primary risk signal. */}
+              <div className="text-muted" style={{ fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '4px 0 8px' }}>
+                Secondary · Training Load (ACWR)
+              </div>
+
               {/* Composite risk hero (mirrors athlete dashboard) */}
               <div className={`risk-hero risk-hero--${risk.cls}`}>
                 <div style={{ flex: 1 }}>

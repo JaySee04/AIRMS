@@ -184,20 +184,26 @@ none, show "insufficient cohort" and skip escalation.
 
 ---
 
-## 11. Build sequence (checkpoint + commit each)
+## 11. Build sequence — ALL STAGES BUILT (2026-07-13)
 
-- **A. Foundation** — `screenings` snapshot model + wiring; expand extractor
-  (subitems/posture/summary); commit route writes a history row; extend
-  `verify:vision` ground truth; seed history for Thung (stale + current) +
-  nazwan (2nd ground-truth athlete).
-- **B. Cohort engine** — `cohort_thresholds` + `settings` models; compute-on-import;
-  admin approval queue UI + tunable settings.
-- **C. Indicator** — overall-indicator + escalation + clinician override; surface
-  on athlete/medical/coach views (traffic-light).
-- **D. Reports** — the three PDF report types.
-- **E. Alerts** — import-commit email to medical + coaches.
-- **F. ACWR demotion** — move workload to secondary; write `ACWR_REBUILD.md`;
-  docs ripple (MODULES_STATUS, DESIGN_DECISIONS, USER_MANUAL, viva docs).
+- **A. ✅ Foundation** — `screenings` snapshot model; layout-robust extractor
+  (subitems/posture/summary; verified 25/25 live); commit writes history;
+  Thung stale snapshot + nazwan 2nd ground-truth seeded.
+- **B. ✅ Cohort engine** — `cohort_thresholds` + `settings`; compute-on-import;
+  admin approval queue (`/admin/thresholds`) + tunable settings. 40 cohorts.
+- **C. ✅ Indicator** — TSA z-score composite + escalation band + clinician
+  override; traffic-light on athlete/medical/coach.
+- **D. ✅ Reports** — holistic / individual / team PDFs (`routes/screeningReports.js`),
+  triggered from the admin PDF Reports page.
+- **E. ✅ Alerts** — import-commit email to medical + the sport's coaches
+  (`utils/alerts.js`).
+- **F. ✅ ACWR demotion** — dashboards label the ACWR hero "Secondary · Training
+  Load"; overall indicator is primary; `ACWR_REBUILD.md` written; docs updated.
+
+**Remaining (JC to verify, see `JC_CHECKLIST.md`):** eyeball the three PDFs in a
+real viewer, the traffic-light surfaces, the admin thresholds page, and the
+override flow; decide on the small-cohort band distribution; provide the test
+Gmail for live alert mail.
 
 ## 12. Open confirmations (resolved 2026-07-13)
 
