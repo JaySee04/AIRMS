@@ -1,0 +1,220 @@
+# AIRMS FYP II — Screening-Centred Redesign (Design Spec)
+
+> **Status:** agreed 2026-07-13, build in progress. This is the anchor document
+> for the redesign — it captures the *entire* agreed design so work can resume
+> across sessions and is defensible in viva. Update it as stages land.
+>
+> **Stakeholder direction (Dr Thung / ISN):** shift AIRMS from an ACWR-workload
+> centre of gravity to a **HoloMotion-screening** one, with cohort-normed risk,
+> clinician override, three report types, and alerting. ACWR is demoted, not
+> deleted.
+
+---
+
+## 0. One-paragraph summary
+
+Every athlete takes the same HoloMotion screening. AIRMS ingests each report
+(batch, name-matched), stores it as an immutable **screening snapshot**, and
+derives an **overall risk indicator** by z-scoring the athlete's screening
+components against their **cohort** (sport + programme + gender) and averaging
+them (the *Total Score of Athleticism* method). The indicator sits on a
+**traffic-light** scale whose bands come from the cohort mean ± SD;
+it **escalates** when the athlete is below the cohort mean (+1) and when they
+are among the three worst in the cohort (+1). Amber/red or escalated → the
+athlete needs assessment; a clinician who checks them can **override** to green
+with a note. Cohort thresholds are **auto-computed but admin-approved**.
+Imports fire **email alerts** to medical staff and the sport's coaches. Three
+**PDF reports** (admin holistic, individual, team) present all of this.
+
+---
+
+## 1. Evidence base (why this design is defensible)
+
+- **z-score + traffic-light** is the accepted sports-science method for
+  screening an individual against a sport/sex reference group and flagging who
+  needs a closer look. Global Performance Insights (z/T/STEN scores);
+  z-score biomonitoring of soccer players & cyclists (arXiv 2510.01810);
+  elite-athlete sport/sex normative percentiles (PMC9478009).
+- **Total Score of Athleticism (TSA)** — Turner et al.: standardise each
+  fitness component to a z-score against the reference group, then average with
+  equal weight to get one composite. This is our overall-indicator method and
+  removes arbitrary weighting (equal weighting of standardised components is the
+  published default). Admin may still tune per-component weights later.
+- **Cohort-normed, not absolute** — thresholds are the cohort's own
+  mean/SD, so "safe" adapts to sport/programme/gender instead of a universal
+  number. Matches Dr Thung's "average threshold per sport, programme, gender."
+
+## 2. Locked decisions carried over
+
+- HoloMotion PDF is the **sole** screening import (Excel retired, archived).
+- Report is image-only → vision-AI extraction, preview-before-commit,
+  provider-agnostic (Gemini free tier verified).
+- Composite personalised-ACWR model (`risk.ts`) is **demoted to a secondary
+  training-load view**, not deleted; its logic + rationale are preserved in
+  `docs/fyp/ACWR_REBUILD.md` so it can be rebuilt identically.
+- The 3-role model + coach experiment stand.
+
+---
+
+## 3. Data model changes
+
+### 3.1 `screenings` — immutable snapshot per import (NEW)
+One row per committed HoloMotion import. The `athletes` table keeps holding the
+**latest** snapshot (dashboards already read it — backward compatible); every
+import ALSO writes a `screenings` history row. History powers progress-over-time
+and the individual report's report-to-report deltas.
+
+| Field | Type | Source |
+|---|---|---|
+| id | PK | |
+| athlete_id | VARCHAR FK | operator/match |
+| assessed_at | DATE | report "time" |
+| imported_by | VARCHAR | committing user |
+| total_score, exercise_risks, rom, stability, symmetry | DECIMAL | gauges |
+| neck_injury_risk … ankle_injury_risk (8) | DECIMAL | Exercise Risk Evaluation circles (incl. spinal_disc_herniation = LDH — **stored, hidden from displays**) |
+| subitems | JSON | 5 regions × {romL,romR,stabL,stabR,sym} (25 values) |
+| posture | JSON | 8 axes × {label, value} |
+| summary_text | TEXT | page-1 summary comment verbatim |
+| muscle_flags | JSON | myodynamia[]/tension[] snapshot |
+| overall_indicator | DECIMAL | computed at commit (nullable until cohort exists) |
+| overall_band | ENUM(green,amber,red) | computed |
+| escalations | INT | 0–2 |
+
+### 3.2 `cohort_thresholds` — approved norms (NEW)
+One row per (sport, programme, gender) cohort per metric-set version. Holds the
+computed mean + SD per component and the approval state.
+
+| Field | Type | Notes |
+|---|---|---|
+| id | PK | |
+| sport, programme, gender | VARCHAR | cohort key (gender nullable for fallback tiers) |
+| tier | ENUM(spg, sg, s, all) | which fallback level this row represents |
+| n | INT | athletes in cohort at compute time |
+| stats | JSON | per-component {mean, sd} for the composite inputs |
+| status | ENUM(pending, approved) | admin approval |
+| computed_at, approved_at, approved_by | | audit |
+| overrides | JSON nullable | admin edits to mean/sd/weights |
+
+### 3.3 `settings` — admin-tunable knobs (NEW, key/value)
+Per Dr Thung's "make it a setting": `min_cohort_n` (default 5),
+`fallback_enabled` (default true), `escalation_below_mean` (on),
+`escalation_bottom3` (on), `bottom_k` (default 3), alert toggles.
+
+### 3.4 `screenings` clinician override fields
+`override_band` ENUM nullable, `override_note` TEXT, `override_by`,
+`override_at`. Set by medical staff after real assessment; **auto-expires when
+a newer screening is imported** (new row, no override).
+
+### 3.5 `athletes` — identity editable on import
+name (Title-Cased automatically), age, gender editable in the upload preview;
+pre-filled for matched athletes, required for new ones. No schema change.
+
+---
+
+## 4. Extraction expansion (holomotionExtract.js)
+
+Add to the current 8-risk + muscle-list extraction:
+- **25 subitem scores** (page 5 table: Neck / Shoulder&Upper Limbs / Torso /
+  Pelvis / Lower Limbs × ROM-L, ROM-R, Stability-L, Stability-R, Symmetry).
+- **Posture findings** (page 4: 8 axes, each a label + signed deviation value).
+- **Summary text** (page 1 comment block, verbatim).
+- LDH (`spinalDiscHerniation`) still extracted + stored; **excluded from all
+  risk displays** per Dr Thung (ISN facilities don't support that assessment).
+Crop bands / prompt extended; `verify:vision` ground truth extended to match.
+
+## 5. Overall risk indicator
+
+`overallIndicator(screening, cohortStats)`:
+1. Build component vector: Total Score, ROM, Stability, Symmetry (higher
+   better); exercise-risk burden = mean of the **7 shown** indicators, inverted
+   (lower better); asymmetry penalty = mean |L−R| across subitem regions,
+   inverted.
+2. z-score each component against cohort mean/SD.
+3. Average z-scores (equal weight — TSA). Map to 0–100 for display.
+4. **Band** by z of the composite: green ≥ cohort mean; amber within 1 SD below;
+   red > 1 SD below (thresholds = settings).
+5. **Escalate**: +1 if composite below cohort mean; +1 if athlete in bottom-`k`
+   of cohort. 2 escalations → "immediate assessment."
+6. **Override**: clinician-set band wins until the next import.
+Degrades gracefully: cohort with n < `min_cohort_n` → fall back a tier, or if
+none, show "insufficient cohort" and skip escalation.
+
+## 6. Cohort-threshold engine + admin approval
+
+- On each import commit, recompute affected cohorts' mean/SD per component.
+- New/changed cohorts land as **pending** rows in an admin queue; the computed
+  values are **pre-filled and editable**; admin approves or edits.
+- Fallback ladder: spg → sg → s → all, first tier meeting `min_cohort_n`.
+- Every view (individual + holistic) compares against the **approved** cohort
+  norms.
+
+## 7. Three PDF reports (pdfkit, extend routes/reports.js)
+
+1. **Admin holistic** — HoloMotion-sourced, non-expert-friendly **visualisations**
+   (cohort band distributions, most-flagged regions, screened coverage,
+   worst/attention lists). Not raw tables.
+2. **Individual** (admin-approved access) — the athlete's scores, muscle legend,
+   risk levels, **thresholds vs peers**, and **deltas between HoloMotion reports**
+   (progress over time from `screenings` history).
+3. **Team/group** — one sport+programme+gender cohort: group thresholds,
+   everyone vs threshold (**ranking**), plus an **attention table** of each
+   athlete's parts needing follow-up (for the coach).
+
+## 8. Coach view
+
+- Read-only, sport-scoped, HoloMotion-based squad readiness.
+- **Comparison of all athletes' HoloMotion risks** in the coach's sports.
+- Filter by sport + programme.
+
+## 9. Email alerts (reuse utils/mailer.js)
+
+- Fire on **import commit** (that's when new data arrives → assess immediately,
+  don't let it sit).
+- Recipients: medical staff + the sport's assigned coaches.
+- Trigger: athlete lands amber/red or escalated.
+- Uses existing env-driven SMTP (dedicated test Gmail to be provided; console
+  fallback meanwhile).
+
+## 10. ACWR demotion
+
+- `classifyCompositeRisk` + ACWR workload remain as a **secondary "Training
+  Load" panel**, not the primary risk surface.
+- Activity logging stays (feeds training load).
+- Full logic + evidence preserved in `docs/fyp/ACWR_REBUILD.md` (rebuild-identical spec).
+
+---
+
+## 11. Build sequence (checkpoint + commit each)
+
+- **A. Foundation** — `screenings` snapshot model + wiring; expand extractor
+  (subitems/posture/summary); commit route writes a history row; extend
+  `verify:vision` ground truth; seed history for Thung (stale + current) +
+  nazwan (2nd ground-truth athlete).
+- **B. Cohort engine** — `cohort_thresholds` + `settings` models; compute-on-import;
+  admin approval queue UI + tunable settings.
+- **C. Indicator** — overall-indicator + escalation + clinician override; surface
+  on athlete/medical/coach views (traffic-light).
+- **D. Reports** — the three PDF report types.
+- **E. Alerts** — import-commit email to medical + coaches.
+- **F. ACWR demotion** — move workload to secondary; write `ACWR_REBUILD.md`;
+  docs ripple (MODULES_STATUS, DESIGN_DECISIONS, USER_MANUAL, viva docs).
+
+## 12. Open confirmations (resolved 2026-07-13)
+
+1. z-score TSA composite + traffic-light — ✅
+2. cohort fallback + **min-n as admin setting** — ✅ (settings, not hardcoded)
+3. extract subitems + posture + summary; LDH stored not shown — ✅
+4. alerts reuse SMTP, fire on commit; dedicated test Gmail incoming — ✅
+5. seed nazwan as 2nd ground-truth athlete — ✅
+
+## 13. Test assets
+
+- `thung jin seng_0122663031.pdf` — ground-truth athlete ATH0061.
+- `rpt_2025-08-13_muhammad nazwan bin abdullah_*.pdf` — 2nd genuine HoloMotion
+  (Total 78, ExRisks 14, ROM 71 / Stab 82 / Sym 88; subitems on page 5; risks
+  Neck 14 / Shoulder 8 / Scoliosis 12 / LDH 16 / AntPelvic 16 / Joint 15 /
+  Ligament 21 / Ankle 26). Provided in-chat — use for batch demo + ground truth.
+- **File-access rule:** only use PDFs the user attaches in chat; do not browse
+  the user's folders.
+
+*Compiled 2026-07-13. Amend as stages land.*
