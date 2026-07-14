@@ -114,44 +114,57 @@ async function recomputeCohorts() {
     for (const keyObj of tierKeysFor(athlete)) add(keyObj, screening);
   }
 
-  let created = 0;
-  let updated = 0;
+  // Preload existing rows once (no per-cohort findOne), then batch updates +
+  // one bulkCreate for the new cohorts.
+  const cohortKey = (o) => `${o.tier}|${o.sport}|${o.programme}|${o.gender}`;
+  const existingRows = await CohortThreshold.findAll();
+  const existingByKey = new Map(existingRows.map((r) => [cohortKey(r), r]));
+
+  const updates = [];
+  const toCreate = [];
   for (const { keyObj, screenings } of groups.values()) {
     const { n, stats } = computeStats(screenings);
-    const where = {
-      sport: keyObj.sport, programme: keyObj.programme, gender: keyObj.gender, tier: keyObj.tier,
-    };
-    const existing = await CohortThreshold.findOne({ where });
+    const existing = existingByKey.get(cohortKey(keyObj));
     if (existing) {
-      await existing.update({ n, stats, computedAt: new Date() });
-      updated++;
+      updates.push(existing.update({ n, stats, computedAt: new Date() }));
     } else {
-      await CohortThreshold.create({ ...where, n, stats, status: 'pending', computedAt: new Date() });
-      created++;
+      toCreate.push({ sport: keyObj.sport, programme: keyObj.programme, gender: keyObj.gender, tier: keyObj.tier, n, stats, status: 'pending', computedAt: new Date() });
     }
   }
-  return { cohorts: groups.size, created, updated };
+  await Promise.all(updates);
+  if (toCreate.length) await CohortThreshold.bulkCreate(toCreate);
+  return { cohorts: groups.size, created: toCreate.length, updated: updates.length };
 }
 
-// Resolve the applicable APPROVED cohort stats for an athlete via the fallback
-// ladder, honouring the minimum-n setting. Returns { tier, n, stats } or null.
-// Admin overrides (if present on the row) win over computed stats.
-async function resolveCohortStats(athlete, { minN = 5, fallbackEnabled = true } = {}) {
+// Build an in-memory lookup of the approved cohort rows, keyed by tier+keys,
+// so callers can resolve many athletes without per-athlete queries.
+function buildApprovedCohortMap(approvedRows) {
+  const m = new Map();
+  for (const r of approvedRows) m.set(`${r.tier}|${r.sport}|${r.programme}|${r.gender}`, r);
+  return m;
+}
+
+// Resolve an athlete's cohort stats from a pre-loaded approved-cohort map via
+// the fallback ladder. Returns { tier, n, stats } or null.
+function resolveFromMap(athlete, map, { minN = 5, fallbackEnabled = true } = {}) {
   const keys = fallbackEnabled ? tierKeysFor(athlete) : [tierKeysFor(athlete)[0]];
   for (const k of keys) {
-    const row = await CohortThreshold.findOne({
-      where: { sport: k.sport, programme: k.programme, gender: k.gender, tier: k.tier, status: 'approved' },
-    });
-    if (row && row.n >= minN) {
-      return { tier: row.tier, n: row.n, stats: row.overrides || row.stats };
-    }
+    const row = map.get(`${k.tier}|${k.sport}|${k.programme}|${k.gender}`);
+    if (row && row.n >= minN) return { tier: row.tier, n: row.n, stats: row.overrides || row.stats };
   }
   return null;
+}
+
+// Single-athlete resolve (loads the approved rows itself). Used by callers that
+// only need one athlete, e.g. the individual PDF report.
+async function resolveCohortStats(athlete, opts = {}) {
+  const approved = await CohortThreshold.findAll({ where: { status: 'approved' }, raw: true });
+  return resolveFromMap(athlete, buildApprovedCohortMap(approved), opts);
 }
 
 module.exports = {
   COMPONENTS, SHOWN_RISK_KEYS,
   orientedComponents, meanSd, computeStats,
   tierKeysFor, latestScreeningsByAthlete,
-  recomputeCohorts, resolveCohortStats,
+  recomputeCohorts, resolveCohortStats, resolveFromMap, buildApprovedCohortMap,
 };

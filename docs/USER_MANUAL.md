@@ -126,9 +126,13 @@ The athlete's home page. Vertical sections from top to bottom:
 
 At the very top — *above* the risk hero — a red/amber alert banner appears when a HoloMotion screening indicator for a body region **important to the athlete's sport** is out of a healthy range (e.g. an Ankle indicator for a Badminton player). It lists each flagged region with a Watch/High chip. Renders nothing when everything is in range. Full behaviour in [§13](#13-sport-critical-screening-alerts).
 
-### 4.1 Composite Risk Hero
+### 4.0.5 Overall Risk Indicator (primary signal)
 
-Full-width banner. Colour-coded by current risk band:
+Since the FYP II redesign the **Overall Risk Indicator** badge sits at the top of the dashboard as the *primary* risk signal (full behaviour in [§16](#16-overall-risk-indicator-cohort-normed)). It is a **traffic-light** badge — green (safe) / amber (needs attention) / red (immediate assessment) — with a 0–100 score derived from how the athlete's HoloMotion screening compares to their **cohort** (same sport + programme + gender), not an absolute cut-off. Below it, the sections that follow (composite ACWR, workload) are the *secondary* Training-Load view.
+
+### 4.1 Composite Risk Hero *(secondary — Training Load / ACWR)*
+
+Full-width banner, now labelled **"Secondary · Training Load (ACWR)"**. Colour-coded by current risk band:
 - 🟢 **Optimal** — green tint
 - 🟡 **Elevated** — amber tint
 - 🔴 **High Risk** — red tint
@@ -413,4 +417,67 @@ Lets an admin control exactly what each **medical** staff member can do, beyond 
 
 ---
 
-*Last updated: 2026-07-06 — §14 rewritten for the dashboard-embedded screening panel (the standalone screening pages are gone); §15 permission revocations now vanish features (hide + redirect, live refresh) and the injuries label corrected; structured injury intake documented per the new five-step flow. Previous: 2026-06-28 (HoloMotion PDF import, backup, alerts, screening pages, staff permissions).*
+## 16. Overall Risk Indicator (cohort-normed)
+
+The FYP II primary risk signal, shown as a traffic-light badge on the athlete, medical, and coach dashboards.
+
+**What it means:**
+- 🟢 **Green — Safe:** the athlete is at or above their cohort's typical screening profile.
+- 🟡 **Amber — Needs attention:** one escalation triggered.
+- 🔴 **Red — Immediate assessment:** two escalations triggered.
+
+**How the score is built (for the viva):** the system takes six screening components — Total Score, ROM, Stability, Symmetry, an inverted exercise-risk burden (mean of the 7 *shown* risk indicators; Lumbar Disc Herniation is deliberately excluded from all displays), and a left/right asymmetry penalty from the subitem scores — and **z-scores each against the athlete's cohort** (same sport + programme + gender). The z-scores are averaged with equal weight (the *Total Score of Athleticism* method) and mapped to a **0–100** display score where 50 = the cohort average.
+
+**Escalation (Dr Thung's rule):**
+- **+1** if the athlete is **below the cohort average**.
+- **+1** if the athlete is among the **bottom `k`** (default 3) of their cohort.
+
+So an athlete with a decent raw score who is nonetheless below their peers and among the cohort's worst escalates twice → red. This is intentional: a "good" number is not "safe" if everyone around them is doing better.
+
+**Cohort fallback:** if the most specific cohort (sport + programme + gender) has fewer than the admin-set minimum (`min_cohort_n`, default 5), the system falls back a tier — sport + gender → sport → everyone — to the first cohort large enough to be meaningful. If none qualifies, the badge shows "insufficient cohort data" and no escalation is applied.
+
+**Hover / expand** the badge to see the escalation factors driving the band (e.g. "below cohort average", "bottom 3 of 6 in cohort").
+
+---
+
+## 17. Cohort Thresholds & Settings (Admin) — `/admin/thresholds`
+
+Where the admin approves the reference norms every indicator is measured against.
+
+- **Approval queue:** every import recomputes the affected cohorts. New or changed cohorts land as **pending** rows, with the computed per-component **mean / SD pre-filled and editable**. The admin **Approve**s a cohort (or edits a mean first) to make it the live reference; **Revert** returns it to pending. Only approved cohorts are used for scoring.
+- **Recompute** button re-derives all cohorts from the latest screenings on demand.
+- **Settings** (tunable, not hardcoded): minimum cohort size (`min_cohort_n`), fallback on/off, the two escalation toggles, `bottom_k`, and the alert toggles / alert band. These directly change how every indicator is computed and when alerts fire.
+
+---
+
+## 18. Clinician Override (Medical) — on `/medical/dashboard`
+
+After a medical staffer **actually assesses** an athlete, they can override the computed band from the athlete's overall-risk badge:
+
+- Choose **green / amber / red** and enter a **required note** explaining the clinical judgement.
+- The override wins over the computed band on every surface until the **next import** for that athlete, at which point it auto-expires (the new screening starts fresh).
+- Use case: the system flags an athlete amber/red on the numbers, the clinician checks them and clears them to green with a note — or, conversely, escalates someone the numbers didn't catch.
+
+---
+
+## 19. Screening PDF Reports (Admin) — on `/admin/reports`
+
+A **Screening Reports** card offers three cohort-normed PDFs (separate from the injury-analytics report in [§10](#10-pdf-reports-admin--adminreports)):
+
+1. **Holistic (admin):** organisation-wide, non-expert-friendly **visualisations** — band distributions, most-flagged regions, screened coverage, and worst/attention lists.
+2. **Individual:** one athlete — their scores, muscle legend, risk levels, **their thresholds vs their peers**, and **progress deltas between HoloMotion reports** (from the screening history).
+3. **Team / group:** one sport + programme + gender cohort — the group thresholds, **everyone ranked against them**, plus an **attention table** listing each athlete's parts that need follow-up (built for the coach).
+
+Each streams straight to the browser as a download.
+
+---
+
+## 20. Email Alerts & Coach View
+
+**Email alerts (automatic):** when an import is **committed**, any athlete in that batch who lands **amber/red or escalated** triggers an email to the **medical staff** and to the **coaches assigned to that athlete's sport**. New data means "assess now" — the alert stops it sitting unseen. Alert behaviour (on/off, which band) is an admin setting ([§17](#17-cohort-thresholds--settings-admin--adminthresholds)). With no SMTP configured the mailer falls back to printing the email to the backend console.
+
+**Coach view — `/coach/dashboard`** (experimental 4th role): a read-only, sport-scoped squad-readiness board. A coach sees **all athletes in their sport(s)** with their HoloMotion overall-risk badges side by side, filterable by **sport + programme**, so they can see at a glance who needs the medical team's attention. Coaches cannot edit anything.
+
+---
+
+*Last updated: 2026-07-14 — FYP II screening-centred redesign: §4.0.5 overall-risk badge is now the primary signal and §4.1 composite ACWR is relabelled secondary Training Load; new §16 (cohort-normed overall indicator), §17 (admin cohort thresholds + settings), §18 (clinician override), §19 (three screening PDF reports), §20 (import-commit email alerts + coach view). Previous: 2026-07-06 — §14 dashboard-embedded screening panel; §15 permission revocations vanish features; five-step injury intake. Earlier: 2026-06-28 (HoloMotion PDF import, backup, staff permissions).*

@@ -119,6 +119,8 @@ Modules 1+2 are the FYP showcases requiring no further iteration. Modules 3–6 
 
 **FYP defensibility hook:** The **composite risk model** is the FYP innovation. It integrates workload + biomechanical screening + injury history into one classification, instead of the textbook Gabbett ACWR bands. See [DESIGN_DECISIONS.md §2](DESIGN_DECISIONS.md#2-composite-risk-model).
 
+> **FYP II note:** as of the 2026-07-13 screening-centred redesign the **cohort-normed overall risk indicator** (traffic-light badge) is the *primary* risk signal at the top of this dashboard; this composite ACWR hero is relabelled "Secondary · Training Load (ACWR)". It is demoted, not removed — see the [FYP II section](#fyp-ii--screening-centred-redesign-2026-07-13-) below.
+
 ---
 
 ## Module 3 — Injury & Recovery Logging 🟢
@@ -218,6 +220,41 @@ Modules 1+2 are the FYP showcases requiring no further iteration. Modules 3–6 
 
 ---
 
+## FYP II — Screening-Centred Redesign (2026-07-13) 🟢
+
+A cross-module layer added on Dr Thung's direction to shift AIRMS from an
+ACWR-workload centre of gravity to a **HoloMotion-screening** one. Anchor spec:
+[`docs/fyp/FYP2_REDESIGN_SPEC.md`](fyp/FYP2_REDESIGN_SPEC.md) (all stages A–F
+built); design rationale in [`DESIGN_DECISIONS.md §16`](DESIGN_DECISIONS.md);
+demoted-logic rebuild spec in [`docs/fyp/ACWR_REBUILD.md`](fyp/ACWR_REBUILD.md).
+Items left for JC to eyeball are in [`docs/fyp/JC_CHECKLIST.md`](fyp/JC_CHECKLIST.md).
+
+| Piece | Status | Where |
+|---|---|---|
+| **Immutable screening snapshots** — one history row per import; extractor expanded to 25 subitem scores + 8 posture axes + summary text (LDH extracted, stored, hidden from all displays per Dr Thung / ISN facilities) | ✅ | [`models/Screening.js`](../backend/src/models/Screening.js), [`utils/holomotionExtract.js`](../backend/src/utils/holomotionExtract.js) |
+| **Cohort-norm engine** — mean/SD per `(sport,programme,gender)` cohort over 4 fallback tiers (`spg→sg→s→all`); auto-computed on import | ✅ | [`utils/cohorts.js`](../backend/src/utils/cohorts.js), [`models/CohortThreshold.js`](../backend/src/models/CohortThreshold.js) |
+| **Admin approval queue + tunable settings** — pending cohorts pre-filled + editable; `min_cohort_n` / `bottom_k` / escalation & alert toggles are admin settings, not hardcoded | ✅ | [`/admin/thresholds`](../frontend/src/app/admin/thresholds/page.tsx), [`routes/cohorts.js`](../backend/src/routes/cohorts.js), [`models/Setting.js`](../backend/src/models/Setting.js), [`utils/settings.js`](../backend/src/utils/settings.js) |
+| **Overall risk indicator** — Total Score of Athleticism (average of component z-scores), 0–100 display score, **escalation** band (+1 below cohort mean, +1 in cohort's bottom-`k` → green/amber/red) | ✅ | [`utils/overallIndicator.js`](../backend/src/utils/overallIndicator.js), [`OverallRiskBadge.tsx`](../frontend/src/components/dashboard/OverallRiskBadge.tsx) |
+| **Clinician override** — medical staff can move an assessed athlete to green/amber/red with a required note; auto-expires on next import | ✅ | [`routes/screenings.js`](../backend/src/routes/screenings.js), medical dashboard |
+| **Three cohort-normed PDF reports** — admin holistic, individual (thresholds-vs-peers + report-to-report deltas), team/group (ranking + coach attention table) | ✅ | [`routes/screeningReports.js`](../backend/src/routes/screeningReports.js), card on [`/admin/reports`](../frontend/src/app/admin/reports/page.tsx) |
+| **Email alerts on import commit** — to medical staff + the sport's coaches when an athlete lands amber/red or escalated | ✅ | [`utils/alerts.js`](../backend/src/utils/alerts.js) |
+| **Coach view (experimental 4th role)** — read-only, sport-scoped squad readiness; all athletes' HoloMotion risks, filter by sport + programme | ✅ | [`/coach/dashboard`](../frontend/src/app/coach/dashboard/page.tsx) |
+| **ACWR demotion** — the composite personalised-ACWR model (`risk.ts`) is relabelled a secondary "Training Load" view; **not deleted** (Modules 1/2 intact), logic preserved for identical rebuild | ✅ | dashboards, [`docs/fyp/ACWR_REBUILD.md`](fyp/ACWR_REBUILD.md) |
+| **Batch upload + name-match + 52-sport search + editable identity** | ✅ | [`PdfScreeningUpload.tsx`](../frontend/src/components/upload/PdfScreeningUpload.tsx) |
+
+**Defensibility:** the indicator is cohort-normed (z-score + traffic-light is the
+accepted sports-science screening method; TSA equal-weight averaging removes
+arbitrary weighting) rather than an absolute cut-off, so "safe" adapts to
+sport/programme/gender. Escalation encodes Dr Thung's rule that a good raw score
+can still warrant assessment if the athlete is below their peers.
+
+**Left for JC to verify:** open the three PDFs in a real viewer, click through the
+traffic-light surfaces / thresholds page / override flow, decide whether the
+red-heavy seed distribution (bottom-3 of ~6 = half a small cohort) needs a larger
+demo cohort, and provide the test Gmail for a live alert send.
+
+---
+
 ## How module status changes
 
 When a module ships (status `⏳` → `✅`):
@@ -265,4 +302,4 @@ The umbrella message: *"All six modules are functional. The remaining work on Mo
 
 ---
 
-*Last updated: 2026-07-06. **Modules 2 & 6** — the standalone screening pages were folded into the dashboards as the shared `ScreeningPanel` (tier-ticked gauges + indicator threshold strips); seeded data is HoloMotion-only with ATH0061 (Thung Jin Seng) as pipeline ground truth. **General Module** — revoked staff features now vanish (sidebar hide + redirect + live session refresh) instead of showing an access-denied panel. **Module 3** — injury intake restructured into the five-step pro-team workflow (context on athlete selection, recurrence detection, time-loss-anchored severity). **Module 5** — screening-cohort analytics section from HoloMotion data. Previous: 2026-06-28 (Module 4 HoloMotion ingestion + backup; per-user permissions; screening pages).*
+*Last updated: 2026-07-14. **FYP II — Screening-Centred Redesign** (see the dedicated section above): cohort-normed overall risk indicator (TSA z-score + escalation) is now the primary risk signal; immutable screening snapshots + history; admin-approved cohort norms + tunable settings; clinician override; three cohort-normed PDF reports; import-commit email alerts; experimental coach role; ACWR demoted to a secondary Training-Load view. Perf pass on the cohort/indicator recompute paths (preload-into-Map + batched writes, no N+1). Previous: 2026-07-06 — **Modules 2 & 6** standalone screening pages folded into the dashboards as the shared `ScreeningPanel`; HoloMotion-only seed with ATH0061 (Thung Jin Seng) as pipeline ground truth. **General Module** — revoked staff features vanish (sidebar hide + redirect + live session refresh). **Module 3** — five-step pro-team injury intake. **Module 5** — screening-cohort analytics from HoloMotion data. Earlier: 2026-06-28 (Module 4 HoloMotion ingestion + backup; per-user permissions).*

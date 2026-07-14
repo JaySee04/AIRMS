@@ -70,6 +70,9 @@ All Sequelize models. The `index.js` registers them and wires up associations (`
 | [Activity.js](../backend/src/models/Activity.js) | id, athleteId, date, type, duration, intensity, load, notes | `beforeValidate` hook auto-computes `load = duration × intensity` |
 | [Injury.js](../backend/src/models/Injury.js) | id, athleteId, bodyPart, side, injuryType, severity, mechanism, date, recoveryStatus, source, notes | Enum values locked — see [MASTER_CLARIFICATIONS.md §9](MASTER_CLARIFICATIONS.md#9-locked-data-shapes-do-not-change-without-migrating-data) |
 | [SelfReport.js](../backend/src/models/SelfReport.js) | id, athleteId, bodyPart, side, suspectedType, severity, onsetDate, description, status (Pending/Approved/Rejected), reviewedBy, reviewNote | Approved reports get promoted into a new `Injury` row inside a single `sequelize.transaction()` |
+| [Screening.js](../backend/src/models/Screening.js) | **FYP II** id, athleteId, assessedAt, importedBy, headline scores (totalScore/rom/stability/symmetry/exerciseRisks), 8 risk indicators (incl. `spinalDiscHerniation`=LDH, stored not shown), subitems (JSON, 25 values), posture (JSON), summaryText, muscleFlags (JSON), overallIndicator/overallBand/escalations, override{Band,Note,By,At} | Immutable snapshot — one row per committed HoloMotion import (history). `athletes` still holds the latest; this powers progress deltas + cohort norms. Clinician-override fields auto-expire on the next import (new row, no override) |
+| [CohortThreshold.js](../backend/src/models/CohortThreshold.js) | **FYP II** id, sport, programme, gender, tier (`spg`\|`sg`\|`s`\|`all`), n, stats (JSON per-component {mean,sd}), overrides (JSON), status (`pending`\|`approved`), computedAt/approvedAt/approvedBy | One approved reference distribution per cohort per fallback tier. Auto-computed on import, admin-approved (pre-filled + editable) |
+| [Setting.js](../backend/src/models/Setting.js) | **FYP II** key, value (JSON) | Admin-tunable knobs: `min_cohort_n`, `fallback_enabled`, escalation toggles, `bottom_k`, alert toggles. See `utils/settings.js` for defaults |
 | [index.js](../backend/src/models/index.js) | — | Registers models + their `hasMany` / `belongsTo` associations |
 
 ### Routes — `backend/src/routes/`
@@ -84,6 +87,9 @@ All Sequelize models. The `index.js` registers them and wires up associations (`
 | [selfReports.js](../backend/src/routes/selfReports.js) | `/api/self-reports` | `GET /` (medical), `GET /athlete/:id`, `POST /`, `PATCH /:id/review` (approve→creates Injury) |
 | [upload.js](../backend/src/routes/upload.js) | `/api/upload` | **HoloMotion PDF (sole import path):** `GET /screening/pdf/status`, `POST /screening/pdf/preview` (render + vision-extract, no commit), `POST /screening/pdf` (commit JSON). Gated by `requirePermission('uploadData')`. Excel import retired 2026-07-12 → `archive/excel-upload/` |
 | [reports.js](../backend/src/routes/reports.js) | `/api/reports` | `POST /injuries-pdf` (admin only) — server-side `pdfkit` rendering of filtered injury report; streams `application/pdf` |
+| [screeningReports.js](../backend/src/routes/screeningReports.js) | `/api/screening-reports` | **FYP II** three cohort-normed HoloMotion PDFs: `GET /holistic.pdf` (admin), `GET /individual/:id.pdf`, `GET /team.pdf?sport&programme&gender`. `pdfkit`, drawn bars/pills |
+| [cohorts.js](../backend/src/routes/cohorts.js) | `/api/cohorts` | **FYP II** admin: `GET /` (approval queue), `POST /recompute`, `PATCH /:id` (approve/edit norms), `GET|PATCH /settings/all` (tunable min-n, bottom-k, toggles) |
+| [screenings.js](../backend/src/routes/screenings.js) | `/api/screenings` | **FYP II** `GET /athlete/:id` (history for progress deltas), `PATCH /:id/override` (medical clinician override of the risk band, note required) |
 | [export.js](../backend/src/routes/export.js) | `/api/export` | `GET /backup.xlsx` (admin only) — streams a multi-sheet Excel snapshot (athletes + injuries + muscle flags) as the Excel-era data backup |
 
 ### Middleware — `backend/src/middleware/`
@@ -102,7 +108,11 @@ All Sequelize models. The `index.js` registers them and wires up associations (`
 - [utils/permissions.js](../backend/src/utils/permissions.js) — per-user medical-staff feature permissions: the key catalogue (`viewRecords`, `uploadData`, `reviewReports`, `injuryReports`), `hasPermission()`, and `sanitizePermissions()`. Opt-out model — a capability is granted unless explicitly set `false`
 - [utils/pdfRender.js](../backend/src/utils/pdfRender.js) — renders HoloMotion PDF pages (1–3) to base64 PNGs via `pdfjs-dist` + the `canvas`→`@napi-rs/canvas` npm alias. HoloMotion PDFs have no text layer (jsPDF-baked graphics), so vision is the only reliable read
 - [utils/visionClient.js](../backend/src/utils/visionClient.js) — provider-agnostic vision call. OpenAI-compatible adapter (OpenAI / Qwen / OpenRouter / Ollama) + Anthropic native adapter, selected by `VISION_*` env vars; `isVisionConfigured()` lets routes self-disable cleanly
-- [utils/holomotionExtract.js](../backend/src/utils/holomotionExtract.js) — full pipeline: render → vision prompt → strict JSON → mapped onto the flat `Athlete` columns + `muscle_flags` rows
+- [utils/holomotionExtract.js](../backend/src/utils/holomotionExtract.js) — full pipeline: render → vision prompt → strict JSON → mapped onto the flat `Athlete` columns + `muscle_flags` rows. **FYP II** the prompt/mapping now also extract the 25 subitem scores, 8 posture axes, and page-1 summary text
+- **FYP II** [utils/cohorts.js](../backend/src/utils/cohorts.js) — cohort-norm engine. `orientedComponents()` builds the six higher-is-better inputs (totalScore/rom/stability/symmetry + `riskGood` = negated mean of the 7 shown risks, LDH excluded + `balance` = negated L/R subitem asymmetry); `recomputeCohorts()` computes mean/SD per `(sport,programme,gender)` cohort across the four fallback tiers and upserts them (preload-into-Map + `Promise.all`/`bulkCreate`, no N+1); `resolveFromMap()`/`resolveCohortStats()` walk the `spg→sg→s→all` ladder to the first tier meeting `min_cohort_n`
+- **FYP II** [utils/overallIndicator.js](../backend/src/utils/overallIndicator.js) — the overall risk indicator (Total Score of Athleticism): `computeIndicator()` averages the component z-scores, maps to a 0–100 display score, and bands by **escalation** (+1 below cohort mean, +1 in the cohort's bottom-`k` → 0/1/2 = green/amber/red); `recomputeIndicators()` re-scores every athlete's latest screening in-memory from the approved cohorts (parallel load + `Promise.all` update)
+- **FYP II** [utils/settings.js](../backend/src/utils/settings.js) — `getSettings()`/`setSetting()` over the `settings` key/value table, with `DEFAULTS` (min_cohort_n 5, fallback on, both escalations on, bottom_k 3, alerts on, alert_on_band amber)
+- **FYP II** [utils/alerts.js](../backend/src/utils/alerts.js) — `alertIfNeeded(athleteId)`: if the athlete's latest band ≥ `alert_on_band`, emails the medical staff + the sport's coaches (coaches whose `coachSports` includes the athlete's sport) via `utils/mailer.js`. Fired on import commit
 
 ---
 
@@ -124,20 +134,22 @@ Pages mapped to the 3 roles + profile pages:
 | Path | Role | Purpose |
 |---|---|---|
 | [`/`](../frontend/src/app/page.tsx) | public | Login |
-| [`/athlete/dashboard`](../frontend/src/app/athlete/dashboard/page.tsx) | athlete | Module 2 — composite risk dashboard + embedded HoloMotion screening panel |
+| [`/athlete/dashboard`](../frontend/src/app/athlete/dashboard/page.tsx) | athlete | Module 2 — **FYP II** overall risk indicator (traffic-light badge) is the primary signal; composite ACWR relabelled "Secondary · Training Load" + embedded HoloMotion screening panel |
 | [`/athlete/activity`](../frontend/src/app/athlete/activity/page.tsx) | athlete | Module 1 — activity tracking |
 | [`/athlete/injury-report`](../frontend/src/app/athlete/injury-report/page.tsx) | athlete | Module 3 — self-report form |
 | [`/athlete/profile`](../frontend/src/app/athlete/profile/page.tsx) | athlete | Profile |
-| [`/medical/dashboard`](../frontend/src/app/medical/dashboard/page.tsx) | medical | Module 6 — athlete search/view + embedded HoloMotion screening panel |
+| [`/medical/dashboard`](../frontend/src/app/medical/dashboard/page.tsx) | medical | Module 6 — athlete search/view + overall risk badge with **clinician override** (green/amber/red + note) + embedded HoloMotion screening panel |
 | [`/medical/injury-log`](../frontend/src/app/medical/injury-log/page.tsx) | medical | Module 3 — log official injury |
 | [`/medical/review-reports`](../frontend/src/app/medical/review-reports/page.tsx) | medical | Module 3 — review athlete self-reports |
 | [`/medical/data-upload`](../frontend/src/app/medical/data-upload/page.tsx) | medical | Module 4 — HoloMotion PDF import (batch + name-match) |
 | [`/medical/profile`](../frontend/src/app/medical/profile/page.tsx) | medical | Profile |
 | [`/admin/dashboard`](../frontend/src/app/admin/dashboard/page.tsx) | admin | Module 5 — injury analytics |
-| [`/admin/reports`](../frontend/src/app/admin/reports/page.tsx) | admin | Module 5 — PDF report builder |
+| [`/admin/reports`](../frontend/src/app/admin/reports/page.tsx) | admin | Module 5 — injury PDF report builder + **FYP II** screening reports card (holistic / individual / team downloads) |
+| [`/admin/thresholds`](../frontend/src/app/admin/thresholds/page.tsx) | admin | **FYP II** cohort-norm approval queue — tunable settings, recompute, per-cohort approve/revert + editable component means |
 | [`/admin/staff`](../frontend/src/app/admin/staff/page.tsx) | admin | Medical-staff permission control + account activation |
 | [`/admin/data-upload`](../frontend/src/app/admin/data-upload/page.tsx) | admin | Module 4 — HoloMotion PDF import (batch + name-match) + data backup |
 | [`/admin/profile`](../frontend/src/app/admin/profile/page.tsx) | admin | Profile |
+| [`/coach/dashboard`](../frontend/src/app/coach/dashboard/page.tsx) | coach | **FYP II** (experimental 4th role) read-only, sport-scoped squad readiness — all athletes' HoloMotion overall risks, filterable by sport + programme |
 
 ### Layout components — `frontend/src/components/layout/`
 
@@ -160,6 +172,7 @@ Pages mapped to the 3 roles + profile pages:
 | [bodymap-data/types.ts](../frontend/src/components/dashboard/bodymap-data/types.ts) | `BodyPart` interface |
 | [ScreeningPanel.tsx](../frontend/src/components/dashboard/ScreeningPanel.tsx) | Athlete + Medical dashboards (embedded). The latest HoloMotion report read against its thresholds — five tier-ticked score gauges, eight indicator threshold strips (OK/Watch/High zones, sport-critical regions starred via `lib/screeningAlerts.ts`), myodynamia/tension chips |
 | [ScreeningAlertBanner.tsx](../frontend/src/components/dashboard/ScreeningAlertBanner.tsx) | Athlete + Medical dashboards. Renders the sport-aware screening alert (a body region critical for the athlete's sport whose HoloMotion indicator is out of range). Backed by `lib/screeningAlerts.ts`; renders nothing when there's nothing to flag |
+| [OverallRiskBadge.tsx](../frontend/src/components/dashboard/OverallRiskBadge.tsx) | **FYP II** Athlete + Medical + Coach dashboards. Traffic-light badge for the cohort-normed overall indicator (0–100 score, band, escalation factors); compact + full modes. On Medical it carries the clinician-override control |
 
 ### Upload component — `frontend/src/components/upload/`
 

@@ -76,19 +76,24 @@ function resolvedCohortId(a, tier) {
 // store it on their latest Screening row. Run after an import and after a
 // cohort is approved/edited. Returns a summary.
 async function recomputeIndicators() {
-  const { Screening } = require('../models');
-  const { latestScreeningsByAthlete, resolveCohortStats } = require('./cohorts');
+  const { Screening, CohortThreshold } = require('../models');
+  const { latestScreeningsByAthlete, resolveFromMap, buildApprovedCohortMap } = require('./cohorts');
   const { getSettings } = require('./settings');
   const settings = await getSettings();
   const opts = { minN: settings.min_cohort_n, fallbackEnabled: settings.fallback_enabled };
 
-  const rows = await latestScreeningsByAthlete();
-  const enriched = [];
-  for (const { athlete, screening } of rows) {
-    const resolved = await resolveCohortStats(athlete, opts);
+  // Load latest screenings + approved cohorts once; resolve each athlete in
+  // memory (no per-athlete cohort queries).
+  const [rows, approved] = await Promise.all([
+    latestScreeningsByAthlete(),
+    CohortThreshold.findAll({ where: { status: 'approved' }, raw: true }),
+  ]);
+  const cohortMap = buildApprovedCohortMap(approved);
+  const enriched = rows.map(({ athlete, screening }) => {
+    const resolved = resolveFromMap(athlete, cohortMap, opts);
     const z = resolved ? compositeZ(screening, resolved.stats) : null;
-    enriched.push({ athlete, screening, resolved, z });
-  }
+    return { athlete, screening, resolved, z };
+  });
 
   // Rank within each resolved cohort (rank 1 = lowest z = worst performer).
   const groups = new Map();
@@ -105,15 +110,16 @@ async function recomputeIndicators() {
   }
 
   let scored = 0;
-  for (const e of enriched) {
+  const updates = enriched.map((e) => {
     const rankInfo = rankOf.get(e.screening.id) || null;
     const r = computeIndicator(e.screening, e.resolved ? e.resolved.stats : null, rankInfo, settings);
-    await Screening.update(
+    if (r.indicator !== null) scored++;
+    return Screening.update(
       { overallIndicator: r.indicator, overallBand: r.band, escalations: r.escalations },
       { where: { id: e.screening.id } },
     );
-    if (r.indicator !== null) scored++;
-  }
+  });
+  await Promise.all(updates);
   return { athletes: enriched.length, scored };
 }
 
