@@ -8,6 +8,7 @@ const { extractFromPdf } = require('../utils/holomotionExtract');
 const { isVisionConfigured, visionConfig } = require('../utils/visionClient');
 const { recomputeCohorts } = require('../utils/cohorts');
 const { recomputeIndicators } = require('../utils/overallIndicator');
+const { alertIfNeeded } = require('../utils/alerts');
 
 // NOTE: the original Excel screening-upload path (multer excel filter,
 // normaliseRow/validateRow, POST /screening/preview + /screening) was retired
@@ -158,9 +159,12 @@ router.post('/screening/pdf', auth, rbac('medical', 'admin'), requirePermission(
     try {
       await recomputeCohorts();
       await recomputeIndicators();
+      // Alert medical staff + the sport's coaches if this athlete now lands
+      // amber/red — assess immediately rather than let the finding sit.
+      await alertIfNeeded(data.athleteId);
     } catch (e) {
       // eslint-disable-next-line no-console
-      console.error('Post-import recompute failed:', e.message);
+      console.error('Post-import recompute/alert failed:', e.message);
     }
 
     res.json({ message: 'Import complete', action, athleteId: data.athleteId, muscleFlags: flagRows.length });
