@@ -141,8 +141,10 @@ VISION_PROVIDER=openai           # openai | anthropic
 VISION_API_KEY=...               # leave blank to disable PDF ingestion
 VISION_BASE_URL=                 # optional endpoint override (Qwen/OpenRouter/Ollama)
 VISION_MODEL=gpt-4o-mini         # any vision-capable model id
-VISION_FULL_PAGES=               # set 1 to send whole pages instead of the cropped
-                                 # data bands (troubleshoot a HoloMotion layout drift)
+VISION_MAX_PAGES=                # leading pages sent to the model (default 6 — covers
+                                 # both compact & expanded HoloMotion layouts). Extraction
+                                 # renders full pages of the data section (layout-robust),
+                                 # not fixed crops — HoloMotion ships >1 page layout.
 VISION_RENDER_SCALE=             # render scale 1-4 (default 2); lower = fewer tokens
 ```
 

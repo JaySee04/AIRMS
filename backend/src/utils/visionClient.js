@@ -70,9 +70,10 @@ function buildAnthropicContent(prompt, images) {
   return content;
 }
 
-// The extraction JSON tops out around 500 tokens even with long muscle lists;
-// 800 leaves headroom without letting a rambling model burn output budget.
-const MAX_OUTPUT_TOKENS = 800;
+// The expanded extraction JSON (headline + 8 risks + 25 subitems + 8 posture
+// axes + summary text + muscle lists) runs ~1200-1600 tokens; 2500 leaves
+// headroom for a verbose summary without letting a rambling model run away.
+const MAX_OUTPUT_TOKENS = 2500;
 
 async function callOpenAICompatible(cfg, prompt, images) {
   const res = await fetch(`${cfg.baseUrl}/chat/completions`, {

@@ -53,6 +53,15 @@ const EXPECTED = {
     { muscle: 'Pectoralis Major', side: 'R' },
     { muscle: 'Pectoralis Major', side: 'L' },
   ],
+  // Physical Fitness Subitem Score table (page 3 of Thung's compact layout):
+  // region → [ROM-L, ROM-R, Stability-L, Stability-R, Symmetry].
+  subitems: {
+    neck: [95, 62, 81, 60, 58],
+    shoulder: [86, 90, 59, 57, 77],
+    torso: [96, 85, 84, 82, 78],
+    pelvis: [89, 85, 60, 78, 68],
+    lowerLimbs: [90, 90, 72, 74, 92],
+  },
 };
 
 function normName(s) { return String(s ?? '').trim().toLowerCase(); }
@@ -88,6 +97,24 @@ function compare(mapped) {
       missing.length === 0 && extra.length === 0,
     );
   }
+
+  // Subitem scores (25 values). Compares each region's [romL,romR,stabL,stabR,sym].
+  const METRICS = ['romL', 'romR', 'stabL', 'stabR', 'sym'];
+  const gotSub = mapped.subitems || {};
+  for (const [region, wantArr] of Object.entries(EXPECTED.subitems)) {
+    const row = gotSub[region] || {};
+    const gotArr = METRICS.map((m) => (row[m] == null ? null : Number(row[m])));
+    const ok = wantArr.every((v, i) => gotArr[i] === v);
+    check(`subitem ${region}`, `[${gotArr.join(',')}]`, `[${wantArr.join(',')}]`, ok);
+  }
+
+  // Posture + summary: presence checks (findings vary in exact wording, so we
+  // verify the sections were read, not exact strings).
+  const posture = mapped.posture || {};
+  const postureAxesRead = Object.values(posture).filter((p) => p && (p.finding || p.value != null)).length;
+  check('posture axes read', `${postureAxesRead}/8`, '>= 6', postureAxesRead >= 6);
+  check('summary read', mapped.summary ? `${mapped.summary.length} chars` : 'empty', 'non-empty', Boolean(mapped.summary && mapped.summary.length > 20));
+
   return { rows, failures };
 }
 
