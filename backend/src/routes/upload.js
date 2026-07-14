@@ -1,6 +1,6 @@
 const express = require('express');
 const multer = require('multer');
-const { sequelize, Athlete, MuscleFlag } = require('../models');
+const { sequelize, Athlete, MuscleFlag, Screening } = require('../models');
 const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
 const requirePermission = require('../middleware/permission');
@@ -72,7 +72,15 @@ router.post('/screening/pdf/preview', auth, rbac('medical', 'admin'), requirePer
 // sends back the extracted payload plus the operator-supplied metadata.
 router.post('/screening/pdf', auth, rbac('medical', 'admin'), requirePermission('uploadData'), express.json({ limit: '1mb' }), async (req, res) => {
   try {
-    const { athlete = {}, myodynamia = [], tension = [], athleteId, sport, program } = req.body || {};
+    const {
+      athlete = {}, myodynamia = [], tension = [], athleteId, sport, program,
+      // Screening-snapshot extras from the preview (stored on the screenings
+      // history row, not the flat athletes columns).
+      assessedAt = null, summary = null, subitems = null, posture = null,
+    } = req.body || {};
+
+    // Auto Title-Case the name (report prints lowercase; operator may not fix it).
+    if (athlete.name) athlete.name = String(athlete.name).replace(/\S+/g, (w) => w[0].toUpperCase() + w.slice(1).toLowerCase());
 
     const data = {
       ...athlete,
@@ -100,6 +108,33 @@ router.post('/screening/pdf', auth, rbac('medical', 'admin'), requirePermission(
       .filter((m) => m.muscle && ['L', 'R', 'B'].includes(m.side))
       .map((m) => ({ athleteId: data.athleteId, flagType: m.flagType, muscle: String(m.muscle).trim(), side: m.side }));
 
+    // Immutable history snapshot of this import (athletes table holds latest;
+    // screenings holds every import for progress-over-time + report deltas).
+    const num = (v) => (v === null || v === undefined || v === '' || Number.isNaN(Number(v)) ? null : Number(v));
+    const screeningRow = {
+      athleteId: data.athleteId,
+      assessedAt: assessedAt ? new Date(assessedAt) : null,
+      importedBy: req.user?.name || null,
+      totalScore: num(athlete.overallActivityScore),
+      exerciseRisks: num(athlete.injuryRiskIndex),
+      rom: num(athlete.mobility),
+      stability: num(athlete.stability),
+      symmetry: num(athlete.symmetry),
+      neckInjuryRisk: num(athlete.neckInjuryRisk) ?? 0,
+      shoulderInjuryRisk: num(athlete.shoulderInjuryRisk) ?? 0,
+      scoliosis: num(athlete.scoliosis) ?? 0,
+      spinalDiscHerniation: num(athlete.spinalDiscHerniation) ?? 0,
+      lumbarPelvisInjury: num(athlete.lumbarPelvisInjury) ?? 0,
+      jointPain: num(athlete.jointPain) ?? 0,
+      kneeInjuryRisk: num(athlete.kneeInjuryRisk) ?? 0,
+      ankleInjuryRisk: num(athlete.ankleInjuryRisk) ?? 0,
+      subitems: subitems || null,
+      posture: posture || null,
+      summaryText: summary || null,
+      muscleFlags: { myodynamia, tension },
+      // overallIndicator/band/escalations computed in Stage C once cohorts exist.
+    };
+
     let action = 'created';
     await sequelize.transaction(async (t) => {
       const existing = await Athlete.findOne({ where: { athleteId: data.athleteId }, transaction: t });
@@ -112,6 +147,7 @@ router.post('/screening/pdf', auth, rbac('medical', 'admin'), requirePermission(
       // Replace muscle flags wholesale so re-importing a newer screen is idempotent.
       await MuscleFlag.destroy({ where: { athleteId: data.athleteId }, transaction: t });
       if (flagRows.length) await MuscleFlag.bulkCreate(flagRows, { transaction: t });
+      await Screening.create(screeningRow, { transaction: t });
     });
 
     res.json({ message: 'Import complete', action, athleteId: data.athleteId, muscleFlags: flagRows.length });

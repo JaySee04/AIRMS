@@ -6,7 +6,7 @@
  */
 require('dotenv').config({ path: require('path').join(__dirname, '../../.env') });
 
-const { sequelize, User, Athlete, MuscleFlag, Activity, Injury, SelfReport } = require('../models');
+const { sequelize, User, Athlete, MuscleFlag, Activity, Injury, SelfReport, Screening } = require('../models');
 
 // ── Deterministic PRNG (seed=42 — same demo data on every reseed) ──────────
 let _seed = 42;
@@ -176,7 +176,96 @@ function buildAthletes() {
     ],
   });
 
+  // Second ground-truth athlete — Muhammad Nazwan Bin Abdullah (ATH0062),
+  // transcribed 1:1 from his real HoloMotion report (2025-08-13). Distinct
+  // page layout from Thung's, so importing both proves the layout-robust
+  // extractor and gives a genuine two-athlete batch demo. Subitem scores +
+  // real values live on his seeded Screening snapshot (see buildScreenings).
+  athletes.push({
+    athleteId: 'ATH0062',
+    name: 'Muhammad Nazwan Bin Abdullah',
+    age: 21,
+    gender: 'Male',
+    sport: 'Badminton', program: 'PODIUM',
+    overallActivityScore: 78,   // Total Score
+    injuryRiskIndex: 14,        // Exercise Risks
+    mobility: 71,               // ROM (Average)
+    stability: 82,              // Good
+    symmetry: 88,               // Excellent
+    neckInjuryRisk: 14,         // Neck Pain
+    shoulderInjuryRisk: 8,      // Shoulder Pain
+    scoliosis: 12,
+    spinalDiscHerniation: 16,   // Lumbar Disc Herniation (stored, not shown)
+    lumbarPelvisInjury: 16,     // Anterior pelvic tilt
+    jointPain: 15,
+    kneeInjuryRisk: 21,         // Ligament Strain
+    ankleInjuryRisk: 26,        // Ankle Sprain
+    _myodynamia: [
+      { muscle: 'Gluteus Medius', side: 'L' },
+      { muscle: 'Piriformis', side: 'L' },
+      { muscle: 'Piriformis', side: 'R' },
+    ],
+    _tension: [
+      { muscle: 'Gluteus Maximus', side: 'L' },
+      { muscle: 'Gluteus Maximus', side: 'R' },
+      { muscle: 'Iliopsoas', side: 'L' },
+    ],
+  });
+
   return athletes;
+}
+
+// Nazwan's real Physical Fitness Subitem Score table (page 5 of his report):
+// region → [ROM-L, ROM-R, Stability-L, Stability-R, Symmetry].
+const NAZWAN_SUBITEMS = {
+  neck: { romL: 83, romR: 72, stabL: 76, stabR: 76, sym: 83 },
+  shoulder: { romL: 89, romR: 85, stabL: 84, stabR: 82, sym: 89 },
+  torso: { romL: 70, romR: 67, stabL: 87, stabR: 89, sym: 90 },
+  pelvis: { romL: 62, romR: 71, stabL: 76, stabR: 82, sym: 86 },
+  lowerLimbs: { romL: 66, romR: 68, stabL: 76, stabR: 79, sym: 91 },
+};
+
+// Build immutable Screening history snapshots. Every screened athlete gets one
+// snapshot mirroring their latest (athletes-table) values so Stage B cohort
+// stats have a full population. Ground-truth athletes get richer snapshots:
+//   - Thung (ATH0061): his seeded STALE values dated earlier — importing his
+//     real PDF then adds a newer, better snapshot → the individual report shows
+//     stale→good progress.
+//   - Nazwan (ATH0062): his real values + the real subitem table.
+function buildScreenings(athletes) {
+  const daysAgo = (d) => { const dt = new Date(); dt.setDate(dt.getDate() - d); return dt; };
+  const snap = (a, assessedAt, extra = {}) => ({
+    athleteId: a.athleteId,
+    assessedAt,
+    importedBy: 'Seed',
+    totalScore: a.overallActivityScore ?? null,
+    exerciseRisks: a.injuryRiskIndex ?? null,
+    rom: a.mobility ?? null,
+    stability: a.stability ?? null,
+    symmetry: a.symmetry ?? null,
+    neckInjuryRisk: a.neckInjuryRisk ?? 0,
+    shoulderInjuryRisk: a.shoulderInjuryRisk ?? 0,
+    scoliosis: a.scoliosis ?? 0,
+    spinalDiscHerniation: a.spinalDiscHerniation ?? 0,
+    lumbarPelvisInjury: a.lumbarPelvisInjury ?? 0,
+    jointPain: a.jointPain ?? 0,
+    kneeInjuryRisk: a.kneeInjuryRisk ?? 0,
+    ankleInjuryRisk: a.ankleInjuryRisk ?? 0,
+    muscleFlags: { myodynamia: a._myodynamia, tension: a._tension },
+    ...extra,
+  });
+
+  const rows = [];
+  for (const a of athletes) {
+    const screened = a.overallActivityScore != null;
+    if (!screened) continue;
+    if (a.athleteId === 'ATH0062') {
+      rows.push(snap(a, daysAgo(6), { subitems: NAZWAN_SUBITEMS }));
+    } else {
+      rows.push(snap(a, daysAgo(range(20, 75))));
+    }
+  }
+  return rows;
 }
 
 function flattenMuscleFlags(athletes) {
@@ -400,6 +489,10 @@ async function seed() {
     const selfReports = buildSelfReports();
     await SelfReport.bulkCreate(selfReports, { transaction: t });
     console.log(`Inserted ${selfReports.length} self-reports`);
+
+    const screenings = buildScreenings(athletes);
+    await Screening.bulkCreate(screenings, { transaction: t });
+    console.log(`Inserted ${screenings.length} screening snapshots`);
 
     const users = buildUsers();
     await User.bulkCreate(users, { transaction: t, individualHooks: true });

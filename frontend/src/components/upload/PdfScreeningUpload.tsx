@@ -42,6 +42,10 @@ interface PreviewResponse {
   tension: MuscleEntry[];
   assessedAt: string | null;
   pagesRead: number[];
+  // Screening-snapshot extras, passed straight back on commit (no re-extraction).
+  summary?: string | null;
+  subitems?: Record<string, Record<string, number | null>> | null;
+  posture?: Record<string, { finding: string | null; value: number | null }> | null;
 }
 
 interface StatusResponse {
@@ -71,6 +75,11 @@ interface QueueItem {
   athleteId: string;
   sport: string;
   program: string;
+  // Editable identity — pre-filled from the report (new athlete) or roster
+  // (existing). Operator can correct name/age/gender before import.
+  name: string;
+  age: string;
+  gender: string;
 }
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000/api';
@@ -157,9 +166,14 @@ export default function PdfScreeningUpload() {
         athleteId: '',
         sport: '',
         program: '',
+        name: '',
+        age: '',
+        gender: '',
       })),
     ]);
   }
+
+  const titleCase = (s: string) => s.replace(/\S+/g, (w) => w[0].toUpperCase() + w.slice(1).toLowerCase());
 
   function patchItem(id: number, patch: Partial<QueueItem>) {
     setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...patch } : it)));
@@ -201,6 +215,10 @@ export default function PdfScreeningUpload() {
         athleteId: matched?.athleteId ?? '',
         sport: matched?.sport ?? '',
         program: matched?.program ?? matched?.programme ?? '',
+        // Identity pre-fill: matched roster name, else the (Title-Cased) report name.
+        name: matched?.name ?? titleCase(preview.athlete.name ?? ''),
+        age: preview.athlete.age != null ? String(preview.athlete.age) : '',
+        gender: preview.athlete.gender ?? '',
       });
     } catch (e) {
       patchItem(item.id, { status: 'error', error: e instanceof Error ? e.message : 'Failed to read PDF' });
@@ -223,22 +241,33 @@ export default function PdfScreeningUpload() {
 
   async function commitOne(item: QueueItem): Promise<void> {
     if (!item.preview) return;
-    if (!item.athleteId.trim() || !item.sport.trim() || !item.program) {
-      patchItem(item.id, { error: 'Athlete ID, Sport, and Programme are required before importing.' });
+    if (!item.athleteId.trim() || !item.sport.trim() || !item.program || !item.name.trim()) {
+      patchItem(item.id, { error: 'Name, Athlete ID, Sport, and Programme are required before importing.' });
       return;
     }
     patchItem(item.id, { status: 'committing', error: null });
     try {
+      // Merge the operator's identity edits over the extracted athlete.
+      const athlete = {
+        ...item.preview.athlete,
+        name: item.name.trim(),
+        age: item.age.trim() ? Number(item.age) : item.preview.athlete.age,
+        gender: item.gender || item.preview.athlete.gender,
+      };
       const res = await fetch(`${BASE}/upload/screening/pdf`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({
-          athlete: item.preview.athlete,
+          athlete,
           myodynamia: item.preview.myodynamia,
           tension: item.preview.tension,
           athleteId: item.athleteId.trim(),
           sport: item.sport.trim(),
           program: item.program,
+          assessedAt: item.preview.assessedAt,
+          summary: item.preview.summary ?? null,
+          subitems: item.preview.subitems ?? null,
+          posture: item.preview.posture ?? null,
         }),
       });
       const data = await res.json();
@@ -251,7 +280,7 @@ export default function PdfScreeningUpload() {
       // (and the ID datalist) can match them immediately.
       const committed: RosterAthlete = {
         athleteId: item.athleteId.trim(),
-        name: item.preview.athlete.name ?? item.athleteId.trim(),
+        name: item.name.trim() || item.athleteId.trim(),
         sport: item.sport.trim(),
         program: item.program,
       };
@@ -264,7 +293,7 @@ export default function PdfScreeningUpload() {
   async function commitAllReady() {
     setBusy(true);
     try {
-      const ready = items.filter((it) => it.status === 'ready' && it.athleteId.trim() && it.sport.trim() && it.program);
+      const ready = items.filter((it) => it.status === 'ready' && it.name.trim() && it.athleteId.trim() && it.sport.trim() && it.program);
       for (const it of ready) await commitOne(it); // no API cost — commits replay the preview JSON
     } finally {
       setBusy(false);
@@ -274,7 +303,7 @@ export default function PdfScreeningUpload() {
   const disabled = status !== null && !status.configured;
   const queuedCount = items.filter((it) => it.status === 'queued' || it.status === 'error').length;
   const readyCount = items.filter((it) => it.status === 'ready').length;
-  const completeReady = items.filter((it) => it.status === 'ready' && it.athleteId.trim() && it.sport.trim() && it.program).length;
+  const completeReady = items.filter((it) => it.status === 'ready' && it.name.trim() && it.athleteId.trim() && it.sport.trim() && it.program).length;
 
   return (
     <div className="card">
@@ -383,13 +412,34 @@ export default function PdfScreeningUpload() {
                   </div>
                   {it.matched ? (
                     <div className="alert alert-info" style={{ marginBottom: 10 }}>
-                      Matched roster athlete <strong>{it.matched.name} ({it.matched.athleteId})</strong> — ID, sport, and programme auto-filled. Edit below if this is the wrong person.
+                      Matched roster athlete <strong>{it.matched.name} ({it.matched.athleteId})</strong> — identity, sport, and programme auto-filled. Edit below if anything is wrong.
                     </div>
                   ) : (
                     <div className="text-muted" style={{ fontSize: '0.8rem', marginBottom: 10 }}>
-                      No roster athlete named “{it.preview.athlete.name ?? '—'}” — enter the new athlete&apos;s details.
+                      No roster athlete named “{it.preview.athlete.name ?? '—'}” — confirm the new athlete&apos;s details.
                     </div>
                   )}
+
+                  {/* Editable identity — report name is Title-Cased on prefill;
+                      name/age/gender are not on some reports so stay editable. */}
+                  <div className="form-group">
+                    <label>Name <span style={{ color: 'var(--risk-high)' }}>*</span></label>
+                    <input value={it.name} onChange={(e) => patchItem(it.id, { name: e.target.value })} placeholder="Full name" />
+                  </div>
+                  <div className="form-row-2">
+                    <div className="form-group">
+                      <label>Age</label>
+                      <input type="number" min={5} max={90} value={it.age} onChange={(e) => patchItem(it.id, { age: e.target.value })} placeholder="—" />
+                    </div>
+                    <div className="form-group">
+                      <label>Gender</label>
+                      <select value={it.gender} onChange={(e) => patchItem(it.id, { gender: e.target.value })}>
+                        <option value="">—</option>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                      </select>
+                    </div>
+                  </div>
 
                   <div className="form-group">
                     <label>Athlete ID <span style={{ color: 'var(--risk-high)' }}>*</span></label>
@@ -428,7 +478,7 @@ export default function PdfScreeningUpload() {
                     type="button"
                     className="btn btn-primary"
                     onClick={() => commitOne(it)}
-                    disabled={it.status === 'committing' || !it.athleteId.trim() || !it.sport.trim() || !it.program}
+                    disabled={it.status === 'committing' || !it.name.trim() || !it.athleteId.trim() || !it.sport.trim() || !it.program}
                   >
                     {it.status === 'committing' ? 'Importing…' : 'Confirm & import'}
                   </button>
