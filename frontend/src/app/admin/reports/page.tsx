@@ -50,6 +50,60 @@ export default function AdminReportsPage() {
   );
 }
 
+// HoloMotion screening reports — holistic (cohort), individual (by athlete ID),
+// and team (by sport/programme/gender). Streamed PDFs.
+function ScreeningReportsCard() {
+  const [athleteId, setAthleteId] = useState('');
+  const [sport, setSport] = useState('Badminton');
+  const [programme, setProgramme] = useState('');
+  const [gender, setGender] = useState('');
+  const [busy, setBusy] = useState('');
+  const [err, setErr] = useState<string | null>(null);
+
+  async function dl(kind: string, path: string, filename: string) {
+    setBusy(kind); setErr(null);
+    try { await api.downloadGet(path, filename); }
+    catch (e) { setErr(e instanceof Error ? e.message : 'Download failed'); }
+    finally { setBusy(''); }
+  }
+
+  return (
+    <div className="card">
+      <div className="card-header"><div>
+        <h2 className="card-title" style={{ marginBottom: 0 }}>HoloMotion Screening Reports</h2>
+        <span className="card-sub">Cohort-normed PDF reports sourced from the ingested screenings.</span>
+      </div></div>
+      {err && <div className="alert alert-error">{err}</div>}
+      <div className="grid-3" style={{ gap: 16 }}>
+        <div>
+          <strong style={{ fontSize: '0.85rem' }}>Holistic (all athletes)</strong>
+          <p className="text-muted" style={{ fontSize: '0.8rem', margin: '4px 0 8px' }}>Cohort-wide risk distribution, averages, and flagged athletes.</p>
+          <button type="button" className="btn btn-primary btn-sm" disabled={busy !== ''} onClick={() => dl('h', '/screening-reports/holistic.pdf', 'AIRMS-holistic.pdf')}>{busy === 'h' ? '…' : 'Download'}</button>
+        </div>
+        <div>
+          <strong style={{ fontSize: '0.85rem' }}>Individual</strong>
+          <div className="form-group" style={{ margin: '4px 0' }}>
+            <input value={athleteId} onChange={(e) => setAthleteId(e.target.value)} placeholder="Athlete ID e.g. ATH0061" />
+          </div>
+          <button type="button" className="btn btn-primary btn-sm" disabled={busy !== '' || !athleteId.trim()} onClick={() => dl('i', `/screening-reports/individual/${athleteId.trim()}.pdf`, `AIRMS-${athleteId.trim()}.pdf`)}>{busy === 'i' ? '…' : 'Download'}</button>
+        </div>
+        <div>
+          <strong style={{ fontSize: '0.85rem' }}>Team / group</strong>
+          <div style={{ display: 'flex', gap: 6, margin: '4px 0', flexWrap: 'wrap' }}>
+            <input value={sport} onChange={(e) => setSport(e.target.value)} placeholder="Sport" style={{ flex: '1 1 100px' }} />
+            <select value={programme} onChange={(e) => setProgramme(e.target.value)}><option value="">Any prog</option><option>PODIUM</option><option>PELAPIS</option><option>OTHERS</option></select>
+            <select value={gender} onChange={(e) => setGender(e.target.value)}><option value="">Any gender</option><option>Male</option><option>Female</option></select>
+          </div>
+          <button type="button" className="btn btn-primary btn-sm" disabled={busy !== '' || !sport.trim()} onClick={() => {
+            const q = new URLSearchParams({ sport: sport.trim(), ...(programme ? { programme } : {}), ...(gender ? { gender } : {}) });
+            dl('t', `/screening-reports/team.pdf?${q}`, 'AIRMS-team.pdf');
+          }}>{busy === 't' ? '…' : 'Download'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ReportBuilder() {
   // Reads incoming filter state from the admin dashboard's "Generate PDF
   // Report" link. If any of these query params are present, the form
@@ -174,9 +228,11 @@ function ReportBuilder() {
 
   return (
     <DashboardLayout allowedRoles={['admin']} title="PDF Reports">
+      <ScreeningReportsCard />
+      <div style={{ height: 20 }} />
       <div className="grid-1-2">
         <div className="card">
-          <h2 className="card-title">Report Builder</h2>
+          <h2 className="card-title">Injury Report Builder</h2>
           {error && <div className="alert alert-error">{error}</div>}
 
           <form onSubmit={handleGenerate}>

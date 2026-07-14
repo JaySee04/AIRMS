@@ -28,15 +28,34 @@
   (his report says sport "All/None", para athlete). Confirm that's a sensible
   sport/programme, or tell me what to use.
 
-## Stage B — cohort thresholds (upcoming)
-_(items will appear here as the stage lands)_
+## Stage B — cohort thresholds (built)
+- [ ] **Admin → Cohort Thresholds page** — eyeball it: settings (min cohort n,
+  bottom-k, toggles), the approval queue (approve/revert), and editing a
+  cohort's component means. Recompute button re-scores everyone.
+- [ ] **Red-heavy band distribution is a seed artifact** — small demo cohorts
+  (n≈5–8) make "bottom-3" a large fraction, so ~half seed as red. Real ISN
+  cohorts (20–50) won't. Confirm you're fine with this for the demo, or raise
+  `min_cohort_n` / concentrate the seed further.
+- [ ] **Cohort assignment** — seed roster is concentrated into 5 sports
+  (Badminton/Swimming/Athletics/Football/Hockey) so cohorts hit n≥5. OK?
 
-## Stage C — overall risk indicator (upcoming)
-- [ ] Does the traffic-light read the way you expect on the athlete/medical/coach
-  views (once built)?
+## Stage C — overall risk indicator (built)
+- [ ] **Traffic-light badge** reads right on the athlete dashboard, the medical
+  per-athlete view, and the coach table (compact column). Green=safe,
+  amber=needs attention, red=immediate assessment.
+- [ ] **Clinician override** — on the medical view, the Green/Amber/Red buttons
+  prompt for a note and set the effective band (underlying stays). Try it on an
+  amber/red athlete; confirm the flow + wording.
 
-## Stage D — the three PDF reports (upcoming)
-- [ ] Do the reports look right / readable to a non-domain-expert (once built)?
+## Stage D — the three PDF reports (built)
+- [ ] **Open the three PDFs in a real viewer** (Admin → PDF Reports → HoloMotion
+  Screening Reports): Holistic, Individual (try ATH0061), Team (Badminton).
+  *Note: text renders only in a real PDF viewer — my offline check could only
+  confirm the bars/layout, not the text.* Confirm they read well for a
+  non-domain-expert and the data is right.
+- [ ] **Individual report progress section** shows only one row until an athlete
+  has ≥2 screenings — import a newer report for Thung to see the stale→good
+  delta appear.
 
 ## Stage E — email alerts (upcoming)
 - [ ] Provide the dedicated test Gmail so alert mail can be verified against a
