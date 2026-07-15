@@ -160,6 +160,24 @@ none, show "insufficient cohort" and skip escalation.
    everyone vs threshold (**ranking**), plus an **attention table** of each
    athlete's parts needing follow-up (for the coach).
 
+**Scale upgrade (2026-07-15, per JC):** all three rebuilt to the density of the
+TMG group/individual report format JC provided (AIRMS navy/gold identity kept):
+- **Exercise Risk Evaluation** in every report on HoloMotion's printed legend —
+  Low 0–15 / Medium 16–55 / High 56–100 zone gauges, printed indicator names
+  (Neck Pain … Ankle Sprain), radar chart; LDH still stored-not-shown.
+- **Physical Fitness Subitem Score table** (5 regions × ROM L/R, Stab L/R, Sym)
+  as tier-coloured score discs on HoloMotion's 60/75/85 boundaries (Below
+  Average / Average / Good / Excellent) — individual report + per-athlete
+  snapshot blocks for flagged athletes in the team report.
+- **Interpretation section** (individual): data-driven bullets — composite z vs
+  cohort, below-average components, beyond-Low risks, marked L/R gaps, muscle
+  flags, any clinician override.
+- Holistic adds screened coverage, exercise-risk hotspots, bands-by-sport.
+- Page footers with page numbers; verified by rendering every page to PNG.
+- Seeder now generates plausible subitems for the whole screened population
+  (Nazwan keeps his real page-5 table) so the tables and the `balance`
+  component have real signal.
+
 ## 8. Coach view
 
 - Read-only, sport-scoped, HoloMotion-based squad readiness.

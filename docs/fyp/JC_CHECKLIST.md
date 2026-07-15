@@ -47,14 +47,25 @@
   prompt for a note and set the effective band (underlying stays). Try it on an
   amber/red athlete; confirm the flow + wording.
 
-## Stage D — the three PDF reports (built)
+## Stage D — the three PDF reports (rebuilt at TMG scale, 2026-07-15)
 - [ ] **Open the three PDFs in a real viewer** (Admin → PDF Reports → HoloMotion
   Screening Reports): Holistic, Individual (try ATH0061), Team (Badminton).
-  *Note: text renders only in a real PDF viewer — my offline check could only
-  confirm the bars/layout, not the text.* Confirm they read well for a
-  non-domain-expert and the data is right.
+  Now rebuilt to the TMG report density you asked for: Exercise Risk Evaluation
+  on the printed legend (Low 0–15 / Medium 16–55 / High 56–100) with radar,
+  the Physical Fitness Subitem Score disc table (60/75/85 tiers), an
+  Interpretation section, per-athlete snapshot blocks in the team report, and
+  page numbers. *This time every page was rendered to an image and eyeballed —
+  text included — so this is a taste check, not a smoke test.*
+- [ ] **Synthetic subitems in the seed** — all screened athletes now carry a
+  plausible generated subitem table so the reports/balance component have
+  signal (Nazwan ATH0062 keeps his real page-5 values; real imports carry real
+  ones). Thung's seeded indicator shifted 42 → 38 (still red, 2 escalations)
+  because balance now participates. OK?
+- [ ] **Risk names in the PDFs use the printed HoloMotion labels** (Neck Pain,
+  Anterior Pelvic Tilt, Ligament Strain, Ankle Sprain…) rather than AIRMS's
+  internal column names — confirm you want the printed vocabulary.
 - [ ] **Individual report progress section** shows only one row until an athlete
-  has ≥2 screenings — import a newer report for Thung to see the stale→good
+  has 2+ screenings — import a newer report for Thung to see the stale→good
   delta appear.
 
 ## Stage E — email alerts (upcoming)

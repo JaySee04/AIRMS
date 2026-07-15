@@ -232,6 +232,30 @@ const NAZWAN_SUBITEMS = {
   lowerLimbs: { romL: 66, romR: 68, stabL: 76, stabR: 79, sym: 91 },
 };
 
+// Plausible Physical Fitness Subitem Scores for the rest of the screened
+// population (Nazwan keeps his real table above). Regional values are jittered
+// around the athlete's headline ROM/Stability/Symmetry so the table reads
+// coherently with the gauges, with the occasional marked L/R gap so the
+// balance component and the reports' asymmetry callouts have real signal.
+function genSubitems(a) {
+  const clamp = (v) => Math.max(42, Math.min(97, Math.round(v)));
+  const around = (base) => clamp((base ?? 70) + range(-8, 8));
+  const region = () => {
+    const gap = rnd() < 0.25 ? range(6, 14) : range(0, 5); // 1-in-4 regions asymmetric
+    const flip = rnd() < 0.5 ? 1 : -1;
+    const romL = around(a.mobility);
+    const stabL = around(a.stability);
+    return {
+      romL,
+      romR: clamp(romL + flip * gap),
+      stabL,
+      stabR: clamp(stabL - flip * range(0, 6)),
+      sym: around(a.symmetry),
+    };
+  };
+  return { neck: region(), shoulder: region(), torso: region(), pelvis: region(), lowerLimbs: region() };
+}
+
 // Build immutable Screening history snapshots. Every screened athlete gets one
 // snapshot mirroring their latest (athletes-table) values so Stage B cohort
 // stats have a full population. Ground-truth athletes get richer snapshots:
@@ -269,7 +293,7 @@ function buildScreenings(athletes) {
     if (a.athleteId === 'ATH0062') {
       rows.push(snap(a, daysAgo(6), { subitems: NAZWAN_SUBITEMS }));
     } else {
-      rows.push(snap(a, daysAgo(range(20, 75))));
+      rows.push(snap(a, daysAgo(range(20, 75)), { subitems: genSubitems(a) }));
     }
   }
   return rows;
