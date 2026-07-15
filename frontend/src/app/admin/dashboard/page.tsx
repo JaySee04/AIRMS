@@ -573,7 +573,7 @@ export default function AdminDashboard() {
                     <div
                       key={ind.key}
                       className="cohort-bar-row"
-                      title={`${ind.label}: ${ind.ok} OK · ${ind.watch} Watch · ${ind.high} High`}
+                      title={`${ind.label}: ${ind.ok} Low · ${ind.watch} Watch · ${ind.high} Elevated`}
                     >
                       <div className="cohort-bar-label">{ind.label}</div>
                       <div className="cohort-bar-track">
@@ -585,10 +585,15 @@ export default function AdminDashboard() {
                   );
                 })}
               </div>
+              {/* Band words must match the strips, the alert banner and the PDF
+                  reports — see the vocabulary note in lib/screeningAlerts.ts. */}
               <div className="screening-strip-legend">
-                <span><span className="legend-swatch legend-swatch--ok" /> OK ≤ 15</span>
+                <span><span className="legend-swatch legend-swatch--ok" /> Low ≤ 15</span>
                 <span><span className="legend-swatch legend-swatch--watch" /> Watch 16–25</span>
-                <span><span className="legend-swatch legend-swatch--high" /> High &gt; 25</span>
+                <span><span className="legend-swatch legend-swatch--high" /> Elevated &gt; 25</span>
+                <span className="text-muted">
+                  Report prints Low 0–15 · Medium 16–55; AIRMS splits Medium into Watch / Elevated
+                </span>
               </div>
             </div>
 

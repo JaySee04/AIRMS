@@ -10,8 +10,9 @@
 // Scale/density is modelled on the TMG group/individual report format JC
 // provided (multi-page, radar + zone gauges + per-athlete sections +
 // interpretation text) while keeping the AIRMS navy/gold identity. The
-// Exercise Risk Evaluation uses HoloMotion's printed legend (Low 0–15 /
-// Medium 16–55 / High 56–100) and printed indicator names; the Physical
+// Exercise Risk Evaluation uses HoloMotion's printed indicator names and the
+// AIRMS bands (Low ≤15 · Watch 16–25 · Elevated >25) — the SAME words and
+// boundaries the dashboards use; see the RISK_ZONES note below. The Physical
 // Fitness Subitem Score table uses HoloMotion's 60/75/85 tier boundaries
 // (Below Average / Average / Good / Excellent). Lumbar Disc Herniation is
 // stored but never shown (Dr Thung / ISN facilities).
@@ -40,13 +41,26 @@ const BAND = { green: '#2e9e5b', amber: '#d99a16', red: '#d14b4b' };
 const bandColor = (b) => BAND[b] || MUTED;
 const bandLabel = (b) => ({ green: 'Safe', amber: 'Needs attention', red: 'Immediate assessment' }[b] || '—');
 
-// Exercise Risk Evaluation — HoloMotion's printed legend + indicator names.
+// Exercise Risk Evaluation bands. These MUST agree with the dashboards —
+// frontend/src/lib/screeningAlerts.ts is the counterpart definition and carries
+// the full rationale. Summary:
+//
+//   HoloMotion prints:  Low 0–15 │ Medium 16–55        │ High 56–100
+//   AIRMS shows:        Low ≤15  │ Watch 16–25 · Elevated >25
+//
+// AIRMS' Low boundary is the report's exactly; above it AIRMS subdivides the
+// report's broad Medium band so ISN can act early. AIRMS never says "High" —
+// the report reserves that for 56–100, far above anything the instrument
+// produces (the ground-truth reports top out at 27). Until 2026-07-16 these
+// reports used the printed legend while the dashboards used ≤15/≤25/>25, so a
+// 26 read "Medium Risk" on the PDF and "HIGH RISK" on screen.
+const RISK_AXIS_MAX = 40; // display axis, matches the dashboard strips
 const RISK_ZONES = [
-  { max: 15, label: 'Low Risk', color: BAND.green, tint: '#e3f2e8' },
-  { max: 55, label: 'Medium Risk', color: BAND.amber, tint: '#f8eed5' },
-  { max: 100, label: 'High Risk', color: BAND.red, tint: '#f8e2e2' },
+  { max: 15, label: 'Low', color: BAND.green, tint: '#e3f2e8' },
+  { max: 25, label: 'Watch', color: BAND.amber, tint: '#f8eed5' },
+  { max: RISK_AXIS_MAX, label: 'Elevated', color: BAND.red, tint: '#f8e2e2' },
 ];
-const riskZone = (v) => RISK_ZONES[v > 55 ? 2 : v > 15 ? 1 : 0];
+const riskZone = (v) => RISK_ZONES[v > 25 ? 2 : v > 15 ? 1 : 0];
 // LDH (spinalDiscHerniation) deliberately absent.
 const RISKS = [
   ['neckInjuryRisk', 'Neck Pain'],
@@ -162,8 +176,9 @@ function bar(doc, label, value, max, color, opts = {}) {
   doc.y = y + 16;
 }
 
-// Exercise-risk gauge on HoloMotion's printed zones (Low ≤15, Medium 16–55,
-// High 56–100): tinted zone track, marker at the value, zone-coloured label.
+// Exercise-risk gauge on the AIRMS bands (Low ≤15 · Watch 16–25 · Elevated
+// >25), drawn on the same 0–40 axis the dashboard strips use: tinted zone
+// track, marker at the value, zone-coloured label.
 function zoneGauge(doc, label, value) {
   ensure(doc, 19);
   const v = num(value) ?? 0;
@@ -173,12 +188,12 @@ function zoneGauge(doc, label, value) {
   const bx = x + 130;
   let zx = bx; let prev = 0;
   for (const z of RISK_ZONES) {
-    const zw = barW * ((z.max - prev) / 100);
+    const zw = barW * ((z.max - prev) / RISK_AXIS_MAX);
     doc.rect(zx, y, zw, 11).fill(z.tint);
     zx += zw; prev = z.max;
   }
   const zone = riskZone(v);
-  const mx = bx + barW * Math.max(0, Math.min(1, v / 100));
+  const mx = bx + barW * Math.max(0, Math.min(1, v / RISK_AXIS_MAX));
   doc.moveTo(mx, y - 2).lineTo(mx, y + 13).strokeColor(zone.color).lineWidth(2).stroke().lineWidth(1);
   doc.circle(mx, y - 3.5, 2.2).fill(zone.color);
   doc.fillColor(zone.color).fontSize(9).font('Helvetica-Bold')
@@ -190,13 +205,18 @@ function zoneGauge(doc, label, value) {
 function riskLegend(doc) {
   ensure(doc, 16);
   const y = doc.y; let x = 50;
-  for (const z of [['Low Risk (0–15)', BAND.green], ['Medium Risk (16–55)', BAND.amber], ['High Risk (56–100)', BAND.red]]) {
+  for (const z of [['Low (0–15)', BAND.green], ['Watch (16–25)', BAND.amber], ['Elevated (>25)', BAND.red]]) {
     doc.circle(x + 3, y + 4, 3).fill(z[1]);
     doc.fillColor(MUTED).fontSize(8).font('Helvetica').text(z[0], x + 10, y, { lineBreak: false });
     x += doc.widthOfString(z[0]) + 34;
   }
   doc.fillColor(TEXT);
-  doc.y = y + 14;
+  doc.y = y + 12;
+  doc.fontSize(7.5).fillColor(MUTED).font('Helvetica')
+    .text('The HoloMotion report prints Low 0–15 · Medium 16–55 · High 56–100. AIRMS keeps the report’s Low boundary and subdivides its Medium band into Watch and Elevated so ISN can act early; readings above 55 do not occur in practice. These are the standard bands — the dashboards hold each athlete’s sport-critical regions to a tighter Watch/Elevated boundary (12/20), so a region may band one step higher on screen than here.',
+      50, doc.y, { width: doc.page.width - 100 });
+  doc.fillColor(TEXT);
+  doc.moveDown(0.2);
 }
 
 // Physical Fitness Subitem Score table — coloured score discs per HoloMotion
@@ -319,7 +339,7 @@ function interpret(screening, cohort, subitems) {
   }
   const flaggedRisks = RISKS
     .map(([k, label]) => ({ label, v: num(screening[k]) ?? 0, zone: riskZone(num(screening[k]) ?? 0) }))
-    .filter((r) => r.zone.label !== 'Low Risk')
+    .filter((r) => r.zone.label !== 'Low')
     .sort((a, b) => b.v - a.v);
   if (flaggedRisks.length) {
     out.push(`Exercise-risk indicators beyond Low: ${flaggedRisks.map((r) => `${r.label} ${r.v} (${r.zone.label})`).join(' · ')}.`);
@@ -383,16 +403,16 @@ router.get('/holistic.pdf', auth, rbac('admin'), async (_req, res) => {
     zoneGauge(doc, 'Exercise Risks (avg)', avg('exerciseRisks'));
 
     // Exercise-risk hotspots — how many athletes sit beyond Low per region
-    sectionTitle(doc, 'Exercise Risk Hotspots (athletes beyond Low Risk)');
+    sectionTitle(doc, 'Exercise Risk Hotspots (athletes beyond Low)');
     riskLegend(doc);
     const hot = RISKS.map(([k, label]) => ({
       label,
-      medium: rows.filter(({ screening }) => (num(screening[k]) ?? 0) > 15 && (num(screening[k]) ?? 0) <= 55).length,
-      high: rows.filter(({ screening }) => (num(screening[k]) ?? 0) > 55).length,
-    })).sort((a, b) => (b.medium + b.high) - (a.medium + a.high));
+      watch: rows.filter(({ screening }) => (num(screening[k]) ?? 0) > 15 && (num(screening[k]) ?? 0) <= 25).length,
+      elevated: rows.filter(({ screening }) => (num(screening[k]) ?? 0) > 25).length,
+    })).sort((a, b) => (b.watch + b.elevated) - (a.watch + a.elevated));
     for (const h of hot) {
-      bar(doc, h.label, h.medium + h.high, total, h.high ? BAND.red : BAND.amber,
-        { valueText: h.high ? `${h.medium + h.high} (${h.high} high)` : `${h.medium + h.high}` });
+      bar(doc, h.label, h.watch + h.elevated, total, h.elevated ? BAND.red : BAND.amber,
+        { valueText: h.elevated ? `${h.watch + h.elevated} (${h.elevated} elevated)` : `${h.watch + h.elevated}` });
     }
 
     // Bands by sport

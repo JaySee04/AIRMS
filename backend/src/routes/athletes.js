@@ -73,7 +73,11 @@ router.get('/meta/sports', auth, rbac('medical', 'admin'), requirePermission('vi
 // HoloMotion screening data (admin analytics). Declared BEFORE /:id.
 // Returns, across active athletes:
 //   - screened / unscreened counts (screened = any headline score present)
-//   - per-indicator OK / Watch / High counts (report bands: ≤15 / ≤25 / >25)
+//   - per-indicator Low / Watch / Elevated counts (AIRMS bands: ≤15 / ≤25 />25).
+//     The band WORDS live on the frontend (lib/screeningAlerts.ts BAND_LABEL) —
+//     keep the boundaries here in step with that file and with the PDF reports
+//     (routes/screeningReports.js RISK_ZONES). All three describe the same
+//     numbers and must not contradict each other.
 //   - cohort averages for the five headline gauges
 //   - most-flagged muscles for each flag type
 router.get('/analytics/screening', auth, rbac('admin'), async (_req, res) => {

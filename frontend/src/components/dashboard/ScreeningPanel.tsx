@@ -18,7 +18,7 @@
 // per-category flag cards), so repeating them would be noise.
 
 import {
-  AthleteRisks, INDICATORS, WATCH_THRESHOLD, HIGH_THRESHOLD,
+  AthleteRisks, BAND_LABEL, INDICATORS, WATCH_THRESHOLD, HIGH_THRESHOLD,
   TIGHT_WATCH_THRESHOLD, TIGHT_HIGH_THRESHOLD,
   RegionThresholds, thresholdsFor, bandFor, criticalRegionsFor,
 } from '@/lib/screeningAlerts';
@@ -52,10 +52,14 @@ function qualityBand(v: number): { label: string; color: string } {
 }
 
 // Presentation for a lower-is-better band (Exercise Risks gauge + indicators).
+// Words come from BAND_LABEL so the strips, the alert banner, the admin cohort
+// chart and the PDF reports all describe the same number identically. Note
+// "Elevated", not "High" — the report reserves High for 56–100. See the band
+// vocabulary note in lib/screeningAlerts.ts.
 const BAND_META = {
-  ok: { label: 'OK', color: 'var(--risk-low, #2e9e5b)' },
-  watch: { label: 'Watch', color: 'var(--risk-mod, #d99a16)' },
-  high: { label: 'High Risk', color: 'var(--risk-high, #d14b4b)' },
+  ok: { label: BAND_LABEL.ok, color: 'var(--risk-low, #2e9e5b)' },
+  watch: { label: BAND_LABEL.watch, color: 'var(--risk-mod, #d99a16)' },
+  high: { label: BAND_LABEL.high, color: 'var(--risk-high, #d14b4b)' },
 } as const;
 
 // The overall Exercise Risks gauge is banded on the instrument's own scale —
@@ -126,8 +130,8 @@ function IndicatorStrip({ label, value, t }: { label: string; value: number; t: 
     <div
       className="screening-strip"
       role="img"
-      aria-label={`${label}: ${value.toFixed(0)} — ${band.label}. Thresholds: OK up to ${t.watch}, Watch up to ${t.high}, High above ${t.high}${t.tightened ? ' (tightened — critical region for this sport)' : ''}`}
-      title={`${label}: ${value.toFixed(0)} — ${band.label} (OK ≤ ${t.watch} · Watch ≤ ${t.high} · High > ${t.high}${t.tightened ? ' — tightened: critical region for this sport' : ''})`}
+      aria-label={`${label}: ${value.toFixed(0)} — ${band.label}. Thresholds: Low up to ${t.watch}, Watch up to ${t.high}, Elevated above ${t.high}${t.tightened ? ' (tightened — critical region for this sport)' : ''}`}
+      title={`${label}: ${value.toFixed(0)} — ${band.label} (Low ≤ ${t.watch} · Watch ≤ ${t.high} · Elevated > ${t.high}${t.tightened ? ' — tightened: critical region for this sport' : ''})`}
     >
       <div className="screening-strip-label">
         {label}
@@ -216,11 +220,14 @@ export default function ScreeningPanel({ athlete }: { athlete: ScreeningData }) 
           ))}
         </div>
         <div className="screening-strip-legend">
-          <span><span className="legend-swatch legend-swatch--ok" /> OK</span>
-          <span><span className="legend-swatch legend-swatch--watch" /> Watch</span>
-          <span><span className="legend-swatch legend-swatch--high" /> High</span>
+          <span><span className="legend-swatch legend-swatch--ok" /> {BAND_LABEL.ok}</span>
+          <span><span className="legend-swatch legend-swatch--watch" /> {BAND_LABEL.watch}</span>
+          <span><span className="legend-swatch legend-swatch--high" /> {BAND_LABEL.high}</span>
           <span>standard bands ≤{WATCH_THRESHOLD} / ≤{HIGH_THRESHOLD}</span>
           <span>★ sport-critical — tightened to ≤{TIGHT_WATCH_THRESHOLD} / ≤{TIGHT_HIGH_THRESHOLD}</span>
+          <span className="text-muted">
+            Report prints Low 0–15 · Medium 16–55; AIRMS splits Medium into Watch / Elevated
+          </span>
         </div>
       </div>
 
@@ -258,7 +265,7 @@ function TrainingFocus({ athlete }: { athlete: ScreeningData }) {
                     {f.label}{f.critical && <span className="screening-strip-star" aria-label="sport-critical region"> ★</span>}
                   </span>
                   <span className={f.band === 'high' ? 'badge-high' : 'badge-moderate'}>
-                    {f.band === 'high' ? 'High' : 'Watch'} · {f.value.toFixed(0)}
+                    {BAND_LABEL[f.band]} · {f.value.toFixed(0)}
                   </span>
                 </div>
                 <ul className="focus-exercises">

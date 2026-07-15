@@ -5,7 +5,7 @@
 // for the athlete's sport. Shared by the athlete and medical dashboards.
 // Renders nothing when there is nothing to flag.
 
-import { AthleteRisks, computeBodyPartAlerts, recommendedAction } from '@/lib/screeningAlerts';
+import { AthleteRisks, BAND_LABEL, computeBodyPartAlerts, recommendedAction } from '@/lib/screeningAlerts';
 
 interface Props {
   risks: AthleteRisks | undefined | null;
@@ -48,7 +48,7 @@ export default function ScreeningAlertBanner({ risks, sport, audience = 'staff' 
         {alerts.map((a) => (
           <li key={`${a.label}-${a.region}`} className={`screening-alert-item${a.critical ? ' is-critical' : ''}`}>
             <span className={`screening-chip screening-chip--${a.band}`}>
-              {a.band === 'high' ? 'High' : 'Watch'}
+              {BAND_LABEL[a.band]}
             </span>
             <span className="screening-alert-label">
               {a.label}

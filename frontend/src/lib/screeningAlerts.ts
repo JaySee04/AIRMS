@@ -43,11 +43,38 @@ export const INDICATORS: Array<{ key: keyof AthleteRisks; region: BodyRegion; la
   { key: 'ankleInjuryRisk', region: 'Ankle', label: 'Ankle' },
 ];
 
-// Exercise-risk indicators are 0–40, lower is better. The base bands are the
-// HoloMotion report's own risk legend (Low ≤15) split conservatively:
-// ≤15 OK · 16–25 Watch · >25 High.
+// Exercise-risk indicators are 0–40 on AIRMS' display axis, lower is better.
+//
+// BAND VOCABULARY — must agree with the PDF reports (backend/src/routes/
+// screeningReports.js) and the admin cohort analytics (backend/src/routes/
+// athletes.js). All three read the same numbers, so they must say the same
+// words about them.
+//
+//   HoloMotion prints:  Low 0–15 │ Medium 16–55        │ High 56–100
+//   AIRMS shows:        Low ≤15  │ Watch 16–25 · Elevated >25
+//
+// AIRMS' Low boundary is the report's Low boundary exactly. Above it, AIRMS
+// SUBDIVIDES the report's broad Medium band into Watch and Elevated, because
+// ISN wants to act well before an athlete drifts toward the top of Medium.
+// AIRMS deliberately never uses the word "High": the report reserves that for
+// 56–100, which is far above anything the instrument produces in practice
+// (the two ground-truth reports top out at 27). Calling a 26 "High Risk" — as
+// AIRMS did until 2026-07-16 — directly contradicted the printed report a
+// clinician would be holding, and disagreed with our own PDFs.
 export const WATCH_THRESHOLD = 15;
 export const HIGH_THRESHOLD = 25;
+
+// Display axis for the threshold strips + PDF gauges. Real readings sit well
+// inside this; the report's own 56–100 High band is off-axis by design.
+export const RISK_AXIS_MAX = 40;
+
+// The single label set for the three bands. `high` is the internal key kept for
+// back-compat; its user-facing word is "Elevated" (see the note above).
+export const BAND_LABEL: Record<'ok' | 'watch' | 'high', string> = {
+  ok: 'Low',
+  watch: 'Watch',
+  high: 'Elevated',
+};
 
 // Sport-tightened bands. Every athlete takes the SAME eight tests, but the
 // thresholds each test is judged against depend on the athlete's sport: a
