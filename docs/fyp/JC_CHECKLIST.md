@@ -52,16 +52,29 @@
 
 ### Two things I found that need YOUR decision
 
-- [ ] **"⚠ critical" still fires for nearly every athlete — the thresholds are
-  the cause, not the seed.** AIRMS bands exercise risks at ≤15 OK / 16–25 Watch
-  / >25 High, and tightens sport-critical regions to ≤12 / ≤20. **HoloMotion's
-  own printed legend is Low 0–15 / Medium 16–55 / High 56–100.** So AIRMS calls
-  26 "HIGH RISK" where the instrument prints "Medium Risk" — and since real
-  athletes routinely read 14–27, almost everyone trips a sport-critical alert.
-  **This also means the new PDFs disagree with the dashboards**: I built the
-  reports on HoloMotion's printed legend, so the same 26 reads "Medium Risk" on
-  the PDF and "HIGH RISK" on screen. Pick one scheme — I'd align both on
-  HoloMotion's printed legend and re-tune sport-critical to sit inside it.
+- [x] ~~PDFs and dashboards disagreed about the same number~~ — **fixed
+  2026-07-16.** One vocabulary now, everywhere: **Low ≤15 · Watch 16–25 ·
+  Elevated >25**. AIRMS' Low boundary is the report's Low boundary exactly;
+  above it AIRMS subdivides the report's broad Medium (16–55) into Watch and
+  Elevated so ISN can act early, and **never says "High"** — the word the report
+  reserves for 56–100, which no real reading approaches. Boundaries unchanged
+  (15/25), so nothing re-banded; this was vocabulary + consistency only.
+  Verified on ATH0061: Ankle 27 "Elevated", Ligament 26 "Elevated", Shoulder 18
+  "Watch" — identical on screen and on the PDF.
+  - [ ] **Confirm you're happy with the word "Elevated"** (it replaces "High"
+    on the strips, alert chips, Training Focus and cohort chart) and with the
+    reconciliation line each surface now carries.
+  - [ ] **One place they can still differ by a step, by design:** PDFs show the
+    standard bands; the dashboards tighten **sport-critical** regions to 12/20.
+    So a 22 on a Badminton ankle is "Watch" on the PDF and "Elevated" on screen.
+    The PDF now states this. Tell me if you'd rather the PDFs apply the
+    sport-tightened thresholds too (means duplicating the sport→region map
+    server-side, which will drift — I'd avoid it).
+- [ ] **"⚠ critical" still fires for nearly every athlete.** Not the seed —
+  the sport-critical watch threshold is 12, and real athletes routinely read
+  14–27 across 7 regions, so *someone* is almost always above it. If you want
+  the alert to mean something rarer, the lever is the sport-critical
+  thresholds (12/20), not the data. Say the word and I'll model a few options.
 - [ ] **~42% of athletes band red, and it's a ranking bug, not small cohorts.**
   The norms are computed over *everyone* at a tier, but the bottom-k **ranking
   group only contains athletes who fell back to that tier**. Measured live:
