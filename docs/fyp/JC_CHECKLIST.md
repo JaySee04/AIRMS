@@ -28,6 +28,50 @@
   (his report says sport "All/None", para athlete). Confirm that's a sensible
   sport/programme, or tell me what to use.
 
+## Layout audit — ACWR removal + seed reshape (2026-07-16)
+
+- [ ] **ACWR is gone from all three dashboards.** Athlete + medical lost the
+  composite hero, the ACWR gauge, the load stat tiles and the Workload Trend
+  chart; the cohort indicator is now a proper hero (big band + big 0–100 +
+  plain-English "why"), paired with the risk radar. Coach lost the ACWR and
+  Risk-level columns and its readiness now maps off the HoloMotion band.
+  Athlete dashboard is ~650px shorter. **Eyeball all three.**
+- [ ] **`risk.ts` still runs** — it drives the recovery-baseline trigger and the
+  medical prevention-insight card, and `/athlete/activity` is untouched. If a
+  panellist asks "where did your graded composite model go?", the answer is
+  `docs/fyp/ACWR_REBUILD.md` + those two live consumers. Confirm you're happy
+  with that story.
+- [ ] **Seed injuries are realistic now** — recovery status is a function of how
+  long ago the injury happened, so 19/62 athletes (31%) carry an active injury
+  instead of 61/62 (98%). Coach readiness went 4/96/0% → 43/14/39%.
+- [ ] **I tried skewing the seeded risk scores healthier and reverted it** — the
+  two real reports (Thung 15/18/14/24/9/26/27, Nazwan 14/8/12/16/15/21/26) sit
+  at a median of ~15 with half of all regions above 15, which is exactly what
+  the existing `range(2,28)` reproduces. The seed was already faithful; the
+  alert volume is a threshold problem (next item), not a data problem.
+
+### Two things I found that need YOUR decision
+
+- [ ] **"⚠ critical" still fires for nearly every athlete — the thresholds are
+  the cause, not the seed.** AIRMS bands exercise risks at ≤15 OK / 16–25 Watch
+  / >25 High, and tightens sport-critical regions to ≤12 / ≤20. **HoloMotion's
+  own printed legend is Low 0–15 / Medium 16–55 / High 56–100.** So AIRMS calls
+  26 "HIGH RISK" where the instrument prints "Medium Risk" — and since real
+  athletes routinely read 14–27, almost everyone trips a sport-critical alert.
+  **This also means the new PDFs disagree with the dashboards**: I built the
+  reports on HoloMotion's printed legend, so the same 26 reads "Medium Risk" on
+  the PDF and "HIGH RISK" on screen. Pick one scheme — I'd align both on
+  HoloMotion's printed legend and re-tune sport-critical to sit inside it.
+- [ ] **~42% of athletes band red, and it's a ranking bug, not small cohorts.**
+  The norms are computed over *everyone* at a tier, but the bottom-k **ranking
+  group only contains athletes who fell back to that tier**. Measured live:
+  11 resolved groups, two of which have **2 members** — with `bottom_k = 3`,
+  *both* are automatically "bottom 3" → +1 escalation → red. Reds ≈ bottom_k ×
+  number of resolved groups (3 × 11 ≈ 33; actual 25/59). Fix = rank an athlete
+  against the same cohort they were normed against, not just the stragglers who
+  resolved to that tier. That's a change to the graded indicator, so I left it
+  alone — say the word.
+
 ## Stage B — cohort thresholds (built)
 - [ ] **Admin → Cohort Thresholds page** — eyeball it: settings (min cohort n,
   bottom-k, toggles), the approval queue (approve/revert), and editing a

@@ -1,11 +1,36 @@
 # ACWR + Composite Risk Model — Rebuild Spec
 
-> **Purpose:** the FYP II redesign **demotes** the ACWR/composite-risk model to
-> a secondary "Training Load" view (the HoloMotion cohort-normed overall
-> indicator is now primary). It is **not deleted** — the code remains in the
-> repo. This document captures the model's full logic, weights, and evidence so
-> it can be **rebuilt identically** from scratch if the code is ever removed.
-> It also anchors the FYP I graded contribution for the viva.
+> **Purpose:** the FYP II redesign **demotes** the ACWR/composite-risk model
+> (the HoloMotion cohort-normed overall indicator is now the primary — and, as
+> of 2026-07-16, the *only* — risk verdict on the dashboards). It is **not
+> deleted** — the code remains in the repo and still executes. This document
+> captures the model's full logic, weights, and evidence so it can be
+> **rebuilt identically** from scratch if the code is ever removed. It also
+> anchors the FYP I graded contribution for the viva.
+>
+> ### Demotion history
+> - **2026-07-13 (Stage F)** — relabelled a secondary "Training Load (ACWR)"
+>   view beneath the cohort indicator on the athlete + medical dashboards.
+> - **2026-07-16** — **removed from the dashboards entirely**, on JC's
+>   instruction, after a browser-driven layout audit showed the "secondary"
+>   card visually dominating the primary indicator (~6× the weight) and the
+>   athlete reading three competing verdicts at once (sport-critical alert →
+>   "Immediate assessment 38" → "Compound Moderate Risk"). Removed: the ACWR
+>   hero + `AcwrGauge` + load stat tiles + Workload Trend chart (athlete and
+>   medical), and the ACWR / Risk-level columns + composite-derived readiness
+>   (coach — readiness now maps straight off the HoloMotion band).
+>
+> ### What still runs (do not assume the model is dead)
+> - `classifyCompositeRisk()` is still called on **both** dashboards: it drives
+>   the **recovery-baseline** trigger (`routes/recoveryBaselines.js`) and the
+>   medical **prevention-insight** card. It is computed, just not displayed.
+> - **Module 1 `/athlete/activity` is untouched** — sRPE logging, the live load
+>   preview and the history table are the intact showcase.
+> - `GET /api/activities/athlete/:id/acwr`, the `Activity` load hook,
+>   `WorkloadChart.tsx` and `AcwrGauge.tsx` all remain in the repo, unrendered.
+>
+> To restore the dashboard surfaces, re-mount `AcwrGauge` + `WorkloadChart` in
+> the heroes described in §3–§5 below; no logic needs rebuilding.
 >
 > Live code (as of this writing): [`frontend/src/lib/risk.ts`](../../frontend/src/lib/risk.ts),
 > the `Activity` model hook, [`routes/recoveryBaselines.js`](../../backend/src/routes/recoveryBaselines.js).

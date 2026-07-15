@@ -569,26 +569,35 @@ button { cursor: pointer; font-family: inherit; }
      push the ACWR card off the viewport edge. */
   max-width: 100%;
 }
-.risk-hero-acwr {
+/* The hero's right-hand headline figure. Named generically: it carried the
+   ACWR value until the 2026-07 redesign moved the dashboards onto the
+   cohort-normed indicator (see docs/fyp/ACWR_REBUILD.md). */
+.risk-hero-stat {
   text-align: center;
   background: rgba(255,255,255,0.55);
   padding: 16px 24px;
   border-radius: var(--radius);
   flex-shrink: 0;
 }
-[data-theme="dark"] .risk-hero-acwr { background: rgba(255,255,255,0.06); }
-.risk-hero-acwr-val {
-  font-size: 2.2rem;
+[data-theme="dark"] .risk-hero-stat { background: rgba(255,255,255,0.06); }
+.risk-hero-stat-val {
+  font-size: 2.6rem;
   font-weight: 700;
   line-height: 1;
   color: var(--text);
 }
-.risk-hero-acwr-label {
+.risk-hero-stat-label {
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--text-muted);
   margin-top: 4px;
+}
+.risk-hero-stat-sub {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-top: 10px;
+  line-height: 1.4;
 }
 .risk-hero-prompt {
   margin-top: 10px;

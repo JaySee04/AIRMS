@@ -119,7 +119,7 @@ Modules 1+2 are the FYP showcases requiring no further iteration. Modules 3–6 
 
 **FYP defensibility hook:** The **composite risk model** is the FYP innovation. It integrates workload + biomechanical screening + injury history into one classification, instead of the textbook Gabbett ACWR bands. See [DESIGN_DECISIONS.md §2](DESIGN_DECISIONS.md#2-composite-risk-model).
 
-> **FYP II note:** as of the 2026-07-13 screening-centred redesign the **cohort-normed overall risk indicator** (traffic-light badge) is the *primary* risk signal at the top of this dashboard; this composite ACWR hero is relabelled "Secondary · Training Load (ACWR)". It is demoted, not removed — see the [FYP II section](#fyp-ii--screening-centred-redesign-2026-07-13-) below.
+> **FYP II note (updated 2026-07-16):** the **cohort-normed overall risk indicator** is now the *only* risk verdict on this dashboard. The composite ACWR hero, the load stat tiles and the Workload Trend chart were **removed from the dashboard** on 2026-07-16 — a browser-driven layout audit showed the "secondary" ACWR card visually dominating the primary indicator (~6×) and the athlete reading three competing verdicts at once. Module 2 is now purely screening. `risk.ts` is **not** deleted and still executes (it drives the recovery-baseline trigger and the medical prevention-insight card); training load lives on Module 1 (`/athlete/activity`). Rebuild spec: [`docs/fyp/ACWR_REBUILD.md`](fyp/ACWR_REBUILD.md).
 
 ---
 

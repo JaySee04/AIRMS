@@ -112,9 +112,11 @@ Hit **Save Activity** → POSTs to `/api/activities`, prepends the new row to th
 
 If no activities yet: "No activities logged yet. Use the form on the left to log your first session."
 
-### How this feeds the dashboard
+### How this feeds the rest of the system
 
-Every activity saved here updates the athlete's ACWR calculation in real time on `/athlete/dashboard`. Sessions in the last 7 days contribute to the **acute load**; the last 4 weeks of weekly totals form the **chronic load**.
+Sessions in the last 7 days contribute to the **acute load**; the last 4 weeks of weekly totals form the **chronic load**; acute ÷ chronic is the **ACWR**.
+
+Since 2026-07-16 this page is the **only** place training load is shown — the ACWR hero, load stat tiles and Workload Trend chart were removed from the dashboards so that the cohort-normed screening indicator is the single risk verdict there (see [§4.1](#41-overall-risk-indicator--the-hero-the-one-verdict)). Load still does work behind the scenes: it drives the **recovery baseline** a clinician sees on the medical dashboard, and a sharp drop in training still prompts the athlete to add a note.
 
 ---
 
@@ -126,43 +128,28 @@ The athlete's home page. Vertical sections from top to bottom:
 
 At the very top — *above* the risk hero — a red/amber alert banner appears when a HoloMotion screening indicator for a body region **important to the athlete's sport** is out of a healthy range (e.g. an Ankle indicator for a Badminton player). It lists each flagged region with a Watch/High chip. Renders nothing when everything is in range. Full behaviour in [§13](#13-sport-critical-screening-alerts).
 
-### 4.0.5 Overall Risk Indicator (primary signal)
+### 4.1 Overall Risk Indicator — the hero *(the one verdict)*
 
-Since the FYP II redesign the **Overall Risk Indicator** badge sits at the top of the dashboard as the *primary* risk signal (full behaviour in [§16](#16-overall-risk-indicator-cohort-normed)). It is a **traffic-light** badge — green (safe) / amber (needs attention) / red (immediate assessment) — with a 0–100 score derived from how the athlete's HoloMotion screening compares to their **cohort** (same sport + programme + gender), not an absolute cut-off. Below it, the sections that follow (composite ACWR, workload) are the *secondary* Training-Load view.
+The dashboard's headline, and since 2026-07-16 the **only** risk verdict on it. A full-width banner tinted by band, side-by-side with the risk radar ([§4.2](#42-risk-indicators-radar)):
 
-### 4.1 Composite Risk Hero *(secondary — Training Load / ACWR)*
+- **Left**: "Current Status" → the band in large type — 🟢 **Safe** / 🟡 **Needs attention** / 🔴 **Immediate assessment** — then a plain-English sentence explaining what it means for the athlete.
+- **Right**: the **0–100 indicator** in large type, with "Comparison group average = 50" underneath.
+- **"Why" chip**: when the band escalated, it states the rule that fired — *+1 for scoring below your comparison group, +1 for being among its lowest scorers*.
+- **Clinician override**: if a medical staffer has assessed the athlete and set the band by hand, the hero says *"set by clinician"* and shows their note instead of the escalation reason.
 
-Full-width banner, now labelled **"Secondary · Training Load (ACWR)"**. Colour-coded by current risk band:
-- 🟢 **Optimal** — green tint
-- 🟡 **Elevated** — amber tint
-- 🔴 **High Risk** — red tint
-- 🔵 **Detraining Risk** — blue tint
+Full behaviour of the score itself is in [§16](#16-overall-risk-indicator-cohort-normed).
 
-Layout:
-- **Left**: "Current Status" label → big risk level → explanation paragraph
-- **Right**: ACWR value (large), "Personalised band" line showing the athlete's specific optimal range (e.g. `0.77 – 1.39`)
+> **What happened to the ACWR / Compound Risk hero?** It was removed from every dashboard on 2026-07-16. It sat *below* the overall indicator labelled "Secondary", but was several times larger — so the athlete met three competing verdicts in a row (the sport-critical alert, "Immediate assessment", and "Compound Moderate Risk") and couldn't tell which was the answer. Training load now lives solely on **[Activity Tracking §3](#3-activity-tracking)**, which is unchanged: sRPE logging, the live load preview and the history table are all still there. The composite model itself is retained and still runs behind the scenes (it opens recovery baselines and feeds the medical prevention-insight card) — see [`docs/fyp/ACWR_REBUILD.md`](fyp/ACWR_REBUILD.md).
 
-**Special states:**
-- **Escalation badge** — if the system bumped the risk band because of active injuries or muscle flags, an "escalated from Optimal" pill appears next to the level
-- **Risk modifier chips** — listed below the message, e.g. `2 active injury records`, `6 muscle flags from screening`
-- **Sharp-drop prompt** — if acute load dropped >40% vs prior week, an inline banner appears: *"Sharp drop in activity detected. Were you ill or injured? [Add Note →]"* linking to `/athlete/injury-report`
+**Sharp-drop prompt** — a slim banner still appears under the hero if the athlete's training drops sharply: *"Sharp drop in activity detected. Were you ill or injured? [Add Note →]"*, linking to `/athlete/injury-report`.
 
-### 4.2 Stat tiles (4 cards)
+### 4.2 Risk Indicators radar
 
-- **This Week's Load** — sum of session loads in last 7 days, with delta vs previous week (▲ green / ▼ red)
-- **4-Week Average** — chronic baseline
-- **ACWR** — acute ÷ chronic, two decimals
-- **Sessions Logged** — count in last 7 days
+7-axis radar chart of the shown ISN screening risks: Neck, Shoulder, Scoliosis, Lumbar/Pelvis, Joint Pain, Knee, Ankle. Values 0–30 (lower is better). Filled with translucent gold. Sits to the right of the hero.
 
-### 4.3 Workload Trend chart
+> Lumbar Disc Herniation is **not** an axis — it is extracted and stored but excluded from every risk display, because ISN's facilities do not support that assessment (Dr Thung). Until 2026-07-16 it was incorrectly shown here and on the threshold strips, cohort chart and alerts.
 
-8-week bar chart of weekly load (navy bars, left y-axis "Load AU") overlaid with the ACWR line (gold line, right y-axis 0–2.0).
-
-### 4.4 Risk Indicators radar
-
-8-axis radar chart of ISN screening risks: Neck, Shoulder, Scoliosis, Spinal Disc, Lumbar/Pelvis, Joint Pain, Knee, Ankle. Values 0–30 (lower is better). Filled with translucent gold.
-
-### 4.5 HoloMotion Screening panel
+### 4.3 HoloMotion Screening panel
 
 The athlete's latest ingested report, read against its thresholds (full detail in [§14](#14-screening-panel--embedded-on-the-dashboards)):
 
@@ -170,7 +157,7 @@ The athlete's latest ingested report, read against its thresholds (full detail i
 - **Eight indicator threshold strips** — each indicator on tinted OK/Watch/High zones with a marker at the value, coloured by the zone it lands in; the athlete's sport-critical regions are starred
 - Athletes with no ingested report see a "no screening ingested yet" state
 
-### 4.6 Muscle Assessment Map
+### 4.4 Muscle Assessment Map
 
 **Front + back** athletic silhouettes side-by-side. Adapted from the MIT-licensed `react-muscle-highlighter` library.
 
@@ -191,11 +178,11 @@ The athlete's latest ingested report, read against its thresholds (full detail i
 
 Tooltip on hover shows which specific AIRMS muscles map to the region you're hovering ("Vastus Lateralis — weak", "Rectus Femoris — tight", etc.).
 
-### 4.7 Recent Activity table
+### 4.5 Recent Activity table
 
 Last 6 sessions in compact form. "View All →" link to `/athlete/activity`.
 
-### 4.8 Injury Records
+### 4.6 Injury Records
 
 Tabbed view:
 - **Active** — injuries with `recoveryStatus !== 'Recovered'`
@@ -480,4 +467,4 @@ Each streams straight to the browser as a download.
 
 ---
 
-*Last updated: 2026-07-14 — FYP II screening-centred redesign: §4.0.5 overall-risk badge is now the primary signal and §4.1 composite ACWR is relabelled secondary Training Load; new §16 (cohort-normed overall indicator), §17 (admin cohort thresholds + settings), §18 (clinician override), §19 (three screening PDF reports), §20 (import-commit email alerts + coach view). Previous: 2026-07-06 — §14 dashboard-embedded screening panel; §15 permission revocations vanish features; five-step injury intake. Earlier: 2026-06-28 (HoloMotion PDF import, backup, staff permissions).*
+*Last updated: 2026-07-16 — **ACWR removed from every dashboard.** §4 rewritten: the cohort-normed indicator is now the single risk verdict (§4.1 hero, paired with the §4.2 radar); the composite ACWR hero, load stat tiles and Workload Trend chart are gone from athlete + medical, and the coach's readiness now derives from the HoloMotion band (§20). Training load lives only on §3 Activity Tracking. Lumbar Disc Herniation removed from the radar, threshold strips, cohort chart and alerts (it was being shown against Dr Thung's requirement). Previous: 2026-07-14 — FYP II screening-centred redesign: §16 (cohort-normed overall indicator), §17 (admin cohort thresholds + settings), §18 (clinician override), §19 (three screening PDF reports), §20 (import-commit email alerts + coach view). Earlier: 2026-07-06 — §14 dashboard-embedded screening panel; §15 permission revocations vanish features; five-step injury intake. 2026-06-28 (HoloMotion PDF import, backup, staff permissions).*

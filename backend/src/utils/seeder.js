@@ -99,6 +99,12 @@ function buildAthletes() {
       mobility: screened ? range(55, 95) : null,
       stability: screened ? range(55, 95) : null,
       symmetry: screened ? range(55, 95) : null,
+      // Kept uniform over the report's observed range: the two ground-truth
+      // HoloMotion reports (Thung 15/18/14/24/9/26/27, Nazwan 14/8/12/16/15/
+      // 21/26) sit at a median of ~15 with about half of all regions above 15,
+      // which is what range(2,28) reproduces. Do not "skew healthy" to quiet
+      // the alert volume — that hides the real cause (the AIRMS band scheme is
+      // far tighter than HoloMotion's printed Low 0-15 / Medium 16-55 legend).
       neckInjuryRisk: screened ? range(2, 28) : 0,
       shoulderInjuryRisk: screened ? range(2, 28) : 0,
       scoliosis: screened ? range(2, 28) : 0,
@@ -399,12 +405,29 @@ function buildActivities() {
 }
 
 // ── Build injuries ──────────────────────────────────────────────────────────
+
+// Recovery status as a function of how long ago the injury happened. Picking
+// uniformly from RECOVERY made two of every three injuries permanently
+// "active" regardless of age — an injury from 18 months ago still read as
+// "Recovering" — so 61 of 62 athletes carried an active injury and every
+// squad-level view (medical KPIs, coach readiness, alerts) rendered all-red.
+// Point prevalence of injury in an elite squad is realistically ~10–25%.
+function recoveryFor(daysAgo) {
+  if (rnd() < 0.03) return 'Chronic';                          // rare long-term cases
+  if (daysAgo < 45) return rnd() < 0.8 ? 'Recovering' : 'Recovered';
+  if (daysAgo < 150) return rnd() < 0.18 ? 'Recovering' : 'Recovered';
+  return 'Recovered';                                          // healed long ago
+}
+
 function buildInjuries(athletes) {
   const injuries = [];
+  const today = new Date();
+  const SPAN = 560; // 2025-01-01 → ~today, so a recent tail actually exists
   for (let i = 0; i < 220; i++) {
     const ath = athletes[Math.floor(rnd() * athletes.length)];
     const dt = new Date('2025-01-01');
-    dt.setDate(dt.getDate() + range(0, 480));
+    dt.setDate(dt.getDate() + range(0, SPAN));
+    const daysAgo = Math.max(0, Math.round((today - dt) / 86400000));
     injuries.push({
       athleteId: ath.athleteId,
       athleteName: ath.name,
@@ -418,7 +441,7 @@ function buildInjuries(athletes) {
       severity: pick(SEVERITY),
       mechanism: pick(MECHANISMS),
       date: dt,
-      recoveryStatus: pick(RECOVERY),
+      recoveryStatus: recoveryFor(daysAgo),
       source: rnd() < 0.7 ? 'Medical Log' : 'Athlete Self-Report',
       loggedBy: 'Medical Demo 01',
     });

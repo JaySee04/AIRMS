@@ -21,8 +21,34 @@ const BAND_META = {
   red: { label: 'Immediate assessment', color: 'var(--risk-high)', bg: 'var(--risk-high-bg)' },
 } as const;
 
-export default function OverallRiskBadge({ screening, compact }: { screening?: ScreeningIndicator | null; compact?: boolean }) {
+// Hero mode reuses the .risk-hero band classes so the primary signal carries
+// the same visual weight the (now removed) ACWR hero used to occupy.
+const HERO_CLS = { green: 'low', amber: 'mod', red: 'high' } as const;
+
+const HERO_MSG = {
+  green: 'Your latest screening is in line with, or better than, the athletes you are compared against. Keep to your current programme.',
+  amber: 'Your latest screening places you below your comparison group on at least one measure. Your medical team should look at the flagged areas when convenient.',
+  red: 'Your latest screening places you among the athletes most in need of attention in your comparison group. Arrange an assessment with your medical team before your next high-load session.',
+} as const;
+
+export default function OverallRiskBadge({
+  screening, compact, hero,
+}: { screening?: ScreeningIndicator | null; compact?: boolean; hero?: boolean }) {
   if (!screening || !screening.effectiveBand) {
+    if (hero) {
+      return (
+        <div className="risk-hero">
+          <div style={{ flex: 1 }}>
+            <div className="risk-hero-label">Current Status</div>
+            <div className="risk-hero-level">No cohort score yet</div>
+            <div className="risk-hero-msg">
+              This athlete has no screening on record, or their comparison group is still too small to
+              score against. Import a HoloMotion report to produce an overall risk indicator.
+            </div>
+          </div>
+        </div>
+      );
+    }
     return <span className="text-muted" style={{ fontSize: '0.8rem' }}>No cohort score</span>;
   }
   const band = screening.effectiveBand;
@@ -39,6 +65,51 @@ export default function OverallRiskBadge({ screening, compact }: { screening?: S
         {screening.overallIndicator ?? '—'}
         {overridden && <span style={{ fontSize: '0.66rem' }}>✎</span>}
       </span>
+    );
+  }
+
+  if (hero) {
+    return (
+      <div className={`risk-hero risk-hero--${HERO_CLS[band]}`}>
+        <div style={{ flex: 1 }}>
+          <div className="risk-hero-label">Current Status</div>
+          <div className="risk-hero-level">
+            {meta.label}
+            {overridden && <span className="risk-escalation-badge">set by clinician</span>}
+          </div>
+          <div className="risk-hero-msg">
+            {overridden
+              ? 'A member of the medical team has assessed this athlete and set the band manually. It stays until the next screening is imported.'
+              : HERO_MSG[band]}
+          </div>
+          {overridden && screening.overrideNote && (
+            <div className="risk-factors">
+              <span className="risk-factors-label">Clinician note:</span>
+              <span className="risk-factor-chip">
+                “{screening.overrideNote}”{screening.overrideBy ? ` — ${screening.overrideBy}` : ''}
+              </span>
+            </div>
+          )}
+          {!overridden && typeof screening.escalations === 'number' && screening.escalations > 0 && (
+            <div className="risk-factors">
+              <span className="risk-factors-label">Why:</span>
+              <span className="risk-factor-chip">
+                {screening.escalations} escalation{screening.escalations === 1 ? '' : 's'} · +1 for scoring
+                below your comparison group, +1 for being among its lowest scorers
+              </span>
+            </div>
+          )}
+        </div>
+        <div className="risk-hero-stat">
+          <div className="risk-hero-stat-val" style={{ color: meta.color }}>
+            {screening.overallIndicator ?? '—'}
+          </div>
+          <div className="risk-hero-stat-label">Indicator / 100</div>
+          <div className="risk-hero-stat-sub">
+            Comparison group<br /><strong>average = 50</strong>
+          </div>
+        </div>
+      </div>
     );
   }
 

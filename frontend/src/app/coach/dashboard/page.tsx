@@ -2,15 +2,17 @@
 
 // Coach · Squad Readiness (experimental 4th role). Read-only view of the
 // athletes in the coach's assigned sport(s), bucketed into Full-Go /
-// Observation / Restricted using the SAME graded composite-risk model the
-// athlete and medical views use (lib/risk.ts) — no separate logic. The backend
-// (routes/coach.js) supplies ACWR + profile + flags + active injuries; the
-// classification happens here so risk.ts stays the single source of truth.
+// Observation / Restricted straight from each athlete's cohort-normed
+// HoloMotion band — the same indicator the athlete and medical views report, so
+// all three roles quote one number. Readiness was previously derived from the
+// composite training-load model (lib/risk.ts); that was removed from the
+// dashboards on 2026-07-16 (see docs/fyp/ACWR_REBUILD.md). The backend
+// (routes/coach.js) supplies the profile + flags + active injuries + indicator.
 
 import { useEffect, useMemo, useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { api } from '@/lib/api';
-import { classifyCompositeRisk, RiskCls, MuscleEntry } from '@/lib/risk';
+import { MuscleEntry } from '@/lib/risk';
 import { computeBodyPartAlerts, AthleteRisks } from '@/lib/screeningAlerts';
 import OverallRiskBadge, { ScreeningIndicator } from '@/components/dashboard/OverallRiskBadge';
 
@@ -44,12 +46,21 @@ const BAND_META: Record<Band, { label: string; badge: string; color: string }> =
   restricted: { label: 'Restricted', badge: 'badge-high', color: 'var(--risk-high, #d14b4b)' },
 };
 
-// Map the graded composite-risk class onto a coaching readiness band.
-// low → Full-Go · mod/under → Observation · high → Restricted.
-function bandFor(cls: RiskCls): Band {
-  if (cls === 'high') return 'restricted';
-  if (cls === 'mod' || cls === 'under') return 'observation';
-  return 'full';
+// Map the cohort-normed HoloMotion band onto a coaching readiness band.
+// green → Full-Go · amber → Observation · red → Restricted.
+//
+// This was previously derived from the composite training-load class
+// (classifyCompositeRisk). That was removed from the dashboards on 2026-07-16:
+// it meant readiness was really an ACWR verdict, and because most athletes have
+// no logged sessions their acwr was 0 → "Detraining Risk" → Observation, which
+// put 96% of the squad in Observation and made the board useless. Readiness now
+// follows the same screening indicator every other surface reports, so the
+// coach and the medical team are looking at the same number.
+function bandFor(effectiveBand?: 'green' | 'amber' | 'red' | null): Band | null {
+  if (effectiveBand === 'red') return 'restricted';
+  if (effectiveBand === 'amber') return 'observation';
+  if (effectiveBand === 'green') return 'full';
+  return null; // no screening / cohort too small to score
 }
 
 export default function CoachDashboard() {
@@ -71,22 +82,21 @@ export default function CoachDashboard() {
   }, []);
 
   // Classify every athlete once, then sort worst-first so the coach sees the
-  // athletes needing attention at the top.
+  // athletes needing attention at the top. Unscored athletes sort last.
   const classified = useMemo(() => {
     if (!data) return [];
     const ORDER: Record<Band, number> = { restricted: 0, observation: 1, full: 2 };
     return data.athletes
       .map((a) => {
-        const risk = classifyCompositeRisk(a.acwr, a, a.activeInjuries);
         const screening = computeBodyPartAlerts(a.risks, a.sport);
-        // The backend returns acwr 0 when an athlete has logged no sessions in
-        // the window. That is ABSENCE of load data, not low load — without this
-        // guard the composite reads 0 as a genuine ratio and reports
-        // "Detraining Risk" for an athlete we simply know nothing about.
-        const hasLoad = a.acwr > 0;
-        return { row: a, risk, band: bandFor(risk.cls), screening, hasLoad };
+        return { row: a, band: bandFor(a.screening?.effectiveBand), screening };
       })
-      .sort((x, y) => ORDER[x.band] - ORDER[y.band] || y.risk.vulnerability - x.risk.vulnerability);
+      .sort((x, y) => {
+        const ox = x.band ? ORDER[x.band] : 3;
+        const oy = y.band ? ORDER[y.band] : 3;
+        // Within a band, lower indicator = more concerning = higher up.
+        return ox - oy || (x.row.screening?.overallIndicator ?? 101) - (y.row.screening?.overallIndicator ?? 101);
+      });
   }, [data]);
 
   // Athletes whose sport-critical body region is out of screening range — the
@@ -97,8 +107,8 @@ export default function CoachDashboard() {
   );
 
   const counts = useMemo(() => {
-    const c = { full: 0, observation: 0, restricted: 0 };
-    classified.forEach((x) => { c[x.band]++; });
+    const c = { full: 0, observation: 0, restricted: 0, unscored: 0 };
+    classified.forEach((x) => { if (x.band) c[x.band]++; else c.unscored++; });
     return c;
   }, [classified]);
 
@@ -115,7 +125,7 @@ export default function CoachDashboard() {
             <h2 className="card-title" style={{ marginBottom: 0 }}>Squad Readiness Overview</h2>
             <span className="card-sub">
               {data?.sports.length ? `Assigned sports: ${data.sports.join(', ')}` : 'No sports assigned to your account yet'}
-              {' · '}read-only · readiness from the composite risk model · screening flags from each athlete&apos;s latest HoloMotion report
+              {' · '}read-only · readiness from each athlete&apos;s cohort-normed HoloMotion indicator — the same band the medical team sees
             </span>
           </div>
         </div>
@@ -202,14 +212,12 @@ export default function CoachDashboard() {
                   <th>Sport</th>
                   <th style={{ textAlign: 'center' }}>HoloMotion Risk</th>
                   <th style={{ textAlign: 'center' }}>Readiness</th>
-                  <th style={{ textAlign: 'center' }}>ACWR</th>
-                  <th>Risk level</th>
                   <th style={{ textAlign: 'center' }}>Screening</th>
                   <th style={{ textAlign: 'center' }}>Active injuries</th>
                 </tr>
               </thead>
               <tbody>
-                {classified.map(({ row, risk, band, screening, hasLoad }) => (
+                {classified.map(({ row, band, screening }) => (
                   <tr key={row.athleteId}>
                     <td>
                       <strong>{row.name}</strong>
@@ -220,24 +228,9 @@ export default function CoachDashboard() {
                       <OverallRiskBadge screening={row.screening} compact />
                     </td>
                     <td style={{ textAlign: 'center' }}>
-                      <span className={BAND_META[band].badge}>{BAND_META[band].label}</span>
-                    </td>
-                    <td style={{ textAlign: 'center', fontWeight: 600 }}>
-                      {hasLoad ? row.acwr.toFixed(2) : '—'}
-                    </td>
-                    <td>
-                      {hasLoad ? (
-                        <>
-                          {risk.level}
-                          {risk.escalated && (
-                            <span className="text-muted" style={{ fontSize: '0.72rem', display: 'block' }}>
-                              escalated
-                            </span>
-                          )}
-                        </>
-                      ) : (
-                        <span className="text-muted">No load data</span>
-                      )}
+                      {band
+                        ? <span className={BAND_META[band].badge}>{BAND_META[band].label}</span>
+                        : <span className="text-muted" style={{ fontSize: '0.78rem' }}>Not scored</span>}
                     </td>
                     <td style={{ textAlign: 'center' }}>
                       {screening.hasCriticalAlert ? (

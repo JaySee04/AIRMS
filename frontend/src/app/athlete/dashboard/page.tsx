@@ -5,13 +5,11 @@ import dynamic from 'next/dynamic';
 import { Fragment, useEffect, useMemo, useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import type { MuscleEntry } from '@/components/dashboard/BodyMap';
-import AcwrGauge from '@/components/dashboard/AcwrGauge';
 
 // Chart.js and the body-map path data are the heaviest client code on this
 // page and render nothing on the server anyway — split them out so the
 // dashboard shell paints without them.
 const BodyMap = dynamic(() => import('@/components/dashboard/BodyMap'), { ssr: false, loading: () => <div style={{ minHeight: 300 }} /> });
-const WorkloadChart = dynamic(() => import('@/components/dashboard/WorkloadChart'), { ssr: false, loading: () => <div style={{ height: 300 }} /> });
 const RiskRadar = dynamic(() => import('@/components/dashboard/RiskRadar'), { ssr: false, loading: () => <div style={{ height: 300 }} /> });
 import ScreeningAlertBanner from '@/components/dashboard/ScreeningAlertBanner';
 import ScreeningPanel from '@/components/dashboard/ScreeningPanel';
@@ -210,6 +208,10 @@ export default function AthleteDashboard() {
     [allInjuries],
   );
 
+  // The composite training-load model is no longer DISPLAYED on this dashboard
+  // (the cohort-normed indicator is the single athlete-facing verdict since
+  // 2026-07-16), but it still runs: it drives the recovery-baseline trigger
+  // below. See docs/fyp/ACWR_REBUILD.md.
   const risk = useMemo(
     () => classifyCompositeRisk(computed.acwr, athlete ?? {}, activeInjuries),
     [computed.acwr, athlete, activeInjuries],
@@ -263,7 +265,6 @@ export default function AthleteDashboard() {
     );
   }
 
-  const labels = computed.weekLabels;
   // Fixed canonical ordering (don't trust Object.keys iteration order).
   // Values are clamped to the radar's display max so an out-of-range
   // backend value can't silently clip outside the chart.
@@ -290,125 +291,15 @@ export default function AthleteDashboard() {
           body region important for the athlete's sport is out of range */}
       <ScreeningAlertBanner risks={athlete.risks} sport={athlete.sport} audience="self" />
 
-      {/* Overall HoloMotion risk indicator — cohort-normed traffic-light.
-          This is the PRIMARY risk signal; the ACWR training-load view below is
-          now secondary (see docs/fyp/ACWR_REBUILD.md). */}
-      {athlete.screening && (
-        <div style={{ marginBottom: 20 }}>
-          <OverallRiskBadge screening={athlete.screening} />
-        </div>
-      )}
-
-      {/* Secondary — training-load (ACWR) view */}
-      <div className="text-muted" style={{ fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '4px 0 8px' }}>
-        Secondary · Training Load (ACWR)
-      </div>
-
-      {/* Risk hero */}
-      <div className={`risk-hero risk-hero--${risk.cls}`}>
-        <div style={{ flex: 1 }}>
-          <div className="risk-hero-label">Current Status</div>
-          <div className="risk-hero-level">
-            {risk.level}
-            {risk.escalated && (
-              <span className="risk-escalation-badge">
-                escalated from {risk.baseCls === 'low' ? 'Low Risk' : 'Moderate Risk'}
-              </span>
-            )}
-          </div>
-          <div className="risk-hero-msg">{risk.msg}</div>
-          {risk.factors.length > 0 && (
-            <div className="risk-factors">
-              <span className="risk-factors-label">Risk modifiers:</span>
-              {risk.factors.map((f) => (
-                <span key={f} className="risk-factor-chip">{f}</span>
-              ))}
-            </div>
-          )}
-          <AcwrGauge
-            acwr={computed.acwr}
-            lowMin={risk.personalisedRange.lowMin}
-            lowMax={risk.personalisedRange.lowMax}
-            modMax={risk.personalisedRange.modMax}
-            compositeCls={risk.cls}
-            compositeLabel={risk.level}
-          />
-          {computed.sharpDip && (
-            <div className="risk-hero-prompt">
-              <span>
-                <strong>Sharp drop in activity detected.</strong> Were you ill or injured this week?
-                Adding context helps your medical staff interpret the trend.
-              </span>
-              <Link href="/athlete/injury-report" className="btn btn-outline btn-sm">
-                Add Note
-              </Link>
-            </div>
-          )}
-        </div>
-        <div className="risk-hero-acwr">
-          <div className="risk-hero-acwr-val">{computed.acwr.toFixed(2)}</div>
-          <div className="risk-hero-acwr-label">ACWR</div>
-          <div className="risk-hero-acwr-thresholds">
-            Personalised band:<br />
-            <strong>{risk.personalisedRange.lowMin.toFixed(2)} – {risk.personalisedRange.lowMax.toFixed(2)}</strong>
-          </div>
-        </div>
-      </div>
-
-      {/* Stat tiles */}
-      <div className="stat-grid">
-        <div className="stat-tile">
-          <div className="stat-tile-label">This Week&apos;s Load</div>
-          <div className="stat-tile-value">{computed.acuteLoad.toLocaleString()}</div>
-          <div
-            className={
-              'stat-tile-delta' +
-              (computed.acuteDelta > 0
-                ? ' stat-tile-delta--up'
-                : computed.acuteDelta < 0
-                ? ' stat-tile-delta--down'
-                : '')
-            }
-          >
-            {computed.acuteDelta > 0
-              ? `▲ ${computed.acuteDelta.toFixed(0)}% vs last week`
-              : computed.acuteDelta < 0
-              ? `▼ ${Math.abs(computed.acuteDelta).toFixed(0)}% vs last week`
-              : 'No change'}
-          </div>
-        </div>
-        <div className="stat-tile">
-          <div className="stat-tile-label">4-Week Average</div>
-          <div className="stat-tile-value">{Math.round(computed.chronicLoad).toLocaleString()}</div>
-          <div className="stat-tile-delta">Rolling baseline</div>
-        </div>
-        <div className="stat-tile">
-          <div className="stat-tile-label">ACWR</div>
-          <div className="stat-tile-value">{computed.acwr.toFixed(2)}</div>
-          <div className="stat-tile-delta">Acute ÷ Chronic</div>
-        </div>
-        <div className="stat-tile">
-          <div className="stat-tile-label">Sessions Logged</div>
-          <div className="stat-tile-value">{computed.sessionsThisWeek}</div>
-          <div className="stat-tile-delta">Last 7 days</div>
-        </div>
-      </div>
-
-      {/* Charts row */}
-      <div className="grid-2-1">
-        <div className="card">
-          <div className="card-header">
-            <div>
-              <h2 className="card-title" style={{ marginBottom: 0 }}>Workload Trend (Last 8 Weeks)</h2>
-              <span className="card-sub">Weekly load · ACWR overlay</span>
-            </div>
-          </div>
-          <WorkloadChart
-            labels={labels}
-            weeklyLoads={computed.weekLoads}
-            acwrSeries={computed.cumACWR}
-          />
-        </div>
+      {/* PRIMARY risk signal — the cohort-normed HoloMotion indicator. This is
+          the only risk verdict on the dashboard: the ACWR / composite training-
+          load hero, its stat tiles and the workload chart were removed on
+          2026-07-16 so the athlete reads ONE answer instead of three competing
+          ones. Training load lives on /athlete/activity now; the composite
+          model itself is retained in lib/risk.ts and specified in
+          docs/fyp/ACWR_REBUILD.md. */}
+      <div className="grid-2-1" style={{ alignItems: 'start' }}>
+        <OverallRiskBadge screening={athlete.screening} hero />
         <div className="card">
           <div className="card-header">
             <div>
@@ -419,6 +310,20 @@ export default function AthleteDashboard() {
           <RiskRadar labels={riskLabels} values={riskValues} />
         </div>
       </div>
+
+      {/* Activity context — a sharp drop in training is worth a note even
+          though the workload verdict itself no longer lives here. */}
+      {computed.sharpDip && (
+        <div className="risk-hero-prompt" style={{ marginBottom: 20 }}>
+          <span>
+            <strong>Sharp drop in activity detected.</strong> Were you ill or injured this week?
+            Adding context helps your medical staff interpret the trend.
+          </span>
+          <Link href="/athlete/injury-report" className="btn btn-outline btn-sm">
+            Add Note
+          </Link>
+        </div>
+      )}
 
       <div style={{ height: 20 }} />
 

@@ -78,7 +78,20 @@ Three-tier monorepo orchestrated by `concurrently` from the root `package.json`.
 - Styling: a single `frontend/src/styles/globals.css` with CSS custom properties. Dark mode via `[data-theme="dark"]` on `<html>`. **Do not introduce CSS-in-JS, Tailwind, or component libraries.**
 
 **The FYP differentiator — `frontend/src/lib/risk.ts`:**
-This file is the *thing being graded*. It implements `classifyCompositeRisk()` which:
+
+> **Status change 2026-07-16 — read this first.** ACWR / composite risk is no
+> longer shown on ANY dashboard. JC removed it: the "SECONDARY · Training Load"
+> card visually dominated the primary cohort-normed indicator, and the athlete
+> was reading three competing verdicts at once. Removed from athlete + medical
+> (hero, ACWR gauge, load stat tiles, Workload Trend chart) and from coach
+> (readiness now derives from the HoloMotion band; ACWR + Risk-level columns
+> gone). **`risk.ts` is NOT deleted and still executes** — it drives the
+> recovery-baseline trigger and the medical prevention-insight card, and
+> `/athlete/activity` (Module 1) still logs sRPE and previews load. The full
+> rebuild spec is `docs/fyp/ACWR_REBUILD.md`. Do not "restore" the ACWR heroes
+> without asking; do not delete `risk.ts` either.
+
+It implements `classifyCompositeRisk()` which:
 1. Computes a vulnerability score from the athlete's screening data (injury risk index, overall activity score, mobility, stability, symmetry)
 2. **Personalises** the textbook Gabbett ACWR thresholds (0.8 / 1.3 / 1.5) by ±~15% based on vulnerability
 3. **Escalates** the risk band when active injuries or muscle flags align with the current workload
@@ -177,7 +190,7 @@ Commit cadences are independent — JC will commit many times in this repo betwe
 ## Working norms for this repo
 
 - The user (JC) writes terse messages. Soft pushback ("Erm…", "Well…") usually means he sees a problem you don't — listen, don't argue.
-- Modules 1 and 2 are the FYP showcases and are audit-fixed. Touch their components (`BodyMap.tsx`, `WorkloadChart.tsx`, `RiskRadar.tsx`, `risk.ts`, the activity/dashboard pages) with the smallest possible surface.
+- Modules 1 and 2 are the FYP showcases and are audit-fixed. Touch their components (`BodyMap.tsx`, `WorkloadChart.tsx`, `RiskRadar.tsx`, `risk.ts`, the activity/dashboard pages) with the smallest possible surface. **`WorkloadChart.tsx` no longer renders on any dashboard** as of 2026-07-16 (see the risk.ts status note above) — it is retained for the ACWR rebuild path.
 - The 6-module FDD is the scope ceiling. Do not propose features outside it.
 - Do not propose swapping the tech stack, charting library, body map asset, or styling approach without explicit discussion.
 - When a memory entry mentions a specific file or function, verify it still exists before acting — memory can lag behind the code.
