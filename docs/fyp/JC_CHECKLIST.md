@@ -70,20 +70,43 @@
     The PDF now states this. Tell me if you'd rather the PDFs apply the
     sport-tightened thresholds too (means duplicating the sport→region map
     server-side, which will drift — I'd avoid it).
-- [ ] **"⚠ critical" still fires for nearly every athlete.** Not the seed —
-  the sport-critical watch threshold is 12, and real athletes routinely read
-  14–27 across 7 regions, so *someone* is almost always above it. If you want
-  the alert to mean something rarer, the lever is the sport-critical
-  thresholds (12/20), not the data. Say the word and I'll model a few options.
-- [ ] **~42% of athletes band red, and it's a ranking bug, not small cohorts.**
-  The norms are computed over *everyone* at a tier, but the bottom-k **ranking
-  group only contains athletes who fell back to that tier**. Measured live:
-  11 resolved groups, two of which have **2 members** — with `bottom_k = 3`,
-  *both* are automatically "bottom 3" → +1 escalation → red. Reds ≈ bottom_k ×
-  number of resolved groups (3 × 11 ≈ 33; actual 25/59). Fix = rank an athlete
-  against the same cohort they were normed against, not just the stragglers who
-  resolved to that tier. That's a change to the graded indicator, so I left it
-  alone — say the word.
+- [x] ~~"⚠ critical" fires for nearly every athlete~~ — **fixed 2026-07-16.**
+  Measured: it fired for **59/59**. No threshold rescues it (to make it rare the
+  sport-critical boundary would have to exceed the standard one — ~26 vs 25 —
+  contradicting its tightening-only design; both real athletes trip it too). It
+  was an *absolute* cut-off competing with the cohort-normed indicator, i.e. the
+  exact thing the redesign argues against. Now it renders **only when the band
+  is amber/red**, sits **below** the hero, and reads "Regions behind this band".
+  The coach's squad-level version (listed 27 of 28) is gone; the coach table's
+  Screening column now names the worst region (**"Ankle 27"**) instead of
+  "⚠ critical" on every row.
+- [x] ~~~42% of athletes band red~~ — **fixed 2026-07-16**, two causes:
+  - **Ranking bug**: ranked against fallback stragglers (two groups of **2**
+    with `bottom_k = 3` → auto-red) instead of the cohort's full membership.
+  - **k vs cohort size**: fixing the ranking alone only moved red 42% → 41%.
+    `bottom_k = 3` means the worst ~10–20% of a real ISN cohort (~15–30) but the
+    worst **60%** of a 5-athlete one. `k` is now capped at 20% of the cohort,
+    with `bottom_k` as the admin's ceiling.
+  - Result: **green 51% · amber 31% · red 19%**; anchors preserved (Thung red
+    42 / 2 esc, Nazwan green 57, John green 65).
+  - [ ] **Confirm you're happy with the 20% cap** — it's the one judgement call
+    here. It's derived, not arbitrary (bottom-3 of a realistic ~15-athlete
+    cohort *is* 20%), but it does change the graded indicator, so it's worth a
+    line in the report. Spec §5.1 has the full reasoning for the viva.
+
+### Decision: mobile is OUT of scope (2026-07-16)
+
+All 17 pages overflow horizontally at 390px (the sidebar is a fixed 256px and
+never collapses; the grids already collapse at 980px). **Called out of scope,
+deliberately:** AIRMS is an ISN institutional tool — staff import PDFs and review
+dashboards on desktops — the viva runs on a laptop, responsive/mobile is not in
+the 6-module FDD (the scope ceiling), and no mobile design exists in the locked
+Figma UI. Half-doing it is worse than declaring it.
+
+- [ ] **If you disagree, say so** — it's a contained change (turn the fixed
+  sidebar into an off-canvas drawer under a media query; desktop untouched), not
+  a redesign. Otherwise I'd put one line in Ch. 7 future work: *"the athlete
+  surfaces are desktop-first; a responsive/mobile athlete view is future work."*
 
 ## Stage B — cohort thresholds (built)
 - [ ] **Admin → Cohort Thresholds page** — eyeball it: settings (min cohort n,

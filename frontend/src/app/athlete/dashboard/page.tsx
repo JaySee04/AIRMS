@@ -287,9 +287,9 @@ export default function AthleteDashboard() {
 
   return (
     <DashboardLayout allowedRoles={['athlete']} title="My Dashboard">
-      {/* Sport-aware screening alert — fires before the workload signal when a
-          body region important for the athlete's sport is out of range */}
-      <ScreeningAlertBanner risks={athlete.risks} sport={athlete.sport} audience="self" />
+      {/* NOTE: the sport-aware screening detail now sits BELOW the hero — it
+          explains the band rather than competing with it. See the rationale in
+          ScreeningAlertBanner.tsx. */}
 
       {/* PRIMARY risk signal — the cohort-normed HoloMotion indicator. This is
           the only risk verdict on the dashboard: the ACWR / composite training-
@@ -310,6 +310,15 @@ export default function AthleteDashboard() {
           <RiskRadar labels={riskLabels} values={riskValues} />
         </div>
       </div>
+
+      {/* Which regions sit behind an amber/red band. Renders nothing when the
+          athlete is green overall — their detail lives on the strips below. */}
+      <ScreeningAlertBanner
+        risks={athlete.risks}
+        sport={athlete.sport}
+        band={athlete.screening?.effectiveBand}
+        audience="self"
+      />
 
       {/* Activity context — a sharp drop in training is worth a note even
           though the workload verdict itself no longer lives here. */}

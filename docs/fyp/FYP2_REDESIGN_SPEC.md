@@ -139,6 +139,48 @@ Crop bands / prompt extended; `verify:vision` ground truth extended to match.
 Degrades gracefully: cohort with n < `min_cohort_n` → fall back a tier, or if
 none, show "insufficient cohort" and skip escalation.
 
+### 5.1 Two corrections to the bottom-`k` rule (2026-07-16)
+
+Measured against the seeded population, **42% of athletes banded red** —
+"immediate assessment" for nearly half a squad is not a triage signal. Two
+distinct causes, both fixed; the rule's *intent* is unchanged.
+
+**(a) Rank against the cohort, not the fallback stragglers.** §5 says "bottom
+`k` **of cohort**", but the implementation grouped athletes by the tier they
+*resolved to*. A broad cohort like `s|Athletics` is normed over all 11 Athletics
+athletes, yet was ranked over only the handful who also fell back to it — two
+live groups had **2 members** with `bottom_k = 3`, so *both* were automatically
+"bottom 3" → auto-escalated → red. Ranking peers are now the cohort's full
+membership, each peer's z recomputed against that cohort's stats so the
+comparison is like-for-like. (`belongsToCohort()` in `utils/overallIndicator.js`.)
+
+**(b) `k` is capped at a share of the cohort.** Fixing (a) alone moved red only
+42% → 41%: the volume came from `bottom_k = 3` being a large *fraction* of a
+small cohort. `bottom_k = 3` was chosen with real ISN cohorts (~15–30) in mind,
+where it means roughly the worst 10–20%; applied literally to a 5-athlete cohort
+it means the worst **60%**. So `k = min(bottom_k, max(1, ⌊n × 0.2⌋))` —
+`bottom_k` remains the admin's absolute ceiling, and the rule now means the same
+thing at every cohort size. (`effectiveK()`, `BOTTOM_SHARE`.)
+
+Result: **green 51% · amber 31% · red 19%**, with the demo anchors preserved
+(Thung red 42 / 2 escalations, Nazwan green, John green).
+
+### 5.2 The sport-critical alert is a detail, not a verdict (2026-07-16)
+
+The sport-aware screening banner fired for **59 of 59 screened athletes** —
+measured. No threshold rescues it: to make it rare the sport-critical boundary
+would have to sit *above* the standard one (~26 vs 25), contradicting its own
+tightening-only design, and both ground-truth athletes trip it too. The deeper
+issue is that it is an **absolute cut-off** — precisely what this redesign argues
+against (§1) — competing with the cohort-normed indicator it duplicates.
+
+It is therefore no longer a verdict: it renders only when the cohort-normed band
+is already amber/red, sits **below** the hero, and answers *"which regions are
+behind this band"*. Green athletes get no banner; their region detail lives on
+the threshold strips and in Training Focus. The coach's squad-level version of
+the same banner (which listed 27 of 28 athletes) was removed — the readiness
+table is already sorted worst-first and now names each athlete's worst region.
+
 ## 6. Cohort-threshold engine + admin approval
 
 - On each import commit, recompute affected cohorts' mean/SD per component.

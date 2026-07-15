@@ -89,7 +89,10 @@ export default function CoachDashboard() {
     return data.athletes
       .map((a) => {
         const screening = computeBodyPartAlerts(a.risks, a.sport);
-        return { row: a, band: bandFor(a.screening?.effectiveBand), screening };
+        // Worst sport-critical region (alerts are already sorted worst-first),
+        // falling back to the worst region of any kind — what the table names.
+        const worst = screening.criticalAlerts[0] ?? screening.alerts[0] ?? null;
+        return { row: a, band: bandFor(a.screening?.effectiveBand), screening, worst };
       })
       .sort((x, y) => {
         const ox = x.band ? ORDER[x.band] : 3;
@@ -98,13 +101,6 @@ export default function CoachDashboard() {
         return ox - oy || (x.row.screening?.overallIndicator ?? 101) - (y.row.screening?.overallIndicator ?? 101);
       });
   }, [data]);
-
-  // Athletes whose sport-critical body region is out of screening range — the
-  // headline injury alert for the squad.
-  const screeningFlagged = useMemo(
-    () => classified.filter((x) => x.screening.hasCriticalAlert),
-    [classified],
-  );
 
   const counts = useMemo(() => {
     const c = { full: 0, observation: 0, restricted: 0, unscored: 0 };
@@ -168,33 +164,13 @@ export default function CoachDashboard() {
         )}
       </div>
 
-      {/* Squad-level injury alert — athletes whose sport-critical body region
-          is out of screening range. Surfaced before the readiness table. */}
-      {screeningFlagged.length > 0 && (
-        <div className="screening-alert screening-alert--high" role="alert" style={{ marginBottom: 20 }}>
-          <div className="screening-alert-head">
-            <span className="screening-alert-icon" aria-hidden>⚠</span>
-            <div>
-              <div className="screening-alert-title">
-                {screeningFlagged.length} athlete{screeningFlagged.length === 1 ? '' : 's'} with sport-critical screening alerts
-              </div>
-              <div className="screening-alert-sub">
-                A body region important for their sport is not within a healthy screening range.
-              </div>
-            </div>
-          </div>
-          <ul className="screening-alert-list">
-            {screeningFlagged.map(({ row, screening }) => (
-              <li key={row.athleteId} className="screening-alert-item is-critical">
-                <span className="screening-alert-label">{row.name}</span>
-                <span className="text-muted" style={{ fontSize: '0.78rem' }}>
-                  {screening.criticalAlerts.map((a) => a.label).join(', ')}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      {/* NOTE: a squad-level "N athletes with sport-critical screening alerts"
+          banner used to sit here. It was removed on 2026-07-16: it fired on any
+          sport-critical region at Watch or worse, so it listed 27 of 28 athletes
+          — a red block naming nearly the whole squad tells a coach nothing. It
+          also duplicated the table below, which is already sorted worst-first
+          and now names each athlete's worst region. Restricted athletes are the
+          top rows; that IS the alert. */}
 
       {total > 0 && (
         <div className="card">
@@ -217,7 +193,7 @@ export default function CoachDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {classified.map(({ row, band, screening }) => (
+                {classified.map(({ row, band, screening, worst }) => (
                   <tr key={row.athleteId}>
                     <td>
                       <strong>{row.name}</strong>
@@ -232,17 +208,22 @@ export default function CoachDashboard() {
                         ? <span className={BAND_META[band].badge}>{BAND_META[band].label}</span>
                         : <span className="text-muted" style={{ fontSize: '0.78rem' }}>Not scored</span>}
                     </td>
+                    {/* The worst sport-critical region, named. This column used
+                        to read "⚠ critical" for literally every athlete (59/59
+                        measured), because it fired on any sport-critical region
+                        at Watch or worse — useless as a scan target. Naming the
+                        region and its band gives the coach something that
+                        actually varies and that they can act on. */}
                     <td style={{ textAlign: 'center' }}>
-                      {screening.hasCriticalAlert ? (
-                        <span className="badge-high" title={screening.criticalAlerts.map((a) => `${a.label} ${a.value.toFixed(0)}`).join(', ')}>
-                          ⚠ critical
-                        </span>
-                      ) : screening.topBand === 'high' ? (
-                        <span className="badge-moderate" title={screening.alerts.map((a) => `${a.label} ${a.value.toFixed(0)}`).join(', ')}>
-                          elevated
-                        </span>
-                      ) : !screening.hasData ? (
+                      {!screening.hasData ? (
                         <span className="text-muted" title="No HoloMotion screening ingested for this athlete yet">no data</span>
+                      ) : worst ? (
+                        <span
+                          className={worst.band === 'high' ? 'badge-high' : 'badge-moderate'}
+                          title={screening.alerts.map((a) => `${a.label} ${a.value.toFixed(0)}`).join(' · ')}
+                        >
+                          {worst.label} {worst.value.toFixed(0)}
+                        </span>
                       ) : (
                         '—'
                       )}

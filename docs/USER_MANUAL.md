@@ -124,9 +124,11 @@ Since 2026-07-16 this page is the **only** place training load is shown — the 
 
 The athlete's home page. Vertical sections from top to bottom:
 
-### 4.0 Sport-Critical Screening Alert (when triggered)
+### 4.0 "Regions behind this band" (when the band is amber/red)
 
-At the very top — *above* the risk hero — a red/amber alert banner appears when a HoloMotion screening indicator for a body region **important to the athlete's sport** is out of a healthy range (e.g. an Ankle indicator for a Badminton player). It lists each flagged region with a Watch/High chip. Renders nothing when everything is in range. Full behaviour in [§13](#13-sport-critical-screening-alerts).
+Sits *below* the hero, and only when the athlete's band is **amber or red**. It answers the obvious follow-up question — *which regions put me here?* — listing each out-of-range region with a Watch/Elevated chip, and starring the ones the athlete's sport loads heavily (which AIRMS holds to a tighter standard). Full behaviour in [§13](#13-sport-critical-screening-alerts).
+
+> **This used to be an always-on alarm at the top of the page**, keyed on absolute thresholds. It fired for **59 of 59** screened athletes — an alarm that never stops isn't an alarm. It also gave a *second* verdict competing with the indicator, using exactly the kind of absolute cut-off the cohort-normed design exists to replace. Since 2026-07-16 it explains the band instead of competing with it, and green athletes don't get one — their region detail is on the threshold strips and in Training Focus.
 
 ### 4.1 Overall Risk Indicator — the hero *(the one verdict)*
 
@@ -419,7 +421,7 @@ The FYP II primary risk signal, shown as a traffic-light badge on the athlete, m
 
 **Escalation (Dr Thung's rule):**
 - **+1** if the athlete is **below the cohort average**.
-- **+1** if the athlete is among the **bottom `k`** (default 3) of their cohort.
+- **+1** if the athlete is among the **worst performers** of their cohort — the bottom `k`, where `k` is the admin's **bottom-k** setting (default 3) capped at **20% of the cohort**. The cap keeps the rule meaning the same thing in a squad of 5 as in a squad of 30: bottom-3 of 30 is the worst 10%, but bottom-3 of 5 would be the worst 60% — most of the group, which is not "among the worst". The athlete is ranked against **everyone in the cohort they're compared against**, not just those who fell back to the same tier.
 
 So an athlete with a decent raw score who is nonetheless below their peers and among the cohort's worst escalates twice → red. This is intentional: a "good" number is not "safe" if everyone around them is doing better.
 

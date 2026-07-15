@@ -745,9 +745,9 @@ export default function MedicalDashboard() {
                 </div>
               </div>
 
-              {/* Sport-aware screening alert — flags a critical body region
-                  that's out of range before the workload signal */}
-              <ScreeningAlertBanner risks={selectedAthlete.risks} sport={selectedAthlete.sport} audience="staff" />
+              {/* The sport-aware screening detail sits BELOW the hero now — it
+                  explains the band rather than competing with it. See the
+                  rationale in ScreeningAlertBanner.tsx. */}
 
               {/* PRIMARY risk signal — cohort-normed HoloMotion indicator with
                   the clinician override, paired with the risk radar (mirrors the
@@ -784,6 +784,15 @@ export default function MedicalDashboard() {
                   />
                 </div>
               </div>
+
+              {/* Which regions sit behind an amber/red band. Renders nothing
+                  when the athlete is green overall. */}
+              <ScreeningAlertBanner
+                risks={selectedAthlete.risks}
+                sport={selectedAthlete.sport}
+                band={selectedAthlete.screening?.effectiveBand}
+                audience="staff"
+              />
 
               {/* Recovery baseline — open snapshot of pre-elevation training state.
                   Auto-created when composite risk first leaves Low; auto-resolved

@@ -37,8 +37,26 @@ function zToScore(z) {
   return Math.max(0, Math.min(100, Math.round(50 + z * (50 / 3))));
 }
 
-// Full indicator. `rankInfo` = { rank, total } of this athlete within the
-// cohort (rank 1 = worst by composite z); pass null if unranked.
+// The share of a cohort the "worst performers" escalation may cover. bottom_k
+// (default 3) was chosen with real ISN cohort sizes in mind (~15–30 athletes),
+// where it means roughly the worst 10–20%. Applied literally to a 5-athlete
+// cohort it means the worst 60% — which is not "among the worst", it is most
+// of the group, and it made ~42% of the squad band red. Expressing the rule as
+// a proportion keeps it meaning the same thing at every cohort size, while
+// bottom_k stays the admin's absolute ceiling. See docs/fyp/FYP2_REDESIGN_SPEC.md §5.
+const BOTTOM_SHARE = 0.2;
+
+// The effective k for a cohort of n: the admin's bottom_k, capped so it never
+// covers more than BOTTOM_SHARE of the cohort (but always at least 1).
+function effectiveK(n, settings = {}) {
+  const k = settings.bottom_k ?? 3;
+  if (!n || n <= 0) return k;
+  return Math.min(k, Math.max(1, Math.floor(n * BOTTOM_SHARE)));
+}
+
+// Full indicator. `rankInfo` = { rank, total, k } of this athlete within the
+// cohort (rank 1 = worst by composite z; k = the effective bottom-k for that
+// cohort); pass null if unranked.
 // Returns { indicator, band, escalations, z, factors }.
 function computeIndicator(screening, cohortStats, rankInfo, settings = {}) {
   const z = compositeZ(screening, cohortStats);
@@ -51,7 +69,7 @@ function computeIndicator(screening, cohortStats, rankInfo, settings = {}) {
     escalations++;
     factors.push('below cohort average');
   }
-  const k = settings.bottom_k ?? 3;
+  const k = rankInfo?.k ?? effectiveK(rankInfo?.total, settings);
   if (settings.escalation_bottom_k !== false && rankInfo && rankInfo.rank <= k) {
     escalations++;
     factors.push(`bottom ${k} of ${rankInfo.total} in cohort`);
@@ -60,8 +78,7 @@ function computeIndicator(screening, cohortStats, rankInfo, settings = {}) {
   return { indicator: zToScore(z), band, escalations, z: +z.toFixed(3), factors };
 }
 
-// Cohort identity an athlete resolves to at a given tier — peers who share this
-// string are ranked against each other.
+// Cohort identity an athlete resolves to at a given tier.
 function resolvedCohortId(a, tier) {
   const sport = a.sport;
   const prog = a.program || a.programme;
@@ -70,6 +87,26 @@ function resolvedCohortId(a, tier) {
   if (tier === 'sg') return `sg|${sport}|${gender}`;
   if (tier === 's') return `s|${sport}`;
   return 'all';
+}
+
+// Does this athlete BELONG to the cohort `id` — i.e. would they be counted in
+// its mean/SD — regardless of which tier they themselves resolved to?
+//
+// This is the distinction that matters for ranking. An athlete whose most
+// specific cohort is too small falls back a tier, so a broad cohort like
+// `s|Athletics` is normed over ALL 11 Athletics athletes but was previously
+// RANKED over only the handful who also happened to fall back to it. Two live
+// groups had 2 members with bottom_k = 3, so both were automatically "bottom 3"
+// → auto-escalated → red. The spec says "bottom k of cohort" (§5), so the
+// ranking peers must be the cohort's membership, not the fallback stragglers.
+function belongsToCohort(a, id) {
+  const parts = id.split('|');
+  const [tier, sport, x, y] = parts;
+  const prog = a.program || a.programme;
+  if (tier === 'all') return true;
+  if (tier === 's') return a.sport === sport;
+  if (tier === 'sg') return a.sport === sport && a.gender === x;
+  return a.sport === sport && prog === x && a.gender === y;
 }
 
 // Recompute every athlete's overall indicator from the approved cohorts and
@@ -95,18 +132,34 @@ async function recomputeIndicators() {
     return { athlete, screening, resolved, z };
   });
 
-  // Rank within each resolved cohort (rank 1 = lowest z = worst performer).
-  const groups = new Map();
-  for (const e of enriched) {
-    if (!e.resolved || e.z === null) continue;
-    const id = resolvedCohortId(e.athlete, e.resolved.tier);
-    if (!groups.has(id)) groups.set(id, []);
-    groups.get(id).push(e);
-  }
+  // Rank each athlete within the cohort they were NORMED against (rank 1 =
+  // lowest z = worst performer). The peers are that cohort's full membership,
+  // not just the athletes who happened to fall back to the same tier — see
+  // belongsToCohort() above for why that distinction matters.
+  //
+  // Every peer's z is recomputed against THIS cohort's stats so the ranking is
+  // like-for-like: a peer who resolved to a narrower tier is scored on their
+  // own ruler for their own band, but on this cohort's ruler when acting as a
+  // yardstick here. Cost is O(distinct cohorts × athletes) — ~11 × 59 in the
+  // seeded set, so it stays comfortably inside the post-import recompute.
+  const scoredAthletes = enriched.filter((e) => e.resolved && e.z !== null);
+  const cohortIds = [...new Set(scoredAthletes.map((e) => resolvedCohortId(e.athlete, e.resolved.tier)))];
   const rankOf = new Map();
-  for (const group of groups.values()) {
-    group.sort((a, b) => a.z - b.z);
-    group.forEach((e, i) => rankOf.set(e.screening.id, { rank: i + 1, total: group.length }));
+  for (const id of cohortIds) {
+    // Any athlete resolving to this id shares its stats, so take the first.
+    const stats = scoredAthletes.find((e) => resolvedCohortId(e.athlete, e.resolved.tier) === id).resolved.stats;
+    const peerZs = enriched
+      .filter((e) => belongsToCohort(e.athlete, id))
+      .map((e) => compositeZ(e.screening, stats))
+      .filter((z) => z !== null)
+      .sort((a, b) => a - b);
+    const k = effectiveK(peerZs.length, settings);
+    for (const e of scoredAthletes) {
+      if (resolvedCohortId(e.athlete, e.resolved.tier) !== id) continue;
+      // rank 1 = worst; ties share the best (highest) rank of the tied block.
+      const rank = peerZs.findIndex((z) => z >= e.z) + 1;
+      rankOf.set(e.screening.id, { rank: rank || peerZs.length, total: peerZs.length, k });
+    }
   }
 
   let scored = 0;
@@ -123,4 +176,8 @@ async function recomputeIndicators() {
   return { athletes: enriched.length, scored };
 }
 
-module.exports = { computeIndicator, compositeZ, zToScore, BANDS, resolvedCohortId, recomputeIndicators };
+module.exports = {
+  computeIndicator, compositeZ, zToScore, BANDS,
+  resolvedCohortId, belongsToCohort, effectiveK, BOTTOM_SHARE,
+  recomputeIndicators,
+};
