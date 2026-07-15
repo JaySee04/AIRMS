@@ -79,7 +79,12 @@ export default function CoachDashboard() {
       .map((a) => {
         const risk = classifyCompositeRisk(a.acwr, a, a.activeInjuries);
         const screening = computeBodyPartAlerts(a.risks, a.sport);
-        return { row: a, risk, band: bandFor(risk.cls), screening };
+        // The backend returns acwr 0 when an athlete has logged no sessions in
+        // the window. That is ABSENCE of load data, not low load — without this
+        // guard the composite reads 0 as a genuine ratio and reports
+        // "Detraining Risk" for an athlete we simply know nothing about.
+        const hasLoad = a.acwr > 0;
+        return { row: a, risk, band: bandFor(risk.cls), screening, hasLoad };
       })
       .sort((x, y) => ORDER[x.band] - ORDER[y.band] || y.risk.vulnerability - x.risk.vulnerability);
   }, [data]);
@@ -204,7 +209,7 @@ export default function CoachDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {classified.map(({ row, risk, band, screening }) => (
+                {classified.map(({ row, risk, band, screening, hasLoad }) => (
                   <tr key={row.athleteId}>
                     <td>
                       <strong>{row.name}</strong>
@@ -218,14 +223,20 @@ export default function CoachDashboard() {
                       <span className={BAND_META[band].badge}>{BAND_META[band].label}</span>
                     </td>
                     <td style={{ textAlign: 'center', fontWeight: 600 }}>
-                      {row.acwr > 0 ? row.acwr.toFixed(2) : '—'}
+                      {hasLoad ? row.acwr.toFixed(2) : '—'}
                     </td>
                     <td>
-                      {risk.level}
-                      {risk.escalated && (
-                        <span className="text-muted" style={{ fontSize: '0.72rem', display: 'block' }}>
-                          escalated
-                        </span>
+                      {hasLoad ? (
+                        <>
+                          {risk.level}
+                          {risk.escalated && (
+                            <span className="text-muted" style={{ fontSize: '0.72rem', display: 'block' }}>
+                              escalated
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-muted">No load data</span>
                       )}
                     </td>
                     <td style={{ textAlign: 'center' }}>

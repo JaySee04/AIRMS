@@ -267,11 +267,15 @@ export default function AthleteDashboard() {
   // Fixed canonical ordering (don't trust Object.keys iteration order).
   // Values are clamped to the radar's display max so an out-of-range
   // backend value can't silently clip outside the chart.
+  // spinalDiscHerniation (Lumbar Disc Herniation) is deliberately ABSENT: it is
+  // extracted and stored, but excluded from every risk display per Dr Thung —
+  // ISN's facilities don't support that assessment, so showing it would imply a
+  // reading the institute cannot stand behind. See MASTER_CLARIFICATIONS §6 and
+  // SHOWN_RISK_KEYS in backend/src/utils/cohorts.js (the scoring counterpart).
   const RISK_KEYS: Array<keyof AthleteRisks> = [
     'neckInjuryRisk',
     'shoulderInjuryRisk',
     'scoliosis',
-    'spinalDiscHerniation',
     'lumbarPelvisInjury',
     'jointPain',
     'kneeInjuryRisk',

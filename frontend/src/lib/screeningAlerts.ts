@@ -28,11 +28,15 @@ export type BodyRegion = 'Neck' | 'Shoulder' | 'Spine' | 'Lumbar/Pelvis' | 'Join
 
 // Each stored indicator → its region + a human label. Exported so screening
 // visualisations share the same region mapping the alert layer uses.
+// spinalDiscHerniation (Lumbar Disc Herniation) is deliberately ABSENT: it is
+// extracted and stored, but excluded from every risk display AND from the
+// sport-critical alerts per Dr Thung — ISN's facilities don't support that
+// assessment, so AIRMS must never raise a finding against it. The scoring
+// counterpart is SHOWN_RISK_KEYS in backend/src/utils/cohorts.js.
 export const INDICATORS: Array<{ key: keyof AthleteRisks; region: BodyRegion; label: string }> = [
   { key: 'neckInjuryRisk', region: 'Neck', label: 'Neck' },
   { key: 'shoulderInjuryRisk', region: 'Shoulder', label: 'Shoulder' },
   { key: 'scoliosis', region: 'Spine', label: 'Scoliosis' },
-  { key: 'spinalDiscHerniation', region: 'Spine', label: 'Spinal disc' },
   { key: 'lumbarPelvisInjury', region: 'Lumbar/Pelvis', label: 'Lumbar / pelvis' },
   { key: 'jointPain', region: 'Joint', label: 'Joint pain' },
   { key: 'kneeInjuryRisk', region: 'Knee', label: 'Knee' },

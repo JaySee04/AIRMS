@@ -92,11 +92,14 @@ const RISK_LABEL: Record<keyof AthleteRisks, string> = {
   ankleInjuryRisk: 'Ankle',
 };
 
+// spinalDiscHerniation (Lumbar Disc Herniation) is deliberately ABSENT: stored
+// on import but excluded from every risk display per Dr Thung — ISN's
+// facilities don't support that assessment. Mirrors the athlete dashboard and
+// SHOWN_RISK_KEYS in backend/src/utils/cohorts.js.
 const RISK_KEYS: Array<keyof AthleteRisks> = [
   'neckInjuryRisk',
   'shoulderInjuryRisk',
   'scoliosis',
-  'spinalDiscHerniation',
   'lumbarPelvisInjury',
   'jointPain',
   'kneeInjuryRisk',

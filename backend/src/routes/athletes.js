@@ -80,11 +80,14 @@ router.get('/analytics/screening', auth, rbac('admin'), async (_req, res) => {
   try {
     const WATCH = 15;
     const HIGH = 25;
+    // spinalDiscHerniation (Lumbar Disc Herniation) is deliberately ABSENT:
+    // stored on import but excluded from every risk display per Dr Thung — ISN
+    // cannot perform that assessment. Mirrors SHOWN_RISK_KEYS in
+    // utils/cohorts.js (scoring) and the dashboards' RISK_KEYS (display).
     const INDICATORS = [
       { key: 'neckInjuryRisk', label: 'Neck' },
       { key: 'shoulderInjuryRisk', label: 'Shoulder' },
       { key: 'scoliosis', label: 'Scoliosis' },
-      { key: 'spinalDiscHerniation', label: 'Spinal Disc' },
       { key: 'lumbarPelvisInjury', label: 'Lumbar/Pelvis' },
       { key: 'jointPain', label: 'Joint Pain' },
       { key: 'kneeInjuryRisk', label: 'Knee' },
