@@ -15,13 +15,14 @@
 
 ---
 
-## Module 1 — Activity Tracking & Load Monitoring
+## Module 1 — Activity Tracking & Logging (sRPE)
 *Role: Athlete · pages: `/athlete/activity`*
 
 **What it is now:** Athletes log training sessions; the system computes internal
 load via **sRPE** (`load = duration × intensity`, Sequelize hook), with a live
-load-band preview, filterable history, delete, and an 8-week workload trend that
-feeds the ACWR calculation.
+load-band preview and a filterable history with edit and delete. No ACWR appears
+here or anywhere else in the UI — the load history feeds the recovery baseline
+and the dashboard's sharp-drop prompt.
 
 **What changed vs the FDD:** functionally intact, but as of **2026-07-16 this page
 is the *only* place training load appears**. ACWR was removed from every
@@ -138,7 +139,7 @@ surface, rather than spawning a separate module.
 
 | # | Original FDD name | As-built name | Main alteration |
 |---|---|---|---|
-| 1 | Activity Tracking & Logging | Activity Tracking & Load Monitoring | ACWR/workload reframed as the *secondary* training-load signal |
+| 1 | Activity Tracking & Logging | Activity Tracking & Logging (sRPE) | sole training-load surface; ACWR removed from all dashboards 2026-07-16 (computed silently for the recovery baseline only) |
 | 2 | Athlete Dashboard / Workload | Athlete Dashboard & Injury-Risk Indicator | headline = cohort-normed screening indicator; ACWR demoted to secondary |
 | 3 | Injury & Recovery Logging | *(unchanged)* | already matched the shipped system |
 | 4 | Data Management | Screening Data Management & Cohort Norms | + cohort-norm engine, admin approval, import-commit alerts; Excel import retired |

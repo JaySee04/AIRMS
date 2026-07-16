@@ -20,7 +20,6 @@ interface ReadinessRow {
   athleteId: string;
   name: string;
   sport: string;
-  acwr: number;
   overallActivityScore?: number;
   injuryRiskIndex?: number;
   mobility?: number;

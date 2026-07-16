@@ -24,7 +24,7 @@ System *(automated behaviour, no human actor — same convention as FYP I)*.
 | # | Module | One-line charter | Primary roles |
 |---|---|---|---|
 | G | **General** | Authentication, account security, and role/permission enforcement for every other module | All + System |
-| 1 | **Activity Tracking & Load Monitoring** | Athletes log training sessions; the system computes internal load (sRPE) | Athlete |
+| 1 | **Activity Tracking & Logging (sRPE)** | Athletes log training sessions; the system computes internal load (sRPE) | Athlete |
 | 2 | **Athlete Dashboard & Overall Risk Indicator** | The athlete's single risk verdict: the cohort-normed screening indicator, with the full screening picture behind it | Athlete + System |
 | 3 | **Injury & Recovery Logging** | Official injury records, recovery tracking, and the athlete self-report → clinical review pipeline | Medical, Athlete |
 | 4 | **Screening Data Management & Cohort Norms** | HoloMotion PDF ingestion (vision AI), the immutable screening history, cohort-norm governance, alerts, and backup | Admin, Medical + System |
@@ -48,7 +48,7 @@ functional modules (same convention as FYP I).
 | UC-6 | Manage Staff Permissions & Activation | Grant/revoke individual capabilities per medical staffer (view records, upload data, review self-reports, log injuries — opt-out model) and activate/deactivate accounts entirely | Administrator |
 | UC-7 | Enforce Per-User Permissions | Block revoked capabilities server-side on every call; client-side the feature vanishes (sidebar link hidden, direct URL redirected) and takes effect on the staffer's next navigation without re-login | System |
 
-## Module 1 — Activity Tracking & Load Monitoring
+## Module 1 — Activity Tracking & Logging (sRPE)
 
 The sole training-load surface. Since 2026-07-16 load is recorded and shown
 **here only** — it feeds the recovery baseline (UC-50) and the sharp-drop

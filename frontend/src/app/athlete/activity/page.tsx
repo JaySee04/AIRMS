@@ -81,7 +81,7 @@ function LoadPreview({ duration, intensity }: { duration: number; intensity: num
         <span className="load-info-icon">
           ⓘ
           <span className="load-tooltip">
-            Session load (AU — Arbitrary Units) reflects the total internal demand of a training session. It combines how long and how hard you trained. This value feeds directly into your weekly ACWR and risk level on the dashboard.
+            Session load (AU — Arbitrary Units) reflects the total internal demand of a training session. It combines how long and how hard you trained. Your medical team uses this history to set recovery targets, and a sharp week-to-week drop will prompt you to add context on the dashboard.
           </span>
         </span>
       </div>
@@ -304,8 +304,8 @@ function DeleteConfirmModal({
         <div className="modal-body">
           {error && <div className="alert alert-error">{error}</div>}
           <p style={{ marginTop: 0 }}>
-            This will permanently remove the entry below. Your weekly load and
-            ACWR on the dashboard will recalculate automatically.
+            This will permanently remove the entry below. Your training history
+            and weekly load totals will update automatically.
           </p>
           <div
             style={{
