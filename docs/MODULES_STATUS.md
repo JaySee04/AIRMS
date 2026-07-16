@@ -238,7 +238,7 @@ Items left for JC to eyeball are in [`docs/fyp/JC_CHECKLIST.md`](fyp/JC_CHECKLIS
 | **Clinician override** — medical staff can move an assessed athlete to green/amber/red with a required note; auto-expires on next import | ✅ | [`routes/screenings.js`](../backend/src/routes/screenings.js), medical dashboard |
 | **Three cohort-normed PDF reports** — admin holistic, individual (thresholds-vs-peers + report-to-report deltas), team/group (ranking + coach attention table) | ✅ | [`routes/screeningReports.js`](../backend/src/routes/screeningReports.js), card on [`/admin/reports`](../frontend/src/app/admin/reports/page.tsx) |
 | **Email alerts on import commit** — to medical staff + the sport's coaches when an athlete lands amber/red or escalated | ✅ | [`utils/alerts.js`](../backend/src/utils/alerts.js) |
-| **Coach view (experimental 4th role)** — read-only, sport-scoped squad readiness; all athletes' HoloMotion risks, filter by sport + programme | ✅ | [`/coach/dashboard`](../frontend/src/app/coach/dashboard/page.tsx) |
+| **Coach view (experimental 4th role)** — read-only squad readiness scoped to the coach's admin-assigned sports; all athletes' HoloMotion risks sorted worst-first with the worst region named (no in-page filters) | ✅ | [`/coach/dashboard`](../frontend/src/app/coach/dashboard/page.tsx) |
 | **ACWR demotion** — the composite personalised-ACWR model (`risk.ts`) is relabelled a secondary "Training Load" view; **not deleted** (Modules 1/2 intact), logic preserved for identical rebuild | ✅ | dashboards, [`docs/fyp/ACWR_REBUILD.md`](fyp/ACWR_REBUILD.md) |
 | **Batch upload + name-match + 52-sport search + editable identity** | ✅ | [`PdfScreeningUpload.tsx`](../frontend/src/components/upload/PdfScreeningUpload.tsx) |
 

@@ -467,7 +467,7 @@ Each streams straight to the browser as a download.
 
 **Email alerts (automatic):** when an import is **committed**, any athlete in that batch who lands **amber/red or escalated** triggers an email to the **medical staff** and to the **coaches assigned to that athlete's sport**. New data means "assess now" — the alert stops it sitting unseen. Alert behaviour (on/off, which band) is an admin setting ([§17](#17-cohort-thresholds--settings-admin--adminthresholds)). With no SMTP configured the mailer falls back to printing the email to the backend console.
 
-**Coach view — `/coach/dashboard`** (experimental 4th role): a read-only, sport-scoped squad-readiness board. A coach sees **all athletes in their sport(s)** with their HoloMotion overall-risk badges side by side, filterable by **sport + programme**, so they can see at a glance who needs the medical team's attention. Coaches cannot edit anything.
+**Coach view — `/coach/dashboard`** (experimental 4th role): a read-only squad-readiness board scoped to the coach's **admin-assigned sports**. Every athlete appears with their HoloMotion overall-risk badge and a Full-Go / Observation / Restricted readiness band (mapped straight from the same cohort-normed band the medical team sees), sorted worst-first with each athlete's **worst screening region named** (e.g. "Ankle 27") and their active-injury count — so the coach sees at a glance who needs the medical team's attention. There are no in-page filters (scoping is by assignment), and coaches cannot edit anything.
 
 ---
 

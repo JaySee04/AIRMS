@@ -149,7 +149,7 @@ Pages mapped to the 3 roles + profile pages:
 | [`/admin/staff`](../frontend/src/app/admin/staff/page.tsx) | admin | Medical-staff permission control + account activation |
 | [`/admin/data-upload`](../frontend/src/app/admin/data-upload/page.tsx) | admin | Module 4 — HoloMotion PDF import (batch + name-match) + data backup |
 | [`/admin/profile`](../frontend/src/app/admin/profile/page.tsx) | admin | Profile |
-| [`/coach/dashboard`](../frontend/src/app/coach/dashboard/page.tsx) | coach | **FYP II** (experimental 4th role) read-only, sport-scoped squad readiness — all athletes' HoloMotion overall risks, filterable by sport + programme |
+| [`/coach/dashboard`](../frontend/src/app/coach/dashboard/page.tsx) | coach | **FYP II** (experimental 4th role) read-only squad readiness scoped to the coach's admin-assigned sports — all athletes' HoloMotion overall risks, sorted worst-first with the worst region named |
 
 ### Layout components — `frontend/src/components/layout/`
 

@@ -1,5 +1,10 @@
 # AIRMS — The Six Modules, As Built (Draft)
 
+> **Companion:** the full FDD-style use-case model (52 UCs, roles per use case,
+> FYP I → FYP II mapping) is in [`FYP2_MODULES_USECASES.md`](FYP2_MODULES_USECASES.md)
+> — that file is the report-ready Table 4.1 replacement; this one is the module
+> narratives.
+
 > **Status:** draft for JC, 2026-07-15. Takes the **original six FDD modules**
 > (login/General excluded) and rewrites each so its definition matches the system
 > **as it actually stands now**, after the screening-centred redesign. No new
@@ -118,7 +123,9 @@ card**, a deep-linked "+ Log Injury", and — new — the **clinician override**
 which lets an assessed athlete be moved to green/amber/red with a required note
 (auto-expires on the next import). The **coach** gets a read-only, sport-scoped
 **squad-readiness view**: all athletes in their sport(s) with their overall-risk
-badges side by side, filterable by sport + programme.
+badges side by side, scoped to the coach's assigned sports (assigned by the
+admin; there are no in-page sport/programme filter controls — the earlier
+"filterable" wording overstated the build).
 
 **What changed vs the FDD:** "Medical Dashboard" broadened to **Clinical & Squad
 Monitoring** — it now carries the **clinician override** affordance and absorbs

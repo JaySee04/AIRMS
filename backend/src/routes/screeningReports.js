@@ -577,7 +577,10 @@ router.get('/individual/:id.pdf', auth, requirePermission('viewRecords'), async 
 });
 
 // ── 3. Team ─────────────────────────────────────────────────────────────────
-router.get('/team.pdf', auth, requirePermission('viewRecords'), async (req, res) => {
+// rbac first: requirePermission alone lets non-medical roles pass through, and
+// an athlete must not be able to download the whole squad's ranking. The
+// individual report handles athletes with an explicit self-only check instead.
+router.get('/team.pdf', auth, rbac('medical', 'admin'), requirePermission('viewRecords'), async (req, res) => {
   try {
     const { sport, programme, gender } = req.query;
     if (!sport) return res.status(400).json({ message: 'sport is required' });
