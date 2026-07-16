@@ -1,157 +1,130 @@
-# AIRMS — The Six Modules, As Built (Draft)
+# AIRMS — The Six Modules, As Built
 
-> **Companion:** the full FDD-style use-case model (52 UCs, roles per use case,
-> FYP I → FYP II mapping) is in [`FYP2_MODULES_USECASES.md`](FYP2_MODULES_USECASES.md)
-> — that file is the report-ready Table 4.1 replacement; this one is the module
-> narratives.
-
-> **Status:** draft for JC, 2026-07-15. Takes the **original six FDD modules**
-> (login/General excluded) and rewrites each so its definition matches the system
-> **as it actually stands now**, after the screening-centred redesign. No new
-> build work — this is the six we have, re-described to fit reality. Each entry
-> lists what the module *is now* and **what changed vs the original FDD**.
-> The count stays six; the coach view and the redesign features fold into the
-> existing modules rather than adding a seventh.
+> **Status:** rewritten clean 2026-07-16 (supersedes the 07-15 draft, which
+> accumulated stale ACWR references as the removal landed mid-flight). The six
+> functional modules of the shipped system, plus the cross-cutting General
+> module. Names here match the use-case model exactly.
+>
+> **Companion:** [`FYP2_MODULES_USECASES.md`](FYP2_MODULES_USECASES.md) — the
+> full FDD-style use-case model (52 UCs, roles per use case, FYP I → FYP II
+> mapping); that file is the report-ready Table 4.1 replacement, this one is
+> the module narratives.
 
 ---
 
-## Module 1 — Activity Tracking & Logging (sRPE)
-*Role: Athlete · pages: `/athlete/activity`*
+## The list
 
-**What it is now:** Athletes log training sessions; the system computes internal
-load via **sRPE** (`load = duration × intensity`, Sequelize hook), with a live
-load-band preview and a filterable history with edit and delete. No ACWR appears
-here or anywhere else in the UI — the load history feeds the recovery baseline
-and the dashboard's sharp-drop prompt.
-
-**What changed vs the FDD:** functionally intact, but as of **2026-07-16 this page
-is the *only* place training load appears**. ACWR was removed from every
-dashboard (it was out-shouting the primary screening indicator), so Module 1 no
-longer feeds a dashboard verdict — it feeds the recovery baseline and the
-sharp-drop prompt. sRPE stays as the locked, showcased method, and the composite
-model is retained in `lib/risk.ts` (rebuild spec: `ACWR_REBUILD.md`).
-
----
-
-## Module 2 — Athlete Dashboard & Injury-Risk Indicator
-*Role: Athlete · pages: `/athlete/dashboard`*
-
-**What it is now:** The athlete's risk picture, led by the **cohort-normed overall
-risk indicator** — a traffic-light badge (green/amber/red, 0–100) derived by
-z-scoring the athlete's HoloMotion screening against their cohort (sport ×
-programme × gender) and averaging (Total Score of Athleticism), then escalating
-when they fall below the cohort mean or into its bottom-*k*. Below it: the
-embedded **HoloMotion screening panel** (tier-ticked gauges + eight indicator
-threshold strips + muscle-flag chips), the **body map**, the **risk radar**, the
-**secondary composite ACWR / Training-Load hero**, recent activity, and injury
-records.
-
-**What changed vs the FDD:** the dashboard's headline moved from the ACWR
-composite to the **screening-based overall indicator** — this is now the FYP
-differentiator surface. As of **2026-07-16 the ACWR composite hero, the load
-stat tiles and the Workload Trend chart are gone from the dashboard entirely**
-(not merely demoted): they were visually dominating the primary indicator and
-gave the athlete three competing verdicts. Module 2 is now **purely screening** —
-indicator hero + radar + screening panel + body map + records. The composite
-model is retained in `lib/risk.ts` and still executes (recovery baselines,
-prevention insight); training load lives on Module 1.
-
----
-
-## Module 3 — Injury & Recovery Logging
-*Role: Medical (+ Athlete self-report) · pages: `/medical/injury-log`, `/medical/review-reports`, `/athlete/injury-report`*
-
-**What it is now:** Medical staff record official injuries against athlete records
-(enum-locked intake, five-step pro-team workflow, recurrence detection,
-time-loss-anchored severity); athletes submit self-reports that medical
-**reviews and, on approval, promotes into an official `Injury` record** inside a
-single transaction.
-
-**What changed vs the FDD:** essentially unchanged — this module already matched
-the shipped system. Recovery-status tracking remains `Recovering / Recovered /
-Chronic`; structured milestone tracking is still deferred (Dr Thung's schema not
-locked).
-
----
-
-## Module 4 — Screening Data Management & Cohort Norms
-*Role: Admin / Medical · pages: `/admin/data-upload`, `/medical/data-upload`, `/admin/thresholds`*
-
-**What it is now:** The data governance spine. **HoloMotion PDF vision-AI
-ingestion** is the sole import path — batch-capable, name-match autofill against
-the roster, searchable 52-sport list, editable identity (name Title-Cased, age,
-gender), preview→commit. Each commit writes an **immutable screening snapshot**
-and then, in one pass: **recomputes the cohort norms**, and **fires email alerts**
-to medical staff + the sport's coaches for any athlete who lands amber/red or
-escalated. The admin **cohort-threshold approval queue** (`/admin/thresholds`)
-lets the admin approve or edit the auto-computed per-cohort mean/SD and tune the
-settings (min cohort size, bottom-*k*, escalation/alert toggles). The Excel
-**backup export** remains.
-
-**What changed vs the FDD:** grew from "Data Management (import + backup)" into the
-module that also **owns the cohort-norm engine, its admin approval, and the
-import-commit alerting** — because all three are driven by the import. The Excel
-*import* was retired (archived); the Excel *backup* stays.
-
----
-
-## Module 5 — Analytics & Reporting
-*Role: Admin · pages: `/admin/dashboard`, `/admin/reports`*
-
-**What it is now:** The admin analytics + reporting surface. The **injury analytics
-dashboard** (4 KPI cards, body-part / injury-type distribution charts, monthly
-trend, 8 filters incl. age group) plus a **live PDF report generator**: the
-existing multi-page **injury report**, and the three **cohort-normed screening
-reports** — *holistic* (organisation-wide visualisations), *individual*
-(scores + muscle legend + thresholds-vs-peers + report-to-report progress
-deltas), and *team/group* (group thresholds + athlete ranking + a coach
-attention table).
-
-**What changed vs the FDD:** "Injury Analytics" widened to **Analytics &
-Reporting** to include the three screening PDF reports that the redesign added —
-so the module now reports on both the injury record *and* the screening cohort.
-
----
-
-## Module 6 — Clinical & Squad Monitoring Dashboard
-*Role: Medical / Coach · pages: `/medical/dashboard`, `/coach/dashboard`*
-
-**What it is now:** The human-in-the-loop monitoring surface. Medical staff
-search/filter the roster and open a per-athlete view that mirrors the athlete's
-own dashboard (same risk indicator, screening panel, workload chart, risk radar,
-body map, injury history) plus clinician affordances: the **prevention-insight
-card**, a deep-linked "+ Log Injury", and — new — the **clinician override**,
-which lets an assessed athlete be moved to green/amber/red with a required note
-(auto-expires on the next import). The **coach** gets a read-only, sport-scoped
-**squad-readiness view**: all athletes in their sport(s) with their overall-risk
-badges side by side, scoped to the coach's assigned sports (assigned by the
-admin; there are no in-page sport/programme filter controls — the earlier
-"filterable" wording overstated the build).
-
-**What changed vs the FDD:** "Medical Dashboard" broadened to **Clinical & Squad
-Monitoring** — it now carries the **clinician override** affordance and absorbs
-the read-only **coach squad view** as a second role on the same monitoring
-surface, rather than spawning a separate module.
-
----
-
-## At a glance — original → as-built
-
-| # | Original FDD name | As-built name | Main alteration |
+| # | Module | UCs | Roles |
 |---|---|---|---|
-| 1 | Activity Tracking & Logging | Activity Tracking & Logging (sRPE) | sole training-load surface; ACWR removed from all dashboards 2026-07-16 (computed silently for the recovery baseline only) |
-| 2 | Athlete Dashboard / Workload | Athlete Dashboard & Injury-Risk Indicator | headline = cohort-normed screening indicator; ACWR demoted to secondary |
-| 3 | Injury & Recovery Logging | *(unchanged)* | already matched the shipped system |
-| 4 | Data Management | Screening Data Management & Cohort Norms | + cohort-norm engine, admin approval, import-commit alerts; Excel import retired |
-| 5 | Injury Analytics | Analytics & Reporting | + the three cohort-normed screening PDF reports |
-| 6 | Medical Dashboard | Clinical & Squad Monitoring Dashboard | + clinician override + read-only coach squad view |
+| G | General *(cross-cutting, not counted)* | UC-1–7 | All + System |
+| 1 | **Activity Tracking & Logging (sRPE)** | UC-8–12 | Athlete |
+| 2 | **Athlete Dashboard & Overall Risk Indicator** | UC-13–22 | Athlete + System |
+| 3 | **Injury & Recovery Logging** | UC-23–28 | Medical, Athlete |
+| 4 | **Screening Data Management & Cohort Norms** | UC-29–38 | Admin, Medical + System |
+| 5 | **Analytics & Reporting** | UC-39–45 | Admin |
+| 6 | **Clinical & Squad Monitoring** | UC-46–52 | Medical, Coach *(experimental)* |
 
-Login / General (auth + RBAC + password management) is unchanged and is **not**
-counted among the six.
+**One sentence for the viva:** athletes log training (1) and read one
+cohort-normed screening verdict (2); injuries flow through a clinical pipeline
+(3); HoloMotion reports are ingested by vision AI under admin-governed cohort
+norms (4); the organisation analyses and reports on all of it (5); and
+clinicians and coaches monitor individuals and squads with override authority
+where it belongs (6).
 
 ---
 
-*Compiled 2026-07-15. Rename any of the six freely — the point is that all six
-now describe the system that actually exists. Pair with
-[`FYP2_REDESIGN_SPEC.md`](FYP2_REDESIGN_SPEC.md) (the redesign detail) and
-[`../MODULES_STATUS.md`](../MODULES_STATUS.md) (per-module status).*
+## General Module — Authentication & Access *(UC-1–7)*
+
+JWT login with role-based redirect; email-OTP password reset (single-tab,
+3-step); in-place change-password under the complexity policy; view profile.
+RBAC enforced server-side on every route and mirrored client-side; on top of
+it, per-staffer feature permissions (opt-out) that the admin manages — revoked
+features vanish from the UI and are blocked at the API regardless.
+
+## Module 1 — Activity Tracking & Logging (sRPE) *(UC-8–12)*
+
+Athletes log sessions (type, date, duration, RPE); the system persists
+`load = duration × intensity` at write time (the locked, literature-anchored
+sRPE method) with a live preview and qualitative band; history is filterable
+with edit and delete. **No ACWR appears here or anywhere else in the UI** — the
+load history feeds the recovery baseline (Module 6) and the dashboard's
+sharp-drop prompt, not a displayed verdict. The composite ACWR model itself is
+retained in `lib/risk.ts` and still executes silently (see `ACWR_REBUILD.md`).
+
+## Module 2 — Athlete Dashboard & Overall Risk Indicator *(UC-13–22)*
+
+The FYP differentiator surface, and deliberately a **one-verdict page**. The
+hero is the cohort-normed indicator: six oriented screening components z-scored
+against the athlete's approved cohort (sport × programme × gender with a
+fallback ladder), averaged equal-weight (Total Score of Athleticism), mapped to
+0–100 (50 = cohort average), and banded by escalation — +1 below the cohort
+average, +1 among the cohort's worst (bottom-k, capped at 20% of the cohort).
+Behind the verdict, in explanatory order: the regions-behind-the-band detail
+(amber/red only), the 7-axis risk radar (LDH stored, never shown), the
+HoloMotion screening panel on the unified Low/Watch/Elevated bands with
+sport-tightened thresholds, Training Focus corrective work, the muscle body
+map, recent activity and injury records, and the sharp-drop prompt.
+
+## Module 3 — Injury & Recovery Logging *(UC-23–28)*
+
+Medical staff record official injuries through the five-step pro-team intake
+(context on athlete selection, recurrence detection, enum-locked fields,
+time-loss-anchored severity) and progress recovery status. Athletes submit
+self-reports that land Pending; medical review either promotes them into the
+official injury record in a single transaction or rejects with a note; athletes
+track their submissions' status.
+
+## Module 4 — Screening Data Management & Cohort Norms *(UC-29–38)*
+
+The data spine. HoloMotion PDF is the **sole** screening import (Excel import
+retired 2026-07-12): batch upload → vision-AI extraction of the full report
+(scores, 8 risk indicators including stored-only LDH, 25 subitem scores,
+posture, summary, muscle lists) → human preview/verify → name-matched,
+identity-editable commit that upserts the athlete, replaces muscle flags and
+appends an **immutable screening snapshot**. Each commit burst triggers one
+debounced recompute of cohort norms + indicator re-score, and email alerts go
+to medical staff and the sport's coaches for amber/red athletes. The admin
+governs the norms (approval queue, editable means, recompute) and the knobs
+(min cohort size, bottom-k, escalation/alert toggles), and can export the
+Excel backup at any time.
+
+## Module 5 — Analytics & Reporting *(UC-39–45)*
+
+The admin's organisation-wide view: live injury KPIs with 8 filters,
+distribution and temporal-trend charts, and the HoloMotion screening cohort
+analytics (coverage, band share per indicator, averages, most-flagged muscles).
+Four server-rendered PDF generators: the filtered injury report and the three
+screening reports — holistic (admin), individual (with cohort comparison,
+subitem tier table, interpretation and progress deltas; athletes may download
+their own), and team/group (thresholds, ranking, attention table, per-athlete
+snapshots) — modelled on the TMG report format.
+
+## Module 6 — Clinical & Squad Monitoring *(UC-46–52)*
+
+The human-in-the-loop surface. Medical staff search the roster and open a
+per-athlete clinical overview — the same indicator hero, radar, screening panel
+and body map the athlete sees, plus the chronological injury history, the
+prevention-insight card, sport-level context, the recovery baseline, and a
+pre-filled "+ Log Injury" deep link. Their decisive affordance is the
+**clinician override**: set the band green/amber/red with a required note; it
+wins everywhere until the next import. The **coach** (experimental 4th role)
+gets a read-only squad-readiness board scoped to their admin-assigned sports:
+every athlete's indicator mapped to Full-Go / Observation / Restricted (the
+same band medical sees), sorted worst-first with the worst screening region
+named. No in-page filters; coaches edit nothing.
+
+---
+
+## Original FDD → as-built (what a panellist would ask)
+
+| # | FYP I name | As-built name | Main alteration |
+|---|---|---|---|
+| 1 | Activity Tracking & Logging | Activity Tracking & Logging (sRPE) | unchanged surface; sole training-load view — ACWR removed from all dashboards 2026-07-16 (still computed silently for the recovery baseline) |
+| 2 | Athlete Dashboard / Workload | Athlete Dashboard & Overall Risk Indicator | the verdict changed: cohort-normed screening indicator instead of ACWR workload bands; ACWR hero, load tiles and workload chart removed |
+| 3 | Injury & Recovery Logging | *(unchanged)* | intake upgraded to the five-step workflow; no record deletion (clinical records are append-and-amend) |
+| 4 | Data Management | Screening Data Management & Cohort Norms | Excel import → HoloMotion vision-AI pipeline; + immutable history, cohort-norm governance, import-commit alerts; backup export stays |
+| 5 | Admin Injury Analytics | Analytics & Reporting | + screening cohort analytics and the three screening PDFs |
+| 6 | Medical Staff Dashboard | Clinical & Squad Monitoring | + clinician override, prevention insight, recovery baseline; absorbs the experimental coach board |
+
+*Rewritten 2026-07-16. If this file disagrees with `FYP2_MODULES_USECASES.md`
+or the code, those win — tell Claude and this gets fixed.*

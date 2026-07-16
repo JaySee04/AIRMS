@@ -107,15 +107,14 @@ Modules 1+2 are the FYP showcases requiring no further iteration. Modules 3–6 
 
 **User flow:** see [USER_MANUAL.md §4](USER_MANUAL.md#4-athlete-dashboard)
 
-**Why it's "complete":**
-- Composite risk hero shows personalised threshold band (e.g. "0.77 – 1.39" for John Doe)
-- Escalation badge and modifier chips appear when active injuries or muscle flags trigger
+**Why it's "complete"** *(as of the 2026-07-16 redesign)*:
+- **Overall risk indicator hero** — the page's only risk verdict: band in large type with a plain-English meaning, the 0–100 cohort-normed indicator (50 = cohort average), and a "why" chip naming the escalation rules that fired (or the clinician's override note)
+- **"Regions behind this band"** detail renders under the hero only when the band is amber/red — the explanation of the verdict, not a second verdict
 - Sharp-dip detection prompts athlete to add a note linking to injury reporting
-- 8-week workload trend with ACWR overlay
-- 8-indicator radar from screening data
+- 7-indicator radar from screening data (LDH stored, never displayed)
 - Body map shows muscle flags aggregated by region; flag cards below preserve per-muscle granularity; only ISN-scoped regions are interactive
 - Recent activity table + tabbed injury records (Active / All History)
-- **HoloMotion screening embedded on the dashboard** via the shared [`ScreeningPanel`](../frontend/src/components/dashboard/ScreeningPanel.tsx): five tier-ticked score gauges, the eight exercise-risk indicators as **threshold strips** (OK ≤15 / Watch ≤25 / High >25 zones with the athlete's value marked and sport-critical regions starred), and the myodynamia/tension muscle-flag chips. There is no separate screening page — the dashboard is the single working surface
+- **HoloMotion screening embedded on the dashboard** via the shared [`ScreeningPanel`](../frontend/src/components/dashboard/ScreeningPanel.tsx): five tier-ticked score gauges, the seven shown exercise-risk indicators as **threshold strips** (Low ≤15 / Watch ≤25 / Elevated >25 zones with the athlete's value marked and sport-critical regions tightened + starred), and the myodynamia/tension muscle-flag chips. There is no separate screening page — the dashboard is the single working surface
 
 **FYP defensibility hook:** The **composite risk model** is the FYP innovation. It integrates workload + biomechanical screening + injury history into one classification, instead of the textbook Gabbett ACWR bands. See [DESIGN_DECISIONS.md §2](DESIGN_DECISIONS.md#2-composite-risk-model).
 
@@ -239,7 +238,7 @@ Items left for JC to eyeball are in [`docs/fyp/JC_CHECKLIST.md`](fyp/JC_CHECKLIS
 | **Three cohort-normed PDF reports** — admin holistic, individual (thresholds-vs-peers + report-to-report deltas), team/group (ranking + coach attention table) | ✅ | [`routes/screeningReports.js`](../backend/src/routes/screeningReports.js), card on [`/admin/reports`](../frontend/src/app/admin/reports/page.tsx) |
 | **Email alerts on import commit** — to medical staff + the sport's coaches when an athlete lands amber/red or escalated | ✅ | [`utils/alerts.js`](../backend/src/utils/alerts.js) |
 | **Coach view (experimental 4th role)** — read-only squad readiness scoped to the coach's admin-assigned sports; all athletes' HoloMotion risks sorted worst-first with the worst region named (no in-page filters) | ✅ | [`/coach/dashboard`](../frontend/src/app/coach/dashboard/page.tsx) |
-| **ACWR demotion** — the composite personalised-ACWR model (`risk.ts`) is relabelled a secondary "Training Load" view; **not deleted** (Modules 1/2 intact), logic preserved for identical rebuild | ✅ | dashboards, [`docs/fyp/ACWR_REBUILD.md`](fyp/ACWR_REBUILD.md) |
+| **ACWR removal from dashboards** (2026-07-16; supersedes the 07-13 "demotion") — no user-facing surface shows ACWR/workload anymore; the composite model (`risk.ts`) is **not deleted** and still executes (recovery-baseline trigger, prevention insight), Module 1 sRPE logging intact, logic preserved for identical rebuild | ✅ | dashboards, [`docs/fyp/ACWR_REBUILD.md`](fyp/ACWR_REBUILD.md) |
 | **Batch upload + name-match + 52-sport search + editable identity** | ✅ | [`PdfScreeningUpload.tsx`](../frontend/src/components/upload/PdfScreeningUpload.tsx) |
 
 **Defensibility:** the indicator is cohort-normed (z-score + traffic-light is the
@@ -296,7 +295,7 @@ Best answer per module:
 - **Module 3:** "Yes — athletes submit self-reports, medical reviews them, approved reports promote to the official injury record, medical logs injuries directly. End-to-end. Recovery milestone tracking is deferred because Dr Thung has not specified the standardised recovery phase schema yet."
 - **Module 4:** "Yes — HoloMotion PDF ingestion end-to-end, preview-before-commit: render → vision-AI extraction → confirm. It matches Dr Thung's real workflow, handles a whole squad's reports in one batch, auto-matches athletes by the printed name, and reads the muscle lists straight off the report. The old Excel import was deliberately retired once this made it redundant (code archived); the Excel backup *export* remains."
 - **Module 5:** "Yes — 7-filter live analytics dashboard with KPI cards, body part + injury type distribution charts, and monthly trend. The report builder generates the PDF server-side via `pdfkit` (cover, executive summary, distribution charts, optional severity/recovery/monthly sections, athlete index). Deferred polish: the severity×time heatmap and an explicit PODIUM-vs-PELAPIS comparison view."
-- **Module 6:** "Yes — search/filter the athlete roster, select an athlete, and you see the same composite-risk hero, workload chart, risk radar, body map, and injury history as that athlete sees on their own dashboard, plus a deep-linked '+ Log Injury' button. The watchlist and team-summary KPI cards are deferred."
+- **Module 6:** "Yes — search/filter the athlete roster, select an athlete, and you see the same overall-risk indicator hero, screening panel, risk radar, body map, and injury history as that athlete sees on their own dashboard — plus the clinician's affordances: the band override with a required note, the prevention-insight card, the recovery baseline, and a deep-linked '+ Log Injury' button. The watchlist and team-summary KPI cards are deferred."
 
 The umbrella message: *"All six modules are functional. The remaining work on Modules 3–6 is either external (Dr Thung's schema lock) or deferred polish (PDF renderer, watchlist) — none of it gates the system from being used today."*
 

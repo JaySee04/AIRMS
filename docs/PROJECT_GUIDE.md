@@ -134,7 +134,7 @@ Pages mapped to the 3 roles + profile pages:
 | Path | Role | Purpose |
 |---|---|---|
 | [`/`](../frontend/src/app/page.tsx) | public | Login |
-| [`/athlete/dashboard`](../frontend/src/app/athlete/dashboard/page.tsx) | athlete | Module 2 — **FYP II** overall risk indicator (traffic-light badge) is the primary signal; composite ACWR relabelled "Secondary · Training Load" + embedded HoloMotion screening panel |
+| [`/athlete/dashboard`](../frontend/src/app/athlete/dashboard/page.tsx) | athlete | Module 2 — **FYP II** the cohort-normed overall risk indicator is the page's only risk verdict (hero + "regions behind this band" detail); ACWR/workload removed 2026-07-16 + embedded HoloMotion screening panel |
 | [`/athlete/activity`](../frontend/src/app/athlete/activity/page.tsx) | athlete | Module 1 — activity tracking |
 | [`/athlete/injury-report`](../frontend/src/app/athlete/injury-report/page.tsx) | athlete | Module 3 — self-report form |
 | [`/athlete/profile`](../frontend/src/app/athlete/profile/page.tsx) | athlete | Profile |
