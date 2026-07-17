@@ -9,7 +9,10 @@ const { sendMail } = require('./mailer');
 const { getSettings } = require('./settings');
 
 const BAND_RANK = { green: 0, amber: 1, red: 2 };
-const BAND_LABEL = { amber: 'Needs attention', red: 'IMMEDIATE ASSESSMENT' };
+// Title case, matching the band wording used on the dashboards and PDF reports.
+// (Was 'IMMEDIATE ASSESSMENT' — all-caps reads as shouting, is inconsistent with
+// the rest of the system, and is a spam-filter trigger in a subject line.)
+const BAND_LABEL = { amber: 'Needs attention', red: 'Immediate assessment' };
 
 // Batch form — one settings read, one recipients read, IN-queries for the
 // athletes/screenings, then one email per flagged athlete. The post-import
