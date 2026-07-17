@@ -42,12 +42,13 @@ You said "make the decisions for me." These are now **decided and in the code**
   prompt's section keys + `mapToAthlete` mapping match the report exactly
   (Anterior pelvic tilt→lumbar/pelvis, Ligament Strain→knee, Lumbar Disc
   Herniation→stored-hidden), and Nazwan is now a **second ground-truth set** in
-  `verify:vision` (auto-selected by name; all 26 fields PASS via the `--json`
-  path). *Still needs the true LIVE run:* the vision key **is configured and
-  verified working** (live probe 2026-07-17 read a test image in 2.1s), so the
-  only thing missing is the PDF **on disk** — I only have the in-chat rendered
-  content, not the file bytes. Run `npm run verify:vision -- "<nazwan.pdf>"`
-  from `backend/`, or give me the on-disk path and I'll run it. Expect all-PASS.
+  `verify:vision` (auto-selected by name). **LIVE RUN DONE 2026-07-17** — ran
+  the real vision model (`gemini-flash-lite-latest`) against the actual PDF
+  (JC-supplied path): **all 26 fields PASS**, ground truth reproduced exactly
+  (identity + 8 scores + 8 risk indicators + both muscle lists + all 25 subitem
+  values + 8/8 posture axes + 478-char summary), 5.7s across pages 1–6. The
+  ingestion pipeline is now verified end-to-end against **both** real report
+  layouts (Thung compact, Nazwan expanded).
 - [x] ~~Extraction cost~~ — **resolved with evidence.** Nazwan's report proves
   the 6-page window is *minimal, not wasteful*: the data section is exactly
   pages 1–6 (Info+Summary p1, Muscle Imbalance p3, Posture p4, Risk Screening +
