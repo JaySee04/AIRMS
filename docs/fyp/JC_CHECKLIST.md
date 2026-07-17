@@ -43,10 +43,11 @@ You said "make the decisions for me." These are now **decided and in the code**
   (Anterior pelvic tilt→lumbar/pelvis, Ligament Strain→knee, Lumbar Disc
   Herniation→stored-hidden), and Nazwan is now a **second ground-truth set** in
   `verify:vision` (auto-selected by name; all 26 fields PASS via the `--json`
-  path). *Still needs YOU for the true LIVE run:* I only have the report's
-  rendered content, not the PDF bytes, and no vision key — so run
-  `npm run verify:vision -- "<nazwan.pdf>"` from `backend/` with a key set to
-  confirm the model itself reads it. Expect all-PASS.
+  path). *Still needs the true LIVE run:* the vision key **is configured and
+  verified working** (live probe 2026-07-17 read a test image in 2.1s), so the
+  only thing missing is the PDF **on disk** — I only have the in-chat rendered
+  content, not the file bytes. Run `npm run verify:vision -- "<nazwan.pdf>"`
+  from `backend/`, or give me the on-disk path and I'll run it. Expect all-PASS.
 - [x] ~~Extraction cost~~ — **resolved with evidence.** Nazwan's report proves
   the 6-page window is *minimal, not wasteful*: the data section is exactly
   pages 1–6 (Info+Summary p1, Muscle Imbalance p3, Posture p4, Risk Screening +
@@ -186,9 +187,10 @@ Figma UI. Half-doing it is worse than declaring it.
   flagged athlete, so any import that lands an athlete amber/red emails this
   real inbox. Verified via `alertMany(['ATH0061'])`:
   `To: medical@isn.gov.my, 23005005@siswa.um.edu.my, coach@isn.gov.my`.
-  - **To see it live:** set a vision key (Stage A), import a PDF that flags an
-    athlete (Thung's stale→good, or any red athlete), and check the UM inbox.
-    With no vision key you can still trigger it by re-scoring — ask me.
+  - **To see it live:** the vision key is configured + working, so just import a
+    PDF that flags an athlete (Thung's stale→good, or any red athlete) and check
+    the UM inbox. (An alert also fires on the seed's own recompute, so it can be
+    triggered without any import too — ask me.)
   - ⚠ **Two bounce-backs per alert are expected:** the other two recipients
     (`medical@isn.gov.my`, `coach@isn.gov.my`) are fake seed addresses, so the
     Gmail SMTP account gets a bounce for each. Harmless; delete them. If you
