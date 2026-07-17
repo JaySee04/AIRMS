@@ -5,6 +5,28 @@
 > you go; tell me if any is wrong and I'll fix. Nothing here blocks me
 > continuing to the next stage.
 
+## Decisions made on JC's behalf (2026-07-17)
+
+You said "make the decisions for me." These are now **decided and in the code**
+— listed so you can veto any one; silence = ratified. None needs action from you.
+
+- **20% bottom-k cap** kept (the one change to the graded indicator; worth a line
+  in the report — reasoning in `FYP2_REDESIGN_SPEC.md` §5.1).
+- **"Elevated"** kept as the third band word (report reserves "High" for 56–100).
+- **Sport-critical alert stays demoted** to "Regions behind this band" (amber/red only).
+- **PDFs use standard bands; dashboards tighten sport-critical to 12/20** — the
+  one-step difference is left as-is and stated on the PDF (unifying would mean
+  duplicating the sport→region map server-side, which drifts).
+- **Mobile out of scope** — one future-work line in Ch. 7; no half-fix.
+- **Synthetic seed subitems** kept (Nazwan keeps his real values).
+- **Nazwan seeded Badminton / PODIUM** kept (sensible demo cohort; hits n≥5).
+- **LDH visible in the upload verification table only** kept (operator confirms the read).
+- **Instant import commit** kept (dashboard ~2s stale right after; re-await is a
+  one-line change I'll make *if* the gap ever shows in a live demo).
+- **Cleanup executed** — see `DELETION_REVIEW.md`. Two candidates revised to
+  "keep" (the screenings-history endpoint; the Mongo/MySQL history docs, which
+  are cross-referenced). **Branch rename left to you** (it has a pushed upstream).
+
 ## Stage A — screening history + expanded extraction
 
 - [ ] **Uploader identity editing** — on the Data Uploading page, each queued

@@ -1,11 +1,31 @@
 # Deletion Review — What's Useful, What Isn't
 
-> **Status:** prepared 2026-07-17 for JC's inspection. **Nothing has been
-> deleted.** Every item below was found by systematic sweep (import/reference
-> counts for every component, lib, util, middleware and model; every backend
-> endpoint traced to its frontend callers; every npm dependency traced to a
-> require/import; CSS classes and image assets spot-traced) — not by guessing.
-> Tick what you want gone and say the word; §D has the execution plan.
+> **Status:** prepared 2026-07-17; **executed 2026-07-17** on JC's "make the
+> decisions for me". The safe, zero-regret-risk removals were done and verified
+> (frontend `tsc` + `next build` clean, backend routes load); the items with any
+> foreclosure or workflow risk were **kept**, with reasons. Original sweep method:
+> import/reference counts for every component/lib/util/middleware/model, every
+> endpoint traced to its callers, every dependency traced to a require/import.
+>
+> **What changed vs the original review:** two items I'd listed as candidates
+> turned out to carry cost on closer inspection and were **kept** — see the
+> ⟲ marks. Nothing was deleted that anything references.
+
+## Executed (2026-07-17)
+
+- **A2** — uninstalled `react-chartjs-2` (frontend) and `sequelize-cli` (backend). Build clean.
+- **A3** — removed `frontend/public/images/logo2.png` (unreferenced duplicate). **Kept** the root `assets/` logos (plausible design source, harmless).
+- **A4** — removed the orphaned ACWR-hero CSS (`.risk-hero-acwr-thresholds`, `.stat-tile-delta--up/--down`, the `.risk-hero--under` class family). Kept the `--risk-undertrained` variable (ScreeningPanel uses it).
+- **A5 (part)** — moved `isn-csv-template.xlsx` into `archive/excel-upload/` beside the retired import code. `docs/data-samples/` is now empty.
+- **A1 (part)** — removed `GET /api/coach/me` (no caller; readiness already returns the coach's sports).
+
+## Kept, with reason (⟲ = revised from the original candidate list)
+
+- ⟲ **`GET /api/screenings/athlete/:id`** — not deleted. It's a working, RBAC-guarded endpoint exposing screening *history*, which is a real (if currently unwired) capability the FYP2 research doc wants for an on-screen trend view. Unwired ≠ dead.
+- ⟲ **`docs/MONGO_RECOVERY.md`, `docs/MYSQL_MIGRATION_PLAN.md`** — not deleted. They're **cross-referenced** by DESIGN_DECISIONS, MASTER_CLARIFICATIONS, PROJECT_GUIDE and README_FOR_CLAUDE_CODE as "why we did X" history; deleting them would dangle four links for no real gain.
+- **`GET /api/activities/.../acwr`** — kept (ACWR retention set, §B1).
+- **Branch rename `feat/mysql-migration` → `fyp2`** — **not done by me**: the branch has a pushed upstream (`origin/feat/mysql-migration`), so renaming rewrites a remote ref and touches the submission workflow. That's a push-class action — yours to run (`git branch -m fyp2 && git push origin -u fyp2 && git push origin --delete feat/mysql-migration`) if you want it.
+- Everything in §B below (ACWR retention set, archive, prototype, FYP-I report, ground-truth script, report assets) — unchanged.
 
 ---
 

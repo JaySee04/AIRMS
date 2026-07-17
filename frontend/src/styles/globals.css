@@ -508,10 +508,10 @@ button { cursor: pointer; font-family: inherit; }
   color: var(--text-muted);
   margin-top: 4px;
 }
-.stat-tile-delta--up { color: var(--risk-high); }
-.stat-tile-delta--down { color: var(--risk-low); }
 
-/* Risk hero banner (ACWR status) */
+/* Risk hero banner — the overall-risk indicator (and the OverallRiskBadge
+   `hero` mode reuses these band classes). The ACWR hero that first used them
+   was removed 2026-07-16. */
 .risk-hero {
   border-radius: 12px;
   padding: 24px 28px;
@@ -530,14 +530,12 @@ button { cursor: pointer; font-family: inherit; }
 .risk-hero--low      { background: var(--risk-low-bg);         border-color: rgba(61, 124, 71, 0.3); }
 .risk-hero--mod      { background: var(--risk-moderate-bg);    border-color: rgba(200, 155, 60, 0.4); }
 .risk-hero--high     { background: var(--risk-high-bg);        border-color: rgba(176, 48, 48, 0.4); }
-.risk-hero--under    { background: var(--risk-undertrained-bg);border-color: rgba(42, 99, 145, 0.35); }
 /* Dark-mode: replace the pale tinted backgrounds with translucent darker
    tints of the same hue so they sit comfortably against the dark UI surrounds
    while still conveying the risk colour. */
 [data-theme="dark"] .risk-hero--low   { background: rgba(61, 124, 71, 0.16);  border-color: rgba(96, 180, 110, 0.35); }
 [data-theme="dark"] .risk-hero--mod   { background: rgba(200, 155, 60, 0.16); border-color: rgba(255, 200, 80, 0.4); }
 [data-theme="dark"] .risk-hero--high  { background: rgba(176, 48, 48, 0.18);  border-color: rgba(220, 80, 80, 0.45); }
-[data-theme="dark"] .risk-hero--under { background: rgba(42, 99, 145, 0.18);  border-color: rgba(80, 140, 180, 0.4); }
 .risk-hero-label {
   font-size: 0.78rem;
   text-transform: uppercase;
@@ -554,13 +552,11 @@ button { cursor: pointer; font-family: inherit; }
 .risk-hero--low  .risk-hero-level { color: var(--risk-low); }
 .risk-hero--mod  .risk-hero-level { color: #8a6818; }
 .risk-hero--high .risk-hero-level { color: var(--risk-high); }
-.risk-hero--under .risk-hero-level { color: var(--risk-undertrained); }
 /* Lift each band's level colour for dark-mode contrast against the
    translucent backgrounds above. */
 [data-theme="dark"] .risk-hero--low  .risk-hero-level { color: #6cc77a; }
 [data-theme="dark"] .risk-hero--mod  .risk-hero-level { color: #f0c060; }
 [data-theme="dark"] .risk-hero--high .risk-hero-level { color: #ff7a7a; }
-[data-theme="dark"] .risk-hero--under .risk-hero-level { color: #6fa9d4; }
 .risk-hero-msg {
   font-size: 0.92rem;
   line-height: 1.5;
@@ -765,22 +761,6 @@ button { cursor: pointer; font-family: inherit; }
   line-height: 1.4;
 }
 [data-theme="dark"] .acwr-gauge-note { border-top-color: rgba(255,255,255,0.12); }
-
-.risk-hero-acwr-thresholds {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px dashed rgba(0,0,0,0.12);
-  font-size: 0.68rem;
-  color: var(--text-muted);
-  letter-spacing: 0.02em;
-}
-.risk-hero-acwr-thresholds strong {
-  color: var(--text);
-  font-size: 0.78rem;
-}
-[data-theme="dark"] .risk-hero-acwr-thresholds {
-  border-top-color: rgba(255,255,255,0.1);
-}
 
 /* Tabs (Active / All History) */
 .tabs {

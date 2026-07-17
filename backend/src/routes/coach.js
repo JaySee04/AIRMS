@@ -15,13 +15,9 @@ const rbac = require('../middleware/rbac');
 
 const router = express.Router();
 
-// GET /api/coach/me — the signed-in coach's assigned sports (for the UI header).
-router.get('/me', auth, rbac('coach'), (req, res) => {
-  const sports = Array.isArray(req.user.coachSports) ? req.user.coachSports : [];
-  res.json({ name: req.user.name, sports });
-});
-
 // GET /api/coach/readiness — squad-readiness rows for the coach's sports.
+// (A former GET /me returning {name, sports} was removed 2026-07-17 — it had
+// no caller; the readiness response already carries the coach's `sports`.)
 router.get('/readiness', auth, rbac('coach'), async (req, res) => {
   try {
     const sports = Array.isArray(req.user.coachSports) ? req.user.coachSports : [];
