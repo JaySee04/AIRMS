@@ -2,18 +2,32 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>AIRMS — Use Case Diagram: Data Management Module</title>
+<title>AIRMS — Use Case Diagram: Screening Data Management &amp; Cohort Norms</title>
+<!--
+  As-built UC diagram, regenerated 2026-07-17 against FYP2_MODULES_USECASES.md
+  (Module 4, UC-29..38). The previous version showed only 4 use cases (Import,
+  Match by Name, Validate & Preview, Export Backup) and predated the FYP II
+  half of this module: the immutable screening snapshot, the cohort-norm
+  recompute/re-score, import-commit email alerts, and the admin threshold +
+  settings governance. Green = added since the FYP I decomposition.
+-->
 <style>
   html, body { margin: 0; padding: 0; background: #fff; color: #1a1a1a; font-family: Helvetica, Arial, sans-serif; }
   .page { width: 1120px; margin: 16px auto; }
-  h1 { margin: 0 0 10px; font-size: 17px; font-weight: 700; text-align: center; letter-spacing: 0.3px; }
+  h1 { margin: 0 0 4px; font-size: 17px; font-weight: 700; text-align: center; letter-spacing: 0.3px; }
+  .legend { margin: 0 0 10px; text-align: center; font-size: 11px; color: #555; }
+  .legend .swatch { display: inline-block; width: 10px; height: 10px; border: 1px solid #82b366; background: #d5e8d4; vertical-align: -1px; margin: 0 4px 0 10px; }
+  .foot { width: 1100px; margin: 8px auto 0; font-size: 10.5px; color: #666; line-height: 1.5; }
 </style>
 </head>
 <body>
 <div class="page">
-  <h1>Use Case Diagram — Data Management Module</h1>
+  <h1>Use Case Diagram — Screening Data Management &amp; Cohort Norms (Module 4)</h1>
+  <div class="legend">
+    <span class="swatch"></span> added since the FYP I decomposition &nbsp;·&nbsp; dashed arrow = &#171;include&#187;
+  </div>
 
-  <svg width="1100" height="560" viewBox="0 0 1100 560" font-family="Helvetica, Arial, sans-serif">
+  <svg width="1100" height="790" viewBox="0 0 1100 790" font-family="Helvetica, Arial, sans-serif">
     <defs>
       <marker id="openArrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="11" markerHeight="11" orient="auto">
         <path d="M1,1 L11,6 L1,11" fill="none" stroke="#444" stroke-width="1.4"/>
@@ -21,92 +35,138 @@
     </defs>
 
     <!-- System boundary -->
-    <rect x="300" y="40" width="500" height="480" fill="#fff" stroke="#6c8ebf" stroke-width="1.4"/>
-    <text x="550" y="62" text-anchor="middle" font-size="13" font-weight="bold">AIRMS — Data Management Module</text>
+    <rect x="280" y="50" width="600" height="700" fill="#fff" stroke="#6c8ebf" stroke-width="1.4"/>
+    <text x="580" y="72" text-anchor="middle" font-size="13" font-weight="bold">AIRMS — Screening Data Management &amp; Cohort Norms</text>
 
-    <!-- ── Associations ── -->
+    <!-- ── Associations (actor → use case) ── -->
     <g stroke="#444" stroke-width="1.2">
-      <!-- Medical Staff → import -->
-      <line x1="138" y1="144" x2="435" y2="106"/>
-      <!-- Administrator → import + backup -->
-      <line x1="138" y1="400" x2="435" y2="116"/>
-      <line x1="138" y1="416" x2="435" y2="452"/>
-      <!-- Vision AI Provider → Import -->
-      <line x1="962" y1="140" x2="665" y2="110"/>
-      <!-- System → Match by Name + Validate & Preview -->
-      <line x1="962" y1="424" x2="665" y2="222"/>
-      <line x1="962" y1="432" x2="665" y2="336"/>
+      <!-- Medical Staff → Import, Commit -->
+      <line x1="158" y1="138" x2="308" y2="130"/>
+      <line x1="158" y1="150" x2="308" y2="296"/>
+      <!-- Administrator → Import, Commit, Thresholds, Settings, Backup -->
+      <line x1="158" y1="440" x2="308" y2="140"/>
+      <line x1="158" y1="445" x2="308" y2="302"/>
+      <line x1="158" y1="455" x2="308" y2="470"/>
+      <line x1="158" y1="462" x2="308" y2="568"/>
+      <line x1="158" y1="468" x2="308" y2="668"/>
+      <!-- Vision AI Provider → Extract -->
+      <line x1="972" y1="135" x2="845" y2="112"/>
+      <!-- Email Service → Email Risk Alerts -->
+      <line x1="972" y1="450" x2="845" y2="432"/>
     </g>
 
     <!-- ── «include» dependencies ── -->
     <g stroke="#444" stroke-width="1.2" stroke-dasharray="6 4" fill="none">
-      <line x1="530" y1="137" x2="540" y2="188" marker-end="url(#openArrow)"/>
-      <line x1="570" y1="137" x2="590" y2="305" marker-end="url(#openArrow)"/>
+      <line x1="534" y1="124" x2="613" y2="112" marker-end="url(#openArrow)"/>
+      <line x1="534" y1="138" x2="613" y2="182" marker-end="url(#openArrow)"/>
+      <line x1="530" y1="150" x2="613" y2="253" marker-end="url(#openArrow)"/>
+      <line x1="534" y1="308" x2="613" y2="346" marker-end="url(#openArrow)"/>
+      <line x1="530" y1="318" x2="613" y2="424" marker-end="url(#openArrow)"/>
     </g>
-    <text x="478" y="168" text-anchor="middle" font-size="11" font-style="italic">&#171;include&#187;</text>
-    <text x="640" y="240" text-anchor="middle" font-size="11" font-style="italic">&#171;include&#187;</text>
+    <g font-size="10" font-style="italic" text-anchor="middle" fill="#444">
+      <text x="573" y="110">&#171;include&#187;</text>
+      <text x="573" y="152">&#171;include&#187;</text>
+      <text x="571" y="194">&#171;include&#187;</text>
+      <text x="573" y="319">&#171;include&#187;</text>
+      <text x="571" y="364">&#171;include&#187;</text>
+    </g>
 
-    <!-- ── Use cases ── -->
+    <!-- ── Use cases: operator-initiated (left column) ── -->
     <g>
-      <ellipse cx="550" cy="110" rx="120" ry="27" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.3"/>
-      <text x="550" y="107" text-anchor="middle" font-size="12">Import HoloMotion</text>
-      <text x="550" y="121" text-anchor="middle" font-size="12">PDF Report(s) — batch</text>
+      <ellipse cx="420" cy="130" rx="112" ry="28" fill="#d5e8d4" stroke="#82b366" stroke-width="1.3"/>
+      <text x="420" y="127" text-anchor="middle" font-size="12">Import HoloMotion</text>
+      <text x="420" y="141" text-anchor="middle" font-size="12">PDFs (batch)</text>
 
-      <ellipse cx="550" cy="215" rx="115" ry="27" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.3"/>
-      <text x="550" y="212" text-anchor="middle" font-size="12">Match Athlete</text>
-      <text x="550" y="226" text-anchor="middle" font-size="12">by Name</text>
+      <ellipse cx="420" cy="300" rx="112" ry="28" fill="#d5e8d4" stroke="#82b366" stroke-width="1.3"/>
+      <text x="420" y="297" text-anchor="middle" font-size="12">Commit Screening</text>
+      <text x="420" y="311" text-anchor="middle" font-size="12">Snapshot</text>
 
-      <ellipse cx="550" cy="335" rx="120" ry="28" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.3"/>
-      <text x="550" y="332" text-anchor="middle" font-size="12">Validate &amp; Preview</text>
-      <text x="550" y="346" text-anchor="middle" font-size="12">Import Data</text>
+      <ellipse cx="420" cy="470" rx="112" ry="28" fill="#d5e8d4" stroke="#82b366" stroke-width="1.3"/>
+      <text x="420" y="467" text-anchor="middle" font-size="12">Manage Cohort</text>
+      <text x="420" y="481" text-anchor="middle" font-size="12">Thresholds (approve/edit)</text>
 
-      <ellipse cx="550" cy="450" rx="115" ry="27" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.3"/>
-      <text x="550" y="454" text-anchor="middle" font-size="12">Export Data Backup</text>
+      <ellipse cx="420" cy="570" rx="112" ry="28" fill="#d5e8d4" stroke="#82b366" stroke-width="1.3"/>
+      <text x="420" y="567" text-anchor="middle" font-size="12">Tune Norming &amp;</text>
+      <text x="420" y="581" text-anchor="middle" font-size="12">Alert Settings</text>
+
+      <ellipse cx="420" cy="670" rx="112" ry="28" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.3"/>
+      <text x="420" y="674" text-anchor="middle" font-size="12">Export Data Backup</text>
+    </g>
+
+    <!-- ── Use cases: included / system (right column) ── -->
+    <g>
+      <ellipse cx="730" cy="110" rx="115" ry="28" fill="#d5e8d4" stroke="#82b366" stroke-width="1.3"/>
+      <text x="730" y="107" text-anchor="middle" font-size="12">Extract Screening</text>
+      <text x="730" y="121" text-anchor="middle" font-size="12">Data (Vision AI)</text>
+
+      <ellipse cx="730" cy="185" rx="115" ry="28" fill="#d5e8d4" stroke="#82b366" stroke-width="1.3"/>
+      <text x="730" y="182" text-anchor="middle" font-size="12">Preview &amp; Verify</text>
+      <text x="730" y="196" text-anchor="middle" font-size="12">Extraction</text>
+
+      <ellipse cx="730" cy="260" rx="115" ry="28" fill="#d5e8d4" stroke="#82b366" stroke-width="1.3"/>
+      <text x="730" y="257" text-anchor="middle" font-size="12">Match Athlete &amp;</text>
+      <text x="730" y="271" text-anchor="middle" font-size="12">Complete Identity</text>
+
+      <ellipse cx="730" cy="350" rx="115" ry="28" fill="#d5e8d4" stroke="#82b366" stroke-width="1.3"/>
+      <text x="730" y="347" text-anchor="middle" font-size="12">Recompute Cohort</text>
+      <text x="730" y="361" text-anchor="middle" font-size="12">Norms &amp; Re-score</text>
+
+      <ellipse cx="730" cy="430" rx="115" ry="28" fill="#d5e8d4" stroke="#82b366" stroke-width="1.3"/>
+      <text x="730" y="434" text-anchor="middle" font-size="12">Email Risk Alerts</text>
     </g>
 
     <!-- ── Actors ── -->
     <!-- Medical Staff -->
     <g stroke="#1a1a1a" stroke-width="1.5" fill="none">
-      <circle cx="110" cy="100" r="11"/>
-      <line x1="110" y1="111" x2="110" y2="142"/>
-      <line x1="94" y1="122" x2="126" y2="122"/>
-      <line x1="110" y1="142" x2="96" y2="166"/>
-      <line x1="110" y1="142" x2="124" y2="166"/>
+      <circle cx="140" cy="110" r="11"/>
+      <line x1="140" y1="121" x2="140" y2="152"/>
+      <line x1="124" y1="132" x2="156" y2="132"/>
+      <line x1="140" y1="152" x2="126" y2="176"/>
+      <line x1="140" y1="152" x2="154" y2="176"/>
     </g>
-    <text x="110" y="184" text-anchor="middle" font-size="12" font-weight="bold">Medical Staff</text>
+    <text x="140" y="194" text-anchor="middle" font-size="12" font-weight="bold">Medical Staff</text>
 
     <!-- Administrator -->
     <g stroke="#1a1a1a" stroke-width="1.5" fill="none">
-      <circle cx="110" cy="360" r="11"/>
-      <line x1="110" y1="371" x2="110" y2="402"/>
-      <line x1="94" y1="382" x2="126" y2="382"/>
-      <line x1="110" y1="402" x2="96" y2="426"/>
-      <line x1="110" y1="402" x2="124" y2="426"/>
+      <circle cx="140" cy="430" r="11"/>
+      <line x1="140" y1="441" x2="140" y2="472"/>
+      <line x1="124" y1="452" x2="156" y2="452"/>
+      <line x1="140" y1="472" x2="126" y2="496"/>
+      <line x1="140" y1="472" x2="154" y2="496"/>
     </g>
-    <text x="110" y="444" text-anchor="middle" font-size="12" font-weight="bold">Administrator</text>
+    <text x="140" y="514" text-anchor="middle" font-size="12" font-weight="bold">Administrator</text>
 
     <!-- Vision AI Provider (external system actor) -->
     <g stroke="#1a1a1a" stroke-width="1.5" fill="none">
-      <circle cx="990" cy="110" r="11"/>
-      <line x1="990" y1="121" x2="990" y2="152"/>
-      <line x1="974" y1="132" x2="1006" y2="132"/>
-      <line x1="990" y1="152" x2="976" y2="176"/>
-      <line x1="990" y1="152" x2="1004" y2="176"/>
+      <circle cx="990" cy="100" r="11"/>
+      <line x1="990" y1="111" x2="990" y2="142"/>
+      <line x1="974" y1="122" x2="1006" y2="122"/>
+      <line x1="990" y1="142" x2="976" y2="166"/>
+      <line x1="990" y1="142" x2="1004" y2="166"/>
     </g>
-    <text x="990" y="194" text-anchor="middle" font-size="12" font-weight="bold">Vision AI Provider</text>
-    <text x="990" y="208" text-anchor="middle" font-size="10.5" font-style="italic">&#171;external system&#187;</text>
+    <text x="990" y="184" text-anchor="middle" font-size="12" font-weight="bold">Vision AI Provider</text>
+    <text x="990" y="198" text-anchor="middle" font-size="10.5" font-style="italic">&#171;external system&#187;</text>
 
-    <!-- System -->
+    <!-- Email Service (external system actor) -->
     <g stroke="#1a1a1a" stroke-width="1.5" fill="none">
-      <circle cx="990" cy="390" r="11"/>
-      <line x1="990" y1="401" x2="990" y2="432"/>
-      <line x1="974" y1="412" x2="1006" y2="412"/>
-      <line x1="990" y1="432" x2="976" y2="456"/>
-      <line x1="990" y1="432" x2="1004" y2="456"/>
+      <circle cx="990" cy="420" r="11"/>
+      <line x1="990" y1="431" x2="990" y2="462"/>
+      <line x1="974" y1="442" x2="1006" y2="442"/>
+      <line x1="990" y1="462" x2="976" y2="486"/>
+      <line x1="990" y1="462" x2="1004" y2="486"/>
     </g>
-    <text x="990" y="474" text-anchor="middle" font-size="12" font-weight="bold">System</text>
+    <text x="990" y="504" text-anchor="middle" font-size="12" font-weight="bold">Email (SMTP) Service</text>
+    <text x="990" y="518" text-anchor="middle" font-size="10.5" font-style="italic">&#171;external system&#187;</text>
 
   </svg>
+
+  <div class="foot">
+    HoloMotion PDF is the sole screening import (the Excel import was retired 2026-07-12 and archived).
+    Committing an import writes an immutable screening snapshot and then, in one debounced pass, recomputes
+    the cohort norms, re-scores every athlete's overall risk indicator, and emails an alert to the medical
+    staff and the athlete's sport coaches for anyone landing amber/red. Only <em>approved</em> cohorts drive
+    the indicator.
+  </div>
 </div>
 </body>
 </html>
