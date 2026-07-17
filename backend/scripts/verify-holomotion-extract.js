@@ -1,12 +1,20 @@
 // Ground-truth verification for the HoloMotion vision-ingestion pipeline.
 //
-// The seeder plants ATH0061 (Thung Jin Seng) transcribed 1:1 from the sample
-// HoloMotion PDF. This script runs the real extraction pipeline against that
-// PDF and diffs every field the system persists against the known values —
-// a correct end-to-end run must reproduce the seeded row exactly.
+// Two real reports are transcribed 1:1 below as ground truth (both also seeded):
+//   - ATH0061 Thung Jin Seng — the original sample, a COMPACT ~3-page layout.
+//   - ATH0062 Muhammad Nazwan Bin Abdullah — an EXPANDED layout whose data
+//     section spans pages 1-6 (Info+Summary p1, Muscle Imbalance p3, Posture
+//     p4, Risk Screening + Subitems p5, Exercise Risk Evaluation p6; pages
+//     7-38 are image analysis / trajectory / prescription, not extracted).
+// Together they exercise BOTH known layouts. The script picks the matching
+// ground truth by the extracted name, so it works against either PDF.
+//
+// This script runs the real extraction pipeline against a PDF and diffs every
+// persisted field against the known values — a correct end-to-end run must
+// reproduce the seeded row exactly.
 //
 // Usage (from backend/):
-//   node scripts/verify-holomotion-extract.js <path-to-sample.pdf>
+//   node scripts/verify-holomotion-extract.js <path-to-report.pdf>
 //   node scripts/verify-holomotion-extract.js --json <extraction.json>
 //
 // The --json form diffs a previously saved extraction payload (e.g. copied
@@ -23,51 +31,82 @@ const fs = require('fs');
 const { extractFromPdf, mapToAthlete } = require('../src/utils/holomotionExtract');
 const { isVisionConfigured, visionConfig } = require('../src/utils/visionClient');
 
-// ── Ground truth: the sample report's printed values (= seeder ATH0061) ─────
-const EXPECTED = {
-  athlete: {
-    name: 'thung jin seng',        // compared case-insensitively
-    age: 51,
-    gender: 'Male',
-    overallActivityScore: 77,      // Total Score gauge
-    injuryRiskIndex: 12,           // Exercise Risks gauge
-    mobility: 88,                  // ROM
-    stability: 72,
-    symmetry: 75,
-    neckInjuryRisk: 23,
-    shoulderInjuryRisk: 11,
-    scoliosis: 11,
-    spinalDiscHerniation: 17,
-    lumbarPelvisInjury: 17,
-    jointPain: 3,
-    kneeInjuryRisk: 18,
-    ankleInjuryRisk: 19,
+// ── Ground truth: each report's printed values (= the seeded rows) ──────────
+// Keyed by lower-cased printed name so the right set is chosen automatically.
+// subitems: region → [ROM-L, ROM-R, Stability-L, Stability-R, Symmetry].
+const GROUND_TRUTH = {
+  'thung jin seng': {
+    athlete: {
+      name: 'thung jin seng', age: 51, gender: 'Male',
+      overallActivityScore: 77, injuryRiskIndex: 12,
+      mobility: 88, stability: 72, symmetry: 75,
+      neckInjuryRisk: 23, shoulderInjuryRisk: 11, scoliosis: 11,
+      spinalDiscHerniation: 17, lumbarPelvisInjury: 17, jointPain: 3,
+      kneeInjuryRisk: 18, ankleInjuryRisk: 19,
+    },
+    myodynamia: [
+      { muscle: 'Sartorius', side: 'R' },
+      { muscle: 'Gluteus Maximus', side: 'L' },
+      { muscle: 'Gluteus Maximus', side: 'R' },
+    ],
+    tension: [
+      { muscle: 'Biceps Brachii', side: 'L' },
+      { muscle: 'Pectoralis Major', side: 'R' },
+      { muscle: 'Pectoralis Major', side: 'L' },
+    ],
+    subitems: {
+      neck: [95, 62, 81, 60, 58],
+      shoulder: [86, 90, 59, 57, 77],
+      torso: [96, 85, 84, 82, 78],
+      pelvis: [89, 85, 60, 78, 68],
+      lowerLimbs: [90, 90, 72, 74, 92],
+    },
   },
-  myodynamia: [
-    { muscle: 'Sartorius', side: 'R' },
-    { muscle: 'Gluteus Maximus', side: 'L' },
-    { muscle: 'Gluteus Maximus', side: 'R' },
-  ],
-  tension: [
-    { muscle: 'Biceps Brachii', side: 'L' },
-    { muscle: 'Pectoralis Major', side: 'R' },
-    { muscle: 'Pectoralis Major', side: 'L' },
-  ],
-  // Physical Fitness Subitem Score table (page 3 of Thung's compact layout):
-  // region → [ROM-L, ROM-R, Stability-L, Stability-R, Symmetry].
-  subitems: {
-    neck: [95, 62, 81, 60, 58],
-    shoulder: [86, 90, 59, 57, 77],
-    torso: [96, 85, 84, 82, 78],
-    pelvis: [89, 85, 60, 78, 68],
-    lowerLimbs: [90, 90, 72, 74, 92],
+  // Verified 1:1 against the full 38-page report (2025-08-13). The report
+  // prints Exercise Risk labels that AIRMS maps: Anterior pelvic tilt →
+  // lumbarPelvisInjury, Ligament Strain → kneeInjuryRisk, Lumbar Disc
+  // Herniation → spinalDiscHerniation (stored, never displayed).
+  'muhammad nazwan bin abdullah': {
+    athlete: {
+      name: 'muhammad nazwan bin abdullah', age: 21, gender: 'Male',
+      overallActivityScore: 78, injuryRiskIndex: 14,
+      mobility: 71, stability: 82, symmetry: 88,
+      neckInjuryRisk: 14, shoulderInjuryRisk: 8, scoliosis: 12,
+      spinalDiscHerniation: 16, lumbarPelvisInjury: 16, jointPain: 15,
+      kneeInjuryRisk: 21, ankleInjuryRisk: 26,
+    },
+    myodynamia: [
+      { muscle: 'Gluteus Medius', side: 'L' },
+      { muscle: 'Piriformis', side: 'L' },
+      { muscle: 'Piriformis', side: 'R' },
+    ],
+    tension: [
+      { muscle: 'Gluteus Maximus', side: 'L' },
+      { muscle: 'Gluteus Maximus', side: 'R' },
+      { muscle: 'Iliopsoas', side: 'L' },
+    ],
+    subitems: {
+      neck: [83, 72, 76, 76, 83],
+      shoulder: [89, 85, 84, 82, 89],
+      torso: [70, 67, 87, 89, 90],
+      pelvis: [62, 71, 76, 82, 86],
+      lowerLimbs: [66, 68, 76, 79, 91],
+    },
   },
 };
+
+// Pick the ground-truth set matching the extracted name; default to Thung
+// (keeps the bare --json path working when a name isn't present).
+function groundTruthFor(mapped) {
+  const name = String(mapped?.athlete?.name ?? '').trim().toLowerCase();
+  return GROUND_TRUTH[name] || GROUND_TRUTH['thung jin seng'];
+}
 
 function normName(s) { return String(s ?? '').trim().toLowerCase(); }
 function muscleKey(m) { return `${normName(m.muscle)}|${m.side}`; }
 
 function compare(mapped) {
+  const EXPECTED = groundTruthFor(mapped);
   const rows = [];
   let failures = 0;
   const check = (field, got, want, ok) => {
@@ -129,7 +168,7 @@ function printReport({ rows, failures }) {
   }
   console.log('─'.repeat(w + 50));
   if (failures === 0) {
-    console.log('\n✓ GROUND TRUTH REPRODUCED — the pipeline reads the report exactly as seeded (ATH0061).');
+    console.log('\n✓ GROUND TRUTH REPRODUCED — the pipeline reads the report exactly as seeded.');
   } else {
     console.log(`\n✗ ${failures} field(s) diverge from ground truth.`);
     console.log('  Troubleshooting: try VISION_FULL_PAGES=1 (rules out a crop-band miss),');

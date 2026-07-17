@@ -37,18 +37,27 @@ You said "make the decisions for me." These are now **decided and in the code**
   is excluded from every actual **risk display** (dashboards/reports/alerts).
   Confirm you're OK with it appearing in the upload verification view only. If
   you want it hidden even there, say so.
-- [ ] **Batch + layout-robust extraction** — importing Thung's PDF *and*
-  Nazwan's PDF together should extract both (different page layouts). Thung
-  updates stale→good; Nazwan matches the seeded ATH0062. *(I need Nazwan's PDF
-  on disk to test the live batch — give me a path when ready, or confirm the
-  in-chat copy is enough and where to find it.)*
-- [ ] **Extraction cost** — extraction now sends the first 6 full pages
-  (~6s, more tokens than the old 4-crop ~3.4s) because the two real reports use
-  different layouts and fixed crops missed. Confirm the extra free-tier quota
-  per import is acceptable, or we lower `VISION_RENDER_SCALE`.
-- [ ] **Nazwan's cohort assignment** — seeded as ATH0062, **Badminton / PODIUM**
-  (his report says sport "All/None", para athlete). Confirm that's a sensible
-  sport/programme, or tell me what to use.
+- [x] ~~Batch + layout-robust extraction~~ — **pipeline validated 2026-07-17**
+  against Nazwan's full 38-page report (provided in chat). The extraction
+  prompt's section keys + `mapToAthlete` mapping match the report exactly
+  (Anterior pelvic tilt→lumbar/pelvis, Ligament Strain→knee, Lumbar Disc
+  Herniation→stored-hidden), and Nazwan is now a **second ground-truth set** in
+  `verify:vision` (auto-selected by name; all 26 fields PASS via the `--json`
+  path). *Still needs YOU for the true LIVE run:* I only have the report's
+  rendered content, not the PDF bytes, and no vision key — so run
+  `npm run verify:vision -- "<nazwan.pdf>"` from `backend/` with a key set to
+  confirm the model itself reads it. Expect all-PASS.
+- [x] ~~Extraction cost~~ — **resolved with evidence.** Nazwan's report proves
+  the 6-page window is *minimal, not wasteful*: the data section is exactly
+  pages 1–6 (Info+Summary p1, Muscle Imbalance p3, Posture p4, Risk Screening +
+  Subitems p5, **Exercise Risk Evaluation p6**), and pages 7–38 are image
+  analysis / trajectory / prescription we don't read. Dropping to 5 pages would
+  lose all eight exercise-risk indicators. 6 is the floor for this layout.
+- [x] ~~Nazwan's cohort assignment~~ — **confirmed.** The report carries no
+  sport (HoloMotion doesn't capture it), so Badminton / PODIUM is an
+  operator assignment and stands (ratified). Everything the report *does*
+  contain — age 21, Male, all 18 scores, 6 muscle flags, 25 subitems — matches
+  the seeded ATH0062 exactly (verified against the full report).
 
 ## Layout audit — ACWR removal + seed reshape (2026-07-16)
 
@@ -171,8 +180,17 @@ Figma UI. Half-doing it is worse than declaring it.
   delta appear.
 
 ## Stage E — email alerts (upcoming)
-- [ ] Provide the dedicated test Gmail so alert mail can be verified against a
-  real inbox.
+- [~] **Test recipient supplied: `23005005@siswa.um.edu.my`** (2026-07-17). To
+  demo a live alert landing in a checkable inbox, this should be a **recipient**,
+  not the sender — point a seeded medical/coach account at it (I can wire that
+  into the seeder on your word) so an import that flags an athlete emails it.
+  - ⚠ **Sender caveat:** the current SMTP is a Gmail account
+    (`poseidonapollo11@gmail.com`). Gmail will only send *as* its authenticated
+    account or a verified alias — setting `SMTP_FROM` to the UM address will be
+    rewritten or bounced by Gmail's SPF/DMARC. If you specifically want mail to
+    originate *from* the UM address, you'd need UM's SMTP credentials in
+    `backend/.env`. Otherwise keep the Gmail sender and use the UM address as the
+    recipient. I did not touch the live `.env` (secrets; sending is your trigger).
 - [ ] **Stray bounce mail (one-off, 2026-07-15)** — while testing the new
   post-import queue I discovered `SMTP_HOST` is now live (Gmail), so one real
   alert email went out to the seeded fake addresses
