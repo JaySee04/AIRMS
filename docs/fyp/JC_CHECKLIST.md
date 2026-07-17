@@ -179,18 +179,25 @@ Figma UI. Half-doing it is worse than declaring it.
   has 2+ screenings — import a newer report for Thung to see the stale→good
   delta appear.
 
-## Stage E — email alerts (upcoming)
-- [~] **Test recipient supplied: `23005005@siswa.um.edu.my`** (2026-07-17). To
-  demo a live alert landing in a checkable inbox, this should be a **recipient**,
-  not the sender — point a seeded medical/coach account at it (I can wire that
-  into the seeder on your word) so an import that flags an athlete emails it.
-  - ⚠ **Sender caveat:** the current SMTP is a Gmail account
-    (`poseidonapollo11@gmail.com`). Gmail will only send *as* its authenticated
-    account or a verified alias — setting `SMTP_FROM` to the UM address will be
-    rewritten or bounced by Gmail's SPF/DMARC. If you specifically want mail to
-    originate *from* the UM address, you'd need UM's SMTP credentials in
-    `backend/.env`. Otherwise keep the Gmail sender and use the UM address as the
-    recipient. I did not touch the live `.env` (secrets; sending is your trigger).
+## Stage E — email alerts
+- [x] ~~Provide a test recipient inbox~~ — **wired 2026-07-17.**
+  `23005005@siswa.um.edu.my` is now a seeded active **medical** user (Medical
+  Demo 02, password `medical123`). Medical staff receive an alert for *every*
+  flagged athlete, so any import that lands an athlete amber/red emails this
+  real inbox. Verified via `alertMany(['ATH0061'])`:
+  `To: medical@isn.gov.my, 23005005@siswa.um.edu.my, coach@isn.gov.my`.
+  - **To see it live:** set a vision key (Stage A), import a PDF that flags an
+    athlete (Thung's stale→good, or any red athlete), and check the UM inbox.
+    With no vision key you can still trigger it by re-scoring — ask me.
+  - ⚠ **Two bounce-backs per alert are expected:** the other two recipients
+    (`medical@isn.gov.my`, `coach@isn.gov.my`) are fake seed addresses, so the
+    Gmail SMTP account gets a bounce for each. Harmless; delete them. If you
+    want a *pristine* demo with zero bounces, say so and I'll make the seeded
+    medical/coach emails deliverable (or gate dev sends to real addresses only).
+  - ⚠ **Sender stays Gmail** (`poseidonapollo11@gmail.com`): Gmail only sends
+    *as* its authenticated account, so the UM address can't be `SMTP_FROM`
+    without UM's own SMTP credentials. Used as a recipient, which is what a
+    live-inbox demo needs. Live `.env` untouched (secrets; sending is your trigger).
 - [ ] **Stray bounce mail (one-off, 2026-07-15)** — while testing the new
   post-import queue I discovered `SMTP_HOST` is now live (Gmail), so one real
   alert email went out to the seeded fake addresses

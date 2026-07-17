@@ -51,6 +51,7 @@ No automated test suite exists in either backend or frontend. Verification is ma
 | athlete | `athlete@isn.gov.my` | `athlete123` (linked to ATH0001 — John Doe) |
 | athlete | `thung@isn.gov.my` | `thung123` (ATH0061 — Thung Jin Seng, seeded as a deliberately STALE earlier assessment so importing the sample HoloMotion PDF visibly updates his dashboard to the printed values; extraction ground truth lives in `backend/scripts/verify-holomotion-extract.js`) |
 | medical | `medical@isn.gov.my` | `medical123` (Medical Demo 01) |
+| medical (alert inbox) | `23005005@siswa.um.edu.my` | `medical123` (Medical Demo 02 — real deliverable inbox; import-commit alerts land here so the email feature demos against a checkable inbox) |
 | admin | `admin@isn.gov.my` | `admin123` |
 | admin (SMTP demo) | `poseidonapollo11@gmail.com` | `admin123` (real-Gmail account so the email-reset flow demos against an inbox you can check) |
 

@@ -499,6 +499,13 @@ function buildUsers() {
     { name: 'Admin User', email: 'admin@isn.gov.my', password: 'admin123', role: 'admin' },
     { name: 'Admin Demo', email: 'poseidonapollo11@gmail.com', password: 'admin123', role: 'admin' },
     { name: 'Medical Demo 01', email: 'medical@isn.gov.my', password: 'medical123', role: 'medical' },
+    // Live-alert test recipient (2026-07-17): a real, deliverable inbox. Import-
+    // commit alerts email ALL active medical staff, so any flagged athlete's
+    // alert lands here — lets JC verify the email feature against a checkable
+    // inbox. Also a working login (medical view) if useful. (The other seeded
+    // recipients use fake @isn.gov.my addresses, so real sends to those bounce
+    // to the SMTP account — expected; delete those bounce-backs.)
+    { name: 'Medical Demo 02', email: '23005005@siswa.um.edu.my', password: 'medical123', role: 'medical' },
     { name: 'John Doe', email: 'athlete@isn.gov.my', password: 'athlete123', role: 'athlete', athleteId: 'ATH0001' },
     // Ground-truth athlete login — Dr Thung's own HoloMotion report seeded
     // 1:1 as ATH0061, so the athlete view can be checked against the PDF.
@@ -571,6 +578,7 @@ async function seed() {
   console.log('  Admin:   admin@isn.gov.my              / admin123');
   console.log('  Admin:   poseidonapollo11@gmail.com    / admin123');
   console.log('  Medical: medical@isn.gov.my            / medical123');
+  console.log('  Medical: 23005005@siswa.um.edu.my      / medical123   (live-alert test inbox)');
   console.log('  Athlete: athlete@isn.gov.my            / athlete123   (John Doe, ATH0001)');
   console.log('  Athlete: thung@isn.gov.my              / thung123     (Thung Jin Seng, ATH0061 — 1:1 with the sample HoloMotion PDF)');
   console.log('  Coach:   coach@isn.gov.my              / coach123');
