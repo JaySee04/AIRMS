@@ -3,6 +3,14 @@
 <head>
 <meta charset="utf-8" />
 <title>AIRMS — Functional Decomposition Diagram</title>
+<!--
+  As-built FDD, regenerated 2026-07-17 to match the shipped system and the
+  verified use-case model in FYP2_MODULES_USECASES.md (General + 6 modules,
+  UC-1..52). Supersedes the ACWR-era figure, which still showed "Calculate
+  ACWR" / "Classify Composite Injury Risk" / "Display Workload Trend" under
+  Module 2 — all removed from the dashboards on 2026-07-16.
+  Green leaves = added since the FYP I FDD.
+-->
 <style>
   html, body {
     margin: 0;
@@ -19,11 +27,25 @@
     box-sizing: border-box;
   }
   h1 {
-    margin: 0 0 14px;
+    margin: 0 0 6px;
     font-size: 17px;
     font-weight: 700;
     text-align: center;
     letter-spacing: 0.3px;
+  }
+  .legend {
+    margin: 0 0 14px;
+    text-align: center;
+    font-size: 11px;
+    color: #555;
+  }
+  .legend .swatch {
+    display: inline-block;
+    width: 10px; height: 10px;
+    border: 1px solid #82b366;
+    background: #d5e8d4;
+    vertical-align: -1px;
+    margin: 0 4px 0 10px;
   }
   .canvas { width: 1530px; margin: 0 auto; }
 
@@ -83,13 +105,24 @@
     height: 12px;
     background: #6c8ebf;
   }
-  .new { }
+  /* Added since the FYP I FDD (the FYP II screening-centred capabilities). */
+  .leaf.new { background: #d5e8d4; border-color: #82b366; }
+  .foot {
+    width: 1530px;
+    margin: 14px auto 0;
+    font-size: 10.5px;
+    color: #666;
+    line-height: 1.5;
+  }
 </style>
 </head>
 <body>
 
 <div class="page">
   <h1>AIRMS — Functional Decomposition Diagram</h1>
+  <div class="legend">
+    <span class="swatch"></span> added since the FYP I decomposition (FYP II screening-centred capabilities)
+  </div>
 
   <div class="canvas">
 
@@ -105,37 +138,44 @@
 
     <div class="modules">
 
+      <!-- General (cross-cutting; not counted among the six) -->
       <div class="module">
         <div class="module-title">General Module</div>
         <div class="vline"></div><div class="leaf">Login (JWT)</div>
         <div class="vline"></div><div class="leaf">Reset Password<br/>(Email OTP)</div>
         <div class="vline"></div><div class="leaf">Change Password</div>
-        <div class="vline"></div><div class="leaf">Manage User Profile</div>
+        <div class="vline"></div><div class="leaf">View Profile</div>
         <div class="vline"></div><div class="leaf">Role-Based<br/>Access Control</div>
         <div class="vline"></div><div class="leaf new">Manage Staff<br/>Permissions</div>
       </div>
 
+      <!-- 1 -->
       <div class="module">
-        <div class="module-title">Activity Tracking<br/>&amp; Logging</div>
+        <div class="module-title">1. Activity Tracking<br/>&amp; Logging (sRPE)</div>
         <div class="vline"></div><div class="leaf">Log Activity</div>
-        <div class="vline"></div><div class="leaf">View Activity History</div>
-        <div class="vline"></div><div class="leaf">Delete Activity</div>
         <div class="vline"></div><div class="leaf">Compute Session<br/>Load (sRPE)</div>
+        <div class="vline"></div><div class="leaf">View &amp; Filter<br/>Activity History</div>
+        <div class="vline"></div><div class="leaf">Edit Activity</div>
+        <div class="vline"></div><div class="leaf">Delete Activity</div>
       </div>
 
+      <!-- 2 -->
       <div class="module">
-        <div class="module-title">Athlete Dashboard /<br/>Workload</div>
-        <div class="vline"></div><div class="leaf">Calculate ACWR</div>
-        <div class="vline"></div><div class="leaf">Classify Composite<br/>Injury Risk</div>
-        <div class="vline"></div><div class="leaf">Display Workload<br/>Trend</div>
+        <div class="module-title">2. Athlete Dashboard &amp;<br/>Overall Risk Indicator</div>
+        <div class="vline"></div><div class="leaf new">Compute Overall Risk<br/>Indicator (cohort z-score)</div>
+        <div class="vline"></div><div class="leaf new">Escalate Risk Band</div>
+        <div class="vline"></div><div class="leaf new">Display Risk<br/>Indicator Hero</div>
+        <div class="vline"></div><div class="leaf new">Display Regions<br/>Behind the Band</div>
         <div class="vline"></div><div class="leaf">Display Risk<br/>Indicator Radar</div>
+        <div class="vline"></div><div class="leaf new">Display Screening<br/>Panel (thresholds)</div>
+        <div class="vline"></div><div class="leaf new">Display Training<br/>Focus</div>
         <div class="vline"></div><div class="leaf">Display Muscle<br/>Body Map</div>
-        <div class="vline"></div><div class="leaf new">View Screening<br/>Report</div>
-        <div class="vline"></div><div class="leaf new">Sport-Critical<br/>Screening Alert</div>
+        <div class="vline"></div><div class="leaf">View Records &amp;<br/>Sharp-Drop Prompt</div>
       </div>
 
+      <!-- 3 -->
       <div class="module">
-        <div class="module-title">Injury &amp; Recovery<br/>Logging</div>
+        <div class="module-title">3. Injury &amp; Recovery<br/>Logging</div>
         <div class="vline"></div><div class="leaf">Log Official Injury</div>
         <div class="vline"></div><div class="leaf">Update Recovery<br/>Status</div>
         <div class="vline"></div><div class="leaf">View Injury Records</div>
@@ -144,33 +184,56 @@
         <div class="vline"></div><div class="leaf">Track Self-Report<br/>Status</div>
       </div>
 
+      <!-- 4 -->
       <div class="module">
-        <div class="module-title">Data Management</div>
-        <div class="vline"></div><div class="leaf new">Import HoloMotion<br/>PDFs (AI Vision, batch)</div>
-        <div class="vline"></div><div class="leaf new">Match Athlete<br/>by Name</div>
-        <div class="vline"></div><div class="leaf">Validate &amp; Preview<br/>Import</div>
-        <div class="vline"></div><div class="leaf new">Export Data Backup</div>
+        <div class="module-title">4. Screening Data Mgmt<br/>&amp; Cohort Norms</div>
+        <div class="vline"></div><div class="leaf new">Import HoloMotion<br/>PDFs (batch)</div>
+        <div class="vline"></div><div class="leaf new">Extract Screening<br/>Data (Vision AI)</div>
+        <div class="vline"></div><div class="leaf new">Preview &amp; Verify<br/>Extraction</div>
+        <div class="vline"></div><div class="leaf new">Match Athlete<br/>&amp; Identity</div>
+        <div class="vline"></div><div class="leaf new">Commit Screening<br/>Snapshot</div>
+        <div class="vline"></div><div class="leaf new">Recompute Cohort<br/>Norms &amp; Re-score</div>
+        <div class="vline"></div><div class="leaf new">Email Risk Alerts</div>
+        <div class="vline"></div><div class="leaf new">Manage Cohort<br/>Thresholds</div>
+        <div class="vline"></div><div class="leaf new">Tune Norming &amp;<br/>Alert Settings</div>
+        <div class="vline"></div><div class="leaf">Export Data Backup</div>
       </div>
 
+      <!-- 5 -->
       <div class="module">
-        <div class="module-title">Admin Injury<br/>Analytics</div>
+        <div class="module-title">5. Analytics &amp;<br/>Reporting</div>
         <div class="vline"></div><div class="leaf">View Injury<br/>Overview (KPIs)</div>
         <div class="vline"></div><div class="leaf">Filter Injury Data</div>
         <div class="vline"></div><div class="leaf">View Temporal<br/>Trends</div>
-        <div class="vline"></div><div class="leaf">Generate PDF Report</div>
+        <div class="vline"></div><div class="leaf new">View Screening<br/>Cohort Analytics</div>
+        <div class="vline"></div><div class="leaf">Generate Injury<br/>PDF Report</div>
+        <div class="vline"></div><div class="leaf new">Generate Holistic<br/>Screening PDF</div>
+        <div class="vline"></div><div class="leaf new">Generate Individual<br/>&amp; Team PDFs</div>
       </div>
 
+      <!-- 6 -->
       <div class="module">
-        <div class="module-title">Medical Staff<br/>Dashboard</div>
-        <div class="vline"></div><div class="leaf">Search Athlete</div>
-        <div class="vline"></div><div class="leaf">View Athlete Profile<br/>Summary</div>
-        <div class="vline"></div><div class="leaf">View Injury History</div>
-        <div class="vline"></div><div class="leaf">View Workload &amp;<br/>Risk Overview</div>
-        <div class="vline"></div><div class="leaf new">View Screening<br/>Report</div>
-        <div class="vline"></div><div class="leaf">Prevention Insight</div>
+        <div class="module-title">6. Clinical &amp; Squad<br/>Monitoring</div>
+        <div class="vline"></div><div class="leaf">Search &amp; Filter<br/>Athlete Roster</div>
+        <div class="vline"></div><div class="leaf">View Athlete<br/>Clinical Overview</div>
+        <div class="vline"></div><div class="leaf new">Override Risk Band</div>
+        <div class="vline"></div><div class="leaf">View Prevention<br/>Insight</div>
+        <div class="vline"></div><div class="leaf">Track Recovery<br/>Baseline</div>
+        <div class="vline"></div><div class="leaf">View Sport-Level<br/>Context</div>
+        <div class="vline"></div><div class="leaf new">View Squad<br/>Readiness (Coach)*</div>
       </div>
 
     </div>
+  </div>
+
+  <div class="foot">
+    The General Module is cross-cutting and is not counted among the six functional modules.
+    Training load (sRPE) is recorded and shown in Module 1 only; the ACWR / composite training-load
+    model is retained in code and still drives the Module 6 recovery baseline, but is no longer
+    displayed on any dashboard — the cohort-normed overall risk indicator is the system's single
+    risk verdict.
+    &nbsp;*&nbsp;The Coach is an experimental fourth role (read-only) outside the locked
+    athlete / medical / administrator model.
   </div>
 </div>
 
