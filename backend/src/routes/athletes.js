@@ -1,6 +1,6 @@
 const express = require('express');
 const { Op } = require('sequelize');
-const { Athlete, MuscleFlag, Screening } = require('../models');
+const { Athlete, MuscleFlag, Screening, AthleteDiscipline } = require('../models');
 
 // Latest screening's overall indicator for an athlete, with the clinician
 // override applied as the effective band. Returns null when no screening.
@@ -29,23 +29,49 @@ const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
 const requirePermission = require('../middleware/permission');
 const { serializeAthlete, serializeAthleteList } = require('../utils/serialize');
+const { cleanDisciplineList } = require('../utils/disciplines');
 
 const router = express.Router();
+
+// Replace an athlete's discipline rows with a clean, de-duplicated set. A
+// non-array (or omitted) value is treated as "no change" by callers; an empty
+// array clears the athlete's events. Kept simple (destroy + bulkCreate) to
+// mirror the muscle-flag replacement pattern used above.
+async function syncDisciplines(athleteId, disciplines) {
+  if (!Array.isArray(disciplines)) return;
+  const clean = cleanDisciplineList(disciplines);
+  await AthleteDiscipline.destroy({ where: { athleteId } });
+  if (clean.length) {
+    await AthleteDiscipline.bulkCreate(clean.map((discipline) => ({ athleteId, discipline })));
+  }
+}
 
 // GET /api/athletes — list athletes (medical, admin)
 router.get('/', auth, rbac('medical', 'admin'), requirePermission('viewRecords'), async (req, res) => {
   try {
-    const { sport, program, gender, search } = req.query;
+    const { sport, program, gender, discipline, search } = req.query;
     const where = { isActive: true };
     if (sport) where.sport = sport;
     if (program) where.program = program;
     if (gender) where.gender = gender;
     if (search) where.name = { [Op.like]: `%${search}%` };
+    // Discipline lives in a join table — resolve the matching athlete IDs first,
+    // then filter the main query by them (keeps every athlete's full discipline
+    // list intact for display, unlike a where on the include).
+    if (discipline) {
+      const owners = await AthleteDiscipline.findAll({ where: { discipline }, attributes: ['athleteId'], raw: true });
+      const ids = owners.map((o) => o.athleteId);
+      if (ids.length === 0) return res.json([]); // no athlete has this event
+      where.athleteId = { [Op.in]: ids };
+    }
 
-    // List view omits muscle flags for payload size; detail view includes them.
+    // List view omits muscle flags for payload size; disciplines are cheap and
+    // drive the roster filters, so they're included (separate query, no join
+    // row-multiplication).
     const rows = await Athlete.findAll({
       where,
       order: [['name', 'ASC']],
+      include: [{ model: AthleteDiscipline, as: 'disciplines', attributes: ['discipline'], separate: true }],
     });
     res.json(serializeAthleteList(rows));
   } catch (err) {
@@ -155,7 +181,10 @@ router.get('/:id', auth, requirePermission('viewRecords'), async (req, res) => {
     }
     const athlete = await Athlete.findOne({
       where: { athleteId: req.params.id },
-      include: [{ model: MuscleFlag, as: 'muscleFlags' }],
+      include: [
+        { model: MuscleFlag, as: 'muscleFlags' },
+        { model: AthleteDiscipline, as: 'disciplines', attributes: ['discipline'] },
+      ],
     });
     if (!athlete) return res.status(404).json({ message: 'Athlete not found' });
     const out = serializeAthlete(athlete);
@@ -170,7 +199,7 @@ router.get('/:id', auth, requirePermission('viewRecords'), async (req, res) => {
 router.post('/', auth, rbac('admin'), async (req, res) => {
   try {
     // Caller may submit nested `risks` { ... }; flatten to columns.
-    const { risks, myodynamia, tension, ...rest } = req.body;
+    const { risks, myodynamia, tension, disciplines, ...rest } = req.body;
     const payload = { ...rest, ...(risks || {}) };
     const athlete = await Athlete.create(payload);
 
@@ -185,10 +214,14 @@ router.post('/', auth, rbac('admin'), async (req, res) => {
         tension.map((m) => ({ athleteId: athlete.athleteId, flagType: 'tension', muscle: m.muscle, side: m.side }))
       );
     }
+    await syncDisciplines(athlete.athleteId, disciplines);
 
     const reloaded = await Athlete.findOne({
       where: { athleteId: athlete.athleteId },
-      include: [{ model: MuscleFlag, as: 'muscleFlags' }],
+      include: [
+        { model: MuscleFlag, as: 'muscleFlags' },
+        { model: AthleteDiscipline, as: 'disciplines', attributes: ['discipline'] },
+      ],
     });
     res.status(201).json(serializeAthlete(reloaded));
   } catch (err) {
@@ -199,7 +232,7 @@ router.post('/', auth, rbac('admin'), async (req, res) => {
 // PATCH /api/athletes/:id — update athlete record (medical, admin)
 router.patch('/:id', auth, rbac('medical', 'admin'), requirePermission('viewRecords'), async (req, res) => {
   try {
-    const { risks, myodynamia, tension, ...rest } = req.body;
+    const { risks, myodynamia, tension, disciplines, ...rest } = req.body;
     const payload = { ...rest, ...(risks || {}) };
     const [count] = await Athlete.update(payload, { where: { athleteId: req.params.id } });
     if (!count) return res.status(404).json({ message: 'Athlete not found' });
@@ -217,10 +250,16 @@ router.patch('/:id', auth, rbac('medical', 'admin'), requirePermission('viewReco
         tension.map((m) => ({ athleteId: req.params.id, flagType: 'tension', muscle: m.muscle, side: m.side }))
       );
     }
+    // Only touch disciplines when the caller sent the field, so a partial PATCH
+    // (e.g. just a risk edit) doesn't wipe an athlete's events.
+    if (disciplines !== undefined) await syncDisciplines(req.params.id, disciplines);
 
     const reloaded = await Athlete.findOne({
       where: { athleteId: req.params.id },
-      include: [{ model: MuscleFlag, as: 'muscleFlags' }],
+      include: [
+        { model: MuscleFlag, as: 'muscleFlags' },
+        { model: AthleteDiscipline, as: 'disciplines', attributes: ['discipline'] },
+      ],
     });
     res.json(serializeAthlete(reloaded));
   } catch (err) {

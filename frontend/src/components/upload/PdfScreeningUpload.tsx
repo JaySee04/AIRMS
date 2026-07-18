@@ -12,7 +12,11 @@
 // searchable list of ISN's 52 sports.
 
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { ISN_SPORTS } from '@/lib/sports';
+import { disciplinesForSport, sportHasDisciplines } from '@/lib/disciplines';
+import { api } from '@/lib/api';
+import { getSession } from '@/lib/auth';
 
 interface MuscleEntry { muscle: string; side: 'L' | 'R' | 'B'; }
 
@@ -60,6 +64,7 @@ interface RosterAthlete {
   sport?: string;
   program?: string;
   programme?: string;
+  disciplines?: string[];
 }
 
 type ItemStatus = 'queued' | 'extracting' | 'ready' | 'committing' | 'done' | 'error';
@@ -75,12 +80,18 @@ interface QueueItem {
   athleteId: string;
   sport: string;
   program: string;
+  // Events the athlete competes in (only for sports that have them, e.g.
+  // badminton). Pre-filled from a matched roster athlete; operator-editable.
+  disciplines: string[];
   // Editable identity — pre-filled from the report (new athlete) or roster
   // (existing). Operator can correct name/age/gender before import.
   name: string;
   age: string;
   gender: string;
 }
+
+// One imported screening, shown in the post-import cohort-threshold prompt.
+interface CommittedEntry { athleteId: string; name: string; sport: string; action: string; }
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000/api';
 
@@ -129,6 +140,30 @@ export default function PdfScreeningUpload() {
   const [dragOver, setDragOver] = useState(false);
   const [busy, setBusy] = useState(false); // a batch extract or commit-all is running
 
+  // After a screening is imported the cohort norms are stale, so we prompt the
+  // operator to update the cohort thresholds. `committed` accumulates the
+  // athletes imported this session (shown in the prompt); the recompute action
+  // is admin-only, so medical staff get an informational variant.
+  const [role, setRole] = useState<string | null>(null);
+  const [committed, setCommitted] = useState<CommittedEntry[]>([]);
+  const [showThresholdModal, setShowThresholdModal] = useState(false);
+  const [recomputing, setRecomputing] = useState(false);
+  const [recomputeMsg, setRecomputeMsg] = useState<string | null>(null);
+
+  useEffect(() => { setRole(getSession()?.user.role ?? null); }, []);
+
+  async function recomputeThresholds() {
+    setRecomputing(true); setRecomputeMsg(null);
+    try {
+      const r = await api.post<{ cohorts: { cohorts: number }; indicators: { scored: number } }>('/cohorts/recompute', {});
+      setRecomputeMsg(`Recomputed ${r.cohorts.cohorts} cohorts and re-scored ${r.indicators.scored} athletes. New or changed cohorts still need approval on the Cohort Thresholds page before they drive the indicator.`);
+    } catch (e) {
+      setRecomputeMsg(e instanceof Error ? e.message : 'Recompute failed');
+    } finally {
+      setRecomputing(false);
+    }
+  }
+
   function updateRoster(next: RosterAthlete[] | null) {
     rosterRef.current = next;
     setRoster(next);
@@ -166,6 +201,7 @@ export default function PdfScreeningUpload() {
         athleteId: '',
         sport: '',
         program: '',
+        disciplines: [],
         name: '',
         age: '',
         gender: '',
@@ -215,6 +251,7 @@ export default function PdfScreeningUpload() {
         athleteId: matched?.athleteId ?? '',
         sport: matched?.sport ?? '',
         program: matched?.program ?? matched?.programme ?? '',
+        disciplines: matched?.disciplines ?? [],
         // Identity pre-fill: matched roster name, else the (Title-Cased) report name.
         name: matched?.name ?? titleCase(preview.athlete.name ?? ''),
         age: preview.athlete.age != null ? String(preview.athlete.age) : '',
@@ -239,11 +276,11 @@ export default function PdfScreeningUpload() {
     }
   }
 
-  async function commitOne(item: QueueItem): Promise<void> {
-    if (!item.preview) return;
+  async function commitOne(item: QueueItem): Promise<CommittedEntry | null> {
+    if (!item.preview) return null;
     if (!item.athleteId.trim() || !item.sport.trim() || !item.program || !item.name.trim()) {
       patchItem(item.id, { error: 'Name, Athlete ID, Sport, and Programme are required before importing.' });
-      return;
+      return null;
     }
     patchItem(item.id, { status: 'committing', error: null });
     try {
@@ -264,6 +301,11 @@ export default function PdfScreeningUpload() {
           athleteId: item.athleteId.trim(),
           sport: item.sport.trim(),
           program: item.program,
+          // Only send events for sports that have them — omitting the field
+          // leaves any existing events untouched on the backend.
+          ...(sportHasDisciplines(item.sport.trim())
+            ? { disciplines: item.disciplines.filter((d) => disciplinesForSport(item.sport.trim()).includes(d)) }
+            : {}),
           assessedAt: item.preview.assessedAt,
           summary: item.preview.summary ?? null,
           subitems: item.preview.subitems ?? null,
@@ -278,23 +320,47 @@ export default function PdfScreeningUpload() {
       });
       // Fold the committed athlete into the roster so the rest of the batch
       // (and the ID datalist) can match them immediately.
-      const committed: RosterAthlete = {
+      const rosterEntry: RosterAthlete = {
         athleteId: item.athleteId.trim(),
         name: item.name.trim() || item.athleteId.trim(),
         sport: item.sport.trim(),
         program: item.program,
+        disciplines: sportHasDisciplines(item.sport.trim()) ? item.disciplines : [],
       };
-      updateRoster([...(rosterRef.current ?? []).filter((a) => a.athleteId !== committed.athleteId), committed]);
+      updateRoster([...(rosterRef.current ?? []).filter((a) => a.athleteId !== rosterEntry.athleteId), rosterEntry]);
+      // Return the import so the caller can show the threshold prompt for
+      // exactly the athletes committed in this action (single or batch).
+      return { athleteId: item.athleteId.trim(), name: rosterEntry.name, sport: item.sport.trim(), action: String(data.action ?? '') };
     } catch (e) {
       patchItem(item.id, { status: 'ready', error: e instanceof Error ? e.message : 'Failed to import' });
+      return null;
     }
+  }
+
+  // Open the cohort-threshold prompt for just the athletes imported in this
+  // action — the norms they belong to are now stale.
+  function promptThresholdUpdate(entries: CommittedEntry[]) {
+    if (entries.length === 0) return;
+    setCommitted(entries);
+    setRecomputeMsg(null);
+    setShowThresholdModal(true);
+  }
+
+  async function commitSingle(item: QueueItem) {
+    const entry = await commitOne(item);
+    if (entry) promptThresholdUpdate([entry]);
   }
 
   async function commitAllReady() {
     setBusy(true);
     try {
       const ready = items.filter((it) => it.status === 'ready' && it.name.trim() && it.athleteId.trim() && it.sport.trim() && it.program);
-      for (const it of ready) await commitOne(it); // no API cost — commits replay the preview JSON
+      const done: CommittedEntry[] = [];
+      for (const it of ready) {
+        const entry = await commitOne(it); // no API cost — commits replay the preview JSON
+        if (entry) done.push(entry);
+      }
+      promptThresholdUpdate(done);
     } finally {
       setBusy(false);
     }
@@ -306,6 +372,7 @@ export default function PdfScreeningUpload() {
   const completeReady = items.filter((it) => it.status === 'ready' && it.name.trim() && it.athleteId.trim() && it.sport.trim() && it.program).length;
 
   return (
+    <>
     <div className="card">
       <h2 className="card-title">Import HoloMotion Screening Reports</h2>
 
@@ -474,10 +541,37 @@ export default function PdfScreeningUpload() {
                     </select>
                   </div>
 
+                  {/* Events — only for sports that have them (e.g. badminton).
+                      An athlete can compete in more than one. Optional. */}
+                  {sportHasDisciplines(it.sport.trim()) && (
+                    <div className="form-group">
+                      <label>Events <span className="text-muted" style={{ fontWeight: 400 }}>(select any that apply)</span></label>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 14px' }}>
+                        {disciplinesForSport(it.sport.trim()).map((d) => {
+                          const checked = it.disciplines.includes(d);
+                          return (
+                            <label key={d} style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 400, fontSize: '0.85rem' }}>
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={(e) => patchItem(it.id, {
+                                  disciplines: e.target.checked
+                                    ? [...it.disciplines, d]
+                                    : it.disciplines.filter((x) => x !== d),
+                                })}
+                              />
+                              {d}
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
                   <button
                     type="button"
                     className="btn btn-primary"
-                    onClick={() => commitOne(it)}
+                    onClick={() => commitSingle(it)}
                     disabled={it.status === 'committing' || !it.name.trim() || !it.athleteId.trim() || !it.sport.trim() || !it.program}
                   >
                     {it.status === 'committing' ? 'Importing…' : 'Confirm & import'}
@@ -525,5 +619,66 @@ export default function PdfScreeningUpload() {
         {ISN_SPORTS.map((s) => (<option key={s} value={s} />))}
       </datalist>
     </div>
+
+    {/* Cohort-threshold prompt — a new screening changes the cohort norms, so
+        after an import we always surface the "update thresholds" step. Admins
+        can recompute in place (approval still happens on the Cohort Thresholds
+        page); medical staff get an informational note since recompute is
+        admin-only. */}
+    {showThresholdModal && (
+      <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Update cohort thresholds">
+        <div className="modal">
+          <div className="modal-header">
+            <h2 className="card-title" style={{ margin: 0 }}>Update cohort thresholds</h2>
+            <button type="button" className="modal-close" aria-label="Close" onClick={() => setShowThresholdModal(false)}>×</button>
+          </div>
+          <div className="modal-body">
+            <p style={{ marginTop: 0 }}>
+              {committed.length} screening{committed.length === 1 ? '' : 's'} imported. New screening data
+              changes the cohort averages every athlete&apos;s overall risk indicator is measured against, so
+              the cohort thresholds should be recomputed{role === 'admin' ? ' and re-approved' : ' by an administrator'}.
+            </p>
+            {committed.length > 0 && (
+              <ul style={{ margin: '0 0 12px 16px', padding: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                {committed.map((c) => (
+                  <li key={c.athleteId}>{c.name} ({c.athleteId}) · {c.sport} · {c.action === 'updated' ? 'updated' : 'created'}</li>
+                ))}
+              </ul>
+            )}
+            {role === 'admin' ? (
+              <div className="alert alert-info" style={{ marginBottom: recomputeMsg ? 12 : 0 }}>
+                Recompute rebuilds the cohort stats and re-scores every athlete. Newly formed or changed
+                cohorts still need approval on the Cohort Thresholds page before they drive the indicator.
+              </div>
+            ) : (
+              <div className="alert alert-info" style={{ marginBottom: 0 }}>
+                Recomputing and approving cohort thresholds is an administrator action. Let your admin know
+                new screenings were imported so the norms can be refreshed.
+              </div>
+            )}
+            {recomputeMsg && <div className="alert alert-success" style={{ marginBottom: 0 }}>{recomputeMsg}</div>}
+          </div>
+          <div className="modal-footer">
+            <button type="button" className="btn btn-outline" onClick={() => setShowThresholdModal(false)}>
+              {role === 'admin' ? 'Later' : 'Got it'}
+            </button>
+            {role === 'admin' && (
+              <>
+                <Link
+                  className="btn btn-outline"
+                  href={`/admin/thresholds${committed.length ? `?sport=${encodeURIComponent([...new Set(committed.map((c) => c.sport))].join(','))}` : ''}`}
+                >
+                  Open Cohort Thresholds
+                </Link>
+                <button type="button" className="btn btn-gold" onClick={recomputeThresholds} disabled={recomputing}>
+                  {recomputing ? 'Recomputing…' : 'Recompute now'}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }

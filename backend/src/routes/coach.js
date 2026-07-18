@@ -9,27 +9,30 @@
 // longer read it. See docs/fyp/ACWR_REBUILD.md.)
 const express = require('express');
 const { Op } = require('sequelize');
-const { Athlete, Injury, MuscleFlag, Screening } = require('../models');
+const { Athlete, Injury, MuscleFlag, Screening, AthleteDiscipline } = require('../models');
 const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
 
 const router = express.Router();
 
-// GET /api/coach/readiness — squad-readiness rows for the coach's sports.
+// GET /api/coach/readiness — squad-readiness rows for the coach's one sport.
 // (A former GET /me returning {name, sports} was removed 2026-07-17 — it had
-// no caller; the readiness response already carries the coach's `sports`.)
+// no caller; the readiness response already carries the coach's `sport`.)
 router.get('/readiness', auth, rbac('coach'), async (req, res) => {
   try {
-    const sports = Array.isArray(req.user.coachSports) ? req.user.coachSports : [];
-    if (sports.length === 0) return res.json({ sports: [], athletes: [] });
+    const sport = req.user.coachSport || null;
+    if (!sport) return res.json({ sport: null, athletes: [] });
 
     const athletes = await Athlete.findAll({
-      where: { sport: { [Op.in]: sports }, isActive: true },
-      include: [{ model: MuscleFlag, as: 'muscleFlags', attributes: ['flagType', 'muscle', 'side'] }],
+      where: { sport, isActive: true },
+      include: [
+        { model: MuscleFlag, as: 'muscleFlags', attributes: ['flagType', 'muscle', 'side'] },
+        { model: AthleteDiscipline, as: 'disciplines', attributes: ['discipline'] },
+      ],
       order: [['name', 'ASC']],
     });
     const ids = athletes.map((a) => a.athleteId);
-    if (ids.length === 0) return res.json({ sports, athletes: [] });
+    if (ids.length === 0) return res.json({ sport, athletes: [] });
 
     const [injuries, screenings] = await Promise.all([
       Injury.findAll({
@@ -69,6 +72,11 @@ router.get('/readiness', auth, rbac('coach'), async (req, res) => {
         athleteId: a.athleteId,
         name: a.name,
         sport: a.sport,
+        program: a.program,
+        gender: a.gender ?? null,
+        age: a.age ?? null,
+        // Events this athlete competes in (e.g. badminton Men's Doubles).
+        disciplines: (a.disciplines || []).map((d) => d.discipline),
         // 8 per-region exercise-risk indicators — drive the sport-aware
         // screening detail on the coach dashboard (lib/screeningAlerts.ts).
         risks: {
@@ -95,7 +103,7 @@ router.get('/readiness', auth, rbac('coach'), async (req, res) => {
       };
     });
 
-    res.json({ sports, athletes: rows });
+    res.json({ sport, athletes: rows });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

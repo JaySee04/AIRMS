@@ -374,4 +374,46 @@ look fine on paper but sit at the bottom of their group."*
 
 ---
 
-*Last updated: 2026-07-13 — added §16 (FYP II cohort-normed overall indicator + ACWR demotion). Previous: 2026-07-06 (§15 dashboard-embedded screening), 2026-06-28 (§13–14).*
+## 17. Coach role evolution — one sport, athlete detail view, event disciplines
+
+**Status:** experimental 4th role, still outside the locked 3-role model
+(MASTER_CLARIFICATIONS §12). Extended 2026-07-18 on JC's direction.
+
+**One sport per coach.** `User.coachSports` (JSON array) → `User.coachSport`
+(scalar string). A coach's jurisdiction is exactly one squad; enforced in
+[`routes/coach.js`](../backend/src/routes/coach.js) and the team-report scope
+check in [`routes/screeningReports.js`](../backend/src/routes/screeningReports.js).
+
+**Coach can read an athlete's screening detail.** Coach board rows are now
+selectable → a READ-ONLY detail view (risk badge, radar, `ScreeningPanel`
+threshold strips, body map, events) reusing the same components the medical view
+uses, minus every clinical affordance (no override, no injury logging). The
+downloadable individual screening PDF stays **blocked** for coaches — on-screen
+read-only detail is within remit, a portable clinical report is not.
+
+**Athlete events ("disciplines").** New `athlete_disciplines` join table
+(`Athlete hasMany`) — an athlete can hold multiple events (a badminton player may
+play Men's Singles AND Men's Doubles), so a join table, not a column. Badminton
+is the only curated sport for now (Men's/Women's Singles, Men's/Women's Doubles,
+Mixed Doubles); every other sport leaves it empty. The per-sport catalogue is
+frontend-only ([`lib/disciplines.ts`](../frontend/src/lib/disciplines.ts)); the
+DB stores free strings, so adding a sport's events needs no migration. Sport /
+programme / gender / event are filterable on the medical and coach rosters
+(the `/api/athletes` list already filtered the first three; `discipline` was
+added).
+
+**Locked-schema note.** Adding `athlete_disciplines` and renaming `coachSport`
+touch schema §12 calls locked. Done with JC's explicit go-ahead: the Athlete
+TABLE itself is unchanged (a new *related* table), coach is experimental, and
+disciplines model ISN's real badminton event structure — defensible as domain
+fidelity, not scope creep.
+
+**Rejected alternatives:** one discipline per athlete as a single column
+(rejected — real players compete in several events); a full per-sport event
+taxonomy for all 52 sports (deferred — badminton is the showcase; others opt in
+with a one-line catalogue change); keeping the coach multi-sport (rejected — JC
+scoped a coach to exactly one squad).
+
+---
+
+*Last updated: 2026-07-18 — added §17 (coach one-sport + athlete detail view + event disciplines). Previous: 2026-07-13 (§16 FYP II cohort-normed overall indicator + ACWR demotion), 2026-07-06 (§15 dashboard-embedded screening), 2026-06-28 (§13–14).*

@@ -52,6 +52,7 @@ function serializeAthlete(instance) {
     kneeInjuryRisk = 0,
     ankleInjuryRisk = 0,
     muscleFlags: _drop,
+    disciplines: disciplineRows,
     ...rest
   } = plain;
 
@@ -70,6 +71,9 @@ function serializeAthlete(instance) {
     },
     myodynamia,
     tension,
+    // Only surface disciplines when the association was actually loaded — an
+    // omitted field means "not fetched", an empty array means "no events".
+    ...(Array.isArray(disciplineRows) ? { disciplines: disciplineRows.map((d) => d.discipline) } : {}),
   };
 }
 
@@ -80,7 +84,8 @@ function serializeAthleteList(rows) {
     const {
       neckInjuryRisk = 0, shoulderInjuryRisk = 0, scoliosis = 0,
       spinalDiscHerniation = 0, lumbarPelvisInjury = 0, jointPain = 0,
-      kneeInjuryRisk = 0, ankleInjuryRisk = 0, muscleFlags: _drop, ...rest
+      kneeInjuryRisk = 0, ankleInjuryRisk = 0, muscleFlags: _drop,
+      disciplines: disciplineRows, ...rest
     } = plain;
     return {
       ...rest,
@@ -95,6 +100,7 @@ function serializeAthleteList(rows) {
         kneeInjuryRisk: Number(kneeInjuryRisk) || 0,
         ankleInjuryRisk: Number(ankleInjuryRisk) || 0,
       },
+      ...(Array.isArray(disciplineRows) ? { disciplines: disciplineRows.map((d) => d.discipline) } : {}),
     };
   });
 }

@@ -5,6 +5,7 @@ const { sequelize } = require('../config/db');
 const User = require('./User');
 const Athlete = require('./Athlete');
 const MuscleFlag = require('./MuscleFlag');
+const AthleteDiscipline = require('./AthleteDiscipline');
 const Activity = require('./Activity');
 const Injury = require('./Injury');
 const SelfReport = require('./SelfReport');
@@ -17,6 +18,10 @@ const CohortThreshold = require('./CohortThreshold');
 // canonical "ATH0001" identifier stays the cross-table key.
 Athlete.hasMany(MuscleFlag, { foreignKey: 'athleteId', sourceKey: 'athleteId', as: 'muscleFlags' });
 MuscleFlag.belongsTo(Athlete, { foreignKey: 'athleteId', targetKey: 'athleteId' });
+
+// Athlete ↔ AthleteDiscipline (1:N) — the events an athlete competes in.
+Athlete.hasMany(AthleteDiscipline, { foreignKey: 'athleteId', sourceKey: 'athleteId', as: 'disciplines' });
+AthleteDiscipline.belongsTo(Athlete, { foreignKey: 'athleteId', targetKey: 'athleteId' });
 
 Athlete.hasMany(Activity, { foreignKey: 'athleteId', sourceKey: 'athleteId', as: 'activities' });
 Activity.belongsTo(Athlete, { foreignKey: 'athleteId', targetKey: 'athleteId' });
@@ -43,6 +48,7 @@ module.exports = {
   User,
   Athlete,
   MuscleFlag,
+  AthleteDiscipline,
   Activity,
   Injury,
   SelfReport,

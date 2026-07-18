@@ -17,6 +17,7 @@ import ScreeningPanel from '@/components/dashboard/ScreeningPanel';
 import { api } from '@/lib/api';
 import { classifyCompositeRisk } from '@/lib/risk';
 import { WATCH_THRESHOLD } from '@/lib/screeningAlerts';
+import { disciplinesForSport, sportHasDisciplines } from '@/lib/disciplines';
 
 interface AthleteRisks {
   neckInjuryRisk: number;
@@ -37,6 +38,7 @@ interface AthleteListItem {
   program?: string;
   age?: number;
   gender?: string;
+  disciplines?: string[];
   isActive?: boolean;
 }
 
@@ -263,6 +265,8 @@ export default function MedicalDashboard() {
   const [search, setSearch] = useState('');
   const [filterSport, setFilterSport] = useState('');
   const [filterProgramme, setFilterProgramme] = useState('');
+  const [filterGender, setFilterGender] = useState('');
+  const [filterDiscipline, setFilterDiscipline] = useState('');
   const [loadingList, setLoadingList] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
 
@@ -289,6 +293,44 @@ export default function MedicalDashboard() {
     });
   }
   const [selectedError, setSelectedError] = useState<string | null>(null);
+  const [pdfBusy, setPdfBusy] = useState<'' | 'ind' | 'team'>('');
+  // Download errors get their own state (NOT selectedError) — selectedError is
+  // checked before the athlete content in the render, so reusing it would blank
+  // the whole pane on a failed download.
+  const [pdfError, setPdfError] = useState<string | null>(null);
+
+  // HoloMotion screening reports — the same PDFs admin can pull from the Reports
+  // page. The backend gates both on the viewRecords permission. Individual is
+  // keyed by athlete ID; team is scoped to the selected athlete's sport.
+  async function downloadIndividualReport() {
+    if (!selectedAthlete) return;
+    setPdfBusy('ind'); setPdfError(null);
+    try {
+      await api.downloadGet(
+        `/screening-reports/individual/${selectedAthlete.athleteId}.pdf`,
+        `AIRMS-${selectedAthlete.athleteId}.pdf`,
+      );
+    } catch (e) {
+      setPdfError(e instanceof Error ? e.message : 'Download failed');
+    } finally {
+      setPdfBusy('');
+    }
+  }
+
+  async function downloadTeamReport() {
+    if (!selectedAthlete?.sport) return;
+    setPdfBusy('team'); setPdfError(null);
+    try {
+      await api.downloadGet(
+        `/screening-reports/team.pdf?sport=${encodeURIComponent(selectedAthlete.sport)}`,
+        `AIRMS-team-${selectedAthlete.sport}.pdf`,
+      );
+    } catch (e) {
+      setPdfError(e instanceof Error ? e.message : 'Download failed');
+    } finally {
+      setPdfBusy('');
+    }
+  }
 
   // Initial roster load + system-wide signals for the empty-state.
   useEffect(() => {
@@ -331,6 +373,7 @@ export default function MedicalDashboard() {
       return;
     }
     let cancelled = false;
+    setPdfError(null);
     (async () => {
       try {
         setLoadingSelected(true);
@@ -376,9 +419,11 @@ export default function MedicalDashboard() {
       if (filterSport && a.sport !== filterSport) return false;
       const prog = a.programme ?? a.program;
       if (filterProgramme && prog !== filterProgramme) return false;
+      if (filterGender && a.gender !== filterGender) return false;
+      if (filterDiscipline && !(a.disciplines ?? []).includes(filterDiscipline)) return false;
       return true;
     });
-  }, [athletes, search, filterSport, filterProgramme]);
+  }, [athletes, search, filterSport, filterProgramme, filterGender, filterDiscipline]);
 
   // Workload computation for selected athlete (mirrors athlete dashboard)
   const workload = useMemo(() => {
@@ -569,7 +614,7 @@ export default function MedicalDashboard() {
             <div className="medical-rail-filters">
               <select
                 value={filterSport}
-                onChange={(e) => setFilterSport(e.target.value)}
+                onChange={(e) => { setFilterSport(e.target.value); setFilterDiscipline(''); }}
                 aria-label="Filter by sport"
               >
                 <option value="">All Sports</option>
@@ -583,6 +628,26 @@ export default function MedicalDashboard() {
                 <option value="">All Programmes</option>
                 {programmes.map((p) => (<option key={p} value={p}>{p}</option>))}
               </select>
+              <select
+                value={filterGender}
+                onChange={(e) => setFilterGender(e.target.value)}
+                aria-label="Filter by gender"
+              >
+                <option value="">All Genders</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+              </select>
+              {/* Event filter appears once a sport with events is selected. */}
+              {sportHasDisciplines(filterSport) && (
+                <select
+                  value={filterDiscipline}
+                  onChange={(e) => setFilterDiscipline(e.target.value)}
+                  aria-label="Filter by event"
+                >
+                  <option value="">All Events</option>
+                  {disciplinesForSport(filterSport).map((d) => (<option key={d} value={d}>{d}</option>))}
+                </select>
+              )}
             </div>
             <div className="medical-rail-count">
               {loadingList ? 'Loading…' : `${filtered.length} athlete${filtered.length === 1 ? '' : 's'}`}
@@ -735,14 +800,43 @@ export default function MedicalDashboard() {
                       {selectedAthlete.age ? `${selectedAthlete.age}y` : '—'}{' '}·{' '}
                       {selectedAthlete.gender ?? '—'}
                     </div>
+                    {(selectedAthlete.disciplines?.length ?? 0) > 0 && (
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+                        {selectedAthlete.disciplines!.map((d) => (<span key={d} className="badge-low">{d}</span>))}
+                      </div>
+                    )}
                   </div>
-                  <Link
-                    href={`/medical/injury-log?athleteId=${encodeURIComponent(selectedAthlete.athleteId)}`}
-                    className="btn btn-gold"
-                  >
-                    + Log Injury
-                  </Link>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                    {selectedAthlete.screening && (
+                      <button
+                        type="button"
+                        className="btn btn-outline"
+                        onClick={downloadIndividualReport}
+                        disabled={pdfBusy !== ''}
+                      >
+                        {pdfBusy === 'ind' ? 'Preparing…' : 'Download PDF'}
+                      </button>
+                    )}
+                    {selectedAthlete.sport && (
+                      <button
+                        type="button"
+                        className="btn btn-outline"
+                        onClick={downloadTeamReport}
+                        disabled={pdfBusy !== ''}
+                        title={`Team screening report for ${selectedAthlete.sport}`}
+                      >
+                        {pdfBusy === 'team' ? 'Preparing…' : 'Team PDF'}
+                      </button>
+                    )}
+                    <Link
+                      href={`/medical/injury-log?athleteId=${encodeURIComponent(selectedAthlete.athleteId)}`}
+                      className="btn btn-gold"
+                    >
+                      + Log Injury
+                    </Link>
+                  </div>
                 </div>
+                {pdfError && <div className="alert alert-error" style={{ marginTop: 12, marginBottom: 0 }}>{pdfError}</div>}
               </div>
 
               {/* The sport-aware screening detail sits BELOW the hero now — it

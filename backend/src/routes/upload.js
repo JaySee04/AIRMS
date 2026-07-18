@@ -1,6 +1,7 @@
 const express = require('express');
 const multer = require('multer');
-const { sequelize, Athlete, MuscleFlag, Screening } = require('../models');
+const { sequelize, Athlete, MuscleFlag, Screening, AthleteDiscipline } = require('../models');
+const { cleanDisciplineList } = require('../utils/disciplines');
 const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
 const requirePermission = require('../middleware/permission');
@@ -75,6 +76,11 @@ router.post('/screening/pdf', auth, rbac('medical', 'admin'), requirePermission(
   try {
     const {
       athlete = {}, myodynamia = [], tension = [], athleteId, sport, program,
+      // Events the operator tagged the athlete with (only sports that have them,
+      // e.g. badminton). When present, replaces the athlete's discipline set;
+      // when omitted (undefined), existing events are left untouched so a
+      // re-import that doesn't carry them doesn't wipe them.
+      disciplines,
       // Screening-snapshot extras from the preview (stored on the screenings
       // history row, not the flat athletes columns).
       assessedAt = null, summary = null, subitems = null, posture = null,
@@ -108,6 +114,8 @@ router.post('/screening/pdf', auth, rbac('medical', 'admin'), requirePermission(
     ]
       .filter((m) => m.muscle && ['L', 'R', 'B'].includes(m.side))
       .map((m) => ({ athleteId: data.athleteId, flagType: m.flagType, muscle: String(m.muscle).trim(), side: m.side }));
+
+    const disciplineRows = cleanDisciplineList(disciplines).map((discipline) => ({ athleteId: data.athleteId, discipline }));
 
     // Immutable history snapshot of this import (athletes table holds latest;
     // screenings holds every import for progress-over-time + report deltas).
@@ -148,6 +156,11 @@ router.post('/screening/pdf', auth, rbac('medical', 'admin'), requirePermission(
       // Replace muscle flags wholesale so re-importing a newer screen is idempotent.
       await MuscleFlag.destroy({ where: { athleteId: data.athleteId }, transaction: t });
       if (flagRows.length) await MuscleFlag.bulkCreate(flagRows, { transaction: t });
+      // Same wholesale replace for events (only when the client sent a set).
+      if (Array.isArray(disciplines)) {
+        await AthleteDiscipline.destroy({ where: { athleteId: data.athleteId }, transaction: t });
+        if (disciplineRows.length) await AthleteDiscipline.bulkCreate(disciplineRows, { transaction: t });
+      }
       await Screening.create(screeningRow, { transaction: t });
     });
 

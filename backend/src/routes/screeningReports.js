@@ -468,6 +468,11 @@ router.get('/individual/:id.pdf', auth, requirePermission('viewRecords'), async 
     if (req.user.role === 'athlete' && req.user.athleteId !== req.params.id) {
       return res.status(403).json({ message: 'Access denied' });
     }
+    // Coaches get squad-level readiness + the team report only; the individual
+    // report is screening detail, which is outside their read-only remit.
+    if (req.user.role === 'coach') {
+      return res.status(403).json({ message: 'Coaches do not have access to individual screening reports.' });
+    }
     const [athlete, history, settings] = await Promise.all([
       Athlete.findOne({ where: { athleteId: req.params.id }, raw: true }),
       Screening.findAll({ where: { athleteId: req.params.id }, order: [['assessedAt', 'DESC'], ['id', 'DESC']], raw: true }),
@@ -580,10 +585,15 @@ router.get('/individual/:id.pdf', auth, requirePermission('viewRecords'), async 
 // rbac first: requirePermission alone lets non-medical roles pass through, and
 // an athlete must not be able to download the whole squad's ranking. The
 // individual report handles athletes with an explicit self-only check instead.
-router.get('/team.pdf', auth, rbac('medical', 'admin'), requirePermission('viewRecords'), async (req, res) => {
+// Coaches may pull the team report, but only for a sport they are assigned to
+// (their read-only remit) — enforced by the coachSports scope check below.
+router.get('/team.pdf', auth, rbac('medical', 'admin', 'coach'), requirePermission('viewRecords'), async (req, res) => {
   try {
     const { sport, programme, gender } = req.query;
     if (!sport) return res.status(400).json({ message: 'sport is required' });
+    if (req.user.role === 'coach' && req.user.coachSport !== sport) {
+      return res.status(403).json({ message: 'You can only download the report for your assigned sport.' });
+    }
     const where = { isActive: true, sport };
     if (programme) where.program = programme;
     if (gender) where.gender = gender;

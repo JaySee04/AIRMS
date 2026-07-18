@@ -28,13 +28,13 @@ async function alertMany(athleteIds) {
   const [athletes, screenings, users] = await Promise.all([
     Athlete.findAll({ where: { athleteId: ids }, raw: true }),
     Screening.findAll({ where: { athleteId: ids }, order: [['assessedAt', 'DESC'], ['id', 'DESC']], raw: true }),
-    User.findAll({ where: { role: ['medical', 'coach'], isActive: true }, attributes: ['email', 'role', 'coachSports'], raw: true }),
+    User.findAll({ where: { role: ['medical', 'coach'], isActive: true }, attributes: ['email', 'role', 'coachSport'], raw: true }),
   ]);
   const athleteBy = new Map(athletes.map((a) => [a.athleteId, a]));
   const latestBy = new Map();
   for (const s of screenings) if (!latestBy.has(s.athleteId)) latestBy.set(s.athleteId, s);
   const medicalEmails = users.filter((u) => u.role === 'medical').map((u) => u.email).filter(Boolean);
-  const coaches = users.filter((u) => u.role === 'coach' && Array.isArray(u.coachSports));
+  const coaches = users.filter((u) => u.role === 'coach' && u.coachSport);
 
   const results = [];
   for (const id of ids) {
@@ -49,7 +49,7 @@ async function alertMany(athleteIds) {
       continue;
     }
 
-    const coachEmails = coaches.filter((c) => c.coachSports.includes(athlete.sport)).map((c) => c.email).filter(Boolean);
+    const coachEmails = coaches.filter((c) => c.coachSport === athlete.sport).map((c) => c.email).filter(Boolean);
     const recipients = [...medicalEmails, ...coachEmails];
     if (!recipients.length) { results.push({ athleteId: id, sent: false, reason: 'no recipients', band }); continue; }
 

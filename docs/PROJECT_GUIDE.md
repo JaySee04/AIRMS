@@ -64,9 +64,10 @@ All Sequelize models. The `index.js` registers them and wires up associations (`
 
 | File | Schema | Notes |
 |---|---|---|
-| [User.js](../backend/src/models/User.js) | email, password (hashed), role, name, athleteId?, permissions (JSON), isActive | `beforeSave` hook bcrypts the password column. `permissions` is the per-user medical-staff feature opt-out map (see middleware/permission.js) |
+| [User.js](../backend/src/models/User.js) | email, password (hashed), role, name, athleteId?, **`coachSport`** (scalar, coach only), permissions (JSON), isActive | `beforeSave` hook bcrypts the password column. `permissions` is the per-user medical-staff feature opt-out map (see middleware/permission.js). `coachSport` is the one sport an experimental coach is assigned to (was the JSON `coachSports` array pre-2026-07-18) |
 | [Athlete.js](../backend/src/models/Athlete.js) | athleteId, name, sport, programme, biometrics, 8 flat risk-indicator columns | `athleteId` (VARCHAR) is the PK and the cross-table FK; risks reassembled into a nested `risks` object by the serialiser |
 | [MuscleFlag.js](../backend/src/models/MuscleFlag.js) | id, athleteId, flagType (`myodynamia`\|`tension`), muscle, side | Single table for both flag categories, discriminated by `flagType`; serialiser splits rows into the `myodynamia[]` / `tension[]` arrays the frontend expects |
+| [AthleteDiscipline.js](../backend/src/models/AthleteDiscipline.js) | id, athleteId, discipline | **FYP II** events an athlete competes in (`Athlete hasMany`), unique per (athlete, discipline). Only sports that have events populate it (badminton so far); serialiser folds rows into a `disciplines[]` string array. Per-sport catalogue is frontend-only ([lib/disciplines.ts](../frontend/src/lib/disciplines.ts)) |
 | [Activity.js](../backend/src/models/Activity.js) | id, athleteId, date, type, duration, intensity, load, notes | `beforeValidate` hook auto-computes `load = duration × intensity` |
 | [Injury.js](../backend/src/models/Injury.js) | id, athleteId, bodyPart, side, injuryType, severity, mechanism, date, recoveryStatus, source, notes | Enum values locked — see [MASTER_CLARIFICATIONS.md §9](MASTER_CLARIFICATIONS.md#9-locked-data-shapes-do-not-change-without-migrating-data) |
 | [SelfReport.js](../backend/src/models/SelfReport.js) | id, athleteId, bodyPart, side, suspectedType, severity, onsetDate, description, status (Pending/Approved/Rejected), reviewedBy, reviewNote | Approved reports get promoted into a new `Injury` row inside a single `sequelize.transaction()` |
@@ -112,7 +113,7 @@ All Sequelize models. The `index.js` registers them and wires up associations (`
 - **FYP II** [utils/cohorts.js](../backend/src/utils/cohorts.js) — cohort-norm engine. `orientedComponents()` builds the six higher-is-better inputs (totalScore/rom/stability/symmetry + `riskGood` = negated mean of the 7 shown risks, LDH excluded + `balance` = negated L/R subitem asymmetry); `recomputeCohorts()` computes mean/SD per `(sport,programme,gender)` cohort across the four fallback tiers and upserts them (preload-into-Map + `Promise.all`/`bulkCreate`, no N+1); `resolveFromMap()`/`resolveCohortStats()` walk the `spg→sg→s→all` ladder to the first tier meeting `min_cohort_n`
 - **FYP II** [utils/overallIndicator.js](../backend/src/utils/overallIndicator.js) — the overall risk indicator (Total Score of Athleticism): `computeIndicator()` averages the component z-scores, maps to a 0–100 display score, and bands by **escalation** (+1 below cohort mean, +1 in the cohort's bottom-`k` → 0/1/2 = green/amber/red); `recomputeIndicators()` re-scores every athlete's latest screening in-memory from the approved cohorts (parallel load + `Promise.all` update)
 - **FYP II** [utils/settings.js](../backend/src/utils/settings.js) — `getSettings()`/`setSetting()` over the `settings` key/value table, with `DEFAULTS` (min_cohort_n 5, fallback on, both escalations on, bottom_k 3, alerts on, alert_on_band amber)
-- **FYP II** [utils/alerts.js](../backend/src/utils/alerts.js) — `alertIfNeeded(athleteId)`: if the athlete's latest band ≥ `alert_on_band`, emails the medical staff + the sport's coaches (coaches whose `coachSports` includes the athlete's sport) via `utils/mailer.js`. Fired on import commit
+- **FYP II** [utils/alerts.js](../backend/src/utils/alerts.js) — `alertIfNeeded(athleteId)`: if the athlete's latest band ≥ `alert_on_band`, emails the medical staff + the sport's coaches (coaches whose `coachSport` equals the athlete's sport) via `utils/mailer.js`. Fired on import commit
 
 ---
 
@@ -149,7 +150,7 @@ Pages mapped to the 3 roles + profile pages:
 | [`/admin/staff`](../frontend/src/app/admin/staff/page.tsx) | admin | Medical-staff permission control + account activation |
 | [`/admin/data-upload`](../frontend/src/app/admin/data-upload/page.tsx) | admin | Module 4 — HoloMotion PDF import (batch + name-match) + data backup |
 | [`/admin/profile`](../frontend/src/app/admin/profile/page.tsx) | admin | Profile |
-| [`/coach/dashboard`](../frontend/src/app/coach/dashboard/page.tsx) | coach | **FYP II** (experimental 4th role) read-only squad readiness scoped to the coach's admin-assigned sports — all athletes' HoloMotion overall risks, sorted worst-first with the worst region named |
+| [`/coach/dashboard`](../frontend/src/app/coach/dashboard/page.tsx) | coach | **FYP II** (experimental 4th role) read-only squad readiness scoped to the coach's ONE assigned sport — all athletes' HoloMotion overall risks, sorted worst-first with the worst region named, filterable by programme / gender / event; selecting a row opens a read-only screening detail (radar + ScreeningPanel + body map) and the team report is downloadable here |
 
 ### Layout components — `frontend/src/components/layout/`
 

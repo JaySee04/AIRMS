@@ -6,7 +6,7 @@
  */
 require('dotenv').config({ path: require('path').join(__dirname, '../../.env') });
 
-const { sequelize, User, Athlete, MuscleFlag, Activity, Injury, SelfReport, Screening, CohortThreshold } = require('../models');
+const { sequelize, User, Athlete, MuscleFlag, AthleteDiscipline, Activity, Injury, SelfReport, Screening, CohortThreshold } = require('../models');
 
 // ── Deterministic PRNG (seed=42 — same demo data on every reseed) ──────────
 let _seed = 42;
@@ -510,10 +510,30 @@ function buildUsers() {
     // Ground-truth athlete login — Dr Thung's own HoloMotion report seeded
     // 1:1 as ATH0061, so the athlete view can be checked against the PDF.
     { name: 'Thung Jin Seng', email: 'thung@isn.gov.my', password: 'thung123', role: 'athlete', athleteId: 'ATH0061' },
-    // Experimental coach role — sees only athletes in their assigned sports.
-    // Badminton includes ATH0001 (John Doe) + ATH0061 (Thung) for overlap.
-    { name: 'Coach Demo 01', email: 'coach@isn.gov.my', password: 'coach123', role: 'coach', coachSports: ['Badminton', 'Swimming'] },
+    // Experimental coach role — one sport per coach. Badminton includes ATH0001
+    // (John Doe) + ATH0061 (Thung), so the coach's squad overlaps the athlete
+    // demo logins.
+    { name: 'Coach Demo 01', email: 'coach@isn.gov.my', password: 'coach123', role: 'coach', coachSport: 'Badminton' },
   ];
+}
+
+// Seed events for badminton athletes (the one sport with disciplines so far).
+// Deterministic assignment by gender + rotation: a singles-or-doubles primary
+// event for everyone, plus Mixed Doubles for every third athlete, so the coach
+// board shows athletes spread across all five events with some overlap.
+function buildDisciplines(athleteRows) {
+  const male = ["Men's Singles", "Men's Doubles"];
+  const female = ["Women's Singles", "Women's Doubles"];
+  const rows = [];
+  let i = 0;
+  for (const a of athleteRows) {
+    if (a.sport !== 'Badminton') continue;
+    const pool = a.gender === 'Female' ? female : male;
+    rows.push({ athleteId: a.athleteId, discipline: pool[i % 2] });
+    if (i % 3 === 0) rows.push({ athleteId: a.athleteId, discipline: 'Mixed Doubles' });
+    i += 1;
+  }
+  return rows;
 }
 
 // ── Main ────────────────────────────────────────────────────────────────────
@@ -538,6 +558,10 @@ async function seed() {
 
     await MuscleFlag.bulkCreate(muscleFlags, { transaction: t });
     console.log(`Inserted ${muscleFlags.length} muscle flags`);
+
+    const disciplines = buildDisciplines(athleteRows);
+    await AthleteDiscipline.bulkCreate(disciplines, { transaction: t });
+    console.log(`Inserted ${disciplines.length} athlete-discipline rows`);
 
     const activities = buildActivities();
     await Activity.bulkCreate(activities, { transaction: t, individualHooks: false });

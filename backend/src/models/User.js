@@ -33,15 +33,16 @@ const User = sequelize.define('User', {
     allowNull: true,
     field: 'athlete_id',
   },
-  // Sports a coach is assigned to. Coaches only see athletes whose sport is in
-  // this list (see routes/coach.js). Stored as a JSON array of sport names;
-  // null/empty means the coach sees no athletes until an admin assigns one.
-  // Experimental 4th role — not part of the locked 3-role model.
-  coachSports: {
-    type: DataTypes.JSON,
+  // The single sport a coach is assigned to. A coach sees only athletes in this
+  // sport (see routes/coach.js); null means the coach sees no athletes until an
+  // admin assigns one. One-sport-per-coach is a deliberate rule — a coach's
+  // jurisdiction is exactly one squad. Experimental 4th role, not part of the
+  // locked 3-role model.
+  coachSport: {
+    type: DataTypes.STRING(64),
     allowNull: true,
     defaultValue: null,
-    field: 'coach_sports',
+    field: 'coach_sport',
   },
   // Per-user feature toggles for medical staff (opt-out model — null means all
   // capabilities granted). Stored as JSON { key: boolean }; see

@@ -6,7 +6,7 @@
 // tunes the settings, reviews each cohort, may edit the mean ("average
 // threshold"), and approves. Only approved cohorts drive the indicator.
 
-import { Fragment, useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { api } from '@/lib/api';
 
@@ -50,6 +50,11 @@ export default function CohortThresholdsPage() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Cohorts to flag when arriving from the post-import prompt (?sport=A,B): the
+  // cohorts touched by the just-imported screenings, so the admin lands on the
+  // exact rows to recompute/approve.
+  const [highlightIds, setHighlightIds] = useState<Set<number>>(new Set());
+  const highlightApplied = useRef(false);
 
   const load = useCallback(async () => {
     try {
@@ -62,6 +67,28 @@ export default function CohortThresholdsPage() {
     } catch (e) { setError(e instanceof Error ? e.message : 'Failed to load'); }
   }, []);
   useEffect(() => { load(); }, [load]);
+
+  // Once cohorts are loaded, if we arrived with ?sport=… (from the import
+  // prompt), flash + scroll to the cohorts for those sports (plus the shared
+  // "all" fallback). Runs once. Reads window.location directly to avoid pulling
+  // useSearchParams (which would force a Suspense boundary on this page).
+  useEffect(() => {
+    if (highlightApplied.current || cohorts.length === 0 || typeof window === 'undefined') return;
+    highlightApplied.current = true;
+    const raw = new URLSearchParams(window.location.search).get('sport');
+    if (!raw) return;
+    const wanted = new Set(raw.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean));
+    if (wanted.size === 0) return;
+    const ids = cohorts
+      .filter((c) => (c.sport && wanted.has(c.sport.toLowerCase())) || c.tier === 'all')
+      .map((c) => c.id);
+    if (ids.length === 0) return;
+    setHighlightIds(new Set(ids));
+    // Scroll the first matching row into view after paint.
+    requestAnimationFrame(() => {
+      document.getElementById(`cohort-${ids[0]}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  }, [cohorts]);
 
   async function recompute() {
     setBusy(true); setMsg(null); setError(null);
@@ -163,7 +190,7 @@ export default function CohortThresholdsPage() {
             <tbody>
               {cohorts.map((c) => (
                 <Fragment key={c.id}>
-                  <tr>
+                  <tr id={`cohort-${c.id}`} className={highlightIds.has(c.id) ? 'row-flash' : undefined}>
                     <td><strong>{cohortLabel(c)}</strong></td>
                     <td className="text-muted" style={{ fontSize: '0.8rem' }}>{TIER_LABEL[c.tier]}</td>
                     <td style={{ textAlign: 'center', color: c.n >= Number(set.min_cohort_n ?? 5) ? 'inherit' : 'var(--risk-high)' }}>{c.n}</td>
