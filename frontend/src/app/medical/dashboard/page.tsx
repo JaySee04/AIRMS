@@ -749,50 +749,65 @@ export default function MedicalDashboard() {
                   explains the band rather than competing with it. See the
                   rationale in ScreeningAlertBanner.tsx. */}
 
-              {/* PRIMARY risk signal — cohort-normed HoloMotion indicator with
-                  the clinician override, paired with the risk radar (mirrors the
-                  athlete dashboard). The ACWR / composite training-load hero,
-                  its gauge and the workload chart were removed on 2026-07-16 so
-                  the clinician reads one verdict, not two competing ones. The
-                  composite model still runs — it drives the recovery baseline
-                  below. See docs/fyp/ACWR_REBUILD.md. */}
-              <div className="grid-2-1" style={{ alignItems: 'start' }}>
-                <div>
-                  <OverallRiskBadge screening={selectedAthlete.screening} hero />
-                  {selectedAthlete.screening?.screeningId && (
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', margin: '-8px 0 0', flexWrap: 'wrap' }}>
-                      <span className="text-muted" style={{ fontSize: '0.78rem' }}>After assessment, set band:</span>
-                      <button type="button" className="btn btn-outline btn-sm" onClick={() => setOverride('green')}>Green</button>
-                      <button type="button" className="btn btn-outline btn-sm" onClick={() => setOverride('amber')}>Amber</button>
-                      <button type="button" className="btn btn-outline btn-sm" onClick={() => setOverride('red')}>Red</button>
-                      {selectedAthlete.screening.overrideBand && (
-                        <button type="button" className="btn btn-outline btn-sm" onClick={() => setOverride(null)}>Clear override</button>
-                      )}
-                    </div>
+              {/* PRIMARY risk signal — cohort-normed HoloMotion indicator (a
+                  full-width verdict banner) with the clinician override beneath
+                  it, then the risk radar below (mirrors the athlete dashboard;
+                  a full-width hero avoids the dead gap a "Safe" athlete's short
+                  hero left beside the taller radar). The ACWR / composite
+                  training-load hero, its gauge and the workload chart were
+                  removed on 2026-07-16 so the clinician reads one verdict, not
+                  two competing ones. The composite model still runs — it drives
+                  the recovery baseline below. See docs/fyp/ACWR_REBUILD.md. */}
+              <OverallRiskBadge screening={selectedAthlete.screening} hero />
+              {selectedAthlete.screening?.screeningId && (
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', margin: '-8px 0 0', flexWrap: 'wrap' }}>
+                  <span className="text-muted" style={{ fontSize: '0.78rem' }}>After assessment, set band:</span>
+                  <button type="button" className="btn btn-outline btn-sm" onClick={() => setOverride('green')}>Green</button>
+                  <button type="button" className="btn btn-outline btn-sm" onClick={() => setOverride('amber')}>Amber</button>
+                  <button type="button" className="btn btn-outline btn-sm" onClick={() => setOverride('red')}>Red</button>
+                  {selectedAthlete.screening.overrideBand && (
+                    <button type="button" className="btn btn-outline btn-sm" onClick={() => setOverride(null)}>Clear override</button>
                   )}
                 </div>
-                <div className="card">
-                  <div className="card-header">
-                    <div>
-                      <h2 className="card-title" style={{ marginBottom: 0 }}>Risk Indicators</h2>
-                      <span className="card-sub">Latest screening</span>
-                    </div>
-                  </div>
-                  <RiskRadar
-                    labels={RISK_KEYS.map((k) => RISK_LABEL[k])}
-                    values={RISK_KEYS.map((k) => Math.min(30, Math.max(0, selectedAthlete.risks[k] ?? 0)))}
-                  />
-                </div>
-              </div>
-
+              )}
               {/* Which regions sit behind an amber/red band. Renders nothing
-                  when the athlete is green overall. */}
+                  when the athlete is green overall. Sits between the verdict and
+                  the radar overview: verdict → why → overview → detail. */}
               <ScreeningAlertBanner
                 risks={selectedAthlete.risks}
                 sport={selectedAthlete.sport}
                 band={selectedAthlete.screening?.effectiveBand}
                 audience="staff"
               />
+
+              <div className="card" style={{ marginTop: 20 }}>
+                <div className="card-header">
+                  <div>
+                    <h2 className="card-title" style={{ marginBottom: 0 }}>Risk Indicators</h2>
+                    <span className="card-sub">Latest screening · lower is better</span>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <div style={{ flex: '1 1 420px', minWidth: 300, maxWidth: 520 }}>
+                    <RiskRadar
+                      labels={RISK_KEYS.map((k) => RISK_LABEL[k])}
+                      values={RISK_KEYS.map((k) => Math.min(30, Math.max(0, selectedAthlete.risks[k] ?? 0)))}
+                    />
+                  </div>
+                  <div style={{ flex: '1 1 260px', minWidth: 240 }}>
+                    <p style={{ margin: '0 0 10px', fontSize: '0.9rem', lineHeight: 1.5 }}>
+                      Each spoke is one exercise-risk indicator from the athlete&apos;s latest
+                      HoloMotion screening, on a 0–30 scale. <strong>Closer to the centre
+                      is better.</strong>
+                    </p>
+                    <p className="text-muted" style={{ margin: 0, fontSize: '0.82rem', lineHeight: 1.5 }}>
+                      Exact values and the sport-personalised thresholds are on the
+                      screening panel below; use the band buttons above to override
+                      after an assessment.
+                    </p>
+                  </div>
+                </div>
+              </div>
 
               {/* Recovery baseline — open snapshot of pre-elevation training state.
                   Auto-created when composite risk first leaves Low; auto-resolved

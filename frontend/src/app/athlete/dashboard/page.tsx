@@ -298,18 +298,11 @@ export default function AthleteDashboard() {
           ones. Training load lives on /athlete/activity now; the composite
           model itself is retained in lib/risk.ts and specified in
           docs/fyp/ACWR_REBUILD.md. */}
-      <div className="grid-2-1" style={{ alignItems: 'start' }}>
-        <OverallRiskBadge screening={athlete.screening} hero />
-        <div className="card">
-          <div className="card-header">
-            <div>
-              <h2 className="card-title" style={{ marginBottom: 0 }}>Risk Indicators</h2>
-              <span className="card-sub">From last screening</span>
-            </div>
-          </div>
-          <RiskRadar labels={riskLabels} values={riskValues} />
-        </div>
-      </div>
+      {/* The verdict is a full-width banner (a "Safe" athlete's hero is short —
+          pairing it beside the taller radar left a dead gap). Flow reads
+          verdict → why → overview → detail: the band, then the regions behind
+          it, then the radar overview, then the full screening panel. */}
+      <OverallRiskBadge screening={athlete.screening} hero />
 
       {/* Which regions sit behind an amber/red band. Renders nothing when the
           athlete is green overall — their detail lives on the strips below. */}
@@ -333,6 +326,34 @@ export default function AthleteDashboard() {
           </Link>
         </div>
       )}
+
+      {/* Risk radar — sits just above the threshold strips that plot the same
+          indicators, so the two screening views read together. */}
+      <div className="card" style={{ marginTop: 20 }}>
+        <div className="card-header">
+          <div>
+            <h2 className="card-title" style={{ marginBottom: 0 }}>Risk Indicators</h2>
+            <span className="card-sub">From last screening · lower is better</span>
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ flex: '1 1 420px', minWidth: 300, maxWidth: 520 }}>
+            <RiskRadar labels={riskLabels} values={riskValues} />
+          </div>
+          <div style={{ flex: '1 1 260px', minWidth: 240 }}>
+            <p style={{ margin: '0 0 10px', fontSize: '0.9rem', lineHeight: 1.5 }}>
+              Each spoke is one exercise-risk indicator from your latest HoloMotion
+              screening, on a 0–30 scale. <strong>Closer to the centre is better</strong> —
+              a small, even shape means low risk across the board.
+            </p>
+            <p className="text-muted" style={{ margin: 0, fontSize: '0.82rem', lineHeight: 1.5 }}>
+              A spoke reaching outward flags a region worth watching. The exact
+              values, the personalised thresholds for your sport, and what to do
+              about them are in the screening panel below.
+            </p>
+          </div>
+        </div>
+      </div>
 
       <div style={{ height: 20 }} />
 
