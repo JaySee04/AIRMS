@@ -1656,6 +1656,13 @@ tr.row-flash > td { animation: row-flash 1.6s ease-out; }
 }
 .pdf-subitem-table td { text-align: center; padding: 4px 6px; }
 .pdf-muscle-hero { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
+/* The extracted-data column scrolls internally so the tall read-out fits beside
+   the shorter edit form on the left. On a narrow (stacked) layout it flows
+   normally — there is no left column to fit against. */
+.pdf-preview-col { max-height: 620px; overflow-y: auto; padding-right: 8px; }
+@media (max-width: 760px) {
+  .pdf-preview-col { max-height: none; overflow: visible; padding-right: 0; }
+}
 
 /* ── Alerts ──────────────────────────────────────────────────────────────────── */
 .alert { padding: 10px 14px; border-radius: 6px; font-size: 0.875rem; margin-bottom: 14px; }

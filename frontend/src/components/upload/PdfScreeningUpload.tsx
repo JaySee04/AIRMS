@@ -604,7 +604,9 @@ export default function PdfScreeningUpload() {
                   </button>
                 </div>
 
-                <div>
+                {/* Extracted data — scrolls internally so this tall read-out
+                    fits beside the shorter edit form on the left. */}
+                <div className="pdf-preview-col">
                   <ScreeningPreview
                     athlete={it.preview.athlete as unknown as Record<string, unknown>}
                     subitems={it.preview.subitems}
