@@ -42,7 +42,7 @@ interface ReadinessRow {
   myodynamia: MuscleEntry[];
   tension: MuscleEntry[];
   activeInjuries: Array<{ recoveryStatus: 'Recovering' | 'Recovered' | 'Chronic' }>;
-  screening?: ScreeningIndicator | null;
+  screening?: (ScreeningIndicator & { prevIndicator?: number | null; prevAssessedAt?: string | null }) | null;
 }
 
 interface ReadinessResponse {
@@ -81,6 +81,14 @@ function bandFor(effectiveBand?: 'green' | 'amber' | 'red' | null): Band | null 
   if (effectiveBand === 'amber') return 'observation';
   if (effectiveBand === 'green') return 'full';
   return null; // no screening / cohort too small to score
+}
+
+// Change in the overall indicator since the athlete's previous screening (higher
+// indicator = better). null when there's no prior screening to compare against.
+function trendDelta(row: ReadinessRow): number | null {
+  const s = row.screening;
+  if (!s || s.overallIndicator == null || s.prevIndicator == null) return null;
+  return Number(s.overallIndicator) - Number(s.prevIndicator);
 }
 
 export default function CoachDashboard() {
@@ -167,6 +175,84 @@ export default function CoachDashboard() {
     classified.forEach((x) => { if (x.band) c[x.band]++; else c.unscored++; });
     return c;
   }, [classified]);
+
+  // Screening coverage in the current view.
+  const coverage = useMemo(
+    () => ({ scored: classified.filter((x) => x.band).length, total: classified.length }),
+    [classified],
+  );
+
+  // Squad momentum — change vs each athlete's previous screening (±2 = noise floor).
+  const momentum = useMemo(() => {
+    const m = { improving: 0, declining: 0, steady: 0 };
+    classified.forEach(({ row }) => {
+      const d = trendDelta(row);
+      if (d === null) return;
+      if (d >= 2) m.improving++;
+      else if (d <= -2) m.declining++;
+      else m.steady++;
+    });
+    return m;
+  }, [classified]);
+
+  // Common weak spots — squad-wide exercise-risk regions beyond Low (what to
+  // point conditioning at). Aggregates each athlete's sport-aware region alerts.
+  const weakSpots = useMemo(() => {
+    const map = new Map<string, { label: string; watch: number; high: number }>();
+    classified.forEach(({ screening }) => {
+      if (!screening.hasData) return;
+      screening.alerts.forEach((a) => {
+        const e = map.get(a.label) ?? { label: a.label, watch: 0, high: 0 };
+        if (a.band === 'high') e.high += 1; else e.watch += 1;
+        map.set(a.label, e);
+      });
+    });
+    return [...map.values()].sort((a, b) => (b.high - a.high) || (b.watch - a.watch)).slice(0, 6);
+  }, [classified]);
+
+  // Muscle hotspots — most-flagged muscles across the squad, counted by athlete.
+  const muscleHotspots = useMemo(() => {
+    const map = new Map<string, { muscle: string; kind: 'weak' | 'tight'; athletes: Set<string> }>();
+    const add = (muscle: string, kind: 'weak' | 'tight', aid: string) => {
+      const key = `${muscle}|${kind}`;
+      const e = map.get(key) ?? { muscle, kind, athletes: new Set<string>() };
+      e.athletes.add(aid);
+      map.set(key, e);
+    };
+    classified.forEach(({ row }) => {
+      (row.myodynamia ?? []).forEach((m) => add(m.muscle, 'weak', row.athleteId));
+      (row.tension ?? []).forEach((m) => add(m.muscle, 'tight', row.athleteId));
+    });
+    return [...map.values()]
+      .map((e) => ({ muscle: e.muscle, kind: e.kind, count: e.athletes.size }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 6);
+  }, [classified]);
+
+  // Readiness broken down by event (an athlete counts in each of their events).
+  const readinessByEvent = useMemo(() => {
+    const map = new Map<string, { discipline: string; full: number; observation: number; restricted: number; unscored: number }>();
+    classified.forEach(({ row, band }) => {
+      (row.disciplines ?? []).forEach((d) => {
+        const e = map.get(d) ?? { discipline: d, full: 0, observation: 0, restricted: 0, unscored: 0 };
+        if (band) e[band] += 1; else e.unscored += 1;
+        map.set(d, e);
+      });
+    });
+    return [...map.values()].sort((a, b) => a.discipline.localeCompare(b.discipline));
+  }, [classified]);
+
+  // Athletes to flag to the medical team — Restricted or carrying active injuries.
+  const attention = useMemo(
+    () => classified
+      .filter(({ band, row }) => band === 'restricted' || row.activeInjuries.length > 0)
+      .map(({ row, band, worst }) => {
+        const factor = (row.screening?.factors ?? []).find((f) => f.includes('over threshold'));
+        const reason = factor ?? (worst ? `${worst.label} ${worst.value.toFixed(0)}` : null);
+        return { row, band, reason, injuries: row.activeInjuries.length };
+      }),
+    [classified],
+  );
 
   const total = classified.length;
   const pct = (n: number) => (total ? Math.round((n / total) * 100) : 0);
@@ -359,6 +445,107 @@ export default function CoachDashboard() {
         )}
       </div>
 
+      {/* Needs attention — the athletes to flag to the medical team */}
+      {attention.length > 0 && (
+        <div className="card" style={{ marginBottom: 20, borderLeft: '4px solid var(--risk-high, #d14b4b)' }}>
+          <div className="card-header">
+            <div>
+              <h2 className="card-title" style={{ marginBottom: 0 }}>Needs attention ({attention.length})</h2>
+              <span className="card-sub">Restricted athletes and anyone carrying an active injury — the ones to raise with the medical team.</span>
+            </div>
+          </div>
+          <div>
+            {attention.map(({ row, band, reason, injuries }) => (
+              <button key={row.athleteId} type="button" className="athlete-row" onClick={() => setSelectedId(row.athleteId)} style={{ width: '100%' }}>
+                <span className="athlete-row-avatar">{getInitials(row.name)}</span>
+                <span className="athlete-row-info">
+                  <span className="athlete-row-name">
+                    {row.name}
+                    {band && <span className={BAND_META[band].badge} style={{ marginLeft: 8 }}>{BAND_META[band].label}</span>}
+                  </span>
+                  <span className="athlete-row-meta">
+                    {reason ?? 'flagged'}{injuries ? ` · ${injuries} active injur${injuries === 1 ? 'y' : 'ies'}` : ''}
+                  </span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Squad focus — where to point conditioning + squad momentum */}
+      {total > 0 && (
+        <div className="card" style={{ marginBottom: 20 }}>
+          <div className="card-header">
+            <div>
+              <h2 className="card-title" style={{ marginBottom: 0 }}>Squad focus</h2>
+              <span className="card-sub">
+                {coverage.scored}/{coverage.total} screened · momentum since last screening:{' '}
+                <strong style={{ color: 'var(--risk-low)' }}>{momentum.improving} ↑</strong> improving ·{' '}
+                <strong style={{ color: 'var(--risk-high)' }}>{momentum.declining} ↓</strong> declining · {momentum.steady} steady
+              </span>
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 20 }}>
+            <div>
+              <strong style={{ fontSize: '0.82rem' }}>Common weak spots</strong>
+              {weakSpots.length === 0 ? (
+                <div className="text-muted" style={{ fontSize: '0.8rem', marginTop: 6 }}>No exercise-risk regions beyond Low.</div>
+              ) : (
+                <ul className="insight-list" style={{ marginTop: 8 }}>
+                  {weakSpots.map((w) => (
+                    <li key={w.label}>
+                      <strong>{w.label}</strong>{' '}
+                      {w.high > 0 && <span className="badge-high" style={{ marginRight: 4 }}>{w.high} elevated</span>}
+                      {w.watch > 0 && <span className="badge-moderate">{w.watch} watch</span>}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div>
+              <strong style={{ fontSize: '0.82rem' }}>Muscle hotspots</strong>
+              {muscleHotspots.length === 0 ? (
+                <div className="text-muted" style={{ fontSize: '0.8rem', marginTop: 6 }}>No muscle flags on record.</div>
+              ) : (
+                <ul className="insight-list" style={{ marginTop: 8 }}>
+                  {muscleHotspots.map((m) => (
+                    <li key={`${m.muscle}-${m.kind}`}>
+                      <strong>{m.muscle}</strong>{' '}
+                      <span className={m.kind === 'weak' ? 'badge-moderate' : 'badge-low'}>{m.kind}</span>{' '}
+                      <span className="text-muted">×{m.count}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            {squadHasEvents && (
+              <div>
+                <strong style={{ fontSize: '0.82rem' }}>Readiness by event</strong>
+                <ul className="insight-list" style={{ marginTop: 8 }}>
+                  {readinessByEvent.map((e) => {
+                    const parts = [
+                      e.full > 0 ? <span key="f" style={{ color: 'var(--risk-low)' }}>{e.full} full</span> : null,
+                      e.observation > 0 ? <span key="o" style={{ color: 'var(--risk-mod)' }}>{e.observation} obs</span> : null,
+                      e.restricted > 0 ? <span key="r" style={{ color: 'var(--risk-high)' }}>{e.restricted} restricted</span> : null,
+                      e.unscored > 0 ? <span key="u" className="text-muted">{e.unscored} n/a</span> : null,
+                    ].filter(Boolean);
+                    return (
+                      <li key={e.discipline}>
+                        <strong>{e.discipline}</strong>{' '}
+                        <span style={{ fontSize: '0.78rem' }}>
+                          {parts.map((p, i) => (<span key={i}>{i > 0 ? ' · ' : ''}{p}</span>))}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {total > 0 && (
         <div className="card">
           <div className="card-header">
@@ -374,6 +561,7 @@ export default function CoachDashboard() {
                   <th>Athlete</th>
                   {squadHasEvents && <th>Events</th>}
                   <th style={{ textAlign: 'center' }}>HoloMotion Risk</th>
+                  <th style={{ textAlign: 'center' }}>Trend</th>
                   <th style={{ textAlign: 'center' }}>Readiness</th>
                   <th style={{ textAlign: 'center' }}>Screening</th>
                   <th style={{ textAlign: 'center' }}>Active injuries</th>
@@ -398,6 +586,15 @@ export default function CoachDashboard() {
                     )}
                     <td style={{ textAlign: 'center' }}>
                       <OverallRiskBadge screening={row.screening} compact />
+                    </td>
+                    <td style={{ textAlign: 'center' }} title={row.screening?.prevAssessedAt ? `vs ${new Date(row.screening.prevAssessedAt).toISOString().slice(0, 10)}` : 'No earlier screening to compare'}>
+                      {(() => {
+                        const d = trendDelta(row);
+                        if (d === null) return <span className="text-muted" style={{ fontSize: '0.78rem' }}>—</span>;
+                        if (d >= 2) return <span style={{ color: 'var(--risk-low)', fontWeight: 600 }}>↑ +{d}</span>;
+                        if (d <= -2) return <span style={{ color: 'var(--risk-high)', fontWeight: 600 }}>↓ {d}</span>;
+                        return <span className="text-muted" style={{ fontSize: '0.78rem' }}>steady</span>;
+                      })()}
                     </td>
                     <td style={{ textAlign: 'center' }}>
                       {band

@@ -43,20 +43,33 @@ router.get('/readiness', auth, rbac('coach'), async (req, res) => {
       Screening.findAll({
         where: { athleteId: { [Op.in]: ids } },
         order: [['assessedAt', 'DESC'], ['id', 'DESC']],
-        attributes: ['athleteId', 'overallIndicator', 'overallBand', 'escalations', 'factors', 'overrideBand'],
+        attributes: ['athleteId', 'assessedAt', 'overallIndicator', 'overallBand', 'escalations', 'factors', 'overrideBand'],
         raw: true,
       }),
     ]);
-    // Latest screening indicator per athlete (the HoloMotion risk comparison).
+    // Latest screening indicator per athlete (the HoloMotion risk comparison),
+    // plus the previous one's indicator so the dashboard can show a trend arrow.
+    // Screenings are ordered newest-first, so per athlete the 1st row is latest,
+    // the 2nd is previous.
     const indicatorByAthlete = new Map();
-    for (const s of screenings) if (!indicatorByAthlete.has(s.athleteId)) {
-      indicatorByAthlete.set(s.athleteId, {
-        overallIndicator: s.overallIndicator,
-        overallBand: s.overallBand,
-        escalations: s.escalations,
-        factors: Array.isArray(s.factors) ? s.factors : [],
-        effectiveBand: s.overrideBand || s.overallBand,
-      });
+    const seen = new Map();
+    for (const s of screenings) {
+      const n = seen.get(s.athleteId) || 0;
+      if (n === 0) {
+        indicatorByAthlete.set(s.athleteId, {
+          overallIndicator: s.overallIndicator,
+          overallBand: s.overallBand,
+          escalations: s.escalations,
+          factors: Array.isArray(s.factors) ? s.factors : [],
+          effectiveBand: s.overrideBand || s.overallBand,
+          prevIndicator: null,
+          prevAssessedAt: null,
+        });
+      } else if (n === 1) {
+        const cur = indicatorByAthlete.get(s.athleteId);
+        if (cur) { cur.prevIndicator = s.overallIndicator; cur.prevAssessedAt = s.assessedAt; }
+      }
+      seen.set(s.athleteId, n + 1);
     }
 
     // Group injuries by athlete for O(1) lookup.

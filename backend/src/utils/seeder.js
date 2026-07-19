@@ -598,6 +598,44 @@ async function seed() {
   const ind = await recomputeIndicators();
   console.log(`Computed ${c.cohorts} cohorts (auto-approved); scored ${ind.scored}/${ind.athletes} athletes`);
 
+  // Prior screening snapshots for ~1/3 of scored athletes, so the coach
+  // dashboard's trend arrows + squad-momentum have history to compare against.
+  // Real history accrues as new reports are imported; this makes the feature
+  // visible in the seeded demo. Older snapshots never affect cohort norms (those
+  // use each athlete's LATEST row) and carry an explicit indicator (recompute
+  // only scores the latest per athlete).
+  const scoredRows = await Screening.findAll({ order: [['assessedAt', 'DESC'], ['id', 'DESC']], raw: true });
+  const latestByAth = new Map();
+  for (const s of scoredRows) if (s.overallIndicator != null && !latestByAth.has(s.athleteId)) latestByAth.set(s.athleteId, s);
+  const clamp100 = (v) => Math.max(0, Math.min(100, Math.round(v)));
+  const DELTAS = [-8, -5, 6, 4, -3, 7];
+  const priorRows = [];
+  let hi = 0;
+  for (const [, s] of latestByAth) {
+    hi += 1;
+    if (hi % 3 !== 0) continue; // every third athlete gets a prior snapshot
+    const delta = DELTAS[hi % DELTAS.length];       // current − prev (positive = improved)
+    const nudge = delta > 0 ? -3 : 3;               // move the raw score consistent with the trend
+    priorRows.push({
+      athleteId: s.athleteId,
+      assessedAt: new Date(new Date(s.assessedAt).getTime() - 35 * 86400000),
+      importedBy: 'Seed (history)',
+      totalScore: s.totalScore != null ? clamp100(Number(s.totalScore) + nudge) : null,
+      exerciseRisks: s.exerciseRisks,
+      rom: s.rom, stability: s.stability, symmetry: s.symmetry,
+      neckInjuryRisk: s.neckInjuryRisk, shoulderInjuryRisk: s.shoulderInjuryRisk, scoliosis: s.scoliosis,
+      spinalDiscHerniation: s.spinalDiscHerniation, lumbarPelvisInjury: s.lumbarPelvisInjury,
+      jointPain: s.jointPain, kneeInjuryRisk: s.kneeInjuryRisk, ankleInjuryRisk: s.ankleInjuryRisk,
+      overallIndicator: clamp100(Number(s.overallIndicator) - delta),
+      overallBand: s.overallBand,
+      escalations: s.escalations,
+    });
+  }
+  if (priorRows.length) {
+    await Screening.bulkCreate(priorRows);
+    console.log(`Inserted ${priorRows.length} prior screening snapshots (coach trend history)`);
+  }
+
   console.log('\nDemo credentials:');
   console.log('  Admin:   admin@isn.gov.my              / admin123');
   console.log('  Admin:   poseidonapollo11@gmail.com    / admin123');
