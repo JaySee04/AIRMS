@@ -1,9 +1,10 @@
-// Per-sport competition events ("disciplines"). Only sports that actually have
-// events appear here; every other sport has none, and its athletes carry an
-// empty discipline list. Badminton is the first curated sport (ISN's showcase).
-// The backend stores disciplines as free strings (athlete_disciplines table) and
-// does not validate against this list, so adding a sport's events is a
-// frontend-only change here.
+// Per-sport competition-event SEED SUGGESTIONS ("disciplines"). Events are NOT a
+// fixed catalogue — the import combobox lets an operator type any new event or
+// pick one already on record (GET /api/athletes/meta/disciplines), and the DB
+// stores free strings (athlete_disciplines table). This map only pre-populates
+// the autocomplete for sports we ship suggestions for (badminton, ISN's
+// showcase) so the first import doesn't start from an empty list. Adding more
+// suggestions here is optional polish, never required to record an event.
 export const SPORT_DISCIPLINES: Record<string, string[]> = {
   Badminton: [
     "Men's Singles",

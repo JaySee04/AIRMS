@@ -95,6 +95,33 @@ router.get('/meta/sports', auth, rbac('medical', 'admin'), requirePermission('vi
   }
 });
 
+// GET /api/athletes/meta/disciplines — distinct (sport, discipline) pairs already
+// on record, so the import picker can offer "choose an existing event" as well
+// as "type a new one". Declared BEFORE /:id. Scoped to active athletes.
+router.get('/meta/disciplines', auth, rbac('medical', 'admin'), requirePermission('viewRecords'), async (req, res) => {
+  try {
+    const [discRows, athleteRows] = await Promise.all([
+      AthleteDiscipline.findAll({ attributes: ['athleteId', 'discipline'], raw: true }),
+      Athlete.findAll({ attributes: ['athleteId', 'sport'], where: { isActive: true }, raw: true }),
+    ]);
+    const sportBy = new Map(athleteRows.map((a) => [a.athleteId, a.sport]));
+    const seen = new Set();
+    const out = [];
+    for (const r of discRows) {
+      const sport = sportBy.get(r.athleteId);
+      if (!sport || !r.discipline) continue;
+      const key = `${sport}|${r.discipline}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({ sport, discipline: r.discipline });
+    }
+    out.sort((a, b) => a.sport.localeCompare(b.sport) || a.discipline.localeCompare(b.discipline));
+    res.json(out);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // GET /api/athletes/analytics/screening — cohort view of the ingested
 // HoloMotion screening data (admin analytics). Declared BEFORE /:id.
 // Returns, across active athletes:
@@ -234,8 +261,12 @@ router.patch('/:id', auth, rbac('medical', 'admin'), requirePermission('viewReco
   try {
     const { risks, myodynamia, tension, disciplines, ...rest } = req.body;
     const payload = { ...rest, ...(risks || {}) };
-    const [count] = await Athlete.update(payload, { where: { athleteId: req.params.id } });
-    if (!count) return res.status(404).json({ message: 'Athlete not found' });
+    // Check existence directly: Athlete.update returns affectedCount 0 for a
+    // no-op column change (e.g. a disciplines- or flags-only PATCH), which must
+    // not be mistaken for "not found".
+    const exists = await Athlete.findOne({ where: { athleteId: req.params.id }, attributes: ['athleteId'], raw: true });
+    if (!exists) return res.status(404).json({ message: 'Athlete not found' });
+    if (Object.keys(payload).length > 0) await Athlete.update(payload, { where: { athleteId: req.params.id } });
 
     // Replace muscle-flag arrays if the caller sent new ones.
     if (Array.isArray(myodynamia)) {

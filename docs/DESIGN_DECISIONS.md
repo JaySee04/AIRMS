@@ -393,14 +393,18 @@ read-only detail is within remit, a portable clinical report is not.
 
 **Athlete events ("disciplines").** New `athlete_disciplines` join table
 (`Athlete hasMany`) — an athlete can hold multiple events (a badminton player may
-play Men's Singles AND Men's Doubles), so a join table, not a column. Badminton
-is the only curated sport for now (Men's/Women's Singles, Men's/Women's Doubles,
-Mixed Doubles); every other sport leaves it empty. The per-sport catalogue is
-frontend-only ([`lib/disciplines.ts`](../frontend/src/lib/disciplines.ts)); the
-DB stores free strings, so adding a sport's events needs no migration. Sport /
-programme / gender / event are filterable on the medical and coach rosters
-(the `/api/athletes` list already filtered the first three; `discipline` was
-added).
+play Men's Singles AND Men's Doubles), so a join table, not a column. The DB
+stores free strings, so events are **not a fixed catalogue**: on the PDF-import
+identity step the operator uses a **combobox** ([`PdfScreeningUpload.tsx`](../frontend/src/components/upload/PdfScreeningUpload.tsx))
+to pick an already-used event (autocomplete via `GET /api/athletes/meta/disciplines`,
+distinct (sport, event) pairs on record) **or type a brand-new one** — for any
+sport. `lib/disciplines.ts` (`SPORT_DISCIPLINES`) now only ships **seed
+suggestions** (badminton's five), pre-populating the autocomplete before any
+events exist. Roster **filters are data-driven**: the medical and coach event
+dropdowns list the distinct events actually present on the loaded athletes, so
+an admin-added event is immediately filterable (no catalogue edit). Sport /
+programme / gender / event are all filterable (the `/api/athletes` list already
+filtered the first three; `discipline` was added).
 
 **Locked-schema note.** Adding `athlete_disciplines` and renaming `coachSport`
 touch schema §12 calls locked. Done with JC's explicit go-ahead: the Athlete
@@ -409,10 +413,13 @@ disciplines model ISN's real badminton event structure — defensible as domain
 fidelity, not scope creep.
 
 **Rejected alternatives:** one discipline per athlete as a single column
-(rejected — real players compete in several events); a full per-sport event
-taxonomy for all 52 sports (deferred — badminton is the showcase; others opt in
-with a one-line catalogue change); keeping the coach multi-sport (rejected — JC
-scoped a coach to exactly one squad).
+(rejected — real players compete in several events); a hardcoded per-sport event
+taxonomy for all 52 sports (rejected — events are admin-extensible free strings
+via the import combobox, so no code change is needed to introduce a sport's
+events; badminton's five are only seed suggestions); a fixed dropdown that
+forbids new values (rejected — JC asked for "add a new one OR choose an existing
+one"); keeping the coach multi-sport (rejected — JC scoped a coach to exactly
+one squad).
 
 ---
 

@@ -17,7 +17,6 @@ import ScreeningPanel from '@/components/dashboard/ScreeningPanel';
 import { api } from '@/lib/api';
 import { classifyCompositeRisk } from '@/lib/risk';
 import { WATCH_THRESHOLD } from '@/lib/screeningAlerts';
-import { disciplinesForSport, sportHasDisciplines } from '@/lib/disciplines';
 
 interface AthleteRisks {
   neckInjuryRisk: number;
@@ -552,6 +551,16 @@ export default function MedicalDashboard() {
     return Array.from(set).sort();
   }, [athletes]);
 
+  // Event filter options — the distinct events actually on record for the
+  // selected sport (data-driven, so any admin-added event is filterable). The
+  // filter only appears once a sport with events is selected.
+  const eventOptions = useMemo(() => {
+    if (!filterSport) return [];
+    const set = new Set<string>();
+    athletes.forEach((a) => { if (a.sport === filterSport) (a.disciplines ?? []).forEach((d) => set.add(d)); });
+    return Array.from(set).sort();
+  }, [athletes, filterSport]);
+
   // Athletes with at least one currently-active (non-Recovered) injury — the
   // clinician's natural first stop on opening the dashboard.
   const activeInjuryAthletes = useMemo(() => {
@@ -637,15 +646,15 @@ export default function MedicalDashboard() {
                 <option value="Male">Male</option>
                 <option value="Female">Female</option>
               </select>
-              {/* Event filter appears once a sport with events is selected. */}
-              {sportHasDisciplines(filterSport) && (
+              {/* Event filter appears once a sport with events on record is selected. */}
+              {eventOptions.length > 0 && (
                 <select
                   value={filterDiscipline}
                   onChange={(e) => setFilterDiscipline(e.target.value)}
                   aria-label="Filter by event"
                 >
                   <option value="">All Events</option>
-                  {disciplinesForSport(filterSport).map((d) => (<option key={d} value={d}>{d}</option>))}
+                  {eventOptions.map((d) => (<option key={d} value={d}>{d}</option>))}
                 </select>
               )}
             </div>

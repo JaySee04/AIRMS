@@ -17,7 +17,6 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import { api } from '@/lib/api';
 import { MuscleEntry } from '@/lib/risk';
 import { computeBodyPartAlerts, AthleteRisks } from '@/lib/screeningAlerts';
-import { disciplinesForSport, sportHasDisciplines } from '@/lib/disciplines';
 import OverallRiskBadge, { ScreeningIndicator } from '@/components/dashboard/OverallRiskBadge';
 import ScreeningAlertBanner from '@/components/dashboard/ScreeningAlertBanner';
 import ScreeningPanel from '@/components/dashboard/ScreeningPanel';
@@ -131,8 +130,14 @@ export default function CoachDashboard() {
     return Array.from(set).sort();
   }, [data]);
 
-  // Events available for this sport (badminton → 5; most sports → none).
-  const disciplineOptions = useMemo(() => disciplinesForSport(data?.sport), [data]);
+  // Events actually on record for this squad (data-driven, so any admin-added
+  // event is filterable). Empty → the event filter/column are hidden.
+  const disciplineOptions = useMemo(() => {
+    const set = new Set<string>();
+    (data?.athletes ?? []).forEach((a) => (a.disciplines ?? []).forEach((d) => set.add(d)));
+    return Array.from(set).sort();
+  }, [data]);
+  const squadHasEvents = disciplineOptions.length > 0;
 
   // Apply filters, then classify + sort worst-first. Unscored athletes sort last.
   const classified = useMemo(() => {
@@ -308,7 +313,7 @@ export default function CoachDashboard() {
                 <option value="Male">Male</option>
                 <option value="Female">Female</option>
               </select>
-              {sportHasDisciplines(data.sport) && (
+              {squadHasEvents && (
                 <select value={filterDiscipline} onChange={(e) => setFilterDiscipline(e.target.value)} aria-label="Filter by event">
                   <option value="">All Events</option>
                   {disciplineOptions.map((d) => (<option key={d} value={d}>{d}</option>))}
@@ -367,7 +372,7 @@ export default function CoachDashboard() {
               <thead>
                 <tr>
                   <th>Athlete</th>
-                  {sportHasDisciplines(data?.sport) && <th>Events</th>}
+                  {squadHasEvents && <th>Events</th>}
                   <th style={{ textAlign: 'center' }}>HoloMotion Risk</th>
                   <th style={{ textAlign: 'center' }}>Readiness</th>
                   <th style={{ textAlign: 'center' }}>Screening</th>
@@ -386,7 +391,7 @@ export default function CoachDashboard() {
                       <strong>{row.name}</strong>
                       <div className="text-muted" style={{ fontSize: '0.78rem' }}>{row.athleteId} · {row.program ?? '—'} · {row.gender ?? '—'}</div>
                     </td>
-                    {sportHasDisciplines(data?.sport) && (
+                    {squadHasEvents && (
                       <td style={{ fontSize: '0.8rem' }}>
                         {row.disciplines.length ? row.disciplines.join(', ') : <span className="text-muted">—</span>}
                       </td>

@@ -14,7 +14,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ISN_SPORTS } from '@/lib/sports';
-import { disciplinesForSport, sportHasDisciplines } from '@/lib/disciplines';
+import { disciplinesForSport } from '@/lib/disciplines';
 import { api } from '@/lib/api';
 import { getSession } from '@/lib/auth';
 
@@ -80,9 +80,13 @@ interface QueueItem {
   athleteId: string;
   sport: string;
   program: string;
-  // Events the athlete competes in (only for sports that have them, e.g.
-  // badminton). Pre-filled from a matched roster athlete; operator-editable.
+  // Events the athlete competes in. Pre-filled from a matched roster athlete;
+  // operator-editable (pick an existing event or type a new one). `input` is the
+  // in-progress combobox text; `touched` records that the operator changed the
+  // set, so an untouched, un-prefilled import doesn't wipe existing events.
   disciplines: string[];
+  disciplineInput: string;
+  disciplinesTouched: boolean;
   // Editable identity — pre-filled from the report (new athlete) or roster
   // (existing). Operator can correct name/age/gender before import.
   name: string;
@@ -139,6 +143,9 @@ export default function PdfScreeningUpload() {
   const [items, setItems] = useState<QueueItem[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const [busy, setBusy] = useState(false); // a batch extract or commit-all is running
+  // Disciplines already on record, grouped by sport — offered as autocomplete in
+  // the events picker so an operator can reuse an existing event or type a new one.
+  const [knownDisc, setKnownDisc] = useState<Record<string, string[]>>({});
 
   // After a screening is imported the cohort norms are stale, so we prompt the
   // operator to update the cohort thresholds. `committed` accumulates the
@@ -181,6 +188,19 @@ export default function PdfScreeningUpload() {
         const res = await fetch(`${BASE}/athletes`, { headers: authHeaders() });
         if (res.ok) updateRoster(await res.json());
       } catch { /* no roster → manual entry */ }
+      try {
+        // Existing (sport, discipline) pairs → group by sport for the picker's
+        // "choose existing" suggestions.
+        const res = await fetch(`${BASE}/athletes/meta/disciplines`, { headers: authHeaders() });
+        if (res.ok) {
+          const pairs: Array<{ sport: string; discipline: string }> = await res.json();
+          const grouped: Record<string, string[]> = {};
+          for (const { sport, discipline } of pairs) {
+            (grouped[sport] ??= []).push(discipline);
+          }
+          setKnownDisc(grouped);
+        }
+      } catch { /* no suggestions → curated list + free typing still work */ }
     })();
   }, []);
 
@@ -202,6 +222,8 @@ export default function PdfScreeningUpload() {
         sport: '',
         program: '',
         disciplines: [],
+        disciplineInput: '',
+        disciplinesTouched: false,
         name: '',
         age: '',
         gender: '',
@@ -217,6 +239,25 @@ export default function PdfScreeningUpload() {
 
   function removeItem(id: number) {
     setItems((prev) => prev.filter((it) => it.id !== id));
+  }
+
+  // Autocomplete pool for the events combobox: the curated catalogue for the
+  // sport (badminton so far) plus any events already used for that sport, minus
+  // what's already selected on this item.
+  function suggestionsFor(sport: string, selected: string[]): string[] {
+    const pool = [...disciplinesForSport(sport), ...(knownDisc[sport] ?? [])];
+    return [...new Set(pool)].filter((d) => !selected.includes(d)).sort();
+  }
+
+  function addDiscipline(item: QueueItem, raw: string) {
+    const value = raw.trim();
+    if (!value) return;
+    const next = item.disciplines.includes(value) ? item.disciplines : [...item.disciplines, value];
+    patchItem(item.id, { disciplines: next, disciplineInput: '', disciplinesTouched: true });
+  }
+
+  function removeDiscipline(item: QueueItem, value: string) {
+    patchItem(item.id, { disciplines: item.disciplines.filter((d) => d !== value), disciplinesTouched: true });
   }
 
   // Match the extracted name against the roster (trimmed, case-insensitive).
@@ -301,11 +342,10 @@ export default function PdfScreeningUpload() {
           athleteId: item.athleteId.trim(),
           sport: item.sport.trim(),
           program: item.program,
-          // Only send events for sports that have them — omitting the field
-          // leaves any existing events untouched on the backend.
-          ...(sportHasDisciplines(item.sport.trim())
-            ? { disciplines: item.disciplines.filter((d) => disciplinesForSport(item.sport.trim()).includes(d)) }
-            : {}),
+          // Persist events when the operator set or changed them (pre-filled
+          // sets count). Omit only when untouched and empty, so an import that
+          // doesn't carry events leaves an athlete's existing ones untouched.
+          ...((item.disciplines.length > 0 || item.disciplinesTouched) ? { disciplines: item.disciplines } : {}),
           assessedAt: item.preview.assessedAt,
           summary: item.preview.summary ?? null,
           subitems: item.preview.subitems ?? null,
@@ -325,7 +365,7 @@ export default function PdfScreeningUpload() {
         name: item.name.trim() || item.athleteId.trim(),
         sport: item.sport.trim(),
         program: item.program,
-        disciplines: sportHasDisciplines(item.sport.trim()) ? item.disciplines : [],
+        disciplines: item.disciplines,
       };
       updateRoster([...(rosterRef.current ?? []).filter((a) => a.athleteId !== rosterEntry.athleteId), rosterEntry]);
       // Return the import so the caller can show the threshold prompt for
@@ -541,32 +581,45 @@ export default function PdfScreeningUpload() {
                     </select>
                   </div>
 
-                  {/* Events — only for sports that have them (e.g. badminton).
-                      An athlete can compete in more than one. Optional. */}
-                  {sportHasDisciplines(it.sport.trim()) && (
-                    <div className="form-group">
-                      <label>Events <span className="text-muted" style={{ fontWeight: 400 }}>(select any that apply)</span></label>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 14px' }}>
-                        {disciplinesForSport(it.sport.trim()).map((d) => {
-                          const checked = it.disciplines.includes(d);
-                          return (
-                            <label key={d} style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 400, fontSize: '0.85rem' }}>
-                              <input
-                                type="checkbox"
-                                checked={checked}
-                                onChange={(e) => patchItem(it.id, {
-                                  disciplines: e.target.checked
-                                    ? [...it.disciplines, d]
-                                    : it.disciplines.filter((x) => x !== d),
-                                })}
-                              />
-                              {d}
-                            </label>
-                          );
-                        })}
+                  {/* Events — pick an existing one (autocomplete) or type a new
+                      one, then Add. An athlete can compete in more than one.
+                      Optional; works for any sport. */}
+                  <div className="form-group">
+                    <label>Events <span className="text-muted" style={{ fontWeight: 400 }}>(optional — choose an existing event or add a new one)</span></label>
+                    {it.disciplines.length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                        {it.disciplines.map((d) => (
+                          <span key={d} className="badge-low" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                            {d}
+                            <button
+                              type="button"
+                              onClick={() => removeDiscipline(it, d)}
+                              aria-label={`Remove ${d}`}
+                              style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0, lineHeight: 1, fontSize: '1rem' }}
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
                       </div>
+                    )}
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <input
+                        value={it.disciplineInput}
+                        list={`disc-${it.id}`}
+                        placeholder="e.g. Men's Doubles"
+                        onChange={(e) => patchItem(it.id, { disciplineInput: e.target.value })}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addDiscipline(it, it.disciplineInput); } }}
+                        style={{ flex: 1 }}
+                      />
+                      <button type="button" className="btn btn-outline" onClick={() => addDiscipline(it, it.disciplineInput)} disabled={!it.disciplineInput.trim()}>
+                        Add
+                      </button>
+                      <datalist id={`disc-${it.id}`}>
+                        {suggestionsFor(it.sport.trim(), it.disciplines).map((d) => (<option key={d} value={d} />))}
+                      </datalist>
                     </div>
-                  )}
+                  </div>
 
                   <button
                     type="button"
