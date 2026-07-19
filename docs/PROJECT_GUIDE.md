@@ -82,7 +82,7 @@ All Sequelize models. The `index.js` registers them and wires up associations (`
 |---|---|---|
 | [auth.js](../backend/src/routes/auth.js) | `/api/auth` | `POST /login`, `GET /me` |
 | [users.js](../backend/src/routes/users.js) | `/api/users` | admin-only: `GET /?role=` (list medical staff **or coaches**, incl. `coachSport`), `GET /permission-meta`, `POST /` (create a coach), `PATCH /:id` (medical → permissions + active; coach → `coachSport` + active) |
-| [athletes.js](../backend/src/routes/athletes.js) | `/api/athletes` | `GET /` (list, medical/admin), `GET /:id`, `POST /` (admin), `PATCH /:id`, `DELETE /:id` (soft), `GET /meta/sports`, `GET /analytics/screening` (admin — HoloMotion cohort: band counts per indicator, averages, top-flagged muscles) |
+| [athletes.js](../backend/src/routes/athletes.js) | `/api/athletes` | `GET /` (list, medical/admin; filters `sport`/`program`/`gender`/`discipline`/`search`), `GET /:id`, `POST /` (admin), `PATCH /:id` (incl. `disciplines`), `DELETE /:id` (soft), `GET /meta/sports`, `GET /meta/disciplines`, `GET /analytics/screening` (admin — HoloMotion cohort: band counts per indicator, averages, top-flagged muscles; accepts athlete-level filters `sport`/`program`/`gender`/`ageMin`/`ageMax`) |
 | [activities.js](../backend/src/routes/activities.js) | `/api/activities` | `GET /athlete/:id`, `GET /athlete/:id/acwr`, `POST /`, `PUT /:id`, `DELETE /:id` |
 | [injuries.js](../backend/src/routes/injuries.js) | `/api/injuries` | `GET /` (filtered; `?limit=N` caps payload), `GET /athlete/:id`, `POST /`, `PATCH /:id`, `GET /analytics/summary`, **`GET /analytics/trends`** (recovery / recurrence / same-sport clustering for `/admin/trends`) |
 | [selfReports.js](../backend/src/routes/selfReports.js) | `/api/self-reports` | `GET /` (medical), `GET /athlete/:id`, `POST /`, `PATCH /:id/review` (approve→creates Injury) |
@@ -144,7 +144,7 @@ Pages mapped to the 3 roles + profile pages:
 | [`/medical/review-reports`](../frontend/src/app/medical/review-reports/page.tsx) | medical | Module 3 — review athlete self-reports |
 | [`/medical/data-upload`](../frontend/src/app/medical/data-upload/page.tsx) | medical | Module 4 — HoloMotion PDF import (batch + name-match) |
 | [`/medical/profile`](../frontend/src/app/medical/profile/page.tsx) | medical | Profile |
-| [`/admin/dashboard`](../frontend/src/app/admin/dashboard/page.tsx) | admin | Module 5 — injury analytics |
+| [`/admin/dashboard`](../frontend/src/app/admin/dashboard/page.tsx) | admin | Module 5 — injury analytics + HoloMotion screening-cohort card (both follow the athlete-level filters: sport / programme / gender / age) |
 | [`/admin/trends`](../frontend/src/app/admin/trends/page.tsx) | admin | **FYP II** Recovery & Trends — recovery status, recurring problems, same-sport clustering (`GET /injuries/analytics/trends`) |
 | [`/admin/reports`](../frontend/src/app/admin/reports/page.tsx) | admin | Module 5 — injury PDF report builder + **FYP II** screening reports card (holistic / individual / team downloads) |
 | [`/admin/thresholds`](../frontend/src/app/admin/thresholds/page.tsx) | admin | **FYP II** cohort-norm approval queue — tunable settings, recompute, per-cohort approve/revert + editable component means |
@@ -152,7 +152,8 @@ Pages mapped to the 3 roles + profile pages:
 | [`/admin/coaches`](../frontend/src/app/admin/coaches/page.tsx) | admin | **FYP II** create a coach, assign/change their one sport, activate/deactivate (coach = first-class 4th role; no reseed needed) |
 | [`/admin/data-upload`](../frontend/src/app/admin/data-upload/page.tsx) | admin | Module 4 — HoloMotion PDF import (batch + name-match) + data backup |
 | [`/admin/profile`](../frontend/src/app/admin/profile/page.tsx) | admin | Profile |
-| [`/coach/dashboard`](../frontend/src/app/coach/dashboard/page.tsx) | coach | **FYP II** (first-class 4th role) read-only squad readiness scoped to the coach's ONE assigned sport — all athletes' HoloMotion overall risks, sorted worst-first with the worst region named, filterable by programme / gender / event; selecting a row opens a read-only screening detail (radar + ScreeningPanel + body map) and the team report is downloadable here |
+| [`/coach/dashboard`](../frontend/src/app/coach/dashboard/page.tsx) | coach | **FYP II** (first-class 4th role) read-only squad readiness scoped to the coach's ONE assigned sport — all athletes' HoloMotion overall risks, sorted worst-first with the worst region named, filterable by programme / gender / event; selecting a row opens a read-only screening detail (radar + ScreeningPanel + body map) and the team report is downloadable here. Coaching-cockpit cards: needs-attention, squad focus (weak spots / muscle hotspots / readiness-by-event), per-athlete trend |
+| [`/coach/profile`](../frontend/src/app/coach/profile/page.tsx) | coach | **FYP II** Profile (reuses `ProfileShell` — assigned sport + squad vitals + change password) |
 
 ### Layout components — `frontend/src/components/layout/`
 
@@ -190,7 +191,7 @@ Pages mapped to the 3 roles + profile pages:
 
 | File | Used by |
 |---|---|
-| [ProfileShell.tsx](../frontend/src/components/profile/ProfileShell.tsx) | `/medical/profile` + `/admin/profile`. Renders the hero (initials avatar + name + email + role chip), role-specific stat tiles, account-info card, account-actions card (change password modal + sign out) |
+| [ProfileShell.tsx](../frontend/src/components/profile/ProfileShell.tsx) | Shared by `/athlete`, `/medical`, `/admin`, `/coach` profiles. Renders the hero (initials avatar + name + email + role chip), role-specific stat tiles, account-info card, account-actions card (change password modal + sign out) |
 
 ### Library — `frontend/src/lib/`
 

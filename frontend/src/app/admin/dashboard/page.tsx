@@ -62,6 +62,20 @@ const AGE_GROUPS: Array<{ label: string; min?: number; max?: number }> = [
   { label: '30+ (veteran)', min: 30 },
 ];
 
+// The athlete-level filter params shared by the injury summary and the screening
+// cohort (sport / programme / gender / age). The summary layers its injury-only
+// params (body part, injury type, dates) on top.
+function athleteFilterParams(sport: string, gender: string, programme: string, ageGroupIndex: number): URLSearchParams {
+  const params = new URLSearchParams();
+  if (sport) params.set('sport', sport);
+  if (gender) params.set('gender', gender);
+  if (programme) params.set('program', programme);
+  const ageGroup = AGE_GROUPS[ageGroupIndex];
+  if (ageGroup.min !== undefined) params.set('ageMin', String(ageGroup.min));
+  if (ageGroup.max !== undefined) params.set('ageMax', String(ageGroup.max));
+  return params;
+}
+
 export default function AdminDashboard() {
   const [summary, setSummary] = useState<AnalyticsSummary | null>(null);
   const [sports, setSports] = useState<string[]>([]);
@@ -89,14 +103,7 @@ export default function AdminDashboard() {
   // apply, since a screening isn't an injury.
   const [screeningCohort, setScreeningCohort] = useState<ScreeningCohort | null>(null);
   useEffect(() => {
-    const params = new URLSearchParams();
-    if (sport) params.set('sport', sport);
-    if (gender) params.set('gender', gender);
-    if (programme) params.set('program', programme);
-    const ageGroup = AGE_GROUPS[ageGroupIndex];
-    if (ageGroup.min !== undefined) params.set('ageMin', String(ageGroup.min));
-    if (ageGroup.max !== undefined) params.set('ageMax', String(ageGroup.max));
-    const qs = params.toString();
+    const qs = athleteFilterParams(sport, gender, programme, ageGroupIndex).toString();
     api.get<ScreeningCohort>(`/athletes/analytics/screening${qs ? `?${qs}` : ''}`)
       .then(setScreeningCohort)
       .catch(() => setScreeningCohort(null));
@@ -112,17 +119,11 @@ export default function AdminDashboard() {
   async function fetchSummary() {
     try {
       setLoading(true);
-      const params = new URLSearchParams();
-      if (sport) params.set('sport', sport);
-      if (gender) params.set('gender', gender);
-      if (programme) params.set('program', programme);
+      const params = athleteFilterParams(sport, gender, programme, ageGroupIndex);
       if (bodyPart) params.set('bodyPart', bodyPart);
       if (injuryType) params.set('injuryType', injuryType);
       if (startDate) params.set('startDate', startDate);
       if (endDate) params.set('endDate', endDate);
-      const ageGroup = AGE_GROUPS[ageGroupIndex];
-      if (ageGroup.min !== undefined) params.set('ageMin', String(ageGroup.min));
-      if (ageGroup.max !== undefined) params.set('ageMax', String(ageGroup.max));
       const qs = params.toString();
       const data = await api.get<AnalyticsSummary>(
         `/injuries/analytics/summary${qs ? `?${qs}` : ''}`,
