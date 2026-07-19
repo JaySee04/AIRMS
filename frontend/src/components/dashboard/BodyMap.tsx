@@ -60,9 +60,10 @@ const AIRMS_TO_SLUG: Record<string, string> = {
   'Biceps Femoris': 'hamstring',
 };
 
-// Library slugs that are within the AIRMS spreadsheet's scope. Anything
-// outside this set (head, hair, hands, feet, knees, forearm, etc.) renders
-// as inert silhouette — no hover, no tooltip, no pointer cursor.
+// Library slugs within the HoloMotion muscle set AIRMS reports on (the 22
+// muscles in AIRMS_TO_SLUG above — the report's Myodynamia/Tension vocabulary).
+// Anything outside this set (head, hair, hands, feet, knees, forearm, etc.)
+// renders as inert silhouette — no hover, no tooltip, no pointer cursor.
 const SCOPED_SLUGS: Set<string> = new Set(Object.values(AIRMS_TO_SLUG));
 
 function buildFlagMap(entries: MuscleEntry[]): FlagMap {

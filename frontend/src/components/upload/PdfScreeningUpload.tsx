@@ -13,12 +13,20 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { ISN_SPORTS } from '@/lib/sports';
 import { disciplinesForSport } from '@/lib/disciplines';
 import { api } from '@/lib/api';
 import { getSession } from '@/lib/auth';
 import TagCombobox from '@/components/ui/TagCombobox';
 import ScreeningPreview from '@/components/upload/ScreeningPreview';
+
+// The "muscle hero" — the shared body-map figure (front/back) with flag cards.
+// Heavy (SVG path data), client-only; split it out like the dashboards do.
+const BodyMap = dynamic(() => import('@/components/dashboard/BodyMap'), {
+  ssr: false,
+  loading: () => <div style={{ minHeight: 200 }} />,
+});
 
 interface MuscleEntry { muscle: string; side: 'L' | 'R' | 'B'; }
 
@@ -483,6 +491,7 @@ export default function PdfScreeningUpload() {
             {it.doneNote && <div className="alert alert-success" style={{ marginTop: 8 }}>{it.doneNote}</div>}
 
             {it.preview && it.status !== 'done' && (
+              <>
               <div className="pdf-queue-body">
                 <div>
                   <div className="alert alert-success" style={{ marginBottom: 10 }}>
@@ -580,11 +589,16 @@ export default function PdfScreeningUpload() {
 
                 <ScreeningPreview
                   athlete={it.preview.athlete as unknown as Record<string, unknown>}
-                  myodynamia={it.preview.myodynamia}
-                  tension={it.preview.tension}
                   subitems={it.preview.subitems}
                 />
               </div>
+
+              {/* Muscle hero — full width so the front/back figures have room */}
+              <div className="pdf-muscle-hero">
+                <div className="pdf-preview-h">Muscle assessment map</div>
+                <BodyMap myodynamia={it.preview.myodynamia} tension={it.preview.tension} />
+              </div>
+              </>
             )}
           </div>
         ))}

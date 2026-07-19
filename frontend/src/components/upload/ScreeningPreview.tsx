@@ -3,17 +3,15 @@
 // Friendly read-out of an extracted HoloMotion report, shown in the import
 // preview so the operator can review the numbers against the PDF BEFORE
 // committing. Presents the same data the dashboards/PDF use — headline scores,
-// the exercise-risk evaluation (banded Low / Watch / Elevated), the physical-
-// fitness subitem scores (HoloMotion tier colours), and muscle flags — rather
-// than a flat number table.
+// the exercise-risk evaluation (banded Low / Watch / Elevated) and the physical-
+// fitness subitem scores (HoloMotion tier colours) — rather than a flat number
+// table. Muscle flags are shown by the full-width BodyMap ("muscle hero") that
+// the uploader renders beneath this panel.
 
-interface Muscle { muscle: string; side: string }
 type Subitems = Record<string, Record<string, number | null>> | null | undefined;
 
 interface Props {
   athlete: Record<string, unknown>; // flat extracted scores (values read via num())
-  myodynamia: Muscle[];
-  tension: Muscle[];
   subitems?: Subitems;
 }
 
@@ -72,9 +70,7 @@ function Pill({ text, color }: { text: string; color: string }) {
   );
 }
 
-export default function ScreeningPreview({ athlete, myodynamia, tension, subitems }: Props) {
-  const ldh = num(athlete.spinalDiscHerniation);
-
+export default function ScreeningPreview({ athlete, subitems }: Props) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {/* Headline scores */}
@@ -125,11 +121,6 @@ export default function ScreeningPreview({ athlete, myodynamia, tension, subitem
             );
           })}
         </div>
-        {ldh !== null && (
-          <div className="text-muted" style={{ fontSize: '0.72rem', marginTop: 8 }}>
-            Lumbar Disc Herniation: <strong>{ldh}</strong> — recorded but not assessed at ISN (excluded from risk displays).
-          </div>
-        )}
       </div>
 
       {/* Physical Fitness Subitem Score */}
@@ -181,29 +172,6 @@ export default function ScreeningPreview({ athlete, myodynamia, tension, subitem
         ) : (
           <div className="text-muted" style={{ fontSize: '0.8rem' }}>No subitem scores were read from this report (older / compact layout).</div>
         )}
-      </div>
-
-      {/* Muscle flags */}
-      <div>
-        <div className="pdf-preview-h">Muscle flags</div>
-        <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
-          <div>
-            <strong style={{ fontSize: '0.8rem' }}>Myodynamia ({myodynamia.length})</strong>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
-              {myodynamia.length
-                ? myodynamia.map((m, i) => <span key={i} className="badge-moderate">{m.muscle} {m.side}</span>)
-                : <span className="text-muted" style={{ fontSize: '0.8rem' }}>none</span>}
-            </div>
-          </div>
-          <div>
-            <strong style={{ fontSize: '0.8rem' }}>Tension ({tension.length})</strong>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
-              {tension.length
-                ? tension.map((m, i) => <span key={i} className="badge-low">{m.muscle} {m.side}</span>)
-                : <span className="text-muted" style={{ fontSize: '0.8rem' }}>none</span>}
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );

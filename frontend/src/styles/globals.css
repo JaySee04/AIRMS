@@ -1655,6 +1655,7 @@ tr.row-flash > td { animation: row-flash 1.6s ease-out; }
   padding: 4px 6px; text-transform: uppercase; letter-spacing: 0.02em;
 }
 .pdf-subitem-table td { text-align: center; padding: 4px 6px; }
+.pdf-muscle-hero { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
 
 /* ── Alerts ──────────────────────────────────────────────────────────────────── */
 .alert { padding: 10px 14px; border-radius: 6px; font-size: 0.875rem; margin-bottom: 14px; }
