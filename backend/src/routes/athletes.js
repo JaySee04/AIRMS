@@ -134,7 +134,7 @@ router.get('/meta/disciplines', auth, rbac('medical', 'admin'), requirePermissio
 //     numbers and must not contradict each other.
 //   - cohort averages for the five headline gauges
 //   - most-flagged muscles for each flag type
-router.get('/analytics/screening', auth, rbac('admin'), async (_req, res) => {
+router.get('/analytics/screening', auth, rbac('admin'), async (req, res) => {
   try {
     const WATCH = 15;
     const HIGH = 25;
@@ -153,7 +153,20 @@ router.get('/analytics/screening', auth, rbac('admin'), async (_req, res) => {
     ];
     const SCORES = ['overallActivityScore', 'injuryRiskIndex', 'mobility', 'stability', 'symmetry'];
 
-    const rows = await Athlete.findAll({ where: { isActive: true }, raw: true });
+    // Athlete-level filters (sport / programme / gender / age) so this picture
+    // tracks the dashboard filters. The injury-only filters (body part, injury
+    // type, date) don't apply — a screening isn't an injury.
+    const { sport, program, gender, ageMin, ageMax } = req.query;
+    const where = { isActive: true };
+    if (sport) where.sport = sport;
+    if (program) where.program = program;
+    if (gender) where.gender = gender;
+    if (ageMin || ageMax) {
+      where.age = {};
+      if (ageMin) where.age[Op.gte] = Number(ageMin);
+      if (ageMax) where.age[Op.lte] = Number(ageMax);
+    }
+    const rows = await Athlete.findAll({ where, raw: true });
     const screenedRows = rows.filter((r) => SCORES.some((k) => r[k] !== null && r[k] !== undefined));
 
     const indicators = INDICATORS.map(({ key, label }) => {
@@ -173,7 +186,9 @@ router.get('/analytics/screening', auth, rbac('admin'), async (_req, res) => {
       averages[k] = vals.length ? +(vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1) : null;
     });
 
-    const flags = await MuscleFlag.findAll({ raw: true });
+    // Muscle flags for the filtered athletes only, so the hotspots match the
+    // rest of the card (an unscreened athlete has no flags either way).
+    const flags = await MuscleFlag.findAll({ where: { athleteId: { [Op.in]: rows.map((r) => r.athleteId) } }, raw: true });
     const topMuscles = (type) => {
       const counts = new Map();
       flags.filter((f) => f.flagType === type).forEach((f) => {

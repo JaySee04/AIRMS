@@ -83,14 +83,24 @@ export default function AdminDashboard() {
 
   const isDark = useIsDark();
 
-  // Cohort-wide HoloMotion screening picture — fetched once (screening data
-  // is per-athlete-latest, so the injury filters don't apply to it).
+  // HoloMotion screening picture (latest report per athlete). Respects the
+  // athlete-level filters — sport / programme / gender / age — so it tracks the
+  // dashboard. The injury-only filters (body part, injury type, date) don't
+  // apply, since a screening isn't an injury.
   const [screeningCohort, setScreeningCohort] = useState<ScreeningCohort | null>(null);
   useEffect(() => {
-    api.get<ScreeningCohort>('/athletes/analytics/screening')
+    const params = new URLSearchParams();
+    if (sport) params.set('sport', sport);
+    if (gender) params.set('gender', gender);
+    if (programme) params.set('program', programme);
+    const ageGroup = AGE_GROUPS[ageGroupIndex];
+    if (ageGroup.min !== undefined) params.set('ageMin', String(ageGroup.min));
+    if (ageGroup.max !== undefined) params.set('ageMax', String(ageGroup.max));
+    const qs = params.toString();
+    api.get<ScreeningCohort>(`/athletes/analytics/screening${qs ? `?${qs}` : ''}`)
       .then(setScreeningCohort)
       .catch(() => setScreeningCohort(null));
-  }, []);
+  }, [sport, gender, programme, ageGroupIndex]);
 
   // Refs for the chart canvases
   const bodyPartRef = useRef<HTMLCanvasElement | null>(null);
@@ -529,7 +539,7 @@ export default function AdminDashboard() {
           <div className="section-divider" style={{ marginTop: 28 }}>
             <h2 style={{ margin: 0, fontSize: '1.05rem' }}>Screening Cohort — HoloMotion</h2>
             <span className="text-muted" style={{ fontSize: '0.8rem' }}>
-              Latest ingested report per athlete · cohort-wide (injury filters don&apos;t apply)
+              Latest ingested report per athlete · follows the sport / programme / gender / age filters (injury-type &amp; date filters don&apos;t apply)
             </span>
           </div>
 
