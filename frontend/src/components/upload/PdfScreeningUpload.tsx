@@ -17,6 +17,8 @@ import { ISN_SPORTS } from '@/lib/sports';
 import { disciplinesForSport } from '@/lib/disciplines';
 import { api } from '@/lib/api';
 import { getSession } from '@/lib/auth';
+import TagCombobox from '@/components/ui/TagCombobox';
+import ScreeningPreview from '@/components/upload/ScreeningPreview';
 
 interface MuscleEntry { muscle: string; side: 'L' | 'R' | 'B'; }
 
@@ -81,11 +83,10 @@ interface QueueItem {
   sport: string;
   program: string;
   // Events the athlete competes in. Pre-filled from a matched roster athlete;
-  // operator-editable (pick an existing event or type a new one). `input` is the
-  // in-progress combobox text; `touched` records that the operator changed the
-  // set, so an untouched, un-prefilled import doesn't wipe existing events.
+  // operator-editable via the TagCombobox. `touched` records that the operator
+  // changed the set, so an untouched, un-prefilled import doesn't wipe existing
+  // events.
   disciplines: string[];
-  disciplineInput: string;
   disciplinesTouched: boolean;
   // Editable identity — pre-filled from the report (new athlete) or roster
   // (existing). Operator can correct name/age/gender before import.
@@ -108,22 +109,6 @@ function authHeaders(): Record<string, string> {
   const t = getToken();
   return t ? { Authorization: `Bearer ${t}` } : {};
 }
-
-const SCORE_FIELDS: Array<[keyof ExtractedAthlete, string]> = [
-  ['overallActivityScore', 'Total Score'],
-  ['injuryRiskIndex', 'Exercise Risks'],
-  ['mobility', 'ROM'],
-  ['stability', 'Stability'],
-  ['symmetry', 'Symmetry'],
-  ['neckInjuryRisk', 'Neck Pain'],
-  ['shoulderInjuryRisk', 'Shoulder Pain'],
-  ['scoliosis', 'Scoliosis'],
-  ['spinalDiscHerniation', 'Lumbar Disc'],
-  ['lumbarPelvisInjury', 'Ant. Pelvic Tilt'],
-  ['jointPain', 'Joint Pain'],
-  ['kneeInjuryRisk', 'Ligament Strain'],
-  ['ankleInjuryRisk', 'Ankle Sprain'],
-];
 
 // Pause between sequential vision calls — stays well inside free-tier
 // requests-per-minute limits when a whole squad's reports are dropped at once.
@@ -222,7 +207,6 @@ export default function PdfScreeningUpload() {
         sport: '',
         program: '',
         disciplines: [],
-        disciplineInput: '',
         disciplinesTouched: false,
         name: '',
         age: '',
@@ -249,16 +233,6 @@ export default function PdfScreeningUpload() {
     return [...new Set(pool)].filter((d) => !selected.includes(d)).sort();
   }
 
-  function addDiscipline(item: QueueItem, raw: string) {
-    const value = raw.trim();
-    if (!value) return;
-    const next = item.disciplines.includes(value) ? item.disciplines : [...item.disciplines, value];
-    patchItem(item.id, { disciplines: next, disciplineInput: '', disciplinesTouched: true });
-  }
-
-  function removeDiscipline(item: QueueItem, value: string) {
-    patchItem(item.id, { disciplines: item.disciplines.filter((d) => d !== value), disciplinesTouched: true });
-  }
 
   // Match the extracted name against the roster (trimmed, case-insensitive).
   // Exactly one match → auto-fill; zero or ambiguous → manual entry.
@@ -581,44 +555,17 @@ export default function PdfScreeningUpload() {
                     </select>
                   </div>
 
-                  {/* Events — pick an existing one (autocomplete) or type a new
-                      one, then Add. An athlete can compete in more than one.
-                      Optional; works for any sport. */}
+                  {/* Events — pick an existing one or type a new one. An athlete
+                      can compete in more than one. Optional; works for any sport. */}
                   <div className="form-group">
-                    <label>Events <span className="text-muted" style={{ fontWeight: 400 }}>(optional — choose an existing event or add a new one)</span></label>
-                    {it.disciplines.length > 0 && (
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
-                        {it.disciplines.map((d) => (
-                          <span key={d} className="badge-low" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                            {d}
-                            <button
-                              type="button"
-                              onClick={() => removeDiscipline(it, d)}
-                              aria-label={`Remove ${d}`}
-                              style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0, lineHeight: 1, fontSize: '1rem' }}
-                            >
-                              ×
-                            </button>
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <input
-                        value={it.disciplineInput}
-                        list={`disc-${it.id}`}
-                        placeholder="e.g. Men's Doubles"
-                        onChange={(e) => patchItem(it.id, { disciplineInput: e.target.value })}
-                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addDiscipline(it, it.disciplineInput); } }}
-                        style={{ flex: 1 }}
-                      />
-                      <button type="button" className="btn btn-outline" onClick={() => addDiscipline(it, it.disciplineInput)} disabled={!it.disciplineInput.trim()}>
-                        Add
-                      </button>
-                      <datalist id={`disc-${it.id}`}>
-                        {suggestionsFor(it.sport.trim(), it.disciplines).map((d) => (<option key={d} value={d} />))}
-                      </datalist>
-                    </div>
+                    <label>Events <span className="text-muted" style={{ fontWeight: 400 }}>(optional — choose an existing event or type a new one)</span></label>
+                    <TagCombobox
+                      values={it.disciplines}
+                      suggestions={suggestionsFor(it.sport.trim(), it.disciplines)}
+                      onChange={(next) => patchItem(it.id, { disciplines: next, disciplinesTouched: true })}
+                      placeholder="e.g. Men's Doubles"
+                      ariaLabel="Events"
+                    />
                   </div>
 
                   <button
@@ -631,36 +578,12 @@ export default function PdfScreeningUpload() {
                   </button>
                 </div>
 
-                <div>
-                  <div className="table-wrap" style={{ maxHeight: 220, overflowY: 'auto', marginBottom: 10 }}>
-                    <table>
-                      <tbody>
-                        {SCORE_FIELDS.map(([key, label]) => (
-                          <tr key={key}>
-                            <td style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>{label}</td>
-                            <td style={{ textAlign: 'right', fontWeight: 600 }}>{it.preview!.athlete[key] ?? '—'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-                    <div>
-                      <strong style={{ fontSize: '0.82rem' }}>Myodynamia ({it.preview.myodynamia.length})</strong>
-                      <ul style={{ margin: '4px 0 0 16px', padding: 0, fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                        {it.preview.myodynamia.map((m, i) => <li key={i}>{m.muscle} {m.side}</li>)}
-                        {!it.preview.myodynamia.length && <li>none</li>}
-                      </ul>
-                    </div>
-                    <div>
-                      <strong style={{ fontSize: '0.82rem' }}>Tension ({it.preview.tension.length})</strong>
-                      <ul style={{ margin: '4px 0 0 16px', padding: 0, fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                        {it.preview.tension.map((m, i) => <li key={i}>{m.muscle} {m.side}</li>)}
-                        {!it.preview.tension.length && <li>none</li>}
-                      </ul>
-                    </div>
-                  </div>
-                </div>
+                <ScreeningPreview
+                  athlete={it.preview.athlete as unknown as Record<string, unknown>}
+                  myodynamia={it.preview.myodynamia}
+                  tension={it.preview.tension}
+                  subitems={it.preview.subitems}
+                />
               </div>
             )}
           </div>

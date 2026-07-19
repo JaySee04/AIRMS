@@ -18,6 +18,7 @@ import { api } from '@/lib/api';
 import { classifyCompositeRisk } from '@/lib/risk';
 import { WATCH_THRESHOLD } from '@/lib/screeningAlerts';
 import { disciplinesForSport } from '@/lib/disciplines';
+import TagCombobox from '@/components/ui/TagCombobox';
 
 interface AthleteRisks {
   neckInjuryRisk: number;
@@ -303,15 +304,7 @@ export default function MedicalDashboard() {
   // without a fresh HoloMotion import (PATCH /athletes/:id).
   const [editingEvents, setEditingEvents] = useState(false);
   const [eventDraft, setEventDraft] = useState<string[]>([]);
-  const [eventInput, setEventInput] = useState('');
   const [eventsSaving, setEventsSaving] = useState(false);
-
-  function addEventDraft() {
-    const v = eventInput.trim();
-    if (!v) return;
-    setEventDraft((p) => (p.includes(v) ? p : [...p, v]));
-    setEventInput('');
-  }
 
   async function saveEvents() {
     if (!selectedAthlete) return;
@@ -864,43 +857,20 @@ export default function MedicalDashboard() {
                           <button
                             type="button"
                             className="btn btn-outline btn-sm"
-                            onClick={() => { setEventDraft(selectedAthlete.disciplines ?? []); setEventInput(''); setEditingEvents(true); }}
+                            onClick={() => { setEventDraft(selectedAthlete.disciplines ?? []); setEditingEvents(true); }}
                           >
                             Edit events
                           </button>
                         </div>
                       ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 480 }}>
-                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                            {eventDraft.map((d) => (
-                              <span key={d} className="badge-low" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                                {d}
-                                <button
-                                  type="button"
-                                  onClick={() => setEventDraft((p) => p.filter((x) => x !== d))}
-                                  aria-label={`Remove ${d}`}
-                                  style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0, lineHeight: 1, fontSize: '1rem' }}
-                                >
-                                  ×
-                                </button>
-                              </span>
-                            ))}
-                            {eventDraft.length === 0 && <span className="text-muted" style={{ fontSize: '0.8rem' }}>No events</span>}
-                          </div>
-                          <div style={{ display: 'flex', gap: 8 }}>
-                            <input
-                              value={eventInput}
-                              list="med-event-suggestions"
-                              placeholder="Choose an existing event or type a new one"
-                              onChange={(e) => setEventInput(e.target.value)}
-                              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addEventDraft(); } }}
-                              style={{ flex: 1 }}
-                            />
-                            <button type="button" className="btn btn-outline" onClick={addEventDraft} disabled={!eventInput.trim()}>Add</button>
-                            <datalist id="med-event-suggestions">
-                              {eventSuggestions.filter((d) => !eventDraft.includes(d)).map((d) => (<option key={d} value={d} />))}
-                            </datalist>
-                          </div>
+                          <TagCombobox
+                            values={eventDraft}
+                            suggestions={eventSuggestions}
+                            onChange={setEventDraft}
+                            placeholder="Choose an existing event or type a new one"
+                            ariaLabel="Events"
+                          />
                           <div style={{ display: 'flex', gap: 8 }}>
                             <button type="button" className="btn btn-gold btn-sm" onClick={saveEvents} disabled={eventsSaving}>
                               {eventsSaving ? 'Saving…' : 'Save events'}
