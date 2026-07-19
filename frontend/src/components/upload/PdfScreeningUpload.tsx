@@ -197,6 +197,31 @@ export default function PdfScreeningUpload() {
     })();
   }, []);
 
+  // Auto-extract: read PDFs as soon as they're added (or a failed one is
+  // re-queued) — no manual "extract" step. The ref guards against overlapping
+  // runs (incl. React strict-mode's double effect) and picks up files dropped
+  // mid-run once the current batch finishes; the vision calls stay spaced.
+  const autoRunRef = useRef(false);
+  useEffect(() => {
+    const cfgDisabled = status !== null && !status.configured;
+    if (autoRunRef.current || cfgDisabled) return;
+    const queued = items.filter((it) => it.status === 'queued');
+    if (queued.length === 0) return;
+    autoRunRef.current = true;
+    setBusy(true);
+    (async () => {
+      try {
+        for (let i = 0; i < queued.length; i++) {
+          if (i > 0) await sleep(BATCH_SPACING_MS);
+          await extractOne(queued[i]);
+        }
+      } finally {
+        autoRunRef.current = false;
+        setBusy(false);
+      }
+    })();
+  }, [items, status, busy]);
+
   function addFiles(files: FileList | File[] | null) {
     if (!files) return;
     const pdfs = Array.from(files).filter((f) => f.name.toLowerCase().endsWith('.pdf'));
@@ -285,18 +310,9 @@ export default function PdfScreeningUpload() {
     }
   }
 
-  async function extractAll() {
-    setBusy(true);
-    try {
-      // Read from a snapshot: sequential, spaced calls.
-      const queued = items.filter((it) => it.status === 'queued' || it.status === 'error');
-      for (let i = 0; i < queued.length; i++) {
-        if (i > 0) await sleep(BATCH_SPACING_MS);
-        await extractOne(queued[i]);
-      }
-    } finally {
-      setBusy(false);
-    }
+  // Re-queue any failed extractions; the auto-extract effect re-reads them.
+  function retryFailed() {
+    setItems((prev) => prev.map((it) => (it.status === 'error' ? { ...it, status: 'queued' as ItemStatus, error: null } : it)));
   }
 
   async function commitOne(item: QueueItem): Promise<CommittedEntry | null> {
@@ -389,7 +405,7 @@ export default function PdfScreeningUpload() {
   }
 
   const disabled = status !== null && !status.configured;
-  const queuedCount = items.filter((it) => it.status === 'queued' || it.status === 'error').length;
+  const errorCount = items.filter((it) => it.status === 'error').length;
   const readyCount = items.filter((it) => it.status === 'ready').length;
   const completeReady = items.filter((it) => it.status === 'ready' && it.name.trim() && it.athleteId.trim() && it.sport.trim() && it.program).length;
 
@@ -449,14 +465,16 @@ export default function PdfScreeningUpload() {
 
       {items.length > 0 && (
         <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap', alignItems: 'center' }}>
-          <button type="button" className="btn btn-outline" onClick={extractAll} disabled={busy || disabled || queuedCount === 0}>
-            {busy ? 'Working…' : `Read & extract (${queuedCount})`}
-          </button>
           <button type="button" className="btn btn-primary" onClick={commitAllReady} disabled={busy || completeReady === 0}>
             Import all ready ({completeReady}/{readyCount})
           </button>
+          {errorCount > 0 && (
+            <button type="button" className="btn btn-outline" onClick={retryFailed} disabled={busy}>
+              Retry failed ({errorCount})
+            </button>
+          )}
           <span className="text-muted" style={{ fontSize: '0.78rem' }}>
-            Extraction is one vision call per file, spaced {BATCH_SPACING_MS / 1000}s apart; importing costs no extra calls.
+            {busy ? 'Reading…' : 'PDFs are read automatically when added'} · one vision call per file, spaced {BATCH_SPACING_MS / 1000}s apart; importing costs no extra calls.
           </span>
         </div>
       )}
@@ -491,7 +509,6 @@ export default function PdfScreeningUpload() {
             {it.doneNote && <div className="alert alert-success" style={{ marginTop: 8 }}>{it.doneNote}</div>}
 
             {it.preview && it.status !== 'done' && (
-              <>
               <div className="pdf-queue-body">
                 <div>
                   <div className="alert alert-success" style={{ marginBottom: 10 }}>
@@ -587,18 +604,18 @@ export default function PdfScreeningUpload() {
                   </button>
                 </div>
 
-                <ScreeningPreview
-                  athlete={it.preview.athlete as unknown as Record<string, unknown>}
-                  subitems={it.preview.subitems}
-                />
+                <div>
+                  <ScreeningPreview
+                    athlete={it.preview.athlete as unknown as Record<string, unknown>}
+                    subitems={it.preview.subitems}
+                  />
+                  {/* Muscle hero — fitted into the right (data) column */}
+                  <div className="pdf-muscle-hero">
+                    <div className="pdf-preview-h">Muscle assessment map</div>
+                    <BodyMap myodynamia={it.preview.myodynamia} tension={it.preview.tension} />
+                  </div>
+                </div>
               </div>
-
-              {/* Muscle hero — full width so the front/back figures have room */}
-              <div className="pdf-muscle-hero">
-                <div className="pdf-preview-h">Muscle assessment map</div>
-                <BodyMap myodynamia={it.preview.myodynamia} tension={it.preview.tension} />
-              </div>
-              </>
             )}
           </div>
         ))}

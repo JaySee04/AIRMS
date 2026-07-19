@@ -123,6 +123,81 @@ router.get('/analytics/summary', auth, rbac('admin', 'medical'), requirePermissi
   }
 });
 
+// GET /api/injuries/analytics/trends — recovery + recurrence + same-sport
+// clustering for the admin "Recovery & Trends" report. Declared BEFORE
+// /athlete/:id. Accepts the same filters as the summary (sport, dates, etc.).
+router.get('/analytics/trends', auth, rbac('admin'), requirePermission('injuryReports'), async (req, res) => {
+  try {
+    const where = buildWhere(req.query);
+    const injuries = await Injury.findAll({ where, raw: true });
+    const total = injuries.length;
+
+    const statusCount = { Recovered: 0, Recovering: 0, Chronic: 0 };
+    injuries.forEach((i) => { if (statusCount[i.recoveryStatus] !== undefined) statusCount[i.recoveryStatus] += 1; });
+    const recurrentInjuries = injuries.filter((i) => i.mechanism === 'Recurrent').length;
+
+    // Per-athlete rollup: who's fully recovered, who's still carrying something,
+    // and who has a recurring problem (2+ injuries in the same body part).
+    const byAthlete = new Map();
+    injuries.forEach((i) => {
+      if (!i.athleteId) return;
+      if (!byAthlete.has(i.athleteId)) {
+        byAthlete.set(i.athleteId, { athleteId: i.athleteId, name: i.athleteName || i.athleteId, sport: i.sport || '—', list: [] });
+      }
+      byAthlete.get(i.athleteId).list.push(i);
+    });
+    let fullyRecovered = 0;
+    let stillAffected = 0;
+    let chronicAthletes = 0;
+    const recurringAthletes = [];
+    for (const a of byAthlete.values()) {
+      const active = a.list.some((i) => i.recoveryStatus !== 'Recovered');
+      if (active) stillAffected += 1; else fullyRecovered += 1;
+      if (a.list.some((i) => i.recoveryStatus === 'Chronic')) chronicAthletes += 1;
+      const bp = {};
+      a.list.forEach((i) => { bp[i.bodyPart] = (bp[i.bodyPart] || 0) + 1; });
+      const repeats = Object.entries(bp).filter(([, c]) => c >= 2).map(([bodyPart, c]) => ({ bodyPart, count: c }));
+      if (repeats.length) {
+        recurringAthletes.push({
+          athleteId: a.athleteId, name: a.name, sport: a.sport,
+          repeats: repeats.sort((x, y) => y.count - x.count),
+          totalCases: a.list.length,
+        });
+      }
+    }
+    recurringAthletes.sort((x, y) => (y.repeats[0].count - x.repeats[0].count) || (y.totalCases - x.totalCases));
+
+    // Same-sport clustering — how many injuries + distinct athletes per sport.
+    const sportMap = new Map();
+    injuries.forEach((i) => {
+      const s = i.sport || '—';
+      if (!sportMap.has(s)) sportMap.set(s, { sport: s, injuries: 0, athletes: new Set(), active: 0 });
+      const e = sportMap.get(s);
+      e.injuries += 1;
+      if (i.athleteId) e.athletes.add(i.athleteId);
+      if (i.recoveryStatus !== 'Recovered') e.active += 1;
+    });
+    const bySport = [...sportMap.values()]
+      .map((e) => ({ sport: e.sport, injuries: e.injuries, athletes: e.athletes.size, active: e.active }))
+      .sort((a, b) => b.injuries - a.injuries);
+
+    res.json({
+      total,
+      athletesAffected: byAthlete.size,
+      statusCount,
+      recoveryRate: total ? Math.round((statusCount.Recovered / total) * 100) : 0,
+      fullyRecovered,
+      stillAffected,
+      chronicAthletes,
+      recurrentInjuries,
+      recurringAthletes: recurringAthletes.slice(0, 25),
+      bySport,
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // GET /api/injuries/athlete/:id — injuries for a specific athlete
 router.get('/athlete/:id', auth, requirePermission('injuryReports'), async (req, res) => {
   try {
