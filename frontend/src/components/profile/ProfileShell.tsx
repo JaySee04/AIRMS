@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { clearSession, getSession, SessionUser } from '@/lib/auth';
 import { passwordRules, validatePassword, PASSWORD_MIN_LENGTH } from '@/lib/passwordPolicy';
+import { getInitials } from '@/lib/name';
 
 interface StatTile {
   label: string;
@@ -23,15 +24,6 @@ interface ProfileShellProps {
    *  above the account-actions modal. Used by the athlete profile for the
    *  Personal Information + Latest Screening Snapshot cards. */
   children?: React.ReactNode;
-}
-
-function getInitials(name: string): string {
-  return name
-    .split(' ')
-    .filter((w) => /^[A-Za-z]/.test(w))
-    .slice(0, 2)
-    .map((w) => w[0].toUpperCase())
-    .join('') || '??';
 }
 
 /**
@@ -124,7 +116,7 @@ export default function ProfileShell({ stats: initialStats, onLoadStats, roleBlu
     <>
       {/* Hero */}
       <div className="card profile-hero">
-        <div className="profile-hero-avatar">{getInitials(user.name)}</div>
+        <div className="profile-hero-avatar">{getInitials(user.name) || '??'}</div>
         <div className="profile-hero-info">
           <h2 style={{ margin: 0 }}>{user.name}</h2>
           <div className="profile-hero-email">{user.email}</div>

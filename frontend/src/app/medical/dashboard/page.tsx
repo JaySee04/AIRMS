@@ -18,6 +18,7 @@ import { api } from '@/lib/api';
 import { classifyCompositeRisk } from '@/lib/risk';
 import { WATCH_THRESHOLD } from '@/lib/screeningAlerts';
 import { disciplinesForSport } from '@/lib/disciplines';
+import { getInitials } from '@/lib/name';
 import TagCombobox from '@/components/ui/TagCombobox';
 
 interface AthleteRisks {
@@ -107,14 +108,6 @@ const RISK_KEYS: Array<keyof AthleteRisks> = [
   'ankleInjuryRisk',
 ];
 
-function getInitials(name: string): string {
-  return name
-    .split(' ')
-    .filter((w) => /^[A-Za-z]/.test(w))
-    .slice(0, 2)
-    .map((w) => w[0].toUpperCase())
-    .join('');
-}
 
 // Maps a flagged muscle to the body region it most affects. Used by the
 // prevention-insight generator to cross-reference muscle flags with risk

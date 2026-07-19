@@ -84,7 +84,7 @@ All Sequelize models. The `index.js` registers them and wires up associations (`
 | [users.js](../backend/src/routes/users.js) | `/api/users` | admin-only: `GET /?role=` (list medical staff **or coaches**, incl. `coachSport`), `GET /permission-meta`, `POST /` (create a coach), `PATCH /:id` (medical → permissions + active; coach → `coachSport` + active) |
 | [athletes.js](../backend/src/routes/athletes.js) | `/api/athletes` | `GET /` (list, medical/admin), `GET /:id`, `POST /` (admin), `PATCH /:id`, `DELETE /:id` (soft), `GET /meta/sports`, `GET /analytics/screening` (admin — HoloMotion cohort: band counts per indicator, averages, top-flagged muscles) |
 | [activities.js](../backend/src/routes/activities.js) | `/api/activities` | `GET /athlete/:id`, `GET /athlete/:id/acwr`, `POST /`, `PUT /:id`, `DELETE /:id` |
-| [injuries.js](../backend/src/routes/injuries.js) | `/api/injuries` | `GET /` (filtered; `?limit=N` caps payload), `GET /athlete/:id`, `POST /`, `PATCH /:id`, `GET /analytics/summary` |
+| [injuries.js](../backend/src/routes/injuries.js) | `/api/injuries` | `GET /` (filtered; `?limit=N` caps payload), `GET /athlete/:id`, `POST /`, `PATCH /:id`, `GET /analytics/summary`, **`GET /analytics/trends`** (recovery / recurrence / same-sport clustering for `/admin/trends`) |
 | [selfReports.js](../backend/src/routes/selfReports.js) | `/api/self-reports` | `GET /` (medical), `GET /athlete/:id`, `POST /`, `PATCH /:id/review` (approve→creates Injury) |
 | [upload.js](../backend/src/routes/upload.js) | `/api/upload` | **HoloMotion PDF (sole import path):** `GET /screening/pdf/status`, `POST /screening/pdf/preview` (render + vision-extract, no commit), `POST /screening/pdf` (commit JSON). Gated by `requirePermission('uploadData')`. Excel import retired 2026-07-12 → `archive/excel-upload/` |
 | [reports.js](../backend/src/routes/reports.js) | `/api/reports` | `POST /injuries-pdf` (admin only) — server-side `pdfkit` rendering of filtered injury report; streams `application/pdf` |
@@ -145,6 +145,7 @@ Pages mapped to the 3 roles + profile pages:
 | [`/medical/data-upload`](../frontend/src/app/medical/data-upload/page.tsx) | medical | Module 4 — HoloMotion PDF import (batch + name-match) |
 | [`/medical/profile`](../frontend/src/app/medical/profile/page.tsx) | medical | Profile |
 | [`/admin/dashboard`](../frontend/src/app/admin/dashboard/page.tsx) | admin | Module 5 — injury analytics |
+| [`/admin/trends`](../frontend/src/app/admin/trends/page.tsx) | admin | **FYP II** Recovery & Trends — recovery status, recurring problems, same-sport clustering (`GET /injuries/analytics/trends`) |
 | [`/admin/reports`](../frontend/src/app/admin/reports/page.tsx) | admin | Module 5 — injury PDF report builder + **FYP II** screening reports card (holistic / individual / team downloads) |
 | [`/admin/thresholds`](../frontend/src/app/admin/thresholds/page.tsx) | admin | **FYP II** cohort-norm approval queue — tunable settings, recompute, per-cohort approve/revert + editable component means |
 | [`/admin/staff`](../frontend/src/app/admin/staff/page.tsx) | admin | Medical-staff permission control + account activation |
@@ -180,7 +181,9 @@ Pages mapped to the 3 roles + profile pages:
 
 | File | Used by |
 |---|---|
-| [PdfScreeningUpload.tsx](../frontend/src/components/upload/PdfScreeningUpload.tsx) | Admin + Medical data-upload pages. Batch HoloMotion PDF queue: sequential vision extraction, roster name-match autofill (ID/sport/programme), searchable 52-sport datalist ([`lib/sports.ts`](../frontend/src/lib/sports.ts)), per-file preview → confirm. Self-disables when the vision provider is unconfigured |
+| [PdfScreeningUpload.tsx](../frontend/src/components/upload/PdfScreeningUpload.tsx) | Admin + Medical data-upload pages. Batch HoloMotion PDF queue: **auto-extracts on drop** (spaced vision calls; *Retry failed* re-queues errors), roster name-match autofill (ID/sport/programme), searchable 52-sport datalist ([`lib/sports.ts`](../frontend/src/lib/sports.ts)), events via [`TagCombobox`](../frontend/src/components/ui/TagCombobox.tsx), per-file preview → confirm. Self-disables when the vision provider is unconfigured |
+| [ScreeningPreview.tsx](../frontend/src/components/upload/ScreeningPreview.tsx) | The pre-import read-out inside each queued report: headline scores (tier/band), exercise-risk evaluation as banded bars, HoloMotion subitem table (tier colours); the muscle **BodyMap** hero renders beside it. Presents extracted data the way the dashboards do so the operator can verify before committing |
+| [TagCombobox.tsx](../frontend/src/components/ui/TagCombobox.tsx) | Small multi-select combobox (chips + styled dropdown) — pick an existing value or type a new one. Replaces the browser-native `<datalist>`; used for events in the import step and the medical "Edit events" editor |
 | [DataBackupCard.tsx](../frontend/src/components/upload/DataBackupCard.tsx) | Admin data-upload page. One-click download of the Excel-era data backup from `/api/export/backup.xlsx` |
 
 ### Profile component — `frontend/src/components/profile/`
@@ -193,7 +196,9 @@ Pages mapped to the 3 roles + profile pages:
 
 | File | Exports |
 |---|---|
-| [api.ts](../frontend/src/lib/api.ts) | `api.get / post / patch / delete` — thin fetch wrapper that attaches the JWT from `localStorage` |
+| [api.ts](../frontend/src/lib/api.ts) | `api.get / post / patch / delete` (+ `downloadGet` / `downloadPost` for PDF blobs) — thin fetch wrapper that attaches the JWT from `localStorage` |
+| [disciplines.ts](../frontend/src/lib/disciplines.ts) | `SPORT_DISCIPLINES` seed suggestions + `disciplinesForSport()` / `sportHasDisciplines()` — the per-sport event autocomplete seeds (events are otherwise admin-extensible free strings) |
+| [name.ts](../frontend/src/lib/name.ts) | `getInitials()` — two-letter avatar initials, shared across Topbar / profile / coach + medical dashboards |
 | [auth.ts](../frontend/src/lib/auth.ts) | `saveSession`, `getSession`, `clearSession`, `requireRole`, `SessionUser` type, plus `hasPermission()` + `PermissionKey` for the medical-staff feature opt-out (mirrors backend `utils/permissions.js`) |
 | [risk.ts](../frontend/src/lib/risk.ts) | `classifyCompositeRisk()` + `computeVulnerability()` + `personalisedThresholds()` — the FYP differentiator |
 | [screeningAlerts.ts](../frontend/src/lib/screeningAlerts.ts) | `computeBodyPartAlerts()` + `SPORT_CRITICAL_REGIONS` map + `thresholdsFor()` — sport-aware screening alerts with per-sport per-region thresholds (critical regions tightened to 12/20, others keep the instrument's 15/25). A **separate** layer from `risk.ts` (does not modify `classifyCompositeRisk()`) |

@@ -17,6 +17,7 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import { api } from '@/lib/api';
 import { MuscleEntry } from '@/lib/risk';
 import { computeBodyPartAlerts, AthleteRisks } from '@/lib/screeningAlerts';
+import { getInitials } from '@/lib/name';
 import OverallRiskBadge, { ScreeningIndicator } from '@/components/dashboard/OverallRiskBadge';
 import ScreeningAlertBanner from '@/components/dashboard/ScreeningAlertBanner';
 import ScreeningPanel from '@/components/dashboard/ScreeningPanel';
@@ -68,10 +69,6 @@ const RISK_LABEL: Record<keyof AthleteRisks, string> = {
   spinalDiscHerniation: 'Spinal Disc', lumbarPelvisInjury: 'Lumbar/Pelvis',
   jointPain: 'Joint Pain', kneeInjuryRisk: 'Knee', ankleInjuryRisk: 'Ankle',
 };
-
-function getInitials(name: string): string {
-  return name.split(' ').filter((w) => /^[A-Za-z]/.test(w)).slice(0, 2).map((w) => w[0].toUpperCase()).join('');
-}
 
 // Map the cohort-normed HoloMotion band onto a coaching readiness band.
 // green → Full-Go · amber → Observation · red → Restricted (see 2026-07-16 note

@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { SessionUser } from '@/lib/auth';
+import { getInitials } from '@/lib/name';
 
 interface TopbarProps {
   user: SessionUser;
@@ -23,15 +24,6 @@ const PROFILE_ROUTES: Record<string, string> = {
   medical: '/medical/profile',
   admin: '/admin/profile',
 };
-
-function getInitials(name: string): string {
-  return name
-    .split(' ')
-    .filter((w) => /^[A-Za-z]/.test(w))
-    .slice(0, 2)
-    .map((w) => w[0].toUpperCase())
-    .join('');
-}
 
 const IconMoon = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
