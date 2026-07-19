@@ -17,12 +17,14 @@ const ROLE_LABELS: Record<string, string> = {
   athlete: 'Athlete',
   medical: 'Medical Staff',
   admin: 'Administrator',
+  coach: 'Coach',
 };
 
 const PROFILE_ROUTES: Record<string, string> = {
   athlete: '/athlete/profile',
   medical: '/medical/profile',
   admin: '/admin/profile',
+  coach: '/coach/profile',
 };
 
 const IconMoon = () => (
