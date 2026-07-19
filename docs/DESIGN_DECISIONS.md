@@ -383,6 +383,9 @@ look fine on paper but sit at the bottom of their group."*
 (scalar string). A coach's jurisdiction is exactly one squad; enforced in
 [`routes/coach.js`](../backend/src/routes/coach.js) and the team-report scope
 check in [`routes/screeningReports.js`](../backend/src/routes/screeningReports.js).
+Coaches are managed from [`/admin/coaches`](../frontend/src/app/admin/coaches/page.tsx)
+(create, reassign the sport, activate/deactivate) via `POST` / `PATCH /api/users` —
+no reseed needed, unlike the original seed-only setup.
 
 **Coach can read an athlete's screening detail.** Coach board rows are now
 selectable → a READ-ONLY detail view (risk badge, radar, `ScreeningPanel`
@@ -399,12 +402,15 @@ identity step the operator uses a **combobox** ([`PdfScreeningUpload.tsx`](../fr
 to pick an already-used event (autocomplete via `GET /api/athletes/meta/disciplines`,
 distinct (sport, event) pairs on record) **or type a brand-new one** — for any
 sport. `lib/disciplines.ts` (`SPORT_DISCIPLINES`) now only ships **seed
-suggestions** (badminton's five), pre-populating the autocomplete before any
-events exist. Roster **filters are data-driven**: the medical and coach event
-dropdowns list the distinct events actually present on the loaded athletes, so
-an admin-added event is immediately filterable (no catalogue edit). Sport /
-programme / gender / event are all filterable (the `/api/athletes` list already
-filtered the first three; `discipline` was added).
+suggestions** (the racket/pair sports — badminton, tennis, table tennis, squash —
+which share Singles/Doubles/Mixed), pre-populating the autocomplete before any
+events exist. Events are also **editable after import** on the medical athlete
+header (same combobox → `PATCH /athletes/:id`, no re-import). Roster **filters
+are data-driven**: the medical and coach event dropdowns list the distinct events
+actually present on the loaded athletes, so an admin-added event is immediately
+filterable (no catalogue edit). Sport / programme / gender / event are all
+filterable (the `/api/athletes` list already filtered the first three;
+`discipline` was added).
 
 **Locked-schema note.** Adding `athlete_disciplines` and renaming `coachSport`
 touch schema §12 calls locked. Done with JC's explicit go-ahead: the Athlete

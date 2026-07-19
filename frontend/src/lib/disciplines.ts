@@ -5,14 +5,21 @@
 // the autocomplete for sports we ship suggestions for (badminton, ISN's
 // showcase) so the first import doesn't start from an empty list. Adding more
 // suggestions here is optional polish, never required to record an event.
+const RACKET_EVENTS = [
+  "Men's Singles",
+  "Women's Singles",
+  "Men's Doubles",
+  "Women's Doubles",
+  'Mixed Doubles',
+];
+
 export const SPORT_DISCIPLINES: Record<string, string[]> = {
-  Badminton: [
-    "Men's Singles",
-    "Women's Singles",
-    "Men's Doubles",
-    "Women's Doubles",
-    'Mixed Doubles',
-  ],
+  // The racket/pair sports share the Singles/Doubles/Mixed structure. These are
+  // only autocomplete seeds — operators can still add any other event.
+  Badminton: RACKET_EVENTS,
+  Tennis: RACKET_EVENTS,
+  'Table Tennis': RACKET_EVENTS,
+  Squash: RACKET_EVENTS,
 };
 
 // Events for a sport, or an empty list if the sport has none.

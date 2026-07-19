@@ -17,6 +17,7 @@ import ScreeningPanel from '@/components/dashboard/ScreeningPanel';
 import { api } from '@/lib/api';
 import { classifyCompositeRisk } from '@/lib/risk';
 import { WATCH_THRESHOLD } from '@/lib/screeningAlerts';
+import { disciplinesForSport } from '@/lib/disciplines';
 
 interface AthleteRisks {
   neckInjuryRisk: number;
@@ -298,6 +299,40 @@ export default function MedicalDashboard() {
   // the whole pane on a failed download.
   const [pdfError, setPdfError] = useState<string | null>(null);
 
+  // Inline "edit events" on the athlete header — set an athlete's disciplines
+  // without a fresh HoloMotion import (PATCH /athletes/:id).
+  const [editingEvents, setEditingEvents] = useState(false);
+  const [eventDraft, setEventDraft] = useState<string[]>([]);
+  const [eventInput, setEventInput] = useState('');
+  const [eventsSaving, setEventsSaving] = useState(false);
+
+  function addEventDraft() {
+    const v = eventInput.trim();
+    if (!v) return;
+    setEventDraft((p) => (p.includes(v) ? p : [...p, v]));
+    setEventInput('');
+  }
+
+  async function saveEvents() {
+    if (!selectedAthlete) return;
+    setEventsSaving(true); setPdfError(null);
+    try {
+      const updated = await api.patch<{ disciplines?: string[] }>(
+        `/athletes/${selectedAthlete.athleteId}`, { disciplines: eventDraft },
+      );
+      const next = updated.disciplines ?? eventDraft;
+      // Merge only the disciplines so screening/risk data on the loaded athlete
+      // is preserved (the PATCH response doesn't carry the screening indicator).
+      setSelectedAthlete((cur) => (cur ? { ...cur, disciplines: next } : cur));
+      setAthletes((cur) => cur.map((a) => (a.athleteId === selectedAthlete.athleteId ? { ...a, disciplines: next } : a)));
+      setEditingEvents(false);
+    } catch (e) {
+      setPdfError(e instanceof Error ? e.message : 'Failed to save events');
+    } finally {
+      setEventsSaving(false);
+    }
+  }
+
   // HoloMotion screening reports — the same PDFs admin can pull from the Reports
   // page. The backend gates both on the viewRecords permission. Individual is
   // keyed by athlete ID; team is scoped to the selected athlete's sport.
@@ -373,6 +408,7 @@ export default function MedicalDashboard() {
     }
     let cancelled = false;
     setPdfError(null);
+    setEditingEvents(false);
     (async () => {
       try {
         setLoadingSelected(true);
@@ -560,6 +596,15 @@ export default function MedicalDashboard() {
     athletes.forEach((a) => { if (a.sport === filterSport) (a.disciplines ?? []).forEach((d) => set.add(d)); });
     return Array.from(set).sort();
   }, [athletes, filterSport]);
+
+  // Autocomplete for the events editor: curated seeds for the selected athlete's
+  // sport plus every event already used in that sport.
+  const eventSuggestions = useMemo(() => {
+    if (!selectedAthlete) return [];
+    const set = new Set<string>(disciplinesForSport(selectedAthlete.sport));
+    athletes.forEach((a) => { if (a.sport === selectedAthlete.sport) (a.disciplines ?? []).forEach((d) => set.add(d)); });
+    return Array.from(set).sort();
+  }, [selectedAthlete, athletes]);
 
   // Athletes with at least one currently-active (non-Recovered) injury — the
   // clinician's natural first stop on opening the dashboard.
@@ -809,11 +854,62 @@ export default function MedicalDashboard() {
                       {selectedAthlete.age ? `${selectedAthlete.age}y` : '—'}{' '}·{' '}
                       {selectedAthlete.gender ?? '—'}
                     </div>
-                    {(selectedAthlete.disciplines?.length ?? 0) > 0 && (
-                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
-                        {selectedAthlete.disciplines!.map((d) => (<span key={d} className="badge-low">{d}</span>))}
-                      </div>
-                    )}
+                    <div style={{ marginTop: 8 }}>
+                      {!editingEvents ? (
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                          {(selectedAthlete.disciplines ?? []).map((d) => (<span key={d} className="badge-low">{d}</span>))}
+                          {(selectedAthlete.disciplines?.length ?? 0) === 0 && (
+                            <span className="text-muted" style={{ fontSize: '0.8rem' }}>No events</span>
+                          )}
+                          <button
+                            type="button"
+                            className="btn btn-outline btn-sm"
+                            onClick={() => { setEventDraft(selectedAthlete.disciplines ?? []); setEventInput(''); setEditingEvents(true); }}
+                          >
+                            Edit events
+                          </button>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 480 }}>
+                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                            {eventDraft.map((d) => (
+                              <span key={d} className="badge-low" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                {d}
+                                <button
+                                  type="button"
+                                  onClick={() => setEventDraft((p) => p.filter((x) => x !== d))}
+                                  aria-label={`Remove ${d}`}
+                                  style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0, lineHeight: 1, fontSize: '1rem' }}
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            ))}
+                            {eventDraft.length === 0 && <span className="text-muted" style={{ fontSize: '0.8rem' }}>No events</span>}
+                          </div>
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            <input
+                              value={eventInput}
+                              list="med-event-suggestions"
+                              placeholder="Choose an existing event or type a new one"
+                              onChange={(e) => setEventInput(e.target.value)}
+                              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addEventDraft(); } }}
+                              style={{ flex: 1 }}
+                            />
+                            <button type="button" className="btn btn-outline" onClick={addEventDraft} disabled={!eventInput.trim()}>Add</button>
+                            <datalist id="med-event-suggestions">
+                              {eventSuggestions.filter((d) => !eventDraft.includes(d)).map((d) => (<option key={d} value={d} />))}
+                            </datalist>
+                          </div>
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            <button type="button" className="btn btn-gold btn-sm" onClick={saveEvents} disabled={eventsSaving}>
+                              {eventsSaving ? 'Saving…' : 'Save events'}
+                            </button>
+                            <button type="button" className="btn btn-outline btn-sm" onClick={() => setEditingEvents(false)} disabled={eventsSaving}>Cancel</button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                     {selectedAthlete.screening && (
