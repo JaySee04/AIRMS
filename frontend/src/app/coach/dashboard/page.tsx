@@ -1,6 +1,6 @@
 'use client';
 
-// Coach · Squad Readiness (experimental 4th role). Read-only view of the
+// Coach · Squad Readiness (first-class 4th role, FYP II). Read-only view of the
 // athletes in the coach's ONE assigned sport, bucketed into Full-Go /
 // Observation / Restricted straight from each athlete's cohort-normed
 // HoloMotion band — the same indicator the athlete and medical views report, so

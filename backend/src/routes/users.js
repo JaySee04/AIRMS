@@ -1,5 +1,5 @@
 // Admin-only user management. Covers medical staff (per-feature permissions,
-// opt-out model) and the experimental coach role (one assigned sport). Both
+// opt-out model) and the coach role (one assigned sport). Both
 // support toggling active status.
 const express = require('express');
 const { User } = require('../models');

@@ -36,8 +36,8 @@ const User = sequelize.define('User', {
   // The single sport a coach is assigned to. A coach sees only athletes in this
   // sport (see routes/coach.js); null means the coach sees no athletes until an
   // admin assigns one. One-sport-per-coach is a deliberate rule — a coach's
-  // jurisdiction is exactly one squad. Experimental 4th role, not part of the
-  // locked 3-role model.
+  // jurisdiction is exactly one squad. Coach is a first-class 4th role (FYP II —
+  // promoted 2026-07-19 from the earlier experimental spike).
   coachSport: {
     type: DataTypes.STRING(64),
     allowNull: true,

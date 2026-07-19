@@ -1,4 +1,4 @@
-// Coach role (experimental 4th role — NOT part of the locked 3-role model).
+// Coach role — a first-class 4th role (FYP II, promoted 2026-07-19; read-only).
 //
 // A coach gets a READ-ONLY squad-readiness view of the athletes in their
 // assigned sport(s). No clinical notes, no screening detail, no uploads.

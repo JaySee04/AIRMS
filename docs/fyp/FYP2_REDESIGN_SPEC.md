@@ -52,7 +52,7 @@ Imports fire **email alerts** to medical staff and the sport's coaches. Three
 - Composite personalised-ACWR model (`risk.ts`) is **demoted to a secondary
   training-load view**, not deleted; its logic + rationale are preserved in
   `docs/fyp/ACWR_REBUILD.md` so it can be rebuilt identically.
-- The 3-role model + coach experiment stand.
+- The role model: FYP I's 3 roles stand; the coach is **promoted to a first-class 4th role in FYP II** (2026-07-19).
 
 ---
 

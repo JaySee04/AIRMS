@@ -232,8 +232,8 @@ These rules came from JC's Figma mockups and explicit feedback. **Do not deviate
 
 ## 12. Things that must NOT change without discussion
 
-- The 3-role model (athlete / medical / admin)
-- The composite risk model formula (`computeVulnerability`, `personalisedThresholds`, escalation logic)
+- The role model: FYP I shipped **3 roles** (athlete / medical / admin). **FYP II promotes `coach` to a first-class 4th role** — read-only and sport-scoped (one sport per coach): squad-readiness board, team-report download, read-only athlete screening detail; managed from `/admin/coaches`. Adding *further* roles beyond these four still needs discussion. (Promoted 2026-07-19 from the earlier "experimental spike" framing.)
+- The composite risk model formula (`computeVulnerability`, `personalisedThresholds`, escalation logic) — this is the locked ACWR `risk.ts` model; the FYP II cohort-normed overall indicator (`overallIndicator.js`) is a separate, extensible model
 - The sRPE method for load calculation (`load = duration × intensity`)
 - The body map asset source and MIT attribution
 - The aggregation policy (figure shows regions, cards show specific muscles)

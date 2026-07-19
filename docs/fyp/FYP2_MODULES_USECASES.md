@@ -13,8 +13,8 @@
 > (module narratives), [`FYP2_REDESIGN_SPEC.md`](FYP2_REDESIGN_SPEC.md) (design
 > rationale), [`../USER_MANUAL.md`](../USER_MANUAL.md) (walkthroughs).
 
-**Roles:** Athlete · Medical Staff · Administrator · Coach *(experimental 4th
-role — read-only; excluded from FYP I artifacts per the locked 3-role model)* ·
+**Roles:** Athlete · Medical Staff · Administrator · Coach *(first-class 4th
+role, promoted in FYP II — read-only, sport-scoped; FYP I shipped the first three)* ·
 System *(automated behaviour, no human actor — same convention as FYP I)*.
 
 ---

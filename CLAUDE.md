@@ -103,7 +103,7 @@ Do not weaken this to plain Gabbett ACWR. If a refactor touches `risk.ts`, menti
 
 From `docs/MASTER_CLARIFICATIONS.md §12`:
 
-- The 3-role model (athlete / medical / admin)
+- The role model: FYP I shipped **3 roles** (athlete / medical / admin); **FYP II promotes `coach` to a first-class 4th role** (read-only, sport-scoped — squad readiness, team-report download, athlete screening detail). Adding *further* roles still needs discussion.
 - The composite risk model formula
 - sRPE method for load calculation (`load = duration × intensity`) — validated by Inoue (2022) for scale reliability and Yang (2024) for physiological correspondence
 - The body map asset source — path data adapted from MIT-licensed [`react-muscle-highlighter`](https://github.com/soroojshehryar/react-muscle-highlighter) by Sorooj Shehryar; lives in `frontend/src/components/dashboard/bodymap-data/` with MIT attribution preserved at the top of every file. **This attribution must stay in the FYP references section.**

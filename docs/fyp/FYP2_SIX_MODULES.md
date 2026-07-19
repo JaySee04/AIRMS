@@ -107,8 +107,8 @@ and body map the athlete sees, plus the chronological injury history, the
 prevention-insight card, sport-level context, the recovery baseline, and a
 pre-filled "+ Log Injury" deep link. Their decisive affordance is the
 **clinician override**: set the band green/amber/red with a required note; it
-wins everywhere until the next import. The **coach** (experimental 4th role)
-gets a read-only squad-readiness board scoped to their admin-assigned sports:
+wins everywhere until the next import. The **coach** (FYP II first-class 4th role)
+gets a read-only squad-readiness board scoped to their one admin-assigned sport:
 every athlete's indicator mapped to Full-Go / Observation / Restricted (the
 same band medical sees), sorted worst-first with the worst screening region
 named. No in-page filters; coaches edit nothing.
@@ -124,7 +124,7 @@ named. No in-page filters; coaches edit nothing.
 | 3 | Injury & Recovery Logging | *(unchanged)* | intake upgraded to the five-step workflow; no record deletion (clinical records are append-and-amend) |
 | 4 | Data Management | Screening Data Management & Cohort Norms | Excel import → HoloMotion vision-AI pipeline; + immutable history, cohort-norm governance, import-commit alerts; backup export stays |
 | 5 | Admin Injury Analytics | Analytics & Reporting | + screening cohort analytics and the three screening PDFs |
-| 6 | Medical Staff Dashboard | Clinical & Squad Monitoring | + clinician override, prevention insight, recovery baseline; absorbs the experimental coach board |
+| 6 | Medical Staff Dashboard | Clinical & Squad Monitoring | + clinician override, prevention insight, recovery baseline; the coach (first-class 4th role) has its own read-only squad board |
 
 *Rewritten 2026-07-16. If this file disagrees with `FYP2_MODULES_USECASES.md`
 or the code, those win — tell Claude and this gets fixed.*

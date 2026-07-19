@@ -151,11 +151,11 @@ optional/experimental.
   the loop's final edge.
 
 ### M11 — Coach / Team Readiness (promote the experimental role) — *optional*
-- Promote the experimental `/coach/dashboard` into a first-class, documented
-  module: squad readiness board, availability/attention list, and the
-  coach↔medical alert flow already prototyped. Only if scope allows — it stays
-  out of the FYP I locked 3-role artifacts, so introducing it formally belongs
-  in FYP II.
+- **Done (2026-07-19):** promoted `/coach/dashboard` into a first-class FYP II
+  role — squad-readiness board with programme/gender/event filters, a read-only
+  per-athlete screening detail, team-report download, admin coach management
+  (`/admin/coaches`), and the coach↔medical import-commit alert flow. FYP I kept
+  its 3 roles; the coach is the FYP II addition.
 
 ---
 
@@ -212,10 +212,10 @@ Phrased to satisfy the "clearly described, relevant, **measurable**" rubric:
   consent/NDA questions — cite the existing Dr Thung LOI and keep an ethics
   paragraph. Human-in-the-loop (clinician override already built) is the
   safety argument.
-- **Locked FYP I decisions still hold:** the 3-role model, composite formula,
-  sRPE, body-map asset, and MySQL schema are locked; new modules **extend**,
-  they don't rewrite. M11 (coach) is the only role change and stays experimental
-  until formally proposed.
+- **Locked FYP I decisions still hold:** the composite formula, sRPE, body-map
+  asset, and MySQL schema are locked; new modules **extend**, they don't rewrite.
+  The role model is the one deliberate change — M11 (coach) is **promoted to a
+  first-class 4th role in FYP II** (FYP I shipped 3 roles).
 - **Don't overclaim (the FYP I lesson):** M8 exists precisely so FYP II reports
   *measured* outcomes, not aspirational ones.
 

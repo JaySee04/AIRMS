@@ -84,7 +84,7 @@ const NAV: Record<'athlete' | 'medical' | 'admin' | 'coach', NavItem[]> = {
     { href: '/admin/coaches',     label: 'Coaches',            icon: <IconPulse /> },
     { href: '/admin/data-upload', label: 'Data Uploading',     icon: <IconUpload /> },
   ],
-  // Experimental coach role — read-only squad readiness for assigned sports.
+  // Coach role (first-class 4th role) — read-only squad readiness for the assigned sport.
   coach: [
     { href: '/coach/dashboard', label: 'Squad Readiness', icon: <IconPulse /> },
   ],

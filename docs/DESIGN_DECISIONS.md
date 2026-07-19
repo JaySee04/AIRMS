@@ -294,7 +294,7 @@ Minor calls that didn't get a full section but are worth recording:
 - Scoped to **medical** only by deliberate choice: athlete access is self-only by nature, and admin is the one granting permissions, so neither needs the layer
 
 **Rejected alternatives:**
-- **Full RBAC permission matrix / custom roles** — over-engineered for a 3-role institution; opt-out booleans on the existing role cover the actual need
+- **Full RBAC permission matrix / custom roles** — over-engineered for a small, fixed-role institution (four roles); opt-out booleans on the existing role cover the actual need
 - **Opt-in (everything off by default)** — would require configuring every existing account before it kept working; worse migration story for no benefit
 
 **Defensibility one-liner:** *"RBAC sets the role; the permission layer lets an admin fine-tune exactly which features each medical staffer can use, enforced at every route. It's opt-out, so it changes nothing until an admin deliberately restricts someone."*
@@ -392,8 +392,10 @@ look fine on paper but sit at the bottom of their group."*
 
 ## 17. Coach role evolution — one sport, athlete detail view, event disciplines
 
-**Status:** experimental 4th role, still outside the locked 3-role model
-(MASTER_CLARIFICATIONS §12). Extended 2026-07-18 on JC's direction.
+**Status:** **first-class 4th role (promoted 2026-07-19).** FYP II adds `coach`
+to the athlete/medical/admin model — read-only and sport-scoped
+(MASTER_CLARIFICATIONS §12 and CLAUDE.md updated to own it; FYP I shipped three
+roles). Built incrementally through 2026-07-18/19 on JC's direction.
 
 **One sport per coach.** `User.coachSports` (JSON array) → `User.coachSport`
 (scalar string). A coach's jurisdiction is exactly one squad; enforced in

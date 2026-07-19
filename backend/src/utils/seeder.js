@@ -510,7 +510,7 @@ function buildUsers() {
     // Ground-truth athlete login — Dr Thung's own HoloMotion report seeded
     // 1:1 as ATH0061, so the athlete view can be checked against the PDF.
     { name: 'Thung Jin Seng', email: 'thung@isn.gov.my', password: 'thung123', role: 'athlete', athleteId: 'ATH0061' },
-    // Experimental coach role — one sport per coach. Badminton includes ATH0001
+    // Coach role (first-class 4th role) — one sport per coach. Badminton includes ATH0001
     // (John Doe) + ATH0061 (Thung), so the coach's squad overlaps the athlete
     // demo logins.
     { name: 'Coach Demo 01', email: 'coach@isn.gov.my', password: 'coach123', role: 'coach', coachSport: 'Badminton' },

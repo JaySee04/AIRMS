@@ -89,7 +89,7 @@
 Points worth stating around the table, each defensible and already true of the build:
 
 1. **The General Module is cross-cutting** and is not counted among the six functional modules — the same convention as the FYP I report.
-2. **Coach is an experimental fourth role** (read-only) outside the locked athlete / medical / administrator model. If Chapter 4 is meant to mirror the locked three-role scope, drop UC-52 and the Coach mentions in UC-1/UC-2 into Chapter 7 future work instead.
+2. **Coach is a first-class fourth role** (read-only, sport-scoped), promoted in FYP II (2026-07-19) from the earlier experimental spike. Keep UC-52 and the Coach mentions in UC-1/UC-2 in Chapter 4 — the coach is part of the delivered role model (athlete / medical / administrator / coach), not future work.
 3. **"System" denotes automated behaviour with no human actor** — the same convention the FYP I table used for UC-5, UC-10, UC-11, UC-13, UC-15 and UC-24.
 4. **HoloMotion PDF is the sole screening import.** The Excel import (old UC-23/24) was retired on 2026-07-12 and archived; the Excel *backup export* remains as UC-38.
 5. **Training load is recorded but is no longer a displayed risk verdict.** The ACWR/composite model is retained in code and still drives the recovery baseline (UC-50), but the cohort-normed overall risk indicator (UC-13/14) is the system's single risk verdict. This is the central FYP II design change.

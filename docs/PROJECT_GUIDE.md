@@ -64,7 +64,7 @@ All Sequelize models. The `index.js` registers them and wires up associations (`
 
 | File | Schema | Notes |
 |---|---|---|
-| [User.js](../backend/src/models/User.js) | email, password (hashed), role, name, athleteId?, **`coachSport`** (scalar, coach only), permissions (JSON), isActive | `beforeSave` hook bcrypts the password column. `permissions` is the per-user medical-staff feature opt-out map (see middleware/permission.js). `coachSport` is the one sport an experimental coach is assigned to (was the JSON `coachSports` array pre-2026-07-18) |
+| [User.js](../backend/src/models/User.js) | email, password (hashed), role, name, athleteId?, **`coachSport`** (scalar, coach only), permissions (JSON), isActive | `beforeSave` hook bcrypts the password column. `permissions` is the per-user medical-staff feature opt-out map (see middleware/permission.js). `coachSport` is the one sport a coach is assigned to (was the JSON `coachSports` array pre-2026-07-18) |
 | [Athlete.js](../backend/src/models/Athlete.js) | athleteId, name, sport, programme, biometrics, 8 flat risk-indicator columns | `athleteId` (VARCHAR) is the PK and the cross-table FK; risks reassembled into a nested `risks` object by the serialiser |
 | [MuscleFlag.js](../backend/src/models/MuscleFlag.js) | id, athleteId, flagType (`myodynamia`\|`tension`), muscle, side | Single table for both flag categories, discriminated by `flagType`; serialiser splits rows into the `myodynamia[]` / `tension[]` arrays the frontend expects |
 | [AthleteDiscipline.js](../backend/src/models/AthleteDiscipline.js) | id, athleteId, discipline | **FYP II** events an athlete competes in (`Athlete hasMany`), unique per (athlete, discipline); serialiser folds rows into a `disciplines[]` string array. Events are admin-extensible free strings — the import combobox offers existing ones (`GET /athletes/meta/disciplines`) or a typed-in new value; [lib/disciplines.ts](../frontend/src/lib/disciplines.ts) only holds seed suggestions (badminton's 5) |
@@ -148,10 +148,10 @@ Pages mapped to the 3 roles + profile pages:
 | [`/admin/reports`](../frontend/src/app/admin/reports/page.tsx) | admin | Module 5 — injury PDF report builder + **FYP II** screening reports card (holistic / individual / team downloads) |
 | [`/admin/thresholds`](../frontend/src/app/admin/thresholds/page.tsx) | admin | **FYP II** cohort-norm approval queue — tunable settings, recompute, per-cohort approve/revert + editable component means |
 | [`/admin/staff`](../frontend/src/app/admin/staff/page.tsx) | admin | Medical-staff permission control + account activation |
-| [`/admin/coaches`](../frontend/src/app/admin/coaches/page.tsx) | admin | **FYP II** create a coach, assign/change their one sport, activate/deactivate (experimental coach role; no reseed needed) |
+| [`/admin/coaches`](../frontend/src/app/admin/coaches/page.tsx) | admin | **FYP II** create a coach, assign/change their one sport, activate/deactivate (coach = first-class 4th role; no reseed needed) |
 | [`/admin/data-upload`](../frontend/src/app/admin/data-upload/page.tsx) | admin | Module 4 — HoloMotion PDF import (batch + name-match) + data backup |
 | [`/admin/profile`](../frontend/src/app/admin/profile/page.tsx) | admin | Profile |
-| [`/coach/dashboard`](../frontend/src/app/coach/dashboard/page.tsx) | coach | **FYP II** (experimental 4th role) read-only squad readiness scoped to the coach's ONE assigned sport — all athletes' HoloMotion overall risks, sorted worst-first with the worst region named, filterable by programme / gender / event; selecting a row opens a read-only screening detail (radar + ScreeningPanel + body map) and the team report is downloadable here |
+| [`/coach/dashboard`](../frontend/src/app/coach/dashboard/page.tsx) | coach | **FYP II** (first-class 4th role) read-only squad readiness scoped to the coach's ONE assigned sport — all athletes' HoloMotion overall risks, sorted worst-first with the worst region named, filterable by programme / gender / event; selecting a row opens a read-only screening detail (radar + ScreeningPanel + body map) and the team report is downloadable here |
 
 ### Layout components — `frontend/src/components/layout/`
 

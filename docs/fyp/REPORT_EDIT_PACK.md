@@ -4,7 +4,7 @@
 > **where**, **what to remove**, and **ready-to-paste replacement text** written in
 > the report's voice. Section/figure numbers follow the report structure — page
 > numbers shift between drafts, so locate by heading. Written on the assumption
-> that the **coach role stays out of FYP I** (locked 3-role model).
+> that the **coach role is out of the FYP I artefact** (FYP I shipped 3 roles); in FYP II the coach is a first-class 4th role.
 >
 > Apply in the Word document, re-export the PDF, then replace
 > `reports/FYP-I-Report.pdf`.
@@ -97,7 +97,7 @@ Redrawn HTML diagrams (open in a browser at 100% zoom, screenshot, paste into th
 - **Fig 4.2 General UC diagram** → [`uc-general-updated.html`](uc-general-updated.html) — Login (JWT), Reset Password (email OTP), Change Password, Manage User Profile, Manage Staff Permissions (admin), RBAC (system)
 - **Fig 4.6 Data Management UC diagram** → [`uc-datamgmt-updated.html`](uc-datamgmt-updated.html) — both import paths with «include» → Validate & Preview, Export Data Backup, and the Vision AI Provider as an «external system» actor
 - **Data-import activity diagram** → [`activity-dataimport-updated.html`](activity-dataimport-updated.html) — single PDF path with a batch loop: render → vision extraction → name-match decision (auto-fill vs manual entry) → preview → confirm → commit → next report. (Slides: this diagram is also mislabelled "Self-Reported Injury Workflow" on p. 38 — existing punch item)
-- **Fig 4.9 ERD** → [`erd-corrected.html`](erd-corrected.html) **updated 2026-07-03**: removed the `import_records` table (no such model exists — it was an overclaim), and corrected `users` columns (`permissions`, `reset_code_attempts`, `last_login_at`; audit timestamps trimmed). `coach_sports` deliberately omitted (coach stays out of FYP I). No new tables for HoloMotion — it maps onto `athletes` + `muscle_flags`. **Re-screenshot Fig 4.9.**
+- **Fig 4.9 ERD** → [`erd-corrected.html`](erd-corrected.html) **updated 2026-07-03**: removed the `import_records` table (no such model exists — it was an overclaim), and corrected `users` columns (`permissions`, `reset_code_attempts`, `last_login_at`; audit timestamps trimmed). the coach column is now **`coach_sport`** (scalar, renamed from the JSON `coach_sports` array on 2026-07-18); it was omitted from the FYP I ERD (3-role scope) but belongs in FYP II figures now that the coach is a first-class role. No new tables for HoloMotion — it maps onto `athletes` + `muscle_flags`. **Re-screenshot Fig 4.9.**
 
 ## R7 · Chapter 5 — new subsection: AI-assisted screening ingestion
 

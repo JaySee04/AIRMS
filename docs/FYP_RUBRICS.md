@@ -114,7 +114,7 @@ The report/slides drafts predate the HoloMotion pivot and its sibling features. 
 4. **Missing screening surfaces** — the HoloMotion screening panel embedded on the athlete/medical dashboards (gauges + threshold strips + muscle flags) and the sport-critical screening alerts have no requirement/mention (Modules 2 and 6). *(2026-07-06: the former standalone screening pages were folded into the dashboards — describe the embedded panel, not separate pages.)*
 5. **Ch 5 lacks the vision-AI pipeline** (pdfjs render → provider-agnostic vision model → preview/commit) and must present the composite risk model, not plain Gabbett.
 6. **Slides predate the MySQL migration** (2026-05-25 draft) — check every tech-stack slide for MongoDB; "33 use cases" count changes with the UC edits; consider mockup slides for the PDF uploader / screening report / alert banner.
-7. **Coach role stays OUT of FYP I artifacts** (locked 3-role model; experimental). One future-work sentence in Ch 7 at most.
+7. **Coach role** — FYP I shipped 3 roles, so the FYP I *artifacts* describe those three; **FYP II promotes the coach to a first-class 4th role** (2026-07-19), so FYP II write-ups own it fully (squad readiness + filters + read-only athlete detail + team report + `/admin/coaches`). It is no longer "experimental / future work".
 8. **react-muscle-highlighter MIT attribution** must appear in the references (locked decision) — absent from the old draft; verify in current.
 9. **Repo hygiene** — `reports/FYP-I-Report.pdf` is a stale pre-refresh draft (51 pp); replace with the current draft and add the slides PDF to `docs/fyp/` per its README.
 

@@ -1,6 +1,6 @@
 'use client';
 
-// Admin · Coaches. Manage the experimental coach role: create a coach, assign
+// Admin · Coaches. Manage the coach role (first-class 4th role): create a coach, assign
 // their ONE sport, change it, or deactivate the account. A coach sees only the
 // squad of their assigned sport (routes/coach.js). This is the UI counterpart to
 // the seed-only coach setup — no reseed needed to add or reassign a coach.
