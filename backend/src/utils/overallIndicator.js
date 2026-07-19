@@ -6,15 +6,29 @@
 //   base = green (safe)
 //   +1 escalation if the athlete is BELOW the cohort mean (composite z < 0)
 //   +1 escalation if the athlete is among the BOTTOM-k of the cohort
-//   band: 0 escalations = green · 1 = amber (needs attention) · 2 = red
-//         (immediate assessment)
+//   +1 escalation if any single exercise-risk indicator is BOTH over the
+//     Elevated threshold AND the athlete is a peer-outlier on that indicator
+//     (per-indicator z ≥ cutoff vs the cohort). This is the "peers AND the
+//     threshold" rule: a threshold breach alone won't escalate (>90% of the
+//     squad trips one), only a breach where the athlete is also clearly worse
+//     than their cohort on that specific measure. Admin-toggleable.
+//   band: 0 escalations = green · 1 = amber (needs attention) · ≥2 = red
+//         (immediate assessment). The count can now reach 3; the band caps at red.
 //
 // So a "good raw score" athlete who is nonetheless below his cohort and among
 // the worst performers escalates twice → red, exactly as specified.
 
-const { orientedComponents, COMPONENTS } = require('./cohorts');
+const { orientedComponents, COMPONENTS, SHOWN_RISK_KEYS } = require('./cohorts');
 
 const BANDS = ['green', 'amber', 'red'];
+
+const num = (v) => (v === null || v === undefined || v === '' || Number.isNaN(Number(v)) ? null : Number(v));
+
+// Display labels for the per-indicator escalation factor text.
+const INDICATOR_LABELS = {
+  neckInjuryRisk: 'Neck', shoulderInjuryRisk: 'Shoulder', scoliosis: 'Scoliosis',
+  lumbarPelvisInjury: 'Lumbar/Pelvis', jointPain: 'Joint Pain', kneeInjuryRisk: 'Knee', ankleInjuryRisk: 'Ankle',
+};
 
 // Composite z of a screening against cohort stats ({component:{mean,sd}}).
 // Averages the available component z-scores (TSA). Returns null if none usable.
@@ -73,6 +87,26 @@ function computeIndicator(screening, cohortStats, rankInfo, settings = {}) {
   if (settings.escalation_bottom_k !== false && rankInfo && rankInfo.rank <= k) {
     escalations++;
     factors.push(`bottom ${k} of ${rankInfo.total} in cohort`);
+  }
+  // Per-indicator escalation: an exercise-risk indicator over the Elevated
+  // threshold AND on which the athlete is a peer-outlier (z ≥ cutoff vs the
+  // cohort's mean/SD for that indicator; higher raw value = worse). Fires on the
+  // single worst-outlier indicator only (one +1, not one per indicator).
+  if (settings.escalation_indicator !== false && cohortStats) {
+    const high = settings.escalation_indicator_high ?? 25;
+    const zCut = settings.escalation_indicator_z ?? 1;
+    let worst = null;
+    for (const key of SHOWN_RISK_KEYS) {
+      const v = num(screening[key]);
+      const st = cohortStats[key];
+      if (v === null || v < high || !st || !st.sd) continue;
+      const zi = (v - st.mean) / st.sd;
+      if (zi >= zCut && (!worst || zi > worst.zi)) worst = { key, v, zi };
+    }
+    if (worst) {
+      escalations++;
+      factors.push(`${INDICATOR_LABELS[worst.key] || worst.key} ${worst.v} — over threshold (≥${high}) and worse than cohort (z=${worst.zi.toFixed(2)})`);
+    }
   }
   const band = BANDS[Math.min(BANDS.length - 1, escalations)];
   return { indicator: zToScore(z), band, escalations, z: +z.toFixed(3), factors };
@@ -168,7 +202,7 @@ async function recomputeIndicators() {
     const r = computeIndicator(e.screening, e.resolved ? e.resolved.stats : null, rankInfo, settings);
     if (r.indicator !== null) scored++;
     return Screening.update(
-      { overallIndicator: r.indicator, overallBand: r.band, escalations: r.escalations },
+      { overallIndicator: r.indicator, overallBand: r.band, escalations: r.escalations, factors: r.factors },
       { where: { id: e.screening.id } },
     );
   });

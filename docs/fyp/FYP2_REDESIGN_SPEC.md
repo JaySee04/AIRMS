@@ -78,7 +78,8 @@ and the individual report's report-to-report deltas.
 | muscle_flags | JSON | myodynamia[]/tension[] snapshot |
 | overall_indicator | DECIMAL | computed at commit (nullable until cohort exists) |
 | overall_band | ENUM(green,amber,red) | computed |
-| escalations | INT | 0–2 |
+| escalations | INT | 0–3 (was 0–2 before the per-indicator factor) |
+| factors | JSON nullable | human-readable escalation reasons, shown on the badge |
 
 ### 3.2 `cohort_thresholds` — approved norms (NEW)
 One row per (sport, programme, gender) cohort per metric-set version. Holds the
@@ -90,7 +91,7 @@ computed mean + SD per component and the approval state.
 | sport, programme, gender | VARCHAR | cohort key (gender nullable for fallback tiers) |
 | tier | ENUM(spg, sg, s, all) | which fallback level this row represents |
 | n | INT | athletes in cohort at compute time |
-| stats | JSON | per-component {mean, sd} for the composite inputs |
+| stats | JSON | per-component {mean, sd} for the composite inputs, **plus per-indicator {mean, sd}** for the 7 shown exercise-risk indicators (drives the per-indicator escalation) |
 | status | ENUM(pending, approved) | admin approval |
 | computed_at, approved_at, approved_by | | audit |
 | overrides | JSON nullable | admin edits to mean/sd/weights |
@@ -98,7 +99,9 @@ computed mean + SD per component and the approval state.
 ### 3.3 `settings` — admin-tunable knobs (NEW, key/value)
 Per Dr Thung's "make it a setting": `min_cohort_n` (default 5),
 `fallback_enabled` (default true), `escalation_below_mean` (on),
-`escalation_bottom3` (on), `bottom_k` (default 3), alert toggles.
+`escalation_bottom3` (on), `bottom_k` (default 3), **`escalation_indicator`
+(on, + `escalation_indicator_high` = 25, `escalation_indicator_z` = 1.5)**, alert
+toggles.
 
 ### 3.4 `screenings` clinician override fields
 `override_band` ENUM nullable, `override_note` TEXT, `override_by`,
@@ -134,7 +137,11 @@ Crop bands / prompt extended; `verify:vision` ground truth extended to match.
 4. **Band** by z of the composite: green ≥ cohort mean; amber within 1 SD below;
    red > 1 SD below (thresholds = settings).
 5. **Escalate**: +1 if composite below cohort mean; +1 if athlete in bottom-`k`
-   of cohort. 2 escalations → "immediate assessment."
+   of cohort; +1 (per-indicator, added 2026-07-19) if one exercise-risk indicator
+   is both over the Elevated threshold (≥25) and a peer-outlier on it (per-indicator
+   z ≥ 1.5). Count can reach 3; **≥2 escalations → red** ("immediate assessment").
+   Admin toggle `escalation_indicator` (+ `escalation_indicator_high` / `_z`);
+   reasons persisted in `screenings.factors` and shown on the badge.
 6. **Override**: clinician-set band wins until the next import.
 Degrades gracefully: cohort with n < `min_cohort_n` → fall back a tier, or if
 none, show "insufficient cohort" and skip escalation.

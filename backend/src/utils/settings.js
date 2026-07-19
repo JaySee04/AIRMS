@@ -8,7 +8,16 @@ const DEFAULTS = {
   escalation_below_mean: true, // +1 escalation when the athlete is below the cohort mean
   escalation_bottom_k: true,   // +1 escalation when athlete in the worst k of cohort
   bottom_k: 3,                 // the "k" in bottom-k. Band: 0 escalations = green,
-                               // 1 = amber (needs attention), 2 = red (immediate assessment)
+                               // 1 = amber (needs attention), 2+ = red (immediate assessment)
+  // Per-indicator escalation: +1 when a single exercise-risk indicator is over
+  // the Elevated threshold AND the athlete is a peer-outlier on it (see
+  // overallIndicator.js). Selective by design — a threshold breach alone won't
+  // escalate (>90% of the squad trips one).
+  escalation_indicator: true,       // toggle the per-indicator escalation
+  escalation_indicator_high: 25,    // indicator value (Elevated band) that arms the rule
+  escalation_indicator_z: 1.5,      // per-indicator z cutoff vs cohort (a clear outlier;
+                                    // 1.5 keeps it selective — 1.0 flagged ~half the
+                                    // synthetic squad, 2.0 caught nobody)
   alerts_enabled: true,        // email medical + coaches on import
   alert_on_band: 'amber',      // fire at this band or worse ('amber' | 'red')
 };

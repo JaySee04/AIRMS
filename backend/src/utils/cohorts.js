@@ -60,13 +60,20 @@ function meanSd(values) {
   return { mean: +mean.toFixed(3), sd: +Math.sqrt(variance).toFixed(3), n: v.length };
 }
 
-// { component: {mean, sd, n} } over a set of screenings.
+// { component: {mean, sd, n} } over a set of screenings. Also carries per-
+// indicator {mean, sd} for the 7 SHOWN exercise-risk indicators (raw values,
+// higher = worse) under their own keys — used by the per-indicator escalation
+// (overallIndicator.js). Indicator keys never collide with component names.
 function computeStats(screenings) {
   const comps = screenings.map(orientedComponents);
   const stats = {};
   for (const c of COMPONENTS) {
     const ms = meanSd(comps.map((x) => x[c]));
     if (ms) stats[c] = ms;
+  }
+  for (const k of SHOWN_RISK_KEYS) {
+    const ms = meanSd(screenings.map((s) => num(s[k])));
+    if (ms) stats[k] = ms;
   }
   return { n: screenings.length, stats };
 }
@@ -157,7 +164,9 @@ function resolveFromMap(athlete, map, { minN = 5, fallbackEnabled = true } = {})
   const keys = fallbackEnabled ? tierKeysFor(athlete) : [tierKeysFor(athlete)[0]];
   for (const k of keys) {
     const row = map.get(`${k.tier}|${k.sport}|${k.programme}|${k.gender}`);
-    if (row && row.n >= minN) return { tier: row.tier, n: row.n, stats: row.overrides || row.stats };
+    // Layer admin overrides (components only) over the computed stats, so the
+    // per-indicator stats survive even when a cohort's components are overridden.
+    if (row && row.n >= minN) return { tier: row.tier, n: row.n, stats: { ...row.stats, ...(row.overrides || {}) } };
   }
   return null;
 }

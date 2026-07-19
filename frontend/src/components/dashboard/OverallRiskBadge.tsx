@@ -9,6 +9,7 @@ export interface ScreeningIndicator {
   overallIndicator?: number | null;
   overallBand?: 'green' | 'amber' | 'red' | null;
   escalations?: number;
+  factors?: string[]; // human-readable escalation reasons (why the band is amber/red)
   effectiveBand?: 'green' | 'amber' | 'red' | null;
   overrideBand?: 'green' | 'amber' | 'red' | null;
   overrideNote?: string | null;
@@ -93,10 +94,15 @@ export default function OverallRiskBadge({
           {!overridden && typeof screening.escalations === 'number' && screening.escalations > 0 && (
             <div className="risk-factors">
               <span className="risk-factors-label">Why:</span>
-              <span className="risk-factor-chip">
-                {screening.escalations} escalation{screening.escalations === 1 ? '' : 's'} · +1 for scoring
-                below your comparison group, +1 for being among its lowest scorers
-              </span>
+              {screening.factors && screening.factors.length > 0 ? (
+                screening.factors.map((f) => (<span key={f} className="risk-factor-chip">{f}</span>))
+              ) : (
+                <span className="risk-factor-chip">
+                  {screening.escalations} escalation{screening.escalations === 1 ? '' : 's'} · scoring below your
+                  comparison group, being among its lowest scorers, or a screening indicator that is both elevated
+                  and worse than your group
+                </span>
+              )}
             </div>
           )}
         </div>

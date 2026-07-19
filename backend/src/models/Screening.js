@@ -51,6 +51,10 @@ const Screening = sequelize.define('Screening', {
   overallIndicator: { type: DataTypes.DECIMAL(5, 2), allowNull: true, field: 'overall_indicator' },
   overallBand: { type: DataTypes.ENUM('green', 'amber', 'red'), allowNull: true, field: 'overall_band' },
   escalations: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  // Human-readable reasons the athlete escalated (JSON array of strings), so the
+  // dashboards can explain WHY a band is amber/red — including which indicator
+  // triggered the per-indicator escalation. Recomputed with the indicator.
+  factors: { type: DataTypes.JSON, allowNull: true },
 
   // Clinician override (medical staff, after a real assessment). Auto-expires
   // when a newer Screening row is imported.

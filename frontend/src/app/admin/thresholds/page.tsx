@@ -175,6 +175,12 @@ export default function CohortThresholdsPage() {
               onChange={(e) => saveSetting('fallback_enabled', e.target.checked)} /> enabled</label></div>
             <div className="stat-tile-delta">spg → sg → s → all</div>
           </div>
+          <div className="stat-tile">
+            <div className="stat-tile-label">Per-indicator escalation</div>
+            <div><label><input type="checkbox" checked={Boolean(set.escalation_indicator)}
+              onChange={(e) => saveSetting('escalation_indicator', e.target.checked)} /> enabled</label></div>
+            <div className="stat-tile-delta">+1 when an indicator is Elevated <em>and</em> the athlete is a peer-outlier on it</div>
+          </div>
         </div>
       </div>
 

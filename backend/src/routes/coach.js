@@ -43,7 +43,7 @@ router.get('/readiness', auth, rbac('coach'), async (req, res) => {
       Screening.findAll({
         where: { athleteId: { [Op.in]: ids } },
         order: [['assessedAt', 'DESC'], ['id', 'DESC']],
-        attributes: ['athleteId', 'overallIndicator', 'overallBand', 'escalations', 'overrideBand'],
+        attributes: ['athleteId', 'overallIndicator', 'overallBand', 'escalations', 'factors', 'overrideBand'],
         raw: true,
       }),
     ]);
@@ -54,6 +54,7 @@ router.get('/readiness', auth, rbac('coach'), async (req, res) => {
         overallIndicator: s.overallIndicator,
         overallBand: s.overallBand,
         escalations: s.escalations,
+        factors: Array.isArray(s.factors) ? s.factors : [],
         effectiveBand: s.overrideBand || s.overallBand,
       });
     }

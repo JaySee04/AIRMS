@@ -345,9 +345,25 @@ standard for cohort-normed screening; equal-weighted standardised components is
 the published TSA default (removes arbitrary weighting).
 
 **Escalation band (Dr Thung's spec):** base green; **+1 escalation** if below
-the cohort mean, **+1** if in the cohort's bottom-k → 0 = green (safe), 1 =
-amber (needs attention), 2 = red (immediate assessment). So a good raw score
-that is below cohort and among the worst performers still escalates to red.
+the cohort mean, **+1** if in the cohort's bottom-k, **+1** (per-indicator, added
+2026-07-19) if a single exercise-risk indicator is *both* over the Elevated
+threshold (≥25) *and* the athlete is a clear peer-outlier on it (per-indicator
+z ≥ 1.5 vs the cohort). Band: 0 = green, 1 = amber, **≥2 = red** (the count can
+now reach 3; band caps at red). So a good raw score that is below cohort and
+among the worst performers still escalates to red, and an athlete who is fine on
+the composite but has one indicator that is both elevated and worse than their
+squad is escalated for exactly that.
+
+The per-indicator rule is deliberately the "peers **and** the threshold" form,
+not "threshold alone": on the seeded squad a threshold-only rule would flag
+54–93% of athletes (every indicator ≥15 hits everyone), whereas requiring a
+1.5-SD per-indicator outlier flags 6 of 59 (z ≥ 1.0 flagged ~half; z ≥ 2.0 caught
+nobody — so 1.5 is the selective sweet spot). It is an **admin toggle**
+(`escalation_indicator`, with tunable `escalation_indicator_high` / `_z`) and the
+escalation **reasons are persisted** (`screenings.factors`) and shown on the risk
+badge ("Knee 27 — over threshold and worse than cohort"). Reuses the standard
+Elevated boundary (25); per-indicator cohort mean/SD are computed in
+`cohorts.js` alongside the component stats.
 
 **Governance:** cohort thresholds are auto-computed but **admin-approved** (the
 computed averages are pre-filled and editable); a **clinician can override** an
@@ -429,4 +445,4 @@ one squad).
 
 ---
 
-*Last updated: 2026-07-18 — added §17 (coach one-sport + athlete detail view + event disciplines). Previous: 2026-07-13 (§16 FYP II cohort-normed overall indicator + ACWR demotion), 2026-07-06 (§15 dashboard-embedded screening), 2026-06-28 (§13–14).*
+*Last updated: 2026-07-19 — §16 gains the per-indicator escalation (threshold + peer-outlier, z ≥ 1.5, admin toggle, persisted factors). Previous: 2026-07-18 (§17 coach one-sport + athlete detail view + event disciplines), 2026-07-13 (§16 FYP II cohort-normed overall indicator + ACWR demotion), 2026-07-06 (§15 dashboard-embedded screening), 2026-06-28 (§13–14).*
