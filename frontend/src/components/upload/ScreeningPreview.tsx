@@ -3,16 +3,19 @@
 // Friendly read-out of an extracted HoloMotion report, shown in the import
 // preview so the operator can review the numbers against the PDF BEFORE
 // committing. Presents the same data the dashboards/PDF use — headline scores,
-// the exercise-risk evaluation (banded Low / Watch / Elevated) and the physical-
-// fitness subitem scores (HoloMotion tier colours) — rather than a flat number
+// the exercise-risk evaluation (banded Low / Watch / Elevated), the physical-
+// fitness subitem scores, and posture evaluation — rather than a flat number
 // table. Muscle flags are shown by the full-width BodyMap ("muscle hero") that
 // the uploader renders beneath this panel.
 
-type Subitems = Record<string, Record<string, number | null>> | null | undefined;
+import SubitemTable from '@/components/dashboard/SubitemTable';
+import PostureList from '@/components/dashboard/PostureList';
+import type { Subitems, Posture } from '@/components/dashboard/OverallRiskBadge';
 
 interface Props {
   athlete: Record<string, unknown>; // flat extracted scores (values read via num())
-  subitems?: Subitems;
+  subitems?: Subitems | null;
+  posture?: Posture | null;
 }
 
 // Headline gauges (0–100, higher better) + Exercise Risks (lower better).
@@ -35,14 +38,6 @@ const RISKS: Array<[string, string]> = [
   ['ankleInjuryRisk', 'Ankle Sprain'],
 ];
 
-const SUBITEM_REGIONS: Array<[string, string]> = [
-  ['neck', 'Neck'], ['shoulder', 'Shoulder & Upper Limbs'], ['torso', 'Torso'],
-  ['pelvis', 'Pelvis'], ['lowerLimbs', 'Lower Limbs'],
-];
-const SUBITEM_COLS: Array<[string, string]> = [
-  ['romL', 'ROM L'], ['romR', 'ROM R'], ['stabL', 'Stab L'], ['stabR', 'Stab R'], ['sym', 'Sym'],
-];
-
 const RISK_AXIS = 40; // display axis — matches the dashboard strips
 
 const num = (v: unknown): number | null => (v === null || v === undefined || v === '' || Number.isNaN(Number(v)) ? null : Number(v));
@@ -53,7 +48,8 @@ function riskBand(v: number) {
   if (v > 15) return { label: 'Watch', color: 'var(--risk-mod)' };
   return { label: 'Low', color: 'var(--risk-low)' };
 }
-// HoloMotion quality tier for the 0–100 subitem/gauge scores (higher is better).
+// HoloMotion quality tier for the 0–100 headline gauges (higher is better).
+// (SubitemTable has its own copy for the subitem cells — same boundaries.)
 function tier(v: number) {
   if (v >= 85) return { label: 'Excellent', color: 'var(--risk-low)' };
   if (v >= 75) return { label: 'Good', color: 'var(--risk-undertrained)' };
@@ -70,12 +66,12 @@ function Pill({ text, color }: { text: string; color: string }) {
   );
 }
 
-export default function ScreeningPreview({ athlete, subitems }: Props) {
+export default function ScreeningPreview({ athlete, subitems, posture }: Props) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {/* Headline scores */}
       <div>
-        <div className="pdf-preview-h">Headline scores</div>
+        <div className="screening-block-h">Headline scores</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(84px, 1fr))', gap: 8 }}>
           {HEADLINE.map(([key, label, higherBetter]) => {
             const v = num(athlete[key]);
@@ -93,7 +89,7 @@ export default function ScreeningPreview({ athlete, subitems }: Props) {
 
       {/* Exercise Risk Evaluation */}
       <div>
-        <div className="pdf-preview-h">Exercise risk evaluation</div>
+        <div className="screening-block-h">Exercise risk evaluation</div>
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 8 }}>
           {[['Low', 'var(--risk-low)'], ['Watch', 'var(--risk-mod)'], ['Elevated', 'var(--risk-high)']].map(([l, c]) => (
             <span key={l} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: '0.72rem', color: 'var(--text-muted)' }}>
@@ -125,53 +121,14 @@ export default function ScreeningPreview({ athlete, subitems }: Props) {
 
       {/* Physical Fitness Subitem Score */}
       <div>
-        <div className="pdf-preview-h">Physical fitness subitem score</div>
-        {subitems && typeof subitems === 'object' ? (
-          <>
-            <div style={{ overflowX: 'auto' }}>
-              <table className="pdf-subitem-table">
-                <thead>
-                  <tr>
-                    <th />
-                    {SUBITEM_COLS.map(([, l]) => <th key={l}>{l}</th>)}
-                  </tr>
-                </thead>
-                <tbody>
-                  {SUBITEM_REGIONS.map(([rkey, rlabel]) => {
-                    const row = subitems[rkey] || {};
-                    return (
-                      <tr key={rkey}>
-                        <td style={{ textAlign: 'left', whiteSpace: 'nowrap' }}>{rlabel}</td>
-                        {SUBITEM_COLS.map(([ckey]) => {
-                          const v = num(row[ckey]);
-                          if (v === null) return <td key={ckey} className="text-muted">—</td>;
-                          const t = tier(v);
-                          return (
-                            <td key={ckey}>
-                              <span style={{
-                                display: 'inline-block', minWidth: 26, padding: '2px 6px', borderRadius: 6,
-                                fontSize: '0.74rem', fontWeight: 700, color: '#fff', background: t.color,
-                              }}>{v}</span>
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 8 }}>
-              {[['Excellent ≥85', 'var(--risk-low)'], ['Good ≥75', 'var(--risk-undertrained)'], ['Average ≥60', 'var(--risk-mod)'], ['Below <60', 'var(--risk-high)']].map(([l, c]) => (
-                <span key={l} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                  <span style={{ width: 9, height: 9, borderRadius: 2, background: c }} />{l}
-                </span>
-              ))}
-            </div>
-          </>
-        ) : (
-          <div className="text-muted" style={{ fontSize: '0.8rem' }}>No subitem scores were read from this report (older / compact layout).</div>
-        )}
+        <div className="screening-block-h">Physical fitness subitem score</div>
+        <SubitemTable subitems={subitems} />
+      </div>
+
+      {/* Posture Evaluation */}
+      <div>
+        <div className="screening-block-h">Posture evaluation</div>
+        <PostureList posture={posture} />
       </div>
     </div>
   );

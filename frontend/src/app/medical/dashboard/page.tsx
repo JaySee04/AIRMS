@@ -1042,7 +1042,9 @@ export default function MedicalDashboard() {
                   against its thresholds (gauges + indicator strips + muscle
                   flags), embedded here instead of a separate screening page. */}
               <div style={{ marginTop: 20 }}>
-                <ScreeningPanel athlete={selectedAthlete} />
+                {/* subitems/posture live only on `.screening` (never duplicated
+                    onto the flat athlete row), so they're merged in here. */}
+                <ScreeningPanel athlete={{ ...selectedAthlete, subitems: selectedAthlete.screening?.subitems, posture: selectedAthlete.screening?.posture }} />
               </div>
 
               {/* Body map */}

@@ -265,6 +265,46 @@ function subitemTable(doc, subitems) {
   doc.y = ly + 16;
 }
 
+// Posture Evaluation — 8-axis finding + signed value, two columns. Deliberately
+// NOT a range bar: the report draws each axis against its own reference range,
+// but that range varies per axis and isn't part of the extraction schema, so
+// a fabricated bar would be guessing. This shows exactly what was captured.
+const POSTURE_AXES = [
+  ['neckFB', 'Neck (Fwd/Bwd)'], ['neckLR', 'Neck (L/R)'],
+  ['shoulder', 'Shoulder'], ['spineFB', 'Spine (Fwd/Bwd)'],
+  ['spineLR', 'Spine (L/R)'], ['pelvisFB', 'Pelvis (Fwd/Bwd)'],
+  ['pelvisLR', 'Pelvis (L/R)'], ['lowerLimbs', 'Lower Limbs'],
+];
+function postureList(doc, posture) {
+  if (!posture || typeof posture !== 'object') {
+    doc.fontSize(9).fillColor(MUTED).text('Posture evaluation was not captured on this screening (older import).', 50);
+    return;
+  }
+  const colW = 247; const rowH = 30;
+  const rows = Math.ceil(POSTURE_AXES.length / 2);
+  ensure(doc, 10 + rowH * rows + 10);
+  const startY = doc.y + 4;
+  POSTURE_AXES.forEach(([key, label], i) => {
+    const axis = posture[key];
+    if (!axis) return;
+    const col = i % 2; const row = Math.floor(i / 2);
+    const x = 50 + col * colW;
+    const y = startY + row * rowH;
+    doc.fontSize(7.5).font('Helvetica-Bold').fillColor(MUTED)
+      .text(label.toUpperCase(), x, y, { width: colW - 10, lineBreak: false });
+    const finding = axis.finding || '—';
+    const isNormal = finding.trim().toLowerCase() === 'normal';
+    const value = num(axis.value);
+    const valueText = value === null ? '—' : `${value > 0 ? '+' : ''}${value.toFixed(2)}°`;
+    doc.fontSize(9.5).font('Helvetica').fillColor(isNormal ? MUTED : TEXT)
+      .text(finding, x, y + 11, { width: colW - 60, lineBreak: false, ellipsis: true });
+    doc.fontSize(8.5).font('Helvetica').fillColor(MUTED)
+      .text(valueText, x + colW - 55, y + 11, { width: 50, align: 'right', lineBreak: false });
+  });
+  doc.y = startY + rows * rowH + 4;
+  doc.x = 50;
+}
+
 // Radar chart (TMG-style visual anchor) — polygon over n axes with grid rings.
 function radar(doc, axes, { max = 40, rings = 4, r = 85, color = GOLD } = {}) {
   ensure(doc, r * 2 + 70);
@@ -523,6 +563,10 @@ router.get('/individual/:id.pdf', auth, requirePermission('viewRecords'), async 
     // Physical Fitness Subitem Score
     sectionTitle(doc, 'Physical Fitness Subitem Score', 220);
     subitemTable(doc, latest.subitems);
+
+    // Posture Evaluation
+    sectionTitle(doc, 'Posture Evaluation', 140);
+    postureList(doc, latest.posture);
 
     // Muscle legend
     sectionTitle(doc, 'Muscle Flags');

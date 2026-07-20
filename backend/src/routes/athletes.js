@@ -18,6 +18,8 @@ async function latestIndicator(athleteId) {
     overallBand: s.overallBand,
     escalations: s.escalations,
     factors: Array.isArray(s.factors) ? s.factors : [],
+    subitems: s.subitems || null,
+    posture: s.posture || null,
     overrideBand: s.overrideBand,
     overrideNote: s.overrideNote,
     overrideBy: s.overrideBy,

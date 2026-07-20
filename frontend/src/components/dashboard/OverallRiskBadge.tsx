@@ -5,6 +5,20 @@
 // assessment. Shows the 0–100 indicator, the escalation count, and any
 // clinician override. Shared by the athlete, medical, and coach views.
 
+// Physical Fitness Subitem Score — 5 body regions × {romL,romR,stabL,stabR,sym}
+// (0–100, higher better). Extracted from the HoloMotion report, stored on the
+// Screening row; not duplicated onto the Athlete row (display-only, unlike the
+// headline scores/risk indicators which feed cohort z-scoring).
+export interface SubitemRow { romL: number | null; romR: number | null; stabL: number | null; stabR: number | null; sym: number | null; }
+export type Subitems = Partial<Record<'neck' | 'shoulder' | 'torso' | 'pelvis' | 'lowerLimbs', SubitemRow>>;
+
+// Posture Evaluation — 8 axes, each a descriptive finding + a signed degree
+// value. No reference range is captured (the report's own ranges vary per
+// axis and aren't part of the extraction schema), so this is presented as a
+// plain finding + value, not a fabricated range bar.
+export interface PostureAxis { finding: string | null; value: number | null; }
+export type Posture = Partial<Record<'neckFB' | 'neckLR' | 'shoulder' | 'spineFB' | 'spineLR' | 'pelvisFB' | 'pelvisLR' | 'lowerLimbs', PostureAxis>>;
+
 export interface ScreeningIndicator {
   overallIndicator?: number | null;
   overallBand?: 'green' | 'amber' | 'red' | null;
@@ -14,6 +28,8 @@ export interface ScreeningIndicator {
   overrideBand?: 'green' | 'amber' | 'red' | null;
   overrideNote?: string | null;
   overrideBy?: string | null;
+  subitems?: Subitems | null;
+  posture?: Posture | null;
 }
 
 const BAND_META = {

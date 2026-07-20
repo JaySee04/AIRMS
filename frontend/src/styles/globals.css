@@ -1643,19 +1643,30 @@ tr.row-flash > td { animation: row-flash 1.6s ease-out; }
 .combobox-option-new { font-weight: 600; }
 .combobox-empty { padding: 8px 10px; font-size: 0.82rem; color: var(--text-muted); }
 
-/* ── Import preview (extracted-report read-out) ──────────────────────────────── */
-.pdf-preview-h {
+/* ── Screening detail (subitem table / posture) — shared by the import preview
+   AND the athlete/medical/coach dashboard cards, so it's not "pdf-" scoped. ── */
+.screening-block-h {
   font-size: 0.74rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
   color: var(--text); margin-bottom: 8px; padding-bottom: 4px;
   border-bottom: 1px solid var(--border);
 }
-.pdf-subitem-table { width: 100%; border-collapse: collapse; font-size: 0.76rem; }
-.pdf-subitem-table th {
+.screening-subitem-table { width: 100%; border-collapse: collapse; font-size: 0.76rem; }
+.screening-subitem-table th {
   font-size: 0.66rem; font-weight: 600; color: var(--text-muted); text-align: center;
   padding: 4px 6px; text-transform: uppercase; letter-spacing: 0.02em;
 }
-.pdf-subitem-table td { text-align: center; padding: 4px 6px; }
-.pdf-muscle-hero { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
+.screening-subitem-table td { text-align: center; padding: 4px 6px; }
+.screening-muscle-hero { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
+
+/* Posture Evaluation — finding + signed value per axis, no fabricated range bar
+   (the report's per-axis reference ranges aren't part of what's extracted). */
+.posture-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px 20px; }
+.posture-row { display: flex; flex-direction: column; gap: 2px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.posture-axis { font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-muted); }
+.posture-finding-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.posture-finding { font-size: 0.88rem; color: var(--text); }
+.posture-finding--normal { color: var(--text-muted); }
+.posture-value { font-family: ui-monospace, 'SF Mono', Consolas, monospace; font-size: 0.8rem; color: var(--text-muted); white-space: nowrap; }
 /* The extracted-data column scrolls internally so the tall read-out fits beside
    the shorter edit form on the left. On a narrow (stacked) layout it flows
    normally — there is no left column to fit against. */

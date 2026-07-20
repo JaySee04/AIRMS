@@ -238,6 +238,21 @@ const NAZWAN_SUBITEMS = {
   lowerLimbs: { romL: 66, romR: 68, stabL: 76, stabR: 79, sym: 91 },
 };
 
+// Nazwan's real Posture Evaluation (page 4 of the same report) — added when
+// the Posture Evaluation section was built, so the seeded ground-truth athlete
+// demonstrates it with real data instead of rendering the "not captured"
+// fallback for everyone.
+const NAZWAN_POSTURE = {
+  neckFB: { finding: 'Neck Flexion', value: -4.33 },
+  neckLR: { finding: 'Normal', value: -2.02 },
+  shoulder: { finding: 'Left Shoulder Lower, Right Shoulder Higher', value: -2.81 },
+  spineFB: { finding: 'Thoracic Lordosis', value: 3.16 },
+  spineLR: { finding: 'Lumbar Right Lateral Tilt', value: -2.69 },
+  pelvisFB: { finding: 'Left Anterior Pelvic Tilt', value: -5.71 },
+  pelvisLR: { finding: 'Pelvic Left Lateral Tilt', value: -1.66 },
+  lowerLimbs: { finding: 'Normal', value: 3.22 },
+};
+
 // Plausible Physical Fitness Subitem Scores for the rest of the screened
 // population (Nazwan keeps his real table above). Regional values are jittered
 // around the athlete's headline ROM/Stability/Symmetry so the table reads
@@ -297,7 +312,7 @@ function buildScreenings(athletes) {
     const screened = a.overallActivityScore != null;
     if (!screened) continue;
     if (a.athleteId === 'ATH0062') {
-      rows.push(snap(a, daysAgo(6), { subitems: NAZWAN_SUBITEMS }));
+      rows.push(snap(a, daysAgo(6), { subitems: NAZWAN_SUBITEMS, posture: NAZWAN_POSTURE }));
     } else {
       rows.push(snap(a, daysAgo(range(20, 75)), { subitems: genSubitems(a) }));
     }

@@ -610,10 +610,11 @@ export default function PdfScreeningUpload() {
                   <ScreeningPreview
                     athlete={it.preview.athlete as unknown as Record<string, unknown>}
                     subitems={it.preview.subitems}
+                    posture={it.preview.posture}
                   />
                   {/* Muscle hero — fitted into the right (data) column */}
-                  <div className="pdf-muscle-hero">
-                    <div className="pdf-preview-h">Muscle assessment map</div>
+                  <div className="screening-muscle-hero">
+                    <div className="screening-block-h">Muscle assessment map</div>
                     <BodyMap myodynamia={it.preview.myodynamia} tension={it.preview.tension} />
                   </div>
                 </div>

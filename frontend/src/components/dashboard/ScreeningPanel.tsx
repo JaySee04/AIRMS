@@ -23,6 +23,9 @@ import {
   RegionThresholds, thresholdsFor, bandFor, criticalRegionsFor,
 } from '@/lib/screeningAlerts';
 import { buildTrainingFocus } from '@/lib/trainingFocus';
+import SubitemTable from './SubitemTable';
+import PostureList from './PostureList';
+import type { Subitems, Posture } from './OverallRiskBadge';
 
 export interface ScreeningData {
   name: string;
@@ -35,6 +38,10 @@ export interface ScreeningData {
   stability?: number | null;
   symmetry?: number | null;
   risks: AthleteRisks;
+  // Display-only detail (not part of z-scoring) — not stored on the Athlete
+  // row, so callers pull these from the athlete's `.screening` sub-object.
+  subitems?: Subitems | null;
+  posture?: Posture | null;
 }
 
 // Indicator display scale. The report prints Low 0–15 / Medium 16–55 /
@@ -230,6 +237,37 @@ export default function ScreeningPanel({ athlete }: { athlete: ScreeningData }) 
           </span>
         </div>
       </div>
+
+      {/* Physical Fitness Subitem Score — 5-region ROM/Stability/Symmetry
+          breakdown (HoloMotion tier colours). Display-only detail behind the
+          headline gauges above; renders nothing when the report didn't carry
+          it (older/compact layout, or a report imported before this section
+          was extracted). */}
+      {athlete.subitems && (
+        <div className="card" style={{ marginBottom: 20 }}>
+          <div className="card-header">
+            <div>
+              <h2 className="card-title" style={{ marginBottom: 0 }}>Physical Fitness Subitem Score</h2>
+              <span className="card-sub">Latest report · per-region ROM / Stability / Symmetry</span>
+            </div>
+          </div>
+          <SubitemTable subitems={athlete.subitems} />
+        </div>
+      )}
+
+      {/* Posture Evaluation — the report's 8-axis postural read-out. Finding +
+          signed value only (see PostureList for why no range bar is drawn). */}
+      {athlete.posture && (
+        <div className="card" style={{ marginBottom: 20 }}>
+          <div className="card-header">
+            <div>
+              <h2 className="card-title" style={{ marginBottom: 0 }}>Posture Evaluation</h2>
+              <span className="card-sub">Latest report · descriptive finding + measured deviation per axis</span>
+            </div>
+          </div>
+          <PostureList posture={athlete.posture} />
+        </div>
+      )}
 
       {/* Training focus — AIRMS' counterpart of the report's closing Training
           Prescription: corrective exercises for the regions that breached
