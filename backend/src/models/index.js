@@ -6,10 +6,8 @@ const User = require('./User');
 const Athlete = require('./Athlete');
 const MuscleFlag = require('./MuscleFlag');
 const AthleteDiscipline = require('./AthleteDiscipline');
-const Activity = require('./Activity');
 const Injury = require('./Injury');
 const SelfReport = require('./SelfReport');
-const RecoveryBaseline = require('./RecoveryBaseline');
 const Screening = require('./Screening');
 const Setting = require('./Setting');
 const CohortThreshold = require('./CohortThreshold');
@@ -23,17 +21,11 @@ MuscleFlag.belongsTo(Athlete, { foreignKey: 'athleteId', targetKey: 'athleteId' 
 Athlete.hasMany(AthleteDiscipline, { foreignKey: 'athleteId', sourceKey: 'athleteId', as: 'disciplines' });
 AthleteDiscipline.belongsTo(Athlete, { foreignKey: 'athleteId', targetKey: 'athleteId' });
 
-Athlete.hasMany(Activity, { foreignKey: 'athleteId', sourceKey: 'athleteId', as: 'activities' });
-Activity.belongsTo(Athlete, { foreignKey: 'athleteId', targetKey: 'athleteId' });
-
 Athlete.hasMany(Injury, { foreignKey: 'athleteId', sourceKey: 'athleteId', as: 'injuries' });
 Injury.belongsTo(Athlete, { foreignKey: 'athleteId', targetKey: 'athleteId' });
 
 Athlete.hasMany(SelfReport, { foreignKey: 'athleteId', sourceKey: 'athleteId', as: 'selfReports' });
 SelfReport.belongsTo(Athlete, { foreignKey: 'athleteId', targetKey: 'athleteId' });
-
-Athlete.hasMany(RecoveryBaseline, { foreignKey: 'athleteId', sourceKey: 'athleteId', as: 'recoveryBaselines' });
-RecoveryBaseline.belongsTo(Athlete, { foreignKey: 'athleteId', targetKey: 'athleteId' });
 
 // Athlete ↔ Screening (1:N) — full history of every committed HoloMotion import.
 Athlete.hasMany(Screening, { foreignKey: 'athleteId', sourceKey: 'athleteId', as: 'screenings' });
@@ -49,10 +41,8 @@ module.exports = {
   Athlete,
   MuscleFlag,
   AthleteDiscipline,
-  Activity,
   Injury,
   SelfReport,
-  RecoveryBaseline,
   Screening,
   Setting,
   CohortThreshold,

@@ -109,6 +109,17 @@ export function bandFor(value: number, t: RegionThresholds): 'ok' | 'watch' | 'h
   return 'ok';
 }
 
+// The Elevated (high-band) cutoff for every indicator, in INDICATORS order —
+// i.e. the same axis order the risk radar and the threshold strips use.
+// Sport-critical regions come back tightened (thresholdsFor handles that), so
+// this is the exact boundary line a radar "guide" polygon should be drawn
+// against for this athlete. Single source of truth: any caller that needs a
+// per-axis Elevated boundary (RiskRadar guide, PDF radar guide) should read
+// it from here rather than re-deriving it.
+export function highThresholdsFor(sport: string | undefined): number[] {
+  return INDICATORS.map((ind) => thresholdsFor(sport, ind.region).high);
+}
+
 // Sport → regions that matter most for that sport. Defaults to no critical
 // regions for unmapped sports (those still get a safety-net alert on any
 // HIGH indicator). Curated for the seeded ISN sports; edit here to tune.

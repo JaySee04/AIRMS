@@ -1,12 +1,37 @@
 # AIRMS — System Algebra Reference
 
-Every numeric quantity the system computes, where it lives in code, what the formula is, and a worked example using seeded demo data. Intended as the single source of truth for explaining the math in viva.
+> **2026-07-20 — read this before citing "where it lives" below.** Activity
+> Tracking (the FYP I Module 1 — sRPE session logging, the sole input to everything in
+> §1–§4 and §7–§13) was **fully removed** at JC's request:
+> `backend/src/models/Activity.js`, `routes/activities.js`,
+> `backend/src/models/RecoveryBaseline.js` and `routes/recoveryBaselines.js`
+> are all **deleted**, along with the Recent Activity tables, the
+> sharp-drop prompt, the recovery-baseline card and the prevention-insight
+> card on both dashboards. **None of the formulas in this document currently
+> execute anywhere in the running system.** `classifyCompositeRisk()` and its
+> helper functions are unchanged in `frontend/src/lib/risk.ts` (kept — the
+> composite formula is a locked decision) but have zero live callers. Every
+> "Where it lives" line below that cites `Activity.js`, `activities.js`,
+> `RecoveryBaseline.js`, `recoveryBaselines.js`, or a dashboard's
+> `computed`/`workload`/`cumACWR`/`buildPreventionInsight` block is citing
+> **code that no longer exists**. §5, §6, §7, §8, §9 (the parts of the
+> pipeline that live purely in `risk.ts`) are the only sections whose code
+> still exists, dormant. This document is kept as the **math reference** —
+> the formulas are real, cited, and needed for the report — not as a
+> description of what the running system currently computes. See
+> `docs/fyp/ACWR_REBUILD.md` for the removal history and rebuild spec.
 
-If a number on a dashboard or report cannot be traced back to one of the sections in this document, that number is either decorative or a bug.
+Every numeric quantity the system **used to compute** (as of 2026-07-16),
+where it lived in code, what the formula is, and a worked example using
+seeded demo data. Originally intended as the single source of truth for
+explaining the math in viva — now a locked-decision reference for a
+dormant/removed pipeline, per the note above.
+
+If a number on a dashboard or report cannot be traced back to one of the sections in this document, that number is either decorative or a bug — this rule still holds; there just aren't any ACWR-derived numbers left on any dashboard to check it against.
 
 ---
 
-## 1. Session Load (sRPE)
+## 1. Session Load (sRPE) — mechanism removed 2026-07-20
 
 The foundational metric — every higher-level derivation eventually traces back to this.
 
@@ -24,13 +49,13 @@ session_load (AU) = duration_minutes × intensity_RPE
 
 **Citation lineage:** Inoue (2022) confirmed scale reliability across athletes vs coaches (meta-analysis of 27 studies); Yang (2024) re-validated physiological correspondence (sRPE vs HR-based TRIMP).
 
-**Where it lives:** `Activity` model hook at [backend/src/models/Activity.js:48–65](../backend/src/models/Activity.js#L48-L65). Computed at write time, persisted to the `load` column, so the value is always consistent with the inputs it derived from.
+**Where it lived (deleted 2026-07-20):** `Activity` model hook at `backend/src/models/Activity.js:48–65`. Computed at write time, persisted to the `load` column, so the value was always consistent with the inputs it derived from.
 
 **Worked example.** A 75-minute strength session at RPE 8 → `session_load = 75 × 8 = 600 AU`.
 
 ---
 
-## 2. Acute Load
+## 2. Acute Load — removed 2026-07-20
 
 The athlete's most-recent week of training, summed.
 
@@ -42,15 +67,15 @@ acute_load = Σ session_load over the last 7 calendar days
 
 **Worked example.** John Doe (ATH0001) at snapshot time had 6 sessions in the last 7 days summing to 2,860 AU. After soft-deleting those 6 sessions, his acute load drops to 0 AU.
 
-**Where it lives:** computed inline in two places:
-- Backend: [backend/src/routes/activities.js:57–90](../backend/src/routes/activities.js#L57-L90) (the `/acwr` endpoint)
-- Frontend: `computed` block in [athlete dashboard](../frontend/src/app/athlete/dashboard/page.tsx) and the `workload` memo in [medical dashboard](../frontend/src/app/medical/dashboard/page.tsx)
+**Where it lived (deleted 2026-07-20):** computed inline in two places:
+- Backend: `backend/src/routes/activities.js:57–90` (the `/acwr` endpoint)
+- Frontend: the `computed` block in the athlete dashboard and the `workload` memo in the medical dashboard — both removed from `frontend/src/app/athlete/dashboard/page.tsx` and `frontend/src/app/medical/dashboard/page.tsx` respectively
 
-The frontend recomputation produces an 8-week trend that the backend single-value endpoint cannot.
+The frontend recomputation produced an 8-week trend that the backend single-value endpoint could not.
 
 ---
 
-## 3. Chronic Load
+## 3. Chronic Load — removed 2026-07-20
 
 A rolling 4-week average of weekly load — proxy for the athlete's current training fitness.
 
@@ -71,7 +96,7 @@ where `weekly_load_1` is the most recent week and `weekly_load_4` is the oldest 
 
 ---
 
-## 4. ACWR (Acute:Chronic Workload Ratio)
+## 4. ACWR (Acute:Chronic Workload Ratio) — inputs removed 2026-07-20, formula dormant in `risk.ts`
 
 The ratio that the entire risk pipeline is built on.
 
@@ -93,7 +118,7 @@ Output is unitless. The textbook Gabbett (2016) safe-zone is **0.8 – 1.3**, va
 
 ---
 
-## 5. Vulnerability Score
+## 5. Vulnerability Score — dormant in `risk.ts` (no live caller)
 
 The AIRMS contribution that personalises ACWR thresholds. Single scalar derived from screening data, range `[0, 1]` — 0 robust, 1 highly vulnerable.
 
@@ -141,7 +166,7 @@ vulnerability = 0.30 × iriNorm
 
 ---
 
-## 6. Personalised Thresholds
+## 6. Personalised Thresholds — dormant in `risk.ts` (no live caller)
 
 Vulnerability shifts the textbook Gabbett bands per athlete. Modifier is intentionally clamped — the personalised band must stay recognisably close to the published literature.
 
@@ -174,7 +199,7 @@ Notice the band visibly tightens for the high-vulnerability case (`0.92 – 1.13
 
 ---
 
-## 7. Base ACWR Classification
+## 7. Base ACWR Classification — dormant in `risk.ts` (no live caller)
 
 Pure-workload band — no escalation applied.
 
@@ -193,7 +218,7 @@ The four bands are exhaustive and disjoint. **Detraining Risk is the only band b
 
 ---
 
-## 8. Composite Escalation
+## 8. Composite Escalation — dormant in `risk.ts` (no live caller)
 
 The AIRMS differentiator. Two escalation gates layer on top of the base ACWR class. Each can bump the band up one step (`low → mod`, `mod → high`). Detraining and clearly-Low workloads are excluded by design.
 
@@ -240,7 +265,7 @@ If John ever picked up a 5th muscle flag at his next screening, the second gate 
 
 ---
 
-## 9. Final Risk Label + Message
+## 9. Final Risk Label + Message — dormant in `risk.ts` (no live caller)
 
 The `cls` after escalation determines the band, but the **label and message** displayed depend on whether escalation actually fired.
 
@@ -264,7 +289,7 @@ The compound message text is deliberately worded to **not** claim workload alone
 
 ---
 
-## 10. Cumulative ACWR Trend (8-week chart)
+## 10. Cumulative ACWR Trend (8-week chart) — removed 2026-07-20
 
 The dashboard chart plots an ACWR per week using a rolling chronic window, so the trend reads correctly at each point.
 
@@ -279,11 +304,11 @@ ACWR_i       = (chronic_i > 0) ? weeklyLoad_i / chronic_i : 0
 
 This produces a per-week ACWR that respects causality (each week's chronic only includes data available at that week, not future weeks).
 
-**Where it lives:** the `cumACWR` block in [athlete dashboard](../frontend/src/app/athlete/dashboard/page.tsx) and [medical dashboard](../frontend/src/app/medical/dashboard/page.tsx).
+**Where it lived (removed 2026-07-20):** the `cumACWR` block in the athlete dashboard and medical dashboard — both removed from `frontend/src/app/athlete/dashboard/page.tsx` and `frontend/src/app/medical/dashboard/page.tsx` respectively.
 
 ---
 
-## 11. Recovery Baseline Snapshot
+## 11. Recovery Baseline Snapshot — removed 2026-07-20
 
 Not a derivation per se, but a record of the algebra state at the moment of an escalation event.
 
@@ -301,11 +326,11 @@ Not a derivation per se, but a record of the algebra state at the moment of an e
 
 **Interpretation.** The snapshot defines the return-to-play target: bring ACWR back into `[targetLowMin, targetLowMax]` at roughly `chronicLoad` AU of weekly training. Gradual ramp-up is the mitigation for the rebound-spike risk that Qin (2025) flags.
 
-**Where it lives:** model at [backend/src/models/RecoveryBaseline.js](../backend/src/models/RecoveryBaseline.js), auto-trigger in the dashboards' useEffect hooks.
+**Where it lived (deleted 2026-07-20):** model at `backend/src/models/RecoveryBaseline.js`, auto-trigger in the dashboards' `useEffect` hooks.
 
 ---
 
-## 12. Prevention Insight Scoring (medical dashboard)
+## 12. Prevention Insight Scoring (medical dashboard) — removed 2026-07-20
 
 A small scoring loop ranks body regions where multiple risk signals converge. Used to populate the "watch points" list on the Prevention Insight card.
 
@@ -319,21 +344,21 @@ score = (1 if elevated_risk_indicator else 0)
 
 Regions are then sorted by score descending; the top 3 are surfaced. The interesting clinical signal is **convergence** — a region with score 2 or 3 has multiple independent indicators pointing at the same anatomical area.
 
-**Where it lives:** `buildPreventionInsight` at top of [frontend/src/app/medical/dashboard/page.tsx](../frontend/src/app/medical/dashboard/page.tsx).
+**Where it lived (deleted 2026-07-20):** `buildPreventionInsight`, formerly at the top of `frontend/src/app/medical/dashboard/page.tsx`.
 
 ---
 
-## 13. Data-Window Defaults (storage-side math)
+## 13. Data-Window Defaults (storage-side math) — removed 2026-07-20
 
-Two defaults that show up as design constants in the system, both anchored to the ACWR algebra.
+Two defaults that used to show up as design constants in the system, both anchored to the ACWR algebra.
 
 **Default activity history window: 12 weeks.**
 ```
 12 = 8 (dashboard chart) + 4 (chronic-load memory buffer)
 ```
-Anything inside this window can be re-rendered into the dashboard chart and still produce correct ACWR values. Older data is preserved in MySQL but is not loaded into the dashboard request by default ([STORAGE_MECHANISMS.md](STORAGE_MECHANISMS.md) §1).
+Anything inside this window could be re-rendered into the dashboard chart and still produce correct ACWR values. Older data was preserved in MySQL but not loaded into the dashboard request by default. This entire mechanism is gone along with the `activities` table — see [STORAGE_MECHANISMS.md](STORAGE_MECHANISMS.md).
 
-**Delete behaviour:** `DELETE /api/activities/:id` removes the row outright. Activities are athlete-owned training data, so deletion is honoured rather than tombstoned. ACWR and chronic-load calculations therefore read the data as the athlete sees it in their history table.
+**Delete behaviour:** `DELETE /api/activities/:id` removed the row outright — this endpoint no longer exists.
 
 ---
 
@@ -349,9 +374,13 @@ If a number on the dashboard isn't covered here and isn't in the list above, it'
 
 ---
 
-## Worked Walk-Through: John Doe end-to-end
+## Worked Walk-Through: John Doe end-to-end — describes a pipeline removed 2026-07-20
 
-Putting it all together with the actual seeded numbers.
+Putting it all together with the actual seeded numbers **as they stood before
+2026-07-20**. Nothing below still runs — the training-load data (Activity
+Tracking) that fed it is gone, and with it the recovery-baseline trigger this
+walk-through ends on. Kept as a complete worked example of the locked
+composite formula for the report.
 
 **Athlete state (live ISN-anchor screening):**
 - `injuryRiskIndex = 10.4`, `overallActivityScore = 80.28`

@@ -1,6 +1,6 @@
 // Screening history + clinician override (redesign spec §3.4, §5).
 const express = require('express');
-const { Screening } = require('../models');
+const { Screening, Athlete } = require('../models');
 const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
 const requirePermission = require('../middleware/permission');
@@ -8,14 +8,28 @@ const requirePermission = require('../middleware/permission');
 const router = express.Router();
 
 // GET /api/screenings/athlete/:id — full history (newest first). Athletes may
-// read their own; medical/admin any (medical gated by viewRecords).
+// read their own; coaches athletes in their assigned sport; medical/admin any
+// (medical gated by viewRecords).
 router.get('/athlete/:id', auth, requirePermission('viewRecords'), async (req, res) => {
   try {
     if (req.user.role === 'athlete' && req.user.athleteId !== req.params.id) {
       return res.status(403).json({ message: 'Access denied' });
     }
+    if (req.user.role === 'coach') {
+      const athlete = await Athlete.findOne({ where: { athleteId: req.params.id }, attributes: ['sport'], raw: true });
+      if (!athlete || athlete.sport !== req.user.coachSport) {
+        return res.status(403).json({ message: 'Coaches can only view screening history for athletes in their assigned sport.' });
+      }
+    }
+    // Summary columns only — the heavy per-report detail (subitems, posture,
+    // summary text) stays on the latest-screening fetch and the PDF.
     const rows = await Screening.findAll({
       where: { athleteId: req.params.id },
+      attributes: [
+        'id', 'assessedAt', 'importedBy',
+        'totalScore', 'rom', 'stability', 'symmetry', 'exerciseRisks',
+        'overallIndicator', 'overallBand', 'overrideBand', 'overrideBy',
+      ],
       order: [['assessedAt', 'DESC'], ['id', 'DESC']],
     });
     res.json(rows);

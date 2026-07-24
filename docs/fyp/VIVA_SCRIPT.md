@@ -1,5 +1,15 @@
 # FYP I Viva Presentation Script
 
+> **2026-07-20 note — do not treat this as current system state.** This
+> script is a transcript of what was actually presented at the FYP I viva; it
+> is left unedited as a historical record. Since then, Activity Tracking
+> (Module 1 — sRPE session logging, `/athlete/activity`, the `Activity` /
+> `RecoveryBaseline` backend models) has been **fully removed** from the
+> codebase (see `docs/MASTER_CLARIFICATIONS.md §4`). Every reference below to
+> Activity Tracking, ACWR, session load, or the Activity/Recovery Baseline
+> entities describes code that no longer exists. Use `docs/MODULES_STATUS.md`
+> for current state, not this file.
+
 Aligned to **FYP I VIVA SLIDES (Draft).pdf** (updated post-panel feedback; Literature Review 4 is a recent two-paper Session Load Quantification cluster — Inoue 2022 and Yang 2024 — both of which build on and revalidate the established sRPE method).
 
 > **2026-07-05:** Slides 16, 20, 24, 29, 37, 38 and the UI walkthrough updated for the deliverables shift (HoloMotion PDF vision-AI ingestion, backup export, staff permissions, screening pages, corrected ERD). Deliver these versions only against slides updated per `REPORT_EDIT_PACK.md` — the old narration described entities and use cases that no longer exist.

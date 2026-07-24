@@ -13,9 +13,11 @@
 //      at the athlete's value coloured by which zone it lands in, and the
 //      athlete's sport-critical regions starred (same region map + thresholds
 //      as the alert layer in lib/screeningAlerts.ts).
-// The report's muscle lists are NOT rendered here — the BodyMap card that
-// sits next to this panel on both dashboards already shows them (figure +
-// per-category flag cards), so repeating them would be noise.
+// The report's muscle lists AND the Physical Fitness Subitem Score (ROM /
+// Stability per region) are NOT rendered here — the BodyMap card that sits
+// next to this panel on both dashboards shows both, toggled between "Muscle
+// Flags" and "ROM & Stability" on the same figure, so repeating either here
+// would be noise.
 
 import {
   AthleteRisks, BAND_LABEL, INDICATORS, WATCH_THRESHOLD, HIGH_THRESHOLD,
@@ -23,7 +25,6 @@ import {
   RegionThresholds, thresholdsFor, bandFor, criticalRegionsFor,
 } from '@/lib/screeningAlerts';
 import { buildTrainingFocus } from '@/lib/trainingFocus';
-import SubitemTable from './SubitemTable';
 import PostureList from './PostureList';
 import type { Subitems, Posture } from './OverallRiskBadge';
 
@@ -187,7 +188,7 @@ export default function ScreeningPanel({ athlete }: { athlete: ScreeningData }) 
           <div>
             <h2 className="card-title" style={{ marginBottom: 0 }}>HoloMotion Screening</h2>
             <span className="card-sub">
-              Latest report · tier ticks at 60 / 75 / 85
+              Tier ticks at 60 / 75 / 85
               {athlete.age ? ` · age ${athlete.age}` : ''}{athlete.gender ? ` · ${athlete.gender}` : ''}
             </span>
           </div>
@@ -239,21 +240,10 @@ export default function ScreeningPanel({ athlete }: { athlete: ScreeningData }) 
       </div>
 
       {/* Physical Fitness Subitem Score — 5-region ROM/Stability/Symmetry
-          breakdown (HoloMotion tier colours). Display-only detail behind the
-          headline gauges above; renders nothing when the report didn't carry
-          it (older/compact layout, or a report imported before this section
-          was extracted). */}
-      {athlete.subitems && (
-        <div className="card" style={{ marginBottom: 20 }}>
-          <div className="card-header">
-            <div>
-              <h2 className="card-title" style={{ marginBottom: 0 }}>Physical Fitness Subitem Score</h2>
-              <span className="card-sub">Latest report · per-region ROM / Stability / Symmetry</span>
-            </div>
-          </div>
-          <SubitemTable subitems={athlete.subitems} />
-        </div>
-      )}
+          breakdown. No longer a standalone card here: it's shown by the
+          "Muscle Assessment Map" BodyMap elsewhere on this page, toggled
+          between "Muscle Flags" and "ROM & Stability" — same figure, same
+          data, one fewer place for the two to drift apart. */}
 
       {/* Posture Evaluation — the report's 8-axis postural read-out. Finding +
           signed value only (see PostureList for why no range bar is drawn). */}
@@ -262,7 +252,7 @@ export default function ScreeningPanel({ athlete }: { athlete: ScreeningData }) 
           <div className="card-header">
             <div>
               <h2 className="card-title" style={{ marginBottom: 0 }}>Posture Evaluation</h2>
-              <span className="card-sub">Latest report · descriptive finding + measured deviation per axis</span>
+              <span className="card-sub">Finding + measured deviation per axis</span>
             </div>
           </div>
           <PostureList posture={athlete.posture} />
@@ -285,7 +275,7 @@ function TrainingFocus({ athlete }: { athlete: ScreeningData }) {
         <div>
           <h2 className="card-title" style={{ marginBottom: 0 }}>Training Focus</h2>
           <span className="card-sub">
-            Corrective work for out-of-range regions · format mirrors the HoloMotion Training Prescription
+            Corrective work for out-of-range regions
           </span>
         </div>
       </div>

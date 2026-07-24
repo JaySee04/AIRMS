@@ -321,59 +321,77 @@ export default function AdminDashboard() {
     <DashboardLayout allowedRoles={['admin']} title="Injury Analytics">
       {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
 
+      {/* Filters grouped by scope: the Cohort set narrows every chart AND the
+          screening-cohort section below; the Injury-only set narrows just the
+          injury charts (the screening section ignores body part / type / dates).
+          The grouping is what tells the user this — no prose caveat needed. */}
       <div className="card" style={{ marginBottom: 20 }}>
-        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-          <div className="form-group" style={{ minWidth: 140, marginBottom: 0 }}>
-            <label>Sport</label>
-            <select value={sport} onChange={(e) => setSport(e.target.value)}>
-              <option value="">All</option>
-              {sports.map((s) => (<option key={s} value={s}>{s}</option>))}
-            </select>
+        <div style={{ display: 'flex', gap: 16, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+          <fieldset className="filter-group">
+            <legend className="filter-group-legend">Cohort <span>· applies everywhere</span></legend>
+            <div className="filter-group-body">
+              <div className="form-group" style={{ minWidth: 140, marginBottom: 0 }}>
+                <label>Sport</label>
+                <select value={sport} onChange={(e) => setSport(e.target.value)}>
+                  <option value="">All</option>
+                  {sports.map((s) => (<option key={s} value={s}>{s}</option>))}
+                </select>
+              </div>
+              <div className="form-group" style={{ minWidth: 120, marginBottom: 0 }}>
+                <label>Gender</label>
+                <select value={gender} onChange={(e) => setGender(e.target.value)}>
+                  <option value="">All</option>
+                  {GENDERS.map((g) => (<option key={g} value={g}>{g}</option>))}
+                </select>
+              </div>
+              <div className="form-group" style={{ minWidth: 140, marginBottom: 0 }}>
+                <label>Programme</label>
+                <select value={programme} onChange={(e) => setProgramme(e.target.value)}>
+                  <option value="">All</option>
+                  {PROGRAMMES.map((p) => (<option key={p} value={p}>{p}</option>))}
+                </select>
+              </div>
+              <div className="form-group" style={{ minWidth: 160, marginBottom: 0 }}>
+                <label>Age Group</label>
+                <select value={ageGroupIndex} onChange={(e) => setAgeGroupIndex(Number(e.target.value))}>
+                  {AGE_GROUPS.map((g, i) => (<option key={g.label} value={i}>{g.label}</option>))}
+                </select>
+              </div>
+            </div>
+          </fieldset>
+
+          <fieldset className="filter-group">
+            <legend className="filter-group-legend">Injury only <span>· injury charts</span></legend>
+            <div className="filter-group-body">
+              <div className="form-group" style={{ minWidth: 140, marginBottom: 0 }}>
+                <label>Body Part</label>
+                <select value={bodyPart} onChange={(e) => setBodyPart(e.target.value)}>
+                  <option value="">All</option>
+                  {BODY_PARTS.map((b) => (<option key={b} value={b}>{b}</option>))}
+                </select>
+              </div>
+              <div className="form-group" style={{ minWidth: 140, marginBottom: 0 }}>
+                <label>Injury Type</label>
+                <select value={injuryType} onChange={(e) => setInjuryType(e.target.value)}>
+                  <option value="">All</option>
+                  {INJURY_TYPES.map((t) => (<option key={t} value={t}>{t}</option>))}
+                </select>
+              </div>
+              <div className="form-group" style={{ minWidth: 140, marginBottom: 0 }}>
+                <label>From</label>
+                <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+              </div>
+              <div className="form-group" style={{ minWidth: 140, marginBottom: 0 }}>
+                <label>To</label>
+                <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+              </div>
+            </div>
+          </fieldset>
+
+          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginLeft: 'auto' }}>
+            <button type="button" className="btn btn-outline btn-sm" onClick={reset}>Reset</button>
+            <Link href={reportsHref} className="btn btn-gold btn-sm">Generate PDF Report</Link>
           </div>
-          <div className="form-group" style={{ minWidth: 120, marginBottom: 0 }}>
-            <label>Gender</label>
-            <select value={gender} onChange={(e) => setGender(e.target.value)}>
-              <option value="">All</option>
-              {GENDERS.map((g) => (<option key={g} value={g}>{g}</option>))}
-            </select>
-          </div>
-          <div className="form-group" style={{ minWidth: 140, marginBottom: 0 }}>
-            <label>Programme</label>
-            <select value={programme} onChange={(e) => setProgramme(e.target.value)}>
-              <option value="">All</option>
-              {PROGRAMMES.map((p) => (<option key={p} value={p}>{p}</option>))}
-            </select>
-          </div>
-          <div className="form-group" style={{ minWidth: 140, marginBottom: 0 }}>
-            <label>Body Part</label>
-            <select value={bodyPart} onChange={(e) => setBodyPart(e.target.value)}>
-              <option value="">All</option>
-              {BODY_PARTS.map((b) => (<option key={b} value={b}>{b}</option>))}
-            </select>
-          </div>
-          <div className="form-group" style={{ minWidth: 140, marginBottom: 0 }}>
-            <label>Injury Type</label>
-            <select value={injuryType} onChange={(e) => setInjuryType(e.target.value)}>
-              <option value="">All</option>
-              {INJURY_TYPES.map((t) => (<option key={t} value={t}>{t}</option>))}
-            </select>
-          </div>
-          <div className="form-group" style={{ minWidth: 160, marginBottom: 0 }}>
-            <label>Age Group</label>
-            <select value={ageGroupIndex} onChange={(e) => setAgeGroupIndex(Number(e.target.value))}>
-              {AGE_GROUPS.map((g, i) => (<option key={g.label} value={i}>{g.label}</option>))}
-            </select>
-          </div>
-          <div className="form-group" style={{ minWidth: 140, marginBottom: 0 }}>
-            <label>From</label>
-            <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-          </div>
-          <div className="form-group" style={{ minWidth: 140, marginBottom: 0 }}>
-            <label>To</label>
-            <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-          </div>
-          <button type="button" className="btn btn-outline btn-sm" onClick={reset}>Reset</button>
-          <Link href={reportsHref} className="btn btn-gold btn-sm">Generate PDF Report</Link>
         </div>
       </div>
 
@@ -425,7 +443,6 @@ export default function AdminDashboard() {
             <div className="card-header">
               <div>
                 <h2 className="card-title" style={{ marginBottom: 0 }}>Injuries by Body Part</h2>
-                <span className="card-sub">All filtered records</span>
               </div>
             </div>
             <div style={{ position: 'relative', height: 280 }}>
@@ -438,7 +455,6 @@ export default function AdminDashboard() {
             <div className="card-header">
               <div>
                 <h2 className="card-title" style={{ marginBottom: 0 }}>Injuries by Type</h2>
-                <span className="card-sub">All filtered records</span>
               </div>
             </div>
             <div style={{ position: 'relative', height: 280 }}>
@@ -457,7 +473,6 @@ export default function AdminDashboard() {
               <div className="card-header">
                 <div>
                   <h2 className="card-title" style={{ marginBottom: 0 }}>Injuries by Gender</h2>
-                  <span className="card-sub">All filtered records</span>
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
@@ -478,7 +493,6 @@ export default function AdminDashboard() {
               <div className="card-header">
                 <div>
                   <h2 className="card-title" style={{ marginBottom: 0 }}>Injuries by Programme</h2>
-                  <span className="card-sub">All filtered records</span>
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
@@ -540,7 +554,7 @@ export default function AdminDashboard() {
           <div className="section-divider" style={{ marginTop: 28 }}>
             <h2 style={{ margin: 0, fontSize: '1.05rem' }}>Screening Cohort — HoloMotion</h2>
             <span className="text-muted" style={{ fontSize: '0.8rem' }}>
-              Latest ingested report per athlete · follows the sport / programme / gender / age filters (injury-type &amp; date filters don&apos;t apply)
+              Per-athlete latest report · responds to the Cohort filters only
             </span>
           </div>
 
@@ -612,7 +626,7 @@ export default function AdminDashboard() {
               <div className="card-header">
                 <div>
                   <h2 className="card-title" style={{ marginBottom: 0 }}>Most-Flagged Muscles</h2>
-                  <span className="card-sub">Across all latest reports · myodynamia deficiency &amp; tension</span>
+                  <span className="card-sub">Myodynamia deficiency &amp; tension</span>
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>

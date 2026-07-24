@@ -4,12 +4,28 @@
 <meta charset="utf-8" />
 <title>AIRMS — Use Case Diagram: Screening Data Management &amp; Cohort Norms</title>
 <!--
-  As-built UC diagram, regenerated 2026-07-17 against FYP2_MODULES_USECASES.md
-  (Module 4, UC-29..38). The previous version showed only 4 use cases (Import,
-  Match by Name, Validate & Preview, Export Backup) and predated the FYP II
-  half of this module: the immutable screening snapshot, the cohort-norm
+  STALE as of 2026-07-20 — NOT regenerated for the module restructure.
+  This diagram shows the pre-restructure "Module 4 — Screening Data
+  Management & Cohort Norms" as a single 10-use-case module (interim
+  UC-29..38 numbering). That module was split 2026-07-20 into two: Module 3
+  — Screening Data Ingestion (Import, Extract, Preview & Verify, Match
+  Athlete, Commit Snapshot — final UC-23..27) and Module 4 — Cohort Norms &
+  Governance (Recompute, Email Alerts, Manage Thresholds, Tune Settings,
+  Export Backup, plus "View Screening Cohort Analytics" moved in from
+  Analytics & Reporting — final UC-28..33). This coordinate-pinned SVG
+  diagram was NOT split into two to match — it needs manual regeneration
+  (two system boundaries, actor/association rework, one new use case oval)
+  before it's report-ready. Source of truth in the meantime:
+  docs/fyp/FYP2_MODULES_USECASES.md (Modules 3 & 4) and
+  docs/fyp/fdd-updated.html (already regenerated).
+
+  Previous regeneration note (2026-07-17, now itself superseded): "As-built
+  UC diagram, regenerated against FYP2_MODULES_USECASES.md (Module 4,
+  UC-29..38). The previous version showed only 4 use cases (Import, Match by
+  Name, Validate & Preview, Export Backup) and predated the FYP II half of
+  this module: the immutable screening snapshot, the cohort-norm
   recompute/re-score, import-commit email alerts, and the admin threshold +
-  settings governance. Green = added since the FYP I decomposition.
+  settings governance." Green = added since the FYP I decomposition.
 -->
 <style>
   html, body { margin: 0; padding: 0; background: #fff; color: #1a1a1a; font-family: Helvetica, Arial, sans-serif; }
@@ -18,11 +34,24 @@
   .legend { margin: 0 0 10px; text-align: center; font-size: 11px; color: #555; }
   .legend .swatch { display: inline-block; width: 10px; height: 10px; border: 1px solid #82b366; background: #d5e8d4; vertical-align: -1px; margin: 0 4px 0 10px; }
   .foot { width: 1100px; margin: 8px auto 0; font-size: 10.5px; color: #666; line-height: 1.5; }
+  .stale-banner {
+    width: 1100px; margin: 0 auto 12px; padding: 10px 14px;
+    background: #fdecea; border: 1px solid #d9534f; border-radius: 4px;
+    color: #a12622; font-size: 12px; line-height: 1.5;
+  }
 </style>
 </head>
 <body>
 <div class="page">
-  <h1>Use Case Diagram — Screening Data Management &amp; Cohort Norms (Module 4)</h1>
+  <div class="stale-banner">
+    <strong>⚠ STALE — not regenerated for the 2026-07-20 module restructure.</strong>
+    This diagram still shows the old single "Module 4 — Screening Data Management &amp; Cohort Norms"
+    (10 use cases). That module was split into <strong>Module 3 — Screening Data Ingestion</strong>
+    and <strong>Module 4 — Cohort Norms &amp; Governance</strong> (which also gained
+    "View Screening Cohort Analytics"). See <code>docs/fyp/FYP2_MODULES_USECASES.md</code> for the
+    current, correct use-case model. See the HTML comment at the top of this file for the full detail.
+  </div>
+  <h1>Use Case Diagram — Screening Data Management &amp; Cohort Norms (superseded Module 4 grouping)</h1>
   <div class="legend">
     <span class="swatch"></span> added since the FYP I decomposition &nbsp;·&nbsp; dashed arrow = &#171;include&#187;
   </div>

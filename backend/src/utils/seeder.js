@@ -6,7 +6,7 @@
  */
 require('dotenv').config({ path: require('path').join(__dirname, '../../.env') });
 
-const { sequelize, User, Athlete, MuscleFlag, AthleteDiscipline, Activity, Injury, SelfReport, Screening, CohortThreshold } = require('../models');
+const { sequelize, User, Athlete, MuscleFlag, AthleteDiscipline, Injury, SelfReport, Screening, CohortThreshold } = require('../models');
 
 // ── Deterministic PRNG (seed=42 — same demo data on every reseed) ──────────
 let _seed = 42;
@@ -333,92 +333,6 @@ function flattenMuscleFlags(athletes) {
   return rows;
 }
 
-// ── Build activity logs (demo athletes, 8 weeks) ────────────────────────────
-function buildActivities() {
-  const types = ['Strength','Endurance','Speed','Skill','Match','Recovery'];
-  const intensityMap = {
-    Recovery: [3,5], Skill: [4,6], Speed: [6,8],
-    Strength: [6,9], Endurance: [5,8], Match: [7,10],
-  };
-  const logs = [];
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  for (let day = 56; day >= 28; day--) {
-    if (rnd() < 0.3) continue;
-    const date = new Date(today);
-    date.setDate(date.getDate() - day);
-    const type = pick(types);
-    const duration = range(40, 110);
-    const intensity = range(intensityMap[type][0], intensityMap[type][1]);
-    logs.push({
-      athleteId: 'ATH0001',
-      date,
-      type,
-      duration,
-      intensity,
-      load: duration * intensity,
-    });
-  }
-
-  // Thung Jin Seng (ATH0061) — steady low-to-moderate masters-athlete volume,
-  // ~3 sessions/week over the full 8-week window, so his ACWR/dashboard view
-  // renders a stable baseline to hold his HoloMotion screening against.
-  for (let day = 56; day >= 0; day -= 2) {
-    if (rnd() < 0.35) continue;
-    const date = new Date(today);
-    date.setDate(date.getDate() - day);
-    const type = pick(['Skill', 'Endurance', 'Recovery', 'Strength']);
-    const duration = range(35, 70);
-    const intensity = range(3, 6);
-    logs.push({
-      athleteId: 'ATH0061',
-      date,
-      type,
-      duration,
-      intensity,
-      load: duration * intensity,
-    });
-  }
-
-  const curated = [
-    { offset:  0, type: 'Match',     duration: 65, intensity: 8 },
-    { offset:  1, type: 'Recovery',  duration: 45, intensity: 4 },
-    { offset:  3, type: 'Skill',     duration: 55, intensity: 6 },
-    { offset:  4, type: 'Speed',     duration: 50, intensity: 7 },
-    { offset:  6, type: 'Endurance', duration: 60, intensity: 7 },
-    { offset:  7, type: 'Strength',  duration: 70, intensity: 8 },
-    { offset:  8, type: 'Recovery',  duration: 45, intensity: 4 },
-    { offset:  9, type: 'Endurance', duration: 65, intensity: 7 },
-    { offset: 11, type: 'Speed',     duration: 55, intensity: 8 },
-    { offset: 13, type: 'Skill',     duration: 70, intensity: 7 },
-    { offset: 14, type: 'Match',     duration: 80, intensity: 8 },
-    { offset: 15, type: 'Recovery',  duration: 40, intensity: 4 },
-    { offset: 16, type: 'Strength',  duration: 70, intensity: 8 },
-    { offset: 18, type: 'Endurance', duration: 65, intensity: 7 },
-    { offset: 20, type: 'Speed',     duration: 55, intensity: 7 },
-    { offset: 21, type: 'Recovery',  duration: 40, intensity: 4 },
-    { offset: 22, type: 'Strength',  duration: 65, intensity: 8 },
-    { offset: 24, type: 'Endurance', duration: 70, intensity: 7 },
-    { offset: 25, type: 'Speed',     duration: 55, intensity: 7 },
-    { offset: 27, type: 'Skill',     duration: 75, intensity: 7 },
-  ];
-  curated.forEach((c) => {
-    const date = new Date(today);
-    date.setDate(date.getDate() - c.offset);
-    logs.push({
-      athleteId: 'ATH0001',
-      date,
-      type: c.type,
-      duration: c.duration,
-      intensity: c.intensity,
-      load: c.duration * c.intensity,
-    });
-  });
-
-  return logs;
-}
-
 // ── Build injuries ──────────────────────────────────────────────────────────
 
 // Recovery status as a function of how long ago the injury happened. Picking
@@ -556,6 +470,13 @@ async function seed() {
   await sequelize.authenticate();
   console.log(`Connected to MySQL: ${sequelize.config.host}:${sequelize.config.port}/${sequelize.config.database}`);
 
+  // `activities` / `recovery_baselines` are retired (Activity Tracking
+  // removed 2026-07-20) but force sync below only touches tables still backed
+  // by a model, so a pre-existing dev database keeps these as FK-referencing
+  // orphans — drop them first or sync's own DROP TABLE `athletes` fails.
+  await sequelize.query('DROP TABLE IF EXISTS `recovery_baselines`');
+  await sequelize.query('DROP TABLE IF EXISTS `activities`');
+
   // Drop + recreate every table managed by these models. Sequelize handles
   // FK ordering automatically so we don't have to delete in any specific order.
   await sequelize.sync({ force: true });
@@ -577,10 +498,6 @@ async function seed() {
     const disciplines = buildDisciplines(athleteRows);
     await AthleteDiscipline.bulkCreate(disciplines, { transaction: t });
     console.log(`Inserted ${disciplines.length} athlete-discipline rows`);
-
-    const activities = buildActivities();
-    await Activity.bulkCreate(activities, { transaction: t, individualHooks: false });
-    console.log(`Inserted ${activities.length} activity logs`);
 
     const injuries = buildInjuries(athletes);
     await Injury.bulkCreate(injuries, { transaction: t });

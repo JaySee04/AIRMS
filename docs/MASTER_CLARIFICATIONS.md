@@ -62,18 +62,61 @@ Password policy is enforced server-side at `backend/src/utils/passwordPolicy.js`
 
 Per JC's FDD, AIRMS has **exactly 6 modules**. Don't propose new ones.
 
+**Restructured 2026-07-20.** The original FYP I module set (below, historical)
+had Activity Tracking & Logging as Module 1. JC asked to fully remove it —
+see the removal note below the historical table — and rather than leave a
+hole or drop to five modules, asked to **redistribute the surviving feature
+set across a fresh six**. The current module set:
+
 | # | Module | Primary role | Status |
 |---|---|---|---|
-| 1 | Activity Tracking & Logging | athlete | ✅ fully complete |
-| 2 | Athlete Dashboard / Workload | athlete | ✅ fully complete |
-| 3 | Injury & Recovery Logging | medical | 🟢 functional, recovery milestones deferred |
-| 4 | Data Management (HoloMotion PDF) | admin | 🟢 functional — vision-AI PDF ingestion (batch + name-match autofill) + Excel data backup. Excel *import* retired 2026-07-12 (archived in `archive/excel-upload/`) |
-| 5 | Injury Analytics | admin | ✅ fully complete (live PDF generation via pdfkit) |
-| 6 | Medical Dashboard | medical | 🟢 functional, watchlist deferred |
+| 1 | Athlete Dashboard & Overall Risk Indicator | athlete | ✅ fully complete |
+| 2 | Injury & Recovery Logging | medical | 🟢 functional, recovery milestones deferred |
+| 3 | Screening Data Ingestion | admin | 🟢 functional — vision-AI PDF ingestion (batch + name-match autofill). Excel *import* retired 2026-07-12 (archived in `archive/excel-upload/`) |
+| 4 | Cohort Norms & Governance | admin | 🟢 functional — norm engine, alerts, settings, backup, cohort analytics |
+| 5 | Analytics & Reporting | admin | ✅ fully complete (live PDF generation via pdfkit) |
+| 6 | Clinical & Squad Monitoring | medical | 🟢 functional, watchlist deferred |
 
 Detailed status and per-module specs: [MODULES_STATUS.md](MODULES_STATUS.md).
+Full use-case model with the old→new module/UC mapping: `docs/fyp/FYP2_MODULES_USECASES.md` (Appendix A/B).
 
-JC needs **more than 2 fully working core modules** to score full marks on the Technical Implementation rubric. All six modules are now usable end-to-end. Modules 1+2 are the FYP showcases with no known gaps. Modules 3–6 have explicit deferred items, each tied to either an external dependency (Module 4 → ISN canonical schema) or a polish item that doesn't block system usage.
+**Historical FYP I module set (superseded 2026-07-20):**
+
+| # | Module | Primary role | Status |
+|---|---|---|---|
+| 1 | Activity Tracking & Logging | athlete | ⚫ removed 2026-07-20 — JC's call, see below |
+| 2 | Athlete Dashboard / Workload | athlete | → became Module 1 above |
+| 3 | Injury & Recovery Logging | medical | → became Module 2 above |
+| 4 | Data Management (HoloMotion PDF) | admin | → split into Modules 3 + 4 above |
+| 5 | Injury Analytics | admin | → became Module 5 above |
+| 6 | Medical Dashboard | medical | → became Module 6 above |
+
+**Module 1 (Activity Tracking) status change 2026-07-20.** JC asked to fully
+remove Activity Tracking (sRPE session logging, `/athlete/activity`) — its
+ACWR/composite-risk *display* had already been pulled from every dashboard on
+2026-07-16, and JC judged the logging page itself not worth keeping now that
+nothing surfaced its output. Removed: the frontend page + Sidebar link, the
+`Activity`/`RecoveryBaseline` backend models/routes, and all related seed
+data. This was a knowing, explicit choice with the fallout accepted (see
+below) — it is **not** a bug or an oversight. `frontend/src/lib/risk.ts` (the
+composite risk model, §6 below) is kept — it's a locked decision independent
+of Activity Tracking — but it currently has no live callers anywhere in the
+app.
+
+**Fallout accepted:** the recovery-baseline auto-trigger and the medical
+prevention-insight card both consumed `classifyCompositeRisk()`'s ACWR
+argument, which only Activity Tracking produced. Both were retired alongside
+it (frontend JSX + backend `RecoveryBaseline` model/routes deleted; nothing
+computes ACWR anywhere in the app now).
+
+**Module restructure 2026-07-20.** To stay at six modules despite the
+removal, the old "Data Management (HoloMotion PDF)" module (the largest) was
+split into **Module 3 — Screening Data Ingestion** (the import pipeline) and
+**Module 4 — Cohort Norms & Governance** (the norm engine's admin surface,
+plus the cohort-analytics view moved in from the old Injury Analytics
+module). Every other module kept its shape, just renumbered down by one.
+
+JC needs **more than 2 fully working core modules** to score full marks on the Technical Implementation rubric. Module 1 remains the FYP showcase with no known gaps. Modules 2–6 have explicit deferred items, each tied to either an external dependency (Module 3 → ISN canonical schema) or a polish item that doesn't block system usage.
 
 ---
 
@@ -94,9 +137,11 @@ Standard literature bands:
 - **1.3 – 1.5** → Elevated
 - **> 1.5** → High risk
 
-Backend endpoint that returns this: `GET /api/activities/athlete/:id/acwr` ([backend/src/routes/activities.js](../backend/src/routes/activities.js)).
-
-Frontend recomputes ACWR locally in the dashboard for finer-grained per-week breakdown — see `computed` block in [athlete/dashboard/page.tsx](../frontend/src/app/athlete/dashboard/page.tsx).
+**Retired 2026-07-20.** This layer's only inputs — Activity Tracking's sRPE
+session log and the `GET /api/activities/athlete/:id/acwr` endpoint — were
+removed when the Activity Tracking module was fully retired (see §4). Nothing
+in AIRMS computes ACWR right now; the formula above is kept for the FYP
+report/citations, not as a description of running code.
 
 ---
 
@@ -108,7 +153,7 @@ AIRMS does **not** apply textbook ACWR bands directly to every athlete. Instead,
 2. **Personalises** the ACWR thresholds based on vulnerability (±~15% swing around the literature baseline)
 3. **Escalates** the risk band if active injuries or muscle flags align with the current workload
 
-Lives in [frontend/src/lib/risk.ts](../frontend/src/lib/risk.ts) → `classifyCompositeRisk()`.
+Lives in [frontend/src/lib/risk.ts](../frontend/src/lib/risk.ts) → `classifyCompositeRisk()`. **As of 2026-07-20 it has no live callers** — its ACWR input came from Activity Tracking, which was fully removed (see §4). Kept because the formula itself is a locked decision, not because anything calls it.
 
 **Why this matters:** A textbook ACWR pipeline ignores the screening data AIRMS already stores. The composite model integrates **workload + biomechanical profile + injury history** into a single judgement. **This is the FYP innovation.** It is what makes AIRMS more than "a reimplementation of Gabbett's formula in JavaScript."
 
@@ -149,7 +194,7 @@ These rules came from JC's Figma mockups and explicit feedback. **Do not deviate
 - **Branding block at top**: `logo1.png` (50×56 sized for clarity) + "AIRMS" title + "SPORTS HEALTH" subtitle in gold
 - **Active link state**: solid gold background (`--brand-gold`), navy text, font-weight 600. **Not** semi-transparent gold — solid
 - Per-role nav items (do NOT include "My Profile" in sidebar nav — it lives in the topbar dropdown):
-  - **athlete**: My Dashboard, Activity Tracking, Injury Reporting
+  - **athlete**: My Dashboard, Injury Reporting (Activity Tracking removed 2026-07-20, see §4)
   - **medical**: Athlete Dashboard, Injury Logging, Self-Report Review, Data Uploading
   - **admin**: Injury Analytics, PDF Reports, Data Uploading
 - Footer at bottom: "AIRMS Prototype v0.2" in muted small text
@@ -232,13 +277,13 @@ These rules came from JC's Figma mockups and explicit feedback. **Do not deviate
 
 ## 12. Things that must NOT change without discussion
 
-- The role model: FYP I shipped **3 roles** (athlete / medical / admin). **FYP II promotes `coach` to a first-class 4th role** — read-only and sport-scoped (one sport per coach): squad-readiness board, team-report download, read-only athlete screening detail; managed from `/admin/coaches`. Adding *further* roles beyond these four still needs discussion. (Promoted 2026-07-19 from the earlier "experimental spike" framing.)
+- The role model: FYP I shipped **3 roles** (athlete / medical / admin). **FYP II promotes `coach` to a first-class 4th role** — read-only and sport-scoped (one sport per coach): squad-readiness board, team-report download, read-only athlete screening detail, and (since 2026-07-23) individual screening-PDF download for athletes in their sport; managed from `/admin/coaches`. Adding *further* roles beyond these four still needs discussion. (Promoted 2026-07-19 from the earlier "experimental spike" framing.)
 - The composite risk model formula (`computeVulnerability`, `personalisedThresholds`, escalation logic) — this is the locked ACWR `risk.ts` model; the FYP II cohort-normed overall indicator (`overallIndicator.js`) is a separate, extensible model
-- The sRPE method for load calculation (`load = duration × intensity`)
+- The sRPE method for load calculation (`load = duration × intensity`) — **retired 2026-07-20** with Activity Tracking (§4); the formula stays locked/citable for the FYP report even though nothing implements it right now
 - The body map asset source and MIT attribution
 - The aggregation policy (figure shows regions, cards show specific muscles)
 - The Figma-derived UI design (split login card, sidebar branding, topbar dropdown)
-- The MySQL schema for `Activity`, `Athlete`, `Injury`, `MuscleFlag`, `SelfReport` (see [backend/src/models/](../backend/src/models/))
+- The MySQL schema for `Athlete`, `Injury`, `MuscleFlag`, `SelfReport` (see [backend/src/models/](../backend/src/models/))
 - The single-database direction: AIRMS persists to MySQL. The historical MongoDB stack is documented in [MONGO_RECOVERY.md](MONGO_RECOVERY.md) as an emergency restoration path, not a supported alternative
 - The ACWR thresholds 0.8 / 1.3 / 1.5 as the baseline (personalised modifiers are ±15% around these)
 

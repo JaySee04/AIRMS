@@ -204,6 +204,11 @@ router.get('/athlete/:id', auth, requirePermission('injuryReports'), async (req,
     if (req.user.role === 'athlete' && req.user.athleteId !== req.params.id) {
       return res.status(403).json({ message: 'Access denied' });
     }
+    // Clinical injury records are outside the coach remit — coaches get
+    // active-injury counts via /coach/readiness, not per-injury notes.
+    if (req.user.role === 'coach') {
+      return res.status(403).json({ message: 'Coaches do not have access to injury records.' });
+    }
     const rows = await Injury.findAll({
       where: { athleteId: req.params.id },
       order: [['date', 'DESC']],

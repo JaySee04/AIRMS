@@ -217,8 +217,9 @@ router.get('/analytics/screening', auth, rbac('admin'), async (req, res) => {
 });
 
 // GET /api/athletes/:id — single athlete full detail (with muscle flags).
-// requirePermission only constrains medical staff; athletes (own record) and
-// admin pass through, with the athlete ownership check enforced below.
+// requirePermission only constrains medical staff; athletes (own record),
+// coaches (own sport) and admin pass through, with the ownership/sport-scope
+// checks enforced below.
 router.get('/:id', auth, requirePermission('viewRecords'), async (req, res) => {
   try {
     if (req.user.role === 'athlete' && req.user.athleteId !== req.params.id) {
@@ -232,6 +233,11 @@ router.get('/:id', auth, requirePermission('viewRecords'), async (req, res) => {
       ],
     });
     if (!athlete) return res.status(404).json({ message: 'Athlete not found' });
+    // Coach: screening detail is in remit, but only for their assigned sport —
+    // same scope rule as the team/individual reports and screening history.
+    if (req.user.role === 'coach' && athlete.sport !== req.user.coachSport) {
+      return res.status(403).json({ message: 'Coaches can only view athletes in their assigned sport.' });
+    }
     const out = serializeAthlete(athlete);
     out.screening = await latestIndicator(req.params.id);
     res.json(out);

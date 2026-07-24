@@ -25,6 +25,21 @@ async function request<T>(
   return data as T;
 }
 
+// Multipart upload (e.g. the HoloMotion PDF preview). Like request(), but the
+// body is a FormData — so Content-Type is deliberately left unset, letting the
+// browser add the multipart boundary. Same auth + error handling as request().
+async function upload<T>(path: string, formData: FormData): Promise<T> {
+  const token = getToken();
+  const res = await fetch(`${BASE}${path}`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: formData,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.message ?? `HTTP ${res.status}`);
+  return data as T;
+}
+
 // Used for binary downloads (e.g. PDF reports). Returns the raw Response so
 // the caller can read Content-Disposition and stream the blob.
 async function downloadPost(path: string, body: unknown): Promise<Response> {
@@ -66,6 +81,7 @@ export const api = {
   put: <T>(path: string, body: unknown) => request<T>('PUT', path, body),
   patch: <T>(path: string, body: unknown) => request<T>('PATCH', path, body),
   delete: <T>(path: string) => request<T>('DELETE', path),
+  upload,
   downloadPost,
   downloadGet,
 };

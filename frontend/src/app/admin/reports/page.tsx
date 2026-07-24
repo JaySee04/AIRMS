@@ -71,7 +71,7 @@ function ScreeningReportsCard() {
     <div className="card">
       <div className="card-header"><div>
         <h2 className="card-title" style={{ marginBottom: 0 }}>HoloMotion Screening Reports</h2>
-        <span className="card-sub">Cohort-normed PDF reports sourced from the ingested screenings.</span>
+        <span className="card-sub">Cohort-normed PDF reports</span>
       </div></div>
       {err && <div className="alert alert-error">{err}</div>}
       <div className="grid-3" style={{ gap: 16 }}>

@@ -1,5 +1,16 @@
 # FYP I Viva — Question & Answer Bank
 
+> **2026-07-20 note — do not treat this as current system state.** This is a
+> Q&A bank for the already-delivered FYP I viva; left unedited as a
+> historical record. Since then, Activity Tracking (Module 1 — sRPE session
+> logging, `/athlete/activity`, the `Activity` / `RecoveryBaseline` backend
+> models + routes) has been **fully removed** from the codebase (see
+> `docs/MASTER_CLARIFICATIONS.md §4`). Any answer below that cites
+> `backend/src/models/Activity.js`, `app/athlete/activity/page.tsx`, the
+> recovery baseline, or prevention insight is citing a deleted file/feature —
+> useful for understanding what was once presented, not for answering
+> questions about the system as it stands today.
+
 Answers grounded in `docs/MASTER_CLARIFICATIONS.md`, `docs/DESIGN_DECISIONS.md`, `docs/MODULES_STATUS.md`, `docs/FYP_RUBRICS.md`, and the locked viva script (`docs/fyp/VIVA_SCRIPT.md`). Keep answers tight in viva; the rationale column gives you 1–2 sentences to expand if the panel pushes.
 
 ---

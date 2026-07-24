@@ -19,14 +19,15 @@
 
 - **Dr Thung** — ISN sports scientist, primary stakeholder. His requirements drive what AIRMS must do. Transcript of meeting with him: [docs/stakeholder/meeting-2026-04-24-dr-thung.txt](stakeholder/meeting-2026-04-24-dr-thung.txt)
 - **Dr Hoo Wai Lam** — JC's FYP supervisor. He drives the *academic* requirements (rubric, modules, deliverables). Same transcript covers his asks
-- **ISN as institution** — Malaysia's national sports institute. Sample data from them: [docs/data-samples/isn-csv-template.xlsx](data-samples/isn-csv-template.xlsx) — this is the canonical schema for Module 4 (Data Management)
+- **ISN as institution** — Malaysia's national sports institute. Sample data from them: [docs/data-samples/isn-csv-template.xlsx](data-samples/isn-csv-template.xlsx) — this is the canonical schema for Module 3 (Screening Data Ingestion)
 
 ## What AIRMS is
 
 AIRMS = Athlete Injury Risk Management System. A web app where:
-- **Athletes** log their training activities and view their personal injury risk
+- **Athletes** view their personal injury-risk screening picture and report injuries
 - **Medical staff** review athletes, log injuries, see team-wide patterns
 - **Admins** see analytics, manage data uploads
+- **Coaches** (first-class 4th role) get a read-only squad-readiness board for their assigned sport
 
 Built on top of a previous prototype (`airms-prototype/`) inherited from prior students Shewin and Keying. JC is continuing the project.
 
@@ -37,17 +38,17 @@ Built on top of a previous prototype (`airms-prototype/`) inherited from prior s
 ### 🔴 MUST READ FIRST — in this exact order
 
 1. **[MASTER_CLARIFICATIONS.md](MASTER_CLARIFICATIONS.md)** — architectural truth, locked decisions
-   - Tech stack, the 3 roles, the composite risk model, the body map license/aggregation policy
+   - Tech stack, the 4 roles (athlete / medical / admin / coach), the composite risk model, the body map license/aggregation policy
    - UI design rules from JC's Figma
    - **Things that must NOT change without discussion**
 
 2. **[MODULES_STATUS.md](MODULES_STATUS.md)** — current build state
-   - 6 modules from JC's FDD
-   - What's shipped (Modules 1 + 2), what's pending (Modules 3–6)
-   - Specs for the unbuilt modules
+   - 6 modules from JC's FDD, restructured 2026-07-20 after Activity Tracking (the FYP I Module 1) was removed
+   - What's shipped (Module 1), what's pending polish (Modules 2–6)
+   - Specs for the unbuilt items
 
 3. **[USER_MANUAL.md](USER_MANUAL.md)** — how shipped features work from a user's perspective
-   - Login, Activity Tracking, Athlete Dashboard
+   - Login, Athlete Dashboard
    - **This tells you what behaviors must be preserved end-to-end**
 
 4. **[PROJECT_GUIDE.md](PROJECT_GUIDE.md)** — technical reference
@@ -75,7 +76,7 @@ Built on top of a previous prototype (`airms-prototype/`) inherited from prior s
 
 8. **[docs/data-samples/isn-csv-template.xlsx](data-samples/isn-csv-template.xlsx)** — canonical ISN data schema
    - One athlete (John Doe) sample row
-   - The full structure that Module 4 will need to import
+   - The full structure that Module 3 (Screening Data Ingestion) will need to import
 
 9. **[reports/FYP-I-Report.pdf](../reports/FYP-I-Report.pdf)** — JC's FYP I report (his own writing)
    - Background, problem statement, methodology framing
@@ -91,7 +92,7 @@ Every time you start a new session or change major direction, re-read at least `
 
 ### Golden rule #2 — Don't break what's shipped
 
-Modules 1 and 2 work. If you're about to change something in `frontend/src/app/athlete/activity/`, `frontend/src/app/athlete/dashboard/`, or any of their components (`BodyMap.tsx`, `WorkloadChart.tsx`, `RiskRadar.tsx`, `risk.ts`), think twice. Touch the smallest surface that solves the problem.
+Module 1 (Athlete Dashboard & Overall Risk Indicator) works. If you're about to change something in `frontend/src/app/athlete/dashboard/`, or any of its components (`BodyMap.tsx`, `WorkloadChart.tsx`, `RiskRadar.tsx`, `risk.ts`), think twice. Touch the smallest surface that solves the problem. Activity Tracking (the FYP I Module 1, `frontend/src/app/athlete/activity/`) was fully removed 2026-07-20, and the module set restructured the same day — there's nothing left to protect there.
 
 ### Golden rule #3 — Ask before destructive actions
 

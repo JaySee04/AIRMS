@@ -16,10 +16,11 @@ import dynamic from 'next/dynamic';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { api } from '@/lib/api';
 import { MuscleEntry } from '@/lib/risk';
-import { computeBodyPartAlerts, AthleteRisks } from '@/lib/screeningAlerts';
+import { computeBodyPartAlerts, AthleteRisks, BodyRegion, highThresholdsFor } from '@/lib/screeningAlerts';
 import { getInitials } from '@/lib/name';
 import OverallRiskBadge, { ScreeningIndicator } from '@/components/dashboard/OverallRiskBadge';
 import ScreeningAlertBanner from '@/components/dashboard/ScreeningAlertBanner';
+import ScreeningHistory from '@/components/dashboard/ScreeningHistory';
 import ScreeningPanel from '@/components/dashboard/ScreeningPanel';
 
 // Heavy client-only visuals — split out so the roster shell paints first.
@@ -70,6 +71,28 @@ const RISK_LABEL: Record<keyof AthleteRisks, string> = {
   jointPain: 'Joint Pain', kneeInjuryRisk: 'Knee', ankleInjuryRisk: 'Ankle',
 };
 
+// Display name per body region for the coaching-suggestion card (the alert
+// layer groups the 8 indicators into these regions; see screeningAlerts.ts).
+const REGION_LABEL: Record<BodyRegion, string> = {
+  Neck: 'Neck', Shoulder: 'Shoulder', Spine: 'Spine (scoliosis)',
+  'Lumbar/Pelvis': 'Lumbar / pelvis', Joint: 'Joint pain', Knee: 'Knee', Ankle: 'Ankle',
+};
+
+// The training-load adjustment to make when a region is the squad's shared weak
+// spot. Deliberately programme-side levers (volume, movement prep, conditioning)
+// — the coach is read-only on the clinical side, so these are load decisions
+// within their remit, NOT treatment. The card says as much. Region→movement
+// rationale mirrors the sport-critical mapping in screeningAlerts.ts.
+const REGION_ADJUSTMENT: Record<BodyRegion, string> = {
+  Knee: 'Trim plyometric and hard-landing volume this microcycle; add posterior-chain and single-leg stability work (Nordic curls, step-downs) and check landing mechanics.',
+  Ankle: 'Ease change-of-direction and high-impact volume; add balance / proprioception drills and calf-complex loading; review footwear and taping.',
+  Shoulder: 'Pull back overhead and throwing volume; add rotator-cuff and scapular-control work; screen overhead mobility before loading.',
+  Neck: 'Break up sustained end-range neck positions; add neck / upper-trap conditioning and posture resets between efforts.',
+  Spine: 'Balance left/right loading; add anti-rotation core and thoracic mobility; hold off on heavy asymmetric lifting until reviewed.',
+  'Lumbar/Pelvis': 'Cut heavy axial-loading and end-range flexion volume; add hip / core stability and hinge-pattern strength.',
+  Joint: 'Watch overall training density; swap in low-impact conditioning and keep an eye on session RPE.',
+};
+
 // Map the cohort-normed HoloMotion band onto a coaching readiness band.
 // green → Full-Go · amber → Observation · red → Restricted (see 2026-07-16 note
 // in the file header for why this no longer derives from ACWR).
@@ -108,6 +131,19 @@ export default function CoachDashboard() {
     setDlBusy(true); setDlError(null);
     try {
       await api.downloadGet(`/screening-reports/team.pdf?sport=${encodeURIComponent(data.sport)}`, `AIRMS-team-${data.sport}.pdf`);
+    } catch (e) {
+      setDlError(e instanceof Error ? e.message : 'Download failed');
+    } finally {
+      setDlBusy(false);
+    }
+  }
+
+  // Individual screening PDF — the same report medical/admin pull; the backend
+  // scopes coaches to athletes in their assigned sport.
+  async function downloadIndividualReport(athleteId: string) {
+    setDlBusy(true); setDlError(null);
+    try {
+      await api.downloadGet(`/screening-reports/individual/${athleteId}.pdf`, `AIRMS-${athleteId}.pdf`);
     } catch (e) {
       setDlError(e instanceof Error ? e.message : 'Download failed');
     } finally {
@@ -192,19 +228,35 @@ export default function CoachDashboard() {
     return m;
   }, [classified]);
 
-  // Common weak spots — squad-wide exercise-risk regions beyond Low (what to
-  // point conditioning at). Aggregates each athlete's sport-aware region alerts.
-  const weakSpots = useMemo(() => {
-    const map = new Map<string, { label: string; watch: number; high: number }>();
-    classified.forEach(({ screening }) => {
+  // Squad screening coverage that the suggestion speaks to (athletes with actual
+  // screening data — the "of N" denominator below).
+  const screenedForAlerts = useMemo(
+    () => classified.filter((x) => x.screening.hasData).length,
+    [classified],
+  );
+
+  // Smart coaching suggestion — the squad's top shared weak spots turned into a
+  // "here's the main issue, here's the adjustment" alert. Aggregates each
+  // athlete's region alerts by BODY REGION (so it maps onto a training
+  // adjustment) and ranks by how many athletes are elevated there, breaking
+  // ties toward sport-critical regions. Each region has one shown indicator, so
+  // the elevated/watch athlete sets are disjoint and sum to "athletes flagged".
+  const squadConcerns = useMemo(() => {
+    const map = new Map<BodyRegion, { region: BodyRegion; high: Set<string>; watch: Set<string>; critical: boolean }>();
+    classified.forEach(({ row, screening }) => {
       if (!screening.hasData) return;
       screening.alerts.forEach((a) => {
-        const e = map.get(a.label) ?? { label: a.label, watch: 0, high: 0 };
-        if (a.band === 'high') e.high += 1; else e.watch += 1;
-        map.set(a.label, e);
+        const e = map.get(a.region) ?? { region: a.region, high: new Set<string>(), watch: new Set<string>(), critical: false };
+        (a.band === 'high' ? e.high : e.watch).add(row.athleteId);
+        if (a.critical) e.critical = true;
+        map.set(a.region, e);
       });
     });
-    return [...map.values()].sort((a, b) => (b.high - a.high) || (b.watch - a.watch)).slice(0, 6);
+    return [...map.values()]
+      .map((e) => ({ region: e.region, high: e.high.size, watch: e.watch.size, critical: e.critical }))
+      .filter((e) => e.high + e.watch > 0)
+      .sort((a, b) => (b.high - a.high) || (Number(b.critical) - Number(a.critical)) || (b.watch - a.watch))
+      .slice(0, 3);
   }, [classified]);
 
   // Muscle hotspots — most-flagged muscles across the squad, counted by athlete.
@@ -284,6 +336,8 @@ export default function CoachDashboard() {
           ← Back to squad
         </button>
 
+        {dlError && <div className="alert alert-error" style={{ marginBottom: 16 }}>{dlError}</div>}
+
         <div className="card" style={{ marginBottom: 20 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
             <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--brand-navy)', color: 'white', display: 'grid', placeItems: 'center', fontSize: '1.3rem', fontWeight: 600 }}>
@@ -300,6 +354,15 @@ export default function CoachDashboard() {
                 </div>
               )}
             </div>
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              style={{ flexShrink: 0 }}
+              onClick={() => downloadIndividualReport(selected.athleteId)}
+              disabled={dlBusy}
+            >
+              {dlBusy ? 'Preparing…' : 'Download PDF'}
+            </button>
           </div>
         </div>
 
@@ -315,7 +378,7 @@ export default function CoachDashboard() {
           <div className="card-header">
             <div>
               <h2 className="card-title" style={{ marginBottom: 0 }}>Risk Indicators</h2>
-              <span className="card-sub">Latest screening · closer to the centre is better</span>
+              <span className="card-sub">Closer to the centre is better</span>
             </div>
           </div>
           <div style={{ display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -323,6 +386,7 @@ export default function CoachDashboard() {
               <RiskRadar
                 labels={RISK_KEYS.map((k) => RISK_LABEL[k])}
                 values={RISK_KEYS.map((k) => Math.min(30, Math.max(0, selected.risks[k] ?? 0)))}
+                thresholds={highThresholdsFor(selected.sport)}
               />
             </div>
             <div style={{ flex: '1 1 220px', minWidth: 200 }}>
@@ -331,7 +395,8 @@ export default function CoachDashboard() {
                 screening, on a 0–30 scale.
               </p>
               <p className="text-muted" style={{ margin: 0, fontSize: '0.82rem', lineHeight: 1.5 }}>
-                Read-only. Clinical decisions and band overrides remain with medical staff.
+                The dashed red line is {selected.name.split(' ')[0]}&apos;s Elevated threshold per
+                region. Read-only — clinical decisions and band overrides remain with medical staff.
               </p>
             </div>
           </div>
@@ -341,17 +406,22 @@ export default function CoachDashboard() {
           <ScreeningPanel athlete={screeningData} />
         </div>
 
+        {/* Report-to-report progress (read-only, backend scopes to the coach's sport). */}
+        <div style={{ marginTop: 20 }}>
+          <ScreeningHistory athleteId={selected.athleteId} />
+        </div>
+
         <div className="card" style={{ marginTop: 20 }}>
           <div className="card-header">
             <div>
               <h2 className="card-title" style={{ marginBottom: 0 }}>Muscle Assessment Map</h2>
-              <span className="card-sub">Latest screening · L = left, R = right, B = both</span>
+              <span className="card-sub">L = left · R = right · B = both</span>
             </div>
             <span className="text-muted" style={{ fontSize: '0.82rem' }}>
               {activeInjuries.length} active injur{activeInjuries.length === 1 ? 'y' : 'ies'}
             </span>
           </div>
-          <BodyMap myodynamia={selected.myodynamia ?? []} tension={selected.tension ?? []} />
+          <BodyMap myodynamia={selected.myodynamia ?? []} tension={selected.tension ?? []} subitems={selected.screening?.subitems} />
         </div>
       </DashboardLayout>
     );
@@ -369,7 +439,7 @@ export default function CoachDashboard() {
             <h2 className="card-title" style={{ marginBottom: 0 }}>Squad Readiness Overview</h2>
             <span className="card-sub">
               {data?.sport ? `Sport: ${data.sport}` : 'No sport assigned to your account yet'}
-              {' · '}read-only · readiness from each athlete&apos;s cohort-normed HoloMotion indicator — the same band the medical team sees
+              {' · '}read-only · same readiness band the medical team sees
             </span>
           </div>
           {data?.sport && (
@@ -444,13 +514,53 @@ export default function CoachDashboard() {
         )}
       </div>
 
+      {/* Smart coaching suggestion — the squad's main shared issue this
+          screening round, phrased as a training adjustment the coach can act
+          on. Sits above "Needs attention" because it's the headline takeaway. */}
+      {squadConcerns.length > 0 && (
+        <div className="card" style={{ marginBottom: 20, borderLeft: '4px solid var(--brand-gold)' }}>
+          <div className="card-header">
+            <div>
+              <h2 className="card-title" style={{ marginBottom: 0 }}>Suggested focus for the squad</h2>
+              <span className="card-sub">
+                Auto-generated from this screening round · training-load guidance, not clinical advice
+              </span>
+            </div>
+          </div>
+          <ul className="coach-suggest-list">
+            {squadConcerns.map((c, i) => (
+              <li key={c.region} className={`coach-suggest-item${i === 0 ? ' is-primary' : ''}`}>
+                <div className="coach-suggest-head">
+                  <span className="coach-suggest-region">{REGION_LABEL[c.region] ?? c.region}</span>
+                  {c.critical && data?.sport && (
+                    <span className="badge-high">load-critical for {data.sport}</span>
+                  )}
+                  {c.high > 0 && <span className="badge-high">{c.high} elevated</span>}
+                  {c.watch > 0 && <span className="badge-moderate">{c.watch} on watch</span>}
+                </div>
+                <p className="coach-suggest-magnitude">
+                  {i === 0 ? 'Your squad’s biggest shared concern right now — ' : ''}
+                  {c.high + c.watch} of {screenedForAlerts} screened athlete{screenedForAlerts === 1 ? '' : 's'} flagged
+                  at the {REGION_LABEL[c.region].toLowerCase()}.
+                </p>
+                <p className="coach-suggest-action">{REGION_ADJUSTMENT[c.region]}</p>
+              </li>
+            ))}
+          </ul>
+          <p className="text-muted" style={{ fontSize: '0.76rem', marginTop: 12, marginBottom: 0 }}>
+            Ranked by how many athletes are flagged in each region this round — a frequency heuristic, not the
+            cohort risk model. Confirm programming with your medical / S&amp;C lead.
+          </p>
+        </div>
+      )}
+
       {/* Needs attention — the athletes to flag to the medical team */}
       {attention.length > 0 && (
         <div className="card" style={{ marginBottom: 20, borderLeft: '4px solid var(--risk-high, #d14b4b)' }}>
           <div className="card-header">
             <div>
               <h2 className="card-title" style={{ marginBottom: 0 }}>Needs attention ({attention.length})</h2>
-              <span className="card-sub">Restricted athletes and anyone carrying an active injury — the ones to raise with the medical team.</span>
+              <span className="card-sub">Restricted or injured athletes — raise these with the medical team.</span>
             </div>
           </div>
           <div>
@@ -472,12 +582,15 @@ export default function CoachDashboard() {
         </div>
       )}
 
-      {/* Squad focus — where to point conditioning + squad momentum */}
+      {/* Squad breakdown — supporting detail behind the suggestion card above:
+          muscle hotspots, per-event readiness, and screening momentum. The
+          region-level "common weak spots" it used to carry now lives (with an
+          adjustment attached) in "Suggested focus for the squad". */}
       {total > 0 && (
         <div className="card" style={{ marginBottom: 20 }}>
           <div className="card-header">
             <div>
-              <h2 className="card-title" style={{ marginBottom: 0 }}>Squad focus</h2>
+              <h2 className="card-title" style={{ marginBottom: 0 }}>Squad breakdown</h2>
               <span className="card-sub">
                 {coverage.scored}/{coverage.total} screened · momentum since last screening:{' '}
                 <strong style={{ color: 'var(--risk-low)' }}>{momentum.improving} ↑</strong> improving ·{' '}
@@ -486,22 +599,6 @@ export default function CoachDashboard() {
             </div>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 20 }}>
-            <div>
-              <strong style={{ fontSize: '0.82rem' }}>Common weak spots</strong>
-              {weakSpots.length === 0 ? (
-                <div className="text-muted" style={{ fontSize: '0.8rem', marginTop: 6 }}>No exercise-risk regions beyond Low.</div>
-              ) : (
-                <ul className="insight-list" style={{ marginTop: 8 }}>
-                  {weakSpots.map((w) => (
-                    <li key={w.label}>
-                      <strong>{w.label}</strong>{' '}
-                      {w.high > 0 && <span className="badge-high" style={{ marginRight: 4 }}>{w.high} elevated</span>}
-                      {w.watch > 0 && <span className="badge-moderate">{w.watch} watch</span>}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
             <div>
               <strong style={{ fontSize: '0.82rem' }}>Muscle hotspots</strong>
               {muscleHotspots.length === 0 ? (
@@ -550,7 +647,7 @@ export default function CoachDashboard() {
           <div className="card-header">
             <div>
               <h2 className="card-title" style={{ marginBottom: 0 }}>Athletes</h2>
-              <span className="card-sub">Sorted by priority · highest concern first · select an athlete to view their screening</span>
+              <span className="card-sub">Highest concern first · select one to view their screening</span>
             </div>
           </div>
           <div className="table-wrap">

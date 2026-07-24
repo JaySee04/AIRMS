@@ -18,9 +18,16 @@ Chart.register(RadarController, PointElement, LineElement, RadialLinearScale, Le
 interface RiskRadarProps {
   labels: string[];
   values: number[];
+  // Optional per-axis Elevated-band cutoff (same order as labels/values —
+  // see highThresholdsFor in lib/screeningAlerts.ts). Drawn as a dashed
+  // unfilled guide polygon so the athlete's shape can be read directly
+  // against their personalised threshold rather than against a bare number.
+  thresholds?: number[];
 }
 
-export default function RiskRadar({ labels, values }: RiskRadarProps) {
+const THRESHOLD_RED = '#d14b4b'; // matches --risk-high / BAND.red used everywhere else "Elevated" is drawn
+
+export default function RiskRadar({ labels, values, thresholds }: RiskRadarProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const chartRef = useRef<Chart | null>(null);
   const isDark = useIsDark();
@@ -37,6 +44,22 @@ export default function RiskRadar({ labels, values }: RiskRadarProps) {
       data: {
         labels,
         datasets: [
+          // Drawn first (behind the athlete's shape) so it reads as a
+          // boundary the shape is measured against, not a second reading.
+          ...(thresholds && thresholds.length === values.length
+            ? [
+                {
+                  label: 'Elevated threshold',
+                  data: thresholds,
+                  backgroundColor: 'transparent',
+                  borderColor: THRESHOLD_RED,
+                  borderDash: [5, 4],
+                  borderWidth: 1.5,
+                  pointRadius: 0,
+                  pointHoverRadius: 0,
+                },
+              ]
+            : []),
           {
             label: 'Risk %',
             data: values,
@@ -59,7 +82,12 @@ export default function RiskRadar({ labels, values }: RiskRadarProps) {
             pointLabels: { color: pal.tick },
           },
         },
-        plugins: { legend: { display: false } },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            filter: (item) => item.dataset.label !== 'Elevated threshold',
+          },
+        },
       },
     });
 
@@ -67,7 +95,7 @@ export default function RiskRadar({ labels, values }: RiskRadarProps) {
       chartRef.current?.destroy();
       chartRef.current = null;
     };
-  }, [labels, values, isDark]);
+  }, [labels, values, thresholds, isDark]);
 
   return (
     <div style={{ position: 'relative', height: 300 }}>

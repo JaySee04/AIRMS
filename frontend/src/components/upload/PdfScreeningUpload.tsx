@@ -11,7 +11,7 @@
 // programme; a new name is entered manually, with the sport picked from a
 // searchable list of ISN's 52 sports.
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { ISN_SPORTS } from '@/lib/sports';
@@ -20,6 +20,9 @@ import { api } from '@/lib/api';
 import { getSession } from '@/lib/auth';
 import TagCombobox from '@/components/ui/TagCombobox';
 import ScreeningPreview from '@/components/upload/ScreeningPreview';
+import * as uploadStore from '@/lib/screeningUploadStore';
+import type { QueueItem, CommittedEntry, RosterAthlete } from '@/lib/screeningUploadStore';
+import { BATCH_SPACING_MS } from '@/lib/screeningUploadStore';
 
 // The "muscle hero" — the shared body-map figure (front/back) with flag cards.
 // Heavy (SVG path data), client-only; split it out like the dashboards do.
@@ -28,117 +31,28 @@ const BodyMap = dynamic(() => import('@/components/dashboard/BodyMap'), {
   loading: () => <div style={{ minHeight: 200 }} />,
 });
 
-interface MuscleEntry { muscle: string; side: 'L' | 'R' | 'B'; }
-
-interface ExtractedAthlete {
-  name?: string;
-  age?: number;
-  gender?: 'Male' | 'Female';
-  overallActivityScore?: number;
-  injuryRiskIndex?: number;
-  mobility?: number;
-  stability?: number;
-  symmetry?: number;
-  neckInjuryRisk?: number;
-  shoulderInjuryRisk?: number;
-  scoliosis?: number;
-  spinalDiscHerniation?: number;
-  lumbarPelvisInjury?: number;
-  jointPain?: number;
-  kneeInjuryRisk?: number;
-  ankleInjuryRisk?: number;
-}
-
-interface PreviewResponse {
-  filename: string;
-  athlete: ExtractedAthlete;
-  myodynamia: MuscleEntry[];
-  tension: MuscleEntry[];
-  assessedAt: string | null;
-  pagesRead: number[];
-  // Screening-snapshot extras, passed straight back on commit (no re-extraction).
-  summary?: string | null;
-  subitems?: Record<string, Record<string, number | null>> | null;
-  posture?: Record<string, { finding: string | null; value: number | null }> | null;
-}
-
 interface StatusResponse {
   configured: boolean;
   provider: string;
   model: string | null;
 }
 
-interface RosterAthlete {
-  athleteId: string;
-  name: string;
-  sport?: string;
-  program?: string;
-  programme?: string;
-  disciplines?: string[];
-}
-
-type ItemStatus = 'queued' | 'extracting' | 'ready' | 'committing' | 'done' | 'error';
-
-interface QueueItem {
-  id: number;
-  file: File;
-  status: ItemStatus;
-  preview: PreviewResponse | null;
-  error: string | null;
-  doneNote: string | null;
-  matched: RosterAthlete | null; // roster athlete auto-matched by extracted name
-  athleteId: string;
-  sport: string;
-  program: string;
-  // Events the athlete competes in. Pre-filled from a matched roster athlete;
-  // operator-editable via the TagCombobox. `touched` records that the operator
-  // changed the set, so an untouched, un-prefilled import doesn't wipe existing
-  // events.
-  disciplines: string[];
-  disciplinesTouched: boolean;
-  // Editable identity — pre-filled from the report (new athlete) or roster
-  // (existing). Operator can correct name/age/gender before import.
-  name: string;
-  age: string;
-  gender: string;
-}
-
-// One imported screening, shown in the post-import cohort-threshold prompt.
-interface CommittedEntry { athleteId: string; name: string; sport: string; action: string; }
-
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000/api';
-
-function getToken(): string | null {
-  if (typeof window === 'undefined') return null;
-  return localStorage.getItem('airms_token');
-}
-
-function authHeaders(): Record<string, string> {
-  const t = getToken();
-  return t ? { Authorization: `Bearer ${t}` } : {};
-}
-
-// Pause between sequential vision calls — stays well inside free-tier
-// requests-per-minute limits when a whole squad's reports are dropped at once.
-const BATCH_SPACING_MS = 3000;
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-let nextId = 1;
-
 export default function PdfScreeningUpload() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [status, setStatus] = useState<StatusResponse | null>(null);
-  const [roster, setRoster] = useState<RosterAthlete[] | null>(null);
-  // Ref mirror of the roster so long-running batch loops (whose closures
-  // captured an older render) always match against the latest list — e.g. an
-  // athlete created by file 1's commit is matchable by file 3's extraction.
-  const rosterRef = useRef<RosterAthlete[] | null>(null);
-  const [items, setItems] = useState<QueueItem[]>([]);
   const [dragOver, setDragOver] = useState(false);
-  const [busy, setBusy] = useState(false); // a batch extract or commit-all is running
   // Disciplines already on record, grouped by sport — offered as autocomplete in
   // the events picker so an operator can reuse an existing event or type a new one.
   const [knownDisc, setKnownDisc] = useState<Record<string, string[]>>({});
+
+  // The upload queue + extraction loop live in a module-level store (not
+  // component state) so navigating away mid-read no longer discards the queue
+  // or orphans the in-flight vision call — see lib/screeningUploadStore.ts.
+  const { items, busy, roster } = useSyncExternalStore(
+    uploadStore.subscribe,
+    uploadStore.getSnapshot,
+    uploadStore.getSnapshot,
+  );
 
   // After a screening is imported the cohort norms are stale, so we prompt the
   // operator to update the cohort thresholds. `committed` accumulates the
@@ -164,99 +78,44 @@ export default function PdfScreeningUpload() {
     }
   }
 
-  function updateRoster(next: RosterAthlete[] | null) {
-    rosterRef.current = next;
-    setRoster(next);
-  }
-
   useEffect(() => {
+    // The store's extraction loop keeps running while this page is unmounted,
+    // so any queued items may already be read by the time we return. Kick it
+    // defensively in case a loop was ever interrupted (idempotent while one is
+    // already running).
+    uploadStore.resume();
     (async () => {
       try {
-        const res = await fetch(`${BASE}/upload/screening/pdf/status`, { headers: authHeaders() });
-        if (res.ok) setStatus(await res.json());
+        const s = await api.get<StatusResponse>('/upload/screening/pdf/status');
+        setStatus(s);
+        uploadStore.setConfigured(s.configured); // gate the store's loop
       } catch { /* status stays null → treated as unknown/disabled */ }
       try {
         // Roster for name-matching. Optional: if this user can't view records,
-        // matching silently degrades to manual entry.
-        const res = await fetch(`${BASE}/athletes`, { headers: authHeaders() });
-        if (res.ok) updateRoster(await res.json());
+        // matching silently degrades to manual entry. Server truth includes any
+        // athletes committed earlier (they're persisted), so overwriting the
+        // store's roster on remount is correct, not lossy.
+        uploadStore.setRoster(await api.get<RosterAthlete[]>('/athletes'));
       } catch { /* no roster → manual entry */ }
       try {
         // Existing (sport, discipline) pairs → group by sport for the picker's
         // "choose existing" suggestions.
-        const res = await fetch(`${BASE}/athletes/meta/disciplines`, { headers: authHeaders() });
-        if (res.ok) {
-          const pairs: Array<{ sport: string; discipline: string }> = await res.json();
-          const grouped: Record<string, string[]> = {};
-          for (const { sport, discipline } of pairs) {
-            (grouped[sport] ??= []).push(discipline);
-          }
-          setKnownDisc(grouped);
+        const pairs = await api.get<Array<{ sport: string; discipline: string }>>('/athletes/meta/disciplines');
+        const grouped: Record<string, string[]> = {};
+        for (const { sport, discipline } of pairs) {
+          (grouped[sport] ??= []).push(discipline);
         }
+        setKnownDisc(grouped);
       } catch { /* no suggestions → curated list + free typing still work */ }
     })();
   }, []);
 
-  // Auto-extract: read PDFs as soon as they're added (or a failed one is
-  // re-queued) — no manual "extract" step. The ref guards against overlapping
-  // runs (incl. React strict-mode's double effect) and picks up files dropped
-  // mid-run once the current batch finishes; the vision calls stay spaced.
-  const autoRunRef = useRef(false);
-  useEffect(() => {
-    const cfgDisabled = status !== null && !status.configured;
-    if (autoRunRef.current || cfgDisabled) return;
-    const queued = items.filter((it) => it.status === 'queued');
-    if (queued.length === 0) return;
-    autoRunRef.current = true;
-    setBusy(true);
-    (async () => {
-      try {
-        for (let i = 0; i < queued.length; i++) {
-          if (i > 0) await sleep(BATCH_SPACING_MS);
-          await extractOne(queued[i]);
-        }
-      } finally {
-        autoRunRef.current = false;
-        setBusy(false);
-      }
-    })();
-  }, [items, status, busy]);
-
-  function addFiles(files: FileList | File[] | null) {
-    if (!files) return;
-    const pdfs = Array.from(files).filter((f) => f.name.toLowerCase().endsWith('.pdf'));
-    if (!pdfs.length) return;
-    setItems((prev) => [
-      ...prev,
-      ...pdfs.map((file) => ({
-        id: nextId++,
-        file,
-        status: 'queued' as ItemStatus,
-        preview: null,
-        error: null,
-        doneNote: null,
-        matched: null,
-        athleteId: '',
-        sport: '',
-        program: '',
-        disciplines: [],
-        disciplinesTouched: false,
-        name: '',
-        age: '',
-        gender: '',
-      })),
-    ]);
-  }
-
-  const titleCase = (s: string) => s.replace(/\S+/g, (w) => w[0].toUpperCase() + w.slice(1).toLowerCase());
-
-  function patchItem(id: number, patch: Partial<QueueItem>) {
-    setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...patch } : it)));
-  }
-
-  function removeItem(id: number) {
-    setItems((prev) => prev.filter((it) => it.id !== id));
-  }
+  // Queue mutations delegate to the module store (see the import). Kept as
+  // local aliases so the JSX below reads unchanged.
+  const addFiles = uploadStore.addFiles;
+  const patchItem = uploadStore.patchItem;
+  const removeItem = uploadStore.removeItem;
+  const retryFailed = uploadStore.retryFailed;
 
   // Autocomplete pool for the events combobox: the curated catalogue for the
   // sport (badminton so far) plus any events already used for that sport, minus
@@ -264,115 +123,6 @@ export default function PdfScreeningUpload() {
   function suggestionsFor(sport: string, selected: string[]): string[] {
     const pool = [...disciplinesForSport(sport), ...(knownDisc[sport] ?? [])];
     return [...new Set(pool)].filter((d) => !selected.includes(d)).sort();
-  }
-
-
-  // Match the extracted name against the roster (trimmed, case-insensitive).
-  // Exactly one match → auto-fill; zero or ambiguous → manual entry.
-  // Reads the ref so mid-batch matches see commits made earlier in the batch.
-  function matchByName(name: string | undefined): RosterAthlete | null {
-    const list = rosterRef.current;
-    if (!name || !list) return null;
-    const key = name.trim().toLowerCase();
-    const hits = list.filter((a) => a.name.trim().toLowerCase() === key);
-    return hits.length === 1 ? hits[0] : null;
-  }
-
-  async function extractOne(item: QueueItem): Promise<void> {
-    patchItem(item.id, { status: 'extracting', error: null });
-    try {
-      const formData = new FormData();
-      formData.append('file', item.file);
-      const res = await fetch(`${BASE}/upload/screening/pdf/preview`, {
-        method: 'POST',
-        headers: authHeaders(),
-        body: formData,
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message ?? `HTTP ${res.status}`);
-      const preview = data as PreviewResponse;
-      const matched = matchByName(preview.athlete.name);
-      patchItem(item.id, {
-        status: 'ready',
-        preview,
-        matched,
-        athleteId: matched?.athleteId ?? '',
-        sport: matched?.sport ?? '',
-        program: matched?.program ?? matched?.programme ?? '',
-        disciplines: matched?.disciplines ?? [],
-        // Identity pre-fill: matched roster name, else the (Title-Cased) report name.
-        name: matched?.name ?? titleCase(preview.athlete.name ?? ''),
-        age: preview.athlete.age != null ? String(preview.athlete.age) : '',
-        gender: preview.athlete.gender ?? '',
-      });
-    } catch (e) {
-      patchItem(item.id, { status: 'error', error: e instanceof Error ? e.message : 'Failed to read PDF' });
-    }
-  }
-
-  // Re-queue any failed extractions; the auto-extract effect re-reads them.
-  function retryFailed() {
-    setItems((prev) => prev.map((it) => (it.status === 'error' ? { ...it, status: 'queued' as ItemStatus, error: null } : it)));
-  }
-
-  async function commitOne(item: QueueItem): Promise<CommittedEntry | null> {
-    if (!item.preview) return null;
-    if (!item.athleteId.trim() || !item.sport.trim() || !item.program || !item.name.trim()) {
-      patchItem(item.id, { error: 'Name, Athlete ID, Sport, and Programme are required before importing.' });
-      return null;
-    }
-    patchItem(item.id, { status: 'committing', error: null });
-    try {
-      // Merge the operator's identity edits over the extracted athlete.
-      const athlete = {
-        ...item.preview.athlete,
-        name: item.name.trim(),
-        age: item.age.trim() ? Number(item.age) : item.preview.athlete.age,
-        gender: item.gender || item.preview.athlete.gender,
-      };
-      const res = await fetch(`${BASE}/upload/screening/pdf`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({
-          athlete,
-          myodynamia: item.preview.myodynamia,
-          tension: item.preview.tension,
-          athleteId: item.athleteId.trim(),
-          sport: item.sport.trim(),
-          program: item.program,
-          // Persist events when the operator set or changed them (pre-filled
-          // sets count). Omit only when untouched and empty, so an import that
-          // doesn't carry events leaves an athlete's existing ones untouched.
-          ...((item.disciplines.length > 0 || item.disciplinesTouched) ? { disciplines: item.disciplines } : {}),
-          assessedAt: item.preview.assessedAt,
-          summary: item.preview.summary ?? null,
-          subitems: item.preview.subitems ?? null,
-          posture: item.preview.posture ?? null,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message ?? `HTTP ${res.status}`);
-      patchItem(item.id, {
-        status: 'done',
-        doneNote: `${data.action === 'updated' ? 'Updated' : 'Created'} ${data.athleteId} · ${data.muscleFlags} muscle flag(s)`,
-      });
-      // Fold the committed athlete into the roster so the rest of the batch
-      // (and the ID datalist) can match them immediately.
-      const rosterEntry: RosterAthlete = {
-        athleteId: item.athleteId.trim(),
-        name: item.name.trim() || item.athleteId.trim(),
-        sport: item.sport.trim(),
-        program: item.program,
-        disciplines: item.disciplines,
-      };
-      updateRoster([...(rosterRef.current ?? []).filter((a) => a.athleteId !== rosterEntry.athleteId), rosterEntry]);
-      // Return the import so the caller can show the threshold prompt for
-      // exactly the athletes committed in this action (single or batch).
-      return { athleteId: item.athleteId.trim(), name: rosterEntry.name, sport: item.sport.trim(), action: String(data.action ?? '') };
-    } catch (e) {
-      patchItem(item.id, { status: 'ready', error: e instanceof Error ? e.message : 'Failed to import' });
-      return null;
-    }
   }
 
   // Open the cohort-threshold prompt for just the athletes imported in this
@@ -385,29 +135,30 @@ export default function PdfScreeningUpload() {
   }
 
   async function commitSingle(item: QueueItem) {
-    const entry = await commitOne(item);
+    const entry = await uploadStore.commitSingle(item);
     if (entry) promptThresholdUpdate([entry]);
   }
 
   async function commitAllReady() {
-    setBusy(true);
-    try {
-      const ready = items.filter((it) => it.status === 'ready' && it.name.trim() && it.athleteId.trim() && it.sport.trim() && it.program);
-      const done: CommittedEntry[] = [];
-      for (const it of ready) {
-        const entry = await commitOne(it); // no API cost — commits replay the preview JSON
-        if (entry) done.push(entry);
-      }
-      promptThresholdUpdate(done);
-    } finally {
-      setBusy(false);
-    }
+    promptThresholdUpdate(await uploadStore.commitAllReady());
   }
 
   const disabled = status !== null && !status.configured;
   const errorCount = items.filter((it) => it.status === 'error').length;
   const readyCount = items.filter((it) => it.status === 'ready').length;
   const completeReady = items.filter((it) => it.status === 'ready' && it.name.trim() && it.athleteId.trim() && it.sport.trim() && it.program).length;
+
+  // Client-side navigation no longer loses the queue (it lives in the store),
+  // but a hard reload / tab close still would — and 'extracting'/'ready' items
+  // represent real vision-API calls not yet committed. Warn only when such
+  // at-risk work exists, so a clean/empty page never nags.
+  const hasUnsavedWork = items.some((it) => it.status === 'extracting' || it.status === 'ready');
+  useEffect(() => {
+    if (!hasUnsavedWork) return;
+    const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [hasUnsavedWork]);
 
   return (
     <>
@@ -609,13 +360,12 @@ export default function PdfScreeningUpload() {
                 <div className="pdf-preview-col">
                   <ScreeningPreview
                     athlete={it.preview.athlete as unknown as Record<string, unknown>}
-                    subitems={it.preview.subitems}
                     posture={it.preview.posture}
                   />
                   {/* Muscle hero — fitted into the right (data) column */}
                   <div className="screening-muscle-hero">
                     <div className="screening-block-h">Muscle assessment map</div>
-                    <BodyMap myodynamia={it.preview.myodynamia} tension={it.preview.tension} />
+                    <BodyMap myodynamia={it.preview.myodynamia} tension={it.preview.tension} subitems={it.preview.subitems} />
                   </div>
                 </div>
               </div>

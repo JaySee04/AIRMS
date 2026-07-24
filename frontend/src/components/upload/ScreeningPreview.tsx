@@ -3,18 +3,17 @@
 // Friendly read-out of an extracted HoloMotion report, shown in the import
 // preview so the operator can review the numbers against the PDF BEFORE
 // committing. Presents the same data the dashboards/PDF use — headline scores,
-// the exercise-risk evaluation (banded Low / Watch / Elevated), the physical-
-// fitness subitem scores, and posture evaluation — rather than a flat number
-// table. Muscle flags are shown by the full-width BodyMap ("muscle hero") that
-// the uploader renders beneath this panel.
+// the exercise-risk evaluation (banded Low / Watch / Elevated), and posture
+// evaluation — rather than a flat number table. Muscle flags AND the physical-
+// fitness subitem scores (ROM/Stability per region) are both shown by the
+// full-width BodyMap ("muscle hero") that the uploader renders beneath this
+// panel — it toggles between the two rather than duplicating either here.
 
-import SubitemTable from '@/components/dashboard/SubitemTable';
 import PostureList from '@/components/dashboard/PostureList';
-import type { Subitems, Posture } from '@/components/dashboard/OverallRiskBadge';
+import type { Posture } from '@/components/dashboard/OverallRiskBadge';
 
 interface Props {
   athlete: Record<string, unknown>; // flat extracted scores (values read via num())
-  subitems?: Subitems | null;
   posture?: Posture | null;
 }
 
@@ -49,7 +48,7 @@ function riskBand(v: number) {
   return { label: 'Low', color: 'var(--risk-low)' };
 }
 // HoloMotion quality tier for the 0–100 headline gauges (higher is better).
-// (SubitemTable has its own copy for the subitem cells — same boundaries.)
+// (SubitemTable/BodyMap keep their own copies for the same boundaries.)
 function tier(v: number) {
   if (v >= 85) return { label: 'Excellent', color: 'var(--risk-low)' };
   if (v >= 75) return { label: 'Good', color: 'var(--risk-undertrained)' };
@@ -66,7 +65,7 @@ function Pill({ text, color }: { text: string; color: string }) {
   );
 }
 
-export default function ScreeningPreview({ athlete, subitems, posture }: Props) {
+export default function ScreeningPreview({ athlete, posture }: Props) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {/* Headline scores */}
@@ -117,12 +116,6 @@ export default function ScreeningPreview({ athlete, subitems, posture }: Props) 
             );
           })}
         </div>
-      </div>
-
-      {/* Physical Fitness Subitem Score */}
-      <div>
-        <div className="screening-block-h">Physical fitness subitem score</div>
-        <SubitemTable subitems={subitems} />
       </div>
 
       {/* Posture Evaluation */}

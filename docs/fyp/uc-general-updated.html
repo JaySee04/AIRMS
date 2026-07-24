@@ -8,7 +8,7 @@
   (General Module, UC-1..7). Changes vs the previous version:
     - "Manage User Profile" → "View Profile": profiles are view + change-password
       only; identity fields (name/age/gender/sport/programme) are maintained via
-      the Module 4 import or the admin, not self-service.
+      the Module 3 (Screening Data Ingestion) import or the admin, not self-service.
     - Added UC-7 "Enforce Per-User Permissions" (the System-side enforcement of
       the admin's per-staffer capability revocations).
     - Added the Coach actor (experimental 4th role) — it can log in and reset a
@@ -147,7 +147,7 @@
 
   <div class="foot">
     Profiles are view-only plus in-place change-password; identity fields (name, age, gender, sport, programme)
-    are maintained through the Module 4 import or by the administrator, not self-service — there is no
+    are maintained through the Module 3 (Screening Data Ingestion) import or by the administrator, not self-service — there is no
     self-registration (accounts are provisioned). Per-user permissions are an opt-out model: an administrator
     revokes individual capabilities from a medical staffer, and the system blocks them server-side while the
     feature disappears from that staffer's UI.

@@ -1,5 +1,20 @@
 # Deletion Review — What's Useful, What Isn't
 
+> **Superseded 2026-07-20.** The central "keep" call this review made — **B1,
+> the ACWR retention set** — was reversed three days later: JC asked to fully
+> remove Activity Tracking (the FYP I Module 1), and `lib/risk.ts`'s only two
+> live consumers (the recovery-baseline trigger, the medical prevention-insight
+> card) were removed along with it. `GET /api/activities/.../acwr` (A1) and
+> the `Activity`/`RecoveryBaseline` models + routes are now **deleted**, not
+> kept. `lib/risk.ts` itself is still kept (locked decision) but has zero
+> live callers. `WorkloadChart.tsx`/`AcwrGauge.tsx` status is unchanged by
+> this note — see `docs/fyp/ACWR_REBUILD.md` for current detail. The six-module
+> set was also restructured the same day to fill the gap this left — "Module 1"
+> now refers to Athlete Dashboard & Overall Risk Indicator, not Activity
+> Tracking; see `MASTER_CLARIFICATIONS.md §4`. Everything below this banner is
+> left as the historical record of what was decided and executed on
+> 2026-07-17; don't treat the B1 row as still accurate.
+
 > **Status:** prepared 2026-07-17; **executed 2026-07-17** on JC's "make the
 > decisions for me". The safe, zero-regret-risk removals were done and verified
 > (frontend `tsc` + `next build` clean, backend routes load); the items with any
@@ -35,8 +50,8 @@
 
 | Endpoint | Evidence | Note |
 |---|---|---|
-| `GET /api/coach/me` ([coach.js](../../backend/src/routes/coach.js)) | No caller — the coach page reads its sports list from the `/coach/readiness` response | Safe to delete |
-| `GET /api/screenings/athlete/:id` ([screenings.js](../../backend/src/routes/screenings.js)) | No caller — screening history only surfaces in the individual PDF, which queries the DB directly | Safe to delete **unless** you want an on-screen history/trend view later (FYP2 research doc floats one); then keep as its API |
+| `GET /api/coach/me` ([coach.js](../../backend/src/routes/coach.js)) | ~~No caller~~ **Already deleted 2026-07-17** (noted in the route file's header) — the coach page reads its sport from the `/coach/readiness` response | Done |
+| `GET /api/screenings/athlete/:id` ([screenings.js](../../backend/src/routes/screenings.js)) | ~~No caller~~ **Now called (2026-07-23)** by `ScreeningHistory.tsx` — the on-screen history/trend table this row anticipated, on the athlete/medical/coach views. Endpoint slimmed to summary columns + coach access sport-scoped when the caller was added | **Keep** |
 | `GET /api/activities/athlete/:id/acwr` ([activities.js](../../backend/src/routes/activities.js)) | No caller — both dashboards compute ACWR client-side for the recovery baseline | ⚠ Part of the **ACWR retention set** (§B1). Deleting narrows the rebuild insurance; decide it as a package, not in isolation |
 
 ### A2. Unused npm dependencies

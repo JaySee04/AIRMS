@@ -2,7 +2,9 @@
 // screening leaves an athlete at amber/red (or escalated), email the medical
 // staff and the coaches assigned to that athlete's sport — so they assess
 // immediately rather than letting the finding sit. Reuses utils/mailer.js
-// (env SMTP, console fallback in dev).
+// (env SMTP, console fallback in dev). The body includes the escalation
+// `factors` already computed at commit time (utils/overallIndicator.js), so
+// the recipient sees WHY the band fired without opening AIRMS first.
 
 const { User, Athlete, Screening } = require('../models');
 const { sendMail } = require('./mailer');
@@ -53,6 +55,11 @@ async function alertMany(athleteIds) {
     const recipients = [...medicalEmails, ...coachEmails];
     if (!recipients.length) { results.push({ athleteId: id, sent: false, reason: 'no recipients', band }); continue; }
 
+    // The escalation reasons are already computed and stored at commit time
+    // (utils/overallIndicator.js) — surface them directly so the recipient
+    // sees WHY without opening AIRMS first, instead of just the band + score.
+    const factors = Array.isArray(s.factors) ? s.factors : [];
+
     const subject = `AIRMS alert — ${athlete.name} (${athlete.athleteId}): ${BAND_LABEL[band]}`;
     const text = [
       `Screening alert for ${athlete.name} (${athlete.athleteId})`,
@@ -61,6 +68,7 @@ async function alertMany(athleteIds) {
       `A new HoloMotion screening places this athlete at: ${BAND_LABEL[band]}.`,
       `Overall risk indicator: ${s.overallIndicator ?? '—'}/100 vs cohort · ${s.escalations} escalation(s).`,
       '',
+      ...(factors.length ? ['Why:', ...factors.map((f) => `  - ${f}`), ''] : []),
       band === 'red'
         ? 'This athlete is flagged for immediate assessment. Please review before the next high-load session.'
         : 'This athlete needs attention. Please review at the next opportunity.',

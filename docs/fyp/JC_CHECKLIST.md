@@ -69,11 +69,13 @@ You said "make the decisions for me." These are now **decided and in the code**
   plain-English "why"), paired with the risk radar. Coach lost the ACWR and
   Risk-level columns and its readiness now maps off the HoloMotion band.
   Athlete dashboard is ~650px shorter. **Eyeball all three.**
-- [ ] **`risk.ts` still runs** — it drives the recovery-baseline trigger and the
-  medical prevention-insight card, and `/athlete/activity` is untouched. If a
-  panellist asks "where did your graded composite model go?", the answer is
-  `docs/fyp/ACWR_REBUILD.md` + those two live consumers. Confirm you're happy
-  with that story.
+- [x] ~~`risk.ts` still runs — it drives the recovery-baseline trigger and the
+  medical prevention-insight card, and `/athlete/activity` is untouched~~ —
+  **superseded 2026-07-20.** Activity Tracking was fully removed (see the new
+  section at the bottom of this file); `risk.ts` now has no live callers at
+  all. If a panellist asks "where did your graded composite model go?", the
+  answer is `docs/fyp/ACWR_REBUILD.md` — kept as a rebuild spec, not a "it
+  still runs" story.
 - [ ] **Seed injuries are realistic now** — recovery status is a function of how
   long ago the injury happened, so 19/62 athletes (31%) carry an active injury
   instead of 61/62 (98%). Coach readiness went 4/96/0% → 43/14/39%.
@@ -220,12 +222,66 @@ Figma UI. Half-doing it is worse than declaring it.
   queue on single-file commits.
 
 ## Decisions already logged (no action needed, just FYI)
-- ACWR **demoted**, not deleted (secondary training-load view; rebuild spec to
-  be written in Stage F).
+- ACWR **demoted 2026-07-16, then Activity Tracking (its only input) fully
+  removed 2026-07-20** — see the section below. The formula stays locked/
+  citable for the report; nothing computes it anymore.
 - TMG files **not** ingested (different instrument); design language of their
   group report may inspire the team PDF only.
 - Overall indicator = **equal-weighted z-score composite (Total Score of
   Athleticism method)**, cohort-normed, traffic-light banded.
 - Min cohort size + fallback = **admin settings** (default n≥5).
+
+## Activity Tracking removed (2026-07-20)
+
+> Note: "Module 1" below means the **original FYP I decomposition** (Activity
+> Tracking). After the same-day restructure documented further down, "Module
+> 1" now refers to Athlete Dashboard & Overall Risk Indicator instead.
+
+- [x] **Module 1 (FYP I numbering) fully removed, at your request.** `/athlete/activity`
+  (frontend page + Sidebar link), `backend/src/models/Activity.js` +
+  `routes/activities.js`, and `backend/src/models/RecoveryBaseline.js` +
+  `routes/recoveryBaselines.js` are all deleted. Seeder no longer generates
+  activity logs or recovery baselines. This was an explicit, accept-the-
+  fallout decision (ACWR's dashboard display was already gone since
+  2026-07-16, so nothing surfaced the module's output anymore) — not a bug.
+- [x] **Fallout, all cleaned up rather than left dangling:** the athlete
+  dashboard's Recent Activity table, the medical dashboard's Recent Activity
+  table + recovery-baseline card + prevention-insight card, and the athlete
+  profile's Activity-derived stat tiles (sessions logged, sessions in last
+  30 days, total training load) are all gone. `frontend/src/lib/risk.ts` is
+  **kept** (locked decision) but now has zero live callers anywhere.
+- [x] **Docs updated:** `CLAUDE.md`, `MASTER_CLARIFICATIONS.md`,
+  `MODULES_STATUS.md`, `PROJECT_GUIDE.md`, `USER_MANUAL.md`,
+  `README_FOR_CLAUDE_CODE.md`, plus this checklist, `DELETION_REVIEW.md`,
+  `ACWR_REBUILD.md`, `REPORT_TABLE_4-1.md`, `FYP2_SIX_MODULES.md`,
+  `FYP2_MODULES_USECASES.md`, `FYP2_RESEARCH_AND_MODULES.md`,
+  `SYSTEM_ALGEBRA.md`, `STORAGE_MECHANISMS.md`, `DESIGN_DECISIONS.md`, plus
+  the `fdd-updated.html` / `erd-corrected.html` diagrams. `VIVA_SCRIPT.md` /
+  `VIVA_ANSWERS.md` were deliberately left as historical record (already-
+  delivered FYP I viva) with a dated note instead of a rewrite.
+- [x] **Report/FDD story decided:** you asked to keep six modules rather than
+  drop to five — see the restructure section below. Module 1 no longer reads
+  as "removed"; it's a different, live module now.
+
+## Module set restructured to stay at six (2026-07-20, same day)
+
+- [x] **You asked to redistribute the surviving 44 use cases across six
+  modules** rather than leave a gap at "Module 1" or drop to a five-module
+  system. Decision made via two rounds of `AskUserQuestion`: (1) keep six by
+  redistributing vs. drop to five — you chose redistribute; (2) which split —
+  you confirmed the recommended one.
+- [x] **The split:** the old "Screening Data Management & Cohort Norms"
+  module (10 UCs, the largest) is now two modules — **Screening Data
+  Ingestion** (import/extract/preview/match/commit) and **Cohort Norms &
+  Governance** (recompute/alerts/thresholds/settings/backup, plus "View
+  Screening Cohort Analytics" moved in from the old Analytics module).
+  Every other module kept its shape, renumbered down by one to close the gap.
+- [x] **Clean UC-1–44 renumbering** — no gaps, all cross-references (Appendix
+  A/B in `FYP2_MODULES_USECASES.md`, `REPORT_TABLE_4-1.md`,
+  `FYP2_SIX_MODULES.md`, the FDD diagram, `MASTER_CLARIFICATIONS.md §4`,
+  `MODULES_STATUS.md`) updated to match.
+- [ ] **Double-check the FDD figure and Table 4.1 render correctly** once
+  pasted into the actual report Word doc — the module-column merge in Word
+  and the diagram's leaf wrapping are worth a visual pass.
 
 *Started 2026-07-13. Updated as stages land.*

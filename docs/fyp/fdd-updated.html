@@ -4,11 +4,24 @@
 <meta charset="utf-8" />
 <title>AIRMS — Functional Decomposition Diagram</title>
 <!--
-  As-built FDD, regenerated 2026-07-17 to match the shipped system and the
+  As-built FDD, regenerated 2026-07-20 to match the shipped system and the
   verified use-case model in FYP2_MODULES_USECASES.md (General + 6 modules,
-  UC-1..52). Supersedes the ACWR-era figure, which still showed "Calculate
-  ACWR" / "Classify Composite Injury Risk" / "Display Workload Trend" under
-  Module 2 — all removed from the dashboards on 2026-07-16.
+  UC-1..44). Supersedes the 2026-07-17 figure (which still showed Module 1 =
+  Activity Tracking) and the interim 2026-07-20 figure (which greyed out a
+  removed Module 1 column instead of restructuring).
+
+  2026-07-20 restructure: Module 1 (Activity Tracking & Logging) was fully
+  removed from the codebase, at JC's request — its ACWR/composite-risk
+  display had already left every dashboard on 2026-07-16, and with nothing
+  left to surface its output, the module itself was removed. Rather than
+  leave a hole or drop to five modules, the surviving feature set was
+  redistributed across a fresh six: the old "Screening Data Management &
+  Cohort Norms" module (10 leaves, the largest) is split into "Screening
+  Data Ingestion" and "Cohort Norms & Governance" (which also gains "View
+  Screening Cohort Analytics", moved in from the old Analytics module).
+  Column count is unchanged (General + 6), so the root→module connector
+  geometry below is untouched — only module titles/leaves changed.
+
   Green leaves = added since the FYP I FDD.
 -->
 <style>
@@ -151,17 +164,7 @@
 
       <!-- 1 -->
       <div class="module">
-        <div class="module-title">1. Activity Tracking<br/>&amp; Logging (sRPE)</div>
-        <div class="vline"></div><div class="leaf">Log Activity</div>
-        <div class="vline"></div><div class="leaf">Compute Session<br/>Load (sRPE)</div>
-        <div class="vline"></div><div class="leaf">View &amp; Filter<br/>Activity History</div>
-        <div class="vline"></div><div class="leaf">Edit Activity</div>
-        <div class="vline"></div><div class="leaf">Delete Activity</div>
-      </div>
-
-      <!-- 2 -->
-      <div class="module">
-        <div class="module-title">2. Athlete Dashboard &amp;<br/>Overall Risk Indicator</div>
+        <div class="module-title">1. Athlete Dashboard &amp;<br/>Overall Risk Indicator</div>
         <div class="vline"></div><div class="leaf new">Compute Overall Risk<br/>Indicator (cohort z-score)</div>
         <div class="vline"></div><div class="leaf new">Escalate Risk Band</div>
         <div class="vline"></div><div class="leaf new">Display Risk<br/>Indicator Hero</div>
@@ -170,33 +173,39 @@
         <div class="vline"></div><div class="leaf new">Display Screening<br/>Panel (thresholds)</div>
         <div class="vline"></div><div class="leaf new">Display Training<br/>Focus</div>
         <div class="vline"></div><div class="leaf">Display Muscle<br/>Body Map</div>
-        <div class="vline"></div><div class="leaf">View Records &amp;<br/>Sharp-Drop Prompt</div>
+        <div class="vline"></div><div class="leaf">View Injury<br/>Records</div>
       </div>
 
-      <!-- 3 -->
+      <!-- 2 -->
       <div class="module">
-        <div class="module-title">3. Injury &amp; Recovery<br/>Logging</div>
+        <div class="module-title">2. Injury &amp; Recovery<br/>Logging</div>
         <div class="vline"></div><div class="leaf">Log Official Injury</div>
         <div class="vline"></div><div class="leaf">Update Recovery<br/>Status</div>
-        <div class="vline"></div><div class="leaf">View Injury Records</div>
+        <div class="vline"></div><div class="leaf">View Athlete<br/>Injury Records</div>
         <div class="vline"></div><div class="leaf">Submit Self-Report</div>
         <div class="vline"></div><div class="leaf">Review &amp; Approve<br/>Self-Report</div>
         <div class="vline"></div><div class="leaf">Track Self-Report<br/>Status</div>
       </div>
 
-      <!-- 4 -->
+      <!-- 3 -->
       <div class="module">
-        <div class="module-title">4. Screening Data Mgmt<br/>&amp; Cohort Norms</div>
+        <div class="module-title">3. Screening Data<br/>Ingestion</div>
         <div class="vline"></div><div class="leaf new">Import HoloMotion<br/>PDFs (batch)</div>
         <div class="vline"></div><div class="leaf new">Extract Screening<br/>Data (Vision AI)</div>
         <div class="vline"></div><div class="leaf new">Preview &amp; Verify<br/>Extraction</div>
         <div class="vline"></div><div class="leaf new">Match Athlete<br/>&amp; Identity</div>
         <div class="vline"></div><div class="leaf new">Commit Screening<br/>Snapshot</div>
+      </div>
+
+      <!-- 4 -->
+      <div class="module">
+        <div class="module-title">4. Cohort Norms &amp;<br/>Governance</div>
         <div class="vline"></div><div class="leaf new">Recompute Cohort<br/>Norms &amp; Re-score</div>
         <div class="vline"></div><div class="leaf new">Email Risk Alerts</div>
         <div class="vline"></div><div class="leaf new">Manage Cohort<br/>Thresholds</div>
         <div class="vline"></div><div class="leaf new">Tune Norming &amp;<br/>Alert Settings</div>
         <div class="vline"></div><div class="leaf">Export Data Backup</div>
+        <div class="vline"></div><div class="leaf new">View Screening<br/>Cohort Analytics</div>
       </div>
 
       <!-- 5 -->
@@ -205,7 +214,6 @@
         <div class="vline"></div><div class="leaf">View Injury<br/>Overview (KPIs)</div>
         <div class="vline"></div><div class="leaf">Filter Injury Data</div>
         <div class="vline"></div><div class="leaf">View Temporal<br/>Trends</div>
-        <div class="vline"></div><div class="leaf new">View Screening<br/>Cohort Analytics</div>
         <div class="vline"></div><div class="leaf">Generate Injury<br/>PDF Report</div>
         <div class="vline"></div><div class="leaf new">Generate Holistic<br/>Screening PDF</div>
         <div class="vline"></div><div class="leaf new">Generate Individual<br/>&amp; Team PDFs</div>
@@ -217,8 +225,6 @@
         <div class="vline"></div><div class="leaf">Search &amp; Filter<br/>Athlete Roster</div>
         <div class="vline"></div><div class="leaf">View Athlete<br/>Clinical Overview</div>
         <div class="vline"></div><div class="leaf new">Override Risk Band</div>
-        <div class="vline"></div><div class="leaf">View Prevention<br/>Insight</div>
-        <div class="vline"></div><div class="leaf">Track Recovery<br/>Baseline</div>
         <div class="vline"></div><div class="leaf">View Sport-Level<br/>Context</div>
         <div class="vline"></div><div class="leaf new">View Squad<br/>Readiness (Coach)*</div>
       </div>
@@ -228,10 +234,17 @@
 
   <div class="foot">
     The General Module is cross-cutting and is not counted among the six functional modules.
-    Training load (sRPE) is recorded and shown in Module 1 only; the ACWR / composite training-load
-    model is retained in code and still drives the Module 6 recovery baseline, but is no longer
-    displayed on any dashboard — the cohort-normed overall risk indicator is the system's single
-    risk verdict.
+    Module 1 in the FYP I decomposition (Activity Tracking &amp; Logging) was fully removed
+    2026-07-20, at JC's request — its ACWR/composite-risk display had already left every
+    dashboard on 2026-07-16, and with nothing left to surface its output, the module itself
+    (plus the Prevention Insight and Recovery Baseline leaves that depended on it) was removed
+    rather than kept as dead weight. To keep six modules, the old "Screening Data Management &amp;
+    Cohort Norms" module (the largest, 10 leaves) was split into Module 3 (Screening Data Ingestion)
+    and Module 4 (Cohort Norms &amp; Governance) — the latter also gains "View Screening Cohort
+    Analytics", moved in from Analytics &amp; Reporting. The composite formula
+    (<code>classifyCompositeRisk()</code>) is preserved in <code>lib/risk.ts</code> as a locked
+    decision but has no live caller. The cohort-normed overall risk indicator (Module 1) is the
+    system's single risk verdict.
     &nbsp;*&nbsp;The Coach is a first-class fourth role (read-only, FYP II) alongside
     athlete / medical / administrator.
   </div>

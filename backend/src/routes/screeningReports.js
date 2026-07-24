@@ -28,6 +28,9 @@ const {
 } = require('../utils/cohorts');
 const { compositeZ } = require('../utils/overallIndicator');
 const { getSettings } = require('../utils/settings');
+const {
+  bodyFront, bodyBack, frontOutline, backOutline, SCOPED_SLUGS: BODYMAP_SCOPED_SLUGS, worstValueBySlug,
+} = require('../utils/bodymap');
 
 const router = express.Router();
 
@@ -61,6 +64,7 @@ const RISK_ZONES = [
   { max: RISK_AXIS_MAX, label: 'Elevated', color: BAND.red, tint: '#f8e2e2' },
 ];
 const riskZone = (v) => RISK_ZONES[v > 25 ? 2 : v > 15 ? 1 : 0];
+const ELEVATED_THRESHOLD = RISK_ZONES[1].max; // 25 — the radar guide polygon is drawn at this boundary
 // LDH (spinalDiscHerniation) deliberately absent.
 const RISKS = [
   ['neckInjuryRisk', 'Neck Pain'],
@@ -265,6 +269,66 @@ function subitemTable(doc, subitems) {
   doc.y = ly + 16;
 }
 
+// Physical Fitness Subitem Score as a body figure (front + back), tier-
+// coloured per HoloMotion region — the PDF counterpart of the website's
+// BodyMap "ROM & Stability" mode. Reuses the SAME TIERS/tierOf() as the
+// table above (not the website's colours) so the figure and the table right
+// below it read as one consistent picture rather than two palettes in the
+// same section. A region is judged by whichever of ROM/Stability is worse on
+// that side — same rule the website figure uses.
+function muscleFigure(doc, subitems, { width = 170, gap = 14 } = {}) {
+  const figW = (width - gap) / 2;
+  const figH = figW * (1448 / 724);
+  ensure(doc, figH + 34);
+  const top = doc.y;
+  const left = doc.page.width / 2 - width / 2;
+
+  const values = worstValueBySlug(subitems);
+  const mergeWorst = (a, b) => (a === undefined ? b : b === undefined ? a : Math.min(a, b));
+
+  const drawView = (parts, outline, x, cropX) => {
+    const scale = figW / 724;
+    doc.save();
+    doc.translate(x - cropX * scale, top + 14);
+    doc.scale(scale);
+
+    doc.path(outline).lineWidth(2 / scale).fillAndStroke('#eef1f5', '#c7cedb');
+
+    parts.forEach((part) => {
+      const inScope = BODYMAP_SCOPED_SLUGS.has(part.slug);
+      const draw = (paths, sideTag) => {
+        if (!paths) return;
+        let v;
+        if (inScope) {
+          v = sideTag === 'C'
+            ? mergeWorst(values.get(`${part.slug}:L`), values.get(`${part.slug}:R`))
+            : values.get(`${part.slug}:${sideTag}`);
+        }
+        const color = inScope && v !== undefined ? tierOf(v).color : '#d7dde6';
+        paths.forEach((d) => {
+          doc.path(d).lineWidth(0.8 / scale).fillAndStroke(color, '#3d4a5c');
+        });
+      };
+      draw(part.path.common, 'C');
+      draw(part.path.left, 'L');
+      draw(part.path.right, 'R');
+    });
+
+    doc.restore();
+  };
+
+  drawView(bodyFront, frontOutline, left, 0);
+  drawView(bodyBack, backOutline, left + figW + gap, 724);
+
+  doc.fontSize(7.5).font('Helvetica').fillColor(MUTED)
+    .text('Front', left, top + figH + 16, { width: figW, align: 'center', lineBreak: false });
+  doc.fontSize(7.5).font('Helvetica').fillColor(MUTED)
+    .text('Back', left + figW + gap, top + figH + 16, { width: figW, align: 'center', lineBreak: false });
+  doc.fillColor(TEXT);
+  doc.y = top + figH + 30;
+  doc.x = 50;
+}
+
 // Posture Evaluation — 8-axis finding + signed value, two columns. Deliberately
 // NOT a range bar: the report draws each axis against its own reference range,
 // but that range varies per axis and isn't part of the extraction schema, so
@@ -306,7 +370,11 @@ function postureList(doc, posture) {
 }
 
 // Radar chart (TMG-style visual anchor) — polygon over n axes with grid rings.
-function radar(doc, axes, { max = 40, rings = 4, r = 85, color = GOLD } = {}) {
+// `guide` (a flat number or a per-axis array, same order as `axes`) draws a
+// dashed unfilled threshold polygon UNDER the value polygon — the same
+// Elevated-boundary guide the website's RiskRadar draws, so the printed
+// report and the dashboard read the same way.
+function radar(doc, axes, { max = 40, rings = 4, r = 85, color = GOLD, guide = null } = {}) {
   ensure(doc, r * 2 + 70);
   const cx = doc.page.width / 2;
   const cy = doc.y + r + 26;
@@ -325,6 +393,19 @@ function radar(doc, axes, { max = 40, rings = 4, r = 85, color = GOLD } = {}) {
     doc.stroke();
   }
   for (let i = 0; i < n; i++) { const [px, py] = pt(i, r); doc.moveTo(cx, cy).lineTo(px, py).stroke(); }
+  // threshold guide polygon — dashed, unfilled, drawn before the value
+  // polygon so it reads as a boundary rather than a second reading.
+  if (guide !== null && guide !== undefined) {
+    const guideVals = axes.map((a, i) => {
+      const gv = Array.isArray(guide) ? guide[i] : guide;
+      return pt(i, r * Math.max(0, Math.min(1, gv / max)));
+    });
+    doc.dash(2.5, { space: 2 }).lineWidth(1).strokeColor(BAND.red);
+    doc.moveTo(guideVals[0][0], guideVals[0][1]);
+    for (let i = 1; i <= n; i++) doc.lineTo(guideVals[i % n][0], guideVals[i % n][1]);
+    doc.stroke();
+    doc.undash();
+  }
   // value polygon
   const vals = axes.map((a, i) => pt(i, r * Math.max(0, Math.min(1, (num(a.value) ?? 0) / max))));
   doc.moveTo(vals[0][0], vals[0][1]);
@@ -508,17 +589,17 @@ router.get('/individual/:id.pdf', auth, requirePermission('viewRecords'), async 
     if (req.user.role === 'athlete' && req.user.athleteId !== req.params.id) {
       return res.status(403).json({ message: 'Access denied' });
     }
-    // Coaches get squad-level readiness + the team report only; the individual
-    // report is screening detail, which is outside their read-only remit.
-    if (req.user.role === 'coach') {
-      return res.status(403).json({ message: 'Coaches do not have access to individual screening reports.' });
-    }
     const [athlete, history, settings] = await Promise.all([
       Athlete.findOne({ where: { athleteId: req.params.id }, raw: true }),
       Screening.findAll({ where: { athleteId: req.params.id }, order: [['assessedAt', 'DESC'], ['id', 'DESC']], raw: true }),
       getSettings(),
     ]);
     if (!athlete) return res.status(404).json({ message: 'Athlete not found' });
+    // Coaches may pull individual reports, but only for athletes in their one
+    // assigned sport — the same scope check the team report applies.
+    if (req.user.role === 'coach' && req.user.coachSport !== athlete.sport) {
+      return res.status(403).json({ message: 'Coaches can only download reports for athletes in their assigned sport.' });
+    }
     if (!history.length) return res.status(404).json({ message: 'No screening on record for this athlete' });
     const latest = history[0];
     const cohort = await resolveCohortStats(athlete, { minN: settings.min_cohort_n, fallbackEnabled: settings.fallback_enabled });
@@ -557,11 +638,13 @@ router.get('/individual/:id.pdf', auth, requirePermission('viewRecords'), async 
     doc.moveDown(0.2);
     for (const [key, label] of RISKS) zoneGauge(doc, label, num(latest[key]) ?? 0);
     doc.moveDown(0.3);
-    radar(doc, RISKS.map(([key, label]) => ({ label, value: num(latest[key]) ?? 0 })), { max: 40, color: GOLD });
-    doc.fontSize(8).fillColor(MUTED).text('Radar scale 0–40 (lower is better). Lumbar Disc Herniation is recorded but not assessed at ISN and is excluded from AIRMS risk displays.', 50, doc.y, { width: doc.page.width - 100 });
+    radar(doc, RISKS.map(([key, label]) => ({ label, value: num(latest[key]) ?? 0 })), { max: 40, color: GOLD, guide: ELEVATED_THRESHOLD });
+    doc.fontSize(8).fillColor(MUTED).text('Radar scale 0–40 (lower is better). Dashed red line = Elevated threshold (>25, standard bands — see note above on sport-critical tightening). Lumbar Disc Herniation is recorded but not assessed at ISN and is excluded from AIRMS risk displays.', 50, doc.y, { width: doc.page.width - 100 });
 
-    // Physical Fitness Subitem Score
-    sectionTitle(doc, 'Physical Fitness Subitem Score', 220);
+    // Physical Fitness Subitem Score — figure first (glance), table under it
+    // (exact numbers), same pairing as the website's BodyMap toggle.
+    sectionTitle(doc, 'Physical Fitness Subitem Score', 380);
+    muscleFigure(doc, latest.subitems);
     subitemTable(doc, latest.subitems);
 
     // Posture Evaluation

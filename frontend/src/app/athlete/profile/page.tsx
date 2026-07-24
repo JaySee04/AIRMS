@@ -25,7 +25,6 @@ interface AthleteRecord {
   symmetry?: number;
 }
 
-interface Activity { _id: string; date: string; load: number }
 interface Injury { _id: string; recoveryStatus: 'Recovering' | 'Recovered' | 'Chronic' }
 interface SelfReport { _id: string; status: 'Pending' | 'Approved' | 'Rejected' }
 
@@ -68,21 +67,15 @@ export default function AthleteProfilePage() {
   const loadStats = useCallback(async () => {
     const athleteId = getSession()?.user?.athleteId;
     if (!athleteId) return [];
-    const [acts, injs, reports] = await Promise.all([
-      api.get<Activity[]>(`/activities/athlete/${athleteId}?all=1`).catch(() => [] as Activity[]),
+    const [injs, reports] = await Promise.all([
       api.get<Injury[]>(`/injuries/athlete/${athleteId}`).catch(() => [] as Injury[]),
       api.get<SelfReport[]>('/self-reports/mine').catch(() => [] as SelfReport[]),
     ]);
-    const totalLoad = acts.reduce((s, a) => s + (a.load || 0), 0);
-    const cutoff30d = Date.now() - 30 * 86400000;
-    const sessions30d = acts.filter((a) => new Date(a.date).getTime() >= cutoff30d).length;
     const activeInjuries = injs.filter((i) => i.recoveryStatus !== 'Recovered').length;
     const pendingReports = reports.filter((r) => r.status === 'Pending').length;
     return [
-      { label: 'Sessions logged (lifetime)', value: acts.length, hint: 'All-time training log' },
-      { label: 'Sessions in last 30 days', value: sessions30d, hint: 'Recent training' },
-      { label: 'Total training load (AU)', value: totalLoad.toLocaleString(), hint: 'Sum of all session loads' },
       { label: 'Active injuries', value: activeInjuries, hint: pendingReports > 0 ? `${pendingReports} self-report pending review` : 'Recovering or chronic' },
+      { label: 'Self-reports pending', value: pendingReports, hint: 'Awaiting medical review' },
     ];
   }, []);
 
@@ -98,10 +91,8 @@ export default function AthleteProfilePage() {
       ) : (
         <ProfileShell
           stats={[
-            { label: 'Sessions logged (lifetime)', value: '…' },
-            { label: 'Sessions in last 30 days', value: '…' },
-            { label: 'Total training load (AU)', value: '…' },
             { label: 'Active injuries', value: '…' },
+            { label: 'Self-reports pending', value: '…' },
           ]}
           onLoadStats={loadStats}
           roleBlurb={roleBlurb}
@@ -132,7 +123,6 @@ export default function AthleteProfilePage() {
             <div className="card">
               <div className="card-header">
                 <h2 className="card-title" style={{ marginBottom: 0 }}>Latest Screening Snapshot</h2>
-                <span className="card-sub">From the most recent ISN screening</span>
               </div>
               <div className="kv-grid" style={{ marginTop: 12 }}>
                 <div><span>Overall Activity Score</span><strong>{fmtScore(athlete?.overallActivityScore)}</strong></div>

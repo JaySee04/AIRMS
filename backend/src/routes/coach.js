@@ -1,7 +1,10 @@
 // Coach role — a first-class 4th role (FYP II, promoted 2026-07-19; read-only).
 //
 // A coach gets a READ-ONLY squad-readiness view of the athletes in their
-// assigned sport(s). No clinical notes, no screening detail, no uploads.
+// assigned sport(s), plus read-only screening detail (and, since 2026-07-23,
+// the individual screening PDF + history) for those same athletes — enforced
+// by sport-scope checks in routes/athletes.js, screenings.js and
+// screeningReports.js. No clinical notes, no injury records, no uploads.
 // Readiness derives from each athlete's cohort-normed HoloMotion band — the
 // same indicator the athlete and medical views report. (This route used to
 // also aggregate a 28-day ACWR per athlete; that compute + payload were

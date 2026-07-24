@@ -10,16 +10,27 @@ const nodemailer = require('nodemailer');
 // prints messages to stdout. This lets the round-trip work end-to-end in
 // local dev without credentials — the email content (including the reset
 // link) is visible in the backend terminal.
+//
+// MAILER_DRY_RUN=true forces the console transport EVEN WHEN SMTP_HOST is
+// configured (e.g. this project's real Gmail demo account) — set it for one
+// process only (`MAILER_DRY_RUN=true node script.js`, no .env edit, no
+// backend restart) whenever testing an email template/content change against
+// real data. Added after a dev-testing session accidentally sent a real test
+// alert to a live inbox because SMTP_HOST was already configured for the
+// demo — this is the safe way to preview what would be sent without ever
+// touching a real mailbox.
 
 let transporterPromise = null;
 
 function buildTransport() {
-  if (!process.env.SMTP_HOST) {
+  if (!process.env.SMTP_HOST || process.env.MAILER_DRY_RUN === 'true') {
     return {
       isConsole: true,
       sendMail: async (msg) => {
         console.log('────────────────────────────────────────────────────────────');
-        console.log('📧 [DEV mailer] No SMTP_HOST configured — printing to console:');
+        console.log(process.env.MAILER_DRY_RUN === 'true'
+          ? '📧 [DRY RUN] MAILER_DRY_RUN=true — nothing was sent, printing to console:'
+          : '📧 [DEV mailer] No SMTP_HOST configured — printing to console:');
         console.log('From:    ', msg.from);
         console.log('To:      ', msg.to);
         console.log('Subject: ', msg.subject);

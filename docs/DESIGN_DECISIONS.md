@@ -8,6 +8,13 @@
 
 ## 1. sRPE for internal training load
 
+> **Implementation removed 2026-07-20.** The UI that captured this (Activity
+> Tracking — `/athlete/activity`, the FYP I Module 1) was fully removed at JC's
+> request, along with its backend model/route. The **decision below is still
+> locked** for the report — the formula and its literature grounding are
+> unchanged — but nothing in the running system computes it anymore. See
+> `docs/MASTER_CLARIFICATIONS.md §4` and `docs/fyp/ACWR_REBUILD.md`.
+
 **Decision:** Load (AU) = Duration (min) × RPE (1–10), self-reported by the athlete.
 
 **Why:**
@@ -29,9 +36,14 @@
 
 ## 2. Composite risk model (FYP differentiator)
 
+> **No live caller as of 2026-07-20.** `classifyCompositeRisk()` is unchanged
+> in `risk.ts` — the formula below is a locked decision — but its ACWR input
+> came from Activity Tracking (the FYP I Module 1), which was fully removed.
+> Nothing in the running system calls this function. See `docs/fyp/ACWR_REBUILD.md`.
+
 **Decision:** Risk classification combines (a) standard ACWR thresholds personalised by the athlete's screening data, with (b) escalation when active injuries or high muscle-flag counts align with the workload.
 
-**Implementation:** [frontend/src/lib/risk.ts](../frontend/src/lib/risk.ts) → `classifyCompositeRisk()`.
+**Implementation:** [frontend/src/lib/risk.ts](../frontend/src/lib/risk.ts) → `classifyCompositeRisk()` (kept, dormant).
 
 **Why:**
 - A textbook ACWR pipeline (Gabbett's 0.8 / 1.3 / 1.5 bands) ignores the rich screening data AIRMS already stores
@@ -49,6 +61,11 @@
 ---
 
 ## 3. Athletes self-report intensity
+
+> **Feature removed 2026-07-20.** The self-report logging UI (Activity
+> Tracking, the FYP I Module 1) was fully removed. The reasoning below explains a UX
+> decision for a feature that no longer exists — kept for the report as the
+> record of why the (now-dormant) design looked the way it did.
 
 **Decision:** Athletes log their own session type, duration, and RPE intensity. No coach gating, no sensor integration.
 
@@ -102,7 +119,7 @@
 
 - **ISN's production environment is MySQL.** Anything that gets deployed at ISN must run against MySQL; using it during development eliminates the cost of a future translation step.
 - **Engine-level relational integrity.** Foreign keys on `athleteId` are enforced by MySQL itself across `activities`, `injuries`, `self_reports`, and `muscle_flags`. Orphaned clinical records cannot exist regardless of how badly a route handler is written.
-- **ACID transactions are first-class.** The self-report → injury promotion in Module 3 is wrapped in `sequelize.transaction()` so the status update and the new injury insert either both commit or both roll back.
+- **ACID transactions are first-class.** The self-report → injury promotion in Module 2 (Injury & Recovery Logging) is wrapped in `sequelize.transaction()` so the status update and the new injury insert either both commit or both roll back.
 - **Mature tooling.** MySQL Workbench gives a working schema inspector and query workbench out of the box, which made schema work during the migration much faster.
 
 ### Why not MongoDB
@@ -213,6 +230,12 @@ The `athletes` table and the normalised `muscle_flags` / `recovery_baselines` ta
 
 ## 10. ACWR baseline thresholds 0.8 / 1.3 / 1.5 (with personalised modifier ±15%)
 
+> **`personalisedThresholds()` has no live caller as of 2026-07-20** — it's
+> unchanged code in `risk.ts`, reachable only if the composite model is
+> rewired to a rebuilt training-load input (Activity Tracking was fully
+> removed; see `docs/fyp/ACWR_REBUILD.md`). The thresholds stay locked/
+> citable regardless.
+
 **Decision:** Use Gabbett (2016)'s standard thresholds as the literature baseline; modify by ±15% per athlete via `personalisedThresholds()`.
 
 **Why:**
@@ -307,7 +330,7 @@ Minor calls that didn't get a full section but are worth recording:
 
 **Decision:** The athlete's latest HoloMotion screening renders **inside the athlete and medical dashboards** (shared [`ScreeningPanel`](../frontend/src/components/dashboard/ScreeningPanel.tsx)) — there are no standalone screening pages. And AIRMS stores/seeds **only fields the HoloMotion report actually carries**: integer gauge scores, the eight risk indicators, and the two muscle lists. Weight/height (never on the report) are left null; sport/programme are operator-supplied at import.
 
-**Implementation:** `ScreeningPanel` = five score gauges with tick marks at HoloMotion's own 60/75/85 tier boundaries + the eight indicators as **threshold strips** (tinted OK ≤15 / Watch ≤25 / High >25 zones, marker coloured by the zone it lands in, sport-critical regions starred via [`screeningAlerts.ts`](../frontend/src/lib/screeningAlerts.ts)'s shared region map). Seeder anchors: John Doe (Module 2 demo profile) and **ATH0061 Thung Jin Seng — transcribed 1:1 from the sample HoloMotion PDF** as pipeline ground truth (`thung@isn.gov.my / thung123`).
+**Implementation:** `ScreeningPanel` = five score gauges with tick marks at HoloMotion's own 60/75/85 tier boundaries + the eight indicators as **threshold strips** (tinted OK ≤15 / Watch ≤25 / High >25 zones, marker coloured by the zone it lands in, sport-critical regions starred via [`screeningAlerts.ts`](../frontend/src/lib/screeningAlerts.ts)'s shared region map). Seeder anchors: John Doe (Module 1 demo profile) and **ATH0061 Thung Jin Seng — transcribed 1:1 from the sample HoloMotion PDF** as pipeline ground truth (`thung@isn.gov.my / thung123`).
 
 **Why:**
 - The dashboard is where decisions are made — a separate screening page forced a context switch to read data that directly feeds the composite risk model shown on the same screen
@@ -328,7 +351,18 @@ Minor calls that didn't get a full section but are worth recording:
 
 ---
 
-## 16. FYP II — cohort-normed overall risk indicator (ACWR demoted)
+## 16. FYP II — cohort-normed overall risk indicator (ACWR demoted, then Activity Tracking removed)
+
+> **Update 2026-07-20.** The "demote, not delete" framing below described the
+> state from 2026-07-16 to 2026-07-20. On 2026-07-20 JC asked to fully remove
+> Activity Tracking (the FYP I Module 1) — its only training-load input — with
+> the fallout accepted. The ACWR/composite model is no longer a
+> dormant-but-intact secondary view; its data source is gone. `risk.ts` itself
+> is still not deleted (the formula is a locked decision), but there is
+> nothing left to "demote" — see [`ACWR_REBUILD.md`](fyp/ACWR_REBUILD.md) for
+> the full history. The six-module set was also **restructured** that same day
+> to fill the gap Activity Tracking's removal left — see
+> `MASTER_CLARIFICATIONS.md §4` for the current module numbering.
 
 **Decision:** make a **cohort-normed HoloMotion overall risk indicator** the
 primary risk signal, and **demote** the ACWR/composite-workload model to a
@@ -408,9 +442,28 @@ no reseed needed, unlike the original seed-only setup.
 **Coach can read an athlete's screening detail.** Coach board rows are now
 selectable → a READ-ONLY detail view (risk badge, radar, `ScreeningPanel`
 threshold strips, body map, events) reusing the same components the medical view
-uses, minus every clinical affordance (no override, no injury logging). The
-downloadable individual screening PDF stays **blocked** for coaches — on-screen
-read-only detail is within remit, a portable clinical report is not.
+uses, minus every clinical affordance (no override, no injury logging).
+
+**Individual PDF unblocked for coaches (2026-07-23, reversing the 07-19 call).**
+The original stance was "on-screen read-only detail is within remit, a portable
+clinical report is not". JC reversed this: a coach may now download the
+individual screening PDF for athletes **in their assigned sport only** — the
+same `coachSport` scope check the team report applies, enforced server-side in
+[`routes/screeningReports.js`](../backend/src/routes/screeningReports.js)
+(athlete is fetched first, then sport compared). The report content is
+screening-derived data the coach already sees on the detail view, so the PDF
+adds portability, not new disclosure. Read-only remit is unchanged.
+
+**Coach-scope hardening sweep (same day).** Auditing for the pattern behind the
+above turned up three pre-coach routes gated only by `auth +
+requirePermission` — their athlete self-check let the coach role fall through
+**unscoped**: `GET /screenings/athlete/:id`, `GET /athletes/:id` and
+`GET /injuries/athlete/:id`. The first two now sport-scope coaches (screening
+detail is in remit); the third 403s coaches outright — clinical injury records
+were never in the remit (coaches get active-injury *counts* via
+`/coach/readiness`). Rule of thumb going forward: any route relying on an
+in-handler self-check instead of `rbac(...)` must decide the coach case
+explicitly.
 
 **Athlete events ("disciplines").** New `athlete_disciplines` join table
 (`Athlete hasMany`) — an athlete can hold multiple events (a badminton player may
@@ -447,4 +500,4 @@ one squad).
 
 ---
 
-*Last updated: 2026-07-19 — §16 gains the per-indicator escalation (threshold + peer-outlier, z ≥ 1.5, admin toggle, persisted factors). Previous: 2026-07-18 (§17 coach one-sport + athlete detail view + event disciplines), 2026-07-13 (§16 FYP II cohort-normed overall indicator + ACWR demotion), 2026-07-06 (§15 dashboard-embedded screening), 2026-06-28 (§13–14).*
+*Last updated: 2026-07-20 — Activity Tracking (the FYP I Module 1) fully removed at JC's request; §1, §2, §3, §10 and §16 annotated to mark their decisions as locked-but-dormant (no live caller) rather than actively running. The six-module set was restructured the same day to fill the gap this left — see `MASTER_CLARIFICATIONS.md §4` for the current numbering. Previous: 2026-07-19 (§16 gains the per-indicator escalation — threshold + peer-outlier, z ≥ 1.5, admin toggle, persisted factors), 2026-07-18 (§17 coach one-sport + athlete detail view + event disciplines), 2026-07-13 (§16 FYP II cohort-normed overall indicator + ACWR demotion), 2026-07-06 (§15 dashboard-embedded screening), 2026-06-28 (§13–14).*

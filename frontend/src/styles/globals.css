@@ -959,6 +959,15 @@ button { cursor: pointer; font-family: inherit; }
 .bodymap-region--tight { fill: var(--flag-tight); stroke: rgba(0,0,0,0.35); }
 .bodymap-region--both  { fill: var(--flag-both);  stroke: rgba(0,0,0,0.35); }
 
+/* ROM & Stability mode — same figure, tier-coloured by region instead of
+   weak/tight (see BodyMap.tsx's subitems mode). Reuses the risk-tier CSS
+   vars already defined for the subitem table / screening gauges elsewhere,
+   so light/dark theming is automatic. */
+.bodymap-region--excellent { fill: var(--risk-low);         stroke: rgba(0,0,0,0.35); }
+.bodymap-region--good      { fill: var(--risk-undertrained); stroke: rgba(0,0,0,0.35); }
+.bodymap-region--average   { fill: var(--risk-moderate);    stroke: rgba(0,0,0,0.35); }
+.bodymap-region--below     { fill: var(--risk-high);        stroke: rgba(0,0,0,0.35); }
+
 /* Hover handling is done at the group level so every path inside the
    region reacts as one unit (an "obliques" group contains ~8 path
    segments, but they all light up together when any of them is hovered). */
@@ -968,9 +977,17 @@ button { cursor: pointer; font-family: inherit; }
 .bodymap-region-group--weak:hover  .bodymap-region { fill: var(--flag-weak); }
 .bodymap-region-group--tight:hover .bodymap-region { fill: var(--flag-tight); }
 .bodymap-region-group--both:hover  .bodymap-region { fill: var(--flag-both); }
+.bodymap-region-group--excellent:hover .bodymap-region { fill: var(--risk-low); }
+.bodymap-region-group--good:hover      .bodymap-region { fill: var(--risk-undertrained); }
+.bodymap-region-group--average:hover   .bodymap-region { fill: var(--risk-moderate); }
+.bodymap-region-group--below:hover     .bodymap-region { fill: var(--risk-high); }
 .bodymap-region-group--weak:hover  .bodymap-region,
 .bodymap-region-group--tight:hover .bodymap-region,
-.bodymap-region-group--both:hover  .bodymap-region {
+.bodymap-region-group--both:hover  .bodymap-region,
+.bodymap-region-group--excellent:hover .bodymap-region,
+.bodymap-region-group--good:hover      .bodymap-region,
+.bodymap-region-group--average:hover   .bodymap-region,
+.bodymap-region-group--below:hover     .bodymap-region {
   filter: brightness(1.12);
 }
 .bodymap-muscle.is-flagged {
@@ -1046,6 +1063,10 @@ button { cursor: pointer; font-family: inherit; }
 .bm-legend i.weak  { background: var(--flag-weak); }
 .bm-legend i.tight { background: var(--flag-tight); }
 .bm-legend i.both  { background: var(--flag-both); }
+.bm-legend i.excellent { background: var(--risk-low); }
+.bm-legend i.good      { background: var(--risk-undertrained); }
+.bm-legend i.average   { background: var(--risk-moderate); }
+.bm-legend i.below     { background: var(--risk-high); }
 .bm-legend-note {
   grid-column: 1 / -1;
   font-size: 0.74rem;
@@ -1460,6 +1481,17 @@ tr.row-flash > td { animation: row-flash 1.6s ease-out; }
 }
 .insight-list li { margin-bottom: 4px; }
 
+/* ── Coach smart-suggestion card ───────────────────────────────────────────
+   The squad's top shared weak spots turned into training adjustments. The
+   first (primary) concern is tinted so "the main issue" reads at a glance. */
+.coach-suggest-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.coach-suggest-item { padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-card); }
+.coach-suggest-item.is-primary { border-color: color-mix(in srgb, var(--brand-gold) 45%, var(--border)); background: color-mix(in srgb, var(--brand-gold) 8%, transparent); }
+.coach-suggest-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+.coach-suggest-region { font-size: 0.95rem; font-weight: 700; }
+.coach-suggest-magnitude { margin: 0 0 6px; font-size: 0.82rem; color: var(--text-muted); line-height: 1.5; }
+.coach-suggest-action { margin: 0; font-size: 0.85rem; line-height: 1.5; }
+
 /* ── Sport-aware screening alert banner ────────────────────────────────────── */
 .screening-alert {
   border: 1px solid var(--border);
@@ -1580,6 +1612,37 @@ tr.row-flash > td { animation: row-flash 1.6s ease-out; }
 
 /* ── Forms ───────────────────────────────────────────────────────────────────── */
 .form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+
+/* Scope-grouped filter bar (admin injury analytics): a bordered, labelled
+   fieldset around each set of controls so the user sees at a glance which
+   filters apply where. */
+.filter-group {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin: 0;
+  padding: 4px 12px 10px;
+  min-inline-size: 0; /* let it shrink/wrap instead of overflowing */
+}
+.filter-group-legend {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text);
+  padding: 0 6px;
+}
+.filter-group-legend span {
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text-muted);
+}
+.filter-group-body {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
 .form-group label { font-size: 0.875rem; font-weight: 500; }
 .form-group input,
 .form-group select,
@@ -2005,6 +2068,62 @@ tbody tr:hover { background: var(--bg); }
 .seg-btn--minor.active    { background: var(--risk-low); color: #fff; }
 .seg-btn--moderate.active { background: var(--risk-moderate); color: #1a2533; }
 .seg-btn--severe.active   { background: var(--risk-high); color: #fff; }
+
+/* ── Clinician band override (medical dashboard, under the risk hero) ───────
+   Reads as the hero's continuation (the -12px pull-up joins them): the hero
+   states the verdict, this states who set it and lets a clinician replace it.
+   Kept quieter than the hero (neutral surface, no band tint) so the verdict
+   above stays the loudest thing on the page. */
+.band-override { margin: -12px 0 20px; padding: 16px 20px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-card); }
+.band-override-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
+.band-override-title { font-size: 0.95rem; font-weight: 700; margin: 0 0 4px; }
+.band-override-help { margin: 0; max-width: 68ch; font-size: 0.82rem; line-height: 1.5; color: var(--text-muted); }
+/* Provenance pill — system's number or a person's? — answered before any edit. */
+.band-override-source { flex-shrink: 0; padding: 5px 10px; border: 1px solid var(--border); border-radius: 999px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.03em; color: var(--text-muted); background: var(--bg); }
+.band-override-source--manual { border-color: var(--risk-moderate); color: #8a6818; background: var(--risk-moderate-bg); }
+[data-theme="dark"] .band-override-source--manual { color: #f0c060; }
+
+.band-choice-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+/* Each option states its outcome; the colour only reinforces, never carries. */
+.band-choice { display: flex; align-items: flex-start; gap: 10px; text-align: left; padding: 12px 14px; border: 1px solid var(--border); border-left-width: 4px; border-radius: var(--radius); background: var(--bg-card); color: var(--text); font: inherit; cursor: pointer; transition: background 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease; }
+.band-choice:hover:not(:disabled) { background: var(--bg); }
+.band-choice:disabled { cursor: default; opacity: 0.6; }
+.band-choice--low  { border-left-color: var(--risk-low); }
+.band-choice--mod  { border-left-color: var(--risk-moderate); }
+.band-choice--high { border-left-color: var(--risk-high); }
+/* .is-current = the band every other screen is showing; .is-pending = picked
+   but not yet justified (the note below is what commits it). */
+.band-choice.is-current { background: var(--bg); border-color: var(--text-muted); }
+.band-choice--low.is-current  { background: var(--risk-low-bg); }
+.band-choice--mod.is-current  { background: var(--risk-moderate-bg); }
+.band-choice--high.is-current { background: var(--risk-high-bg); }
+.band-choice.is-pending { border-color: var(--brand-gold); box-shadow: 0 0 0 2px var(--brand-gold); }
+.band-choice-dot { width: 12px; height: 12px; flex-shrink: 0; margin-top: 3px; border-radius: 50%; }
+.band-choice--low  .band-choice-dot { background: var(--risk-low); }
+.band-choice--mod  .band-choice-dot { background: var(--risk-moderate); }
+.band-choice--high .band-choice-dot { background: var(--risk-high); }
+.band-choice-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+.band-choice-label { font-size: 0.9rem; font-weight: 700; line-height: 1.2; }
+.band-choice--low  .band-choice-label { color: var(--risk-low); }
+.band-choice--mod  .band-choice-label { color: #8a6818; }
+.band-choice--high .band-choice-label { color: var(--risk-high); }
+[data-theme="dark"] .band-choice--mod .band-choice-label { color: #f0c060; }
+.band-choice-action { font-size: 0.76rem; line-height: 1.4; color: var(--text-muted); }
+.band-choice-tags { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.band-choice-tag { padding: 2px 6px; border: 1px solid var(--border); border-radius: 4px; font-size: 0.6rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; color: var(--text-muted); background: var(--bg); }
+.band-choice-tag--current { border-color: var(--text-muted); color: var(--bg-card); background: var(--text-muted); }
+
+/* Inline justification — replaces window.prompt() so the picked option stays
+   visible while the note (shown to the athlete) is written. */
+.band-override-note { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border); }
+.band-override-note label { display: block; font-size: 0.82rem; line-height: 1.5; margin-bottom: 6px; }
+.band-override-textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-card); color: var(--text); font: inherit; font-size: 0.85rem; resize: vertical; }
+.band-override-textarea:focus { outline: 2px solid var(--brand-gold); outline-offset: 1px; }
+.band-override-actions {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin-top: 10px;
+}
+.band-override-hint { font-size: 0.76rem; color: var(--text-muted); }
 
 /* ── Training focus (screening panel) ───────────────────────────────────────── */
 .focus-grid {

@@ -6,6 +6,18 @@
 > *proposal* — nothing is built yet. Citations are anchor candidates: real,
 > widely-cited works chosen for fit; **verify exact year/DOI and 5-year recency
 > against the FYP reference rule before quoting them in the report.**
+>
+> **2026-07-20 update:** Activity Tracking (the FYP I Module 1 — the system's
+> only training-load input) was **fully removed** from the codebase, not just
+> demoted from display. R2's "does it beat ACWR-alone as a baseline?"
+> comparison arm (§2, §1 table row) no longer has a live code path to pull
+> ACWR values from — the formula is preserved as a rebuild spec
+> (`ACWR_REBUILD.md`) but producing an ACWR baseline for R2 would mean either
+> rebuilding the Activity-logging input or computing it offline from
+> historical data. Flag this before treating R2 as "ACWR is right there to
+> compare against." The six-module set was also restructured the same day to
+> fill the gap this left (module numbers below already reflect the current
+> numbering) — see `MASTER_CLARIFICATIONS.md §4` for the full mapping.
 
 ---
 
@@ -37,7 +49,7 @@ The redesign already shipped the substrate the new research needs:
 | **Composite indicator + escalation** (transparent, factor-attributed) | An *explainable* baseline to validate and to compare ML against |
 | **Injury + self-report tables** (with dates, body part, mechanism) | Ground-truth **outcome labels** to validate risk against |
 | **HoloMotion vision-AI pipeline** with `verify:vision` ground truth | A ready-made **extraction-accuracy evaluation** study |
-| **ACWR demoted, not deleted** | A built-in comparison arm (workload-only vs screening-composite) |
+| **ACWR formula preserved as a rebuild spec** (`ACWR_REBUILD.md`) — but the code that computed it (Activity Tracking) was fully removed 2026-07-20 | Not a built-in comparison arm anymore — a workload-only baseline for R2 would need the training-load input rebuilt (or computed offline from historical data) before it produces any ACWR values |
 
 The key point for the viva: **we are not starting a new project — we are
 extending a working one with the exact data structures the new research
@@ -78,7 +90,9 @@ et al. — *critiques of the acute:chronic workload ratio*.
 **Why it is defensible:** Bahr's paper is famous for warning that screening
 rarely predicts injury on its own — engaging it head-on (and reporting honest
 metrics, even modest ones) is far stronger than another overclaim. This cluster
-also **justifies the ACWR demotion** we already did.
+also **justifies the ACWR demotion and later removal** we already did — see
+the 2026-07-20 note at the top of this file re: the comparison-arm data no
+longer being live.
 
 ### R3 — Normative reference reliability for small elite cohorts
 **Gap:** our own known limitation — the "bottom-3 of ~6" red-heavy distribution.
@@ -139,10 +153,10 @@ optional/experimental.
   the next screening **re-measures** — showing whether the intervention moved the
   band.
 - Gives the system a genuine feedback loop and generates the very before/after
-  data M8 needs to evaluate. Also completes Module 3's deferred "structured
-  treatment plan."
+  data M8 needs to evaluate. Also completes Module 2's (Injury & Recovery
+  Logging) deferred "structured treatment plan."
 
-### M10 — Return-to-Play & Recovery Milestones — *completes deferred Module 3*
+### M10 — Return-to-Play & Recovery Milestones — *completes deferred Module 2*
 - The FYP I report flagged recovery-milestone tracking as unbuilt because
   Dr Thung had not specified the schema. FYP II proposes a **criteria-based RTP
   workflow**: phased recovery (acute → sub-acute → return-to-train →
@@ -212,10 +226,13 @@ Phrased to satisfy the "clearly described, relevant, **measurable**" rubric:
   consent/NDA questions — cite the existing Dr Thung LOI and keep an ethics
   paragraph. Human-in-the-loop (clinician override already built) is the
   safety argument.
-- **Locked FYP I decisions still hold:** the composite formula, sRPE, body-map
-  asset, and MySQL schema are locked; new modules **extend**, they don't rewrite.
-  The role model is the one deliberate change — M11 (coach) is **promoted to a
-  first-class 4th role in FYP II** (FYP I shipped 3 roles).
+- **Locked FYP I decisions still hold as formulas, not as running code:** the
+  composite formula and sRPE method are locked/citable, but as of 2026-07-20
+  neither has a live implementation (Activity Tracking, the sRPE input, was
+  fully removed — see the note at the top of this file). Body-map asset and
+  MySQL schema are unaffected and still locked. New modules **extend**, they
+  don't rewrite. The role model is the one deliberate change — M11 (coach) is
+  **promoted to a first-class 4th role in FYP II** (FYP I shipped 3 roles).
 - **Don't overclaim (the FYP I lesson):** M8 exists precisely so FYP II reports
   *measured* outcomes, not aspirational ones.
 

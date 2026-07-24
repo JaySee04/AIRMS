@@ -52,8 +52,8 @@ Per-role nav:
 | Athlete | Medical | Admin |
 |---|---|---|
 | My Dashboard | Athlete Dashboard | Injury Analytics |
-| Activity Tracking | Injury Logging | PDF Reports |
-| Injury Reporting | Self-Report Review | Staff Permissions |
+| Injury Reporting | Injury Logging | PDF Reports |
+|  | Self-Report Review | Staff Permissions |
 |  | Data Uploading | Data Uploading |
 
 Medical nav links are hidden individually when an admin has revoked that capability for the staff member (see §15).
@@ -63,7 +63,7 @@ Medical nav links are hidden individually when an admin has revoked that capabil
 ### Topbar
 
 60px sticky top bar visible on every authenticated page:
-- **Left**: page title (e.g. "My Dashboard", "Activity Tracking")
+- **Left**: page title (e.g. "My Dashboard", "Injury Reporting")
 - **Right**:
   - Stacked "Signed in as" + bold role name
   - Theme toggle (rounded-rectangle button, sun/moon icon, persists to `localStorage`)
@@ -74,49 +74,26 @@ The initials avatar filters out honorifics — e.g. "Dr. Lim Wei Han" displays a
 
 ---
 
-## 3. Activity Tracking — `/athlete/activity` (Athlete only)
+## 3. Activity Tracking — removed 2026-07-20
 
-Two-column layout: log form on the left, history on the right.
+`/athlete/activity` (sRPE session logging: type/date/duration/intensity, a
+live `duration × intensity` load preview, and a filterable session history)
+was **fully removed** at JC's request. Its ACWR/composite-risk *display* had
+already left every dashboard on 2026-07-16 (see the note under
+[§4.1](#41-overall-risk-indicator--the-hero-the-one-verdict)); with nothing
+left to surface its output, JC judged the logging page itself not worth
+keeping. This was a deliberate, informed call with the fallout accepted, not
+a bug — see `docs/MASTER_CLARIFICATIONS.md §4` for the full record.
 
-### Log New Activity (left card)
-
-Fields:
-- **Activity Type** — dropdown: Strength, Endurance, Speed, Skill, Match, Recovery
-- **Date** — defaults to today
-- **Duration (minutes)** — 10–240
-- **Intensity (RPE 1–10)** — perceived exertion
-- **Notes** — optional free-text
-
-**Live load preview** below the duration/intensity fields:
-```
-Load = Duration × Intensity
-60 min × 6 = 360 AU
-Moderate session — typical training load.
-```
-
-The qualitative band updates live as you change inputs:
-- `0` → "Enter duration and intensity to compute load."
-- `<200` → "Light session — feeds your chronic baseline."
-- `<500` → "Moderate session — typical training load."
-- `<800` → "High load session — ensure recovery is planned."
-- `≥800` → "Very high load — verify duration and intensity values are accurate."
-
-Hit **Save Activity** → POSTs to `/api/activities`, prepends the new row to the history table, shows a green success banner that auto-dismisses after 2.5s.
-
-### Activity History (right card)
-
-- Card header shows session count ("12 sessions logged")
-- Filter dropdown to scope by activity type
-- Table columns: Date, Type (pill badge), Duration, Intensity (x/10), Load (bold), Delete button
-- Delete prompts a `confirm()` dialog before calling the backend
-
-If no activities yet: "No activities logged yet. Use the form on the left to log your first session."
-
-### How this feeds the rest of the system
-
-Sessions in the last 7 days contribute to the **acute load**; the last 4 weeks of weekly totals form the **chronic load**; acute ÷ chronic is the **ACWR**.
-
-Since 2026-07-16 this page is the **only** place training load is shown — the ACWR hero, load stat tiles and Workload Trend chart were removed from the dashboards so that the cohort-normed screening indicator is the single risk verdict there (see [§4.1](#41-overall-risk-indicator--the-hero-the-one-verdict)). Load still does work behind the scenes: it drives the **recovery baseline** a clinician sees on the medical dashboard, and a sharp drop in training still prompts the athlete to add a note.
+**Fallout accepted:** the Recent Activity table on the athlete dashboard
+([§4.5](#45-recent-activity-table-removed-2026-07-20)), the medical dashboard's
+own Recent Activity table, its **recovery baseline** card, and its
+**prevention insight** card all consumed this page's data (directly or via
+the composite risk model's ACWR argument) and were retired alongside it. The
+composite model itself (`frontend/src/lib/risk.ts`) is **not** deleted — the
+formula is a locked decision — but it currently has no live callers anywhere
+in the app. Rebuild spec, if the formula is ever wired to a different
+training-load input: [`docs/fyp/ACWR_REBUILD.md`](fyp/ACWR_REBUILD.md).
 
 ---
 
@@ -141,9 +118,7 @@ The dashboard's headline, and since 2026-07-16 the **only** risk verdict on it. 
 
 Full behaviour of the score itself is in [§16](#16-overall-risk-indicator-cohort-normed).
 
-> **What happened to the ACWR / Compound Risk hero?** It was removed from every dashboard on 2026-07-16. It sat *below* the overall indicator labelled "Secondary", but was several times larger — so the athlete met three competing verdicts in a row (the sport-critical alert, "Immediate assessment", and "Compound Moderate Risk") and couldn't tell which was the answer. Training load now lives solely on **[Activity Tracking §3](#3-activity-tracking)**, which is unchanged: sRPE logging, the live load preview and the history table are all still there. The composite model itself is retained and still runs behind the scenes (it opens recovery baselines and feeds the medical prevention-insight card) — see [`docs/fyp/ACWR_REBUILD.md`](fyp/ACWR_REBUILD.md).
-
-**Sharp-drop prompt** — a slim banner still appears under the hero if the athlete's training drops sharply: *"Sharp drop in activity detected. Were you ill or injured? [Add Note →]"*, linking to `/athlete/injury-report`.
+> **What happened to the ACWR / Compound Risk hero?** It was removed from every dashboard on 2026-07-16. It sat *below* the overall indicator labelled "Secondary", but was several times larger — so the athlete met three competing verdicts in a row (the sport-critical alert, "Immediate assessment", and "Compound Moderate Risk") and couldn't tell which was the answer. Training load lived on **[Activity Tracking §3](#3-activity-tracking-removed-2026-07-20)** until that page was itself fully removed on 2026-07-20 — see §3 for the full record, including the recovery-baseline/prevention-insight fallout. The composite model itself is retained (`frontend/src/lib/risk.ts`, a locked decision) but has no live callers now — see [`docs/fyp/ACWR_REBUILD.md`](fyp/ACWR_REBUILD.md).
 
 ### 4.2 Risk Indicators radar
 
@@ -180,9 +155,11 @@ The athlete's latest ingested report, read against its thresholds (full detail i
 
 Tooltip on hover shows which specific AIRMS muscles map to the region you're hovering ("Vastus Lateralis — weak", "Rectus Femoris — tight", etc.).
 
-### 4.5 Recent Activity table
+### 4.5 Recent Activity table — removed 2026-07-20
 
-Last 6 sessions in compact form. "View All →" link to `/athlete/activity`.
+Used to show the athlete's last 6 logged sessions with a "View All →" link
+to `/athlete/activity`. Removed along with Activity Tracking — see
+[§3](#3-activity-tracking-removed-2026-07-20).
 
 ### 4.6 Injury Records
 
@@ -257,16 +234,17 @@ The medical staff's home page — **search → select athlete → see their full
 **Right pane, before any selection** — the clinician's entry points: roster/active-injury/pending-report stat tiles, plus two quick-access lists (athletes with active injuries; injuries logged in the last 14 days) that select the athlete on click.
 
 **On selection** — the full athlete view renders in the right pane:
-- **Profile header card** — avatar, ID · sport · programme · age · gender, "+ Log Injury" button (deep-links to `/medical/injury-log?athleteId=...`)
+- **Profile header card** — avatar, ID · sport · programme · age · gender, events editor, "Download PDF" / "Team PDF" buttons, "+ Log Injury" button (deep-links to `/medical/injury-log?athleteId=...`)
+- **Overall Risk Indicator hero** — the same cohort-normed verdict the athlete sees (see [§4.1](#41-overall-risk-indicator--the-hero-the-one-verdict)), with clinician-only **band-override buttons** underneath (Green / Amber / Red + a required assessment note)
 - **Sport-Critical Screening Alert** — the same banner the athlete sees, flagging a sport-important body region that's out of screening range (see [§13](#13-sport-critical-screening-alerts))
-- **Composite Risk hero** — same component logic as the athlete's own dashboard. Shows the personalised band, escalation badge if triggered, and risk modifier chips
-- **Recovery baseline card** (when open) + **Prevention insight card** — clinician-facing return-to-play target and cross-referenced watch points
+- **Risk Indicators radar** — identical to the athlete dashboard
 - **HoloMotion Screening panel** — the same tier-ticked gauges + indicator threshold strips the athlete sees (see [§14](#14-screening-panel--embedded-on-the-dashboards))
-- **Workload Trend chart** + **Risk Indicators radar** (side by side, identical to the athlete dashboard)
 - **Muscle Assessment Map** — front + back silhouette with flagged regions, plus the granular flag cards below
-- **Recent Activity** (athlete-logged sessions with notes), **Sport Context**, and the **Injury History** list with severity-coloured recovery status badges
+- **Sport Context** and the **Injury History** list with severity-coloured recovery status badges
 
-The medical view is intentionally **read-only** for the screening data. Edits flow through Module 4 (data re-upload).
+The medical view is intentionally **read-only** for the screening data. Edits flow through Module 3 (data re-upload).
+
+> The **Recovery baseline card**, **Prevention insight card**, and **Recent Activity** table that used to sit here were removed 2026-07-20 along with Activity Tracking (see [§3](#3-activity-tracking-removed-2026-07-20)) — all three consumed data that page produced. The **Composite Risk hero** and **Workload Trend chart** were removed earlier, on 2026-07-16, in favour of the Overall Risk Indicator hero above (same change as the athlete dashboard).
 
 ---
 
@@ -456,7 +434,7 @@ After a medical staffer **actually assesses** an athlete, they can override the 
 A **Screening Reports** card offers three cohort-normed PDFs (separate from the injury-analytics report in [§10](#10-pdf-reports-admin--adminreports)):
 
 1. **Holistic (admin):** organisation-wide, non-expert-friendly **visualisations** — band distributions, most-flagged regions, screened coverage, and worst/attention lists.
-2. **Individual:** one athlete — their scores, muscle legend, risk levels, **their thresholds vs their peers**, and **progress deltas between HoloMotion reports** (from the screening history).
+2. **Individual:** one athlete — their scores, muscle legend, risk levels, **their thresholds vs their peers**, and **progress deltas between HoloMotion reports** (from the screening history). Also downloadable by medical staff (athlete header), by a coach for their sport's athletes (detail view), and by the **athlete themselves** (Screening History card on their dashboard) — every role's access enforced server-side. The same progress appears on-screen as the **Screening History** table on the athlete dashboard and the medical/coach detail views.
 3. **Team / group:** one sport + programme + gender cohort — the group thresholds, **everyone ranked against them**, plus an **attention table** listing each athlete's parts that need follow-up (built for the coach).
 
 Each streams straight to the browser as a download.
@@ -467,8 +445,8 @@ Each streams straight to the browser as a download.
 
 **Email alerts (automatic):** when an import is **committed**, any athlete in that batch who lands **amber/red or escalated** triggers an email to the **medical staff** and to the **coaches assigned to that athlete's sport**. New data means "assess now" — the alert stops it sitting unseen. Alert behaviour (on/off, which band) is an admin setting ([§17](#17-cohort-thresholds--settings-admin--adminthresholds)). With no SMTP configured the mailer falls back to printing the email to the backend console.
 
-**Coach view — `/coach/dashboard`** (FYP II first-class role): a read-only squad-readiness board scoped to the coach's **one admin-assigned sport**. Every athlete appears with their HoloMotion overall-risk badge and a Full-Go / Observation / Restricted readiness band (mapped straight from the same cohort-normed band the medical team sees), sorted worst-first with each athlete's **worst screening region named** (e.g. "Ankle 27") and their active-injury count — so the coach sees at a glance who needs the medical team's attention. The board is **filterable by programme / gender / event**, and **selecting an athlete opens a read-only screening detail** (risk badge, radar, threshold strips, body map, events); the coach can also **download the team screening PDF** for their sport. Coaches cannot edit anything or see the individual clinical report. A coach account is created and assigned from **`/admin/coaches`**.
+**Coach view — `/coach/dashboard`** (FYP II first-class role): a read-only squad-readiness board scoped to the coach's **one admin-assigned sport**. Every athlete appears with their HoloMotion overall-risk badge and a Full-Go / Observation / Restricted readiness band (mapped straight from the same cohort-normed band the medical team sees), sorted worst-first with each athlete's **worst screening region named** (e.g. "Ankle 27") and their active-injury count — so the coach sees at a glance who needs the medical team's attention. The board is **filterable by programme / gender / event**, and **selecting an athlete opens a read-only screening detail** (risk badge, radar, threshold strips, body map, events); the coach can also **download the team screening PDF** for their sport, and — from an athlete's detail view — the **individual screening PDF** for that athlete (athletes outside the coach's sport are refused server-side). Coaches cannot edit anything. A coach account is created and assigned from **`/admin/coaches`**.
 
 ---
 
-*Last updated: 2026-07-16 — **ACWR removed from every dashboard.** §4 rewritten: the cohort-normed indicator is now the single risk verdict (§4.1 hero, paired with the §4.2 radar); the composite ACWR hero, load stat tiles and Workload Trend chart are gone from athlete + medical, and the coach's readiness now derives from the HoloMotion band (§20). Training load lives only on §3 Activity Tracking. Lumbar Disc Herniation removed from the radar, threshold strips, cohort chart and alerts (it was being shown against Dr Thung's requirement). Previous: 2026-07-14 — FYP II screening-centred redesign: §16 (cohort-normed overall indicator), §17 (admin cohort thresholds + settings), §18 (clinician override), §19 (three screening PDF reports), §20 (import-commit email alerts + coach view). Earlier: 2026-07-06 — §14 dashboard-embedded screening panel; §15 permission revocations vanish features; five-step injury intake. 2026-06-28 (HoloMotion PDF import, backup, staff permissions).*
+*Last updated: 2026-07-20 (later same day) — **the six FDD modules restructured** after Activity Tracking's removal (below): rather than leave a hole at "Module 1" or drop to five modules, the surviving feature set was redistributed across a fresh six (old Data Management split into Screening Data Ingestion and Cohort Norms & Governance). Module numbers used elsewhere in this manual's prose now refer to the **new** numbering — see `docs/fyp/FYP2_MODULES_USECASES.md` Appendix B if you're holding an older reference. Previous (2026-07-20, earlier same day): **Activity Tracking (then Module 1) removed entirely.** §3 rewritten as a retirement notice; §4.5 (Recent Activity table) removed from the athlete dashboard; §8 (medical dashboard) loses its Recent Activity table, Recovery baseline card, and Prevention insight card — all consumed data only that module produced. `risk.ts` (composite model, §6/§16 machinery) is unchanged code-wise but now has no live callers. Previous: 2026-07-16 — **ACWR removed from every dashboard.** §4 rewritten: the cohort-normed indicator is now the single risk verdict (§4.1 hero, paired with the §4.2 radar); the composite ACWR hero, load stat tiles and Workload Trend chart are gone from athlete + medical, and the coach's readiness now derives from the HoloMotion band (§20). Lumbar Disc Herniation removed from the radar, threshold strips, cohort chart and alerts (it was being shown against Dr Thung's requirement). Previous: 2026-07-14 — FYP II screening-centred redesign: §16 (cohort-normed overall indicator), §17 (admin cohort thresholds + settings), §18 (clinician override), §19 (three screening PDF reports), §20 (import-commit email alerts + coach view). Earlier: 2026-07-06 — §14 dashboard-embedded screening panel; §15 permission revocations vanish features; five-step injury intake. 2026-06-28 (HoloMotion PDF import, backup, staff permissions).*

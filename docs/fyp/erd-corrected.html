@@ -3,6 +3,17 @@
 <head>
 <meta charset="utf-8" />
 <title>AIRMS — Entity Relationship Diagram</title>
+<!--
+  2026-07-20: the `activities` and `recovery_baselines` tables were dropped
+  from the schema — Activity Tracking (the FYP I Module 1) was fully removed at JC's
+  request (backend/src/models/Activity.js, RecoveryBaseline.js, and their
+  routes are deleted; the seeder drops both tables outright on reseed).
+  `muscle_flags` moved into the vacated top-left slot; the athletes ──
+  muscle_flags connector was recomputed for the new position. This ERD does
+  not yet include the FYP II additions (screenings, cohort_thresholds,
+  settings, athlete_disciplines) — out of scope for this pass, which only
+  removes what Activity Tracking's removal actually dropped from the schema.
+-->
 <style>
   html, body {
     margin: 0;
@@ -124,18 +135,9 @@
             stroke="#444" stroke-width="1.4" fill="none"
             marker-start="url(#zeroOne)" marker-end="url(#one)"/>
 
-      <!-- athletes ──── activities (L-shape, top-left) -->
-      <path d="M 440 320 L 360 320 L 360 132 L 280 132"
-            stroke="#444" stroke-width="1.4" fill="none"
-            marker-start="url(#one)" marker-end="url(#many)"/>
-
-      <!-- athletes ──── muscle_flags (straight horizontal) -->
-      <path d="M 440 396 L 280 396"
-            stroke="#444" stroke-width="1.4" fill="none"
-            marker-start="url(#one)" marker-end="url(#many)"/>
-
-      <!-- athletes ──── recovery_baselines (straight horizontal) -->
-      <path d="M 440 595 L 280 595"
+      <!-- athletes ──── muscle_flags (L-shape, top-left — repositioned
+           2026-07-20 into the slot `activities` used to occupy) -->
+      <path d="M 440 320 L 360 320 L 360 100 L 280 100"
             stroke="#444" stroke-width="1.4" fill="none"
             marker-start="url(#one)" marker-end="url(#many)"/>
 
@@ -152,9 +154,7 @@
 
     <!-- Relationship verb labels -->
     <div class="relname" style="left: 562px; top: 246px;">has profile</div>
-    <div class="relname" style="left: 300px; top: 304px;">logs</div>
-    <div class="relname" style="left: 320px; top: 378px;">flagged with</div>
-    <div class="relname" style="left: 320px; top: 577px;">tracked by</div>
+    <div class="relname" style="left: 300px; top: 304px;">flagged with</div>
     <div class="relname" style="left: 1110px; top: 280px;">sustains</div>
     <div class="relname" style="left: 880px; top: 530px;">submits</div>
 
@@ -210,26 +210,11 @@
       </table>
     </div>
 
-    <!-- ===== ACTIVITIES (top-left) ===== -->
+    <!-- ===== MUSCLE_FLAGS (top-left — moved 2026-07-20 into the slot
+         `activities` used to occupy; `activities` and `recovery_baselines`
+         were both dropped from the schema when Activity Tracking was
+         removed) ===== -->
     <div class="table" style="left: 60px; top: 20px; width: 220px;">
-      <div class="title">activities</div>
-      <table>
-        <colgroup><col style="width:44px"><col></colgroup>
-        <tr><td class="key">PK</td><td class="col">id</td></tr>
-        <tr><td class="key fk">FK</td><td class="col">athlete_id</td></tr>
-        <tr><td></td><td class="col">date</td></tr>
-        <tr><td></td><td class="col">type</td></tr>
-        <tr><td></td><td class="col">duration</td></tr>
-        <tr><td></td><td class="col">intensity</td></tr>
-        <tr><td></td><td class="col">load</td></tr>
-        <tr><td></td><td class="col">notes</td></tr>
-        <tr><td></td><td class="col">created_at</td></tr>
-        <tr><td></td><td class="col">updated_at</td></tr>
-      </table>
-    </div>
-
-    <!-- ===== MUSCLE_FLAGS (middle-left) ===== -->
-    <div class="table" style="left: 60px; top: 320px; width: 220px;">
       <div class="title">muscle_flags</div>
       <table>
         <colgroup><col style="width:44px"><col></colgroup>
@@ -239,24 +224,6 @@
         <tr><td></td><td class="col">muscle</td></tr>
         <tr><td></td><td class="col">side</td></tr>
         <tr><td></td><td class="col">created_at</td></tr>
-      </table>
-    </div>
-
-    <!-- ===== RECOVERY_BASELINES (bottom-left) ===== -->
-    <div class="table" style="left: 60px; top: 500px; width: 220px;">
-      <div class="title">recovery_baselines</div>
-      <table>
-        <colgroup><col style="width:44px"><col></colgroup>
-        <tr><td class="key">PK</td><td class="col">id</td></tr>
-        <tr><td class="key fk">FK</td><td class="col">athlete_id</td></tr>
-        <tr><td></td><td class="col">snapshot_acwr</td></tr>
-        <tr><td></td><td class="col">chronic_load</td></tr>
-        <tr><td></td><td class="col">target_low_min</td></tr>
-        <tr><td></td><td class="col">target_low_max</td></tr>
-        <tr><td></td><td class="col">trigger_cls</td></tr>
-        <tr><td></td><td class="col">trigger_level</td></tr>
-        <tr><td></td><td class="col">factors</td></tr>
-        <tr><td></td><td class="col">resolved_at</td></tr>
       </table>
     </div>
 
