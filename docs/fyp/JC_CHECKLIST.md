@@ -158,9 +158,13 @@ Figma UI. Half-doing it is worse than declaring it.
 - [ ] **Traffic-light badge** reads right on the athlete dashboard, the medical
   per-athlete view, and the coach table (compact column). Green=safe,
   amber=needs attention, red=immediate assessment.
-- [ ] **Clinician override** — on the medical view, the Green/Amber/Red buttons
-  prompt for a note and set the effective band (underlying stays). Try it on an
-  amber/red athlete; confirm the flow + wording.
+- [ ] **Clinician override** — redesigned 2026-07-25 into `ClinicianBandOverride`
+  (replaced the bare Green/Amber/Red buttons + `window.prompt`). On the medical
+  view it's the "Clinical assessment" card under the risk hero: outcome-labelled
+  Safe / Needs-attention / Immediate-assessment cards, `In force` + `Calculated`
+  provenance tags, and the required note captured inline (not a browser prompt).
+  Try it on an amber/red athlete; confirm the flow + wording, and that the set
+  band + note render on that athlete's own dashboard and the coach's view.
 
 ## Stage D — the three PDF reports (rebuilt at TMG scale, 2026-07-15)
 - [ ] **Open the three PDFs in a real viewer** (Admin → PDF Reports → HoloMotion
