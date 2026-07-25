@@ -164,6 +164,13 @@ export default function CoachDashboard() {
     })();
   }, []);
 
+  // Opening (or leaving) an athlete's detail is a client-side view swap, not a
+  // route change, so the browser keeps the roster's scroll position. Jump to the
+  // top so the detail opens at the athlete's header instead of mid-page.
+  useEffect(() => {
+    window.scrollTo({ top: 0 });
+  }, [selectedId]);
+
   // Programmes present in the squad (for the filter dropdown).
   const programmes = useMemo(() => {
     const set = new Set<string>();
