@@ -556,7 +556,8 @@ export default function CoachDashboard() {
           </ul>
           <p className="text-muted" style={{ fontSize: '0.76rem', marginTop: 12, marginBottom: 0 }}>
             Ranked by how many athletes are flagged in each region this round — a frequency heuristic, not the
-            cohort risk model. Confirm programming with your medical / S&amp;C lead.
+            cohort risk model, and general strength-and-conditioning principles rather than individualised
+            prescription. Confirm programming with your medical / S&amp;C lead.
           </p>
         </div>
       )}
