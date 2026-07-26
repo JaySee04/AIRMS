@@ -9,6 +9,8 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const { connectDB, sequelize } = require('./config/db');
 require('./models'); // register models + associations
 
@@ -31,11 +33,29 @@ const ALLOWED_ORIGINS = (process.env.FRONTEND_URL || 'http://localhost:3000,http
   .split(',')
   .map((s) => s.trim());
 
+// Security headers. crossOriginResourcePolicy is relaxed to cross-origin
+// because the frontend (a different origin) fetches streamed PDF reports from
+// this API; CORS still governs who may call the API. Other helmet defaults
+// (HSTS, noSniff, frameguard, etc.) apply unchanged.
+app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 app.use(cors({ origin: ALLOWED_ORIGINS, credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use('/api/auth', authRoutes);
+// Throttle the auth surface (login / password-reset / OTP) to blunt brute-force
+// and credential-stuffing — the one set of endpoints an unauthenticated caller
+// can hit repeatedly. 20 attempts / 15 min / IP is generous for real use and a
+// demo, but stops automated guessing. Trust the proxy hop count via app config
+// if this ever sits behind one (none in the current single-host setup).
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { message: 'Too many attempts. Please wait a few minutes and try again.' },
+});
+
+app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/athletes', athleteRoutes);
 app.use('/api/injuries', injuryRoutes);
