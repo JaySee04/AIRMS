@@ -27,6 +27,26 @@ You said "make the decisions for me." These are now **decided and in the code**
   "keep" (the screenings-history endpoint; the Mongo/MySQL history docs, which
   are cross-referenced). **Branch rename left to you** (it has a pushed upstream).
 
+## Decisions made on JC's behalf (2026-07-27)
+
+You said "make your own decisions." Decided and in the code — veto any; silence = ratified.
+
+- **Active injuries now escalate the overall indicator.** Previously injuries
+  were logged / reported / analysed but never touched the risk score (the old
+  `risk.ts` composite escalated on them, but it went dormant when ACWR/Activity
+  were removed). Added a **4th escalation factor**: +1 when an athlete carries an
+  active (not Recovered) injury → a screening-clean athlete with a live injury is
+  now pulled to at least **amber**. Admin-toggleable (`escalation_injury`, default
+  ON, on the Thresholds page). Logging an injury / approving a self-report /
+  editing recovery status re-scores the athlete in the background.
+  - [ ] **Eyeball the band distribution** — this shifts ~19 injured athletes up a
+    band. If the demo looks too amber/red, flip the toggle off (reverts to the
+    pure screening/cohort score) or we tune it. Spec: `FYP2_REDESIGN_SPEC.md §5`.
+  - [ ] **Confirm the escalation is what you want on the graded indicator** — it's
+    the FYP II cohort model (extensible), NOT the locked ACWR `risk.ts` formula,
+    so this didn't touch a locked decision — but it does change the headline
+    score, so it's worth a line in the report.
+
 ## Stage A — screening history + expanded extraction
 
 - [ ] **Uploader identity editing** — on the Data Uploading page, each queued

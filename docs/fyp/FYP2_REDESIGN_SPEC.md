@@ -139,9 +139,15 @@ Crop bands / prompt extended; `verify:vision` ground truth extended to match.
 5. **Escalate**: +1 if composite below cohort mean; +1 if athlete in bottom-`k`
    of cohort; +1 (per-indicator, added 2026-07-19) if one exercise-risk indicator
    is both over the Elevated threshold (≥25) and a peer-outlier on it (per-indicator
-   z ≥ 1.5). Count can reach 3; **≥2 escalations → red** ("immediate assessment").
-   Admin toggle `escalation_indicator` (+ `escalation_indicator_high` / `_z`);
-   reasons persisted in `screenings.factors` and shown on the badge.
+   z ≥ 1.5); +1 (active-injury, added 2026-07-27) if the athlete carries an active
+   (not Recovered) injury record — this reconnects the Module 2 injury-logging
+   stream to the score, so a screening-clean athlete carrying a live injury is
+   pulled to at least amber. Count can reach 4; **≥2 escalations → red**
+   ("immediate assessment"). Admin toggles `escalation_indicator`
+   (+ `escalation_indicator_high` / `_z`) and `escalation_injury`; reasons
+   persisted in `screenings.factors` and shown on the badge. An injury change
+   (log / self-report approval / recovery-status edit) triggers a debounced
+   indicator re-score so the band stays current between imports.
 6. **Override**: clinician-set band wins until the next import.
 Degrades gracefully: cohort with n < `min_cohort_n` → fall back a tier, or if
 none, show "insufficient cohort" and skip escalation.

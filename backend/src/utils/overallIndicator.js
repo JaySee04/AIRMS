@@ -12,8 +12,12 @@
 //     threshold" rule: a threshold breach alone won't escalate (>90% of the
 //     squad trips one), only a breach where the athlete is also clearly worse
 //     than their cohort on that specific measure. Admin-toggleable.
+//   +1 escalation if the athlete carries an ACTIVE injury (Module 2 logging
+//     stream). Reconnects injury history to the score — a screening-clean
+//     athlete with a live injury is pulled to at least "needs attention".
+//     Admin-toggleable.
 //   band: 0 escalations = green · 1 = amber (needs attention) · ≥2 = red
-//         (immediate assessment). The count can now reach 3; the band caps at red.
+//         (immediate assessment). The count can now reach 4; the band caps at red.
 //
 // So a "good raw score" athlete who is nonetheless below his cohort and among
 // the worst performers escalates twice → red, exactly as specified.
@@ -70,9 +74,10 @@ function effectiveK(n, settings = {}) {
 
 // Full indicator. `rankInfo` = { rank, total, k } of this athlete within the
 // cohort (rank 1 = worst by composite z; k = the effective bottom-k for that
-// cohort); pass null if unranked.
+// cohort); pass null if unranked. `activeInjuries` = count of the athlete's
+// non-Recovered injury records (0 if none / feature off).
 // Returns { indicator, band, escalations, z, factors }.
-function computeIndicator(screening, cohortStats, rankInfo, settings = {}) {
+function computeIndicator(screening, cohortStats, rankInfo, settings = {}, activeInjuries = 0) {
   const z = compositeZ(screening, cohortStats);
   if (z === null) {
     return { indicator: null, band: null, escalations: 0, z: null, factors: ['insufficient cohort data'] };
@@ -107,6 +112,13 @@ function computeIndicator(screening, cohortStats, rankInfo, settings = {}) {
       escalations++;
       factors.push(`${INDICATOR_LABELS[worst.key] || worst.key} ${worst.v} — over threshold (≥${high}) and worse than cohort (z=${worst.zi.toFixed(2)})`);
     }
+  }
+  // Active-injury escalation: any live (non-Recovered) injury on record pulls
+  // the band up by one. Screening-clean athletes carrying an injury still land
+  // at least amber. Toggleable so a demo can show the pure cohort score.
+  if (settings.escalation_injury !== false && activeInjuries > 0) {
+    escalations++;
+    factors.push(`${activeInjuries} active injur${activeInjuries === 1 ? 'y' : 'ies'} on record`);
   }
   const band = BANDS[Math.min(BANDS.length - 1, escalations)];
   return { indicator: zToScore(z), band, escalations, z: +z.toFixed(3), factors };
@@ -147,18 +159,23 @@ function belongsToCohort(a, id) {
 // store it on their latest Screening row. Run after an import and after a
 // cohort is approved/edited. Returns a summary.
 async function recomputeIndicators() {
-  const { Screening, CohortThreshold } = require('../models');
+  const { Op } = require('sequelize');
+  const { Screening, CohortThreshold, Injury } = require('../models');
   const { latestScreeningsByAthlete, resolveFromMap, buildApprovedCohortMap } = require('./cohorts');
   const { getSettings } = require('./settings');
   const settings = await getSettings();
   const opts = { minN: settings.min_cohort_n, fallbackEnabled: settings.fallback_enabled };
 
-  // Load latest screenings + approved cohorts once; resolve each athlete in
-  // memory (no per-athlete cohort queries).
-  const [rows, approved] = await Promise.all([
+  // Load latest screenings + approved cohorts + active-injury counts once;
+  // resolve each athlete in memory (no per-athlete queries). "Active" =
+  // not Recovered, matching the coach readiness view.
+  const [rows, approved, activeInjuries] = await Promise.all([
     latestScreeningsByAthlete(),
     CohortThreshold.findAll({ where: { status: 'approved' }, raw: true }),
+    Injury.findAll({ where: { recoveryStatus: { [Op.ne]: 'Recovered' } }, attributes: ['athleteId'], raw: true }),
   ]);
+  const injuryCount = new Map();
+  for (const i of activeInjuries) injuryCount.set(i.athleteId, (injuryCount.get(i.athleteId) || 0) + 1);
   const cohortMap = buildApprovedCohortMap(approved);
   const enriched = rows.map(({ athlete, screening }) => {
     const resolved = resolveFromMap(athlete, cohortMap, opts);
@@ -199,7 +216,8 @@ async function recomputeIndicators() {
   let scored = 0;
   const updates = enriched.map((e) => {
     const rankInfo = rankOf.get(e.screening.id) || null;
-    const r = computeIndicator(e.screening, e.resolved ? e.resolved.stats : null, rankInfo, settings);
+    const injuries = injuryCount.get(e.athlete.athleteId) || 0;
+    const r = computeIndicator(e.screening, e.resolved ? e.resolved.stats : null, rankInfo, settings, injuries);
     if (r.indicator !== null) scored++;
     return Screening.update(
       { overallIndicator: r.indicator, overallBand: r.band, escalations: r.escalations, factors: r.factors },

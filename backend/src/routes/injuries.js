@@ -5,6 +5,7 @@ const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
 const requirePermission = require('../middleware/permission');
 const { serializeGeneric, serializeMany } = require('../utils/serialize');
+const { queueIndicatorRecompute } = require('../utils/postImport');
 
 const router = express.Router();
 
@@ -234,6 +235,9 @@ router.post('/', auth, rbac('medical', 'admin'), requirePermission('injuryReport
       }
     }
     const injury = await Injury.create({ ...payload, loggedBy: req.user.name });
+    // A new active injury may pull the athlete's overall band up (active-injury
+    // escalation). Re-score in the background; the response doesn't wait.
+    queueIndicatorRecompute();
     res.status(201).json(serializeGeneric(injury));
   } catch (err) {
     res.status(400).json({ message: err.message });
@@ -246,6 +250,9 @@ router.patch('/:id', auth, rbac('medical', 'admin'), requirePermission('injuryRe
     const injury = await Injury.findByPk(req.params.id);
     if (!injury) return res.status(404).json({ message: 'Injury not found' });
     await injury.update(req.body);
+    // recoveryStatus may have changed (e.g. → Recovered), which clears the
+    // active-injury escalation; re-score in the background.
+    queueIndicatorRecompute();
     res.json(serializeGeneric(injury));
   } catch (err) {
     res.status(400).json({ message: err.message });

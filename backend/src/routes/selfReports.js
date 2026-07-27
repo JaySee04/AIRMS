@@ -4,6 +4,7 @@ const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
 const requirePermission = require('../middleware/permission');
 const { serializeGeneric, serializeMany } = require('../utils/serialize');
+const { queueIndicatorRecompute } = require('../utils/postImport');
 
 const router = express.Router();
 
@@ -89,6 +90,11 @@ router.patch('/:id/review', auth, rbac('medical'), requirePermission('reviewRepo
         }, { transaction: t });
       }
     });
+
+    // Approval promoted the report into an active Injury, which may pull the
+    // athlete's overall band up (active-injury escalation). Re-score in the
+    // background; the response doesn't wait.
+    if (status === 'Approved') queueIndicatorRecompute();
 
     res.json(serializeGeneric(report));
   } catch (err) {
