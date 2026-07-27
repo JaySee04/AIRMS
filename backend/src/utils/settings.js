@@ -18,11 +18,13 @@ const DEFAULTS = {
   escalation_indicator_z: 1.5,      // per-indicator z cutoff vs cohort (a clear outlier;
                                     // 1.5 keeps it selective — 1.0 flagged ~half the
                                     // synthetic squad, 2.0 caught nobody)
-  // Active-injury escalation: +1 when the athlete carries an active (i.e. not
-  // Recovered) injury record. Reconnects the injury-logging stream (Module 2)
-  // to the overall indicator — the screening-derived score can now be pulled
-  // to at least "needs attention" by a live injury, matching clinical sense.
-  // Kept as a toggle so a demo can revert to the pure screening/cohort score.
+  // Active-injury floor: when the athlete carries a clinically SIGNIFICANT
+  // active injury — Moderate/Severe, or any Chronic (a Minor still-recovering
+  // niggle doesn't count) — the overall band is floored at amber ("needs
+  // attention"). It never by itself produces red; "immediate assessment" stays
+  // the screening cohort verdict. Reconnects the injury-logging stream
+  // (Module 2) to the score without inflating the red population. Toggle off
+  // for the pure screening/cohort score.
   escalation_injury: true,
   alerts_enabled: true,        // email medical + coaches on import
   alert_on_band: 'amber',      // fire at this band or worse ('amber' | 'red')

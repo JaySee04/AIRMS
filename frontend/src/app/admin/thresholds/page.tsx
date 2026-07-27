@@ -182,10 +182,10 @@ export default function CohortThresholdsPage() {
             <div className="stat-tile-delta">+1 when an indicator is Elevated <em>and</em> the athlete is a peer-outlier on it</div>
           </div>
           <div className="stat-tile">
-            <div className="stat-tile-label">Active-injury escalation</div>
+            <div className="stat-tile-label">Active-injury floor</div>
             <div><label><input type="checkbox" checked={Boolean(set.escalation_injury)}
               onChange={(e) => saveSetting('escalation_injury', e.target.checked)} /> enabled</label></div>
-            <div className="stat-tile-delta">+1 when the athlete carries an active (not Recovered) injury</div>
+            <div className="stat-tile-delta">floors the band at amber when the athlete carries a significant active injury (moderate/severe, or chronic) — never red on its own</div>
           </div>
         </div>
       </div>

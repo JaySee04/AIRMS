@@ -1,6 +1,8 @@
 // Overall-indicator escalation banding, with focus on the active-injury factor
-// that reconnects injury logging (Module 2) to the score. Models are stubbed so
-// the pure computeIndicator function can be exercised without a database.
+// that reconnects injury logging (Module 2) to the score. `activeInjuries` is
+// the count of SIGNIFICANT active injuries (gated to Moderate/Severe or Chronic
+// in recomputeIndicators); computeIndicator just consumes the count. Models are
+// stubbed so the pure function can be exercised without a database.
 jest.mock('../src/models', () => ({ Screening: {}, CohortThreshold: {}, Injury: {} }));
 
 const { computeIndicator } = require('../src/utils/overallIndicator');
@@ -22,36 +24,44 @@ const STATS_ABOVE = {
   symmetry: { mean: 95, sd: 5 }, riskGood: { mean: -5, sd: 5 },
 };
 
-describe('active-injury escalation', () => {
+describe('active-injury floor', () => {
   test('a screening-clean athlete with no injury is green', () => {
     const r = computeIndicator(SCREENING, STATS_ON_MEAN, null, {}, 0);
     expect(r.escalations).toBe(0);
     expect(r.band).toBe('green');
   });
 
-  test('one active injury pulls a green athlete to amber', () => {
+  test('a significant active injury floors a green athlete at amber', () => {
     const r = computeIndicator(SCREENING, STATS_ON_MEAN, null, {}, 1);
-    expect(r.escalations).toBe(1);
     expect(r.band).toBe('amber');
-    expect(r.factors.some((f) => /active injur/.test(f))).toBe(true);
+    // The floor is NOT a stacking escalation — the count stays screening-only.
+    expect(r.escalations).toBe(0);
+    expect(r.factors.some((f) => /significant active injur/.test(f))).toBe(true);
   });
 
-  test('injury escalation stacks with below-mean → red', () => {
+  test('the injury floor never by itself creates red — below-mean + injury stays amber', () => {
     const r = computeIndicator(SCREENING, STATS_ABOVE, null, {}, 1);
-    expect(r.escalations).toBe(2);
-    expect(r.band).toBe('red');
+    expect(r.escalations).toBe(1);        // below cohort mean (screening)
+    expect(r.band).toBe('amber');         // floor holds, does not stack to red
     expect(r.factors.some((f) => /below cohort average/.test(f))).toBe(true);
-    expect(r.factors.some((f) => /active injur/.test(f))).toBe(true);
+    expect(r.factors.some((f) => /significant active injur/.test(f))).toBe(true);
   });
 
-  test('the toggle disables the factor (back to the pure cohort score)', () => {
+  test('red still comes from two screening escalations, injury or not', () => {
+    // below-mean + bottom-k → 2 escalations → red, injury present or absent.
+    const rank = { rank: 1, total: 10, k: 2 };
+    expect(computeIndicator(SCREENING, STATS_ABOVE, rank, {}, 0).band).toBe('red');
+    expect(computeIndicator(SCREENING, STATS_ABOVE, rank, {}, 1).band).toBe('red');
+  });
+
+  test('the toggle disables the floor (back to the pure cohort score)', () => {
     const r = computeIndicator(SCREENING, STATS_ON_MEAN, null, { escalation_injury: false }, 3);
     expect(r.escalations).toBe(0);
     expect(r.band).toBe('green');
   });
 
   test('plural vs singular wording', () => {
-    expect(computeIndicator(SCREENING, STATS_ON_MEAN, null, {}, 1).factors.find((f) => /injur/.test(f))).toMatch(/1 active injury on record/);
-    expect(computeIndicator(SCREENING, STATS_ON_MEAN, null, {}, 2).factors.find((f) => /injur/.test(f))).toMatch(/2 active injuries on record/);
+    expect(computeIndicator(SCREENING, STATS_ON_MEAN, null, {}, 1).factors.find((f) => /injur/.test(f))).toMatch(/1 significant active injury/);
+    expect(computeIndicator(SCREENING, STATS_ON_MEAN, null, {}, 2).factors.find((f) => /injur/.test(f))).toMatch(/2 significant active injuries/);
   });
 });

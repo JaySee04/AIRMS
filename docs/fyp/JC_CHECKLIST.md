@@ -31,17 +31,24 @@ You said "make the decisions for me." These are now **decided and in the code**
 
 You said "make your own decisions." Decided and in the code — veto any; silence = ratified.
 
-- **Active injuries now escalate the overall indicator.** Previously injuries
-  were logged / reported / analysed but never touched the risk score (the old
-  `risk.ts` composite escalated on them, but it went dormant when ACWR/Activity
-  were removed). Added a **4th escalation factor**: +1 when an athlete carries an
-  active (not Recovered) injury → a screening-clean athlete with a live injury is
-  now pulled to at least **amber**. Admin-toggleable (`escalation_injury`, default
-  ON, on the Thresholds page). Logging an injury / approving a self-report /
-  editing recovery status re-scores the athlete in the background.
-  - [ ] **Eyeball the band distribution** — this shifts ~19 injured athletes up a
-    band. If the demo looks too amber/red, flip the toggle off (reverts to the
-    pure screening/cohort score) or we tune it. Spec: `FYP2_REDESIGN_SPEC.md §5`.
+- **Active injuries now move the overall indicator (as a floor).** Previously
+  injuries were logged / reported / analysed but never touched the risk score
+  (the old `risk.ts` composite escalated on them, but it went dormant when
+  ACWR/Activity were removed). A **clinically significant** active injury —
+  Moderate/Severe, or any Chronic — now **floors the band at amber** ("needs
+  attention"). A Minor still-recovering niggle is logged/shown but doesn't count.
+  Admin-toggleable (`escalation_injury`, default ON, Thresholds page). Logging an
+  injury / approving a self-report / editing recovery status re-scores in the
+  background.
+  - **Why a floor, not a +1 escalation** (decided after measuring): stacking it
+    as another escalation took the squad to **36% red** — near the 42%-red
+    over-escalation you fixed before, because it conflated the injury stream with
+    the cohort signal. As a floor, red stays anchored to the **screening verdict
+    (~25%)** and injuries lift clean athletes to amber instead. Measured:
+    screening-only 44/31/25 (green/amber/red) → with the injury floor, greens
+    with a significant injury move to amber; **red unchanged at ~25%**.
+  - [ ] **Eyeball it.** If you'd still rather injuries not touch the score,
+    flip the toggle off. Spec: `FYP2_REDESIGN_SPEC.md §5–6`.
   - [ ] **Confirm the escalation is what you want on the graded indicator** — it's
     the FYP II cohort model (extensible), NOT the locked ACWR `risk.ts` formula,
     so this didn't touch a locked decision — but it does change the headline

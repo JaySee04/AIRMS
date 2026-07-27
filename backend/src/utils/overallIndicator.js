@@ -12,12 +12,17 @@
 //     threshold" rule: a threshold breach alone won't escalate (>90% of the
 //     squad trips one), only a breach where the athlete is also clearly worse
 //     than their cohort on that specific measure. Admin-toggleable.
-//   +1 escalation if the athlete carries an ACTIVE injury (Module 2 logging
-//     stream). Reconnects injury history to the score — a screening-clean
-//     athlete with a live injury is pulled to at least "needs attention".
-//     Admin-toggleable.
+//   FLOOR (not a stacking escalation): a SIGNIFICANT active injury —
+//     Moderate/Severe, or any Chronic (Module 2 logging stream) — floors the
+//     band at amber ("needs attention"). It never by itself produces red:
+//     "immediate assessment" stays the screening cohort verdict. A Minor
+//     still-recovering niggle is logged/shown but does not floor the band.
+//     Admin-toggleable. Reconnects injury history to the score without
+//     inflating the red population (stacking it as +1 took the squad to ~36%
+//     red vs the ~25% screening baseline; the floor keeps red anchored there).
 //   band: 0 escalations = green · 1 = amber (needs attention) · ≥2 = red
-//         (immediate assessment). The count can now reach 4; the band caps at red.
+//         (immediate assessment); the injury floor can lift green → amber.
+//         The escalation count (screening only) reaches at most 3.
 //
 // So a "good raw score" athlete who is nonetheless below his cohort and among
 // the worst performers escalates twice → red, exactly as specified.
@@ -75,7 +80,9 @@ function effectiveK(n, settings = {}) {
 // Full indicator. `rankInfo` = { rank, total, k } of this athlete within the
 // cohort (rank 1 = worst by composite z; k = the effective bottom-k for that
 // cohort); pass null if unranked. `activeInjuries` = count of the athlete's
-// non-Recovered injury records (0 if none / feature off).
+// SIGNIFICANT active injuries (gated upstream to Moderate/Severe or Chronic;
+// 0 if none / feature off) — when > 0 it FLOORS the band at amber, it is not a
+// stacking escalation.
 // Returns { indicator, band, escalations, z, factors }.
 function computeIndicator(screening, cohortStats, rankInfo, settings = {}, activeInjuries = 0) {
   const z = compositeZ(screening, cohortStats);
@@ -113,14 +120,21 @@ function computeIndicator(screening, cohortStats, rankInfo, settings = {}, activ
       factors.push(`${INDICATOR_LABELS[worst.key] || worst.key} ${worst.v} — over threshold (≥${high}) and worse than cohort (z=${worst.zi.toFixed(2)})`);
     }
   }
-  // Active-injury escalation: any live (non-Recovered) injury on record pulls
-  // the band up by one. Screening-clean athletes carrying an injury still land
-  // at least amber. Toggleable so a demo can show the pure cohort score.
+  // Screening escalations set the base band: 0 = green · 1 = amber · ≥2 = red.
+  let band = BANDS[Math.min(BANDS.length - 1, escalations)];
+  // Active-injury FLOOR (not a stacking escalation): a clinically significant
+  // active injury (count already gated to Moderate/Severe or Chronic — see
+  // recomputeIndicators) guarantees at least "needs attention" (amber), but
+  // never on its own produces "immediate assessment" (red) — red stays the
+  // screening cohort verdict. Shown as its own reason; deliberately NOT added
+  // to the escalation count. Modelled as a floor rather than +1 because
+  // stacking took the squad to ~36% red (conflating injuries with the cohort
+  // signal); the floor keeps red anchored to screening (~25%) while still
+  // letting an injury lift a clean athlete to amber. Toggleable.
   if (settings.escalation_injury !== false && activeInjuries > 0) {
-    escalations++;
-    factors.push(`${activeInjuries} active injur${activeInjuries === 1 ? 'y' : 'ies'} on record`);
+    factors.push(`${activeInjuries} significant active injur${activeInjuries === 1 ? 'y' : 'ies'}`);
+    if (band === 'green') band = 'amber';
   }
-  const band = BANDS[Math.min(BANDS.length - 1, escalations)];
   return { indicator: zToScore(z), band, escalations, z: +z.toFixed(3), factors };
 }
 
@@ -166,16 +180,26 @@ async function recomputeIndicators() {
   const settings = await getSettings();
   const opts = { minN: settings.min_cohort_n, fallbackEnabled: settings.fallback_enabled };
 
-  // Load latest screenings + approved cohorts + active-injury counts once;
-  // resolve each athlete in memory (no per-athlete queries). "Active" =
-  // not Recovered, matching the coach readiness view.
+  // Load latest screenings + approved cohorts + active injuries once; resolve
+  // each athlete in memory (no per-athlete queries). "Active" = not Recovered.
   const [rows, approved, activeInjuries] = await Promise.all([
     latestScreeningsByAthlete(),
     CohortThreshold.findAll({ where: { status: 'approved' }, raw: true }),
-    Injury.findAll({ where: { recoveryStatus: { [Op.ne]: 'Recovered' } }, attributes: ['athleteId'], raw: true }),
+    Injury.findAll({ where: { recoveryStatus: { [Op.ne]: 'Recovered' } }, attributes: ['athleteId', 'severity', 'recoveryStatus'], raw: true }),
   ]);
+  // Only clinically SIGNIFICANT injuries escalate the headline band: Moderate /
+  // Severe, or any Chronic. A Minor injury that is merely Recovering (a healing
+  // niggle) is still logged, shown, and analysed — it just doesn't move the
+  // overall indicator. Rationale: escalating on every active injury pushed the
+  // squad to ~36% red (near the 42% over-escalation the bottom-k cap and the
+  // per-indicator z-cutoff were introduced to remove). Same "selective, not
+  // binary" principle as the per-indicator factor. See FYP2_REDESIGN_SPEC §5.
+  const isSignificant = (i) => i.severity === 'Moderate' || i.severity === 'Severe' || i.recoveryStatus === 'Chronic';
   const injuryCount = new Map();
-  for (const i of activeInjuries) injuryCount.set(i.athleteId, (injuryCount.get(i.athleteId) || 0) + 1);
+  for (const i of activeInjuries) {
+    if (!isSignificant(i)) continue;
+    injuryCount.set(i.athleteId, (injuryCount.get(i.athleteId) || 0) + 1);
+  }
   const cohortMap = buildApprovedCohortMap(approved);
   const enriched = rows.map(({ athlete, screening }) => {
     const resolved = resolveFromMap(athlete, cohortMap, opts);

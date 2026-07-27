@@ -139,15 +139,26 @@ Crop bands / prompt extended; `verify:vision` ground truth extended to match.
 5. **Escalate**: +1 if composite below cohort mean; +1 if athlete in bottom-`k`
    of cohort; +1 (per-indicator, added 2026-07-19) if one exercise-risk indicator
    is both over the Elevated threshold (≥25) and a peer-outlier on it (per-indicator
-   z ≥ 1.5); +1 (active-injury, added 2026-07-27) if the athlete carries an active
-   (not Recovered) injury record — this reconnects the Module 2 injury-logging
-   stream to the score, so a screening-clean athlete carrying a live injury is
-   pulled to at least amber. Count can reach 4; **≥2 escalations → red**
-   ("immediate assessment"). Admin toggles `escalation_indicator`
-   (+ `escalation_indicator_high` / `_z`) and `escalation_injury`; reasons
-   persisted in `screenings.factors` and shown on the badge. An injury change
-   (log / self-report approval / recovery-status edit) triggers a debounced
-   indicator re-score so the band stays current between imports.
+   z ≥ 1.5). Count can reach 3; **≥2 escalations → red** ("immediate
+   assessment").
+6. **Active-injury floor** (added 2026-07-27): if the athlete carries a
+   clinically *significant* active injury — Moderate/Severe, or any Chronic (a
+   Minor still-recovering niggle is logged/shown but does not count) — the band
+   is floored at **amber**. This is a **floor, not a stacking escalation**: an
+   injury never by itself produces red, so "immediate assessment" stays the
+   screening cohort verdict. Modelled this way because stacking it as a 4th +1
+   took the squad to ~36% red vs the ~25% screening baseline (conflating the
+   injury stream with the cohort signal — the same over-escalation the bottom-k
+   cap and per-indicator z-cutoff were built to avoid); the floor keeps red
+   anchored to screening while still letting a real injury lift a clean athlete
+   to "needs attention". Admin toggle `escalation_injury` (default on). The
+   injury reason is persisted in `screenings.factors` and shown on the badge; an
+   injury change (log / self-report approval / recovery-status edit) triggers a
+   debounced indicator re-score so the band stays current between imports.
+
+   Other toggles: `escalation_indicator` (+ `escalation_indicator_high` / `_z`),
+   `escalation_below_mean`, `escalation_bottom_k`; all reasons persist in
+   `screenings.factors`.
 6. **Override**: clinician-set band wins until the next import.
 Degrades gracefully: cohort with n < `min_cohort_n` → fall back a tier, or if
 none, show "insufficient cohort" and skip escalation.
