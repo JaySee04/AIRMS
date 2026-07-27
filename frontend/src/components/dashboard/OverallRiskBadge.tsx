@@ -48,6 +48,13 @@ const HERO_MSG = {
   red: 'Your latest screening places you among the athletes most in need of attention in your comparison group. Arrange an assessment with your medical team before your next high-load session.',
 } as const;
 
+// The band can also be floored at amber purely by an active injury while the
+// screening itself is in line with the cohort (escalations === 0). In that case
+// the screening-centric amber message above is misleading — the reason is the
+// injury, named in the factor chip — so use a message that says exactly that.
+const INJURY_FLOOR_MSG =
+  'Your latest screening is in line with your comparison group, but you have an active injury on record. Your medical team should review it before your next high-load session.';
+
 export default function OverallRiskBadge({
   screening, compact, hero,
 }: { screening?: ScreeningIndicator | null; compact?: boolean; hero?: boolean }) {
@@ -75,7 +82,9 @@ export default function OverallRiskBadge({
   if (compact) {
     return (
       <span
-        title={overridden ? `Clinician override → ${meta.label}${screening.overrideNote ? `: ${screening.overrideNote}` : ''}` : `${meta.label}${screening.escalations ? ` · ${screening.escalations} escalation(s)` : ''}`}
+        title={overridden
+          ? `Clinician override → ${meta.label}${screening.overrideNote ? `: ${screening.overrideNote}` : ''}`
+          : `${meta.label}${screening.factors && screening.factors.length ? ` · ${screening.factors.join(' · ')}` : ''}`}
         style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: '0.78rem', color: meta.color }}
       >
         <span style={{ width: 10, height: 10, borderRadius: '50%', background: meta.color }} />
@@ -84,6 +93,14 @@ export default function OverallRiskBadge({
       </span>
     );
   }
+
+  // Amber with zero screening escalations means the band was floored purely by
+  // an active injury (see overallIndicator.js). Its reason lives in `factors`,
+  // not the escalation count, so drive the "why" display off factors and swap
+  // in the injury-floor message.
+  const escCount = typeof screening.escalations === 'number' ? screening.escalations : 0;
+  const hasFactors = Boolean(screening.factors && screening.factors.length > 0);
+  const injuryFloored = !overridden && band === 'amber' && escCount === 0 && hasFactors;
 
   if (hero) {
     return (
@@ -97,7 +114,9 @@ export default function OverallRiskBadge({
           <div className="risk-hero-msg">
             {overridden
               ? 'A member of the medical team has assessed this athlete and set the band manually. It stays until the next screening is imported.'
-              : HERO_MSG[band]}
+              : injuryFloored
+                ? INJURY_FLOOR_MSG
+                : HERO_MSG[band]}
           </div>
           {overridden && screening.overrideNote && (
             <div className="risk-factors">
@@ -107,14 +126,14 @@ export default function OverallRiskBadge({
               </span>
             </div>
           )}
-          {!overridden && typeof screening.escalations === 'number' && screening.escalations > 0 && (
+          {!overridden && (hasFactors || escCount > 0) && (
             <div className="risk-factors">
               <span className="risk-factors-label">Why:</span>
-              {screening.factors && screening.factors.length > 0 ? (
-                screening.factors.map((f) => (<span key={f} className="risk-factor-chip">{f}</span>))
+              {hasFactors ? (
+                screening.factors!.map((f) => (<span key={f} className="risk-factor-chip">{f}</span>))
               ) : (
                 <span className="risk-factor-chip">
-                  {screening.escalations} escalation{screening.escalations === 1 ? '' : 's'} · scoring below your
+                  {escCount} escalation{escCount === 1 ? '' : 's'} · scoring below your
                   comparison group, being among its lowest scorers, or a screening indicator that is both elevated
                   and worse than your group
                 </span>
