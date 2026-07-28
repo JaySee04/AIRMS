@@ -179,6 +179,8 @@ Each entry:
 
 ## 5. Injury Reporting (Athlete self-report) — `/athlete/injury-report`
 
+**Purpose:** the athlete's channel for pain or injury that appears **between sessions** — waking up sore, something that came on during their own gym/mobility work, an old niggle flaring — so the medical team is aware before the next session. Pain that starts *during* a supervised session is assessed and logged by medical staff on the spot (§6), so this is a complement to in-session care, not the primary detection path. Every submission is triaged through medical review before it joins the official record.
+
 Two-column layout. **Left card** is the submission form, **right card** lists the athlete's own past submissions.
 
 **Submission form** — body part (10-option dropdown), side, suspected injury type, severity (your own assessment), description textarea (required). Submitting calls `POST /api/self-reports`, prepends the new entry to the right card list with a "Pending" badge.

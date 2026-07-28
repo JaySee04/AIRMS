@@ -143,7 +143,7 @@ formula is ever wired back up to a different training-load input, is
 
 *(Was Module 3 before the 2026-07-20 restructure.)*
 
-**What it does (full vision):** Medical staff record official injuries against athlete records, track recovery status, and review athlete-submitted self-reports before promoting them into official records.
+**What it does (full vision):** Medical staff record official injuries against athlete records and track recovery status. Injuries are captured through **two channels by origin**: the medical team logs what they observe or assess in-session directly; the athlete self-report handles what surfaces **between sessions** (waking up sore, a tweak during unsupervised gym/mobility work, an old niggle flaring) — the athlete's async channel to raise it before their next session, triaged through a clinical review gate before it joins the official record. Self-reporting is *not* positioned as the primary detection path (in-session pain is assessed on the spot); its value is out-of-session capture plus the athlete-raise → clinician-validate governance workflow.
 
 **Current state (functional):**
 - ✅ Athlete submits a self-report at `/athlete/injury-report` — full form, validates, lists their own past submissions with status badges

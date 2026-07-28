@@ -89,8 +89,12 @@ export default function InjuryReportPage() {
   return (
     <DashboardLayout allowedRoles={['athlete']} title="Injury Reporting">
       <div className="alert alert-info" style={{ marginBottom: 20 }}>
-        <strong>Note:</strong> Self-reports are reviewed by medical staff before being added to
-        your official injury record. For training injuries, please also notify your physio directly.
+        <strong>For pain that appears between sessions.</strong> Use this to flag an injury or
+        symptom that started <em>outside</em> a supervised session — waking up sore, something that
+        came on during your own gym / mobility work, or an old niggle flaring up — so the medical
+        team is aware before your next session. If pain starts <em>during</em> a session, tell the
+        medical staff there so they can assess and log it on the spot. Reports here are reviewed by
+        medical before they join your official injury record.
       </div>
 
       <div className="grid-1-2">
