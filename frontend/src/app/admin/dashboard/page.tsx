@@ -579,7 +579,7 @@ export default function AdminDashboard() {
               <div className="stat-tile-value">
                 {screeningCohort.indicators.reduce((s, i) => s + i.high, 0)}
               </div>
-              <div className="stat-tile-delta">Indicator readings above {'>'}25</div>
+              <div className="stat-tile-delta">Indicator readings above 25</div>
             </div>
           </div>
 

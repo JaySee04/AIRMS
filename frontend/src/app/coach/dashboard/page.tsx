@@ -667,7 +667,7 @@ export default function CoachDashboard() {
                   <th style={{ textAlign: 'center' }}>HoloMotion Risk</th>
                   <th style={{ textAlign: 'center' }}>Trend</th>
                   <th style={{ textAlign: 'center' }}>Readiness</th>
-                  <th style={{ textAlign: 'center' }}>Screening</th>
+                  <th style={{ textAlign: 'center' }}>Worst region</th>
                   <th style={{ textAlign: 'center' }}>Active injuries</th>
                 </tr>
               </thead>

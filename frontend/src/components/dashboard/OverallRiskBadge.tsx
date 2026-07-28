@@ -55,36 +55,39 @@ const HERO_MSG = {
 const INJURY_FLOOR_MSG =
   'Your latest screening is in line with your comparison group, but you have an active injury on record. Your medical team should review it before your next high-load session.';
 
+// `hero` is accepted for call-site intent; the full-size render below IS the
+// hero, so there is only ever `compact` or hero — no third variant.
 export default function OverallRiskBadge({
-  screening, compact, hero,
+  screening, compact,
 }: { screening?: ScreeningIndicator | null; compact?: boolean; hero?: boolean }) {
+  // No score yet (no screening, or cohort too small to score against).
   if (!screening || !screening.effectiveBand) {
-    if (hero) {
-      return (
-        <div className="risk-hero">
-          <div style={{ flex: 1 }}>
-            <div className="risk-hero-label">Current Status</div>
-            <div className="risk-hero-level">No cohort score yet</div>
-            <div className="risk-hero-msg">
-              This athlete has no screening on record, or their comparison group is still too small to
-              score against. Import a HoloMotion report to produce an overall risk indicator.
-            </div>
+    if (compact) return <span className="text-muted" style={{ fontSize: '0.8rem' }}>No cohort score</span>;
+    return (
+      <div className="risk-hero">
+        <div style={{ flex: 1 }}>
+          <div className="risk-hero-label">Current Status</div>
+          <div className="risk-hero-level">No cohort score yet</div>
+          <div className="risk-hero-msg">
+            This athlete has no screening on record, or their comparison group is still too small to
+            score against. Import a HoloMotion report to produce an overall risk indicator.
           </div>
         </div>
-      );
-    }
-    return <span className="text-muted" style={{ fontSize: '0.8rem' }}>No cohort score</span>;
+      </div>
+    );
   }
+
   const band = screening.effectiveBand;
   const meta = BAND_META[band];
   const overridden = Boolean(screening.overrideBand);
 
+  // Compact badge (coach squad table): coloured dot + indicator + override mark.
   if (compact) {
     return (
       <span
         title={overridden
           ? `Clinician override → ${meta.label}${screening.overrideNote ? `: ${screening.overrideNote}` : ''}`
-          : `${meta.label}${screening.factors && screening.factors.length ? ` · ${screening.factors.join(' · ')}` : ''}`}
+          : `${meta.label}${screening.factors?.length ? ` · ${screening.factors.join(' · ')}` : ''}`}
         style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: '0.78rem', color: meta.color }}
       >
         <span style={{ width: 10, height: 10, borderRadius: '50%', background: meta.color }} />
@@ -94,88 +97,57 @@ export default function OverallRiskBadge({
     );
   }
 
-  // Amber with zero screening escalations means the band was floored purely by
-  // an active injury (see overallIndicator.js). Its reason lives in `factors`,
-  // not the escalation count, so drive the "why" display off factors and swap
-  // in the injury-floor message.
-  const escCount = typeof screening.escalations === 'number' ? screening.escalations : 0;
-  const hasFactors = Boolean(screening.factors && screening.factors.length > 0);
+  // Full hero. Amber with zero screening escalations means the band was floored
+  // purely by an active injury (see overallIndicator.js): the reason lives in
+  // `factors`, not the count, so drive the "why" off factors and use the
+  // injury-floor message rather than the (misleading) screening one.
+  const escCount = screening.escalations ?? 0;
+  const hasFactors = Boolean(screening.factors?.length);
   const injuryFloored = !overridden && band === 'amber' && escCount === 0 && hasFactors;
-
-  if (hero) {
-    return (
-      <div className={`risk-hero risk-hero--${HERO_CLS[band]}`}>
-        <div style={{ flex: 1 }}>
-          <div className="risk-hero-label">Current Status</div>
-          <div className="risk-hero-level">
-            {meta.label}
-            {overridden && <span className="risk-escalation-badge">set by clinician</span>}
-          </div>
-          <div className="risk-hero-msg">
-            {overridden
-              ? 'A member of the medical team has assessed this athlete and set the band manually. It stays until the next screening is imported.'
-              : injuryFloored
-                ? INJURY_FLOOR_MSG
-                : HERO_MSG[band]}
-          </div>
-          {overridden && screening.overrideNote && (
-            <div className="risk-factors">
-              <span className="risk-factors-label">Clinician note:</span>
-              <span className="risk-factor-chip">
-                “{screening.overrideNote}”{screening.overrideBy ? ` — ${screening.overrideBy}` : ''}
-              </span>
-            </div>
-          )}
-          {!overridden && (hasFactors || escCount > 0) && (
-            <div className="risk-factors">
-              <span className="risk-factors-label">Why:</span>
-              {hasFactors ? (
-                screening.factors!.map((f) => (<span key={f} className="risk-factor-chip">{f}</span>))
-              ) : (
-                <span className="risk-factor-chip">
-                  {escCount} escalation{escCount === 1 ? '' : 's'} · scoring below your
-                  comparison group, being among its lowest scorers, or a screening indicator that is both elevated
-                  and worse than your group
-                </span>
-              )}
-            </div>
-          )}
-        </div>
-        <div className="risk-hero-stat">
-          <div className="risk-hero-stat-val" style={{ color: meta.color }}>
-            {screening.overallIndicator ?? '—'}
-          </div>
-          <div className="risk-hero-stat-label">Indicator / 100</div>
-          <div className="risk-hero-stat-sub">
-            Comparison group<br /><strong>average = 50</strong>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const message = overridden
+    ? 'A member of the medical team has assessed this athlete and set the band manually. It stays until the next screening is imported.'
+    : injuryFloored ? INJURY_FLOOR_MSG : HERO_MSG[band];
 
   return (
-    <div style={{ background: meta.bg, border: `1px solid ${meta.color}`, borderRadius: 'var(--radius)', padding: '12px 16px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-        <span style={{ width: 16, height: 16, borderRadius: '50%', background: meta.color, flexShrink: 0 }} />
-        <div style={{ flex: 1, minWidth: 180 }}>
-          <div style={{ fontWeight: 700, color: meta.color }}>
-            Overall Risk: {meta.label}
-            {overridden && <span style={{ fontSize: '0.72rem', fontWeight: 600, marginLeft: 8 }}>· clinician override</span>}
-          </div>
-          <div className="text-muted" style={{ fontSize: '0.8rem' }}>
-            Indicator {screening.overallIndicator ?? '—'}/100 vs cohort
-            {typeof screening.escalations === 'number' && screening.escalations > 0 && !overridden
-              ? ` · ${screening.escalations} escalation${screening.escalations === 1 ? '' : 's'}`
-              : ''}
-          </div>
-          {overridden && screening.overrideNote && (
-            <div className="text-muted" style={{ fontSize: '0.78rem', marginTop: 4, fontStyle: 'italic' }}>
-              “{screening.overrideNote}”{screening.overrideBy ? ` — ${screening.overrideBy}` : ''}
-            </div>
-          )}
+    <div className={`risk-hero risk-hero--${HERO_CLS[band]}`}>
+      <div style={{ flex: 1 }}>
+        <div className="risk-hero-label">Current Status</div>
+        <div className="risk-hero-level">
+          {meta.label}
+          {overridden && <span className="risk-escalation-badge">set by clinician</span>}
         </div>
-        <div style={{ fontSize: '1.6rem', fontWeight: 700, color: meta.color }}>{screening.overallIndicator ?? '—'}</div>
+        <div className="risk-hero-msg">{message}</div>
+        {overridden && screening.overrideNote && (
+          <div className="risk-factors">
+            <span className="risk-factors-label">Clinician note:</span>
+            <span className="risk-factor-chip">
+              “{screening.overrideNote}”{screening.overrideBy ? ` — ${screening.overrideBy}` : ''}
+            </span>
+          </div>
+        )}
+        {!overridden && (hasFactors || escCount > 0) && (
+          <div className="risk-factors">
+            <span className="risk-factors-label">Why:</span>
+            {hasFactors ? (
+              screening.factors!.map((f) => (<span key={f} className="risk-factor-chip">{f}</span>))
+            ) : (
+              <span className="risk-factor-chip">
+                {escCount} escalation{escCount === 1 ? '' : 's'} · scoring below your
+                comparison group, being among its lowest scorers, or a screening indicator that is both elevated
+                and worse than your group
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+      <div className="risk-hero-stat">
+        <div className="risk-hero-stat-val" style={{ color: meta.color }}>
+          {screening.overallIndicator ?? '—'}
+        </div>
+        <div className="risk-hero-stat-label">Indicator / 100</div>
+        <div className="risk-hero-stat-sub">
+          Comparison group<br /><strong>average = 50</strong>
+        </div>
       </div>
     </div>
   );
