@@ -44,15 +44,23 @@ app.use(express.urlencoded({ extended: true }));
 
 // Throttle the auth surface (login / password-reset / OTP) to blunt brute-force
 // and credential-stuffing — the one set of endpoints an unauthenticated caller
-// can hit repeatedly. 20 attempts / 15 min / IP is generous for real use and a
-// demo, but stops automated guessing. Trust the proxy hop count via app config
-// if this ever sits behind one (none in the current single-host setup).
+// can hit repeatedly.
+//
+// skipSuccessfulRequests: only FAILED responses (>= 400) count toward the
+// limit. This is the important bit for how AIRMS is actually used — a demo runs
+// off one laptop (one IP) and logs in and out across four roles many times, all
+// SUCCESSFULLY; those must never be throttled. Brute-force / credential-stuffing
+// is a stream of FAILURES, which is exactly what we cap. 30 failed attempts /
+// 15 min / IP leaves room for the odd fat-fingered password while still
+// stopping automated guessing. Trust the proxy hop count via app config if this
+// ever sits behind one (none in the current single-host setup).
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 20,
+  limit: 30,
+  skipSuccessfulRequests: true,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
-  message: { message: 'Too many attempts. Please wait a few minutes and try again.' },
+  message: { message: 'Too many failed attempts. Please wait a few minutes and try again.' },
 });
 
 app.use('/api/auth', authLimiter, authRoutes);
