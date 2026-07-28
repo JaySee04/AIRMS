@@ -9,6 +9,7 @@ import { useCallback, useEffect, useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { api } from '@/lib/api';
 import { ISN_SPORTS } from '@/lib/sports';
+import { passwordRules, validatePassword, PASSWORD_MIN_LENGTH } from '@/lib/passwordPolicy';
 
 interface CoachUser {
   _id: string;
@@ -31,6 +32,7 @@ export default function AdminCoachesPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPw, setShowPw] = useState(false);
   const [sport, setSport] = useState('');
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
@@ -52,6 +54,8 @@ export default function AdminCoachesPage() {
 
   async function addCoach(e: React.FormEvent) {
     e.preventDefault();
+    const pwError = validatePassword(password);
+    if (pwError) { setAddError(`Password: ${pwError.toLowerCase()}`); setAddMsg(null); return; }
     setAdding(true); setAddError(null); setAddMsg(null);
     try {
       await api.post<CoachUser>('/users', { name, email, password, coachSport: sport });
@@ -101,7 +105,7 @@ export default function AdminCoachesPage() {
       <div className="card" style={{ marginBottom: 20 }}>
         <div className="card-header"><div>
           <h2 className="card-title" style={{ marginBottom: 0 }}>Add a Coach</h2>
-          <span className="card-sub">Creates a read-only coach account scoped to one sport. Password must be at least 6 characters.</span>
+          <span className="card-sub">Creates a read-only coach account scoped to one sport. The password must meet the same policy as every AIRMS account (at least {PASSWORD_MIN_LENGTH} characters, with upper + lower case, a number, and a symbol).</span>
         </div></div>
         {addError && <div className="alert alert-error">{addError}</div>}
         {addMsg && <div className="alert alert-success">{addMsg}</div>}
@@ -119,14 +123,43 @@ export default function AdminCoachesPage() {
           <div className="form-row-2">
             <div className="form-group">
               <label>Password <span style={{ color: 'var(--risk-high)' }}>*</span></label>
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="min 6 characters" autoComplete="new-password" />
+              <div className="password-input-wrap">
+                <input
+                  type={showPw ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder={`At least ${PASSWORD_MIN_LENGTH} characters`}
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  className="password-toggle"
+                  onClick={() => setShowPw((v) => !v)}
+                  aria-label={showPw ? 'Hide password' : 'Show password'}
+                  aria-pressed={showPw}
+                >
+                  {showPw ? 'Hide' : 'Show'}
+                </button>
+              </div>
+              {password.length > 0 && (
+                <ul className="password-rules">
+                  {passwordRules.map((rule) => {
+                    const pass = rule.test(password);
+                    return (
+                      <li key={rule.id} className={pass ? 'password-rule--pass' : 'password-rule--fail'}>
+                        <span aria-hidden>{pass ? '✓' : '○'}</span> {rule.label}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
             </div>
             <div className="form-group">
               <label>Assigned sport <span style={{ color: 'var(--risk-high)' }}>*</span></label>
               <input value={sport} onChange={(e) => setSport(e.target.value)} placeholder="Type to search the 52 ISN sports…" list="isn-sports-coach" />
             </div>
           </div>
-          <button type="submit" className="btn btn-gold" disabled={adding || !name.trim() || !email.trim() || password.length < 6 || !sport.trim()}>
+          <button type="submit" className="btn btn-gold" disabled={adding || !name.trim() || !email.trim() || Boolean(validatePassword(password)) || !sport.trim()}>
             {adding ? 'Creating…' : 'Create coach'}
           </button>
         </form>

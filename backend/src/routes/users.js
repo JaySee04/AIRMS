@@ -6,6 +6,7 @@ const { User } = require('../models');
 const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
 const { PERMISSION_KEYS, PERMISSION_LABELS, sanitizePermissions } = require('../utils/permissions');
+const { validatePassword } = require('../utils/passwordPolicy');
 
 const router = express.Router();
 
@@ -51,7 +52,10 @@ router.post('/', async (req, res) => {
     const errors = [];
     if (!name || !String(name).trim()) errors.push('Name is required');
     if (!email || !String(email).trim()) errors.push('Email is required');
-    if (!password || String(password).length < 6) errors.push('Password must be at least 6 characters');
+    // Enforce the SAME password policy as self-service change/reset — an
+    // admin-minted account must not be weaker than one a user sets themselves.
+    if (!password) errors.push('Password is required');
+    else { const pwError = validatePassword(String(password)); if (pwError) errors.push(pwError); }
     if (!coachSport || !String(coachSport).trim()) errors.push('Assigned sport is required');
     if (errors.length) return res.status(400).json({ message: errors.join('; ') });
 
