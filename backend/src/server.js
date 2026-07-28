@@ -95,5 +95,40 @@ const PORT = process.env.PORT || 5000;
     await sequelize.sync();
     console.log('Sequelize sync complete (tables created if missing).');
   }
-  app.listen(PORT, () => console.log(`AIRMS backend running on port ${PORT}`));
+
+  const server = app.listen(PORT, () => console.log(`AIRMS backend running on port ${PORT}`));
+
+  // Turn a port clash (a previous instance still holding the port, a deploy
+  // overlap, or something else already on PORT) into a clear message + clean
+  // exit, instead of an unhandled 'error' event that crashes cryptically. That
+  // unhandled error is what made restarts "sticky" — a transient conflict
+  // became a hard crash that only a code change could recover from.
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`Port ${PORT} is already in use — another AIRMS instance is probably still running. Stop it (or set a different PORT) and restart.`);
+    } else {
+      console.error('HTTP server error:', err.message);
+    }
+    process.exit(1);
+  });
+
+  // Graceful shutdown: stop accepting new connections, close the DB pool, then
+  // exit — so restarts and deploys drain in-flight requests and release the
+  // port promptly. Orchestrators (Docker/PM2/systemd/K8s) send SIGTERM on stop;
+  // without this the process is killed mid-request and the port can linger,
+  // which is exactly what causes the next start to collide.
+  let shuttingDown = false;
+  const shutdown = (signal) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    console.log(`${signal} received — shutting down gracefully…`);
+    setTimeout(() => { console.error('Draining timed out; forcing exit.'); process.exit(1); }, 10000).unref();
+    server.close(async () => {
+      try { await sequelize.close(); } catch { /* pool may already be closed */ }
+      console.log('AIRMS backend stopped cleanly.');
+      process.exit(0);
+    });
+  };
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
 })();

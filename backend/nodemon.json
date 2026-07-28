@@ -1,0 +1,7 @@
+{
+  "//": "Dev-only (npm run dev). Watch ONLY src/ so stray files elsewhere in backend/ (temp scripts, notes) don't trigger restarts, ignore tests + one-off scripts, and coalesce bursts of saves with a short delay so rapid restarts stop racing the port (the cause of the EADDRINUSE crash loop). Production runs `npm start` (plain node) and never touches this.",
+  "watch": ["src"],
+  "ext": "js,json",
+  "ignore": ["src/**/*.test.js", "tests/**", "scripts/**"],
+  "delay": "800"
+}
