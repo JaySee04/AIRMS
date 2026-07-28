@@ -369,6 +369,70 @@ function postureList(doc, posture) {
   doc.x = 50;
 }
 
+// Lateral symmetry per HoloMotion region, from the subitems we already extract:
+// `sym` is the report's OWN 0–100 Symmetry score (higher = better), and the
+// per-side ROM/Stability say WHICH side is weaker. This is a TMG-style analysis,
+// but every number is printed on the HoloMotion report — nothing is fabricated.
+// Status bands reuse HoloMotion's own subitem tiers (85 / 75 / 60).
+function symmetryFindings(subitems) {
+  if (!subitems || typeof subitems !== 'object') return [];
+  const sideAvg = (a, b) => {
+    const v = [num(a), num(b)].filter((x) => x !== null);
+    return v.length ? v.reduce((p, c) => p + c, 0) / v.length : null;
+  };
+  const out = [];
+  for (const [key, label] of SUBITEM_REGIONS) {
+    const r = subitems[key] || {};
+    const sym = num(r.sym);
+    if (sym === null) continue;
+    const l = sideAvg(r.romL, r.stabL);
+    const rr = sideAvg(r.romR, r.stabR);
+    let weaker = 'Balanced'; let gap = null;
+    if (l !== null && rr !== null) {
+      gap = Math.round(Math.abs(l - rr));
+      weaker = gap < 3 ? 'Balanced' : l < rr ? 'Left' : 'Right';
+    }
+    const status = sym >= 85 ? 'Good symmetry' : sym >= 75 ? 'Acceptable' : sym >= 60 ? 'Mild asymmetry' : 'Marked asymmetry';
+    out.push({ key, label, sym, status, tier: tierOf(sym), weaker, gap });
+  }
+  return out;
+}
+
+// Lateral Symmetry section — the analytic counterpart to the raw subitem table:
+// region · symmetry score (tier-coloured) · plain-language status · which side
+// is weaker and by how much. TMG's group/individual reports lead with exactly
+// this; we already hold the data, so we surface it instead of only the numbers.
+function symmetrySection(doc, subitems) {
+  const rows = symmetryFindings(subitems);
+  if (!rows.length) {
+    doc.fontSize(9).fillColor(MUTED).text('Symmetry subitems were not captured on this screening (older import).', 50);
+    return;
+  }
+  const x = 50; const labelW = 160; const symW = 64; const statusW = 150;
+  ensure(doc, 24 + rows.length * 22 + 26);
+  let y = doc.y + 2;
+  doc.fontSize(8).font('Helvetica-Bold').fillColor(MUTED);
+  doc.text('Region', x, y, { lineBreak: false });
+  doc.text('Symmetry', x + labelW, y, { width: symW, align: 'center', lineBreak: false });
+  doc.text('Status', x + labelW + symW + 10, y, { lineBreak: false });
+  doc.text('Weaker side', x + labelW + symW + statusW, y, { lineBreak: false });
+  y += 15;
+  for (const r of rows) {
+    doc.fontSize(9).font('Helvetica').fillColor(TEXT).text(r.label, x, y + 3, { width: labelW - 6, lineBreak: false });
+    const cx = x + labelW + symW / 2;
+    doc.circle(cx, y + 7, 10).fill(r.tier.color);
+    doc.fillColor('#fff').fontSize(8).font('Helvetica-Bold').text(String(r.sym), cx - 10, y + 3.5, { width: 20, align: 'center', lineBreak: false });
+    doc.fontSize(9).font('Helvetica').fillColor(r.sym >= 75 ? TEXT : BAND.amber).text(r.status, x + labelW + symW + 10, y + 3, { width: statusW - 12, lineBreak: false });
+    doc.fillColor(MUTED).text(r.weaker === 'Balanced' ? 'Balanced' : `${r.weaker} weaker by ${r.gap}`, x + labelW + symW + statusW, y + 3, { lineBreak: false });
+    y += 22;
+  }
+  doc.y = y + 2;
+  doc.fontSize(8).fillColor(MUTED).text(
+    'Symmetry is the HoloMotion 0–100 score per region (higher = more symmetric); status uses the report’s own 85 / 75 / 60 tiers. Weaker side compares the region’s left vs right ROM & stability.',
+    50, doc.y, { width: doc.page.width - 100 });
+  doc.fillColor(TEXT);
+}
+
 // Radar chart (TMG-style visual anchor) — polygon over n axes with grid rings.
 // `guide` (a flat number or a per-axis array, same order as `axes`) draws a
 // dashed unfilled threshold polygon UNDER the value polygon — the same
@@ -467,18 +531,28 @@ function interpret(screening, cohort, subitems) {
   } else {
     out.push('All exercise-risk indicators are in the Low band.');
   }
-  if (subitems && typeof subitems === 'object') {
-    const gaps = [];
-    for (const [key, label] of SUBITEM_REGIONS) {
-      const r = subitems[key] || {};
-      if (num(r.romL) !== null && num(r.romR) !== null && Math.abs(r.romL - r.romR) >= 8) {
-        gaps.push(`${label} ROM ${r.romL}/${r.romR}`);
-      }
-      if (num(r.stabL) !== null && num(r.stabR) !== null && Math.abs(r.stabL - r.stabR) >= 8) {
-        gaps.push(`${label} Stability ${r.stabL}/${r.stabR}`);
-      }
-    }
-    if (gaps.length) out.push(`Marked left/right gaps (8+ pts): ${gaps.join(' · ')}.`);
+  // Lateral symmetry — graded, TMG-style, naming the weaker side (replaces the
+  // old flat 8-pt gap list; detail is in the Lateral Symmetry section).
+  const symRows = symmetryFindings(subitems);
+  const asym = symRows.filter((r) => r.sym < 75).sort((a, b) => a.sym - b.sym);
+  if (asym.length) {
+    const worst = asym.slice(0, 3).map((r) =>
+      `${r.label} (sym ${r.sym}${r.weaker !== 'Balanced' ? `, ${r.weaker.toLowerCase()} weaker` : ''})`);
+    out.push(`Lateral symmetry below the good tier in ${asym.length} region${asym.length === 1 ? '' : 's'}: ${worst.join(' · ')}.`);
+  } else if (symRows.length) {
+    out.push('Lateral symmetry is acceptable across all measured regions.');
+  }
+  // Posture — extracted but previously unsurfaced in the interpretation. Report
+  // the largest non-normal deviations verbatim (finding + signed value).
+  const posture = screening.posture;
+  if (posture && typeof posture === 'object') {
+    const dev = POSTURE_AXES
+      .map(([k, label]) => ({ label, finding: posture[k]?.finding || null, value: num(posture[k]?.value) }))
+      .filter((p) => p.finding && p.finding.trim().toLowerCase() !== 'normal')
+      .sort((a, b) => Math.abs(b.value ?? 0) - Math.abs(a.value ?? 0))
+      .slice(0, 3)
+      .map((p) => `${p.label}: ${p.finding}${p.value !== null ? ` (${p.value > 0 ? '+' : ''}${p.value.toFixed(1)}°)` : ''}`);
+    if (dev.length) out.push(`Posture deviations of note: ${dev.join(' · ')}.`);
   }
   const mf = screening.muscleFlags || {};
   const nMyo = (mf.myodynamia || []).length; const nTen = (mf.tension || []).length;
@@ -646,6 +720,11 @@ router.get('/individual/:id.pdf', auth, requirePermission('viewRecords'), async 
     sectionTitle(doc, 'Physical Fitness Subitem Score', 380);
     muscleFigure(doc, latest.subitems);
     subitemTable(doc, latest.subitems);
+
+    // Lateral Symmetry — analytic view of the L/R subitems above (TMG-style):
+    // status per region + which side is weaker, not just the raw numbers.
+    sectionTitle(doc, 'Lateral Symmetry', 170);
+    symmetrySection(doc, latest.subitems);
 
     // Posture Evaluation
     sectionTitle(doc, 'Posture Evaluation', 140);
