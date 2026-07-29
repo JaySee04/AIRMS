@@ -433,6 +433,129 @@ function symmetrySection(doc, subitems) {
   doc.fillColor(TEXT);
 }
 
+// Top-priority findings for the executive callout at the head of the individual
+// report (TMG's per-athlete priority summary, done descriptively — it surfaces
+// the drivers behind the band, most-severe first, without prescribing exercises).
+function keyFindings(screening, subitems) {
+  const items = [];
+  const rated = RISKS.map(([k, label]) => ({ label, v: num(screening[k]) ?? 0 }));
+  const elevated = rated.filter((r) => r.v > 25).sort((a, b) => b.v - a.v);
+  const watch = rated.filter((r) => r.v > 15 && r.v <= 25).sort((a, b) => b.v - a.v);
+  if (elevated.length) items.push(`Elevated exercise-risk: ${elevated.map((r) => `${r.label} ${r.v}`).join(', ')} — review before high-load work.`);
+  const marked = symmetryFindings(subitems).filter((r) => r.sym < 75).sort((a, b) => a.sym - b.sym);
+  if (marked.length) items.push(`Lateral asymmetry: ${marked.slice(0, 2).map((r) => `${r.label} (sym ${r.sym}${r.weaker !== 'Balanced' ? `, ${r.weaker.toLowerCase()} weaker` : ''})`).join(', ')}.`);
+  const posture = screening.posture;
+  if (posture && typeof posture === 'object') {
+    const dev = POSTURE_AXES
+      .map(([k, label]) => ({ label, finding: posture[k]?.finding || null, value: num(posture[k]?.value) }))
+      .filter((p) => p.finding && p.finding.trim().toLowerCase() !== 'normal')
+      .sort((a, b) => Math.abs(b.value ?? 0) - Math.abs(a.value ?? 0))[0];
+    if (dev) items.push(`Posture: ${dev.label} — ${dev.finding}${dev.value !== null ? ` (${dev.value > 0 ? '+' : ''}${dev.value.toFixed(1)}°)` : ''}.`);
+  }
+  if (screening.overrideBand) items.push(`Clinician override in effect: band set to ${bandLabel(screening.overrideBand)}.`);
+  if (!items.length) {
+    items.push(watch.length
+      ? `No elevated indicators; monitoring ${watch.map((r) => `${r.label} ${r.v}`).join(', ')}.`
+      : 'No priority findings — screening is within expected ranges across all measures.');
+  }
+  return items.slice(0, 4);
+}
+
+// Executive callout box — a tinted panel of the key findings at the top of the
+// individual report, so the actionable items are visible before the detail.
+function keyFindingsBox(doc, items) {
+  const x = 50; const w = doc.page.width - 100; const pad = 10; const innerW = w - pad * 2;
+  const lines = items.map((t) => `•  ${t}`);
+  doc.fontSize(9).font('Helvetica');
+  const hs = lines.map((t) => doc.heightOfString(t, { width: innerW }));
+  const boxH = pad + 14 + hs.reduce((a, b) => a + b + 3, 0) + pad - 3;
+  ensure(doc, boxH + 8);
+  const y = doc.y;
+  doc.roundedRect(x, y, w, boxH, 6).fillAndStroke('#f4f7fb', GRID);
+  doc.fillColor(NAVY).fontSize(8).font('Helvetica-Bold').text('KEY FINDINGS', x + pad, y + pad, { lineBreak: false });
+  let ty = y + pad + 14;
+  doc.fontSize(9).font('Helvetica');
+  for (let i = 0; i < lines.length; i++) {
+    doc.fillColor(TEXT).text(lines[i], x + pad, ty, { width: innerW });
+    ty += hs[i] + 3;
+  }
+  doc.y = y + boxH + 8; doc.x = 50; doc.fillColor(TEXT);
+}
+
+// Squad-level lateral symmetry — the aggregate counterpart to TMG's group
+// "Team" pages. Averages each region's HoloMotion symmetry score across the
+// screened squad, counts how many fall below the good tier, and reports the
+// squad's weaker-side lean. `members` = [{ a, s }] with s.subitems.
+function squadSymmetryAggregate(members) {
+  const acc = new Map();
+  for (const [key, label] of SUBITEM_REGIONS) acc.set(key, { label, syms: [], below: 0, leanL: 0, leanR: 0 });
+  for (const m of members) {
+    for (const f of symmetryFindings(m.s.subitems)) {
+      const e = acc.get(f.key); if (!e) continue;
+      e.syms.push(f.sym);
+      if (f.sym < 75) e.below += 1;
+      if (f.weaker === 'Left') e.leanL += 1; else if (f.weaker === 'Right') e.leanR += 1;
+    }
+  }
+  const out = [];
+  for (const e of acc.values()) {
+    if (!e.syms.length) continue;
+    const avg = Math.round(e.syms.reduce((a, b) => a + b, 0) / e.syms.length);
+    const lean = e.leanL === e.leanR ? 'Balanced' : e.leanL > e.leanR ? `Left (${e.leanL})` : `Right (${e.leanR})`;
+    out.push({ label: e.label, avg, n: e.syms.length, below: e.below, tier: tierOf(avg), lean });
+  }
+  return out;
+}
+
+function squadSymmetrySection(doc, members) {
+  const rows = squadSymmetryAggregate(members);
+  if (!rows.length) { doc.fontSize(9).fillColor(MUTED).text('No symmetry subitems on record for this group.', 50); return; }
+  const x = 50; const labelW = 170; const avgW = 70; const belowW = 130;
+  ensure(doc, 24 + rows.length * 22 + 26);
+  let y = doc.y + 2;
+  doc.fontSize(8).font('Helvetica-Bold').fillColor(MUTED);
+  doc.text('Region', x, y, { lineBreak: false });
+  doc.text('Avg symmetry', x + labelW, y, { width: avgW, align: 'center', lineBreak: false });
+  doc.text('Below good tier', x + labelW + avgW + 10, y, { lineBreak: false });
+  doc.text('Weaker-side lean', x + labelW + avgW + belowW, y, { lineBreak: false });
+  y += 15;
+  for (const r of rows) {
+    doc.fontSize(9).font('Helvetica').fillColor(TEXT).text(r.label, x, y + 3, { width: labelW - 6, lineBreak: false });
+    const cx = x + labelW + avgW / 2;
+    doc.circle(cx, y + 7, 10).fill(r.tier.color);
+    doc.fillColor('#fff').fontSize(8).font('Helvetica-Bold').text(String(r.avg), cx - 10, y + 3.5, { width: 20, align: 'center', lineBreak: false });
+    doc.fontSize(9).font('Helvetica').fillColor(r.below ? BAND.amber : TEXT).text(`${r.below} of ${r.n}`, x + labelW + avgW + 10, y + 3, { lineBreak: false });
+    doc.fillColor(MUTED).text(r.lean, x + labelW + avgW + belowW, y + 3, { lineBreak: false });
+    y += 22;
+  }
+  doc.y = y + 2;
+  doc.fontSize(8).fillColor(MUTED).text(
+    'Average of each region’s HoloMotion symmetry score across screened athletes; “below good tier” counts those under 75. Weaker-side lean is how many athletes are weaker on that side.',
+    50, doc.y, { width: doc.page.width - 100 });
+  doc.fillColor(TEXT);
+}
+
+// Most-flagged muscles across the squad (distinct athletes per muscle+kind) —
+// the report counterpart of the coach dashboard's muscle hotspots.
+function squadMuscleHotspots(members) {
+  const map = new Map(); // muscle|kind -> Set(athleteId)
+  const add = (muscle, kind, aid) => {
+    if (!muscle) return;
+    const k = `${muscle}|${kind}`;
+    if (!map.has(k)) map.set(k, new Set());
+    map.get(k).add(aid);
+  };
+  for (const m of members) {
+    const mf = m.s.muscleFlags || {};
+    (mf.myodynamia || []).forEach((x) => add(x.muscle, 'weak', m.a.athleteId));
+    (mf.tension || []).forEach((x) => add(x.muscle, 'tight', m.a.athleteId));
+  }
+  return [...map.entries()]
+    .map(([k, set]) => { const [muscle, kind] = k.split('|'); return { muscle, kind, count: set.size }; })
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 8);
+}
+
 // Radar chart (TMG-style visual anchor) — polygon over n axes with grid rings.
 // `guide` (a flat number or a per-axis array, same order as `axes`) draws a
 // dashed unfilled threshold polygon UNDER the value polygon — the same
@@ -697,6 +820,9 @@ router.get('/individual/:id.pdf', auth, requirePermission('viewRecords'), async 
       doc.moveDown(0.2);
     }
 
+    // Key findings — executive callout so the actionable items lead the report.
+    keyFindingsBox(doc, keyFindings(latest, latest.subitems));
+
     // Scores vs peers (cohort mean marker)
     sectionTitle(doc, cohort ? `Scores vs Cohort (${cohort.tier} tier, n=${cohort.n})` : 'Scores (no cohort norm yet)');
     for (const [key, label, max] of SCORE_ROWS) {
@@ -836,6 +962,26 @@ router.get('/team.pdf', auth, rbac('medical', 'admin', 'coach'), requirePermissi
       return vals.length ? +(vals.reduce((x, y) => x + y, 0) / vals.length).toFixed(1) : 0;
     };
     for (const [key, label] of RISKS) zoneGauge(doc, label, avgRisk(key));
+
+    // Squad lateral symmetry — aggregate of the per-region symmetry subitems
+    // across the group (TMG group-report "Team" pages, adapted to our data).
+    sectionTitle(doc, 'Squad Lateral Symmetry (average)');
+    squadSymmetrySection(doc, members);
+
+    // Squad muscle-flag hotspots — the most-flagged muscles across the group.
+    const hotspots = squadMuscleHotspots(members);
+    if (hotspots.length) {
+      sectionTitle(doc, 'Squad Muscle-Flag Hotspots', 110);
+      doc.fontSize(8).fillColor(MUTED).text('Muscles flagged across the most athletes (weak = myodynamia deficiency, tight = tension); athletes counted once per muscle.', 50, doc.y, { width: doc.page.width - 100 });
+      doc.moveDown(0.3);
+      for (const h of hotspots) {
+        ensure(doc, 15);
+        doc.fontSize(9).fillColor(h.kind === 'weak' ? '#c07a1e' : BAND.red).font('Helvetica-Bold').text('•  ', 50, doc.y, { continued: true })
+          .fillColor(TEXT).font('Helvetica').text(`${h.muscle} `, { continued: true })
+          .fillColor(MUTED).text(`(${h.kind}) — ${h.count} athlete${h.count === 1 ? '' : 's'}`);
+        doc.moveDown(0.1);
+      }
+    }
 
     // Ranking by overall indicator
     sectionTitle(doc, 'Ranking (by overall indicator)');
