@@ -106,7 +106,7 @@ function computeIndicator(screening, cohortStats, rankInfo, settings = {}, activ
   // single worst-outlier indicator only (one +1, not one per indicator).
   if (settings.escalation_indicator !== false && cohortStats) {
     const high = settings.escalation_indicator_high ?? 25;
-    const zCut = settings.escalation_indicator_z ?? 1;
+    const zCut = settings.escalation_indicator_z ?? 1.5; // match settings default (1.0 over-escalates ~half the squad)
     let worst = null;
     for (const key of SHOWN_RISK_KEYS) {
       const v = num(screening[key]);
