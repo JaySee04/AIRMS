@@ -38,11 +38,17 @@ router.get('/mine', auth, rbac('athlete'), async (req, res) => {
 router.post('/', auth, rbac('athlete'), async (req, res) => {
   try {
     const athlete = await Athlete.findOne({ where: { athleteId: req.user.athleteId } });
+    // Whitelist the athlete-submittable fields — do NOT spread req.body. The
+    // status + reviewer columns are set only by the medical review route; a
+    // spread would let an athlete self-"approve" (skipping the review queue) or
+    // fabricate a reviewer on their own submission (clinical audit integrity).
+    const { bodyPart, side, injuryType, severity, description } = req.body || {};
     const report = await SelfReport.create({
-      ...req.body,
+      bodyPart, side, injuryType, severity, description,
       athleteId: req.user.athleteId,
       athleteName: req.user.name,
       sport: athlete ? athlete.sport : null,
+      status: 'Pending',
     });
     res.status(201).json(serializeGeneric(report));
   } catch (err) {
