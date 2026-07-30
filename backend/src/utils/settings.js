@@ -28,6 +28,10 @@ const DEFAULTS = {
   escalation_injury: true,
   alerts_enabled: true,        // email medical + coaches on import
   alert_on_band: 'amber',      // fire at this band or worse ('amber' | 'red')
+  // Event-driven notifications (utils/notifications.js), each independently
+  // governable, default on:
+  notify_self_report: true,    // email medical when an athlete files a self-report
+  notify_override: true,       // email the sport's coach when medical overrides an athlete to amber/red
 };
 
 // Merge stored overrides over defaults. Unknown/legacy keys are ignored.

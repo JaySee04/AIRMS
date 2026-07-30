@@ -5,6 +5,7 @@ const rbac = require('../middleware/rbac');
 const requirePermission = require('../middleware/permission');
 const { serializeGeneric, serializeMany } = require('../utils/serialize');
 const { queueIndicatorRecompute } = require('../utils/postImport');
+const { notifySelfReportSubmitted } = require('../utils/notifications');
 
 const router = express.Router();
 
@@ -50,6 +51,8 @@ router.post('/', auth, rbac('athlete'), async (req, res) => {
       sport: athlete ? athlete.sport : null,
       status: 'Pending',
     });
+    // Prompt medical to review it (fire-and-forget; never blocks the response).
+    notifySelfReportSubmitted(report);
     res.status(201).json(serializeGeneric(report));
   } catch (err) {
     res.status(400).json({ message: err.message });

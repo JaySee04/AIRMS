@@ -4,6 +4,7 @@ const { Screening, Athlete } = require('../models');
 const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
 const requirePermission = require('../middleware/permission');
+const { notifyOverrideToCoach } = require('../utils/notifications');
 
 const router = express.Router();
 
@@ -53,6 +54,10 @@ router.patch('/:id/override', auth, rbac('medical', 'admin'), requirePermission(
     }
     if (band) {
       await row.update({ overrideBand: band, overrideNote: String(note).trim(), overrideBy: req.user?.name || null, overrideAt: new Date() });
+      // Tell the athlete's coach an escalation was set by medical (fire-and-
+      // forget; only amber/red notify — notifyOverrideToCoach gates on that).
+      const athlete = await Athlete.findOne({ where: { athleteId: row.athleteId }, attributes: ['name', 'sport'], raw: true });
+      if (athlete) notifyOverrideToCoach(athlete, band, String(note).trim(), req.user?.name);
     } else {
       // Clear the override.
       await row.update({ overrideBand: null, overrideNote: null, overrideBy: null, overrideAt: null });
