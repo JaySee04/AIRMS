@@ -99,7 +99,7 @@ export default function CohortThresholdsPage() {
     } catch (e) { setError(e instanceof Error ? e.message : 'Recompute failed'); } finally { setBusy(false); }
   }
 
-  async function saveSetting(key: string, value: number | boolean) {
+  async function saveSetting(key: string, value: number | boolean | string) {
     setBusy(true); setError(null);
     try {
       await api.patch('/cohorts/settings/all', { [key]: value });
@@ -186,6 +186,43 @@ export default function CohortThresholdsPage() {
             <div><label><input type="checkbox" checked={Boolean(set.escalation_injury)}
               onChange={(e) => saveSetting('escalation_injury', e.target.checked)} /> enabled</label></div>
             <div className="stat-tile-delta">floors the band at amber when the athlete carries a significant active injury (moderate/severe, or chronic) — never red on its own</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Notifications — governs the whole email surface (utils/alerts.js +
+          utils/notifications.js). Backend-gated defaults are all on. */}
+      <div className="card" style={{ marginBottom: 20 }}>
+        <div className="card-header"><div>
+          <h2 className="card-title" style={{ marginBottom: 0 }}>Email Notifications</h2>
+          <span className="card-sub">Who gets emailed, and when. Uses the configured SMTP account (or the dev console fallback).</span>
+        </div></div>
+        <div className="stat-grid">
+          <div className="stat-tile">
+            <div className="stat-tile-label">Import alerts</div>
+            <div><label><input type="checkbox" checked={Boolean(set.alerts_enabled)}
+              onChange={(e) => saveSetting('alerts_enabled', e.target.checked)} /> enabled</label></div>
+            <div className="stat-tile-delta">Email medical + the sport&apos;s coaches when a screening import flags an athlete</div>
+          </div>
+          <div className="stat-tile">
+            <div className="stat-tile-label">Import alert threshold</div>
+            <div><select value={String(set.alert_on_band ?? 'amber')} onChange={(e) => saveSetting('alert_on_band', e.target.value)} disabled={busy || !set.alerts_enabled}>
+              <option value="amber">Amber or worse</option>
+              <option value="red">Red only</option>
+            </select></div>
+            <div className="stat-tile-delta">Fire the import alert at this band or worse</div>
+          </div>
+          <div className="stat-tile">
+            <div className="stat-tile-label">Self-report → medical</div>
+            <div><label><input type="checkbox" checked={Boolean(set.notify_self_report)}
+              onChange={(e) => saveSetting('notify_self_report', e.target.checked)} /> enabled</label></div>
+            <div className="stat-tile-delta">Email medical staff when an athlete files an injury self-report</div>
+          </div>
+          <div className="stat-tile">
+            <div className="stat-tile-label">Override → coach</div>
+            <div><label><input type="checkbox" checked={Boolean(set.notify_override)}
+              onChange={(e) => saveSetting('notify_override', e.target.checked)} /> enabled</label></div>
+            <div className="stat-tile-delta">Email the sport&apos;s coach when medical overrides an athlete to amber/red</div>
           </div>
         </div>
       </div>
