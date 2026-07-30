@@ -1,37 +1,44 @@
 // Event-driven email notifications (distinct from the import-commit alerts in
 // alerts.js, which fire on a screening recompute). These fire on discrete,
 // intentional actions and reuse utils/mailer.js (env SMTP, console/dry-run
-// fallback in dev). Every function is fire-and-forget and NON-FATAL — a mail
-// failure must never break the action that triggered it.
-//
-// Each is gated by its own admin setting (default on) so the notifications are
-// individually governable, matching how the import alerts use `alerts_enabled`.
+// fallback in dev). Every one is fire-and-forget and NON-FATAL — a mail failure
+// must never break the action that triggered it. Each is gated by its own
+// default-on admin setting, matching how the import alerts use `alerts_enabled`.
 
-const { User, Athlete } = require('../models');
+const { User } = require('../models');
 const { sendMail } = require('./mailer');
 const { getSettings } = require('./settings');
 
 const BAND_LABEL = { amber: 'Needs attention', red: 'Immediate assessment' };
+const SIGNOFF = '— AIRMS · Institut Sukan Negara';
+
+// Shared skeleton: gate on `setting`, resolve recipients, build + send. Returns
+// a small { sent, reason } summary and swallows errors (logged, non-fatal).
+async function notify(setting, recipientsFn, buildFn) {
+  try {
+    if ((await getSettings())[setting] === false) return { sent: false, reason: 'disabled' };
+    const to = (await recipientsFn()).map((u) => u.email).filter(Boolean);
+    if (!to.length) return { sent: false, reason: 'no recipients' };
+    await sendMail({ to: to.join(','), ...buildFn() });
+    return { sent: true, recipients: to.length };
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error(`[notify] ${setting} failed:`, e.message);
+    return { sent: false, reason: e.message };
+  }
+}
+
+const activeUsers = (where) => () =>
+  User.findAll({ where: { isActive: true, ...where }, attributes: ['email'], raw: true });
 
 // Athlete filed a self-report → prompt the medical team to review it, so an
-// out-of-session report doesn't sit unseen in the queue. Recipients: active
-// medical staff (the same people who see the review queue).
-async function notifySelfReportSubmitted(report) {
-  try {
-    const settings = await getSettings();
-    if (settings.notify_self_report === false) return { sent: false, reason: 'disabled' };
-
-    const medical = await User.findAll({
-      where: { role: 'medical', isActive: true },
-      attributes: ['email'], raw: true,
-    });
-    const to = medical.map((u) => u.email).filter(Boolean);
-    if (!to.length) return { sent: false, reason: 'no recipients' };
-
-    const who = report.athleteName || report.athleteId;
-    const subject = `AIRMS — new self-report from ${who} (${report.athleteId})`;
-    const detail = [report.bodyPart, report.side, report.injuryType, report.severity].filter(Boolean).join(' · ');
-    const text = [
+// out-of-session report doesn't sit unseen in the queue.
+function notifySelfReportSubmitted(report) {
+  const who = report.athleteName || report.athleteId;
+  const detail = [report.bodyPart, report.side, report.injuryType, report.severity].filter(Boolean).join(' · ');
+  return notify('notify_self_report', activeUsers({ role: 'medical' }), () => ({
+    subject: `AIRMS — new self-report from ${who} (${report.athleteId})`,
+    text: [
       `${who} (${report.athleteId}) submitted an injury self-report.`,
       report.sport ? `Sport: ${report.sport}` : null,
       detail ? `Reported: ${detail}` : null,
@@ -40,37 +47,20 @@ async function notifySelfReportSubmitted(report) {
       'This is the athlete’s between-sessions channel — it is awaiting your review before it joins the official injury record.',
       'Open AIRMS → Self-Report Review to approve or reject it.',
       '',
-      '— AIRMS · Institut Sukan Negara',
-    ].filter((l) => l !== null).join('\n');
-
-    await sendMail({ to: to.join(','), subject, text });
-    return { sent: true, recipients: to.length };
-  } catch (e) {
-    // eslint-disable-next-line no-console
-    console.error('[notify] self-report notification failed:', e.message);
-    return { sent: false, reason: e.message };
-  }
+      SIGNOFF,
+    ].filter((l) => l !== null).join('\n'),
+  }));
 }
 
-// Medical set an athlete's band by override → tell the athlete's coach(es), so
-// their squad-readiness view reflects a decision made outside their sight. Only
-// fires for amber/red (an escalation worth flagging), never for a green clear.
-async function notifyOverrideToCoach(athlete, band, note, by) {
-  try {
-    if (!['amber', 'red'].includes(band)) return { sent: false, reason: 'not an escalation' };
-    const settings = await getSettings();
-    if (settings.notify_override === false) return { sent: false, reason: 'disabled' };
-    if (!athlete || !athlete.sport) return { sent: false, reason: 'no sport' };
-
-    const coaches = await User.findAll({
-      where: { role: 'coach', isActive: true, coachSport: athlete.sport },
-      attributes: ['email'], raw: true,
-    });
-    const to = coaches.map((u) => u.email).filter(Boolean);
-    if (!to.length) return { sent: false, reason: 'no coach' };
-
-    const subject = `AIRMS — ${athlete.name} set to ${BAND_LABEL[band]} by the medical team`;
-    const text = [
+// Medical overrode an athlete's band → tell the sport's coach(es) so their
+// squad-readiness view reflects it. Only amber/red (an escalation worth
+// flagging); never a green clear.
+function notifyOverrideToCoach(athlete, band, note, by) {
+  if (!['amber', 'red'].includes(band)) return Promise.resolve({ sent: false, reason: 'not an escalation' });
+  if (!athlete || !athlete.sport) return Promise.resolve({ sent: false, reason: 'no sport' });
+  return notify('notify_override', activeUsers({ role: 'coach', coachSport: athlete.sport }), () => ({
+    subject: `AIRMS — ${athlete.name} set to ${BAND_LABEL[band]} by the medical team`,
+    text: [
       `The medical team has assessed ${athlete.name} and set their status to: ${BAND_LABEL[band]}.`,
       note ? `\nClinician note: "${note}"${by ? ` — ${by}` : ''}` : (by ? `\nSet by ${by}.` : ''),
       '',
@@ -79,16 +69,9 @@ async function notifyOverrideToCoach(athlete, band, note, by) {
         : 'Please factor this into training until the medical team reviews the flagged areas.',
       'The status stays until the next HoloMotion screening is imported. See AIRMS → Squad Readiness.',
       '',
-      '— AIRMS · Institut Sukan Negara',
-    ].join('\n');
-
-    await sendMail({ to: to.join(','), subject, text });
-    return { sent: true, recipients: to.length };
-  } catch (e) {
-    // eslint-disable-next-line no-console
-    console.error('[notify] override notification failed:', e.message);
-    return { sent: false, reason: e.message };
-  }
+      SIGNOFF,
+    ].join('\n'),
+  }));
 }
 
 module.exports = { notifySelfReportSubmitted, notifyOverrideToCoach };
