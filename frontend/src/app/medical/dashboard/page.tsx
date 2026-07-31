@@ -100,14 +100,6 @@ const RISK_KEYS: Array<keyof AthleteRisks> = [
 ];
 
 
-interface CountBucket { _id: string; count: number; }
-interface SportContext {
-  total: number;
-  athletesAffected: number;
-  byBodyPart: CountBucket[];
-  byType: CountBucket[];
-  bySeverity: CountBucket[];
-}
 
 export default function MedicalDashboard() {
   const [athletes, setAthletes] = useState<AthleteListItem[]>([]);
@@ -128,7 +120,6 @@ export default function MedicalDashboard() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedAthlete, setSelectedAthlete] = useState<AthleteFull | null>(null);
   const [selectedInjuries, setSelectedInjuries] = useState<Injury[]>([]);
-  const [sportContext, setSportContext] = useState<SportContext | null>(null);
   const [loadingSelected, setLoadingSelected] = useState(false);
   const [selectedError, setSelectedError] = useState<string | null>(null);
   const [pdfBusy, setPdfBusy] = useState<'' | 'ind' | 'team'>('');
@@ -231,7 +222,6 @@ export default function MedicalDashboard() {
     if (!selectedId) {
       setSelectedAthlete(null);
       setSelectedInjuries([]);
-      setSportContext(null);
       return;
     }
     let cancelled = false;
@@ -248,16 +238,6 @@ export default function MedicalDashboard() {
           setSelectedAthlete(a);
           setSelectedInjuries(injs);
           setSelectedError(null);
-        }
-        // Sport-level context: aggregated injuries filtered to this athlete's sport.
-        // Fired in a second pass because it depends on the athlete record we just fetched.
-        if (a?.sport) {
-          const ctx = await api
-            .get<SportContext>(`/injuries/analytics/summary?sport=${encodeURIComponent(a.sport)}`)
-            .catch(() => null);
-          if (!cancelled) setSportContext(ctx);
-        } else if (!cancelled) {
-          setSportContext(null);
         }
       } catch (e) {
         if (!cancelled) setSelectedError(e instanceof Error ? e.message : 'Failed to load athlete');
@@ -294,26 +274,6 @@ export default function MedicalDashboard() {
     () => allInjuries.filter((i) => i.recoveryStatus !== 'Recovered'),
     [allInjuries],
   );
-
-  // Sport context: top body parts / injury types within the athlete's sport,
-  // with this athlete's own injury body parts and types marked so the clinician
-  // can read individual cases against the sport-wide pattern in one glance.
-  const athleteBodyParts = useMemo(
-    () => new Set(allInjuries.map((i) => i.bodyPart)),
-    [allInjuries],
-  );
-  const athleteInjuryTypes = useMemo(
-    () => new Set(allInjuries.map((i) => i.injuryType)),
-    [allInjuries],
-  );
-  const sportTopBodyParts = useMemo(() => {
-    if (!sportContext) return [];
-    return [...sportContext.byBodyPart].sort((a, b) => b.count - a.count).slice(0, 5);
-  }, [sportContext]);
-  const sportTopTypes = useMemo(() => {
-    if (!sportContext) return [];
-    return [...sportContext.byType].sort((a, b) => b.count - a.count).slice(0, 5);
-  }, [sportContext]);
 
   // Distinct programmes available in the roster (for the filter dropdown)
   const programmes = useMemo(() => {
@@ -730,7 +690,7 @@ export default function MedicalDashboard() {
               <div style={{ marginTop: 20 }}>
                 {/* subitems/posture live only on `.screening` (never duplicated
                     onto the flat athlete row), so they're merged in here. */}
-                <ScreeningPanel athlete={{ ...selectedAthlete, subitems: selectedAthlete.screening?.subitems, posture: selectedAthlete.screening?.posture }} />
+                <ScreeningPanel athlete={{ ...selectedAthlete, subitems: selectedAthlete.screening?.subitems, posture: selectedAthlete.screening?.posture }} showTrainingFocus={false} />
               </div>
 
               {/* Report-to-report progress — the on-screen counterpart of the
@@ -753,110 +713,6 @@ export default function MedicalDashboard() {
                   subitems={selectedAthlete.screening?.subitems}
                 />
               </div>
-
-              {/* Sport context — situates this athlete against their sport's overall injury pattern */}
-              {sportContext && sportContext.total > 0 && (
-                <div className="card" style={{ marginBottom: 20 }}>
-                  <div className="card-header">
-                    <div>
-                      <h2 className="card-title" style={{ marginBottom: 0 }}>
-                        Sport Context — {selectedAthlete.sport}
-                      </h2>
-                      <span className="card-sub">
-                        How {selectedAthlete.name.split(' ')[0]}&apos;s injuries compare to the sport&apos;s overall pattern
-                      </span>
-                    </div>
-                  </div>
-                  <div className="stat-grid" style={{ marginBottom: 16 }}>
-                    <div className="stat-tile">
-                      <div className="stat-tile-label">Total cases ({selectedAthlete.sport})</div>
-                      <div className="stat-tile-value">{sportContext.total}</div>
-                      <div className="stat-tile-delta">All time</div>
-                    </div>
-                    <div className="stat-tile">
-                      <div className="stat-tile-label">Athletes affected</div>
-                      <div className="stat-tile-value">{sportContext.athletesAffected}</div>
-                      <div className="stat-tile-delta">Within {selectedAthlete.sport}</div>
-                    </div>
-                    <div className="stat-tile">
-                      <div className="stat-tile-label">This athlete</div>
-                      <div className="stat-tile-value">{allInjuries.length}</div>
-                      <div className="stat-tile-delta">
-                        {sportContext.total > 0
-                          ? `${((allInjuries.length / sportContext.total) * 100).toFixed(1)}% of sport`
-                          : '—'}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="grid-2">
-                    <div>
-                      <strong style={{ fontSize: '0.82rem' }}>Top body parts in {selectedAthlete.sport}</strong>
-                      {sportTopBodyParts.length === 0 ? (
-                        <div className="empty-state">No data</div>
-                      ) : (
-                        <ul className="insight-list" style={{ marginTop: 8 }}>
-                          {sportTopBodyParts.map((b) => {
-                            const pct = (b.count / sportContext.total) * 100;
-                            const overlap = athleteBodyParts.has(b._id);
-                            return (
-                              <li key={b._id}>
-                                <strong>{b._id}</strong> — {b.count} ({pct.toFixed(0)}%)
-                                {overlap && (
-                                  <span className="badge-moderate" style={{ marginLeft: 8 }}>
-                                    also seen in this athlete
-                                  </span>
-                                )}
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      )}
-                    </div>
-                    <div>
-                      <strong style={{ fontSize: '0.82rem' }}>Top injury types in {selectedAthlete.sport}</strong>
-                      {sportTopTypes.length === 0 ? (
-                        <div className="empty-state">No data</div>
-                      ) : (
-                        <ul className="insight-list" style={{ marginTop: 8 }}>
-                          {sportTopTypes.map((t) => {
-                            const pct = (t.count / sportContext.total) * 100;
-                            const overlap = athleteInjuryTypes.has(t._id);
-                            return (
-                              <li key={t._id}>
-                                <strong>{t._id}</strong> — {t.count} ({pct.toFixed(0)}%)
-                                {overlap && (
-                                  <span className="badge-moderate" style={{ marginLeft: 8 }}>
-                                    also seen in this athlete
-                                  </span>
-                                )}
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      )}
-                    </div>
-                  </div>
-                  {sportContext.bySeverity.length > 0 && (
-                    <div style={{ marginTop: 14 }}>
-                      <strong style={{ fontSize: '0.82rem' }}>Severity mix</strong>
-                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
-                        {sportContext.bySeverity.map((s) => {
-                          const cls = s._id === 'Severe'
-                            ? 'badge-high'
-                            : s._id === 'Moderate'
-                              ? 'badge-moderate'
-                              : 'badge-low';
-                          return (
-                            <span key={s._id} className={cls}>
-                              {s._id}: {s.count}
-                            </span>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
 
               {/* Injury history */}
               <div className="card">

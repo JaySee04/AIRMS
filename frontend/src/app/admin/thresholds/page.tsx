@@ -54,6 +54,7 @@ export default function CohortThresholdsPage() {
   // cohorts touched by the just-imported screenings, so the admin lands on the
   // exact rows to recompute/approve.
   const [highlightIds, setHighlightIds] = useState<Set<number>>(new Set());
+  const [showBelowMin, setShowBelowMin] = useState(false); // below-minimum cohorts don't drive the indicator — hidden by default
   const highlightApplied = useRef(false);
 
   const load = useCallback(async () => {
@@ -134,6 +135,11 @@ export default function CohortThresholdsPage() {
 
   const set = settings?.settings ?? {};
   const usable = cohorts.filter((c) => c.n >= Number(set.min_cohort_n ?? 5));
+  const belowMinCount = cohorts.length - usable.length;
+  // Below-minimum cohorts don't drive the indicator, so hide them by default to
+  // cut the scroll — but always show everything when a row is deep-linked
+  // (highlighted from the import flow) so the target is never hidden.
+  const shownCohorts = showBelowMin || highlightIds.size > 0 ? cohorts : usable;
 
   return (
     <DashboardLayout allowedRoles={['admin']} title="Cohort Thresholds">
@@ -232,12 +238,18 @@ export default function CohortThresholdsPage() {
         <div className="card-header"><div>
           <h2 className="card-title" style={{ marginBottom: 0 }}>Cohort Approval Queue</h2>
           <span className="card-sub">{usable.length} of {cohorts.length} cohorts meet the minimum size. Only approved cohorts drive the indicator.</span>
-        </div></div>
+        </div>
+          {belowMinCount > 0 && highlightIds.size === 0 && (
+            <button type="button" className="btn btn-outline btn-sm" onClick={() => setShowBelowMin((v) => !v)}>
+              {showBelowMin ? `Hide ${belowMinCount} below-minimum` : `Show ${belowMinCount} below-minimum`}
+            </button>
+          )}
+        </div>
         <div className="table-wrap">
           <table>
             <thead><tr><th>Cohort</th><th>Tier</th><th style={{ textAlign: 'center' }}>n</th><th style={{ textAlign: 'center' }}>Status</th><th></th></tr></thead>
             <tbody>
-              {cohorts.map((c) => (
+              {shownCohorts.map((c) => (
                 <Fragment key={c.id}>
                   <tr id={`cohort-${c.id}`} className={highlightIds.has(c.id) ? 'row-flash' : undefined}>
                     <td><strong>{cohortLabel(c)}</strong></td>

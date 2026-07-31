@@ -159,7 +159,10 @@ function IndicatorStrip({ label, value, t }: { label: string; value: number; t: 
   );
 }
 
-export default function ScreeningPanel({ athlete }: { athlete: ScreeningData }) {
+// `showTrainingFocus` — the corrective-exercise block is useful to the athlete
+// (and coach), but redundant on the medical view (the people who actually
+// prescribe rehab), so the medical dashboard turns it off.
+export default function ScreeningPanel({ athlete, showTrainingFocus = true }: { athlete: ScreeningData; showTrainingFocus?: boolean }) {
   const scores = [athlete.overallActivityScore, athlete.injuryRiskIndex, athlete.mobility, athlete.stability, athlete.symmetry];
   const hasReport = scores.some((v) => v !== undefined && v !== null);
   const criticalSet = new Set(criticalRegionsFor(athlete.sport));
@@ -262,7 +265,7 @@ export default function ScreeningPanel({ athlete }: { athlete: ScreeningData }) 
       {/* Training focus — AIRMS' counterpart of the report's closing Training
           Prescription: corrective exercises for the regions that breached
           their sport thresholds, worst first. */}
-      <TrainingFocus athlete={athlete} />
+      {showTrainingFocus && <TrainingFocus athlete={athlete} />}
     </>
   );
 }
