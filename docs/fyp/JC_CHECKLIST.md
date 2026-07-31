@@ -5,6 +5,35 @@
 > you go; tell me if any is wrong and I'll fix. Nothing here blocks me
 > continuing to the next stage.
 
+## ⏳ Open right now — your remaining actions (as of 2026-08-01)
+
+The short list you asked me to keep in front of you. Fuller detail for each is
+in the stage section linked.
+
+- [ ] **Open the three PDFs in a real viewer** (Holistic / Individual ATH0061 /
+  Team Badminton) — Stage D below. *You said "later, remind me."*
+- [ ] **Eyeball the injury-floor band distribution** — confirm you're happy that
+  a significant active injury floors a clean athlete to amber (toggle is ON).
+  Stage "Decisions 2026-07-27" above. *"remind me."*
+- [ ] **Double-check the FDD figure + Table 4.1 render** once pasted into the
+  report Word doc (module-column merge, diagram leaf wrapping) — restructure
+  section at the bottom. *"remind me."*
+- [ ] **Report writing + viva rehearsal** — the remaining big rock; `VIVA_SCRIPT.md`
+  / `VIVA_ANSWERS.md` are the starting point (note their FYP I dating). *"remind me."*
+- [ ] **Dr Thung sign-off** — the deployment gate you're keeping in view (kiv).
+- [ ] **Rename the pushed branch** if you still want `feat/mysql-migration` off the
+  working name (has an upstream — your call; see 2026-07-17 decisions).
+
+**Done this session (2026-08-01), no action needed:**
+- ✅ Submission repo committed + pushed (`07d2c42..5446118`, clean scrub, OneDrive
+  files re-hydrated first).
+- ✅ Live email-notification demo fired for real — a self-report notification went
+  out via Gmail SMTP to the two active-medical addresses; the checkable one is
+  **23005005@siswa.um.edu.my** (the other, `medical@isn.gov.my`, will bounce —
+  harmless). `notify()` returned `{sent:true, recipients:2}`.
+- ✅ Coach "Suggested focus" + risk radar enhanced (clickable affected-athlete
+  chips; over-threshold radar spokes now highlight red) — committed `1bc721c`.
+
 ## Decisions made on JC's behalf (2026-07-17)
 
 You said "make the decisions for me." These are now **decided and in the code**
