@@ -38,6 +38,12 @@ export default function RiskRadar({ labels, values, thresholds }: RiskRadarProps
     if (!ctx) return;
     const pal = chartPalette(isDark);
 
+    // Per-axis: is the athlete's reading at/above their personalised Elevated
+    // cutoff? Drives both the red point highlight and the tooltip comparison,
+    // so the breached spokes read at a glance instead of by eyeballing overlap.
+    const hasThresholds = !!thresholds && thresholds.length === values.length;
+    const over = hasThresholds ? values.map((v, i) => v >= thresholds![i]) : values.map(() => false);
+
     chartRef.current?.destroy();
     chartRef.current = new Chart(ctx, {
       type: 'radar',
@@ -46,7 +52,7 @@ export default function RiskRadar({ labels, values, thresholds }: RiskRadarProps
         datasets: [
           // Drawn first (behind the athlete's shape) so it reads as a
           // boundary the shape is measured against, not a second reading.
-          ...(thresholds && thresholds.length === values.length
+          ...(hasThresholds
             ? [
                 {
                   label: 'Elevated threshold',
@@ -65,7 +71,12 @@ export default function RiskRadar({ labels, values, thresholds }: RiskRadarProps
             data: values,
             backgroundColor: isDark ? 'rgba(224,184,78,0.22)' : 'rgba(200,155,60,0.18)',
             borderColor: pal.gold,
-            pointBackgroundColor: pal.gold,
+            // Spokes over the Elevated cutoff turn red and grow, so the problem
+            // regions catch the eye without reading tick values.
+            pointBackgroundColor: over.map((o) => (o ? THRESHOLD_RED : pal.gold)),
+            pointBorderColor: over.map((o) => (o ? THRESHOLD_RED : pal.gold)),
+            pointRadius: over.map((o) => (o ? 5 : 3)),
+            pointHoverRadius: over.map((o) => (o ? 7 : 5)),
           },
         ],
       },
@@ -86,6 +97,18 @@ export default function RiskRadar({ labels, values, thresholds }: RiskRadarProps
           legend: { display: false },
           tooltip: {
             filter: (item) => item.dataset.label !== 'Elevated threshold',
+            callbacks: {
+              label: (item) => `Reading ${item.formattedValue} / 30`,
+              // When we know the athlete's cutoff, say how far over/under it is.
+              afterLabel: (item) => {
+                if (!hasThresholds) return '';
+                const t = thresholds![item.dataIndex];
+                const gap = Math.round((values[item.dataIndex] - t) * 10) / 10;
+                if (gap > 0) return `Elevated cutoff ${t} · +${gap} over`;
+                if (gap === 0) return `Elevated cutoff ${t} · at threshold`;
+                return `Elevated cutoff ${t} · ${-gap} below`;
+              },
+            },
           },
         },
       },

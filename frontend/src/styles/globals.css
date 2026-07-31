@@ -1491,6 +1491,23 @@ tr.row-flash > td { animation: row-flash 1.6s ease-out; }
 .coach-suggest-region { font-size: 0.95rem; font-weight: 700; }
 .coach-suggest-magnitude { margin: 0 0 6px; font-size: 0.82rem; color: var(--text-muted); line-height: 1.5; }
 .coach-suggest-action { margin: 0; font-size: 0.85rem; line-height: 1.5; }
+/* Affected-athlete chips — turn the suggestion into a triage list: each name
+   opens that athlete's screening detail. Elevated names read stronger. */
+.coach-suggest-athletes { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+.coach-suggest-who-label { font-size: 0.74rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.03em; margin-right: 2px; }
+.coach-athlete-chip {
+  font: inherit; font-size: 0.78rem; line-height: 1; cursor: pointer;
+  padding: 5px 10px; border-radius: 999px;
+  border: 1px solid var(--border); background: var(--bg-card); color: var(--text);
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+.coach-athlete-chip:hover { border-color: var(--brand-gold); background: color-mix(in srgb, var(--brand-gold) 12%, transparent); }
+.coach-athlete-chip.is-high {
+  border-color: color-mix(in srgb, var(--risk-high, #d14b4b) 45%, var(--border));
+  background: color-mix(in srgb, var(--risk-high, #d14b4b) 10%, transparent);
+  font-weight: 600;
+}
+.coach-athlete-chip.is-high:hover { border-color: var(--risk-high, #d14b4b); background: color-mix(in srgb, var(--risk-high, #d14b4b) 18%, transparent); }
 
 /* ── Sport-aware screening alert banner ────────────────────────────────────── */
 .screening-alert {

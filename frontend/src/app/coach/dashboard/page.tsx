@@ -249,18 +249,32 @@ export default function CoachDashboard() {
   // ties toward sport-critical regions. Each region has one shown indicator, so
   // the elevated/watch athlete sets are disjoint and sum to "athletes flagged".
   const squadConcerns = useMemo(() => {
-    const map = new Map<BodyRegion, { region: BodyRegion; high: Set<string>; watch: Set<string>; critical: boolean }>();
+    type Affected = { athleteId: string; name: string; band: 'high' | 'watch' };
+    const map = new Map<BodyRegion, {
+      region: BodyRegion; high: Set<string>; watch: Set<string>; critical: boolean; who: Map<string, Affected>;
+    }>();
     classified.forEach(({ row, screening }) => {
       if (!screening.hasData) return;
       screening.alerts.forEach((a) => {
-        const e = map.get(a.region) ?? { region: a.region, high: new Set<string>(), watch: new Set<string>(), critical: false };
-        (a.band === 'high' ? e.high : e.watch).add(row.athleteId);
+        const e = map.get(a.region) ?? { region: a.region, high: new Set<string>(), watch: new Set<string>(), critical: false, who: new Map<string, Affected>() };
+        const band: 'high' | 'watch' = a.band === 'high' ? 'high' : 'watch';
+        (band === 'high' ? e.high : e.watch).add(row.athleteId);
+        // One shown indicator per region, so an athlete lands here once; keep
+        // their worst band if the data ever double-counts.
+        const prev = e.who.get(row.athleteId);
+        if (!prev || (band === 'high' && prev.band !== 'high')) e.who.set(row.athleteId, { athleteId: row.athleteId, name: row.name, band });
         if (a.critical) e.critical = true;
         map.set(a.region, e);
       });
     });
     return [...map.values()]
-      .map((e) => ({ region: e.region, high: e.high.size, watch: e.watch.size, critical: e.critical }))
+      .map((e) => ({
+        region: e.region, high: e.high.size, watch: e.watch.size, critical: e.critical,
+        // Elevated athletes first, then on-watch, each alphabetical — the order
+        // the coach should work down.
+        athletes: [...e.who.values()].sort((a, b) =>
+          (a.band === 'high' ? 0 : 1) - (b.band === 'high' ? 0 : 1) || a.name.localeCompare(b.name)),
+      }))
       .filter((e) => e.high + e.watch > 0)
       .sort((a, b) => (b.high - a.high) || (Number(b.critical) - Number(a.critical)) || (b.watch - a.watch))
       .slice(0, 3);
@@ -551,6 +565,20 @@ export default function CoachDashboard() {
                   at the {REGION_LABEL[c.region].toLowerCase()}.
                 </p>
                 <p className="coach-suggest-action">{REGION_ADJUSTMENT[c.region]}</p>
+                <div className="coach-suggest-athletes">
+                  <span className="coach-suggest-who-label">Who to look at:</span>
+                  {c.athletes.map((a) => (
+                    <button
+                      key={a.athleteId}
+                      type="button"
+                      className={`coach-athlete-chip${a.band === 'high' ? ' is-high' : ''}`}
+                      onClick={() => setSelectedId(a.athleteId)}
+                      title={`Open ${a.name}'s screening (${a.band === 'high' ? 'elevated' : 'on watch'})`}
+                    >
+                      {a.name}
+                    </button>
+                  ))}
+                </div>
               </li>
             ))}
           </ul>
