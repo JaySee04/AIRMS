@@ -58,6 +58,7 @@ interface ScreeningCohort {
     bandMoves: { better: number; worse: number };
     deltas: Array<{ key: string; label: string; higherBetter: boolean; avgDelta: number | null }>;
   };
+  injuryContext?: { withActiveInjury: number; flooredToAmber: number };
 }
 
 const AGE_GROUPS: Array<{ label: string; min?: number; max?: number }> = [
@@ -407,11 +408,24 @@ export default function AdminDashboard() {
       <div style={{ display: 'flex', flexDirection: 'column' }}>
       <div style={{ order: 2 }}>
       <div className="section-divider">
-        <h2 style={{ margin: 0, fontSize: '1.05rem' }}>Injury Log Analytics</h2>
+        <h2 style={{ margin: 0, fontSize: '1.05rem' }}>Actual Injuries — recorded outcomes</h2>
         <span className="text-muted" style={{ fontSize: '0.8rem' }}>
-          From the manual injury log — not HoloMotion. Flagged for review under the HoloMotion-only scope; see HOLOMOTION_SCOPE_2026-08.
+          What actually happened, to weigh against HoloMotion&apos;s predicted risk above.
         </span>
       </div>
+
+      {/* Bridge: the injury log's concrete effect on the HoloMotion indicator
+          (the active-injury floor). Shows why the injury stream is worth keeping
+          — it lifts athletes screening would otherwise call Safe. */}
+      {screeningCohort?.injuryContext && screeningCohort.injuryContext.withActiveInjury > 0 && (
+        <div className="alert alert-info" style={{ marginBottom: 16, fontSize: '0.85rem' }}>
+          <strong>Screening ↔ injuries.</strong>{' '}
+          {screeningCohort.injuryContext.withActiveInjury} screened athlete{screeningCohort.injuryContext.withActiveInjury === 1 ? '' : 's'} in this cohort carr{screeningCohort.injuryContext.withActiveInjury === 1 ? 'ies' : 'y'} an active injury on the log.
+          {screeningCohort.injuryContext.flooredToAmber > 0 && (
+            <> Of those, <strong>{screeningCohort.injuryContext.flooredToAmber}</strong> would read <em>Safe</em> on HoloMotion alone but the logged injury lifts them to <em>Needs attention</em> — the injury log directly changing the risk indicator.</>
+          )}
+        </div>
+      )}
 
       <div className="stat-grid" style={{ marginTop: 14 }}>
         <div className="stat-tile">

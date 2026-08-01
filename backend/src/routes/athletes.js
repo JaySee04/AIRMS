@@ -215,11 +215,16 @@ router.get('/analytics/screening', auth, rbac('admin'), async (req, res) => {
       ['exerciseRisks', 'Exercise Risks', false],
     ];
     let trend = { comparable: 0, improving: 0, declining: 0, steady: 0, deltas: [], bandMoves: { better: 0, worse: 0 } };
+    // Injury context — how the manual injury log actually moves the HoloMotion
+    // indicator (the active-injury FLOOR). `flooredToAmber` = athletes whose
+    // screening alone was Safe but a logged significant injury lifted them to
+    // Needs attention. This makes the injury log's necessity visible.
+    let injuryContext = { withActiveInjury: 0, flooredToAmber: 0 };
     const ids = rows.map((r) => r.athleteId);
     if (ids.length) {
       const scr = await Screening.findAll({
         where: { athleteId: { [Op.in]: ids } },
-        attributes: ['athleteId', 'assessedAt', 'id', 'totalScore', 'rom', 'stability', 'symmetry', 'exerciseRisks', 'overallIndicator', 'overallBand', 'overrideBand'],
+        attributes: ['athleteId', 'assessedAt', 'id', 'totalScore', 'rom', 'stability', 'symmetry', 'exerciseRisks', 'overallIndicator', 'overallBand', 'overrideBand', 'factors', 'escalations'],
         order: [['assessedAt', 'DESC'], ['id', 'DESC']],
         raw: true,
       });
@@ -230,9 +235,17 @@ router.get('/analytics/screening', auth, rbac('admin'), async (req, res) => {
       }
       const BAND_RANK = { green: 0, amber: 1, red: 2 };
       const sums = new Map(TREND_SCORES.map(([k]) => [k, { sum: 0, n: 0 }]));
+      // One pass: injury floor off each athlete's latest, trend off latest+prev.
       for (const [, pair] of byAth) {
+        const latest = pair[0];
+        const factors = Array.isArray(latest.factors) ? latest.factors : [];
+        if (factors.some((f) => /significant active injur/i.test(f))) {
+          injuryContext.withActiveInjury++;
+          // Pure floor: no screening escalation, the injury alone lifted the band to amber.
+          if ((latest.overrideBand || latest.overallBand) === 'amber' && (latest.escalations ?? 0) === 0) injuryContext.flooredToAmber++;
+        }
         if (pair.length < 2) continue;
-        const [latest, prev] = pair;
+        const prev = pair[1];
         trend.comparable++;
         for (const [k] of TREND_SCORES) {
           const a = Number(prev[k]); const b = Number(latest[k]);
@@ -261,6 +274,7 @@ router.get('/analytics/screening', auth, rbac('admin'), async (req, res) => {
       topMyodynamia: topMuscles('myodynamia'),
       topTension: topMuscles('tension'),
       trend,
+      injuryContext,
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
