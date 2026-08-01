@@ -20,6 +20,7 @@ in the stage section linked.
   section at the bottom. *"remind me."*
 - [ ] **Report writing + viva rehearsal** — the remaining big rock; `VIVA_SCRIPT.md`
   / `VIVA_ANSWERS.md` are the starting point (note their FYP I dating). *"remind me."*
+- [ ] **Judge the injury features' necessity** (2026-08-02) — the manual injury log + Injury Report Builder are kept for now but now *integrated* so you can see their value: the Screening Analytics dashboard shows a screening↔injury bridge (e.g. "5 athletes would read Safe on HoloMotion alone but a logged injury lifts them to Needs-attention"). Decide later whether they earn their place. See `HOLOMOTION_SCOPE_2026-08.md`.
 - [ ] **Dr Thung sign-off** — the deployment gate you're keeping in view (kiv).
 - [ ] **Rename the pushed branch** if you still want `feat/mysql-migration` off the
   working name (has an upstream — your call; see 2026-07-17 decisions).
