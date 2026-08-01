@@ -1,10 +1,12 @@
 'use client';
 
-// Admin · Cohort Thresholds — the approval queue for the cohort norms every
-// athlete's overall risk indicator is z-scored against (redesign spec §6).
-// Computed mean/SD per (sport, programme, gender) are pre-filled; the admin
-// tunes the settings, reviews each cohort, may edit the mean ("average
-// threshold"), and approves. Only approved cohorts drive the indicator.
+// Admin · Cohort Norms — the reference distribution every athlete's overall
+// risk indicator is z-scored against (redesign spec §6). A norm auto-generates
+// and goes LIVE on every HoloMotion import (it's the cohort average by
+// definition); the admin (or a permitted medical lead, via the API) can edit a
+// mean to reflect real-life circumstances. When new data drifts from a manual
+// edit, the cohort is flagged "review — new data" so the lead can keep or
+// refresh it. The `norm_auto_overwrite` setting flips that to auto-refresh.
 
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
@@ -21,6 +23,8 @@ interface Cohort {
   stats: Record<string, Stat>;
   overrides: Record<string, Stat> | null;
   status: 'pending' | 'approved';
+  approvedBy?: string | null;
+  review?: { needed: boolean; items: Array<{ component: string; manual: number; computed: number; delta: number }> };
 }
 interface SettingsResp { settings: Record<string, number | boolean | string>; defaults: Record<string, number | boolean | string>; }
 
@@ -128,9 +132,21 @@ export default function CohortThresholdsPage() {
         overrides[key] = { mean, sd: base.sd, n: base.n };
       }
       await api.patch(`/cohorts/${c.id}`, { overrides });
-      setMsg(`Saved edited thresholds for ${cohortLabel(c)}.`);
+      setMsg(`Saved edited norm for ${cohortLabel(c)}.`);
       await load();
     } catch (e) { setError(e instanceof Error ? e.message : 'Save failed'); } finally { setBusy(false); }
+  }
+
+  // Drop the manual edit so the freshly computed norm governs again — the
+  // "accept the new data" action for a drifted cohort.
+  async function resetOverrides(c: Cohort) {
+    setBusy(true); setError(null);
+    try {
+      await api.patch(`/cohorts/${c.id}`, { overrides: {} });
+      setEdits((p) => { const n = { ...p }; for (const [k] of COMPONENTS) delete n[`${c.id}.${k}`]; return n; });
+      setMsg(`Reset ${cohortLabel(c)} to the computed norm.`);
+      await load();
+    } catch (e) { setError(e instanceof Error ? e.message : 'Reset failed'); } finally { setBusy(false); }
   }
 
   const set = settings?.settings ?? {};
@@ -142,7 +158,7 @@ export default function CohortThresholdsPage() {
   const shownCohorts = showBelowMin || highlightIds.size > 0 ? cohorts : usable;
 
   return (
-    <DashboardLayout allowedRoles={['admin']} title="Cohort Thresholds">
+    <DashboardLayout allowedRoles={['admin']} title="Cohort Norms">
       {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
       {msg && <div className="alert alert-success" style={{ marginBottom: 16 }}>{msg}</div>}
 
@@ -180,6 +196,12 @@ export default function CohortThresholdsPage() {
             <div><label><input type="checkbox" checked={Boolean(set.fallback_enabled)}
               onChange={(e) => saveSetting('fallback_enabled', e.target.checked)} /> enabled</label></div>
             <div className="stat-tile-delta">spg → sg → s → all</div>
+          </div>
+          <div className="stat-tile">
+            <div className="stat-tile-label">Auto-overwrite manual norms</div>
+            <div><label><input type="checkbox" checked={Boolean(set.norm_auto_overwrite)}
+              onChange={(e) => saveSetting('norm_auto_overwrite', e.target.checked)} /> enabled</label></div>
+            <div className="stat-tile-delta">off (default): each import keeps your edited norm and flags it for review · on: each import replaces it with the freshly computed norm</div>
           </div>
           <div className="stat-tile">
             <div className="stat-tile-label">Per-indicator escalation</div>
@@ -233,11 +255,14 @@ export default function CohortThresholdsPage() {
         </div>
       </div>
 
-      {/* Cohort queue */}
+      {/* Cohort norms */}
       <div className="card">
         <div className="card-header"><div>
-          <h2 className="card-title" style={{ marginBottom: 0 }}>Cohort Approval Queue</h2>
-          <span className="card-sub">{usable.length} of {cohorts.length} cohorts meet the minimum size. Only approved cohorts drive the indicator.</span>
+          <h2 className="card-title" style={{ marginBottom: 0 }}>Cohort Norms</h2>
+          <span className="card-sub">
+            {usable.length} of {cohorts.length} cohorts have enough athletes (n ≥ {Number(set.min_cohort_n ?? 5)}) to drive the indicator.
+            Each norm auto-generates on import; edited norms that new data has moved are flagged <strong>review · new data</strong>.
+          </span>
         </div>
           {belowMinCount > 0 && highlightIds.size === 0 && (
             <button type="button" className="btn btn-outline btn-sm" onClick={() => setShowBelowMin((v) => !v)}>
@@ -247,56 +272,92 @@ export default function CohortThresholdsPage() {
         </div>
         <div className="table-wrap">
           <table>
-            <thead><tr><th>Cohort</th><th>Tier</th><th style={{ textAlign: 'center' }}>n</th><th style={{ textAlign: 'center' }}>Status</th><th></th></tr></thead>
+            <thead><tr><th>Cohort</th><th>Tier</th><th style={{ textAlign: 'center' }}>n</th><th>Norm</th><th></th></tr></thead>
             <tbody>
-              {shownCohorts.map((c) => (
+              {shownCohorts.map((c) => {
+                const live = c.status === 'approved' && c.n >= Number(set.min_cohort_n ?? 5);
+                const edited = Boolean(c.overrides && Object.keys(c.overrides).length);
+                const needsReview = Boolean(c.review?.needed);
+                return (
                 <Fragment key={c.id}>
                   <tr id={`cohort-${c.id}`} className={highlightIds.has(c.id) ? 'row-flash' : undefined}>
                     <td><strong>{cohortLabel(c)}</strong></td>
                     <td className="text-muted" style={{ fontSize: '0.8rem' }}>{TIER_LABEL[c.tier]}</td>
                     <td style={{ textAlign: 'center', color: c.n >= Number(set.min_cohort_n ?? 5) ? 'inherit' : 'var(--risk-high)' }}>{c.n}</td>
-                    <td style={{ textAlign: 'center' }}>
-                      <span className={c.status === 'approved' ? 'badge-low' : 'badge-moderate'}>{c.status}</span>
+                    <td>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                        {c.n < Number(set.min_cohort_n ?? 5)
+                          ? <span className="text-muted" style={{ fontSize: '0.8rem' }}>insufficient data</span>
+                          : <span className={live ? 'badge-low' : 'badge-moderate'}>{live ? 'Live' : 'Held'}</span>}
+                        {edited && <span className="badge-moderate" title="A human has edited this norm">edited</span>}
+                        {needsReview && <span className="badge-high" title="New data has drifted from the edited norm">review · new data</span>}
+                      </div>
                     </td>
                     <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                       <button type="button" className="btn btn-outline btn-sm" onClick={() => setExpanded(expanded === c.id ? null : c.id)}>
                         {expanded === c.id ? 'Close' : 'Edit'}
                       </button>{' '}
                       {c.status === 'pending'
-                        ? <button type="button" className="btn btn-primary btn-sm" onClick={() => approve(c, 'approved')} disabled={busy}>Approve</button>
-                        : <button type="button" className="btn btn-outline btn-sm" onClick={() => approve(c, 'pending')} disabled={busy}>Revert</button>}
+                        ? <button type="button" className="btn btn-primary btn-sm" onClick={() => approve(c, 'approved')} disabled={busy}>Set live</button>
+                        : <button type="button" className="btn btn-outline btn-sm" onClick={() => approve(c, 'pending')} disabled={busy}>Hold</button>}
                     </td>
                   </tr>
                   {expanded === c.id && (
                     <tr>
                       <td colSpan={5} style={{ background: 'var(--bg)' }}>
                         <div style={{ padding: '8px 4px' }}>
+                          {needsReview && (
+                            <div className="alert alert-info" style={{ marginBottom: 10 }}>
+                              <strong>New data has moved this cohort.</strong> Your edited norm is still live. Review the drift, then keep your edit or reset to the computed norm:
+                              <ul style={{ margin: '6px 0 0', paddingLeft: 18, fontSize: '0.82rem' }}>
+                                {c.review!.items.map((it) => {
+                                  const label = COMPONENTS.find(([k]) => k === it.component)?.[1] ?? it.component;
+                                  return (
+                                    <li key={it.component}>
+                                      {label}: your norm <strong>{it.manual}</strong> → new data <strong>{it.computed}</strong>{' '}
+                                      <span style={{ color: it.delta > 0 ? 'var(--risk-low)' : 'var(--risk-high)' }}>
+                                        ({it.delta > 0 ? '+' : ''}{it.delta})
+                                      </span>
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            </div>
+                          )}
                           <div className="text-muted" style={{ fontSize: '0.8rem', marginBottom: 8 }}>
-                            Component means (the &quot;average thresholds&quot;) — pre-filled from the computed average; edit to override. SD stays computed.
+                            Component means (the norm each athlete is z-scored against) — pre-filled from the computed average; edit to override. SD stays computed.
                           </div>
                           <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
                             {COMPONENTS.map(([key, label]) => {
                               const base = c.overrides?.[key] ?? c.stats[key];
                               if (!base) return null;
                               const editKey = `${c.id}.${key}`;
+                              const computed = c.stats[key];
+                              const isEdited = Boolean(c.overrides?.[key]);
                               return (
                                 <div key={key} style={{ minWidth: 130 }}>
                                   <label style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>{label} (μ)</label>
                                   <input type="number" step="0.1"
                                     value={editKey in edits ? edits[editKey] : String(base.mean)}
                                     onChange={(e) => setEdits((p) => ({ ...p, [editKey]: e.target.value }))} />
-                                  <div className="text-muted" style={{ fontSize: '0.72rem' }}>σ {base.sd}</div>
+                                  <div className="text-muted" style={{ fontSize: '0.72rem' }}>
+                                    σ {base.sd}{isEdited && computed ? ` · computed μ ${computed.mean}` : ''}
+                                  </div>
                                 </div>
                               );
                             })}
                           </div>
-                          <button type="button" className="btn btn-gold btn-sm" style={{ marginTop: 10 }} onClick={() => saveOverrides(c)} disabled={busy}>Save edited thresholds</button>
+                          <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+                            <button type="button" className="btn btn-gold btn-sm" onClick={() => saveOverrides(c)} disabled={busy}>Save edited norm</button>
+                            {edited && <button type="button" className="btn btn-outline btn-sm" onClick={() => resetOverrides(c)} disabled={busy}>Reset to computed</button>}
+                          </div>
                         </div>
                       </td>
                     </tr>
                   )}
                 </Fragment>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

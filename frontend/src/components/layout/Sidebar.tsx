@@ -79,7 +79,7 @@ const NAV: Record<'athlete' | 'medical' | 'admin' | 'coach', NavItem[]> = {
     { href: '/admin/dashboard',   label: 'Injury Analytics',  icon: <IconBarChart /> },
     { href: '/admin/trends',      label: 'Recovery & Trends',  icon: <IconActivity /> },
     { href: '/admin/reports',     label: 'PDF Reports',        icon: <IconFileText /> },
-    { href: '/admin/thresholds',  label: 'Cohort Thresholds',  icon: <IconPulse /> },
+    { href: '/admin/thresholds',  label: 'Cohort Norms',       icon: <IconPulse /> },
     { href: '/admin/personnel',   label: 'Personnel',          icon: <IconUsers /> },
     { href: '/admin/data-upload', label: 'Data Uploading',     icon: <IconUpload /> },
   ],
