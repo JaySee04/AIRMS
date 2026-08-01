@@ -206,6 +206,51 @@ function zoneGauge(doc, label, value) {
   doc.y = y + 17;
 }
 
+// Stacked hotspot bar: amber Watch segment + red Elevated segment, with a value
+// column wide enough for "N · M elevated" so the labels never wrap or collide
+// with the next row (the previous single-column bar() overflowed here).
+function hotspotBar(doc, label, watch, elevated, total) {
+  ensure(doc, 17);
+  const x = 50; const w = doc.page.width - 100; const barW = w - 250;
+  const y = doc.y;
+  doc.fillColor(TEXT).fontSize(9).font('Helvetica').text(label, x, y + 1, { width: 126, lineBreak: false });
+  const bx = x + 130;
+  doc.roundedRect(bx, y, barW, 11, 2).fill('#eef1f4');
+  const denom = total || 1;
+  const ww = Math.min(barW, barW * (watch / denom));
+  const ew = Math.min(barW - ww, barW * (elevated / denom));
+  if (ww > 0) doc.rect(bx, y, ww, 11).fill(BAND.amber);
+  if (ew > 0) doc.rect(bx + ww, y, ew, 11).fill(BAND.red);
+  const flagged = watch + elevated;
+  doc.fillColor(TEXT).fontSize(9).font('Helvetica-Bold')
+    .text(elevated ? `${flagged}  ·  ${elevated} elevated` : `${flagged}`, bx + barW + 8, y + 1, { width: 112, lineBreak: false });
+  doc.y = y + 16;
+}
+
+// Reusable band-distribution table (Screened / Safe / Attention / Immediate) for
+// any grouping — sport, gender, age band — so every slice reads identically.
+function bandTable(doc, entries) {
+  const yStart = doc.y;
+  doc.fontSize(9).font('Helvetica-Bold').fillColor(MUTED);
+  doc.text('Group', 50, yStart, { lineBreak: false });
+  doc.text('Screened', 250, yStart, { width: 60, align: 'right', lineBreak: false });
+  doc.text('Safe', 320, yStart, { width: 50, align: 'right', lineBreak: false });
+  doc.text('Attention', 380, yStart, { width: 60, align: 'right', lineBreak: false });
+  doc.text('Immediate', 450, yStart, { width: 65, align: 'right', lineBreak: false });
+  doc.y = yStart + 14;
+  for (const e of entries) {
+    ensure(doc, 15);
+    const y = doc.y;
+    doc.fontSize(9).font('Helvetica').fillColor(TEXT).text(e.label, 50, y, { width: 195, lineBreak: false });
+    doc.text(String(e.n), 250, y, { width: 60, align: 'right', lineBreak: false });
+    doc.fillColor(BAND.green).text(String(e.green), 320, y, { width: 50, align: 'right', lineBreak: false });
+    doc.fillColor(BAND.amber).text(String(e.amber), 380, y, { width: 60, align: 'right', lineBreak: false });
+    doc.fillColor(BAND.red).text(String(e.red), 450, y, { width: 65, align: 'right', lineBreak: false });
+    doc.fillColor(TEXT);
+    doc.y = y + 14;
+  }
+}
+
 function riskLegend(doc) {
   ensure(doc, 16);
   const y = doc.y; let x = 50;
@@ -668,40 +713,37 @@ router.get('/holistic.pdf', auth, rbac('admin'), async (_req, res) => {
       watch: rows.filter(({ screening }) => (num(screening[k]) ?? 0) > 15 && (num(screening[k]) ?? 0) <= 25).length,
       elevated: rows.filter(({ screening }) => (num(screening[k]) ?? 0) > 25).length,
     })).sort((a, b) => (b.watch + b.elevated) - (a.watch + a.elevated));
-    for (const h of hot) {
-      bar(doc, h.label, h.watch + h.elevated, total, h.elevated ? BAND.red : BAND.amber,
-        { valueText: h.elevated ? `${h.watch + h.elevated} (${h.elevated} elevated)` : `${h.watch + h.elevated}` });
-    }
+    for (const h of hot) hotspotBar(doc, h.label, h.watch, h.elevated, total);
 
-    // Bands by sport
+    // Band distribution by slice — sport, gender, age group (Dr Thung's
+    // administrator view: "by sport, by gender, by age group"). One shared
+    // table shape so every slice reads the same.
+    const groupBands = (keyFn, order) => {
+      const m = new Map();
+      for (const { athlete, screening } of rows) {
+        const key = keyFn(athlete);
+        if (key == null || key === '') continue;
+        if (!m.has(key)) m.set(key, { label: String(key), n: 0, green: 0, amber: 0, red: 0 });
+        const s = m.get(key); s.n++;
+        const b = screening.overrideBand || screening.overallBand;
+        if (s[b] !== undefined) s[b]++;
+      }
+      const entries = [...m.values()];
+      return order ? entries.sort((a, b) => order.indexOf(a.label) - order.indexOf(b.label)) : entries.sort((a, b) => b.n - a.n);
+    };
+    const ageBand = (a) => {
+      const v = num(a.age);
+      if (v === null) return null;
+      // ASCII-safe labels — pdfkit's Helvetica has no ≤ glyph.
+      if (v <= 20) return '20 & under'; if (v <= 25) return '21-25'; if (v <= 30) return '26-30'; return '31+';
+    };
+
     sectionTitle(doc, 'Risk Bands by Sport');
-    const yStart = doc.y;
-    const yBy = new Map();
-    for (const { athlete, screening } of rows) {
-      if (!yBy.has(athlete.sport)) yBy.set(athlete.sport, { n: 0, green: 0, amber: 0, red: 0 });
-      const s = yBy.get(athlete.sport);
-      s.n++;
-      const b = screening.overrideBand || screening.overallBand;
-      if (s[b] !== undefined) s[b]++;
-    }
-    doc.fontSize(9).font('Helvetica-Bold').fillColor(MUTED);
-    doc.text('Sport', 50, yStart, { lineBreak: false });
-    doc.text('Screened', 220, yStart, { width: 60, align: 'right', lineBreak: false });
-    doc.text('Safe', 300, yStart, { width: 50, align: 'right', lineBreak: false });
-    doc.text('Attention', 360, yStart, { width: 60, align: 'right', lineBreak: false });
-    doc.text('Immediate', 430, yStart, { width: 65, align: 'right', lineBreak: false });
-    doc.y = yStart + 14;
-    for (const [sport, s] of [...yBy.entries()].sort((a, b) => b[1].n - a[1].n)) {
-      ensure(doc, 15);
-      const y = doc.y;
-      doc.fontSize(9).font('Helvetica').fillColor(TEXT).text(sport, 50, y, { width: 165, lineBreak: false });
-      doc.text(String(s.n), 220, y, { width: 60, align: 'right', lineBreak: false });
-      doc.fillColor(BAND.green).text(String(s.green), 300, y, { width: 50, align: 'right', lineBreak: false });
-      doc.fillColor(BAND.amber).text(String(s.amber), 360, y, { width: 60, align: 'right', lineBreak: false });
-      doc.fillColor(BAND.red).text(String(s.red), 430, y, { width: 65, align: 'right', lineBreak: false });
-      doc.fillColor(TEXT);
-      doc.y = y + 14;
-    }
+    bandTable(doc, groupBands((a) => a.sport));
+    sectionTitle(doc, 'Risk Bands by Gender', 90);
+    bandTable(doc, groupBands((a) => a.gender, ['Male', 'Female']));
+    sectionTitle(doc, 'Risk Bands by Age Group', 110);
+    bandTable(doc, groupBands(ageBand, ['20 & under', '21-25', '26-30', '31+']));
 
     // Athletes needing attention
     sectionTitle(doc, 'Athletes Flagged for Assessment');
@@ -887,7 +929,7 @@ router.get('/team.pdf', auth, rbac('medical', 'admin', 'coach'), requirePermissi
     sectionTitle(doc, 'Group Thresholds (average scores)');
     for (const [key, label, max] of SCORE_ROWS) {
       const m = group.stats[key];
-      bar(doc, label, m ? m.mean : 0, max, GOLD, { valueText: m ? `${m.mean}` : '—' });
+      bar(doc, label, m ? m.mean : 0, max, GOLD, { valueText: m ? m.mean.toFixed(1) : '—' });
     }
 
     // Group risk profile — average per printed indicator
@@ -927,7 +969,8 @@ router.get('/team.pdf', auth, rbac('medical', 'admin', 'coach'), requirePermissi
       const b = m.s.overrideBand || m.s.overallBand;
       const y = doc.y;
       doc.fontSize(9).fillColor(TEXT).font('Helvetica').text(`${i + 1}.`, 50, y + 1, { width: 20, lineBreak: false });
-      doc.text(m.a.name, 72, y + 1, { width: 106, lineBreak: false });
+      // Clip long names to one line so they never wrap into the next ranking row.
+      doc.text(m.a.name, 72, y + 1, { width: 106, height: 11, lineBreak: false, ellipsis: true });
       const bx = 180; const barW = doc.page.width - 100 - 190;
       doc.roundedRect(bx, y, barW, 11, 2).fill('#eef1f4');
       const pct = Math.max(0, Math.min(1, (m.s.overallIndicator ?? 0) / 100));
