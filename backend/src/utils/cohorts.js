@@ -136,6 +136,66 @@ function cohortReview(row) {
   return { needed: items.length > 0, items };
 }
 
+// Screening scores tracked for previous-vs-latest movement (higher=better
+// except exerciseRisks). Shared by the admin Screening Analytics trend.
+const TREND_SCORES = [
+  ['totalScore', 'Total Score', true],
+  ['rom', 'ROM', true],
+  ['stability', 'Stability', true],
+  ['symmetry', 'Symmetry', true],
+  ['exerciseRisks', 'Exercise Risks', false],
+];
+const BAND_RANK = { green: 0, amber: 1, red: 2 };
+
+// Previous-vs-latest movement + active-injury-floor context from a flat list of
+// screening rows (each { athleteId, assessedAt, id, totalScore, rom, stability,
+// symmetry, exerciseRisks, overallIndicator, overallBand, overrideBand,
+// factors[], escalations }). Pure — no DB — so it's unit-testable.
+//   trend: comparable (athletes with ≥2 screenings), improving/declining/steady
+//     by overall-indicator momentum (±`noise`), band moves, avg per-score delta.
+//   injuryContext: withActiveInjury (latest carries a significant active injury)
+//     and flooredToAmber (screening alone gave no escalation, the injury floor
+//     lifted the band to amber) — makes the injury log's effect visible.
+function screeningMovement(screenings, { noise = 2 } = {}) {
+  const sorted = [...(screenings || [])].sort((a, b) => {
+    const t = new Date(b.assessedAt || 0) - new Date(a.assessedAt || 0);
+    return t !== 0 ? t : (b.id || 0) - (a.id || 0);
+  });
+  const byAth = new Map();
+  for (const s of sorted) {
+    const arr = byAth.get(s.athleteId) || [];
+    if (arr.length < 2) { arr.push(s); byAth.set(s.athleteId, arr); }
+  }
+  const trend = { comparable: 0, improving: 0, declining: 0, steady: 0, deltas: [], bandMoves: { better: 0, worse: 0 } };
+  const injuryContext = { withActiveInjury: 0, flooredToAmber: 0 };
+  const sums = new Map(TREND_SCORES.map(([k]) => [k, { sum: 0, n: 0 }]));
+  for (const [, pair] of byAth) {
+    const latest = pair[0];
+    const factors = Array.isArray(latest.factors) ? latest.factors : [];
+    if (factors.some((f) => /significant active injur/i.test(f))) {
+      injuryContext.withActiveInjury++;
+      if ((latest.overrideBand || latest.overallBand) === 'amber' && (latest.escalations ?? 0) === 0) injuryContext.flooredToAmber++;
+    }
+    if (pair.length < 2) continue;
+    const prev = pair[1];
+    trend.comparable++;
+    for (const [k] of TREND_SCORES) {
+      const a = Number(prev[k]); const b = Number(latest[k]);
+      if (Number.isFinite(a) && Number.isFinite(b)) { const acc = sums.get(k); acc.sum += b - a; acc.n++; }
+    }
+    const di = Number(latest.overallIndicator) - Number(prev.overallIndicator);
+    if (Number.isFinite(di)) { if (di >= noise) trend.improving++; else if (di <= -noise) trend.declining++; else trend.steady++; }
+    const pb = BAND_RANK[prev.overrideBand || prev.overallBand];
+    const lb = BAND_RANK[latest.overrideBand || latest.overallBand];
+    if (pb != null && lb != null) { if (lb < pb) trend.bandMoves.better++; else if (lb > pb) trend.bandMoves.worse++; }
+  }
+  trend.deltas = TREND_SCORES.map(([k, label, higherBetter]) => {
+    const acc = sums.get(k);
+    return { key: k, label, higherBetter, avgDelta: acc.n ? +(acc.sum / acc.n).toFixed(1) : null };
+  });
+  return { trend, injuryContext };
+}
+
 // Recompute every cohort tier from the latest screenings and upsert the rows.
 // A norm auto-generates + goes LIVE on every import: new cohorts are stored
 // approved (no manual gate — the norm is the cohort average by definition).
@@ -221,5 +281,5 @@ module.exports = {
   orientedComponents, meanSd, computeStats,
   tierKeysFor, latestScreeningsByAthlete,
   recomputeCohorts, resolveCohortStats, resolveFromMap, buildApprovedCohortMap,
-  cohortReview,
+  cohortReview, screeningMovement,
 };

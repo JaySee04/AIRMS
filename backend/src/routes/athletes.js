@@ -1,6 +1,7 @@
 const express = require('express');
 const { Op } = require('sequelize');
 const { Athlete, MuscleFlag, Screening, AthleteDiscipline } = require('../models');
+const { screeningMovement } = require('../utils/cohorts');
 
 // Latest screening's overall indicator for an athlete, with the clinician
 // override applied as the effective band. Returns null when no screening.
@@ -201,24 +202,10 @@ router.get('/analytics/screening', auth, rbac('admin'), async (req, res) => {
         .map(([muscle, count]) => ({ muscle, count }));
     };
 
-    // Screening trend — previous vs latest HoloMotion report per athlete. Only
-    // athletes with ≥2 screenings are comparable; we aggregate the change in
-    // each score across them (Total/ROM/Stability/Symmetry higher = better;
-    // Exercise Risks lower = better) plus overall-indicator momentum and band
-    // movement. This is the HoloMotion-native "trend" (not injury cases).
-    const NOISE = 2; // indicator points within ±2 are "steady"
-    const TREND_SCORES = [
-      ['totalScore', 'Total Score', true],
-      ['rom', 'ROM', true],
-      ['stability', 'Stability', true],
-      ['symmetry', 'Symmetry', true],
-      ['exerciseRisks', 'Exercise Risks', false],
-    ];
+    // Screening trend (previous vs latest) + active-injury-floor context — both
+    // from one fetch of this cohort's screenings, aggregated by the pure
+    // utils/cohorts.screeningMovement (unit-tested).
     let trend = { comparable: 0, improving: 0, declining: 0, steady: 0, deltas: [], bandMoves: { better: 0, worse: 0 } };
-    // Injury context — how the manual injury log actually moves the HoloMotion
-    // indicator (the active-injury FLOOR). `flooredToAmber` = athletes whose
-    // screening alone was Safe but a logged significant injury lifted them to
-    // Needs attention. This makes the injury log's necessity visible.
     let injuryContext = { withActiveInjury: 0, flooredToAmber: 0 };
     const ids = rows.map((r) => r.athleteId);
     if (ids.length) {
@@ -228,41 +215,7 @@ router.get('/analytics/screening', auth, rbac('admin'), async (req, res) => {
         order: [['assessedAt', 'DESC'], ['id', 'DESC']],
         raw: true,
       });
-      const byAth = new Map();
-      for (const s of scr) {
-        const arr = byAth.get(s.athleteId) || [];
-        if (arr.length < 2) { arr.push(s); byAth.set(s.athleteId, arr); }
-      }
-      const BAND_RANK = { green: 0, amber: 1, red: 2 };
-      const sums = new Map(TREND_SCORES.map(([k]) => [k, { sum: 0, n: 0 }]));
-      // One pass: injury floor off each athlete's latest, trend off latest+prev.
-      for (const [, pair] of byAth) {
-        const latest = pair[0];
-        const factors = Array.isArray(latest.factors) ? latest.factors : [];
-        if (factors.some((f) => /significant active injur/i.test(f))) {
-          injuryContext.withActiveInjury++;
-          // Pure floor: no screening escalation, the injury alone lifted the band to amber.
-          if ((latest.overrideBand || latest.overallBand) === 'amber' && (latest.escalations ?? 0) === 0) injuryContext.flooredToAmber++;
-        }
-        if (pair.length < 2) continue;
-        const prev = pair[1];
-        trend.comparable++;
-        for (const [k] of TREND_SCORES) {
-          const a = Number(prev[k]); const b = Number(latest[k]);
-          if (Number.isFinite(a) && Number.isFinite(b)) { const acc = sums.get(k); acc.sum += b - a; acc.n++; }
-        }
-        const di = Number(latest.overallIndicator) - Number(prev.overallIndicator);
-        if (Number.isFinite(di)) {
-          if (di >= NOISE) trend.improving++; else if (di <= -NOISE) trend.declining++; else trend.steady++;
-        }
-        const pb = BAND_RANK[prev.overrideBand || prev.overallBand];
-        const lb = BAND_RANK[latest.overrideBand || latest.overallBand];
-        if (pb != null && lb != null) { if (lb < pb) trend.bandMoves.better++; else if (lb > pb) trend.bandMoves.worse++; }
-      }
-      trend.deltas = TREND_SCORES.map(([k, label, higherBetter]) => {
-        const acc = sums.get(k);
-        return { key: k, label, higherBetter, avgDelta: acc.n ? +(acc.sum / acc.n).toFixed(1) : null };
-      });
+      ({ trend, injuryContext } = screeningMovement(scr));
     }
 
     res.json({

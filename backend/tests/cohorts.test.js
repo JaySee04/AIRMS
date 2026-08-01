@@ -6,6 +6,7 @@ jest.mock('../src/models', () => ({ Screening: {}, Athlete: {}, CohortThreshold:
 
 const {
   meanSd, orientedComponents, resolveFromMap, buildApprovedCohortMap,
+  cohortReview, screeningMovement,
 } = require('../src/utils/cohorts');
 
 describe('meanSd', () => {
@@ -75,5 +76,89 @@ describe('resolveFromMap (cohort fallback ladder)', () => {
     }]);
     const res = resolveFromMap(athlete, map, { minN: 5 });
     expect(res.stats.totalScore.mean).toBe(99);
+  });
+});
+
+describe('cohortReview (manual-norm drift vs new data)', () => {
+  test('flags a component whose manual mean drifts > 0.5 from the computed mean', () => {
+    const r = cohortReview({
+      overrides: { totalScore: { mean: 70 } },
+      stats: { totalScore: { mean: 74.2 } },
+    });
+    expect(r.needed).toBe(true);
+    expect(r.items).toEqual([{ component: 'totalScore', manual: 70, computed: 74.2, delta: 4.2 }]);
+  });
+
+  test('ignores drift within the 0.5 noise floor', () => {
+    const r = cohortReview({
+      overrides: { rom: { mean: 80 } },
+      stats: { rom: { mean: 80.4 } },
+    });
+    expect(r.needed).toBe(false);
+    expect(r.items).toEqual([]);
+  });
+
+  test('no overrides → nothing to review', () => {
+    expect(cohortReview({ stats: { totalScore: { mean: 74 } } })).toEqual({ needed: false, items: [] });
+  });
+
+  test('a component with no computed counterpart is skipped, not flagged', () => {
+    const r = cohortReview({ overrides: { balance: { mean: -2 } }, stats: {} });
+    expect(r.needed).toBe(false);
+  });
+});
+
+describe('screeningMovement (previous vs latest + injury floor)', () => {
+  // A: improving + band better · B: declining + band worse · D: steady ·
+  // C: single screening, injury-floored to amber (not comparable for the trend).
+  const rows = [
+    { athleteId: 'A', assessedAt: '2025-01-01', id: 1, overallIndicator: 45, overallBand: 'amber', totalScore: 70 },
+    { athleteId: 'A', assessedAt: '2025-06-01', id: 2, overallIndicator: 55, overallBand: 'green', totalScore: 74 },
+    { athleteId: 'B', assessedAt: '2025-01-01', id: 3, overallIndicator: 60, overallBand: 'green', totalScore: 80 },
+    { athleteId: 'B', assessedAt: '2025-06-01', id: 4, overallIndicator: 52, overallBand: 'amber', totalScore: 78 },
+    { athleteId: 'D', assessedAt: '2025-01-01', id: 5, overallIndicator: 50, overallBand: 'green', totalScore: 60 },
+    { athleteId: 'D', assessedAt: '2025-06-01', id: 6, overallIndicator: 51, overallBand: 'green', totalScore: 60 },
+    { athleteId: 'C', assessedAt: '2025-06-01', id: 7, overallIndicator: 48, overallBand: 'amber', escalations: 0, factors: ['1 significant active injury'], totalScore: 72 },
+  ];
+
+  test('comparable counts only athletes with two screenings', () => {
+    expect(screeningMovement(rows).trend.comparable).toBe(3); // A, B, D — not C
+  });
+
+  test('momentum buckets by ±2 indicator points', () => {
+    const { trend } = screeningMovement(rows);
+    expect(trend.improving).toBe(1); // A +10
+    expect(trend.declining).toBe(1); // B -8
+    expect(trend.steady).toBe(1);    // D +1
+  });
+
+  test('band moves counted better/worse', () => {
+    expect(screeningMovement(rows).trend.bandMoves).toEqual({ better: 1, worse: 1 }); // A amber→green, B green→amber
+  });
+
+  test('average per-score delta (higher=better flag preserved)', () => {
+    const d = screeningMovement(rows).trend.deltas.find((x) => x.key === 'totalScore');
+    expect(d.higherBetter).toBe(true);
+    expect(d.avgDelta).toBe(0.7); // (+4 -2 +0) / 3 = 0.666… → 0.7
+  });
+
+  test('injury floor: latest-screening injury lifts a would-be-Safe athlete to amber', () => {
+    const { injuryContext } = screeningMovement(rows);
+    expect(injuryContext.withActiveInjury).toBe(1); // C
+    expect(injuryContext.flooredToAmber).toBe(1);   // C: amber, no escalation, injury factor
+  });
+
+  test('an injury present with a screening escalation is NOT a pure floor', () => {
+    const r = screeningMovement([
+      { athleteId: 'E', assessedAt: '2025-06-01', id: 8, overallBand: 'amber', escalations: 1, factors: ['below cohort average', '1 significant active injury'] },
+    ]);
+    expect(r.injuryContext.withActiveInjury).toBe(1);
+    expect(r.injuryContext.flooredToAmber).toBe(0); // escalation != 0
+  });
+
+  test('empty input is safe', () => {
+    const r = screeningMovement([]);
+    expect(r.trend.comparable).toBe(0);
+    expect(r.injuryContext).toEqual({ withActiveInjury: 0, flooredToAmber: 0 });
   });
 });
