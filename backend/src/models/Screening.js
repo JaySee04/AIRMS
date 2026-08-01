@@ -38,8 +38,6 @@ const Screening = sequelize.define('Screening', {
   // Gives per-region left/right asymmetry, which feeds the indicator's
   // asymmetry penalty and the coach attention table.
   subitems: { type: DataTypes.JSON, allowNull: true },
-  // Posture Evaluation — 8 axes, each { label, value }.
-  posture: { type: DataTypes.JSON, allowNull: true },
   // Page-1 summary comment, shown verbatim as "what the report said".
   summaryText: { type: DataTypes.TEXT, allowNull: true, field: 'summary_text' },
   // Snapshot of the muscle lists at import time (the live body map still reads

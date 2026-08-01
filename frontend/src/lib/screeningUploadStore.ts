@@ -48,7 +48,6 @@ export interface PreviewResponse {
   pagesRead: number[];
   summary?: string | null;
   subitems?: Record<string, Record<string, number | null>> | null;
-  posture?: Record<string, { finding: string | null; value: number | null }> | null;
 }
 
 export interface RosterAthlete {
@@ -249,7 +248,6 @@ async function commitOne(item: QueueItem): Promise<CommittedEntry | null> {
       assessedAt: item.preview.assessedAt,
       summary: item.preview.summary ?? null,
       subitems: item.preview.subitems ?? null,
-      posture: item.preview.posture ?? null,
     });
     patchItemInternal(item.id, {
       status: 'done',

@@ -45,22 +45,12 @@ Respond with ONLY this JSON object — no prose, no markdown fences:
     "pelvis":      { "romL": number|null, "romR": number|null, "stabL": number|null, "stabR": number|null, "sym": number|null },
     "lowerLimbs":  { "romL": number|null, "romR": number|null, "stabL": number|null, "stabR": number|null, "sym": number|null }
   },
-  "posture": {                         // "Posture Evaluation and Deviation": each axis has a text finding and a signed number
-    "neckFB":     { "finding": string|null, "value": number|null },  // Neck(FWD/BWD)
-    "neckLR":     { "finding": string|null, "value": number|null },  // Neck(L/R)
-    "shoulder":   { "finding": string|null, "value": number|null },  // Shoulder
-    "spineFB":    { "finding": string|null, "value": number|null },  // Spine(FWD/BWD)
-    "spineLR":    { "finding": string|null, "value": number|null },  // Spine(L/R)
-    "pelvisFB":   { "finding": string|null, "value": number|null },  // Pelvis(FWD/BWD)
-    "pelvisLR":   { "finding": string|null, "value": number|null },  // Pelvis(L/R)
-    "lowerLimbs": { "finding": string|null, "value": number|null }   // Lower Limbs
-  },
   "myodynamiaDeficiency": [ { "muscle": string, "side": "L"|"R"|"B" } ],  // "Muscle Imbalance": Myodynamia Deficiency list
   "muscleTension":        [ { "muscle": string, "side": "L"|"R"|"B" } ]   // "Muscle Imbalance": Muscle Tension list
 }
 
 For each muscle line like "gluteus maximus R", muscle="gluteus maximus", side="R".
-A line with no L/R suffix is side "B". Copy muscle names and posture findings exactly as printed.
+A line with no L/R suffix is side "B". Copy muscle names exactly as printed.
 Use null for any value you cannot read; never guess.`;
 
 // Strip markdown fences / surrounding prose and parse the first JSON object.
@@ -95,7 +85,6 @@ function normaliseMuscles(list) {
 
 const SUBITEM_REGIONS = ['neck', 'shoulder', 'torso', 'pelvis', 'lowerLimbs'];
 const SUBITEM_METRICS = ['romL', 'romR', 'stabL', 'stabR', 'sym'];
-const POSTURE_AXES = ['neckFB', 'neckLR', 'shoulder', 'spineFB', 'spineLR', 'pelvisFB', 'pelvisLR', 'lowerLimbs'];
 
 // Coerce the subitem table into a clean { region: { metric: number|null } }.
 // Returns null when nothing usable was extracted (older reports / read miss).
@@ -112,21 +101,6 @@ function normaliseSubitems(raw) {
       if (v !== null) any = true;
     }
     out[region] = row;
-  }
-  return any ? out : null;
-}
-
-// Coerce posture into { axis: { finding: string|null, value: number|null } }.
-function normalisePosture(raw) {
-  if (!raw || typeof raw !== 'object') return null;
-  const out = {};
-  let any = false;
-  for (const axis of POSTURE_AXES) {
-    const src = raw[axis] || {};
-    const finding = src.finding ? String(src.finding).trim() : null;
-    const value = num(src.value);
-    out[axis] = { finding, value };
-    if (finding || value !== null) any = true;
   }
   return any ? out : null;
 }
@@ -166,7 +140,6 @@ function mapToAthlete(extracted) {
     // athletes row). Null-safe when a section is unread / absent.
     summary: e.summary ? String(e.summary).trim() : null,
     subitems: normaliseSubitems(e.subitems),
-    posture: normalisePosture(e.posture),
   };
 }
 

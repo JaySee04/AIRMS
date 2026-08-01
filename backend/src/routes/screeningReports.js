@@ -329,46 +329,6 @@ function muscleFigure(doc, subitems, { width = 170, gap = 14 } = {}) {
   doc.x = 50;
 }
 
-// Posture Evaluation — 8-axis finding + signed value, two columns. Deliberately
-// NOT a range bar: the report draws each axis against its own reference range,
-// but that range varies per axis and isn't part of the extraction schema, so
-// a fabricated bar would be guessing. This shows exactly what was captured.
-const POSTURE_AXES = [
-  ['neckFB', 'Neck (Fwd/Bwd)'], ['neckLR', 'Neck (L/R)'],
-  ['shoulder', 'Shoulder'], ['spineFB', 'Spine (Fwd/Bwd)'],
-  ['spineLR', 'Spine (L/R)'], ['pelvisFB', 'Pelvis (Fwd/Bwd)'],
-  ['pelvisLR', 'Pelvis (L/R)'], ['lowerLimbs', 'Lower Limbs'],
-];
-function postureList(doc, posture) {
-  if (!posture || typeof posture !== 'object') {
-    doc.fontSize(9).fillColor(MUTED).text('Posture evaluation was not captured on this screening (older import).', 50);
-    return;
-  }
-  const colW = 247; const rowH = 30;
-  const rows = Math.ceil(POSTURE_AXES.length / 2);
-  ensure(doc, 10 + rowH * rows + 10);
-  const startY = doc.y + 4;
-  POSTURE_AXES.forEach(([key, label], i) => {
-    const axis = posture[key];
-    if (!axis) return;
-    const col = i % 2; const row = Math.floor(i / 2);
-    const x = 50 + col * colW;
-    const y = startY + row * rowH;
-    doc.fontSize(7.5).font('Helvetica-Bold').fillColor(MUTED)
-      .text(label.toUpperCase(), x, y, { width: colW - 10, lineBreak: false });
-    const finding = axis.finding || '—';
-    const isNormal = finding.trim().toLowerCase() === 'normal';
-    const value = num(axis.value);
-    const valueText = value === null ? '—' : `${value > 0 ? '+' : ''}${value.toFixed(2)}°`;
-    doc.fontSize(9.5).font('Helvetica').fillColor(isNormal ? MUTED : TEXT)
-      .text(finding, x, y + 11, { width: colW - 60, lineBreak: false, ellipsis: true });
-    doc.fontSize(8.5).font('Helvetica').fillColor(MUTED)
-      .text(valueText, x + colW - 55, y + 11, { width: 50, align: 'right', lineBreak: false });
-  });
-  doc.y = startY + rows * rowH + 4;
-  doc.x = 50;
-}
-
 // Lateral symmetry per HoloMotion region, from the subitems we already extract:
 // `sym` is the report's OWN 0–100 Symmetry score (higher = better), and the
 // per-side ROM/Stability say WHICH side is weaker. This is a TMG-style analysis,
@@ -444,14 +404,6 @@ function keyFindings(screening, subitems) {
   if (elevated.length) items.push(`Elevated exercise-risk: ${elevated.map((r) => `${r.label} ${r.v}`).join(', ')} — review before high-load work.`);
   const marked = symmetryFindings(subitems).filter((r) => r.sym < 75).sort((a, b) => a.sym - b.sym);
   if (marked.length) items.push(`Lateral asymmetry: ${marked.slice(0, 2).map((r) => `${r.label} (sym ${r.sym}${r.weaker !== 'Balanced' ? `, ${r.weaker.toLowerCase()} weaker` : ''})`).join(', ')}.`);
-  const posture = screening.posture;
-  if (posture && typeof posture === 'object') {
-    const dev = POSTURE_AXES
-      .map(([k, label]) => ({ label, finding: posture[k]?.finding || null, value: num(posture[k]?.value) }))
-      .filter((p) => p.finding && p.finding.trim().toLowerCase() !== 'normal')
-      .sort((a, b) => Math.abs(b.value ?? 0) - Math.abs(a.value ?? 0))[0];
-    if (dev) items.push(`Posture: ${dev.label} — ${dev.finding}${dev.value !== null ? ` (${dev.value > 0 ? '+' : ''}${dev.value.toFixed(1)}°)` : ''}.`);
-  }
   if (screening.overrideBand) items.push(`Clinician override in effect: band set to ${bandLabel(screening.overrideBand)}.`);
   if (!items.length) {
     items.push(watch.length
@@ -665,18 +617,6 @@ function interpret(screening, cohort, subitems) {
   } else if (symRows.length) {
     out.push('Lateral symmetry is acceptable across all measured regions.');
   }
-  // Posture — extracted but previously unsurfaced in the interpretation. Report
-  // the largest non-normal deviations verbatim (finding + signed value).
-  const posture = screening.posture;
-  if (posture && typeof posture === 'object') {
-    const dev = POSTURE_AXES
-      .map(([k, label]) => ({ label, finding: posture[k]?.finding || null, value: num(posture[k]?.value) }))
-      .filter((p) => p.finding && p.finding.trim().toLowerCase() !== 'normal')
-      .sort((a, b) => Math.abs(b.value ?? 0) - Math.abs(a.value ?? 0))
-      .slice(0, 3)
-      .map((p) => `${p.label}: ${p.finding}${p.value !== null ? ` (${p.value > 0 ? '+' : ''}${p.value.toFixed(1)}°)` : ''}`);
-    if (dev.length) out.push(`Posture deviations of note: ${dev.join(' · ')}.`);
-  }
   const mf = screening.muscleFlags || {};
   const nMyo = (mf.myodynamia || []).length; const nTen = (mf.tension || []).length;
   if (nMyo || nTen) out.push(`Muscle flags on record: ${nMyo} myodynamia deficiency, ${nTen} tension.`);
@@ -851,10 +791,6 @@ router.get('/individual/:id.pdf', auth, requirePermission('viewRecords'), async 
     // status per region + which side is weaker, not just the raw numbers.
     sectionTitle(doc, 'Lateral Symmetry', 170);
     symmetrySection(doc, latest.subitems);
-
-    // Posture Evaluation
-    sectionTitle(doc, 'Posture Evaluation', 140);
-    postureList(doc, latest.posture);
 
     // Muscle legend
     sectionTitle(doc, 'Muscle Flags');

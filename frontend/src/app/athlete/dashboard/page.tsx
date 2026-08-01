@@ -249,10 +249,10 @@ export default function AthleteDashboard() {
 
       {/* HoloMotion screening — gauges, indicator threshold strips, muscle
           flags. The full latest report, read against its thresholds, lives
-          here on the dashboard rather than on a separate page. subitems/
-          posture live only on the fetched `.screening` sub-object (never
-          duplicated onto the flat athlete row), so they're merged in here. */}
-      <ScreeningPanel athlete={{ ...athlete, subitems: athlete.screening?.subitems, posture: athlete.screening?.posture }} />
+          here on the dashboard rather than on a separate page. subitems live
+          only on the fetched `.screening` sub-object (never duplicated onto
+          the flat athlete row), so they're merged in here. */}
+      <ScreeningPanel athlete={{ ...athlete, subitems: athlete.screening?.subitems }} />
 
       {/* Report-to-report progress + the athlete's own downloadable PDF (the
           same individual report medical/coach pull, self-only server-side). */}

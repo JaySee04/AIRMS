@@ -344,7 +344,6 @@ export default function CoachDashboard() {
       symmetry: selected.symmetry,
       risks: selected.risks,
       subitems: selected.screening?.subitems,
-      posture: selected.screening?.posture,
     };
     // The readiness endpoint already excludes recovered injuries, so every row
     // here is active.

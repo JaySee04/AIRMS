@@ -92,14 +92,14 @@ function tierKeysFor(athlete) {
 }
 
 // The latest Screening per athlete, joined with the athlete's cohort keys.
-// Excludes the columns no caller reads (posture, summaryText, muscleFlags —
+// Excludes the columns no caller reads (summaryText, muscleFlags —
 // large JSON/TEXT blobs); `subitems` stays because orientedComponents' balance
 // term needs it.
 async function latestScreeningsByAthlete() {
   const [athletes, screenings] = await Promise.all([
     Athlete.findAll({ where: { isActive: true }, raw: true }),
     Screening.findAll({
-      attributes: { exclude: ['posture', 'summaryText', 'muscleFlags'] },
+      attributes: { exclude: ['summaryText', 'muscleFlags'] },
       order: [['assessedAt', 'DESC'], ['id', 'DESC']],
       raw: true,
     }),

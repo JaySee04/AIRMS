@@ -147,11 +147,9 @@ function compare(mapped) {
     check(`subitem ${region}`, `[${gotArr.join(',')}]`, `[${wantArr.join(',')}]`, ok);
   }
 
-  // Posture + summary: presence checks (findings vary in exact wording, so we
-  // verify the sections were read, not exact strings).
-  const posture = mapped.posture || {};
-  const postureAxesRead = Object.values(posture).filter((p) => p && (p.finding || p.value != null)).length;
-  check('posture axes read', `${postureAxesRead}/8`, '>= 6', postureAxesRead >= 6);
+  // Summary: presence check (wording varies, so we verify the section was read,
+  // not an exact string). Posture is no longer extracted (removed 2026-08-01 —
+  // not required by the stakeholder), so it's no longer verified here.
   check('summary read', mapped.summary ? `${mapped.summary.length} chars` : 'empty', 'non-empty', Boolean(mapped.summary && mapped.summary.length > 20));
 
   return { rows, failures };

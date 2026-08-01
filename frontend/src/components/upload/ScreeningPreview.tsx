@@ -2,19 +2,15 @@
 
 // Friendly read-out of an extracted HoloMotion report, shown in the import
 // preview so the operator can review the numbers against the PDF BEFORE
-// committing. Presents the same data the dashboards/PDF use — headline scores,
-// the exercise-risk evaluation (banded Low / Watch / Elevated), and posture
-// evaluation — rather than a flat number table. Muscle flags AND the physical-
-// fitness subitem scores (ROM/Stability per region) are both shown by the
-// full-width BodyMap ("muscle hero") that the uploader renders beneath this
-// panel — it toggles between the two rather than duplicating either here.
-
-import PostureList from '@/components/dashboard/PostureList';
-import type { Posture } from '@/components/dashboard/OverallRiskBadge';
+// committing. Presents the same data the dashboards/PDF use — headline scores
+// and the exercise-risk evaluation (banded Low / Watch / Elevated) — rather
+// than a flat number table. Muscle flags AND the physical-fitness subitem
+// scores (ROM/Stability per region) are both shown by the full-width BodyMap
+// ("muscle hero") that the uploader renders beneath this panel — it toggles
+// between the two rather than duplicating either here.
 
 interface Props {
   athlete: Record<string, unknown>; // flat extracted scores (values read via num())
-  posture?: Posture | null;
 }
 
 // Headline gauges (0–100, higher better) + Exercise Risks (lower better).
@@ -65,7 +61,7 @@ function Pill({ text, color }: { text: string; color: string }) {
   );
 }
 
-export default function ScreeningPreview({ athlete, posture }: Props) {
+export default function ScreeningPreview({ athlete }: Props) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {/* Headline scores */}
@@ -116,12 +112,6 @@ export default function ScreeningPreview({ athlete, posture }: Props) {
             );
           })}
         </div>
-      </div>
-
-      {/* Posture Evaluation */}
-      <div>
-        <div className="screening-block-h">Posture evaluation</div>
-        <PostureList posture={posture} />
       </div>
     </div>
   );

@@ -360,7 +360,6 @@ export default function PdfScreeningUpload() {
                 <div className="pdf-preview-col">
                   <ScreeningPreview
                     athlete={it.preview.athlete as unknown as Record<string, unknown>}
-                    posture={it.preview.posture}
                   />
                   {/* Muscle hero — fitted into the right (data) column */}
                   <div className="screening-muscle-hero">

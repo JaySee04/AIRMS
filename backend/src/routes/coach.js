@@ -46,7 +46,7 @@ router.get('/readiness', auth, rbac('coach'), async (req, res) => {
       Screening.findAll({
         where: { athleteId: { [Op.in]: ids } },
         order: [['assessedAt', 'DESC'], ['id', 'DESC']],
-        attributes: ['athleteId', 'assessedAt', 'overallIndicator', 'overallBand', 'escalations', 'factors', 'subitems', 'posture', 'overrideBand', 'overrideNote', 'overrideBy'],
+        attributes: ['athleteId', 'assessedAt', 'overallIndicator', 'overallBand', 'escalations', 'factors', 'subitems', 'overrideBand', 'overrideNote', 'overrideBy'],
         raw: true,
       }),
     ]);
@@ -65,7 +65,6 @@ router.get('/readiness', auth, rbac('coach'), async (req, res) => {
           escalations: s.escalations,
           factors: Array.isArray(s.factors) ? s.factors : [],
           subitems: s.subitems || null,
-          posture: s.posture || null,
           // Carry the clinician override through so the coach's OverallRiskBadge
           // shows "set by clinician" + the note, not the generic band message —
           // the override card promises the coach sees this. (athletes.js already

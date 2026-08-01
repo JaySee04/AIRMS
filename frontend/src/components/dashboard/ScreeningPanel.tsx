@@ -25,8 +25,7 @@ import {
   RegionThresholds, thresholdsFor, bandFor, criticalRegionsFor,
 } from '@/lib/screeningAlerts';
 import { buildTrainingFocus } from '@/lib/trainingFocus';
-import PostureList from './PostureList';
-import type { Subitems, Posture } from './OverallRiskBadge';
+import type { Subitems } from './OverallRiskBadge';
 
 export interface ScreeningData {
   name: string;
@@ -42,7 +41,6 @@ export interface ScreeningData {
   // Display-only detail (not part of z-scoring) — not stored on the Athlete
   // row, so callers pull these from the athlete's `.screening` sub-object.
   subitems?: Subitems | null;
-  posture?: Posture | null;
 }
 
 // Indicator display scale. The report prints Low 0–15 / Medium 16–55 /
@@ -247,20 +245,6 @@ export default function ScreeningPanel({ athlete, showTrainingFocus = true }: { 
           "Muscle Assessment Map" BodyMap elsewhere on this page, toggled
           between "Muscle Flags" and "ROM & Stability" — same figure, same
           data, one fewer place for the two to drift apart. */}
-
-      {/* Posture Evaluation — the report's 8-axis postural read-out. Finding +
-          signed value only (see PostureList for why no range bar is drawn). */}
-      {athlete.posture && (
-        <div className="card" style={{ marginBottom: 20 }}>
-          <div className="card-header">
-            <div>
-              <h2 className="card-title" style={{ marginBottom: 0 }}>Posture Evaluation</h2>
-              <span className="card-sub">Finding + measured deviation per axis</span>
-            </div>
-          </div>
-          <PostureList posture={athlete.posture} />
-        </div>
-      )}
 
       {/* Training focus — AIRMS' counterpart of the report's closing Training
           Prescription: corrective exercises for the regions that breached
