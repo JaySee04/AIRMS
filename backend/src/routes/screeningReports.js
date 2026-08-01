@@ -846,10 +846,22 @@ router.get('/individual/:id.pdf', auth, requirePermission('viewRecords'), async 
     sectionTitle(doc, 'Interpretation');
     bullets(doc, interpret(latest, cohort, latest.subitems));
 
-    // Progress between reports
+    // Progress between reports. The latest screening is always the primary
+    // (shown above); an optional ?from&to date window bounds the TREND rows
+    // here (the coach report defaults it to the last 30 days, adjustable). The
+    // latest is always kept so the current point never drops out of the trend.
+    const from = req.query.from ? new Date(req.query.from) : null;
+    const to = req.query.to ? new Date(req.query.to) : null;
+    const inRange = (d) => { const t = new Date(d); return (!from || t >= from) && (!to || t <= to); };
+    const trendHistory = (from || to)
+      ? history.filter((s, i) => i === 0 || inRange(s.assessedAt))
+      : history;
     sectionTitle(doc, 'Progress Between Reports');
-    if (history.length < 2) {
-      doc.fontSize(10).fillColor(MUTED).text('Only one screening on record — import a newer report to see progress.', 50);
+    if (trendHistory.length < 2) {
+      doc.fontSize(10).fillColor(MUTED).text(
+        (from || to)
+          ? 'Only the latest screening falls in the selected window — widen the date range to see progress.'
+          : 'Only one screening on record — import a newer report to see progress.', 50);
     } else {
       const cols = ['totalScore', 'rom', 'stability', 'symmetry', 'exerciseRisks'];
       const labels = ['Total', 'ROM', 'Stability', 'Symmetry', 'Ex. Risks'];
@@ -859,13 +871,13 @@ router.get('/individual/:id.pdf', auth, requirePermission('viewRecords'), async 
       labels.forEach((l, i) => doc.text(l, cx(i), y, { width: 60, align: 'right', lineBreak: false }));
       y += 14;
       doc.font('Helvetica').fillColor(TEXT);
-      for (const s of history.slice().reverse()) {
+      for (const s of trendHistory.slice().reverse()) {
         ensure(doc, 15); if (doc.y > y) y = doc.y;
         doc.text(fmtDate(s.assessedAt), 50, y, { lineBreak: false });
         cols.forEach((c, i) => doc.text(String(num(s[c]) ?? '—'), cx(i), y, { width: 60, align: 'right', lineBreak: false }));
         y += 14;
       }
-      const first = history[history.length - 1]; const last = history[0];
+      const first = trendHistory[trendHistory.length - 1]; const last = trendHistory[0];
       doc.moveTo(50, y + 1).lineTo(doc.page.width - 50, y + 1).strokeColor(GRID).stroke();
       y += 6;
       doc.font('Helvetica-Bold').fillColor(NAVY).text('Change', 50, y, { lineBreak: false });
@@ -911,8 +923,19 @@ router.get('/team.pdf', auth, rbac('medical', 'admin', 'coach'), requirePermissi
     if (!athletes.length) return res.status(404).json({ message: 'No athletes in this group' });
     const ids = athletes.map((a) => a.athleteId);
     const screenings = await Screening.findAll({ where: { athleteId: ids }, order: [['assessedAt', 'DESC'], ['id', 'DESC']], raw: true });
+    // Optional ?from&to window (coach report defaults to last 30 days,
+    // adjustable): take each athlete's latest screening WITHIN the window,
+    // falling back to their latest overall so the squad view is never empty.
+    const from = req.query.from ? new Date(req.query.from) : null;
+    const to = req.query.to ? new Date(req.query.to) : null;
+    const inRange = (d) => { const t = new Date(d); return (!from || t >= from) && (!to || t <= to); };
     const latestBy = new Map();
-    for (const s of screenings) if (!latestBy.has(s.athleteId)) latestBy.set(s.athleteId, s);
+    const fallbackBy = new Map();
+    for (const s of screenings) {
+      if (!fallbackBy.has(s.athleteId)) fallbackBy.set(s.athleteId, s);
+      if (((from || to) ? inRange(s.assessedAt) : true) && !latestBy.has(s.athleteId)) latestBy.set(s.athleteId, s);
+    }
+    for (const [id, s] of fallbackBy) if (!latestBy.has(id)) latestBy.set(id, s);
     const members = athletes.map((a) => ({ a, s: latestBy.get(a.athleteId) })).filter((m) => m.s);
     if (!members.length) return res.status(404).json({ message: 'No screenings on record in this group' });
 

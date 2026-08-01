@@ -86,6 +86,7 @@ const NAV: Record<'athlete' | 'medical' | 'admin' | 'coach', NavItem[]> = {
   // Coach role (first-class 4th role) — read-only squad readiness for the assigned sport.
   coach: [
     { href: '/coach/dashboard', label: 'Squad Readiness', icon: <IconPulse /> },
+    { href: '/coach/reports',   label: 'Reports',         icon: <IconFileText /> },
   ],
 };
 

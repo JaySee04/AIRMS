@@ -50,15 +50,44 @@ export default function AdminReportsPage() {
   );
 }
 
-// HoloMotion screening reports — holistic (cohort), individual (by athlete ID),
-// and team (by sport/programme/gender). Streamed PDFs.
+interface RosterAthlete { athleteId: string; name: string; sport?: string; }
+
+// HoloMotion screening reports — holistic (cohort), individual (by NAME, which
+// resolves to the athlete ID no one remembers), and team (by
+// sport/programme/gender). Streamed PDFs.
 function ScreeningReportsCard() {
-  const [athleteId, setAthleteId] = useState('');
+  const [roster, setRoster] = useState<RosterAthlete[]>([]);
+  const [athleteQuery, setAthleteQuery] = useState('');
   const [sport, setSport] = useState('Badminton');
   const [programme, setProgramme] = useState('');
   const [gender, setGender] = useState('');
   const [busy, setBusy] = useState('');
   const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const rows = await api.get<RosterAthlete[]>('/athletes');
+        if (!cancelled) setRoster(rows.map((a) => ({ athleteId: a.athleteId, name: a.name, sport: a.sport })));
+      } catch { /* the ID can still be typed directly */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Resolve the typed value to an athlete ID: an explicit ATHxxxx wins, else an
+  // exact name match, else a unique case-insensitive prefix match.
+  const resolveAthleteId = (q: string): string => {
+    const raw = q.trim();
+    const m = raw.match(/ATH\d+/i);
+    if (m) return m[0].toUpperCase();
+    const lower = raw.toLowerCase();
+    const exact = roster.find((a) => a.name.toLowerCase() === lower);
+    if (exact) return exact.athleteId;
+    const hits = roster.filter((a) => a.name.toLowerCase().startsWith(lower));
+    return hits.length === 1 ? hits[0].athleteId : '';
+  };
+  const resolvedId = resolveAthleteId(athleteQuery);
 
   async function dl(kind: string, path: string, filename: string) {
     setBusy(kind); setErr(null);
@@ -83,9 +112,12 @@ function ScreeningReportsCard() {
         <div>
           <strong style={{ fontSize: '0.85rem' }}>Individual</strong>
           <div className="form-group" style={{ margin: '4px 0' }}>
-            <input value={athleteId} onChange={(e) => setAthleteId(e.target.value)} placeholder="Athlete ID e.g. ATH0061" />
+            <input value={athleteQuery} onChange={(e) => setAthleteQuery(e.target.value)} placeholder="Search by name…" list="report-athlete-roster" aria-label="Athlete name" />
+            <div className="text-muted" style={{ fontSize: '0.72rem', marginTop: 2, minHeight: 14 }}>
+              {athleteQuery.trim() ? (resolvedId ? `→ ${resolvedId}` : 'No unique match yet') : 'Type a name (or an ATH id)'}
+            </div>
           </div>
-          <button type="button" className="btn btn-primary btn-sm" disabled={busy !== '' || !athleteId.trim()} onClick={() => dl('i', `/screening-reports/individual/${athleteId.trim()}.pdf`, `AIRMS-${athleteId.trim()}.pdf`)}>{busy === 'i' ? '…' : 'Download'}</button>
+          <button type="button" className="btn btn-primary btn-sm" disabled={busy !== '' || !resolvedId} onClick={() => dl('i', `/screening-reports/individual/${resolvedId}.pdf`, `AIRMS-${resolvedId}.pdf`)}>{busy === 'i' ? '…' : 'Download'}</button>
         </div>
         <div>
           <strong style={{ fontSize: '0.85rem' }}>Team / group</strong>
@@ -100,6 +132,9 @@ function ScreeningReportsCard() {
           }}>{busy === 't' ? '…' : 'Download'}</button>
         </div>
       </div>
+      <datalist id="report-athlete-roster">
+        {roster.map((a) => (<option key={a.athleteId} value={a.name}>{a.athleteId}{a.sport ? ` · ${a.sport}` : ''}</option>))}
+      </datalist>
     </div>
   );
 }
