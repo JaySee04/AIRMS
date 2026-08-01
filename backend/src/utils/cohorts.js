@@ -12,8 +12,14 @@
 //               more symmetric → higher good (null when subitems weren't read)
 
 const { Screening, Athlete, CohortThreshold } = require('../models');
+const { getSettings } = require('./settings');
 
 const COMPONENTS = ['totalScore', 'rom', 'stability', 'symmetry', 'riskGood', 'balance'];
+
+// A manual norm edit is considered to have "drifted" from the freshly computed
+// value once any overridden component mean differs by more than this (means sit
+// on 0–100-ish scales, so 0.5 filters float noise but catches real change).
+const DRIFT_EPSILON = 0.5;
 
 // The 7 exercise-risk indicators shown in AIRMS. spinalDiscHerniation (Lumbar
 // Disc Herniation) is deliberately excluded — stored, never scored/displayed.
@@ -112,10 +118,34 @@ async function latestScreeningsByAthlete() {
     .filter((x) => x.screening);
 }
 
+// Per-component drift between a cohort's manual override and its freshly
+// computed stats. Drives the "review — new data" prompt on the Cohort page:
+// the manual norm stays live, but the admin/medical lead is told the data has
+// moved so they can decide whether to keep or refresh it.
+function cohortReview(row) {
+  const ov = (row.overrides && typeof row.overrides === 'object') ? row.overrides : {};
+  const stats = (row.stats && typeof row.stats === 'object') ? row.stats : {};
+  const items = [];
+  for (const k of Object.keys(ov)) {
+    const manual = ov[k] && typeof ov[k].mean === 'number' ? ov[k].mean : null;
+    const computed = stats[k] && typeof stats[k].mean === 'number' ? stats[k].mean : null;
+    if (manual === null || computed === null) continue;
+    const delta = +(computed - manual).toFixed(3);
+    if (Math.abs(delta) > DRIFT_EPSILON) items.push({ component: k, manual, computed, delta });
+  }
+  return { needed: items.length > 0, items };
+}
+
 // Recompute every cohort tier from the latest screenings and upsert the rows.
-// New cohorts land as `pending`; existing rows keep their status + admin
-// overrides but get refreshed computed stats. Returns a summary.
+// A norm auto-generates + goes LIVE on every import: new cohorts are stored
+// approved (no manual gate — the norm is the cohort average by definition).
+// Existing rows keep their manual overrides by default; the caller/UI flags any
+// that have drifted from the new data (see cohortReview). When the
+// `norm_auto_overwrite` setting is ON, an import instead clears manual edits so
+// the freshly computed norm wins. Returns a summary.
 async function recomputeCohorts() {
+  const settings = await getSettings();
+  const autoOverwrite = settings.norm_auto_overwrite === true;
   const rows = await latestScreeningsByAthlete();
   // Group screenings under each tier key they belong to.
   const groups = new Map(); // key string -> { keyObj, screenings[] }
@@ -140,9 +170,17 @@ async function recomputeCohorts() {
     const { n, stats } = computeStats(screenings);
     const existing = existingByKey.get(cohortKey(keyObj));
     if (existing) {
-      updates.push(existing.update({ n, stats, computedAt: new Date() }));
+      const patch = { n, stats, computedAt: new Date() };
+      // Auto-overwrite ON → drop any manual edit so the computed norm governs.
+      if (autoOverwrite && existing.overrides) patch.overrides = null;
+      updates.push(existing.update(patch));
     } else {
-      toCreate.push({ sport: keyObj.sport, programme: keyObj.programme, gender: keyObj.gender, tier: keyObj.tier, n, stats, status: 'pending', computedAt: new Date() });
+      // New cohort → store the auto-generated norm LIVE (approved), stamped as
+      // an automatic origin so the UI can distinguish it from a human approval.
+      toCreate.push({
+        sport: keyObj.sport, programme: keyObj.programme, gender: keyObj.gender, tier: keyObj.tier,
+        n, stats, status: 'approved', computedAt: new Date(), approvedAt: new Date(), approvedBy: 'auto (import)',
+      });
     }
   }
   await Promise.all(updates);
@@ -183,4 +221,5 @@ module.exports = {
   orientedComponents, meanSd, computeStats,
   tierKeysFor, latestScreeningsByAthlete,
   recomputeCohorts, resolveCohortStats, resolveFromMap, buildApprovedCohortMap,
+  cohortReview,
 };

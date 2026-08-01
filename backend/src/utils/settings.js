@@ -26,6 +26,13 @@ const DEFAULTS = {
   // (Module 2) to the score without inflating the red population. Toggle off
   // for the pure screening/cohort score.
   escalation_injury: true,
+  // Norm governance: a cohort norm auto-generates + goes live on every
+  // HoloMotion import. When a human has manually edited a norm and a later
+  // import recomputes a different value, the manual edit is KEPT and the cohort
+  // is flagged "review — new data" (drift shown on the Cohort page). Flip this
+  // ON to instead let each import overwrite the manual edit with the freshly
+  // computed norm.
+  norm_auto_overwrite: false,
   alerts_enabled: true,        // email medical + coaches on import
   alert_on_band: 'amber',      // fire at this band or worse ('amber' | 'red')
   // Event-driven notifications (utils/notifications.js), each independently

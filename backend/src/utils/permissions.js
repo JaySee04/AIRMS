@@ -6,13 +6,14 @@
 // capability is granted. Only `false` blocks. athlete/admin roles are never
 // constrained by this layer — their access is governed by RBAC roles alone.
 
-const PERMISSION_KEYS = ['viewRecords', 'uploadData', 'reviewReports', 'injuryReports'];
+const PERMISSION_KEYS = ['viewRecords', 'uploadData', 'reviewReports', 'injuryReports', 'editCohortNorms'];
 
 const PERMISSION_LABELS = {
   viewRecords: 'View athlete records',
   uploadData: 'Upload screening data',
   reviewReports: 'Review/approve self-reports',
   injuryReports: 'Log & view injuries',
+  editCohortNorms: 'Edit cohort norms',
 };
 
 // True unless this user is a medical staffer with the capability explicitly
