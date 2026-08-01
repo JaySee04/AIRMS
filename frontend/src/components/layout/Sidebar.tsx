@@ -80,8 +80,7 @@ const NAV: Record<'athlete' | 'medical' | 'admin' | 'coach', NavItem[]> = {
     { href: '/admin/trends',      label: 'Recovery & Trends',  icon: <IconActivity /> },
     { href: '/admin/reports',     label: 'PDF Reports',        icon: <IconFileText /> },
     { href: '/admin/thresholds',  label: 'Cohort Thresholds',  icon: <IconPulse /> },
-    { href: '/admin/staff',       label: 'Staff Permissions',  icon: <IconUsers /> },
-    { href: '/admin/coaches',     label: 'Coaches',            icon: <IconPulse /> },
+    { href: '/admin/personnel',   label: 'Personnel',          icon: <IconUsers /> },
     { href: '/admin/data-upload', label: 'Data Uploading',     icon: <IconUpload /> },
   ],
   // Coach role (first-class 4th role) — read-only squad readiness for the assigned sport.

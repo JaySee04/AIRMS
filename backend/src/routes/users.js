@@ -44,27 +44,32 @@ router.get('/', async (req, res) => {
   }
 });
 
-// POST /api/users — create a coach (name, email, password, coachSport). Only the
-// coach role is creatable here; admins/medical/athletes come from seed/register.
+// POST /api/users — create a staff account: a coach (needs an assigned sport)
+// or a medical staffer (full permissions by default, opt-out model). Admins and
+// athletes still come from seed/register, not this endpoint.
 router.post('/', async (req, res) => {
   try {
-    const { name, email, password, coachSport } = req.body || {};
+    const { name, email, password, role, coachSport } = req.body || {};
+    const wantRole = role === 'medical' ? 'medical' : role === 'coach' ? 'coach' : null;
     const errors = [];
+    if (!wantRole) errors.push('Role must be "coach" or "medical"');
     if (!name || !String(name).trim()) errors.push('Name is required');
     if (!email || !String(email).trim()) errors.push('Email is required');
     // Enforce the SAME password policy as self-service change/reset — an
     // admin-minted account must not be weaker than one a user sets themselves.
     if (!password) errors.push('Password is required');
     else { const pwError = validatePassword(String(password)); if (pwError) errors.push(pwError); }
-    if (!coachSport || !String(coachSport).trim()) errors.push('Assigned sport is required');
+    if (wantRole === 'coach' && (!coachSport || !String(coachSport).trim())) errors.push('A coach needs an assigned sport');
     if (errors.length) return res.status(400).json({ message: errors.join('; ') });
 
     const user = await User.create({
       name: String(name).trim(),
       email: String(email).trim(),
       password: String(password),
-      role: 'coach',
-      coachSport: String(coachSport).trim(),
+      role: wantRole,
+      // Medical staff carry no sport; they default to full permissions (null →
+      // everything granted under the opt-out model in utils/permissions).
+      coachSport: wantRole === 'coach' ? String(coachSport).trim() : null,
     });
     res.status(201).json(publicUser(user));
   } catch (err) {
