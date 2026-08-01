@@ -3,6 +3,16 @@
 > **Read this FIRST, before any other document except README_FOR_CLAUDE_CODE.md.**
 >
 > This file is the architectural truth of AIRMS. Locked decisions live here. If a different document or memory entry contradicts this file, **this file wins**.
+>
+> **Scope direction — HoloMotion-only (2026-08-01).** JC set that the
+> **HoloMotion PDF is the single source of truth**: everything the site presents
+> derives from it, and features fed by other inputs (the manual injury log, the
+> athlete self-report channel, the active-injury floor, the injury PDF builder)
+> are **flagged, not removed** — kept live and *integrated* (e.g. the admin
+> dashboard's screening↔injury "necessity bridge") so JC can judge whether each
+> earns its place before a keep/retire decision. The full scope note, flag list,
+> and the deferred Cohort-Norm-settings decision live in
+> `docs/fyp/HOLOMOTION_SCOPE_2026-08.md`.
 
 ---
 
@@ -195,8 +205,9 @@ These rules came from JC's Figma mockups and explicit feedback. **Do not deviate
 - **Active link state**: solid gold background (`--brand-gold`), navy text, font-weight 600. **Not** semi-transparent gold — solid
 - Per-role nav items (do NOT include "My Profile" in sidebar nav — it lives in the topbar dropdown):
   - **athlete**: My Dashboard, Injury Reporting (Activity Tracking removed 2026-07-20, see §4)
-  - **medical**: Athlete Dashboard, Injury Logging, Self-Report Review, Data Uploading
-  - **admin**: Injury Analytics, PDF Reports, Data Uploading
+  - **medical**: Athlete Dashboard, Injury Logging, Self-Report Review, Cohort Norms (with `editCohortNorms`), Data Uploading
+  - **admin**: Screening Analytics, Recovery & Trends, PDF Reports, Cohort Norms, Personnel, Data Uploading
+  - **coach**: Squad Readiness, Reports
 - Footer at bottom: "AIRMS Prototype v0.2" in muted small text
 
 ### Topbar
@@ -277,7 +288,7 @@ These rules came from JC's Figma mockups and explicit feedback. **Do not deviate
 
 ## 12. Things that must NOT change without discussion
 
-- The role model: FYP I shipped **3 roles** (athlete / medical / admin). **FYP II promotes `coach` to a first-class 4th role** — read-only and sport-scoped (one sport per coach): squad-readiness board, team-report download, read-only athlete screening detail, and (since 2026-07-23) individual screening-PDF download for athletes in their sport; managed from `/admin/coaches`. Adding *further* roles beyond these four still needs discussion. (Promoted 2026-07-19 from the earlier "experimental spike" framing.)
+- The role model: FYP I shipped **3 roles** (athlete / medical / admin). **FYP II promotes `coach` to a first-class 4th role** — read-only and sport-scoped (one sport per coach): squad-readiness board, team-report download, read-only athlete screening detail, and (since 2026-07-23) individual screening-PDF download for athletes in their sport, plus a `/coach/reports` page; managed from `/admin/personnel` (merged Coaches + Staff Permissions, 2026-08-01). Adding *further* roles beyond these four still needs discussion. (Promoted 2026-07-19 from the earlier "experimental spike" framing.)
 - The composite risk model formula (`computeVulnerability`, `personalisedThresholds`, escalation logic) — this is the locked ACWR `risk.ts` model; the FYP II cohort-normed overall indicator (`overallIndicator.js`) is a separate, extensible model
 - The sRPE method for load calculation (`load = duration × intensity`) — **retired 2026-07-20** with Activity Tracking (§4); the formula stays locked/citable for the FYP report even though nothing implements it right now
 - The body map asset source and MIT attribution
