@@ -250,17 +250,14 @@ export default function CoachDashboard() {
   // the elevated/watch athlete sets are disjoint and sum to "athletes flagged".
   const squadConcerns = useMemo(() => {
     type Affected = { athleteId: string; name: string; band: 'high' | 'watch' };
-    const map = new Map<BodyRegion, {
-      region: BodyRegion; high: Set<string>; watch: Set<string>; critical: boolean; who: Map<string, Affected>;
-    }>();
+    const map = new Map<BodyRegion, { region: BodyRegion; critical: boolean; who: Map<string, Affected> }>();
     classified.forEach(({ row, screening }) => {
       if (!screening.hasData) return;
       screening.alerts.forEach((a) => {
-        const e = map.get(a.region) ?? { region: a.region, high: new Set<string>(), watch: new Set<string>(), critical: false, who: new Map<string, Affected>() };
-        const band: 'high' | 'watch' = a.band === 'high' ? 'high' : 'watch';
-        (band === 'high' ? e.high : e.watch).add(row.athleteId);
+        const e = map.get(a.region) ?? { region: a.region, critical: false, who: new Map<string, Affected>() };
         // One shown indicator per region, so an athlete lands here once; keep
         // their worst band if the data ever double-counts.
+        const band: 'high' | 'watch' = a.band === 'high' ? 'high' : 'watch';
         const prev = e.who.get(row.athleteId);
         if (!prev || (band === 'high' && prev.band !== 'high')) e.who.set(row.athleteId, { athleteId: row.athleteId, name: row.name, band });
         if (a.critical) e.critical = true;
@@ -268,14 +265,15 @@ export default function CoachDashboard() {
       });
     });
     return [...map.values()]
-      .map((e) => ({
-        region: e.region, high: e.high.size, watch: e.watch.size, critical: e.critical,
+      .map((e) => {
         // Elevated athletes first, then on-watch, each alphabetical — the order
-        // the coach should work down.
-        athletes: [...e.who.values()].sort((a, b) =>
-          (a.band === 'high' ? 0 : 1) - (b.band === 'high' ? 0 : 1) || a.name.localeCompare(b.name)),
-      }))
-      .filter((e) => e.high + e.watch > 0)
+        // the coach should work down. Counts derive from the same list.
+        const athletes = [...e.who.values()].sort((a, b) =>
+          (a.band === 'high' ? 0 : 1) - (b.band === 'high' ? 0 : 1) || a.name.localeCompare(b.name));
+        const high = athletes.filter((a) => a.band === 'high').length;
+        return { region: e.region, critical: e.critical, athletes, high, watch: athletes.length - high };
+      })
+      .filter((e) => e.athletes.length > 0)
       .sort((a, b) => (b.high - a.high) || (Number(b.critical) - Number(a.critical)) || (b.watch - a.watch))
       .slice(0, 3);
   }, [classified]);
@@ -561,7 +559,7 @@ export default function CoachDashboard() {
                 </div>
                 <p className="coach-suggest-magnitude">
                   {i === 0 ? 'Your squad’s biggest shared concern right now — ' : ''}
-                  {c.high + c.watch} of {screenedForAlerts} screened athlete{screenedForAlerts === 1 ? '' : 's'} flagged
+                  {c.athletes.length} of {screenedForAlerts} screened athlete{screenedForAlerts === 1 ? '' : 's'} flagged
                   at the {REGION_LABEL[c.region].toLowerCase()}.
                 </p>
                 <p className="coach-suggest-action">{REGION_ADJUSTMENT[c.region]}</p>

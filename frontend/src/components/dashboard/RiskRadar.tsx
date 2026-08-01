@@ -43,6 +43,7 @@ export default function RiskRadar({ labels, values, thresholds }: RiskRadarProps
     // so the breached spokes read at a glance instead of by eyeballing overlap.
     const hasThresholds = !!thresholds && thresholds.length === values.length;
     const over = hasThresholds ? values.map((v, i) => v >= thresholds![i]) : values.map(() => false);
+    const ptColor = over.map((o) => (o ? THRESHOLD_RED : pal.gold));
 
     chartRef.current?.destroy();
     chartRef.current = new Chart(ctx, {
@@ -73,8 +74,8 @@ export default function RiskRadar({ labels, values, thresholds }: RiskRadarProps
             borderColor: pal.gold,
             // Spokes over the Elevated cutoff turn red and grow, so the problem
             // regions catch the eye without reading tick values.
-            pointBackgroundColor: over.map((o) => (o ? THRESHOLD_RED : pal.gold)),
-            pointBorderColor: over.map((o) => (o ? THRESHOLD_RED : pal.gold)),
+            pointBackgroundColor: ptColor,
+            pointBorderColor: ptColor,
             pointRadius: over.map((o) => (o ? 5 : 3)),
             pointHoverRadius: over.map((o) => (o ? 7 : 5)),
           },
