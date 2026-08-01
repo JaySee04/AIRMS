@@ -52,6 +52,12 @@ interface ScreeningCohort {
   indicators: Array<{ key: string; label: string; ok: number; watch: number; high: number }>;
   topMyodynamia: Array<{ muscle: string; count: number }>;
   topTension: Array<{ muscle: string; count: number }>;
+  trend?: {
+    comparable: number;
+    improving: number; declining: number; steady: number;
+    bandMoves: { better: number; worse: number };
+    deltas: Array<{ key: string; label: string; higherBetter: boolean; avgDelta: number | null }>;
+  };
 }
 
 const AGE_GROUPS: Array<{ label: string; min?: number; max?: number }> = [
@@ -395,6 +401,11 @@ export default function AdminDashboard() {
         </div>
       </div>
 
+      {/* The HoloMotion screening picture is the primary content; the injury-log
+          analytics below it are ordered second (order:2) via this flex column so
+          HoloMotion leads, per the HoloMotion-only scope. */}
+      <div style={{ display: 'flex', flexDirection: 'column' }}>
+      <div style={{ order: 2 }}>
       <div className="section-divider">
         <h2 style={{ margin: 0, fontSize: '1.05rem' }}>Injury Log Analytics</h2>
         <span className="text-muted" style={{ fontSize: '0.8rem' }}>
@@ -550,7 +561,9 @@ export default function AdminDashboard() {
           <canvas ref={monthRef} />
         </div>
       </div>
+      </div>{/* end injury log analytics (order:2) */}
 
+      <div style={{ order: 1 }}>
       {/* ── HoloMotion screening cohort ─────────────────────────────────────
           The screening side of the athlete population — sourced from the
           ingested HoloMotion reports (not the injury log). Proportion bars
@@ -589,6 +602,73 @@ export default function AdminDashboard() {
               <div className="stat-tile-delta">Indicator readings above 25</div>
             </div>
           </div>
+
+          {/* Screening trend — previous vs latest HoloMotion report (the
+              HoloMotion-native trend, replacing injury cases-over-time as the
+              primary trend). Responds to the Cohort filters. */}
+          {screeningCohort.trend && (
+            <div className="card" style={{ marginTop: 20 }}>
+              <div className="card-header"><div>
+                <h2 className="card-title" style={{ marginBottom: 0 }}>Screening Trend — previous vs latest</h2>
+                <span className="card-sub">
+                  {screeningCohort.trend.comparable > 0
+                    ? `${screeningCohort.trend.comparable} athlete${screeningCohort.trend.comparable === 1 ? '' : 's'} with a repeat HoloMotion report`
+                    : 'Needs a repeat report per athlete'}
+                </span>
+              </div></div>
+              {screeningCohort.trend.comparable === 0 ? (
+                <div className="text-muted" style={{ fontSize: '0.85rem' }}>
+                  No athlete in this cohort has two screenings yet — import a newer HoloMotion report to compare against the previous one.
+                </div>
+              ) : (
+                <>
+                  <div className="stat-grid" style={{ marginBottom: 8 }}>
+                    <div className="stat-tile" style={{ borderTop: '3px solid var(--risk-low)' }}>
+                      <div className="stat-tile-label">Improving</div>
+                      <div className="stat-tile-value">{screeningCohort.trend.improving}</div>
+                      <div className="stat-tile-delta">indicator up ≥ 2</div>
+                    </div>
+                    <div className="stat-tile" style={{ borderTop: '3px solid var(--risk-high)' }}>
+                      <div className="stat-tile-label">Declining</div>
+                      <div className="stat-tile-value">{screeningCohort.trend.declining}</div>
+                      <div className="stat-tile-delta">indicator down ≥ 2</div>
+                    </div>
+                    <div className="stat-tile">
+                      <div className="stat-tile-label">Steady</div>
+                      <div className="stat-tile-value">{screeningCohort.trend.steady}</div>
+                      <div className="stat-tile-delta">within ±2</div>
+                    </div>
+                    <div className="stat-tile">
+                      <div className="stat-tile-label">Band movement</div>
+                      <div className="stat-tile-value">
+                        <span style={{ color: 'var(--risk-low)' }}>{screeningCohort.trend.bandMoves.better}↑</span>{' '}
+                        <span style={{ color: 'var(--risk-high)' }}>{screeningCohort.trend.bandMoves.worse}↓</span>
+                      </div>
+                      <div className="stat-tile-delta">to a safer / riskier band</div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', marginTop: 6 }}>
+                    {screeningCohort.trend.deltas.map((d) => {
+                      const v = d.avgDelta;
+                      const good = v === null || v === 0 ? null : (d.higherBetter ? v > 0 : v < 0);
+                      const color = good === null ? 'var(--text-muted)' : good ? 'var(--risk-low)' : 'var(--risk-high)';
+                      const sign = v !== null && v > 0 ? '+' : '';
+                      return (
+                        <div key={d.key} style={{ minWidth: 96 }}>
+                          <div className="stat-tile-label">{d.label}</div>
+                          <div style={{ fontSize: '1.1rem', fontWeight: 700, color }}>{v === null ? '—' : `${sign}${v}`}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <p className="text-muted" style={{ fontSize: '0.74rem', marginTop: 10, marginBottom: 0 }}>
+                    Average change from each athlete&apos;s previous HoloMotion report to their latest
+                    (Total / ROM / Stability / Symmetry higher = better; Exercise Risks lower = better).
+                  </p>
+                </>
+              )}
+            </div>
+          )}
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 20, marginTop: 20 }}>
             <div className="card">
@@ -663,6 +743,8 @@ export default function AdminDashboard() {
           </div>
         </>
       )}
+      </div>{/* end HoloMotion screening (order:1) */}
+      </div>{/* end reordered sections */}
     </DashboardLayout>
   );
 }

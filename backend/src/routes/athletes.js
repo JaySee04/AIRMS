@@ -201,6 +201,57 @@ router.get('/analytics/screening', auth, rbac('admin'), async (req, res) => {
         .map(([muscle, count]) => ({ muscle, count }));
     };
 
+    // Screening trend — previous vs latest HoloMotion report per athlete. Only
+    // athletes with ≥2 screenings are comparable; we aggregate the change in
+    // each score across them (Total/ROM/Stability/Symmetry higher = better;
+    // Exercise Risks lower = better) plus overall-indicator momentum and band
+    // movement. This is the HoloMotion-native "trend" (not injury cases).
+    const NOISE = 2; // indicator points within ±2 are "steady"
+    const TREND_SCORES = [
+      ['totalScore', 'Total Score', true],
+      ['rom', 'ROM', true],
+      ['stability', 'Stability', true],
+      ['symmetry', 'Symmetry', true],
+      ['exerciseRisks', 'Exercise Risks', false],
+    ];
+    let trend = { comparable: 0, improving: 0, declining: 0, steady: 0, deltas: [], bandMoves: { better: 0, worse: 0 } };
+    const ids = rows.map((r) => r.athleteId);
+    if (ids.length) {
+      const scr = await Screening.findAll({
+        where: { athleteId: { [Op.in]: ids } },
+        attributes: ['athleteId', 'assessedAt', 'id', 'totalScore', 'rom', 'stability', 'symmetry', 'exerciseRisks', 'overallIndicator', 'overallBand', 'overrideBand'],
+        order: [['assessedAt', 'DESC'], ['id', 'DESC']],
+        raw: true,
+      });
+      const byAth = new Map();
+      for (const s of scr) {
+        const arr = byAth.get(s.athleteId) || [];
+        if (arr.length < 2) { arr.push(s); byAth.set(s.athleteId, arr); }
+      }
+      const BAND_RANK = { green: 0, amber: 1, red: 2 };
+      const sums = new Map(TREND_SCORES.map(([k]) => [k, { sum: 0, n: 0 }]));
+      for (const [, pair] of byAth) {
+        if (pair.length < 2) continue;
+        const [latest, prev] = pair;
+        trend.comparable++;
+        for (const [k] of TREND_SCORES) {
+          const a = Number(prev[k]); const b = Number(latest[k]);
+          if (Number.isFinite(a) && Number.isFinite(b)) { const acc = sums.get(k); acc.sum += b - a; acc.n++; }
+        }
+        const di = Number(latest.overallIndicator) - Number(prev.overallIndicator);
+        if (Number.isFinite(di)) {
+          if (di >= NOISE) trend.improving++; else if (di <= -NOISE) trend.declining++; else trend.steady++;
+        }
+        const pb = BAND_RANK[prev.overrideBand || prev.overallBand];
+        const lb = BAND_RANK[latest.overrideBand || latest.overallBand];
+        if (pb != null && lb != null) { if (lb < pb) trend.bandMoves.better++; else if (lb > pb) trend.bandMoves.worse++; }
+      }
+      trend.deltas = TREND_SCORES.map(([k, label, higherBetter]) => {
+        const acc = sums.get(k);
+        return { key: k, label, higherBetter, avgDelta: acc.n ? +(acc.sum / acc.n).toFixed(1) : null };
+      });
+    }
+
     res.json({
       totalAthletes: rows.length,
       screened: screenedRows.length,
@@ -209,6 +260,7 @@ router.get('/analytics/screening', auth, rbac('admin'), async (req, res) => {
       indicators,
       topMyodynamia: topMuscles('myodynamia'),
       topTension: topMuscles('tension'),
+      trend,
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
