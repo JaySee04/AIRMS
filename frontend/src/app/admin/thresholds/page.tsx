@@ -191,7 +191,7 @@ export default function CohortThresholdsPage() {
             <div className="stat-tile-label">Active-injury floor</div>
             <div><label><input type="checkbox" checked={Boolean(set.escalation_injury)}
               onChange={(e) => saveSetting('escalation_injury', e.target.checked)} /> enabled</label></div>
-            <div className="stat-tile-delta">floors the band at amber when the athlete carries a significant active injury (moderate/severe, or chronic) — never red on its own</div>
+            <div className="stat-tile-delta">floors the band at Needs attention (amber) when the athlete carries a significant active injury (moderate/severe, or chronic) — never Immediate assessment (red) on its own</div>
           </div>
         </div>
       </div>
@@ -213,8 +213,8 @@ export default function CohortThresholdsPage() {
           <div className="stat-tile">
             <div className="stat-tile-label">Import alert threshold</div>
             <div><select value={String(set.alert_on_band ?? 'amber')} onChange={(e) => saveSetting('alert_on_band', e.target.value)} disabled={busy || !set.alerts_enabled}>
-              <option value="amber">Amber or worse</option>
-              <option value="red">Red only</option>
+              <option value="amber">Needs attention (amber) or worse</option>
+              <option value="red">Immediate assessment (red) only</option>
             </select></div>
             <div className="stat-tile-delta">Fire the import alert at this band or worse</div>
           </div>
@@ -228,7 +228,7 @@ export default function CohortThresholdsPage() {
             <div className="stat-tile-label">Override → coach</div>
             <div><label><input type="checkbox" checked={Boolean(set.notify_override)}
               onChange={(e) => saveSetting('notify_override', e.target.checked)} /> enabled</label></div>
-            <div className="stat-tile-delta">Email the sport&apos;s coach when medical overrides an athlete to amber/red</div>
+            <div className="stat-tile-delta">Email the sport&apos;s coach when medical overrides an athlete to Needs attention or Immediate assessment (amber/red)</div>
           </div>
         </div>
       </div>
