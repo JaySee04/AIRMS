@@ -318,7 +318,7 @@ export default function AdminDashboard() {
   };
 
   return (
-    <DashboardLayout allowedRoles={['admin']} title="Injury Analytics">
+    <DashboardLayout allowedRoles={['admin']} title="Screening Analytics">
       {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
 
       {/* Filters grouped by scope: the Cohort set narrows every chart AND the
@@ -395,7 +395,14 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      <div className="stat-grid">
+      <div className="section-divider">
+        <h2 style={{ margin: 0, fontSize: '1.05rem' }}>Injury Log Analytics</h2>
+        <span className="text-muted" style={{ fontSize: '0.8rem' }}>
+          From the manual injury log — not HoloMotion. Flagged for review under the HoloMotion-only scope; see HOLOMOTION_SCOPE_2026-08.
+        </span>
+      </div>
+
+      <div className="stat-grid" style={{ marginTop: 14 }}>
         <div className="stat-tile">
           <div className="stat-tile-label">Total Cases</div>
           <div className="stat-tile-value">{loading ? '…' : summary?.total ?? 0}</div>
@@ -433,7 +440,7 @@ export default function AdminDashboard() {
                 </span>
               </div>
             </div>
-            <div style={{ position: 'relative', height: Math.max(280, (summary?.bySport.length ?? 0) * 24 + 40) }}>
+            <div style={{ position: 'relative', height: Math.min(300, Math.max(200, (summary?.bySport.length ?? 0) * 22 + 40)) }}>
               <canvas ref={sportRef} />
             </div>
           </div>

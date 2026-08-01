@@ -76,7 +76,7 @@ const NAV: Record<'athlete' | 'medical' | 'admin' | 'coach', NavItem[]> = {
     { href: '/medical/data-upload',    label: 'Data Uploading',     icon: <IconUpload />,      perm: 'uploadData' },
   ],
   admin: [
-    { href: '/admin/dashboard',   label: 'Injury Analytics',  icon: <IconBarChart /> },
+    { href: '/admin/dashboard',   label: 'Screening Analytics', icon: <IconBarChart /> },
     { href: '/admin/trends',      label: 'Recovery & Trends',  icon: <IconActivity /> },
     { href: '/admin/reports',     label: 'PDF Reports',        icon: <IconFileText /> },
     { href: '/admin/thresholds',  label: 'Cohort Norms',       icon: <IconPulse /> },
