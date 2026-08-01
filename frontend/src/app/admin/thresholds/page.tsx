@@ -11,6 +11,7 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { api } from '@/lib/api';
+import { getSession } from '@/lib/auth';
 
 interface Stat { mean: number; sd: number; n?: number; }
 interface Cohort {
@@ -60,6 +61,9 @@ export default function CohortThresholdsPage() {
   const [highlightIds, setHighlightIds] = useState<Set<number>>(new Set());
   const [showBelowMin, setShowBelowMin] = useState(false); // below-minimum cohorts don't drive the indicator — hidden by default
   const highlightApplied = useRef(false);
+  // Norm-editing medical staff can reach this page too, but only edit norm
+  // values — settings, notifications and queue governance stay admin-only.
+  const isAdmin = getSession()?.user?.role === 'admin';
 
   const load = useCallback(async () => {
     try {
@@ -158,7 +162,7 @@ export default function CohortThresholdsPage() {
   const shownCohorts = showBelowMin || highlightIds.size > 0 ? cohorts : usable;
 
   return (
-    <DashboardLayout allowedRoles={['admin']} title="Cohort Norms">
+    <DashboardLayout allowedRoles={['admin', 'medical']} requiredPermission="editCohortNorms" title="Cohort Norms">
       {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
       {msg && <div className="alert alert-success" style={{ marginBottom: 16 }}>{msg}</div>}
 
@@ -166,12 +170,13 @@ export default function CohortThresholdsPage() {
       <div className="card" style={{ marginBottom: 20 }}>
         <div className="card-header"><div>
           <h2 className="card-title" style={{ marginBottom: 0 }}>Norming Settings</h2>
-          <span className="card-sub">Tune how cohorts are formed and how athletes escalate. Changes re-score everyone.</span>
+          <span className="card-sub">{isAdmin ? 'Tune how cohorts are formed and how athletes escalate. Changes re-score everyone.' : 'Norms auto-generate on import; you can recompute and edit norm values below. Settings are admin-managed.'}</span>
         </div>
           <button type="button" className="btn btn-gold btn-sm" onClick={recompute} disabled={busy}>
             {busy ? 'Working…' : 'Recompute all'}
           </button>
         </div>
+        {isAdmin && (
         <div className="stat-grid">
           <div className="stat-tile">
             <div className="stat-tile-label">Min cohort size (n)</div>
@@ -216,10 +221,12 @@ export default function CohortThresholdsPage() {
             <div className="stat-tile-delta">floors the band at Needs attention (amber) when the athlete carries a significant active injury (moderate/severe, or chronic) — never Immediate assessment (red) on its own</div>
           </div>
         </div>
+        )}
       </div>
 
       {/* Notifications — governs the whole email surface (utils/alerts.js +
-          utils/notifications.js). Backend-gated defaults are all on. */}
+          utils/notifications.js). Backend-gated defaults are all on. Admin-only. */}
+      {isAdmin && (
       <div className="card" style={{ marginBottom: 20 }}>
         <div className="card-header"><div>
           <h2 className="card-title" style={{ marginBottom: 0 }}>Email Notifications</h2>
@@ -254,6 +261,7 @@ export default function CohortThresholdsPage() {
           </div>
         </div>
       </div>
+      )}
 
       {/* Cohort norms */}
       <div className="card">
@@ -297,9 +305,9 @@ export default function CohortThresholdsPage() {
                       <button type="button" className="btn btn-outline btn-sm" onClick={() => setExpanded(expanded === c.id ? null : c.id)}>
                         {expanded === c.id ? 'Close' : 'Edit'}
                       </button>{' '}
-                      {c.status === 'pending'
+                      {isAdmin && (c.status === 'pending'
                         ? <button type="button" className="btn btn-primary btn-sm" onClick={() => approve(c, 'approved')} disabled={busy}>Set live</button>
-                        : <button type="button" className="btn btn-outline btn-sm" onClick={() => approve(c, 'pending')} disabled={busy}>Hold</button>}
+                        : <button type="button" className="btn btn-outline btn-sm" onClick={() => approve(c, 'pending')} disabled={busy}>Hold</button>)}
                     </td>
                   </tr>
                   {expanded === c.id && (

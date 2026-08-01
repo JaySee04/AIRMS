@@ -72,8 +72,10 @@ router.patch('/:id', auth, rbac('admin', 'medical'), canEditNorms, async (req, r
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-// GET /api/settings — current settings merged over defaults.
-router.get('/settings/all', auth, rbac('admin'), async (_req, res) => {
+// GET /api/settings — current settings merged over defaults. Readable by admin
+// and norm-editing medical staff (the Cohort Norms page needs min_cohort_n etc.
+// to render); WRITING settings stays admin-only below.
+router.get('/settings/all', auth, rbac('admin', 'medical'), canEditNorms, async (_req, res) => {
   try {
     res.json({ settings: await getSettings(), defaults: DEFAULTS });
   } catch (err) { res.status(500).json({ message: err.message }); }
