@@ -261,14 +261,14 @@ export default function AdminDashboard() {
         <div className="card">
           <div className="card-header"><div>
             <h2 className="card-title" style={{ marginBottom: 0 }}>Overall Risk Distribution</h2>
-            <span className="card-sub">Traffic-light band, latest screening per athlete</span>
+            <span className="card-sub">One slice per athlete, by their latest screening</span>
           </div></div>
           <div style={{ position: 'relative', height: 260 }}><canvas ref={bandRef} /></div>
         </div>
         <div className="card">
           <div className="card-header"><div>
             <h2 className="card-title" style={{ marginBottom: 0 }}>Average Physical-Quality Scores</h2>
-            <span className="card-sub">Cohort mean · 0–100, higher is better</span>
+            <span className="card-sub">Cohort average · higher is better</span>
           </div></div>
           <div style={{ position: 'relative', height: 260 }}><canvas ref={scoresRef} /></div>
         </div>

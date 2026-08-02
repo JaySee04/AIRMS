@@ -117,7 +117,7 @@ export default function CoachReportsPage() {
           <div className="card">
             <div className="card-header"><div>
               <h2 className="card-title" style={{ marginBottom: 0 }}>Team report</h2>
-              <span className="card-sub">Your whole {sport} squad — ranking, attention table, per-athlete snapshots</span>
+              <span className="card-sub">Your whole {sport} squad — ranking, attention table, squad heatmap</span>
             </div></div>
             <p className="text-muted" style={{ fontSize: '0.85rem' }}>
               Cohort-normed group report for <strong>{sport}</strong>, using the reporting window above.

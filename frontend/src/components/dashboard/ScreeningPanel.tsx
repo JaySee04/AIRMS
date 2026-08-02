@@ -171,7 +171,6 @@ export default function ScreeningPanel({ athlete, showTrainingFocus = true }: { 
         <div className="card-header">
           <div>
             <h2 className="card-title" style={{ marginBottom: 0 }}>HoloMotion Screening</h2>
-            <span className="card-sub">Latest ingested report</span>
           </div>
         </div>
         <div className="empty-state">

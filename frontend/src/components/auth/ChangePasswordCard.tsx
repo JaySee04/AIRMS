@@ -65,7 +65,6 @@ export default function ChangePasswordCard() {
     <div className="card">
       <div className="card-header">
         <h2 className="card-title" style={{ marginBottom: 0 }}>Change Password</h2>
-        <span className="card-sub">Update the password you use to sign in</span>
       </div>
 
       <form onSubmit={handleSubmit} style={{ marginTop: 12 }}>
