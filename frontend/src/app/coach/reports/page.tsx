@@ -11,10 +11,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { api } from '@/lib/api';
-import { resolveAthleteId } from '@/lib/name';
+import AthleteSearchSelect, { PickableAthlete } from '@/components/ui/AthleteSearchSelect';
 
-interface SquadAthlete { athleteId: string; name: string; }
-interface ReadinessResponse { sport: string | null; athletes: SquadAthlete[]; }
+interface ReadinessResponse { sport: string | null; athletes: Array<{ athleteId: string; name: string }>; }
 
 function daysAgoISO(n: number) {
   const d = new Date();
@@ -25,8 +24,8 @@ const todayISO = () => new Date().toISOString().slice(0, 10);
 
 export default function CoachReportsPage() {
   const [sport, setSport] = useState<string | null>(null);
-  const [squad, setSquad] = useState<SquadAthlete[]>([]);
-  const [athleteQuery, setAthleteQuery] = useState('');
+  const [squad, setSquad] = useState<PickableAthlete[]>([]);
+  const [selectedId, setSelectedId] = useState('');
   const [from, setFrom] = useState(() => daysAgoISO(30));
   const [to, setTo] = useState(() => todayISO());
   const [busy, setBusy] = useState('');
@@ -37,7 +36,7 @@ export default function CoachReportsPage() {
     try {
       const res = await api.get<ReadinessResponse>('/coach/readiness');
       setSport(res.sport);
-      setSquad((res.athletes ?? []).map((a) => ({ athleteId: a.athleteId, name: a.name })));
+      setSquad((res.athletes ?? []).map((a) => ({ athleteId: a.athleteId, name: a.name, sport: res.sport ?? undefined })));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load your squad');
     } finally {
@@ -46,7 +45,6 @@ export default function CoachReportsPage() {
   }, []);
   useEffect(() => { load(); }, [load]);
 
-  const resolvedId = resolveAthleteId(athleteQuery, squad);
   const range = () => `from=${from}&to=${to}`;
 
   async function dl(kind: string, path: string, filename: string) {
@@ -99,17 +97,17 @@ export default function CoachReportsPage() {
               <span className="card-sub">One athlete from your {sport} squad · searched by name</span>
             </div></div>
             <div className="form-group">
-              <label htmlFor="c-athlete">Athlete</label>
-              <input id="c-athlete" value={athleteQuery} onChange={(e) => setAthleteQuery(e.target.value)} placeholder="Search by name…" list="coach-squad-roster" />
+              <label>Athlete</label>
+              <AthleteSearchSelect athletes={squad} onSelect={setSelectedId} placeholder={`Search your ${squad.length}-athlete squad…`} />
               <div className="text-muted" style={{ fontSize: '0.72rem', marginTop: 2, minHeight: 14 }}>
-                {athleteQuery.trim() ? (resolvedId ? `→ ${resolvedId}` : 'No unique match in your squad') : `Type a name from your ${squad.length}-athlete squad`}
+                {selectedId ? `Selected · ${selectedId}` : 'Search and pick an athlete'}
               </div>
             </div>
             <button
               type="button"
               className="btn btn-primary btn-sm"
-              disabled={busy !== '' || !resolvedId}
-              onClick={() => dl('i', `/screening-reports/individual/${resolvedId}.pdf?${range()}`, `AIRMS-${resolvedId}.pdf`)}
+              disabled={busy !== '' || !selectedId}
+              onClick={() => dl('i', `/screening-reports/individual/${selectedId}.pdf?${range()}`, `AIRMS-${selectedId}.pdf`)}
             >
               {busy === 'i' ? 'Preparing…' : 'Download individual report'}
             </button>
@@ -135,10 +133,6 @@ export default function CoachReportsPage() {
           </div>
         </div>
       )}
-
-      <datalist id="coach-squad-roster">
-        {squad.map((a) => (<option key={a.athleteId} value={a.name}>{a.athleteId}</option>))}
-      </datalist>
     </DashboardLayout>
   );
 }

@@ -7,13 +7,11 @@
 import { useEffect, useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { api } from '@/lib/api';
-import { resolveAthleteId } from '@/lib/name';
-
-interface RosterAthlete { athleteId: string; name: string; sport?: string; }
+import AthleteSearchSelect, { PickableAthlete } from '@/components/ui/AthleteSearchSelect';
 
 export default function AdminReportsPage() {
-  const [roster, setRoster] = useState<RosterAthlete[]>([]);
-  const [athleteQuery, setAthleteQuery] = useState('');
+  const [roster, setRoster] = useState<PickableAthlete[]>([]);
+  const [selectedId, setSelectedId] = useState('');
   const [sport, setSport] = useState('Badminton');
   const [programme, setProgramme] = useState('');
   const [gender, setGender] = useState('');
@@ -24,14 +22,12 @@ export default function AdminReportsPage() {
     let cancelled = false;
     (async () => {
       try {
-        const rows = await api.get<RosterAthlete[]>('/athletes');
+        const rows = await api.get<PickableAthlete[]>('/athletes');
         if (!cancelled) setRoster(rows.map((a) => ({ athleteId: a.athleteId, name: a.name, sport: a.sport })));
-      } catch { /* the ID can still be typed directly */ }
+      } catch { /* picker still renders; roster just empty */ }
     })();
     return () => { cancelled = true; };
   }, []);
-
-  const resolvedId = resolveAthleteId(athleteQuery, roster);
 
   async function dl(kind: string, path: string, filename: string) {
     setBusy(kind); setErr(null);
@@ -57,12 +53,12 @@ export default function AdminReportsPage() {
           <div>
             <strong style={{ fontSize: '0.85rem' }}>Individual</strong>
             <div className="form-group" style={{ margin: '4px 0' }}>
-              <input value={athleteQuery} onChange={(e) => setAthleteQuery(e.target.value)} placeholder="Search by name…" list="report-athlete-roster" aria-label="Athlete name" />
+              <AthleteSearchSelect athletes={roster} onSelect={setSelectedId} />
               <div className="text-muted" style={{ fontSize: '0.72rem', marginTop: 2, minHeight: 14 }}>
-                {athleteQuery.trim() ? (resolvedId ? `→ ${resolvedId}` : 'No unique match yet') : 'Type a name (or an ATH id)'}
+                {selectedId ? `Selected · ${selectedId}` : 'Search and pick an athlete'}
               </div>
             </div>
-            <button type="button" className="btn btn-primary btn-sm" disabled={busy !== '' || !resolvedId} onClick={() => dl('i', `/screening-reports/individual/${resolvedId}.pdf`, `AIRMS-${resolvedId}.pdf`)}>{busy === 'i' ? '…' : 'Download'}</button>
+            <button type="button" className="btn btn-primary btn-sm" disabled={busy !== '' || !selectedId} onClick={() => dl('i', `/screening-reports/individual/${selectedId}.pdf`, `AIRMS-${selectedId}.pdf`)}>{busy === 'i' ? '…' : 'Download'}</button>
           </div>
           <div>
             <strong style={{ fontSize: '0.85rem' }}>Team / group</strong>
@@ -77,9 +73,6 @@ export default function AdminReportsPage() {
             }}>{busy === 't' ? '…' : 'Download'}</button>
           </div>
         </div>
-        <datalist id="report-athlete-roster">
-          {roster.map((a) => (<option key={a.athleteId} value={a.name}>{a.athleteId}{a.sport ? ` · ${a.sport}` : ''}</option>))}
-        </datalist>
       </div>
     </DashboardLayout>
   );
