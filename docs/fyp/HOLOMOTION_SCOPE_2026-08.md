@@ -17,7 +17,18 @@ imbalance, cohort norms, the overall indicator) stays. Anything fed by another
 input is flagged below for JC to decide on — **nothing in this list has been
 removed.**
 
-## 🚩 Flagged — not powered by HoloMotion PDF (awaiting JC's decision)
+## ✅ RESOLVED 2026-08-02 — all of the below were REMOVED
+
+JC decided: *"remove both. as long as it is not HoloMotion PDF related, remove
+it."* Every flagged feature below was **fully deleted** (code, models, DB
+tables, seeder, UI) — HoloMotion PDF is now the sole data source. The admin
+dashboard was rebuilt chart-first as "Screening Analytics". This gutted FDD
+Module 2 (Injury & Recovery Logging) and the injury half of Module 5, so the
+report/FDD/viva narrative + CLAUDE.md need a matching pass (JC's call). The
+dormant ACWR/locked files (`lib/risk.ts`, `AcwrGauge`, `WorkloadChart`) were
+KEPT — non-HoloMotion but locked per CLAUDE.md §12 with no live callers.
+
+## 🚩 The features that were flagged, then removed (2026-08-02)
 
 | # | Feature | Where it lives | Note |
 |---|---------|----------------|------|
