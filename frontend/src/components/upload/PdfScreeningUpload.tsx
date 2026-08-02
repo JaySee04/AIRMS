@@ -22,7 +22,6 @@ import TagCombobox from '@/components/ui/TagCombobox';
 import ScreeningPreview from '@/components/upload/ScreeningPreview';
 import * as uploadStore from '@/lib/screeningUploadStore';
 import type { QueueItem, CommittedEntry, RosterAthlete } from '@/lib/screeningUploadStore';
-import { BATCH_SPACING_MS } from '@/lib/screeningUploadStore';
 
 // The "muscle hero" — the shared body-map figure (front/back) with flag cards.
 // Heavy (SVG path data), client-only; split it out like the dashboards do.
@@ -224,7 +223,7 @@ export default function PdfScreeningUpload() {
             </button>
           )}
           <span className="text-muted" style={{ fontSize: '0.78rem' }}>
-            {busy ? 'Reading…' : 'PDFs are read automatically when added'} · one vision call per file, spaced {BATCH_SPACING_MS / 1000}s apart; importing costs no extra calls.
+            {busy ? 'Reading…' : 'PDFs are read automatically when added'}
           </span>
         </div>
       )}
