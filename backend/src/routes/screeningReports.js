@@ -314,6 +314,88 @@ function subitemTable(doc, subitems) {
   doc.y = ly + 16;
 }
 
+// Priority-areas callout: the lowest subitem readings as labelled bars, so the
+// values that actually need attention lead the section instead of hiding among
+// 25 equal discs. Each bar is tier-coloured with the value + tier word.
+function subitemPriorities(doc, subitems, { count = 5 } = {}) {
+  if (!subitems || typeof subitems !== 'object') return;
+  const all = [];
+  for (const [key, label] of SUBITEM_REGIONS) {
+    const r = subitems[key] || {};
+    for (const [ck, clabel] of SUBITEM_COLS) {
+      const v = num(r[ck]);
+      if (v !== null) all.push({ label: `${label} · ${clabel}`, v });
+    }
+  }
+  if (!all.length) return;
+  all.sort((a, b) => a.v - b.v);
+  const rows = all.slice(0, count);
+  ensure(doc, 20 + 16 * rows.length);
+  doc.fontSize(10).font('Helvetica-Bold').fillColor(NAVY).text('Priority areas — lowest subitem scores', 50);
+  doc.moveDown(0.3);
+  const x = 50; const w = doc.page.width - 100; const barW = w - 260;
+  for (const row of rows) {
+    ensure(doc, 16);
+    const y = doc.y;
+    const t = tierOf(row.v);
+    doc.fillColor(TEXT).fontSize(9).font('Helvetica').text(row.label, x, y + 1, { width: 150, lineBreak: false });
+    const bx = x + 155;
+    doc.roundedRect(bx, y, barW, 11, 2).fill('#eef1f4');
+    doc.roundedRect(bx, y, Math.max(2, barW * Math.min(1, row.v / 100)), 11, 2).fill(t.color);
+    doc.fillColor(t.color).fontSize(9).font('Helvetica-Bold')
+      .text(`${row.v}  ${t.label}`, bx + barW + 8, y + 1, { width: 90, lineBreak: false });
+    doc.y = y + 16;
+  }
+  doc.fillColor(TEXT);
+  doc.moveDown(0.3);
+}
+
+// Squad subitem heatmap: one row per athlete, one cell per region coloured by
+// that athlete's WEAKEST reading (min of ROM/Stability/Symmetry) in the region.
+// Replaces the repeated per-athlete disc grids — scan a column to spot a region
+// that's weak across the squad. The per-metric detail lives in individual reports.
+function squadSubitemHeatmap(doc, members) {
+  const rows = members.filter((m) => m.s.subitems && typeof m.s.subitems === 'object');
+  if (!rows.length) { doc.fontSize(9).fillColor(MUTED).text('No subitem scores on record for this group.', 50); return; }
+  const x = 50; const nameW = 150; const colW = (doc.page.width - 100 - nameW) / SUBITEM_REGIONS.length; const rowH = 22;
+  ensure(doc, 30 + rowH * rows.length + 24);
+  // header
+  let y = doc.y + 2;
+  doc.fontSize(7.5).font('Helvetica-Bold').fillColor(MUTED).text('Athlete', x, y, { width: nameW, lineBreak: false });
+  SUBITEM_REGIONS.forEach(([, label], i) => {
+    doc.text(label, x + nameW + i * colW, y, { width: colW, align: 'center', lineBreak: false });
+  });
+  y += 14;
+  for (const m of rows) {
+    ensure(doc, rowH);
+    const b = m.s.overrideBand || m.s.overallBand;
+    doc.circle(x + 4, y + 8, 3).fill(bandColor(b));
+    doc.fillColor(TEXT).fontSize(8.5).font('Helvetica')
+      .text(m.a.name, x + 12, y + 3, { width: nameW - 16, height: 12, lineBreak: false, ellipsis: true });
+    SUBITEM_REGIONS.forEach(([key], i) => {
+      const r = m.s.subitems[key] || {};
+      const vals = SUBITEM_COLS.map(([ck]) => num(r[ck])).filter((v) => v !== null);
+      const cellX = x + nameW + i * colW;
+      if (!vals.length) { doc.fillColor(MUTED).fontSize(8).text('—', cellX + colW / 2 - 3, y + 4, { lineBreak: false }); return; }
+      const worst = Math.min(...vals);
+      doc.roundedRect(cellX + 3, y, colW - 6, rowH - 6, 3).fill(tierOf(worst).color);
+      doc.fillColor('#fff').fontSize(8.5).font('Helvetica-Bold')
+        .text(String(worst), cellX + 3, y + 4, { width: colW - 6, align: 'center', lineBreak: false });
+    });
+    y += rowH;
+  }
+  doc.y = y + 4;
+  // tier legend (squares, matching the cells)
+  let lx = 50; const ly = doc.y;
+  for (const t of TIERS) {
+    doc.roundedRect(lx, ly, 8, 8, 2).fill(t.color);
+    doc.fillColor(MUTED).fontSize(8).font('Helvetica').text(t.label, lx + 12, ly, { lineBreak: false });
+    lx += doc.widthOfString(t.label) + 40;
+  }
+  doc.fillColor(TEXT);
+  doc.y = ly + 14;
+}
+
 // Physical Fitness Subitem Score as a body figure (front + back), tier-
 // coloured per HoloMotion region — the PDF counterpart of the website's
 // BodyMap "ROM & Stability" mode. Reuses the SAME TIERS/tierOf() as the
@@ -823,10 +905,12 @@ router.get('/individual/:id.pdf', auth, requirePermission('viewRecords'), async 
     radar(doc, RISKS.map(([key, label]) => ({ label, value: num(latest[key]) ?? 0 })), { max: 40, color: GOLD, guide: ELEVATED_THRESHOLD });
     doc.fontSize(8).fillColor(MUTED).text('Radar scale 0–40 (lower is better). Dashed red line = Elevated threshold (>25, standard bands — see note above on sport-critical tightening). Lumbar Disc Herniation is recorded but not assessed at ISN and is excluded from AIRMS risk displays.', 50, doc.y, { width: doc.page.width - 100 });
 
-    // Physical Fitness Subitem Score — figure first (glance), table under it
-    // (exact numbers), same pairing as the website's BodyMap toggle.
+    // Physical Fitness Subitem Score — figure (glance) → priority callout (the
+    // lowest readings, so what matters leads) → full table (exact numbers).
     sectionTitle(doc, 'Physical Fitness Subitem Score', 380);
     muscleFigure(doc, latest.subitems);
+    subitemPriorities(doc, latest.subitems);
+    sectionTitle(doc, 'Full subitem breakdown', 170);
     subitemTable(doc, latest.subitems);
 
     // Lateral Symmetry — analytic view of the L/R subitems above (TMG-style):
@@ -1031,24 +1115,13 @@ router.get('/team.pdf', auth, rbac('medical', 'admin', 'coach'), requirePermissi
       doc.moveDown(0.15);
     }
 
-    // Per-athlete snapshots (TMG group-report style individual sections)
+    // Squad subitem heatmap — one compact grid of every flagged athlete's
+    // weakest reading per region (replaces the old per-athlete disc grids).
     if (flagged.length) {
-      sectionTitle(doc, 'Individual Snapshots (flagged athletes)');
-      doc.fontSize(8).fillColor(MUTED).text('One block per flagged athlete: subitem scores on the HoloMotion tier colours, for targeted follow-up.', 50);
+      sectionTitle(doc, 'Squad Subitem Heatmap (flagged athletes)');
+      doc.fontSize(8).fillColor(MUTED).text('Each cell is the athlete’s weakest subitem reading (ROM / Stability / Symmetry) for that region — scan a column to spot a region weak across the squad.', 50, doc.y, { width: doc.page.width - 100 });
       doc.moveDown(0.4);
-      for (const m of flagged) {
-        ensure(doc, 190);
-        const b = m.s.overrideBand || m.s.overallBand;
-        const y = doc.y;
-        bandPill(doc, b, 50, y);
-        doc.fontSize(10).font('Helvetica-Bold').fillColor(TEXT)
-          .text(`${m.a.name} (${m.a.athleteId})`, 195, y + 4, { lineBreak: false });
-        doc.fontSize(9).font('Helvetica').fillColor(MUTED)
-          .text(`indicator ${m.s.overallIndicator ?? '—'} · assessed ${fmtDate(m.s.assessedAt)}`, 380, y + 5, { lineBreak: false });
-        doc.y = y + 28;
-        subitemTable(doc, m.s.subitems);
-        doc.moveDown(0.5);
-      }
+      squadSubitemHeatmap(doc, flagged);
     }
 
     finish(doc, 'Team Screening Report');
