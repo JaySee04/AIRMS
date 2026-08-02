@@ -7,6 +7,7 @@
 import { useEffect, useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { api } from '@/lib/api';
+import { resolveAthleteId } from '@/lib/name';
 
 interface RosterAthlete { athleteId: string; name: string; sport?: string; }
 
@@ -30,19 +31,7 @@ export default function AdminReportsPage() {
     return () => { cancelled = true; };
   }, []);
 
-  // Resolve the typed value to an athlete ID: explicit ATHxxxx wins, else an
-  // exact name match, else a unique case-insensitive prefix match.
-  const resolveAthleteId = (q: string): string => {
-    const raw = q.trim();
-    const m = raw.match(/ATH\d+/i);
-    if (m) return m[0].toUpperCase();
-    const lower = raw.toLowerCase();
-    const exact = roster.find((a) => a.name.toLowerCase() === lower);
-    if (exact) return exact.athleteId;
-    const hits = roster.filter((a) => a.name.toLowerCase().startsWith(lower));
-    return hits.length === 1 ? hits[0].athleteId : '';
-  };
-  const resolvedId = resolveAthleteId(athleteQuery);
+  const resolvedId = resolveAthleteId(athleteQuery, roster);
 
   async function dl(kind: string, path: string, filename: string) {
     setBusy(kind); setErr(null);

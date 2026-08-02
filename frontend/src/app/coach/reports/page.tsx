@@ -11,6 +11,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { api } from '@/lib/api';
+import { resolveAthleteId } from '@/lib/name';
 
 interface SquadAthlete { athleteId: string; name: string; }
 interface ReadinessResponse { sport: string | null; athletes: SquadAthlete[]; }
@@ -45,18 +46,7 @@ export default function CoachReportsPage() {
   }, []);
   useEffect(() => { load(); }, [load]);
 
-  // Resolve the typed value to an athlete ID within the coach's squad.
-  const resolveAthleteId = (q: string): string => {
-    const raw = q.trim();
-    const m = raw.match(/ATH\d+/i);
-    if (m) return m[0].toUpperCase();
-    const lower = raw.toLowerCase();
-    const exact = squad.find((a) => a.name.toLowerCase() === lower);
-    if (exact) return exact.athleteId;
-    const hits = squad.filter((a) => a.name.toLowerCase().startsWith(lower));
-    return hits.length === 1 ? hits[0].athleteId : '';
-  };
-  const resolvedId = resolveAthleteId(athleteQuery);
+  const resolvedId = resolveAthleteId(athleteQuery, squad);
   const range = () => `from=${from}&to=${to}`;
 
   async function dl(kind: string, path: string, filename: string) {

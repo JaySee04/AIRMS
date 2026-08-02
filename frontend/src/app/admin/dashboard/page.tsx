@@ -126,16 +126,17 @@ export default function AdminDashboard() {
       const cat = { grid: { color: pal.grid }, ticks: { color: pal.tick } };
       const val = { grid: { color: pal.grid }, ticks: { color: pal.tick, precision: 0 }, beginAtZero: true };
       const legend = { labels: { color: pal.tick, boxWidth: 12, font: { size: 11 } } };
+      // Shared doughnut builder — entries are [label, value, colour].
+      const doughnut = (canvas: HTMLCanvasElement, entries: ReadonlyArray<readonly [string, number, string]>) => new Chart(canvas, {
+        type: 'doughnut',
+        data: { labels: entries.map((e) => e[0]), datasets: [{ data: entries.map((e) => e[1]), backgroundColor: entries.map((e) => e[2]), borderWidth: 0 }] },
+        options: { responsive: true, maintainAspectRatio: false, cutout: '62%', plugins: { legend: { position: 'bottom', ...legend } } },
+      });
 
       // Band distribution — doughnut
       if (bandRef.current) {
         const bd = cohort.bandDistribution;
-        const entries = [['Safe', bd.green, BAND.green], ['Needs attention', bd.amber, BAND.amber], ['Immediate', bd.red, BAND.red]] as const;
-        charts.current.push(new Chart(bandRef.current, {
-          type: 'doughnut',
-          data: { labels: entries.map((e) => e[0]), datasets: [{ data: entries.map((e) => e[1]), backgroundColor: entries.map((e) => e[2]), borderWidth: 0 }] },
-          options: { responsive: true, maintainAspectRatio: false, cutout: '62%', plugins: { legend: { position: 'bottom', ...legend } } },
-        }));
+        charts.current.push(doughnut(bandRef.current, [['Safe', bd.green, BAND.green], ['Needs attention', bd.amber, BAND.amber], ['Immediate', bd.red, BAND.red]]));
       }
 
       // Average physical-quality scores — bar (0–100, higher better)
@@ -168,12 +169,7 @@ export default function AdminDashboard() {
       // Screening momentum — doughnut (previous vs latest)
       if (trendRef.current) {
         const t = cohort.trend;
-        const entries = [['Improving', t.improving, BAND.green], ['Declining', t.declining, BAND.red], ['Steady', t.steady, BAND.none]] as const;
-        charts.current.push(new Chart(trendRef.current, {
-          type: 'doughnut',
-          data: { labels: entries.map((e) => e[0]), datasets: [{ data: entries.map((e) => e[1]), backgroundColor: entries.map((e) => e[2]), borderWidth: 0 }] },
-          options: { responsive: true, maintainAspectRatio: false, cutout: '62%', plugins: { legend: { position: 'bottom', ...legend } } },
-        }));
+        charts.current.push(doughnut(trendRef.current, [['Improving', t.improving, BAND.green], ['Declining', t.declining, BAND.red], ['Steady', t.steady, BAND.none]]));
       }
 
       // Muscle hotspots — horizontal bar (myodynamia + tension merged, top 8)
