@@ -126,17 +126,19 @@ export default function AdminDashboard() {
       const cat = { grid: { color: pal.grid }, ticks: { color: pal.tick } };
       const val = { grid: { color: pal.grid }, ticks: { color: pal.tick, precision: 0 }, beginAtZero: true };
       const legend = { labels: { color: pal.tick, boxWidth: 12, font: { size: 11 } } };
-      // Shared doughnut builder — entries are [label, value, colour].
-      const doughnut = (canvas: HTMLCanvasElement, entries: ReadonlyArray<readonly [string, number, string]>) => new Chart(canvas, {
+      // Shared pie builder — entries are [label, value, colour]. Full pies
+      // (cutout 0) with slices sectioned by card-coloured lines, Google-Forms
+      // style. `cutout` overridable if a ring is ever wanted again.
+      const pie = (canvas: HTMLCanvasElement, entries: ReadonlyArray<readonly [string, number, string]>, cutout = '0%') => new Chart(canvas, {
         type: 'doughnut',
-        data: { labels: entries.map((e) => e[0]), datasets: [{ data: entries.map((e) => e[1]), backgroundColor: entries.map((e) => e[2]), borderWidth: 0 }] },
-        options: { responsive: true, maintainAspectRatio: false, cutout: '62%', plugins: { legend: { position: 'bottom', ...legend } } },
+        data: { labels: entries.map((e) => e[0]), datasets: [{ data: entries.map((e) => e[1]), backgroundColor: entries.map((e) => e[2]), borderColor: pal.cardBg, borderWidth: 2 }] },
+        options: { responsive: true, maintainAspectRatio: false, cutout, plugins: { legend: { position: 'bottom', ...legend } } },
       });
 
-      // Band distribution — doughnut
+      // Band distribution — full pie
       if (bandRef.current) {
         const bd = cohort.bandDistribution;
-        charts.current.push(doughnut(bandRef.current, [['Safe', bd.green, BAND.green], ['Needs attention', bd.amber, BAND.amber], ['Immediate', bd.red, BAND.red]]));
+        charts.current.push(pie(bandRef.current, [['Safe', bd.green, BAND.green], ['Needs attention', bd.amber, BAND.amber], ['Immediate', bd.red, BAND.red]]));
       }
 
       // Average physical-quality scores — bar (0–100, higher better)
@@ -145,7 +147,7 @@ export default function AdminDashboard() {
         const rows: Array<[string, number | null]> = [['Total', a.overallActivityScore], ['ROM', a.mobility], ['Stability', a.stability], ['Symmetry', a.symmetry]];
         charts.current.push(new Chart(scoresRef.current, {
           type: 'bar',
-          data: { labels: rows.map((r) => r[0]), datasets: [{ label: 'Cohort average', data: rows.map((r) => r[1] ?? 0), backgroundColor: pal.bar, borderRadius: 4 }] },
+          data: { labels: rows.map((r) => r[0]), datasets: [{ label: 'Cohort average', data: rows.map((r) => r[1] ?? 0), backgroundColor: pal.bar, borderRadius: 4, maxBarThickness: 42 }] },
           options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: cat, y: { ...val, max: 100 } } },
         }));
       }
@@ -157,19 +159,19 @@ export default function AdminDashboard() {
           data: {
             labels: cohort.indicators.map((i) => i.label),
             datasets: [
-              { label: 'Low', data: cohort.indicators.map((i) => i.ok), backgroundColor: BAND.green, borderRadius: 2 },
-              { label: 'Watch', data: cohort.indicators.map((i) => i.watch), backgroundColor: BAND.amber, borderRadius: 2 },
-              { label: 'Elevated', data: cohort.indicators.map((i) => i.high), backgroundColor: BAND.red, borderRadius: 2 },
+              { label: 'Low', data: cohort.indicators.map((i) => i.ok), backgroundColor: BAND.green, borderRadius: 2, maxBarThickness: 46 },
+              { label: 'Watch', data: cohort.indicators.map((i) => i.watch), backgroundColor: BAND.amber, borderRadius: 2, maxBarThickness: 46 },
+              { label: 'Elevated', data: cohort.indicators.map((i) => i.high), backgroundColor: BAND.red, borderRadius: 2, maxBarThickness: 46 },
             ],
           },
           options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', ...legend } }, scales: { x: { ...cat, stacked: true }, y: { ...val, stacked: true } } },
         }));
       }
 
-      // Screening momentum — doughnut (previous vs latest)
+      // Screening momentum — full pie (previous vs latest)
       if (trendRef.current) {
         const t = cohort.trend;
-        charts.current.push(doughnut(trendRef.current, [['Improving', t.improving, BAND.green], ['Declining', t.declining, BAND.red], ['Steady', t.steady, BAND.none]]));
+        charts.current.push(pie(trendRef.current, [['Improving', t.improving, BAND.green], ['Declining', t.declining, BAND.red], ['Steady', t.steady, BAND.none]]));
       }
 
       // Muscle hotspots — horizontal bar (myodynamia + tension merged, top 8)

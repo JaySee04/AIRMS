@@ -27,12 +27,13 @@ export interface ChartPalette {
   grid: string;     // axis grid / radar web lines
   tick: string;     // axis ticks, titles, point labels, legend text
   barFill: string;  // translucent fill for line/area datasets
+  cardBg: string;   // the card surface — used to section pie/doughnut slices (Google-Forms style)
 }
 
 // Light keeps the brand navy; dark lifts it to a mid blue that reads on the dark
 // card, and softens grid/tick colours so axes are visible but not shouty.
 export function chartPalette(isDark: boolean): ChartPalette {
   return isDark
-    ? { bar: '#5b9bd5', gold: '#e0b84e', grid: 'rgba(255,255,255,0.10)', tick: '#8899aa', barFill: 'rgba(91,155,213,0.18)' }
-    : { bar: '#0f2c4a', gold: '#c89b3c', grid: 'rgba(0,0,0,0.08)', tick: '#6b7280', barFill: 'rgba(15,44,74,0.10)' };
+    ? { bar: '#5b9bd5', gold: '#e0b84e', grid: 'rgba(255,255,255,0.10)', tick: '#8899aa', barFill: 'rgba(91,155,213,0.18)', cardBg: '#1a2535' }
+    : { bar: '#0f2c4a', gold: '#c89b3c', grid: 'rgba(0,0,0,0.08)', tick: '#6b7280', barFill: 'rgba(15,44,74,0.10)', cardBg: '#ffffff' };
 }

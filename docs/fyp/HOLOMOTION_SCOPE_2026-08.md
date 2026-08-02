@@ -44,11 +44,23 @@ once the HoloMotion-centric admin dashboard + reports land (they may make the
 manual streams redundant, or you may keep self-report as the between-sessions
 channel — see `memory/self-report-purpose`).
 
-## Open decision — Cohort Norm settings
+## ✅ RESOLVED 2026-08-02 — Cohort Norm settings
 
-The **Cohort Norms** page (`admin/thresholds`) has a settings card separate from
-the norm values. JC asked whether these are necessary; decision deferred to after
-this to-do list. Here's each knob in plain terms so you can decide:
+JC decided to **keep** the norming knobs but **move them off the Cohort Norms
+page** onto a dedicated admin **Settings** page (`admin/settings`), reached via a
+"Settings" button on the Cohort Norms page (admin-only; medical norm-editors
+never see it). The Cohort Norms page now shows only the norm *values* table +
+Recompute. Two **dead** tiles were removed in the process: the **Active-injury
+floor** (its `escalation_injury` setting was deleted with the injury features on
+2026-08-02) and **Self-report → medical** (its `notify_self_report` setting went
+with self-reporting). Both had been writing settings the backend no longer reads.
+The surviving knobs (min-n, bottom-k, below-mean, per-indicator, fallback,
+auto-overwrite) and the three live notification toggles all stay. The plain-terms
+table below is retained for the viva rationale.
+
+The **Cohort Norms** page (`admin/thresholds`) had a settings card separate from
+the norm values. JC asked whether these are necessary. Here's each knob in plain
+terms:
 
 | Setting | What it does | Keep? |
 |---------|--------------|-------|
