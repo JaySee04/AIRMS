@@ -68,10 +68,15 @@ async function downloadGet(path: string, filename: string): Promise<void> {
     const data = await res.json().catch(() => ({}));
     throw new Error(data.message ?? `HTTP ${res.status}`);
   }
+  // Prefer the server-set filename (Content-Disposition) — the backend owns the
+  // report-naming scheme. Fall back to the caller's name if the header is absent.
+  const cd = res.headers.get('Content-Disposition');
+  const match = cd && /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(cd);
+  const name = match ? decodeURIComponent(match[1].trim()) : filename;
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = filename; a.click();
+  a.href = url; a.download = name; a.click();
   URL.revokeObjectURL(url);
 }
 

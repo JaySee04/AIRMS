@@ -1930,6 +1930,14 @@ tr.row-flash > td { animation: row-flash 1.6s ease-out; }
 
 /* ── Tables ─────────────────────────────────────────────────────────────────── */
 .table-wrap { overflow-x: auto; }
+
+/* Compact key that explains a table's colour/number columns without prior context. */
+.table-legend { display: grid; gap: 4px 18px; margin: 12px 0 0; font-size: 0.76rem; color: var(--text-muted); }
+.table-legend > div { display: flex; gap: 6px; flex-wrap: wrap; align-items: baseline; }
+.table-legend dt { font-weight: 700; color: var(--text); flex: 0 0 auto; }
+.table-legend dt::after { content: '—'; margin-left: 6px; color: var(--text-muted); font-weight: 400; }
+.table-legend dd { margin: 0; }
+
 table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
 th { text-align: left; padding: 10px 12px; font-weight: 600; border-bottom: 2px solid var(--border); color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; }
 td { padding: 10px 12px; border-bottom: 1px solid var(--border); }

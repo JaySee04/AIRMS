@@ -35,7 +35,9 @@ const ALLOWED_ORIGINS = (process.env.FRONTEND_URL || 'http://localhost:3000,http
 // this API; CORS still governs who may call the API. Other helmet defaults
 // (HSTS, noSniff, frameguard, etc.) apply unchanged.
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
-app.use(cors({ origin: ALLOWED_ORIGINS, credentials: true }));
+// Expose Content-Disposition so the frontend PDF downloader can read the
+// server-set report filename (the single source of truth for report naming).
+app.use(cors({ origin: ALLOWED_ORIGINS, credentials: true, exposedHeaders: ['Content-Disposition'] }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

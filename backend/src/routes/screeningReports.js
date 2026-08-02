@@ -108,6 +108,13 @@ const COMPONENT_LABELS = {
 const num = (v) => (v === null || v === undefined || Number.isNaN(Number(v)) ? null : Number(v));
 const fmtDate = (d) => (d ? new Date(d).toISOString().slice(0, 10) : '—');
 
+// One report-naming scheme: AIRMS_<Type>_<who/scope>_<date>.pdf — name-based and
+// accurate to the actual athlete/filters so a saved file is self-describing.
+// The Content-Disposition this sets is honoured by the frontend downloader
+// (CORS exposes the header), so this is the single source of truth for names.
+const fileSlug = (s) => String(s ?? '').trim().replace(/[^\w.-]+/g, '_').replace(/_{2,}/g, '_').replace(/^_+|_+$/g, '') || 'report';
+const todayStamp = () => new Date().toISOString().slice(0, 10);
+
 // ── document plumbing ────────────────────────────────────────────────────────
 function startDoc(res, filename) {
   const doc = new PDFDocument({ size: 'A4', margin: 50, bufferPages: true });
@@ -760,8 +767,8 @@ router.get('/holistic.pdf', auth, rbac('admin'), async (_req, res) => {
       latestScreeningsByAthlete(),
       Athlete.count({ where: { isActive: true } }),
     ]);
-    const doc = startDoc(res, 'AIRMS-screening-holistic.pdf');
-    cover(doc, 'Screening — Holistic Report', new Date().toISOString().slice(0, 10));
+    const doc = startDoc(res, `AIRMS_Holistic_${todayStamp()}.pdf`);
+    cover(doc, 'Holistic Screening Report', `All athletes · ${todayStamp()}`);
 
     doc.fontSize(10).fillColor(MUTED).text(
       `Population: ${rows.length} of ${totalActive} active athletes have a HoloMotion screening on record `
@@ -865,7 +872,7 @@ router.get('/individual/:id.pdf', auth, requirePermission('viewRecords'), async 
     const latest = history[0];
     const cohort = await resolveCohortStats(athlete, { minN: settings.min_cohort_n, fallbackEnabled: settings.fallback_enabled });
 
-    const doc = startDoc(res, `AIRMS-individual-${athlete.athleteId}.pdf`);
+    const doc = startDoc(res, `AIRMS_Individual_${fileSlug(athlete.name)}_${athlete.athleteId}_${fmtDate(latest.assessedAt)}.pdf`);
     cover(doc, 'Individual Screening Report', `${athlete.name} · ${athlete.athleteId}`);
     doc.fontSize(10).fillColor(TEXT).text(
       `${athlete.sport} · ${athlete.program} · ${athlete.gender ?? '—'} · age ${athlete.age ?? '—'}   ·   assessed ${fmtDate(latest.assessedAt)}   ·   imported by ${latest.importedBy ?? '—'}`, 50);
@@ -1026,8 +1033,9 @@ router.get('/team.pdf', auth, rbac('medical', 'admin', 'coach'), requirePermissi
     // Group threshold from this exact group.
     const group = computeStats(members.map((m) => m.s));
 
-    const doc = startDoc(res, 'AIRMS-team-report.pdf');
-    cover(doc, 'Team / Group Screening Report', [sport, programme, gender].filter(Boolean).join(' · '));
+    const groupParts = [sport, programme, gender].filter(Boolean);
+    const doc = startDoc(res, `AIRMS_Team_${groupParts.map(fileSlug).join('_')}_${todayStamp()}.pdf`);
+    cover(doc, 'Team Screening Report', `${groupParts.join(' · ')} · ${todayStamp()}`);
     doc.fontSize(10).fillColor(MUTED).text(
       `${members.length} screened athletes of ${athletes.length} in the group. `
       + 'Group thresholds are this group’s own averages; the ranking and attention table below read every athlete against them.', 50);

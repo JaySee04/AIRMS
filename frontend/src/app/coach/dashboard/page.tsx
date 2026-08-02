@@ -741,7 +741,13 @@ export default function CoachDashboard() {
               </tbody>
             </table>
           </div>
-          <p className="text-muted" style={{ fontSize: '0.78rem', marginTop: 12, marginBottom: 0 }}>
+          <dl className="table-legend">
+            <div><dt>HoloMotion Risk</dt><dd>cohort indicator 0–100 (50 = group average); dot colour is the risk band — <span style={{ color: 'var(--risk-low)' }}>●</span> safe · <span style={{ color: 'var(--risk-moderate)' }}>●</span> needs attention · <span style={{ color: 'var(--risk-high)' }}>●</span> immediate assessment</dd></div>
+            <div><dt>Trend</dt><dd>change vs the previous screening — <span style={{ color: 'var(--risk-low)' }}>↑</span> improving · <span style={{ color: 'var(--risk-high)' }}>↓</span> declining · steady within ±2</dd></div>
+            <div><dt>Readiness</dt><dd>Full-Go = cleared · Observation = modified load · Restricted = clinical priority</dd></div>
+            <div><dt>Worst region</dt><dd>the athlete&apos;s highest exercise-risk reading this screening</dd></div>
+          </dl>
+          <p className="text-muted" style={{ fontSize: '0.78rem', marginTop: 8, marginBottom: 0 }}>
             Readiness is informational. Clinical decisions and overrides remain with medical staff.
           </p>
         </div>
