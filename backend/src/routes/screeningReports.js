@@ -76,12 +76,18 @@ const RISKS = [
   ['ankleInjuryRisk', 'Ankle Sprain'],
 ];
 
-// Physical Fitness Subitem Score — HoloMotion's 60/75/85 tiers.
+// Physical Fitness Subitem Score — HoloMotion's 60/75/85 tiers. Colours mirror
+// the website's ROM & Stability language exactly (BodyMap: --risk-low /
+// --risk-undertrained / --risk-moderate / --risk-high, light theme) so a tier
+// reads the same green → blue → yellow → red on screen and on paper.
+//   color   — the fill (discs, bars, heatmap cells, body regions, swatches)
+//   ink     — text drawn ON that fill (white on dark tiers; dark on yellow)
+//   onLight — tier-coloured text on white paper (yellow darkened to stay legible)
 const TIERS = [
-  { min: 85, label: 'Excellent', color: '#2e9e5b' },
-  { min: 75, label: 'Good', color: '#2a9db8' },
-  { min: 60, label: 'Average', color: '#5b64c9' },
-  { min: 0, label: 'Below Average', color: '#9b45c9' },
+  { min: 85, label: 'Excellent', color: '#3d7c47', ink: '#ffffff', onLight: '#3d7c47' },
+  { min: 75, label: 'Good', color: '#2a6391', ink: '#ffffff', onLight: '#2a6391' },
+  { min: 60, label: 'Average', color: '#c89b3c', ink: '#3d2f05', onLight: '#8a6a16' },
+  { min: 0, label: 'Below Average', color: '#b03030', ink: '#ffffff', onLight: '#b03030' },
 ];
 const tierOf = (v) => TIERS.find((t) => v >= t.min) || TIERS[TIERS.length - 1];
 const SUBITEM_REGIONS = [
@@ -303,7 +309,7 @@ function subitemTable(doc, subitems) {
       } else {
         const t = tierOf(v);
         doc.circle(cx, y + 10, 10).fill(t.color);
-        doc.fillColor('#fff').fontSize(8).font('Helvetica-Bold')
+        doc.fillColor(t.ink).fontSize(8).font('Helvetica-Bold')
           .text(String(v), cx - 10, y + 6.5, { width: 20, align: 'center', lineBreak: false });
       }
     });
@@ -349,7 +355,7 @@ function subitemPriorities(doc, subitems, { count = 5 } = {}) {
     const bx = x + 155;
     doc.roundedRect(bx, y, barW, 11, 2).fill('#eef1f4');
     doc.roundedRect(bx, y, Math.max(2, barW * Math.min(1, row.v / 100)), 11, 2).fill(t.color);
-    doc.fillColor(t.color).fontSize(9).font('Helvetica-Bold')
+    doc.fillColor(t.onLight).fontSize(9).font('Helvetica-Bold')
       .text(`${row.v}  ${t.label}`, bx + barW + 8, y + 1, { width: 90, lineBreak: false });
     doc.y = y + 16;
   }
@@ -385,8 +391,9 @@ function squadSubitemHeatmap(doc, members) {
       const cellX = x + nameW + i * colW;
       if (!vals.length) { doc.fillColor(MUTED).fontSize(8).text('—', cellX + colW / 2 - 3, y + 4, { lineBreak: false }); return; }
       const worst = Math.min(...vals);
-      doc.roundedRect(cellX + 3, y, colW - 6, rowH - 6, 3).fill(tierOf(worst).color);
-      doc.fillColor('#fff').fontSize(8.5).font('Helvetica-Bold')
+      const wt = tierOf(worst);
+      doc.roundedRect(cellX + 3, y, colW - 6, rowH - 6, 3).fill(wt.color);
+      doc.fillColor(wt.ink).fontSize(8.5).font('Helvetica-Bold')
         .text(String(worst), cellX + 3, y + 4, { width: colW - 6, align: 'center', lineBreak: false });
     });
     y += rowH;
@@ -515,7 +522,7 @@ function symmetrySection(doc, subitems) {
     doc.fontSize(9).font('Helvetica').fillColor(TEXT).text(r.label, x, y + 3, { width: labelW - 6, lineBreak: false });
     const cx = x + labelW + symW / 2;
     doc.circle(cx, y + 7, 10).fill(r.tier.color);
-    doc.fillColor('#fff').fontSize(8).font('Helvetica-Bold').text(String(r.sym), cx - 10, y + 3.5, { width: 20, align: 'center', lineBreak: false });
+    doc.fillColor(r.tier.ink).fontSize(8).font('Helvetica-Bold').text(String(r.sym), cx - 10, y + 3.5, { width: 20, align: 'center', lineBreak: false });
     doc.fontSize(9).font('Helvetica').fillColor(r.sym >= 75 ? TEXT : BAND.amber).text(r.status, x + labelW + symW + 10, y + 3, { width: statusW - 12, lineBreak: false });
     doc.fillColor(MUTED).text(r.weaker === 'Balanced' ? 'Balanced' : `${r.weaker} weaker by ${r.gap}`, x + labelW + symW + statusW, y + 3, { lineBreak: false });
     y += 22;
@@ -609,7 +616,7 @@ function squadSymmetrySection(doc, members) {
     doc.fontSize(9).font('Helvetica').fillColor(TEXT).text(r.label, x, y + 3, { width: labelW - 6, lineBreak: false });
     const cx = x + labelW + avgW / 2;
     doc.circle(cx, y + 7, 10).fill(r.tier.color);
-    doc.fillColor('#fff').fontSize(8).font('Helvetica-Bold').text(String(r.avg), cx - 10, y + 3.5, { width: 20, align: 'center', lineBreak: false });
+    doc.fillColor(r.tier.ink).fontSize(8).font('Helvetica-Bold').text(String(r.avg), cx - 10, y + 3.5, { width: 20, align: 'center', lineBreak: false });
     doc.fontSize(9).font('Helvetica').fillColor(r.below ? BAND.amber : TEXT).text(`${r.below} of ${r.n}`, x + labelW + avgW + 10, y + 3, { lineBreak: false });
     doc.fillColor(MUTED).text(r.lean, x + labelW + avgW + belowW, y + 3, { lineBreak: false });
     y += 22;
