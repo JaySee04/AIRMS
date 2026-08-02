@@ -1,8 +1,8 @@
 'use client';
 
-// Admin one-click data backup. Downloads the current database (athletes,
-// injuries, muscle flags) as a multi-sheet Excel workbook — preserving the
-// Excel-era statistics now that ingestion is moving to HoloMotion PDFs.
+// Admin one-click data backup. Downloads the current HoloMotion-derived data
+// (athletes + muscle flags) as a multi-sheet Excel workbook — an offline
+// snapshot for records, review, or handover.
 
 import { useState } from 'react';
 
@@ -52,8 +52,8 @@ export default function DataBackupCard() {
     <div className="card">
       <h2 className="card-title">Data Backup</h2>
       <p className="text-muted" style={{ fontSize: '0.9rem', marginTop: 0 }}>
-        Export all current athlete, injury, and muscle-flag data to a single Excel workbook.
-        Keep this as a snapshot of the Excel-era dataset before relying on HoloMotion ingestion.
+        Export all current athlete and muscle-flag data to a single Excel workbook —
+        an offline snapshot for records, review, or handover.
       </p>
       {error && <div className="alert alert-error">{error}</div>}
       <button type="button" className="btn btn-gold" onClick={download} disabled={busy}>

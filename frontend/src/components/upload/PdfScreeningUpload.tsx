@@ -167,8 +167,7 @@ export default function PdfScreeningUpload() {
 
       {status && status.configured && (
         <div className="alert alert-info" style={{ marginBottom: 14 }}>
-          <strong>AI-assisted ingestion.</strong> Reports are read automatically by a vision model
-          ({status.provider}{status.model ? ` · ${status.model}` : ''}). Drop one or many PDFs —
+          <strong>AI-assisted ingestion.</strong> Reports are read automatically by a vision model. Drop one or many PDFs —
           athletes already on the roster are matched by name and auto-filled; new athletes need an
           Athlete ID, sport, and programme.
         </div>

@@ -118,7 +118,7 @@ export default function AthleteProfilePage() {
               </div>
               <div className="kv-grid" style={{ marginTop: 12 }}>
                 <div><span>Overall Activity Score</span><strong>{fmtScore(athlete?.overallActivityScore)}</strong></div>
-                <div><span>Injury Risk Index</span><strong>{fmtScore(athlete?.injuryRiskIndex)}</strong></div>
+                <div><span>Exercise Risks</span><strong>{fmtScore(athlete?.injuryRiskIndex)}</strong></div>
                 <div><span>Mobility</span><strong>{fmtScore(athlete?.mobility)}</strong></div>
                 <div><span>Stability</span><strong>{fmtScore(athlete?.stability)}</strong></div>
                 <div><span>Symmetry</span><strong>{fmtScore(athlete?.symmetry)}</strong></div>

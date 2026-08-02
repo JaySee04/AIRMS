@@ -4,10 +4,11 @@
 // individual (searched by name), and team (by sport/programme/gender). The
 // former injury PDF builder was removed 2026-08-02 (HoloMotion-only scope).
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { api } from '@/lib/api';
 import AthleteSearchSelect, { PickableAthlete } from '@/components/ui/AthleteSearchSelect';
+import SportSelect from '@/components/ui/SportSelect';
 
 export default function AdminReportsPage() {
   const [roster, setRoster] = useState<PickableAthlete[]>([]);
@@ -28,6 +29,10 @@ export default function AdminReportsPage() {
     })();
     return () => { cancelled = true; };
   }, []);
+
+  // Sports that actually have athletes — the valid team-report targets (avoids
+  // a free-text typo that 404s on an empty/misspelt group).
+  const sports = useMemo(() => [...new Set(roster.map((r) => r.sport).filter(Boolean) as string[])].sort(), [roster]);
 
   async function dl(kind: string, path: string, filename: string) {
     setBusy(kind); setErr(null);
@@ -62,8 +67,10 @@ export default function AdminReportsPage() {
           </div>
           <div>
             <strong style={{ fontSize: '0.85rem' }}>Team / group</strong>
+            <div style={{ margin: '4px 0' }}>
+              <SportSelect sports={sports} value={sport} onChange={setSport} placeholder="Search sports…" />
+            </div>
             <div style={{ display: 'flex', gap: 6, margin: '4px 0', flexWrap: 'wrap' }}>
-              <input value={sport} onChange={(e) => setSport(e.target.value)} placeholder="Sport" style={{ flex: '1 1 100px' }} />
               <select value={programme} onChange={(e) => setProgramme(e.target.value)}><option value="">Any prog</option><option>PODIUM</option><option>PELAPIS</option><option>OTHERS</option></select>
               <select value={gender} onChange={(e) => setGender(e.target.value)}><option value="">Any gender</option><option>Male</option><option>Female</option></select>
             </div>

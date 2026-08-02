@@ -10,6 +10,7 @@ import { useCallback, useEffect, useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { api } from '@/lib/api';
 import { ISN_SPORTS } from '@/lib/sports';
+import SportSelect from '@/components/ui/SportSelect';
 import { passwordRules, validatePassword, PASSWORD_MIN_LENGTH } from '@/lib/passwordPolicy';
 
 type Role = 'coach' | 'medical';
@@ -187,7 +188,7 @@ export default function AdminPersonnelPage() {
             {sportRequired ? (
               <div className="form-group">
                 <label>Assigned sport <span style={{ color: 'var(--risk-high)' }}>*</span></label>
-                <input value={sport} onChange={(e) => setSport(e.target.value)} placeholder="Type to search the 52 ISN sports…" list="isn-sports-personnel" />
+                <SportSelect sports={ISN_SPORTS} value={sport} onChange={setSport} placeholder="Search the ISN sports…" />
               </div>
             ) : (
               <div className="form-group">
@@ -267,13 +268,14 @@ export default function AdminPersonnelPage() {
                     </td>
                     <td>
                       <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-                        <input
-                          value={sportDraft[c.id] ?? ''}
-                          onChange={(e) => setSportDraft((p) => ({ ...p, [c.id]: e.target.value }))}
-                          list="isn-sports-personnel"
-                          style={{ maxWidth: 200 }}
-                          aria-label={`Assigned sport for ${c.name}`}
-                        />
+                        <div style={{ minWidth: 200 }}>
+                          <SportSelect
+                            sports={ISN_SPORTS}
+                            value={sportDraft[c.id] ?? ''}
+                            onChange={(s) => setSportDraft((p) => ({ ...p, [c.id]: s }))}
+                            ariaLabel={`Assigned sport for ${c.name}`}
+                          />
+                        </div>
                         <button
                           type="button"
                           className="btn btn-outline btn-sm"
@@ -347,9 +349,6 @@ export default function AdminPersonnelPage() {
         )}
       </div>
 
-      <datalist id="isn-sports-personnel">
-        {ISN_SPORTS.map((s) => (<option key={s} value={s} />))}
-      </datalist>
     </DashboardLayout>
   );
 }
