@@ -20,6 +20,7 @@ import { disciplinesForSport } from '@/lib/disciplines';
 import { api } from '@/lib/api';
 import { getSession } from '@/lib/auth';
 import TagCombobox from '@/components/ui/TagCombobox';
+import AthleteSearchSelect from '@/components/ui/AthleteSearchSelect';
 import ScreeningPreview from '@/components/upload/ScreeningPreview';
 import * as uploadStore from '@/lib/screeningUploadStore';
 import type { QueueItem, CommittedEntry, RosterAthlete } from '@/lib/screeningUploadStore';
@@ -170,7 +171,7 @@ export default function PdfScreeningUpload() {
         <div className="alert alert-info" style={{ marginBottom: 14 }}>
           <strong>AI-assisted ingestion.</strong> Reports are read automatically by a vision model. The athlete&apos;s
           name is blacked out on your device before any image is sent for reading, so the identity never leaves here —
-          pick the athlete by <strong>Athlete ID</strong> below to attach it back from the roster.
+          <strong> search the roster by name</strong> below to attach each report to its athlete.
         </div>
       )}
 
@@ -275,16 +276,32 @@ export default function PdfScreeningUpload() {
                     </div>
                   ) : (
                     <div className="text-muted" style={{ fontSize: '0.8rem', marginBottom: 10 }}>
-                      Pick the <strong>Athlete ID</strong> below to attach this report to a roster athlete, or enter a new athlete&apos;s details.
+                      Search the roster below to attach this report to an athlete, or enter a new athlete&apos;s details.
                     </div>
                   )}
 
-                  {/* Editable identity. Name is filled from the roster when an
-                      Athlete ID is chosen (it's redacted from the report image);
-                      age/gender come from the report and stay editable. */}
+                  {/* Attach to a roster athlete — search by name. The name is
+                      redacted from the report image, so the athlete is identified
+                      here from OUR roster; picking fills the fields below. */}
+                  <div className="form-group">
+                    <label>Find athlete {!it.matched && <span style={{ color: 'var(--risk-high)' }}>*</span>}</label>
+                    <AthleteSearchSelect
+                      athletes={roster ?? []}
+                      onSelect={(athleteId) => setItemAthleteId(it.id, athleteId)}
+                      placeholder="Search the roster by name…"
+                    />
+                    <div className="text-muted" style={{ fontSize: '0.72rem', marginTop: 3 }}>
+                      {it.matched ? `Attached · ${it.matched.name} (${it.athleteId})` : 'Pick an athlete, or fill in a new one’s details below.'}
+                    </div>
+                  </div>
+
+                  {/* Editable identity. Name/sport/programme are filled from the
+                      roster when an athlete is picked (the name is redacted from
+                      the report image); age/gender come from the report. All stay
+                      editable so a new athlete can be entered manually. */}
                   <div className="form-group">
                     <label>Name <span style={{ color: 'var(--risk-high)' }}>*</span></label>
-                    <input value={it.name} onChange={(e) => patchItem(it.id, { name: e.target.value })} placeholder="Filled from the roster when you pick an Athlete ID" />
+                    <input value={it.name} onChange={(e) => patchItem(it.id, { name: e.target.value })} placeholder="Filled from the roster when you pick an athlete" />
                   </div>
                   <div className="form-row-2">
                     <div className="form-group">
@@ -306,14 +323,8 @@ export default function PdfScreeningUpload() {
                     <input
                       value={it.athleteId}
                       onChange={(e) => setItemAthleteId(it.id, e.target.value)}
-                      placeholder="e.g. ATH0001"
-                      list={`pdf-roster-${it.id}`}
+                      placeholder="Filled by the picker · type only for a new athlete"
                     />
-                    <datalist id={`pdf-roster-${it.id}`}>
-                      {(roster ?? []).map((a) => (
-                        <option key={a.athleteId} value={a.athleteId}>{a.name} — {a.sport ?? '—'}</option>
-                      ))}
-                    </datalist>
                   </div>
                   <div className="form-group">
                     <label>Sport <span style={{ color: 'var(--risk-high)' }}>*</span></label>
