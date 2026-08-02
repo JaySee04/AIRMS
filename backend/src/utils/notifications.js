@@ -31,27 +31,6 @@ async function notify(setting, recipientsFn, buildFn) {
 const activeUsers = (where) => () =>
   User.findAll({ where: { isActive: true, ...where }, attributes: ['email'], raw: true });
 
-// Athlete filed a self-report → prompt the medical team to review it, so an
-// out-of-session report doesn't sit unseen in the queue.
-function notifySelfReportSubmitted(report) {
-  const who = report.athleteName || report.athleteId;
-  const detail = [report.bodyPart, report.side, report.injuryType, report.severity].filter(Boolean).join(' · ');
-  return notify('notify_self_report', activeUsers({ role: 'medical' }), () => ({
-    subject: `AIRMS — new self-report from ${who} (${report.athleteId})`,
-    text: [
-      `${who} (${report.athleteId}) submitted an injury self-report.`,
-      report.sport ? `Sport: ${report.sport}` : null,
-      detail ? `Reported: ${detail}` : null,
-      report.description ? `\n"${report.description}"` : null,
-      '',
-      'This is the athlete’s between-sessions channel — it is awaiting your review before it joins the official injury record.',
-      'Open AIRMS → Self-Report Review to approve or reject it.',
-      '',
-      SIGNOFF,
-    ].filter((l) => l !== null).join('\n'),
-  }));
-}
-
 // Medical overrode an athlete's band → tell the sport's coach(es) so their
 // squad-readiness view reflects it. Only amber/red (an escalation worth
 // flagging); never a green clear.
@@ -74,4 +53,4 @@ function notifyOverrideToCoach(athlete, band, note, by) {
   }));
 }
 
-module.exports = { notifySelfReportSubmitted, notifyOverrideToCoach };
+module.exports = { notifyOverrideToCoach };

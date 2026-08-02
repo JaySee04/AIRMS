@@ -12,7 +12,7 @@
 // longer read it. See docs/fyp/ACWR_REBUILD.md.)
 const express = require('express');
 const { Op } = require('sequelize');
-const { Athlete, Injury, MuscleFlag, Screening, AthleteDiscipline } = require('../models');
+const { Athlete, MuscleFlag, Screening, AthleteDiscipline } = require('../models');
 const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
 
@@ -37,19 +37,12 @@ router.get('/readiness', auth, rbac('coach'), async (req, res) => {
     const ids = athletes.map((a) => a.athleteId);
     if (ids.length === 0) return res.json({ sport, athletes: [] });
 
-    const [injuries, screenings] = await Promise.all([
-      Injury.findAll({
-        where: { athleteId: { [Op.in]: ids }, recoveryStatus: { [Op.ne]: 'Recovered' } },
-        attributes: ['athleteId', 'recoveryStatus'],
-        raw: true,
-      }),
-      Screening.findAll({
-        where: { athleteId: { [Op.in]: ids } },
-        order: [['assessedAt', 'DESC'], ['id', 'DESC']],
-        attributes: ['athleteId', 'assessedAt', 'overallIndicator', 'overallBand', 'escalations', 'factors', 'subitems', 'overrideBand', 'overrideNote', 'overrideBy'],
-        raw: true,
-      }),
-    ]);
+    const screenings = await Screening.findAll({
+      where: { athleteId: { [Op.in]: ids } },
+      order: [['assessedAt', 'DESC'], ['id', 'DESC']],
+      attributes: ['athleteId', 'assessedAt', 'overallIndicator', 'overallBand', 'escalations', 'factors', 'subitems', 'overrideBand', 'overrideNote', 'overrideBy'],
+      raw: true,
+    });
     // Latest screening indicator per athlete (the HoloMotion risk comparison),
     // plus the previous one's indicator so the dashboard can show a trend arrow.
     // Screenings are ordered newest-first, so per athlete the 1st row is latest,
@@ -83,12 +76,6 @@ router.get('/readiness', auth, rbac('coach'), async (req, res) => {
       seen.set(s.athleteId, n + 1);
     }
 
-    // Group injuries by athlete for O(1) lookup.
-    const injuriesByAthlete = new Map();
-    for (const i of injuries) {
-      if (!injuriesByAthlete.has(i.athleteId)) injuriesByAthlete.set(i.athleteId, []);
-      injuriesByAthlete.get(i.athleteId).push({ recoveryStatus: i.recoveryStatus });
-    }
 
     const numOrZero = (v) => (v == null ? 0 : Number(v));
     const rows = athletes.map((a) => {
@@ -122,7 +109,6 @@ router.get('/readiness', auth, rbac('coach'), async (req, res) => {
         symmetry: a.symmetry == null ? undefined : Number(a.symmetry),
         myodynamia: flags.filter((f) => f.flagType === 'myodynamia').map(({ muscle, side }) => ({ muscle, side })),
         tension: flags.filter((f) => f.flagType === 'tension').map(({ muscle, side }) => ({ muscle, side })),
-        activeInjuries: injuriesByAthlete.get(a.athleteId) || [],
         // HoloMotion overall risk indicator (cohort-normed), for squad comparison.
         screening: indicatorByAthlete.get(a.athleteId) || null,
       };

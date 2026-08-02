@@ -6,7 +6,7 @@
  */
 require('dotenv').config({ path: require('path').join(__dirname, '../../.env') });
 
-const { sequelize, User, Athlete, MuscleFlag, AthleteDiscipline, Injury, SelfReport, Screening, CohortThreshold } = require('../models');
+const { sequelize, User, Athlete, MuscleFlag, AthleteDiscipline, Screening, CohortThreshold } = require('../models');
 
 // ── Deterministic PRNG (seed=42 — same demo data on every reseed) ──────────
 let _seed = 42;
@@ -35,12 +35,6 @@ const SPORTS = [
   'Shooting','Rugby','Football','Hockey','Netball','Sepak Takraw','Bowls','Pencak Silat',
 ];
 const GENDERS = ['Male', 'Female'];
-const BODY_PARTS = ['Neck','Shoulder','Spine','Lumbar/Pelvis','Knee','Ankle','Wrist','Elbow','Hip','Other'];
-const SIDES = ['Left','Right','Both','N/A'];
-const INJURY_TYPES = ['Strain','Sprain','Tendinitis','Bursitis','Fracture','Contusion','Dislocation','Other'];
-const SEVERITY = ['Minor','Moderate','Severe'];
-const RECOVERY = ['Recovering','Recovered','Chronic'];
-const MECHANISMS = ['Contact','Non-contact','Overuse','Recurrent'];
 const MUSCLES_DEFICIENCY = [
   'Biceps Brachii','Pectoralis Major','Lateral Deltoid','Posterior Deltoid',
   'Rectus Abdominis','External Oblique','Internal Oblique','Latissimus Dorsi',
@@ -318,94 +312,6 @@ function flattenMuscleFlags(athletes) {
   return rows;
 }
 
-// ── Build injuries ──────────────────────────────────────────────────────────
-
-// Recovery status as a function of how long ago the injury happened. Picking
-// uniformly from RECOVERY made two of every three injuries permanently
-// "active" regardless of age — an injury from 18 months ago still read as
-// "Recovering" — so 61 of 62 athletes carried an active injury and every
-// squad-level view (medical KPIs, coach readiness, alerts) rendered all-red.
-// Point prevalence of injury in an elite squad is realistically ~10–25%.
-function recoveryFor(daysAgo) {
-  if (rnd() < 0.03) return 'Chronic';                          // rare long-term cases
-  if (daysAgo < 45) return rnd() < 0.8 ? 'Recovering' : 'Recovered';
-  if (daysAgo < 150) return rnd() < 0.18 ? 'Recovering' : 'Recovered';
-  return 'Recovered';                                          // healed long ago
-}
-
-function buildInjuries(athletes) {
-  const injuries = [];
-  const today = new Date();
-  const SPAN = 560; // 2025-01-01 → ~today, so a recent tail actually exists
-  for (let i = 0; i < 220; i++) {
-    const ath = athletes[Math.floor(rnd() * athletes.length)];
-    const dt = new Date('2025-01-01');
-    dt.setDate(dt.getDate() + range(0, SPAN));
-    const daysAgo = Math.max(0, Math.round((today - dt) / 86400000));
-    injuries.push({
-      athleteId: ath.athleteId,
-      athleteName: ath.name,
-      sport: ath.sport,
-      gender: ath.gender,
-      program: ath.program,
-      athleteAge: ath.age,
-      bodyPart: pick(BODY_PARTS),
-      side: pick(SIDES),
-      injuryType: pick(INJURY_TYPES),
-      severity: pick(SEVERITY),
-      mechanism: pick(MECHANISMS),
-      date: dt,
-      recoveryStatus: recoveryFor(daysAgo),
-      source: rnd() < 0.7 ? 'Medical Log' : 'Athlete Self-Report',
-      loggedBy: 'Medical Demo 01',
-    });
-  }
-
-  injuries.push(
-    { athleteId: 'ATH0001', athleteName: 'John Doe', sport: 'Badminton', gender: 'Male', program: 'PODIUM', athleteAge: 19,
-      bodyPart: 'Ankle', side: 'Right', injuryType: 'Sprain', severity: 'Moderate', mechanism: 'Non-contact',
-      date: new Date('2025-11-12'), recoveryStatus: 'Recovered', source: 'Medical Log',
-      loggedBy: 'Medical Demo 01', notes: 'Lateral ankle sprain during match. Returned to play after 3 weeks.' },
-    { athleteId: 'ATH0001', athleteName: 'John Doe', sport: 'Badminton', gender: 'Male', program: 'PODIUM', athleteAge: 19,
-      bodyPart: 'Knee', side: 'Right', injuryType: 'Tendinitis', severity: 'Minor', mechanism: 'Overuse',
-      date: new Date('2026-02-04'), recoveryStatus: 'Recovering', source: 'Medical Log',
-      loggedBy: 'Medical Demo 01', notes: 'Patellar tendinitis. Modified training plan in place.' },
-    { athleteId: 'ATH0001', athleteName: 'John Doe', sport: 'Badminton', gender: 'Male', program: 'PODIUM', athleteAge: 19,
-      bodyPart: 'Shoulder', side: 'Right', injuryType: 'Strain', severity: 'Minor', mechanism: 'Overuse',
-      date: new Date('2026-04-22'), recoveryStatus: 'Recovering', source: 'Athlete Self-Report',
-      loggedBy: 'Medical Demo 01', notes: 'Rotator cuff irritation. Smash technique under review.' }
-  );
-  return injuries;
-}
-
-// ── Build self-reports ──────────────────────────────────────────────────────
-function buildSelfReports() {
-  return [
-    { athleteId: 'ATH0007', athleteName: 'Aiman Hassan', sport: 'Football',
-      bodyPart: 'Ankle', side: 'Left', injuryType: 'Sprain', severity: 'Moderate',
-      description: 'Twisted ankle when stepping off curb after evening jog. Swelling and pain when bearing weight.',
-      status: 'Pending' },
-    { athleteId: 'ATH0014', athleteName: 'Nurul Rahman', sport: 'Athletics',
-      bodyPart: 'Knee', side: 'Right', injuryType: 'Strain', severity: 'Minor',
-      description: 'Mild knee discomfort during stair climbing. No swelling. Started yesterday.',
-      status: 'Pending' },
-    { athleteId: 'ATH0021', athleteName: 'Faris Ibrahim', sport: 'Swimming',
-      bodyPart: 'Shoulder', side: 'Right', injuryType: 'Tendinitis', severity: 'Minor',
-      description: 'Shoulder tightness on freestyle pull. Self-treating with ice.',
-      status: 'Pending' },
-    { athleteId: 'ATH0009', athleteName: 'Lina Yusoff', sport: 'Squash',
-      bodyPart: 'Wrist', side: 'Left', injuryType: 'Strain', severity: 'Minor',
-      description: 'Slight wrist pain. Suspect from gym session over weekend.',
-      status: 'Approved', reviewNote: 'Approved — added to official record.',
-      reviewedBy: 'Medical Demo 01', reviewedAt: new Date('2026-05-06') },
-    { athleteId: 'ATH0030', athleteName: 'Adam Latif', sport: 'Karate',
-      bodyPart: 'Hip', side: 'Right', injuryType: 'Strain', severity: 'Moderate',
-      description: 'Pulled hip flexor at home doing yoga. Painful walking.',
-      status: 'Rejected', reviewNote: 'Insufficient detail to confirm — please book consult.',
-      reviewedBy: 'Medical Demo 01', reviewedAt: new Date('2026-05-05') },
-  ];
-}
-
 function buildUsers() {
   // Plain-text passwords here — the User model's beforeSave hook hashes
   // them when bulkCreate runs with individualHooks: true.
@@ -455,10 +361,13 @@ async function seed() {
   await sequelize.authenticate();
   console.log(`Connected to MySQL: ${sequelize.config.host}:${sequelize.config.port}/${sequelize.config.database}`);
 
-  // `activities` / `recovery_baselines` are retired (Activity Tracking
-  // removed 2026-07-20) but force sync below only touches tables still backed
-  // by a model, so a pre-existing dev database keeps these as FK-referencing
-  // orphans — drop them first or sync's own DROP TABLE `athletes` fails.
+  // Retired tables — force sync below only touches tables still backed by a
+  // model, so a pre-existing dev database keeps these as FK-referencing orphans;
+  // drop them first or sync's own DROP TABLE `athletes` fails. `injuries` +
+  // `self_reports` were removed 2026-08-02 (HoloMotion-only); `activities` /
+  // `recovery_baselines` when Activity Tracking was removed 2026-07-20.
+  await sequelize.query('DROP TABLE IF EXISTS `injuries`');
+  await sequelize.query('DROP TABLE IF EXISTS `self_reports`');
   await sequelize.query('DROP TABLE IF EXISTS `recovery_baselines`');
   await sequelize.query('DROP TABLE IF EXISTS `activities`');
 
@@ -483,14 +392,6 @@ async function seed() {
     const disciplines = buildDisciplines(athleteRows);
     await AthleteDiscipline.bulkCreate(disciplines, { transaction: t });
     console.log(`Inserted ${disciplines.length} athlete-discipline rows`);
-
-    const injuries = buildInjuries(athletes);
-    await Injury.bulkCreate(injuries, { transaction: t });
-    console.log(`Inserted ${injuries.length} injury records`);
-
-    const selfReports = buildSelfReports();
-    await SelfReport.bulkCreate(selfReports, { transaction: t });
-    console.log(`Inserted ${selfReports.length} self-reports`);
 
     const screenings = buildScreenings(athletes);
     await Screening.bulkCreate(screenings, { transaction: t });

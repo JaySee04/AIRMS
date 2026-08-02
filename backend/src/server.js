@@ -17,10 +17,7 @@ require('./models'); // register models + associations
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const athleteRoutes = require('./routes/athletes');
-const injuryRoutes = require('./routes/injuries');
-const selfReportRoutes = require('./routes/selfReports');
 const uploadRoutes = require('./routes/upload');
-const reportRoutes = require('./routes/reports');
 const exportRoutes = require('./routes/export');
 const coachRoutes = require('./routes/coach');
 const cohortRoutes = require('./routes/cohorts');
@@ -66,10 +63,7 @@ const authLimiter = rateLimit({
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/athletes', athleteRoutes);
-app.use('/api/injuries', injuryRoutes);
-app.use('/api/self-reports', selfReportRoutes);
 app.use('/api/upload', uploadRoutes);
-app.use('/api/reports', reportRoutes);
 app.use('/api/export', exportRoutes);
 app.use('/api/coach', coachRoutes);
 app.use('/api/cohorts', cohortRoutes);

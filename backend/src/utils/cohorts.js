@@ -147,15 +147,12 @@ const TREND_SCORES = [
 ];
 const BAND_RANK = { green: 0, amber: 1, red: 2 };
 
-// Previous-vs-latest movement + active-injury-floor context from a flat list of
-// screening rows (each { athleteId, assessedAt, id, totalScore, rom, stability,
-// symmetry, exerciseRisks, overallIndicator, overallBand, overrideBand,
-// factors[], escalations }). Pure — no DB — so it's unit-testable.
-//   trend: comparable (athletes with ≥2 screenings), improving/declining/steady
-//     by overall-indicator momentum (±`noise`), band moves, avg per-score delta.
-//   injuryContext: withActiveInjury (latest carries a significant active injury)
-//     and flooredToAmber (screening alone gave no escalation, the injury floor
-//     lifted the band to amber) — makes the injury log's effect visible.
+// Previous-vs-latest screening movement from a flat list of screening rows
+// (each { athleteId, assessedAt, id, totalScore, rom, stability, symmetry,
+// exerciseRisks, overallIndicator, overallBand, overrideBand }). Pure — no DB —
+// so it's unit-testable. Returns { trend }: comparable (athletes with ≥2
+// screenings), improving/declining/steady by overall-indicator momentum
+// (±`noise`), band moves, and avg per-score delta.
 function screeningMovement(screenings, { noise = 2 } = {}) {
   const sorted = [...(screenings || [])].sort((a, b) => {
     const t = new Date(b.assessedAt || 0) - new Date(a.assessedAt || 0);
@@ -167,17 +164,10 @@ function screeningMovement(screenings, { noise = 2 } = {}) {
     if (arr.length < 2) { arr.push(s); byAth.set(s.athleteId, arr); }
   }
   const trend = { comparable: 0, improving: 0, declining: 0, steady: 0, deltas: [], bandMoves: { better: 0, worse: 0 } };
-  const injuryContext = { withActiveInjury: 0, flooredToAmber: 0 };
   const sums = new Map(TREND_SCORES.map(([k]) => [k, { sum: 0, n: 0 }]));
   for (const [, pair] of byAth) {
-    const latest = pair[0];
-    const factors = Array.isArray(latest.factors) ? latest.factors : [];
-    if (factors.some((f) => /significant active injur/i.test(f))) {
-      injuryContext.withActiveInjury++;
-      if ((latest.overrideBand || latest.overallBand) === 'amber' && (latest.escalations ?? 0) === 0) injuryContext.flooredToAmber++;
-    }
     if (pair.length < 2) continue;
-    const prev = pair[1];
+    const [latest, prev] = pair;
     trend.comparable++;
     for (const [k] of TREND_SCORES) {
       const a = Number(prev[k]); const b = Number(latest[k]);
@@ -193,7 +183,7 @@ function screeningMovement(screenings, { noise = 2 } = {}) {
     const acc = sums.get(k);
     return { key: k, label, higherBetter, avgDelta: acc.n ? +(acc.sum / acc.n).toFixed(1) : null };
   });
-  return { trend, injuryContext };
+  return { trend };
 }
 
 // Recompute every cohort tier from the latest screenings and upsert the rows.

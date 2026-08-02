@@ -18,14 +18,6 @@ const DEFAULTS = {
   escalation_indicator_z: 1.5,      // per-indicator z cutoff vs cohort (a clear outlier;
                                     // 1.5 keeps it selective — 1.0 flagged ~half the
                                     // synthetic squad, 2.0 caught nobody)
-  // Active-injury floor: when the athlete carries a clinically SIGNIFICANT
-  // active injury — Moderate/Severe, or any Chronic (a Minor still-recovering
-  // niggle doesn't count) — the overall band is floored at amber ("needs
-  // attention"). It never by itself produces red; "immediate assessment" stays
-  // the screening cohort verdict. Reconnects the injury-logging stream
-  // (Module 2) to the score without inflating the red population. Toggle off
-  // for the pure screening/cohort score.
-  escalation_injury: true,
   // Norm governance: a cohort norm auto-generates + goes live on every
   // HoloMotion import. When a human has manually edited a norm and a later
   // import recomputes a different value, the manual edit is KEPT and the cohort
@@ -37,7 +29,6 @@ const DEFAULTS = {
   alert_on_band: 'amber',      // fire at this band or worse ('amber' | 'red')
   // Event-driven notifications (utils/notifications.js), each independently
   // governable, default on:
-  notify_self_report: true,    // email medical when an athlete files a self-report
   notify_override: true,       // email the sport's coach when medical overrides an athlete to amber/red
 };
 

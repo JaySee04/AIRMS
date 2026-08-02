@@ -202,20 +202,18 @@ router.get('/analytics/screening', auth, rbac('admin'), async (req, res) => {
         .map(([muscle, count]) => ({ muscle, count }));
     };
 
-    // Screening trend (previous vs latest) + active-injury-floor context — both
-    // from one fetch of this cohort's screenings, aggregated by the pure
-    // utils/cohorts.screeningMovement (unit-tested).
+    // Screening trend (previous vs latest) from one fetch of this cohort's
+    // screenings, aggregated by the pure utils/cohorts.screeningMovement.
     let trend = { comparable: 0, improving: 0, declining: 0, steady: 0, deltas: [], bandMoves: { better: 0, worse: 0 } };
-    let injuryContext = { withActiveInjury: 0, flooredToAmber: 0 };
     const ids = rows.map((r) => r.athleteId);
     if (ids.length) {
       const scr = await Screening.findAll({
         where: { athleteId: { [Op.in]: ids } },
-        attributes: ['athleteId', 'assessedAt', 'id', 'totalScore', 'rom', 'stability', 'symmetry', 'exerciseRisks', 'overallIndicator', 'overallBand', 'overrideBand', 'factors', 'escalations'],
+        attributes: ['athleteId', 'assessedAt', 'id', 'totalScore', 'rom', 'stability', 'symmetry', 'exerciseRisks', 'overallIndicator', 'overallBand', 'overrideBand'],
         order: [['assessedAt', 'DESC'], ['id', 'DESC']],
         raw: true,
       });
-      ({ trend, injuryContext } = screeningMovement(scr));
+      ({ trend } = screeningMovement(scr));
     }
 
     res.json({
@@ -227,7 +225,6 @@ router.get('/analytics/screening', auth, rbac('admin'), async (req, res) => {
       topMyodynamia: topMuscles('myodynamia'),
       topTension: topMuscles('tension'),
       trend,
-      injuryContext,
     });
   } catch (err) {
     res.status(500).json({ message: err.message });

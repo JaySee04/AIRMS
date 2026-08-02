@@ -142,23 +142,7 @@ describe('screeningMovement (previous vs latest + injury floor)', () => {
     expect(d.avgDelta).toBe(0.7); // (+4 -2 +0) / 3 = 0.666… → 0.7
   });
 
-  test('injury floor: latest-screening injury lifts a would-be-Safe athlete to amber', () => {
-    const { injuryContext } = screeningMovement(rows);
-    expect(injuryContext.withActiveInjury).toBe(1); // C
-    expect(injuryContext.flooredToAmber).toBe(1);   // C: amber, no escalation, injury factor
-  });
-
-  test('an injury present with a screening escalation is NOT a pure floor', () => {
-    const r = screeningMovement([
-      { athleteId: 'E', assessedAt: '2025-06-01', id: 8, overallBand: 'amber', escalations: 1, factors: ['below cohort average', '1 significant active injury'] },
-    ]);
-    expect(r.injuryContext.withActiveInjury).toBe(1);
-    expect(r.injuryContext.flooredToAmber).toBe(0); // escalation != 0
-  });
-
   test('empty input is safe', () => {
-    const r = screeningMovement([]);
-    expect(r.trend.comparable).toBe(0);
-    expect(r.injuryContext).toEqual({ withActiveInjury: 0, flooredToAmber: 0 });
+    expect(screeningMovement([]).trend.comparable).toBe(0);
   });
 });

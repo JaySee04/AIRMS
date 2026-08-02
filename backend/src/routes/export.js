@@ -4,25 +4,23 @@
 // `xlsx` dependency and builds the workbook in memory (no temp files).
 const express = require('express');
 const XLSX = require('xlsx');
-const { Athlete, Injury, MuscleFlag } = require('../models');
+const { Athlete, MuscleFlag } = require('../models');
 const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
 
 const router = express.Router();
 
-// GET /api/export/backup.xlsx — full athlete + injury + muscle-flag snapshot.
+// GET /api/export/backup.xlsx — athlete + muscle-flag snapshot (HoloMotion data).
 router.get('/backup.xlsx', auth, rbac('admin'), async (_req, res) => {
   try {
-    const [athletes, injuries, flags] = await Promise.all([
+    const [athletes, flags] = await Promise.all([
       Athlete.findAll({ order: [['athleteId', 'ASC']], raw: true }),
-      Injury.findAll({ order: [['date', 'DESC']], raw: true }),
       MuscleFlag.findAll({ order: [['athleteId', 'ASC']], raw: true }),
     ]);
 
     const wb = XLSX.utils.book_new();
     // Sheet names are capped at 31 chars by the format; keep them short.
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(athletes), 'Athletes');
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(injuries), 'Injuries');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(flags), 'MuscleFlags');
 
     const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
