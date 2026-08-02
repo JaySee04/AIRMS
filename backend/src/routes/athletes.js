@@ -205,6 +205,9 @@ router.get('/analytics/screening', auth, rbac('admin'), async (req, res) => {
     // Screening trend (previous vs latest) from one fetch of this cohort's
     // screenings, aggregated by the pure utils/cohorts.screeningMovement.
     let trend = { comparable: 0, improving: 0, declining: 0, steady: 0, deltas: [], bandMoves: { better: 0, worse: 0 } };
+    // Overall traffic-light band distribution across the cohort's latest
+    // screenings (override wins). 'none' = scored but no band (small cohort).
+    const bandDistribution = { green: 0, amber: 0, red: 0, none: 0 };
     const ids = rows.map((r) => r.athleteId);
     if (ids.length) {
       const scr = await Screening.findAll({
@@ -214,6 +217,13 @@ router.get('/analytics/screening', auth, rbac('admin'), async (req, res) => {
         raw: true,
       });
       ({ trend } = screeningMovement(scr));
+      const seenBand = new Set();
+      for (const s of scr) {
+        if (seenBand.has(s.athleteId)) continue;
+        seenBand.add(s.athleteId);
+        const b = s.overrideBand || s.overallBand || 'none';
+        if (bandDistribution[b] !== undefined) bandDistribution[b]++; else bandDistribution.none++;
+      }
     }
 
     res.json({
@@ -225,6 +235,7 @@ router.get('/analytics/screening', auth, rbac('admin'), async (req, res) => {
       topMyodynamia: topMuscles('myodynamia'),
       topTension: topMuscles('tension'),
       trend,
+      bandDistribution,
     });
   } catch (err) {
     res.status(500).json({ message: err.message });

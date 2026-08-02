@@ -40,13 +40,6 @@ const HERO_MSG = {
   red: 'Your latest screening places you among the athletes most in need of attention in your comparison group. Arrange an assessment with your medical team before your next high-load session.',
 } as const;
 
-// The band can also be floored at amber purely by an active injury while the
-// screening itself is in line with the cohort (escalations === 0). In that case
-// the screening-centric amber message above is misleading — the reason is the
-// injury, named in the factor chip — so use a message that says exactly that.
-const INJURY_FLOOR_MSG =
-  'Your latest screening is in line with your comparison group, but you have an active injury on record. Your medical team should review it before your next high-load session.';
-
 // `hero` is accepted for call-site intent; the full-size render below IS the
 // hero, so there is only ever `compact` or hero — no third variant.
 export default function OverallRiskBadge({
@@ -89,16 +82,12 @@ export default function OverallRiskBadge({
     );
   }
 
-  // Full hero. Amber with zero screening escalations means the band was floored
-  // purely by an active injury (see overallIndicator.js): the reason lives in
-  // `factors`, not the count, so drive the "why" off factors and use the
-  // injury-floor message rather than the (misleading) screening one.
+  // Full hero. The "why" chips are driven off the stored escalation factors.
   const escCount = screening.escalations ?? 0;
   const hasFactors = Boolean(screening.factors?.length);
-  const injuryFloored = !overridden && band === 'amber' && escCount === 0 && hasFactors;
   const message = overridden
     ? 'A member of the medical team has assessed this athlete and set the band manually. It stays until the next screening is imported.'
-    : injuryFloored ? INJURY_FLOOR_MSG : HERO_MSG[band];
+    : HERO_MSG[band];
 
   return (
     <div className={`risk-hero risk-hero--${HERO_CLS[band]}`}>

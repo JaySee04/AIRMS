@@ -11,7 +11,7 @@ export interface SessionUser {
 
 // Feature keys the admin can revoke for individual medical staff. Mirrors
 // backend/src/utils/permissions.js.
-export type PermissionKey = 'viewRecords' | 'uploadData' | 'reviewReports' | 'injuryReports' | 'editCohortNorms';
+export type PermissionKey = 'viewRecords' | 'uploadData' | 'editCohortNorms';
 
 // True unless this is a medical user with the capability explicitly revoked.
 // athlete/admin are never constrained by this layer.
@@ -58,8 +58,6 @@ export function requireRole(
 // Profile is the unconditional fallback (never permission-gated).
 const MEDICAL_PAGES: Array<{ path: string; perm: PermissionKey }> = [
   { path: '/medical/dashboard', perm: 'viewRecords' },
-  { path: '/medical/injury-log', perm: 'injuryReports' },
-  { path: '/medical/review-reports', perm: 'reviewReports' },
   { path: '/medical/cohort-norms', perm: 'editCohortNorms' },
   { path: '/medical/data-upload', perm: 'uploadData' },
 ];

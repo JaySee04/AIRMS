@@ -43,7 +43,6 @@ interface ReadinessRow {
   risks: AthleteRisks;
   myodynamia: MuscleEntry[];
   tension: MuscleEntry[];
-  activeInjuries: Array<{ recoveryStatus: 'Recovering' | 'Recovered' | 'Chronic' }>;
   screening?: (ScreeningIndicator & { prevIndicator?: number | null; prevAssessedAt?: string | null }) | null;
 }
 
@@ -310,14 +309,14 @@ export default function CoachDashboard() {
     return [...map.values()].sort((a, b) => a.discipline.localeCompare(b.discipline));
   }, [classified]);
 
-  // Athletes to flag to the medical team — Restricted or carrying active injuries.
+  // Athletes to flag to the medical team — those in the Restricted band.
   const attention = useMemo(
     () => classified
-      .filter(({ band, row }) => band === 'restricted' || row.activeInjuries.length > 0)
+      .filter(({ band }) => band === 'restricted')
       .map(({ row, band, worst }) => {
         const factor = (row.screening?.factors ?? []).find((f) => f.includes('over threshold'));
         const reason = factor ?? (worst ? `${worst.label} ${worst.value.toFixed(0)}` : null);
-        return { row, band, reason, injuries: row.activeInjuries.length };
+        return { row, band, reason };
       }),
     [classified],
   );
@@ -345,9 +344,6 @@ export default function CoachDashboard() {
       risks: selected.risks,
       subitems: selected.screening?.subitems,
     };
-    // The readiness endpoint already excludes recovered injuries, so every row
-    // here is active.
-    const activeInjuries = selected.activeInjuries ?? [];
     return (
       <DashboardLayout allowedRoles={['coach']} title="Squad Readiness">
         <button type="button" className="btn btn-outline btn-sm" style={{ marginBottom: 16 }} onClick={() => setSelectedId(null)}>
@@ -435,9 +431,6 @@ export default function CoachDashboard() {
               <h2 className="card-title" style={{ marginBottom: 0 }}>Muscle Assessment Map</h2>
               <span className="card-sub">L = left · R = right · B = both</span>
             </div>
-            <span className="text-muted" style={{ fontSize: '0.82rem' }}>
-              {activeInjuries.length} active injur{activeInjuries.length === 1 ? 'y' : 'ies'}
-            </span>
           </div>
           <BodyMap myodynamia={selected.myodynamia ?? []} tension={selected.tension ?? []} subitems={selected.screening?.subitems} />
         </div>
@@ -593,11 +586,11 @@ export default function CoachDashboard() {
           <div className="card-header">
             <div>
               <h2 className="card-title" style={{ marginBottom: 0 }}>Needs attention ({attention.length})</h2>
-              <span className="card-sub">Restricted or injured athletes — raise these with the medical team.</span>
+              <span className="card-sub">Restricted athletes — raise these with the medical team.</span>
             </div>
           </div>
           <div>
-            {attention.map(({ row, band, reason, injuries }) => (
+            {attention.map(({ row, band, reason }) => (
               <button key={row.athleteId} type="button" className="athlete-row" onClick={() => setSelectedId(row.athleteId)} style={{ width: '100%' }}>
                 <span className="athlete-row-avatar">{getInitials(row.name)}</span>
                 <span className="athlete-row-info">
@@ -606,7 +599,7 @@ export default function CoachDashboard() {
                     {band && <span className={BAND_META[band].badge} style={{ marginLeft: 8 }}>{BAND_META[band].label}</span>}
                   </span>
                   <span className="athlete-row-meta">
-                    {reason ?? 'flagged'}{injuries ? ` · ${injuries} active injur${injuries === 1 ? 'y' : 'ies'}` : ''}
+                    {reason ?? 'flagged'}
                   </span>
                 </span>
               </button>
@@ -693,7 +686,6 @@ export default function CoachDashboard() {
                   <th style={{ textAlign: 'center' }}>Trend</th>
                   <th style={{ textAlign: 'center' }}>Readiness</th>
                   <th style={{ textAlign: 'center' }}>Worst region</th>
-                  <th style={{ textAlign: 'center' }}>Active injuries</th>
                 </tr>
               </thead>
               <tbody>
@@ -743,9 +735,6 @@ export default function CoachDashboard() {
                       ) : (
                         '—'
                       )}
-                    </td>
-                    <td style={{ textAlign: 'center' }}>
-                      {row.activeInjuries.length || '—'}
                     </td>
                   </tr>
                 ))}

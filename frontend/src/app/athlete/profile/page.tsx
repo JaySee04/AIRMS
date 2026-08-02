@@ -25,9 +25,6 @@ interface AthleteRecord {
   symmetry?: number;
 }
 
-interface Injury { _id: string; recoveryStatus: 'Recovering' | 'Recovered' | 'Chronic' }
-interface SelfReport { _id: string; status: 'Pending' | 'Approved' | 'Rejected' }
-
 function fmt(value: unknown, suffix = ''): string {
   if (value === null || value === undefined || value === '') return '—';
   return suffix ? `${value}${suffix}` : String(value);
@@ -62,20 +59,15 @@ export default function AthleteProfilePage() {
     return () => { cancelled = true; };
   }, []);
 
-  // Stats shown under the hero — biographical training-record counts that
-  // give the athlete a quick sense of their footprint in the system.
+  // Stats shown under the hero — the athlete's HoloMotion screening footprint.
   const loadStats = useCallback(async () => {
     const athleteId = getSession()?.user?.athleteId;
     if (!athleteId) return [];
-    const [injs, reports] = await Promise.all([
-      api.get<Injury[]>(`/injuries/athlete/${athleteId}`).catch(() => [] as Injury[]),
-      api.get<SelfReport[]>('/self-reports/mine').catch(() => [] as SelfReport[]),
-    ]);
-    const activeInjuries = injs.filter((i) => i.recoveryStatus !== 'Recovered').length;
-    const pendingReports = reports.filter((r) => r.status === 'Pending').length;
+    const a = await api.get<AthleteRecord>(`/athletes/${athleteId}`);
+    const screened = a.overallActivityScore != null;
     return [
-      { label: 'Active injuries', value: activeInjuries, hint: pendingReports > 0 ? `${pendingReports} self-report pending review` : 'Recovering or chronic' },
-      { label: 'Self-reports pending', value: pendingReports, hint: 'Awaiting medical review' },
+      { label: 'Screening on record', value: screened ? 'Yes' : 'No', hint: screened ? 'HoloMotion report imported' : 'Awaiting first screening' },
+      { label: 'Total Score', value: screened ? fmtScore(a.overallActivityScore) : '—', hint: 'Latest HoloMotion' },
     ];
   }, []);
 
@@ -91,8 +83,8 @@ export default function AthleteProfilePage() {
       ) : (
         <ProfileShell
           stats={[
-            { label: 'Active injuries', value: '…' },
-            { label: 'Self-reports pending', value: '…' },
+            { label: 'Screening on record', value: '…' },
+            { label: 'Total Score', value: '…' },
           ]}
           onLoadStats={loadStats}
           roleBlurb={roleBlurb}

@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { useEffect, useMemo, useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
@@ -47,18 +46,6 @@ interface Athlete {
   screening?: ScreeningIndicator | null;
 }
 
-interface Injury {
-  _id: string;
-  bodyPart: string;
-  side: string;
-  injuryType: string;
-  severity: string;
-  mechanism?: string;
-  date: string;
-  recoveryStatus: 'Recovering' | 'Recovered' | 'Chronic';
-  notes?: string;
-}
-
 const RISK_LABEL: Record<keyof AthleteRisks, string> = {
   neckInjuryRisk: 'Neck',
   shoulderInjuryRisk: 'Shoulder',
@@ -70,19 +57,11 @@ const RISK_LABEL: Record<keyof AthleteRisks, string> = {
   ankleInjuryRisk: 'Ankle',
 };
 
-function badgeClassFor(status: Injury['recoveryStatus']): string {
-  if (status === 'Recovered') return 'badge-low';
-  if (status === 'Recovering') return 'badge-moderate';
-  return 'badge-high';
-}
-
 export default function AthleteDashboard() {
   const [athleteId, setAthleteId] = useState<string | null>(null);
   const [athlete, setAthlete] = useState<Athlete | null>(null);
-  const [injuries, setInjuries] = useState<Injury[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [injuryTab, setInjuryTab] = useState<'active' | 'all'>('active');
   const [dlBusy, setDlBusy] = useState(false);
   const [dlError, setDlError] = useState<string | null>(null);
 
@@ -116,13 +95,9 @@ export default function AthleteDashboard() {
     (async () => {
       try {
         setLoading(true);
-        const [a, injs] = await Promise.all([
-          api.get<Athlete>(`/athletes/${athleteId}`),
-          api.get<Injury[]>(`/injuries/athlete/${athleteId}`),
-        ]);
+        const a = await api.get<Athlete>(`/athletes/${athleteId}`);
         if (!cancelled) {
           setAthlete(a);
-          setInjuries(injs);
           setError(null);
         }
       } catch (e) {
@@ -135,19 +110,6 @@ export default function AthleteDashboard() {
       cancelled = true;
     };
   }, [athleteId]);
-
-  const allInjuries = useMemo(
-    () => [...injuries].sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
-    ),
-    [injuries],
-  );
-  const activeInjuries = useMemo(
-    () => allInjuries.filter((i) => i.recoveryStatus !== 'Recovered'),
-    [allInjuries],
-  );
-
-  const shownInjuries = injuryTab === 'active' ? activeInjuries : allInjuries;
 
   if (loading) {
     return (
@@ -277,52 +239,6 @@ export default function AthleteDashboard() {
           </div>
         </div>
         <BodyMap myodynamia={athlete.myodynamia ?? []} tension={athlete.tension ?? []} subitems={athlete.screening?.subitems} />
-      </div>
-
-      {/* Injury records */}
-      <div className="card">
-        <div className="card-header">
-          <h2 className="card-title" style={{ marginBottom: 0 }}>Injury Records</h2>
-          <Link href="/athlete/injury-report" className="btn btn-outline btn-sm">Report Injury</Link>
-        </div>
-        <div className="tabs">
-          <button
-            type="button"
-            className={`tab${injuryTab === 'active' ? ' active' : ''}`}
-            onClick={() => setInjuryTab('active')}
-          >
-            Active ({activeInjuries.length})
-          </button>
-          <button
-            type="button"
-            className={`tab${injuryTab === 'all' ? ' active' : ''}`}
-            onClick={() => setInjuryTab('all')}
-          >
-            All History ({allInjuries.length})
-          </button>
-        </div>
-        {shownInjuries.length === 0 ? (
-          <div className="empty-state">
-            {injuryTab === 'active' ? 'No active injuries. Stay safe!' : 'No injuries on record.'}
-          </div>
-        ) : (
-          shownInjuries.map((i) => (
-            <div key={i._id} className="injury-record">
-              <div className="injury-record-head">
-                <div>
-                  <strong>
-                    {i.bodyPart} ({i.side}) — {i.injuryType}
-                  </strong>
-                  <div className="injury-record-meta">
-                    {new Date(i.date).toISOString().slice(0, 10)} · {i.severity}{i.mechanism ? ` · ${i.mechanism}` : ''}
-                  </div>
-                </div>
-                <span className={badgeClassFor(i.recoveryStatus)}>{i.recoveryStatus}</span>
-              </div>
-              {i.notes && <div className="injury-record-notes">{i.notes}</div>}
-            </div>
-          ))
-        )}
       </div>
     </DashboardLayout>
   );

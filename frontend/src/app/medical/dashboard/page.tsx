@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { useEffect, useMemo, useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
@@ -59,21 +58,6 @@ interface AthleteFull extends AthleteListItem {
   screening?: (ScreeningIndicator & { screeningId?: number; overrideAt?: string | null }) | null;
 }
 
-interface Injury {
-  _id: string;
-  athleteId?: string;      // present on system-wide queries; optional on per-athlete views
-  athleteName?: string;
-  sport?: string;
-  bodyPart: string;
-  side: string;
-  injuryType: string;
-  severity: string;
-  mechanism?: string;
-  date: string;
-  recoveryStatus: 'Recovering' | 'Recovered' | 'Chronic';
-  notes?: string;
-}
-
 const RISK_LABEL: Record<keyof AthleteRisks, string> = {
   neckInjuryRisk: 'Neck',
   shoulderInjuryRisk: 'Shoulder',
@@ -112,14 +96,9 @@ export default function MedicalDashboard() {
   const [loadingList, setLoadingList] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
 
-  // System-wide signals used by the empty-state quick-access groups.
-  const [allInjuriesAcrossSystem, setAllInjuriesAcrossSystem] = useState<Injury[]>([]);
-  const [pendingReportsCount, setPendingReportsCount] = useState(0);
-
   // Selected-athlete state
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedAthlete, setSelectedAthlete] = useState<AthleteFull | null>(null);
-  const [selectedInjuries, setSelectedInjuries] = useState<Injury[]>([]);
   const [loadingSelected, setLoadingSelected] = useState(false);
   const [selectedError, setSelectedError] = useState<string | null>(null);
   const [pdfBusy, setPdfBusy] = useState<'' | 'ind' | 'team'>('');
@@ -187,23 +166,19 @@ export default function MedicalDashboard() {
     }
   }
 
-  // Initial roster load + system-wide signals for the empty-state.
+  // Initial roster load.
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         setLoadingList(true);
-        const [list, sportsList, injuriesAll, pendingReports] = await Promise.all([
+        const [list, sportsList] = await Promise.all([
           api.get<AthleteListItem[]>('/athletes'),
           api.get<string[]>('/athletes/meta/sports').catch(() => [] as string[]),
-          api.get<Injury[]>('/injuries').catch(() => [] as Injury[]),
-          api.get<unknown[]>('/self-reports?status=Pending').catch(() => [] as unknown[]),
         ]);
         if (!cancelled) {
           setAthletes(list);
           setSports(sportsList);
-          setAllInjuriesAcrossSystem(injuriesAll);
-          setPendingReportsCount(pendingReports.length);
           setListError(null);
         }
       } catch (e) {
@@ -221,7 +196,6 @@ export default function MedicalDashboard() {
   useEffect(() => {
     if (!selectedId) {
       setSelectedAthlete(null);
-      setSelectedInjuries([]);
       return;
     }
     let cancelled = false;
@@ -230,13 +204,9 @@ export default function MedicalDashboard() {
     (async () => {
       try {
         setLoadingSelected(true);
-        const [a, injs] = await Promise.all([
-          api.get<AthleteFull>(`/athletes/${selectedId}`),
-          api.get<Injury[]>(`/injuries/athlete/${selectedId}`).catch(() => [] as Injury[]),
-        ]);
+        const a = await api.get<AthleteFull>(`/athletes/${selectedId}`);
         if (!cancelled) {
           setSelectedAthlete(a);
-          setSelectedInjuries(injs);
           setSelectedError(null);
         }
       } catch (e) {
@@ -263,17 +233,6 @@ export default function MedicalDashboard() {
       return true;
     });
   }, [athletes, search, filterSport, filterProgramme, filterGender, filterDiscipline]);
-
-  const allInjuries = useMemo(
-    () => [...selectedInjuries].sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
-    ),
-    [selectedInjuries],
-  );
-  const activeInjuries = useMemo(
-    () => allInjuries.filter((i) => i.recoveryStatus !== 'Recovered'),
-    [allInjuries],
-  );
 
   // Distinct programmes available in the roster (for the filter dropdown)
   const programmes = useMemo(() => {
@@ -303,34 +262,6 @@ export default function MedicalDashboard() {
     athletes.forEach((a) => { if (a.sport === selectedAthlete.sport) (a.disciplines ?? []).forEach((d) => set.add(d)); });
     return Array.from(set).sort();
   }, [selectedAthlete, athletes]);
-
-  // Athletes with at least one currently-active (non-Recovered) injury — the
-  // clinician's natural first stop on opening the dashboard.
-  const activeInjuryAthletes = useMemo(() => {
-    const map = new Map<string, { athleteId: string; athleteName: string; sport?: string; cases: number }>();
-    allInjuriesAcrossSystem.forEach((i) => {
-      if (i.recoveryStatus === 'Recovered') return;
-      if (!i.athleteId) return;
-      const existing = map.get(i.athleteId);
-      if (existing) existing.cases++;
-      else map.set(i.athleteId, {
-        athleteId: i.athleteId,
-        athleteName: i.athleteName || i.athleteId,
-        sport: i.sport,
-        cases: 1,
-      });
-    });
-    return Array.from(map.values()).sort((a, b) => b.cases - a.cases);
-  }, [allInjuriesAcrossSystem]);
-
-  // Recently-logged injuries (last 14 days) — surfaces the freshest cases.
-  const recentInjuries = useMemo(() => {
-    const cutoff = Date.now() - 14 * 86400000;
-    return allInjuriesAcrossSystem
-      .filter((i) => new Date(i.date).getTime() >= cutoff)
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      .slice(0, 6);
-  }, [allInjuriesAcrossSystem]);
 
   // Re-pull the athlete after a clinician sets or clears the risk band, so the
   // hero, the alert banner and the screening history all follow the new
@@ -448,75 +379,9 @@ export default function MedicalDashboard() {
                   <div className="stat-tile-delta">Active</div>
                 </div>
                 <div className="stat-tile">
-                  <div className="stat-tile-label">With active injuries</div>
-                  <div className="stat-tile-value">{loadingList ? '…' : activeInjuryAthletes.length}</div>
-                  <div className="stat-tile-delta">Currently recovering / chronic</div>
-                </div>
-                <div className="stat-tile">
-                  <div className="stat-tile-label">Self-reports pending</div>
-                  <div className="stat-tile-value">{loadingList ? '…' : pendingReportsCount}</div>
-                  <div className="stat-tile-delta">Awaiting review</div>
-                </div>
-              </div>
-
-              <div className="grid-2" style={{ marginTop: 20 }}>
-                <div className="card">
-                  <div className="card-header">
-                    <h2 className="card-title" style={{ marginBottom: 0 }}>Athletes with active injuries</h2>
-                    <span className="text-muted">{activeInjuryAthletes.length}</span>
-                  </div>
-                  {activeInjuryAthletes.length === 0 ? (
-                    <div className="empty-state">No active injuries on record.</div>
-                  ) : (
-                    <div>
-                      {activeInjuryAthletes.slice(0, 8).map((a) => (
-                        <button
-                          key={a.athleteId}
-                          type="button"
-                          className="athlete-row"
-                          onClick={() => setSelectedId(a.athleteId)}
-                        >
-                          <span className="athlete-row-avatar">{getInitials(a.athleteName)}</span>
-                          <span className="athlete-row-info">
-                            <span className="athlete-row-name">{a.athleteName}</span>
-                            <span className="athlete-row-meta">
-                              {a.sport ?? '—'} · {a.cases} active case{a.cases === 1 ? '' : 's'}
-                            </span>
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <div className="card">
-                  <div className="card-header">
-                    <h2 className="card-title" style={{ marginBottom: 0 }}>Recently logged (14 days)</h2>
-                    <span className="text-muted">{recentInjuries.length}</span>
-                  </div>
-                  {recentInjuries.length === 0 ? (
-                    <div className="empty-state">No injuries logged in the last 14 days.</div>
-                  ) : (
-                    <div>
-                      {recentInjuries.map((i) => (
-                        <button
-                          key={i._id}
-                          type="button"
-                          className="athlete-row"
-                          onClick={() => i.athleteId && setSelectedId(i.athleteId)}
-                          disabled={!i.athleteId}
-                        >
-                          <span className="athlete-row-avatar">{getInitials(i.athleteName ?? '?')}</span>
-                          <span className="athlete-row-info">
-                            <span className="athlete-row-name">{i.athleteName ?? i.athleteId ?? 'Unknown'}</span>
-                            <span className="athlete-row-meta">
-                              {i.bodyPart} ({i.side}) — {i.injuryType} · {new Date(i.date).toISOString().slice(0, 10)}
-                            </span>
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                  <div className="stat-tile-label">Sports</div>
+                  <div className="stat-tile-value">{loadingList ? '…' : sports.length}</div>
+                  <div className="stat-tile-delta">On the roster</div>
                 </div>
               </div>
             </>
@@ -601,12 +466,6 @@ export default function MedicalDashboard() {
                         {pdfBusy === 'team' ? 'Preparing…' : 'Team PDF'}
                       </button>
                     )}
-                    <Link
-                      href={`/medical/injury-log?athleteId=${encodeURIComponent(selectedAthlete.athleteId)}`}
-                      className="btn btn-gold"
-                    >
-                      + Log Injury
-                    </Link>
                   </div>
                 </div>
                 {pdfError && <div className="alert alert-error" style={{ marginTop: 12, marginBottom: 0 }}>{pdfError}</div>}
@@ -712,34 +571,6 @@ export default function MedicalDashboard() {
                   tension={selectedAthlete.tension ?? []}
                   subitems={selectedAthlete.screening?.subitems}
                 />
-              </div>
-
-              {/* Injury history */}
-              <div className="card">
-                <div className="card-header">
-                  <h2 className="card-title" style={{ marginBottom: 0 }}>Injury History</h2>
-                  <span className="text-muted">{allInjuries.length} record{allInjuries.length === 1 ? '' : 's'}</span>
-                </div>
-                {allInjuries.length === 0 ? (
-                  <div className="empty-state">No injuries on record.</div>
-                ) : (
-                  allInjuries.map((i) => (
-                    <div key={i._id} className="injury-record">
-                      <div className="injury-record-head">
-                        <div>
-                          <strong>{i.bodyPart} ({i.side}) — {i.injuryType}</strong>
-                          <div className="injury-record-meta">
-                            {new Date(i.date).toISOString().slice(0, 10)} · {i.severity}{i.mechanism ? ` · ${i.mechanism}` : ''}
-                          </div>
-                        </div>
-                        <span className={i.recoveryStatus === 'Recovered' ? 'badge-low' : i.recoveryStatus === 'Recovering' ? 'badge-moderate' : 'badge-high'}>
-                          {i.recoveryStatus}
-                        </span>
-                      </div>
-                      {i.notes && <div className="injury-record-notes">{i.notes}</div>}
-                    </div>
-                  ))
-                )}
               </div>
             </>
           ) : null}
