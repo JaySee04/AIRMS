@@ -450,7 +450,7 @@ export default function CoachDashboard() {
             <h2 className="card-title" style={{ marginBottom: 0 }}>Squad Readiness Overview</h2>
             <span className="card-sub">
               {data?.sport ? `Sport: ${data.sport}` : 'No sport assigned to your account yet'}
-              {' · '}read-only · same readiness band the medical team sees
+              {' · '}read-only
             </span>
           </div>
           {data?.sport && (
@@ -534,7 +534,7 @@ export default function CoachDashboard() {
             <div>
               <h2 className="card-title" style={{ marginBottom: 0 }}>Suggested focus for the squad</h2>
               <span className="card-sub">
-                Auto-generated from this screening round · training-load guidance, not clinical advice
+                Auto-generated from this screening round
               </span>
             </div>
           </div>
