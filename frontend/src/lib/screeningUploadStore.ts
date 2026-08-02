@@ -93,8 +93,6 @@ interface UploadState {
 export const BATCH_SPACING_MS = 3000;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-const titleCase = (s: string) => s.replace(/\S+/g, (w) => w[0].toUpperCase() + w.slice(1).toLowerCase());
-
 // ── store internals ─────────────────────────────────────────────────────────
 let state: UploadState = { items: [], busy: false, roster: null };
 const listeners = new Set<() => void>();
@@ -109,15 +107,16 @@ function patchItemInternal(id: number, patch: Partial<QueueItem>) {
   setState({ items: state.items.map((it) => (it.id === id ? { ...it, ...patch } : it)) });
 }
 
-// Match an extracted name against the roster (trimmed, case-insensitive).
-// Exactly one match → auto-fill; zero or ambiguous → manual entry. Reads live
-// module state so a mid-batch match sees athletes committed earlier in the run.
-function matchByName(name: string | undefined): RosterAthlete | null {
+// Match a roster athlete by ID (trimmed, case-insensitive). The athlete's name
+// is redacted from the screening image before extraction (privacy — see
+// backend utils/redactName.js), so the report can no longer be auto-matched by
+// name. The operator picks the athlete by ID instead, and we re-attach their
+// identity from OUR roster — the mirror of the retired name-based match.
+function matchById(athleteId: string | undefined): RosterAthlete | null {
   const list = state.roster;
-  if (!name || !list) return null;
-  const key = name.trim().toLowerCase();
-  const hits = list.filter((a) => a.name.trim().toLowerCase() === key);
-  return hits.length === 1 ? hits[0] : null;
+  if (!athleteId || !list) return null;
+  const key = athleteId.trim().toLowerCase();
+  return list.find((a) => a.athleteId.trim().toLowerCase() === key) ?? null;
 }
 
 async function extractOne(item: QueueItem): Promise<void> {
@@ -126,16 +125,17 @@ async function extractOne(item: QueueItem): Promise<void> {
     const formData = new FormData();
     formData.append('file', item.file);
     const preview = await api.upload<PreviewResponse>('/upload/screening/pdf/preview', formData);
-    const matched = matchByName(preview.athlete.name);
+    // Name is redacted from the image, so it isn't in the extraction — the
+    // operator attaches the athlete by ID below (see matchById / setItemAthleteId).
     patchItemInternal(item.id, {
       status: 'ready',
       preview,
-      matched,
-      athleteId: matched?.athleteId ?? '',
-      sport: matched?.sport ?? '',
-      program: matched?.program ?? matched?.programme ?? '',
-      disciplines: matched?.disciplines ?? [],
-      name: matched?.name ?? titleCase(preview.athlete.name ?? ''),
+      matched: null,
+      athleteId: '',
+      sport: '',
+      program: '',
+      disciplines: [],
+      name: '',
       age: preview.athlete.age != null ? String(preview.athlete.age) : '',
       gender: preview.athlete.gender ?? '',
     });
@@ -179,6 +179,24 @@ export function setConfigured(v: boolean) { configured = v; }
 export function setRoster(list: RosterAthlete[] | null) { setState({ roster: list }); }
 
 export function patchItem(id: number, patch: Partial<QueueItem>) { patchItemInternal(id, patch); }
+
+// Set an item's Athlete ID and, when it matches the roster, re-attach the
+// athlete's identity (name/sport/programme, and events if untouched). This is
+// how the operator restores the identity that name-redaction strips from the
+// report image. A non-matching ID just updates the field (new-athlete path).
+export function setItemAthleteId(id: number, athleteId: string) {
+  const hit = matchById(athleteId);
+  if (!hit) { patchItemInternal(id, { athleteId, matched: null }); return; }
+  const item = state.items.find((it) => it.id === id);
+  patchItemInternal(id, {
+    athleteId,
+    matched: hit,
+    name: hit.name,
+    sport: hit.sport ?? '',
+    program: hit.program ?? hit.programme ?? '',
+    ...(item && !item.disciplinesTouched ? { disciplines: hit.disciplines ?? [] } : {}),
+  });
+}
 
 export function removeItem(id: number) {
   setState({ items: state.items.filter((it) => it.id !== id) });

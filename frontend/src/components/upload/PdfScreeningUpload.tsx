@@ -6,10 +6,11 @@
 //
 // Batch-capable: drop one or many PDFs; extraction runs sequentially (each
 // file is one vision-API call — spacing respects free-tier rate limits).
-// After extraction, the athlete name printed on each report is matched
-// against the existing roster: a match auto-fills Athlete ID, sport, and
-// programme; a new name is entered manually, with the sport picked from a
-// searchable list of ISN's 52 sports.
+// The athlete's name is redacted from the report image on the server BEFORE it
+// reaches the vision model (privacy — see backend utils/redactName.js), so it
+// isn't in the extraction. The operator attaches each report to a roster
+// athlete by Athlete ID, which fills identity/sport/programme back from the
+// roster; a new athlete is entered manually.
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
@@ -113,6 +114,7 @@ export default function PdfScreeningUpload() {
   // local aliases so the JSX below reads unchanged.
   const addFiles = uploadStore.addFiles;
   const patchItem = uploadStore.patchItem;
+  const setItemAthleteId = uploadStore.setItemAthleteId;
   const removeItem = uploadStore.removeItem;
   const retryFailed = uploadStore.retryFailed;
 
@@ -166,9 +168,9 @@ export default function PdfScreeningUpload() {
 
       {status && status.configured && (
         <div className="alert alert-info" style={{ marginBottom: 14 }}>
-          <strong>AI-assisted ingestion.</strong> Reports are read automatically by a vision model. Drop one or many PDFs —
-          athletes already on the roster are matched by name and auto-filled; new athletes need an
-          Athlete ID, sport, and programme.
+          <strong>AI-assisted ingestion.</strong> Reports are read automatically by a vision model. The athlete&apos;s
+          name is blacked out on your device before any image is sent for reading, so the identity never leaves here —
+          pick the athlete by <strong>Athlete ID</strong> below to attach it back from the roster.
         </div>
       )}
 
@@ -261,26 +263,28 @@ export default function PdfScreeningUpload() {
               <div className="pdf-queue-body">
                 <div>
                   <div className="alert alert-success" style={{ marginBottom: 10 }}>
-                    <strong>{it.preview.athlete.name ?? 'Unknown athlete'}</strong>
-                    {it.preview.athlete.age ? `, age ${it.preview.athlete.age}` : ''}
+                    <strong>Report read</strong>
+                    {it.preview.athlete.age ? ` · age ${it.preview.athlete.age}` : ''}
                     {it.preview.athlete.gender ? ` · ${it.preview.athlete.gender}` : ''}
                     {it.preview.assessedAt ? ` · assessed ${it.preview.assessedAt}` : ''}
+                    <span className="text-muted" style={{ fontWeight: 400 }}> · name redacted before extraction</span>
                   </div>
                   {it.matched ? (
                     <div className="alert alert-info" style={{ marginBottom: 10 }}>
-                      Matched roster athlete <strong>{it.matched.name} ({it.matched.athleteId})</strong> — identity, sport, and programme auto-filled. Edit below if anything is wrong.
+                      Attached to <strong>{it.matched.name} ({it.matched.athleteId})</strong> — identity, sport, and programme filled from the roster. Edit below if anything is wrong.
                     </div>
                   ) : (
                     <div className="text-muted" style={{ fontSize: '0.8rem', marginBottom: 10 }}>
-                      No roster athlete named “{it.preview.athlete.name ?? '—'}” — confirm the new athlete&apos;s details.
+                      Pick the <strong>Athlete ID</strong> below to attach this report to a roster athlete, or enter a new athlete&apos;s details.
                     </div>
                   )}
 
-                  {/* Editable identity — report name is Title-Cased on prefill;
-                      name/age/gender are not on some reports so stay editable. */}
+                  {/* Editable identity. Name is filled from the roster when an
+                      Athlete ID is chosen (it's redacted from the report image);
+                      age/gender come from the report and stay editable. */}
                   <div className="form-group">
                     <label>Name <span style={{ color: 'var(--risk-high)' }}>*</span></label>
-                    <input value={it.name} onChange={(e) => patchItem(it.id, { name: e.target.value })} placeholder="Full name" />
+                    <input value={it.name} onChange={(e) => patchItem(it.id, { name: e.target.value })} placeholder="Filled from the roster when you pick an Athlete ID" />
                   </div>
                   <div className="form-row-2">
                     <div className="form-group">
@@ -301,7 +305,7 @@ export default function PdfScreeningUpload() {
                     <label>Athlete ID <span style={{ color: 'var(--risk-high)' }}>*</span></label>
                     <input
                       value={it.athleteId}
-                      onChange={(e) => patchItem(it.id, { athleteId: e.target.value })}
+                      onChange={(e) => setItemAthleteId(it.id, e.target.value)}
                       placeholder="e.g. ATH0001"
                       list={`pdf-roster-${it.id}`}
                     />

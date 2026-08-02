@@ -22,6 +22,7 @@
 // "canvas" → @napi-rs/canvas (a prebuilt binary, no node-gyp compile needed).
 
 const { createCanvas } = require('canvas');
+const { redactNameOnCanvas } = require('./redactName');
 
 // How many leading pages to send to the model. The data section spans pages
 // 1–3 (compact layout) or 1–6 (expanded layout); 6 covers both known variants.
@@ -90,6 +91,15 @@ async function renderForExtraction(buffer, scale = renderScale()) {
     const viewport = page.getViewport({ scale });
     const canvas = createCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
     await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+    // Page 1 is the only page carrying the athlete's name (verified against both
+    // HoloMotion layouts). Redact it locally BEFORE the image is serialised, so
+    // the identity never reaches the vision model — fails closed on OCR trouble.
+    if (pageNum === 1) {
+      const r = await redactNameOnCanvas(canvas);
+      if (!r.method.startsWith('ocr')) {
+        console.warn(`[redact] page 1 name redacted via ${r.method}${r.error ? ` (${r.error})` : ''}`);
+      }
+    }
     out.push({
       page: pageNum,
       label: `HoloMotion report page ${pageNum} of ${total}`,

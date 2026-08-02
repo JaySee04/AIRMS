@@ -42,6 +42,15 @@ coverage/
 # Misc
 *.pem
 
+# Real athlete screening PDFs — NEVER commit. Local calibration/verification
+# samples for the HoloMotion ingest pipeline live here.
+backend/scripts/samples/
+*.pdf
+!reports/FYP-I-Report.pdf
+
+# Tesseract OCR language-model cache (name-redaction pass)
+backend/.tesseract/
+
 # TypeScript incremental build info
 *.tsbuildinfo
 

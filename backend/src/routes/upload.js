@@ -96,6 +96,20 @@ router.post('/screening/pdf', auth, rbac('medical', 'admin'), requirePermission(
       program: program || athlete.program,
     };
 
+    // The athlete's name is redacted from the screening image before extraction
+    // (privacy — see utils/redactName.js), so the model no longer returns it.
+    // For an athlete already on the roster (the normal case — the operator picks
+    // them by ID), backfill name/sport/program from their record so the commit
+    // still validates and the identity comes from OUR data, not the vision model.
+    if (data.athleteId && (!data.name || !data.sport || !data.program)) {
+      const roster = await Athlete.findOne({ where: { athleteId: data.athleteId } });
+      if (roster) {
+        if (!data.name) data.name = roster.name;
+        if (!data.sport) data.sport = roster.sport;
+        if (!data.program) data.program = roster.program;
+      }
+    }
+
     const errors = [];
     if (!data.athleteId) errors.push('Missing Athlete ID');
     if (!data.name) errors.push('Missing Name');
