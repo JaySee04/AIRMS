@@ -1,140 +1,90 @@
-// Local, on-device redaction of the athlete's NAME from a HoloMotion report
-// page before the image is sent to the (possibly cloud) vision model.
+// On-device redaction of the athlete NAME from a HoloMotion report page before
+// the image is sent to the (possibly cloud) vision model.
 //
-// Why: the report images are the only thing that leaves the machine during
-// ingestion, and the athlete's printed name is the single direct identifier on
-// them (the phone number, when present, lives only in the filename, never on the
-// page — see docs/DESIGN_DECISIONS §PII). Blacking the name out locally means
-// the identity never reaches the model: the vision provider only ever sees a
-// de-identified page. Age/gender/time and every score are LEFT INTACT — we cover
-// only the name value, not the whole Information block — so extraction is
-// unaffected and the screening timestamp still comes straight from the report.
+// The rendered images are the only athlete data that leaves the machine during
+// ingestion, and the printed name is the sole direct identifier on them (the
+// phone number, when present, is only in the FILENAME, never on the page). We
+// black out just the name value — age/gender/time and every score stay intact,
+// so extraction (incl. the screening timestamp) is unaffected. The name appears
+// only on page 1 (verified on both layouts), so only page 1 is redacted.
 //
-// Why OCR instead of a fixed box: HoloMotion ships (at least) two page layouts
-// that place the name at very different vertical positions (~16% of page height
-// on the compact layout, ~35% on the expanded one), and the compact layout packs
-// the Summary directly beneath it. No single fixed rectangle is both safe and
-// sufficient across both, so we LOCATE the name with a lightweight local OCR
-// pass and redact exactly where it is. The name only ever appears on page 1
-// (verified against both sample layouts), so only page 1 needs this.
+// Why OCR, not a fixed box: the two known layouts place the name at very
+// different heights (~16% vs ~35% of the page), so we LOCATE it. Tesseract only
+// has to find one plain label ("Name") — it does NOT read the scores (that's the
+// vision model's job; see DESIGN_DECISIONS §13/§18). tesseract.js is pure WASM.
 //
-// tesseract.js is pure WASM (no native toolchain), so it avoids the node-canvas
-// build pitfalls that forced the @napi-rs/canvas alias.
+// Fail-closed: any OCR trouble → black out the whole top-left Information region
+// (still clear of the right-hand gauges) rather than send page 1 unredacted.
 
 const { createCanvas } = require('canvas');
 
-let workerPromise = null;
+// The name sits in the top-left "Information" block; the score gauges are
+// top-right (from ~0.6·W). OCR only this region — faster, and it keeps the gauge
+// digits out of Tesseract. The crop starts at (0,0), so word boxes map straight
+// back onto the page canvas.
+const REGION_W = 0.58; // width fraction — past the longest sample name, left of the gauges
+const REGION_H = 0.45; // height fraction — covers the name on both layouts
+const NAME_LABEL = /^name[:：]?$/i; // tolerate fullwidth / ascii / missing colon
 
-// One reused worker for the whole process (model load is the expensive part).
-// cachePath keeps the downloaded language model beside the backend instead of
-// littering the CWD; bundle eng.traineddata there for a fully offline install.
+let workerPromise = null;
 function getWorker() {
   if (!workerPromise) {
     const { createWorker } = require('tesseract.js');
-    const path = require('path');
-    workerPromise = createWorker('eng', undefined, {
-      cachePath: path.join(__dirname, '../../.tesseract'),
-      // OEM/logging left default; we only need word boxes, not fast throughput.
-    }).catch((err) => {
-      // Reset so a later call can retry, but surface the failure to the caller
-      // (which fails CLOSED — see redactNameOnCanvas).
-      workerPromise = null;
-      throw err;
-    });
+    const cachePath = require('path').join(__dirname, '../../.tesseract');
+    workerPromise = createWorker('eng', undefined, { cachePath })
+      .catch((err) => { workerPromise = null; throw err; }); // reset so a retry can reload
   }
   return workerPromise;
 }
 
-// Match the "Name" label token, tolerating the report's fullwidth colon (：),
-// an ASCII colon, or none (OCR sometimes drops the punctuation).
-const NAME_LABEL = /^name[:：]?$/i;
-
-// Redact the athlete name on a rendered HoloMotion page-1 canvas, IN PLACE.
-// Strategy: OCR the top band (the Information block never sits lower than this),
-// find the "Name" line, and paint a black box over the value to the right of
-// the label. Fails CLOSED — if OCR can't find the name (or errors), it blacks
-// out the top-left Information quadrant so the name is covered regardless; the
-// gauges (top-right) and lower content survive either way.
+// Redact the athlete name on a rendered page-1 canvas, IN PLACE.
 // Returns { redacted, method, box } for logging/verification.
 async function redactNameOnCanvas(canvas) {
-  const W = canvas.width;
-  const H = canvas.height;
+  const W = canvas.width, H = canvas.height;
+  const cw = Math.round(W * REGION_W), ch = Math.round(H * REGION_H);
   const ctx = canvas.getContext('2d');
-
-  // Fail-closed fallback: the name is always top-left; the Total Score /
-  // Exercise Risks gauges are top-right (x > ~0.6·W), so a left-column band
-  // covers the name without touching them. Used only when OCR can't pinpoint it.
-  const fallbackBox = { x: 0, y: Math.round(H * 0.08), w: Math.round(W * 0.58), h: Math.round(H * 0.34) };
-  const paint = (b) => { ctx.save(); ctx.fillStyle = '#000000'; ctx.fillRect(b.x, b.y, b.w, b.h); ctx.restore(); };
+  const paint = (b) => { ctx.fillStyle = '#000'; ctx.fillRect(b.x, b.y, b.w, b.h); };
+  const fallback = { x: 0, y: Math.round(H * 0.06), w: cw, h: ch }; // whole Information region
 
   let worker;
-  try {
-    worker = await getWorker();
-  } catch (err) {
-    paint(fallbackBox);
-    return { redacted: true, method: 'fallback:ocr-unavailable', box: fallbackBox, error: err.message };
-  }
+  try { worker = await getWorker(); }
+  catch (err) { paint(fallback); return { redacted: true, method: 'fallback:ocr-unavailable', box: fallback, error: err.message }; }
 
   try {
-    // OCR only the top half (info block lives well within it) on an inverted,
-    // grayscaled copy — the report is white-on-dark, which Tesseract reads far
-    // better once flipped to dark-on-light.
-    const bandH = Math.round(H * 0.5);
-    const pre = createCanvas(W, bandH);
+    // Invert the region to dark-on-light (the report is white-on-dark, which
+    // Tesseract reads far better flipped) and OCR it.
+    const pre = createCanvas(cw, ch);
     const pctx = pre.getContext('2d');
-    pctx.drawImage(canvas, 0, 0, W, bandH, 0, 0, W, bandH);
-    const img = pctx.getImageData(0, 0, W, bandH);
-    const d = img.data;
+    pctx.drawImage(canvas, 0, 0, cw, ch, 0, 0, cw, ch);
+    const img = pctx.getImageData(0, 0, cw, ch), d = img.data;
     for (let i = 0; i < d.length; i += 4) {
-      const g = 255 - (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]);
-      d[i] = d[i + 1] = d[i + 2] = g;
+      d[i] = d[i + 1] = d[i + 2] = 255 - (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]);
     }
     pctx.putImageData(img, 0, 0);
 
     const { data } = await worker.recognize(pre.toBuffer('image/png'));
     const words = (data.words || []).filter((w) => w && w.bbox && (w.text || '').trim());
-
-    // Locate the "Name" label, then the value tokens sharing its text line to
-    // the right of it. Tesseract bbox coords are in the top-band's pixel space,
-    // which shares this canvas's origin, so they map directly onto it.
     const label = words.find((w) => NAME_LABEL.test(w.text.trim()));
-    if (label) {
-      const lb = label.bbox;
-      const lineMidY = (lb.y0 + lb.y1) / 2;
-      const lineH = lb.y1 - lb.y0;
-      const gaugeLimit = W * 0.58; // never cross into the right-hand gauges
-      const value = words.filter((w) => {
-        const b = w.bbox;
-        const midY = (b.y0 + b.y1) / 2;
-        return b.x0 >= lb.x1 - 2                       // right of the label
-          && Math.abs(midY - lineMidY) <= lineH * 0.7  // same text line
-          && b.x0 < gaugeLimit;                        // clear of the gauges
-      });
+    if (!label) { paint(fallback); return { redacted: true, method: 'fallback:name-not-found', box: fallback }; }
 
-      let box;
-      if (value.length) {
-        const x0 = Math.min(...value.map((w) => w.bbox.x0));
-        const y0 = Math.min(...value.map((w) => w.bbox.y0));
-        const x1 = Math.max(...value.map((w) => w.bbox.x1));
-        const y1 = Math.max(...value.map((w) => w.bbox.y1));
-        const pad = Math.max(4, Math.round(lineH * 0.25));
-        box = { x: Math.max(0, x0 - pad), y: Math.max(0, y0 - pad), w: (x1 - x0) + pad * 2, h: (y1 - y0) + pad * 2 };
-      } else {
-        // Label found but no value tokens read — cover from the label to the
-        // gauge limit across the label's line height (name sits right there).
-        const pad = Math.max(4, Math.round(lineH * 0.35));
-        box = { x: Math.max(0, lb.x1 - 2), y: Math.max(0, lb.y0 - pad), w: Math.round(gaugeLimit - lb.x1 + 2), h: (lb.y1 - lb.y0) + pad * 2 };
-      }
-      paint(box);
-      return { redacted: true, method: value.length ? 'ocr' : 'ocr:label-only', box };
+    // The value is the tokens on the label's text line, to its right.
+    const lb = label.bbox, midY = (lb.y0 + lb.y1) / 2, lineH = lb.y1 - lb.y0;
+    const value = words.filter((w) => w.bbox.x0 >= lb.x1 - 2 && Math.abs((w.bbox.y0 + w.bbox.y1) / 2 - midY) <= lineH * 0.7);
+    const pad = Math.max(4, Math.round(lineH * 0.3));
+    let box;
+    if (value.length) {
+      const x0 = Math.min(...value.map((w) => w.bbox.x0)), y0 = Math.min(...value.map((w) => w.bbox.y0));
+      const x1 = Math.max(...value.map((w) => w.bbox.x1)), y1 = Math.max(...value.map((w) => w.bbox.y1));
+      box = { x: Math.max(0, x0 - pad), y: Math.max(0, y0 - pad), w: x1 - x0 + pad * 2, h: y1 - y0 + pad * 2 };
+    } else {
+      // Label read but no value tokens — cover from the label to the region edge.
+      box = { x: Math.max(0, lb.x1 - 2), y: Math.max(0, lb.y0 - pad), w: cw - lb.x1, h: lineH + pad * 2 };
     }
-
-    // No "Name" line found at all → fail closed.
-    paint(fallbackBox);
-    return { redacted: true, method: 'fallback:name-not-found', box: fallbackBox };
+    paint(box);
+    return { redacted: true, method: value.length ? 'ocr' : 'ocr:label-only', box };
   } catch (err) {
-    paint(fallbackBox);
-    return { redacted: true, method: 'fallback:ocr-error', box: fallbackBox, error: err.message };
+    paint(fallback);
+    return { redacted: true, method: 'fallback:ocr-error', box: fallback, error: err.message };
   }
 }
 
