@@ -180,22 +180,39 @@ export function setRoster(list: RosterAthlete[] | null) { setState({ roster: lis
 
 export function patchItem(id: number, patch: Partial<QueueItem>) { patchItemInternal(id, patch); }
 
-// Set an item's Athlete ID and, when it matches the roster, re-attach the
-// athlete's identity (name/sport/programme, and events if untouched). This is
-// how the operator restores the identity that name-redaction strips from the
-// report image. A non-matching ID just updates the field (new-athlete path).
+// Set an item's Athlete ID and keep the roster-derived identity in sync:
+//   - matches the roster  → fill name/sport/programme (and events if untouched)
+//   - clears/changes off a previous match → STRIP those roster-filled fields, so
+//     clearing the picker undoes the whole autofill, not just the ID
+//   - never matched (manual new-athlete entry) → just update the ID, leaving any
+//     manually typed name/sport/programme alone
+// age/gender aren't touched here — they come from the report, not the roster.
 export function setItemAthleteId(id: number, athleteId: string) {
   const hit = matchById(athleteId);
-  if (!hit) { patchItemInternal(id, { athleteId, matched: null }); return; }
   const item = state.items.find((it) => it.id === id);
-  patchItemInternal(id, {
-    athleteId,
-    matched: hit,
-    name: hit.name,
-    sport: hit.sport ?? '',
-    program: hit.program ?? hit.programme ?? '',
-    ...(item && !item.disciplinesTouched ? { disciplines: hit.disciplines ?? [] } : {}),
-  });
+  if (hit) {
+    patchItemInternal(id, {
+      athleteId,
+      matched: hit,
+      name: hit.name,
+      sport: hit.sport ?? '',
+      program: hit.program ?? hit.programme ?? '',
+      ...(item && !item.disciplinesTouched ? { disciplines: hit.disciplines ?? [] } : {}),
+    });
+  } else if (item?.matched) {
+    // Was attached to a roster athlete; the pick is now cleared/changed → remove
+    // everything that autofill put in (events too, unless the operator edited them).
+    patchItemInternal(id, {
+      athleteId,
+      matched: null,
+      name: '',
+      sport: '',
+      program: '',
+      ...(item.disciplinesTouched ? {} : { disciplines: [] }),
+    });
+  } else {
+    patchItemInternal(id, { athleteId, matched: null });
+  }
 }
 
 export function removeItem(id: number) {
