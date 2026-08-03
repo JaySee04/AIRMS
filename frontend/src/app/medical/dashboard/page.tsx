@@ -17,6 +17,7 @@ import ScreeningAlertBanner from '@/components/dashboard/ScreeningAlertBanner';
 import ScreeningHistory from '@/components/dashboard/ScreeningHistory';
 import ScreeningPanel from '@/components/dashboard/ScreeningPanel';
 import ScreeningDatePicker, { FullScreening } from '@/components/dashboard/ScreeningDatePicker';
+import InjuryStatusControl from '@/components/dashboard/InjuryStatusControl';
 import { api } from '@/lib/api';
 import { disciplinesForSport } from '@/lib/disciplines';
 import { getInitials } from '@/lib/name';
@@ -56,6 +57,10 @@ interface AthleteFull extends AthleteListItem {
   risks: AthleteRisks;
   myodynamia: MuscleEntry[];
   tension: MuscleEntry[];
+  isInjured?: boolean;
+  injuryNote?: string | null;
+  injuryBy?: string | null;
+  injuryAt?: string | null;
   screening?: (ScreeningIndicator & { screeningId?: number; overrideAt?: string | null }) | null;
 }
 
@@ -516,6 +521,14 @@ export default function MedicalDashboard() {
                   onSaved={reloadSelectedAthlete}
                 />
               )}
+              <InjuryStatusControl
+                athleteId={selectedAthlete.athleteId}
+                isInjured={selectedAthlete.isInjured}
+                injuryNote={selectedAthlete.injuryNote}
+                injuryBy={selectedAthlete.injuryBy}
+                injuryAt={selectedAthlete.injuryAt}
+                onSaved={reloadSelectedAthlete}
+              />
               {/* Which regions sit behind an amber/red band. Renders nothing
                   when the athlete is green overall. Sits between the verdict and
                   the radar overview: verdict → why → overview → detail. */}

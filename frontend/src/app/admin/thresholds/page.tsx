@@ -30,6 +30,33 @@ interface Cohort {
 }
 interface SettingsResp { settings: Record<string, number | boolean | string>; defaults: Record<string, number | boolean | string>; }
 
+// A cohort member row for the membership panel (B3/B4/B5).
+interface Member {
+  athleteId: string; name: string; program: string | null; gender: string | null;
+  isInjured: boolean; normExcluded: boolean;
+  totalScore: number | null; rom: number | null; stability: number | null; symmetry: number | null;
+  overallBand: 'green' | 'amber' | 'red' | null; overallIndicator: number | null;
+  eligible: boolean; reason: string | null;
+}
+
+const BAND_DOT: Record<string, string> = { green: 'var(--risk-low)', amber: 'var(--risk-moderate)', red: 'var(--risk-high)' };
+const REASON_LABEL: Record<string, string> = {
+  injured: 'Injured', excluded: 'Excluded (manual)', 'below-total': 'Below Total', 'below-rom': 'Below ROM', 'below-stability': 'Below Stability',
+};
+
+// Compact 0–100 score bar for the membership panel.
+function ScoreBar({ v }: { v: number | null }) {
+  const val = v ?? 0;
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 96 }}>
+      <div style={{ flex: 1, height: 8, background: 'var(--border)', borderRadius: 4, overflow: 'hidden' }}>
+        <div style={{ width: `${Math.max(0, Math.min(100, val))}%`, height: '100%', background: 'var(--brand-gold)' }} />
+      </div>
+      <span style={{ fontSize: '0.75rem', width: 24, textAlign: 'right' }}>{v == null ? '—' : val}</span>
+    </div>
+  );
+}
+
 const COMPONENTS: Array<[string, string]> = [
   ['totalScore', 'Total Score'],
   ['rom', 'ROM'],
@@ -53,6 +80,10 @@ export default function CohortThresholdsPage() {
   const [settings, setSettings] = useState<SettingsResp | null>(null);
   const [expanded, setExpanded] = useState<number | null>(null);
   const [edits, setEdits] = useState<Record<string, string>>({}); // `${id}.${comp}` -> mean
+  // Membership panel (B3/B4/B5): which cohort's members are open, and their rows.
+  const [membersFor, setMembersFor] = useState<number | null>(null);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [membersBusy, setMembersBusy] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -146,6 +177,35 @@ export default function CohortThresholdsPage() {
     } catch (e) { setError(e instanceof Error ? e.message : 'Reset failed'); } finally { setBusy(false); }
   }
 
+  // ── Membership panel (B3/B4/B5) ──────────────────────────────────────────
+  const refreshMembers = useCallback(async (cohortId: number) => {
+    const r = await api.get<{ members: Member[] }>(`/cohorts/${cohortId}/members`);
+    setMembers(r.members);
+  }, []);
+
+  async function openMembers(c: Cohort) {
+    if (membersFor === c.id) { setMembersFor(null); return; }
+    setMembersFor(c.id); setMembers([]); setMembersBusy(true); setError(null);
+    try { await refreshMembers(c.id); }
+    catch (e) { setError(e instanceof Error ? e.message : 'Failed to load members'); }
+    finally { setMembersBusy(false); }
+  }
+
+  // Toggle manual norm opt-out (B3) or injury (B4), then re-read so the eligible/
+  // reason state (which depends on both + thresholds) is recomputed server-side.
+  async function toggleExclude(m: Member) {
+    if (membersFor == null) return;
+    setError(null);
+    try { await api.patch(`/cohorts/members/${m.athleteId}`, { normExcluded: !m.normExcluded }); await refreshMembers(membersFor); }
+    catch (e) { setError(e instanceof Error ? e.message : 'Update failed'); }
+  }
+  async function toggleInjury(m: Member) {
+    if (membersFor == null) return;
+    setError(null);
+    try { await api.patch(`/athletes/${m.athleteId}/injury`, { isInjured: !m.isInjured }); await refreshMembers(membersFor); }
+    catch (e) { setError(e instanceof Error ? e.message : 'Update failed'); }
+  }
+
   const set = settings?.settings ?? {};
   const usable = cohorts.filter((c) => c.n >= Number(set.min_cohort_n ?? 5));
   const belowMinCount = cohorts.length - usable.length;
@@ -209,6 +269,9 @@ export default function CohortThresholdsPage() {
                       <button type="button" className="btn btn-outline btn-sm" onClick={() => setExpanded(expanded === c.id ? null : c.id)}>
                         {expanded === c.id ? 'Close' : 'Edit'}
                       </button>{' '}
+                      <button type="button" className="btn btn-outline btn-sm" onClick={() => openMembers(c)} title="Choose which athletes shape this norm">
+                        {membersFor === c.id ? 'Hide members' : 'Members'}
+                      </button>{' '}
                       {isAdmin && (c.status === 'pending'
                         ? <button type="button" className="btn btn-primary btn-sm" onClick={() => approve(c, 'approved')} disabled={busy}>Set live</button>
                         : <button type="button" className="btn btn-outline btn-sm" onClick={() => approve(c, 'pending')} disabled={busy}>Hold</button>)}
@@ -263,6 +326,61 @@ export default function CohortThresholdsPage() {
                             <button type="button" className="btn btn-gold btn-sm" onClick={() => saveOverrides(c)} disabled={busy}>Save edited norm</button>
                             {edited && <button type="button" className="btn btn-outline btn-sm" onClick={() => resetOverrides(c)} disabled={busy}>Reset to computed</button>}
                           </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  {membersFor === c.id && (
+                    <tr>
+                      <td colSpan={5} style={{ background: 'var(--bg)' }}>
+                        <div style={{ padding: '8px 4px' }}>
+                          <div className="text-muted" style={{ fontSize: '0.8rem', marginBottom: 8 }}>
+                            Athletes in this cohort. Untick to keep one out of the norm, or mark them injured — either excludes them from the calculation (they&apos;re still scored against it). <strong>Recompute to apply.</strong>
+                          </div>
+                          {membersBusy ? (
+                            <p className="text-muted">Loading members…</p>
+                          ) : members.length === 0 ? (
+                            <div className="empty-state">No screened athletes in this cohort.</div>
+                          ) : (
+                            <div className="table-wrap">
+                              <table>
+                                <thead><tr>
+                                  <th style={{ width: 36, textAlign: 'center' }} title="Include in the norm calculation">In</th>
+                                  <th>Athlete</th>
+                                  <th>Total</th><th>ROM</th><th>Stability</th>
+                                  <th style={{ textAlign: 'center' }}>Sym</th>
+                                  <th style={{ textAlign: 'center' }}>Band</th>
+                                  <th>Status</th>
+                                  <th style={{ textAlign: 'center' }}>Injured</th>
+                                </tr></thead>
+                                <tbody>
+                                  {members.map((m) => (
+                                    <tr key={m.athleteId} style={{ opacity: m.eligible ? 1 : 0.6 }}>
+                                      <td style={{ textAlign: 'center' }}>
+                                        <input type="checkbox" checked={!m.normExcluded} onChange={() => toggleExclude(m)} aria-label={`Include ${m.name} in the norm`} />
+                                      </td>
+                                      <td><strong>{m.name}</strong>{' '}<span className="text-muted" style={{ fontSize: '0.76rem' }}>{m.program ?? ''}{m.gender ? ` · ${m.gender}` : ''}</span></td>
+                                      <td><ScoreBar v={m.totalScore} /></td>
+                                      <td><ScoreBar v={m.rom} /></td>
+                                      <td><ScoreBar v={m.stability} /></td>
+                                      <td style={{ textAlign: 'center', fontSize: '0.8rem' }}>{m.symmetry ?? '—'}</td>
+                                      <td style={{ textAlign: 'center' }}>
+                                        <span title={m.overallBand ?? 'unscored'} style={{ display: 'inline-block', width: 12, height: 12, borderRadius: '50%', background: m.overallBand ? BAND_DOT[m.overallBand] : 'var(--border)' }} />
+                                      </td>
+                                      <td>
+                                        {m.eligible
+                                          ? <span className="badge-low">In norm</span>
+                                          : <span className="badge-moderate">{m.reason ? (REASON_LABEL[m.reason] ?? m.reason) : 'Excluded'}</span>}
+                                      </td>
+                                      <td style={{ textAlign: 'center' }}>
+                                        <input type="checkbox" checked={m.isInjured} onChange={() => toggleInjury(m)} aria-label={`Mark ${m.name} injured`} />
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
                         </div>
                       </td>
                     </tr>

@@ -99,6 +99,36 @@ export default function AdminSettingsPage() {
         </div>
       </div>
 
+      {/* Norm inclusion thresholds (B5) — an athlete's latest screening must meet
+          ALL of these to shape a cohort norm; below any → excluded from the calc
+          (still scored against it). 0 = no gate. */}
+      <div className="card" style={{ marginBottom: 20 }}>
+        <div className="card-header"><div>
+          <h2 className="card-title" style={{ marginBottom: 0 }}>Norm inclusion thresholds</h2>
+          <span className="card-sub">An athlete&apos;s latest screening must meet all of these to be counted in cohort-norm calculation — below any is excluded from the calc (but still scored against it). 0 = no threshold. Recompute to apply.</span>
+        </div></div>
+        <div className="stat-grid">
+          <div className="stat-tile">
+            <div className="stat-tile-label">Min Total Score</div>
+            <input type="number" min={0} max={100} value={Number(set.norm_min_total ?? 0)}
+              onChange={(e) => saveSetting('norm_min_total', Number(e.target.value))} style={{ width: 80 }} />
+            <div className="stat-tile-delta">Exclude a screening below this Total Score</div>
+          </div>
+          <div className="stat-tile">
+            <div className="stat-tile-label">Min ROM</div>
+            <input type="number" min={0} max={100} value={Number(set.norm_min_rom ?? 0)}
+              onChange={(e) => saveSetting('norm_min_rom', Number(e.target.value))} style={{ width: 80 }} />
+            <div className="stat-tile-delta">Exclude a screening below this ROM</div>
+          </div>
+          <div className="stat-tile">
+            <div className="stat-tile-label">Min Stability</div>
+            <input type="number" min={0} max={100} value={Number(set.norm_min_stability ?? 0)}
+              onChange={(e) => saveSetting('norm_min_stability', Number(e.target.value))} style={{ width: 80 }} />
+            <div className="stat-tile-delta">Exclude a screening below this Stability</div>
+          </div>
+        </div>
+      </div>
+
       {/* Email Notifications — governs the whole email surface (utils/alerts.js +
           utils/notifications.js). Backend-gated defaults are all on. */}
       <div className="card">
