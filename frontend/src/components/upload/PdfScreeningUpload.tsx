@@ -170,8 +170,8 @@ export default function PdfScreeningUpload() {
       {status && status.configured && (
         <div className="alert alert-info" style={{ marginBottom: 14 }}>
           <strong>AI-assisted ingestion.</strong> Reports are read automatically by a vision model. The athlete&apos;s
-          name is blacked out on your device before any image is sent for reading, so the identity never leaves here —
-          <strong> search the roster by name</strong> below to attach each report to its athlete.
+          name is blacked out on your device before any image is sent for reading, so the identity never leaves here.
+          Reports are matched to the roster by their <strong>filename</strong> where possible — otherwise search the roster below to attach each one.
         </div>
       )}
 

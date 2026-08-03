@@ -118,23 +118,47 @@ function matchById(athleteId: string | undefined): RosterAthlete | null {
   return list.find((a) => a.athleteId.trim().toLowerCase() === key) ?? null;
 }
 
+// Exactly-one roster match on name (trimmed, case-insensitive), else null.
+function matchByName(name: string | undefined): RosterAthlete | null {
+  const list = state.roster;
+  if (!name || !list) return null;
+  const key = name.trim().toLowerCase();
+  const hits = list.filter((a) => a.name.trim().toLowerCase() === key);
+  return hits.length === 1 ? hits[0] : null;
+}
+
+// Best-effort athlete name out of a HoloMotion PDF FILENAME. Safe to use: the
+// filename is a LOCAL browser value, never sent to the vision model (only the
+// redacted images are) — so this pre-fills the roster pick without weakening the
+// on-device name redaction. Handles both sample shapes:
+//   "thung jin seng_0122663031.pdf"                         → "thung jin seng"
+//   "rpt_2025-08-13_muhammad nazwan bin abdullah_<hash>.pdf" → "muhammad nazwan bin abdullah"
+export function parseNameFromFilename(filename: string): string {
+  let s = filename.replace(/\.pdf$/i, '');
+  s = s.replace(/^rpt_\d{4}-\d{2}-\d{2}[_-]*/i, '');   // drop a leading rpt_<date>_ prefix
+  s = s.replace(/[_-]+(?:[0-9a-f]{6,}|\d{6,})$/i, ''); // drop a trailing _<hash|phone>
+  return s.replace(/_+/g, ' ').trim();
+}
+
 async function extractOne(item: QueueItem): Promise<void> {
   patchItemInternal(item.id, { status: 'extracting', error: null });
   try {
     const formData = new FormData();
     formData.append('file', item.file);
     const preview = await api.upload<PreviewResponse>('/upload/screening/pdf/preview', formData);
-    // Name is redacted from the image, so it isn't in the extraction — the
-    // operator attaches the athlete by ID below (see matchById / setItemAthleteId).
+    // Name is redacted from the IMAGE, so it isn't in the extraction. Recover a
+    // pre-fill from the LOCAL filename instead (never sent to the model): a unique
+    // roster name-match attaches the athlete; otherwise the operator picks below.
+    const hit = matchByName(parseNameFromFilename(item.file.name));
     patchItemInternal(item.id, {
       status: 'ready',
       preview,
-      matched: null,
-      athleteId: '',
-      sport: '',
-      program: '',
-      disciplines: [],
-      name: '',
+      matched: hit,
+      athleteId: hit?.athleteId ?? '',
+      sport: hit?.sport ?? '',
+      program: hit?.program ?? hit?.programme ?? '',
+      disciplines: hit?.disciplines ?? [],
+      name: hit?.name ?? '',
       age: preview.athlete.age != null ? String(preview.athlete.age) : '',
       gender: preview.athlete.gender ?? '',
     });
