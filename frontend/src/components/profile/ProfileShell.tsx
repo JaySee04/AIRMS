@@ -153,7 +153,7 @@ export default function ProfileShell({ stats: initialStats, onLoadStats, roleBlu
             <div><span>Display name</span><strong>{user.name}</strong></div>
             <div><span>Email</span><strong>{user.email}</strong></div>
             <div><span>Role</span><strong>{user.role}</strong></div>
-            {user.athleteId && (<div><span>Athlete ID</span><strong>{user.athleteId}</strong></div>)}
+            {user.athleteId && (<div><span>IC Number</span><strong>{user.athleteId}</strong></div>)}
             <div><span>User ID</span><strong style={{ fontSize: '0.78rem' }}>{user.id}</strong></div>
           </div>
         </div>

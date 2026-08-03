@@ -297,7 +297,7 @@ export default function MedicalDashboard() {
             <input
               id="med-search"
               type="text"
-              placeholder="Search name or athlete ID…"
+              placeholder="Search name or IC number…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               autoComplete="off"

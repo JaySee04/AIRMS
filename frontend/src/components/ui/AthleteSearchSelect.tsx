@@ -1,8 +1,8 @@
 'use client';
 
 // A dedicated, in-app single-select athlete picker: a styled, theme-aware
-// dropdown that filters a roster by name (or ATH id) as you type, shows
-// name + ATH id · sport per row, and reports the chosen athlete's ID. Replaces
+// dropdown that filters a roster by name (or IC number) as you type, shows
+// name + IC · sport per row, and reports the chosen athlete's key. Replaces
 // the browser-native <datalist>, which renders an unstyled OS popup that clashes
 // with the app and can't follow the light/dark theme. Reuses the shared
 // .combobox-* styles (same system as TagCombobox).

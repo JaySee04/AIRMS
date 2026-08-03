@@ -9,8 +9,9 @@
 // The athlete's name is redacted from the report image on the server BEFORE it
 // reaches the vision model (privacy — see backend utils/redactName.js), so it
 // isn't in the extraction. The operator attaches each report to a roster
-// athlete by Athlete ID, which fills identity/sport/programme back from the
-// roster; a new athlete is entered manually.
+// athlete by name search (or IC number, the athlete key), which fills
+// identity/sport/programme back from the roster; a new athlete is entered
+// manually with their 12-digit IC.
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
@@ -319,12 +320,18 @@ export default function PdfScreeningUpload() {
                   </div>
 
                   <div className="form-group">
-                    <label>Athlete ID <span style={{ color: 'var(--risk-high)' }}>*</span></label>
+                    <label>IC Number <span style={{ color: 'var(--risk-high)' }}>*</span></label>
                     <input
                       value={it.athleteId}
                       onChange={(e) => setItemAthleteId(it.id, e.target.value)}
-                      placeholder="Filled by the picker · type only for a new athlete"
+                      placeholder="Filled by the picker · type a 12-digit IC for a new athlete"
+                      inputMode="numeric"
                     />
+                    {it.athleteId.trim() && !/^\d{12}$/.test(it.athleteId.trim()) && (
+                      <div className="text-muted" style={{ fontSize: '0.72rem', marginTop: 2, color: 'var(--risk-moderate)' }}>
+                        An IC number is 12 digits.
+                      </div>
+                    )}
                   </div>
                   <div className="form-group">
                     <label>Sport <span style={{ color: 'var(--risk-high)' }}>*</span></label>

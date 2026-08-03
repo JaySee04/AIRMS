@@ -48,8 +48,8 @@ No automated test suite exists in either backend or frontend. Verification is ma
 
 | Role | Email | Password |
 |---|---|---|
-| athlete | `athlete@isn.gov.my` | `athlete123` (linked to ATH0001 — John Doe) |
-| athlete | `thung@isn.gov.my` | `thung123` (ATH0061 — Thung Jin Seng, seeded as a deliberately STALE earlier assessment so importing the sample HoloMotion PDF visibly updates his dashboard to the printed values; extraction ground truth lives in `backend/scripts/verify-holomotion-extract.js`) |
+| athlete | `athlete@isn.gov.my` | `athlete123` (John Doe — the athlete key is now the IC number, e.g. `890202021001`; `npm run seed` prints each demo athlete's IC) |
+| athlete | `thung@isn.gov.my` | `thung123` (Thung Jin Seng — seeded as a deliberately STALE earlier assessment so importing the sample HoloMotion PDF visibly updates his dashboard to the printed values; extraction ground truth lives in `backend/scripts/verify-holomotion-extract.js`) |
 | medical | `medical@isn.gov.my` | `medical123` (Medical Demo 01) |
 | medical (alert inbox) | `23005005@siswa.um.edu.my` | `medical123` (Medical Demo 02 — real deliverable inbox; import-commit alerts land here so the email feature demos against a checkable inbox) |
 | admin | `admin@isn.gov.my` | `admin123` |
@@ -65,7 +65,7 @@ Three-tier monorepo orchestrated by `concurrently` from the root `package.json`.
 - Entry: `backend/src/server.js` mounts routes, connects to MySQL via Sequelize, registers CORS for both `:3000` and `:3001`
 - RBAC enforced via `middleware/rbac.js` — `rbac('medical', 'admin')` style — on top of `middleware/auth.js` which verifies the `Authorization: Bearer <jwt>` header
 - Models in `backend/src/models/` use Sequelize hooks for derived/computed behaviour (e.g. `User`'s `beforeSave` hashes a changed password) — derived values are persisted, not computed on read
-- The canonical foreign key across tables is `athleteId` (VARCHAR, e.g. `"ATH0001"`); engine-level FKs are defined in `models/index.js`
+- The canonical foreign key across tables is `athleteId` (VARCHAR) — its VALUES are now the athlete's **IC number** (12 digits, e.g. `"890202021001"`), replacing the old `ATH0001` scheme (A2, 2026-08-04). The column name stays `athleteId` (internal) and is serialised as `_id`; the UI labels it "IC Number". Engine-level FKs are defined in `models/index.js`
 - Every response goes through `utils/serialize.js`, which aliases the numeric `id` to a stringified `_id` field and reassembles Athlete's flat columns into the nested `risks` / `myodynamia[]` / `tension[]` shape the frontend reads
 - Module 2 (Injury & Recovery Logging) has an important cross-table behaviour: approving a `SelfReport` server-side promotes it into a new `Injury` row inside a single Sequelize transaction (`routes/selfReports.js`)
 - Module 5 (Analytics & Reporting) PDF generation streams `application/pdf` directly from `routes/reports.js` using `pdfkit` (no temp files)

@@ -102,7 +102,7 @@ export default function AthleteProfilePage() {
               </div>
               <div className="kv-grid" style={{ marginTop: 12 }}>
                 <div><span>Full Name</span><strong>{athlete?.name ?? '—'}</strong></div>
-                <div><span>Athlete ID</span><strong>{athlete?.athleteId ?? '—'}</strong></div>
+                <div><span>IC Number</span><strong>{athlete?.athleteId ?? '—'}</strong></div>
                 <div><span>Age</span><strong>{fmt(athlete?.age, ' yrs')}</strong></div>
                 <div><span>Gender</span><strong>{fmt(athlete?.gender)}</strong></div>
                 <div><span>Height</span><strong>{fmt(athlete?.height, ' cm')}</strong></div>
