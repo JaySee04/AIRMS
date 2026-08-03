@@ -3,10 +3,13 @@
 // `editCohortNorms` capability; the tunable settings + queue governance stay
 // admin-only.
 const express = require('express');
-const { CohortThreshold } = require('../models');
+const { CohortThreshold, Athlete } = require('../models');
 const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
-const { recomputeCohorts, cohortReview } = require('../utils/cohorts');
+const {
+  recomputeCohorts, cohortReview,
+  latestScreeningsByAthlete, tierKeysFor, isEligibleForNorms,
+} = require('../utils/cohorts');
 const { recomputeIndicators } = require('../utils/overallIndicator');
 const { getSettings, setSetting, DEFAULTS } = require('../utils/settings');
 const { hasPermission } = require('../utils/permissions');
@@ -69,6 +72,53 @@ router.patch('/:id', auth, rbac('admin', 'medical'), canEditNorms, async (req, r
     // Approval/edit changes the norms → re-score indicators.
     const indicators = await recomputeIndicators();
     res.json({ cohort: row, indicators });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+// GET /api/cohorts/:id/members — the athletes in this cohort tier, each with
+// their latest headline scores, risk band, and norm-membership state (B3/B4/B5):
+// eligible + reason (injured / excluded / below-threshold). Drives the admin
+// per-cohort membership panel. Admin + norm-editing medical.
+router.get('/:id/members', auth, rbac('admin', 'medical'), canEditNorms, async (req, res) => {
+  try {
+    const row = await CohortThreshold.findByPk(req.params.id, { raw: true });
+    if (!row) return res.status(404).json({ message: 'Cohort not found' });
+    const settings = await getSettings();
+    const rowKey = `${row.tier}|${row.sport}|${row.programme}|${row.gender}`;
+    const num = (v) => (v === null || v === undefined || v === '' || Number.isNaN(Number(v)) ? null : Number(v));
+    const rows = await latestScreeningsByAthlete();
+    const members = rows
+      .filter(({ athlete }) => tierKeysFor(athlete).some((k) => `${k.tier}|${k.sport}|${k.programme}|${k.gender}` === rowKey))
+      .map(({ athlete, screening }) => {
+        const elig = isEligibleForNorms(athlete, screening, settings);
+        return {
+          athleteId: athlete.athleteId, name: athlete.name, sport: athlete.sport,
+          program: athlete.program, gender: athlete.gender,
+          isInjured: !!athlete.isInjured, normExcluded: !!athlete.normExcluded,
+          totalScore: num(screening.totalScore), rom: num(screening.rom),
+          stability: num(screening.stability), symmetry: num(screening.symmetry),
+          overallBand: screening.overrideBand || screening.overallBand,
+          overallIndicator: num(screening.overallIndicator),
+          eligible: elig.eligible, reason: elig.reason,
+        };
+      })
+      .sort((a, b) => (Number(b.eligible) - Number(a.eligible)) || a.name.localeCompare(b.name));
+    res.json({
+      cohort: row,
+      members,
+      thresholds: { total: settings.norm_min_total, rom: settings.norm_min_rom, stability: settings.norm_min_stability },
+    });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+// PATCH /api/cohorts/members/:athleteId — toggle an athlete's manual norm
+// opt-out (B3). Takes effect on the next recompute (staged like norm edits).
+router.patch('/members/:athleteId', auth, rbac('admin', 'medical'), canEditNorms, async (req, res) => {
+  try {
+    const a = await Athlete.findByPk(req.params.athleteId);
+    if (!a) return res.status(404).json({ message: 'Athlete not found' });
+    if (req.body.normExcluded !== undefined) await a.update({ normExcluded: !!req.body.normExcluded });
+    res.json({ athleteId: a.athleteId, normExcluded: a.normExcluded });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 

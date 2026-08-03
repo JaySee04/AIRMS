@@ -118,6 +118,26 @@ async function latestScreeningsByAthlete() {
     .filter((x) => x.screening);
 }
 
+// Unified cohort-norm MEMBERSHIP model (B3 + B4 + B5). Whether an athlete's
+// latest screening should COUNT toward norm calculation. One resolver, one
+// reason, so the admin UI and the engine agree on who's in and why they're out:
+//   injured (B4) → manually excluded (B3) → below an admin threshold (B5).
+// Eligibility affects norm COMPUTATION only — every athlete is still SCORED
+// against the resulting norm. `settings` come from getSettings().
+function isEligibleForNorms(athlete, screening, settings = {}) {
+  if (athlete.isInjured) return { eligible: false, reason: 'injured' };
+  if (athlete.normExcluded) return { eligible: false, reason: 'excluded' };
+  const gates = [
+    ['below-total', Number(settings.norm_min_total) || 0, num(screening && screening.totalScore)],
+    ['below-rom', Number(settings.norm_min_rom) || 0, num(screening && screening.rom)],
+    ['below-stability', Number(settings.norm_min_stability) || 0, num(screening && screening.stability)],
+  ];
+  for (const [reason, min, value] of gates) {
+    if (min > 0 && (value === null || value < min)) return { eligible: false, reason };
+  }
+  return { eligible: true, reason: null };
+}
+
 // Per-component drift between a cohort's manual override and its freshly
 // computed stats. Drives the "review — new data" prompt on the Cohort page:
 // the manual norm stays live, but the admin/medical lead is told the data has
@@ -197,6 +217,10 @@ async function recomputeCohorts() {
   const settings = await getSettings();
   const autoOverwrite = settings.norm_auto_overwrite === true;
   const rows = await latestScreeningsByAthlete();
+  // Only athletes eligible for norm calculation shape the reference distribution
+  // (injured / manually excluded / below an admin threshold are dropped here —
+  // they're still scored against the norm elsewhere). See isEligibleForNorms.
+  const eligibleRows = rows.filter(({ athlete, screening }) => isEligibleForNorms(athlete, screening, settings).eligible);
   // Group screenings under each tier key they belong to.
   const groups = new Map(); // key string -> { keyObj, screenings[] }
   const add = (keyObj, s) => {
@@ -204,7 +228,7 @@ async function recomputeCohorts() {
     if (!groups.has(k)) groups.set(k, { keyObj, screenings: [] });
     groups.get(k).screenings.push(s);
   };
-  for (const { athlete, screening } of rows) {
+  for (const { athlete, screening } of eligibleRows) {
     for (const keyObj of tierKeysFor(athlete)) add(keyObj, screening);
   }
 
@@ -271,5 +295,5 @@ module.exports = {
   orientedComponents, meanSd, computeStats,
   tierKeysFor, latestScreeningsByAthlete,
   recomputeCohorts, resolveCohortStats, resolveFromMap, buildApprovedCohortMap,
-  cohortReview, screeningMovement,
+  cohortReview, screeningMovement, isEligibleForNorms,
 };

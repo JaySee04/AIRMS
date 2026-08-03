@@ -43,6 +43,20 @@ const Athlete = sequelize.define('Athlete', {
   ankleInjuryRisk: { type: DataTypes.DECIMAL(5, 2), defaultValue: 0, field: 'ankle_injury_risk' },
 
   isActive: { type: DataTypes.BOOLEAN, defaultValue: true, field: 'is_active' },
+
+  // Injury status set by medical staff — SEPARATE from the green/amber/red risk
+  // band (an athlete can be band-green but injured, or amber but not injured).
+  // An injured athlete is auto-excluded from cohort-norm CALCULATION (they'd skew
+  // the healthy reference distribution) but is still scored against it. (B4)
+  isInjured: { type: DataTypes.BOOLEAN, defaultValue: false, field: 'is_injured' },
+  injuryNote: { type: DataTypes.TEXT, allowNull: true, field: 'injury_note' },
+  injuryBy: { type: DataTypes.STRING(120), allowNull: true, field: 'injury_by' },
+  injuryAt: { type: DataTypes.DATE, allowNull: true, field: 'injury_at' },
+
+  // Admin manual opt-out from cohort-norm CALCULATION (e.g. a known-bad screening
+  // or an athlete the admin doesn't want shaping the norm). Independent of injury.
+  // Excluded athletes are still scored against the norm. (B3)
+  normExcluded: { type: DataTypes.BOOLEAN, defaultValue: false, field: 'norm_excluded' },
 }, {
   tableName: 'athletes',
   underscored: true,

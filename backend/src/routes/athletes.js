@@ -359,4 +359,23 @@ router.delete('/:id', auth, rbac('admin'), async (req, res) => {
   }
 });
 
+// PATCH /api/athletes/:id/injury — medical/admin set an athlete's injury status
+// (B4). SEPARATE from the risk band; an injured athlete is auto-excluded from
+// cohort-norm CALCULATION (applied on the next recompute) but still scored
+// against the norm. Note is optional; clearing injury clears the metadata.
+router.patch('/:id/injury', auth, rbac('medical', 'admin'), requirePermission('viewRecords'), async (req, res) => {
+  try {
+    const a = await Athlete.findByPk(req.params.id);
+    if (!a) return res.status(404).json({ message: 'Athlete not found' });
+    const injured = !!req.body.isInjured;
+    await a.update({
+      isInjured: injured,
+      injuryNote: injured ? (String(req.body.note || '').trim() || null) : null,
+      injuryBy: injured ? (req.user?.name || null) : null,
+      injuryAt: injured ? new Date() : null,
+    });
+    res.json({ athleteId: a.athleteId, isInjured: a.isInjured, injuryNote: a.injuryNote, injuryBy: a.injuryBy, injuryAt: a.injuryAt });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
 module.exports = router;

@@ -25,6 +25,13 @@ const DEFAULTS = {
   // ON to instead let each import overwrite the manual edit with the freshly
   // computed norm.
   norm_auto_overwrite: false,
+  // Norm-inclusion thresholds (B5): an athlete's latest screening must meet ALL
+  // of these to be counted in cohort-norm CALCULATION — below any → auto-excluded
+  // (still scored against the norm, just not shaping it). 0 = no gate (default),
+  // so existing behaviour is unchanged until an admin raises a threshold.
+  norm_min_total: 0,           // minimum Total Score
+  norm_min_rom: 0,             // minimum ROM
+  norm_min_stability: 0,       // minimum Stability
   alerts_enabled: true,        // email medical + coaches on import
   alert_on_band: 'amber',      // fire at this band or worse ('amber' | 'red')
   // Event-driven notifications (utils/notifications.js), each independently
