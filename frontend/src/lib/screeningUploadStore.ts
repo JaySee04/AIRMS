@@ -40,7 +40,6 @@ export interface ExtractedAthlete {
 }
 
 export interface PreviewResponse {
-  filename: string;
   athlete: ExtractedAthlete;
   myodynamia: MuscleEntry[];
   tension: MuscleEntry[];

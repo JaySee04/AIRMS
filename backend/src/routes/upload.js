@@ -63,7 +63,10 @@ router.post('/screening/pdf/preview', auth, rbac('medical', 'admin'), requirePer
       });
     }
     const result = await extractFromPdf(req.file.buffer);
-    res.json({ filename: req.file.originalname, ...result });
+    // Deliberately does NOT echo the filename back: it can carry PII (the
+    // sample's name + phone number live in the filename) and the UI shows the
+    // browser's local File name instead, so returning it served no purpose.
+    res.json(result);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
