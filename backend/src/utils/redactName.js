@@ -25,6 +25,8 @@ const { createCanvas } = require('canvas');
 const REGION_W = 0.58; // width fraction — past the longest sample name, left of the gauges
 const REGION_H = 0.45; // height fraction — covers the name on both layouts
 const NAME_LABEL = /^name[:：]?$/i; // tolerate fullwidth / ascii / missing colon
+const OCR_TIMEOUT_MS = 20000; // recognize normally ~1s; cap it so a stale/hung
+                              // worker can't hang the upload preview indefinitely.
 
 let workerPromise = null;
 function getWorker() {
@@ -35,6 +37,24 @@ function getWorker() {
       .catch((err) => { workerPromise = null; throw err; }); // reset so a retry can reload
   }
   return workerPromise;
+}
+
+// Tear down the cached worker so the NEXT call builds a fresh one. Called after a
+// recognize timeout/error — the likely cause of the "reader stops after the site
+// sits idle" bug is a worker that went stale/unresponsive; recycling recovers it.
+function resetWorker() {
+  const p = workerPromise;
+  workerPromise = null;
+  Promise.resolve(p).then((w) => w && w.terminate && w.terminate()).catch(() => {});
+}
+
+// recognize() with a hard timeout — a hung worker rejects instead of hanging.
+function recognizeWithTimeout(worker, buf) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`OCR timed out after ${OCR_TIMEOUT_MS}ms`)), OCR_TIMEOUT_MS);
+  });
+  return Promise.race([worker.recognize(buf), timeout]).finally(() => clearTimeout(timer));
 }
 
 // Redact the athlete name on a rendered page-1 canvas, IN PLACE.
@@ -62,7 +82,7 @@ async function redactNameOnCanvas(canvas) {
     }
     pctx.putImageData(img, 0, 0);
 
-    const { data } = await worker.recognize(pre.toBuffer('image/png'));
+    const { data } = await recognizeWithTimeout(worker, pre.toBuffer('image/png'));
     const words = (data.words || []).filter((w) => w && w.bbox && (w.text || '').trim());
     const label = words.find((w) => NAME_LABEL.test(w.text.trim()));
     if (!label) { paint(fallback); return { redacted: true, method: 'fallback:name-not-found', box: fallback }; }
@@ -83,6 +103,9 @@ async function redactNameOnCanvas(canvas) {
     paint(box);
     return { redacted: true, method: value.length ? 'ocr' : 'ocr:label-only', box };
   } catch (err) {
+    // A timeout/crash here likely means a stale worker — recycle it so the next
+    // upload gets a fresh one instead of failing again.
+    resetWorker();
     paint(fallback);
     return { redacted: true, method: 'fallback:ocr-error', box: fallback, error: err.message };
   }

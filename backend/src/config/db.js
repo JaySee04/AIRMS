@@ -17,6 +17,29 @@ const sequelize = new Sequelize(
     // return DECIMAL columns as JS numbers.
     dialectOptions: {
       decimalNumbers: true,
+      // Keep pooled sockets alive so MySQL's idle timeout doesn't silently drop a
+      // connection the pool later hands out dead — the likely cause of "the app
+      // stops working after sitting idle". mysql2 passes these to the socket.
+      enableKeepAlive: true,
+      keepAliveInitialDelay: 10000,
+    },
+    // Evict idle connections before MySQL's wait_timeout can kill them, and cap
+    // how long a connection may sit unused.
+    pool: {
+      max: 5,
+      min: 0,
+      acquire: 30000,
+      idle: 10000,
+      evict: 15000,
+    },
+    // Transparently retry a query if the connection was reset/lost while idle,
+    // instead of surfacing a hard error on the first request after a quiet spell.
+    retry: {
+      max: 3,
+      match: [
+        /ETIMEDOUT/, /ECONNRESET/, /PROTOCOL_CONNECTION_LOST/,
+        /Connection lost/i, /read ECONNRESET/, / EPIPE/,
+      ],
     },
     define: {
       charset: 'utf8mb4',
