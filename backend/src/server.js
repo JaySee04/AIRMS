@@ -23,6 +23,7 @@ const coachRoutes = require('./routes/coach');
 const cohortRoutes = require('./routes/cohorts');
 const screeningRoutes = require('./routes/screenings');
 const screeningReportRoutes = require('./routes/screeningReports');
+const isnRoutes = require('./routes/isn');
 
 const app = express();
 
@@ -71,6 +72,7 @@ app.use('/api/coach', coachRoutes);
 app.use('/api/cohorts', cohortRoutes);
 app.use('/api/screenings', screeningRoutes);
 app.use('/api/screening-reports', screeningReportRoutes);
+app.use('/api/isn', isnRoutes);
 
 app.get('/api/health', (_req, res) => res.json({
   status: 'ok',
