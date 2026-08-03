@@ -75,6 +75,8 @@ function cohortLabel(c: Cohort): string {
   return [c.sport, c.programme, c.gender].filter(Boolean).join(' · ');
 }
 
+interface Version { id: number; label: string; note: string | null; createdBy: string | null; createdAt: string; cohorts: number; }
+
 export default function CohortThresholdsPage() {
   const [cohorts, setCohorts] = useState<Cohort[]>([]);
   const [settings, setSettings] = useState<SettingsResp | null>(null);
@@ -84,6 +86,9 @@ export default function CohortThresholdsPage() {
   const [membersFor, setMembersFor] = useState<number | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [membersBusy, setMembersBusy] = useState(false);
+  // Saved norm versions (B1).
+  const [versions, setVersions] = useState<Version[]>([]);
+  const [versionName, setVersionName] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -99,12 +104,14 @@ export default function CohortThresholdsPage() {
 
   const load = useCallback(async () => {
     try {
-      const [c, s] = await Promise.all([
+      const [c, s, v] = await Promise.all([
         api.get<Cohort[]>('/cohorts'),
         api.get<SettingsResp>('/cohorts/settings/all'),
+        api.get<Version[]>('/cohorts/versions'),
       ]);
       setCohorts(c);
       setSettings(s);
+      setVersions(v);
     } catch (e) { setError(e instanceof Error ? e.message : 'Failed to load'); }
   }, []);
   useEffect(() => { load(); }, [load]);
@@ -204,6 +211,36 @@ export default function CohortThresholdsPage() {
     setError(null);
     try { await api.patch(`/athletes/${m.athleteId}/injury`, { isInjured: !m.isInjured }); await refreshMembers(membersFor); }
     catch (e) { setError(e instanceof Error ? e.message : 'Update failed'); }
+  }
+
+  // ── Saved norm versions (B1) ─────────────────────────────────────────────
+  async function saveVersion() {
+    const label = versionName.trim();
+    if (!label) return;
+    setBusy(true); setError(null); setMsg(null);
+    try { await api.post('/cohorts/versions', { label }); setVersionName(''); setMsg(`Saved norm version “${label}”.`); await load(); }
+    catch (e) { setError(e instanceof Error ? e.message : 'Save failed'); } finally { setBusy(false); }
+  }
+  async function restoreVersion(v: Version) {
+    if (!window.confirm(`Restore “${v.label}”? This replaces the current norms for ${v.cohorts} cohorts and re-scores every athlete.`)) return;
+    setBusy(true); setError(null); setMsg(null);
+    try { await api.post(`/cohorts/versions/${v.id}/restore`, {}); setMsg(`Restored “${v.label}”.`); await load(); }
+    catch (e) { setError(e instanceof Error ? e.message : 'Restore failed'); } finally { setBusy(false); }
+  }
+  async function renameVersion(v: Version) {
+    const input = window.prompt('Rename this norm version', v.label);
+    if (input == null) return;
+    const label = input.trim();
+    if (!label) return;
+    setBusy(true); setError(null);
+    try { await api.patch(`/cohorts/versions/${v.id}`, { label }); await load(); }
+    catch (e) { setError(e instanceof Error ? e.message : 'Rename failed'); } finally { setBusy(false); }
+  }
+  async function deleteVersion(v: Version) {
+    if (!window.confirm(`Delete the saved version “${v.label}”? The current live norms are unaffected.`)) return;
+    setBusy(true); setError(null);
+    try { await api.delete(`/cohorts/versions/${v.id}`); await load(); }
+    catch (e) { setError(e instanceof Error ? e.message : 'Delete failed'); } finally { setBusy(false); }
   }
 
   const set = settings?.settings ?? {};
@@ -391,6 +428,45 @@ export default function CohortThresholdsPage() {
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* Saved norm versions (B1) — name the current norm set, restore it later. */}
+      <div className="card" style={{ marginTop: 20 }}>
+        <div className="card-header"><div>
+          <h2 className="card-title" style={{ marginBottom: 0 }}>Saved norm versions</h2>
+          <span className="card-sub">Snapshot the current norms under a name, then restore that exact set later if imports or edits move them.{!isAdmin && ' Restoring/deleting is admin-only.'}</span>
+        </div></div>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+          <input value={versionName} onChange={(e) => setVersionName(e.target.value)} placeholder="Name this norm set (e.g. Pre-season 2026)" style={{ minWidth: 260 }} />
+          <button type="button" className="btn btn-primary btn-sm" onClick={saveVersion} disabled={busy || !versionName.trim()}>Save current as version</button>
+        </div>
+        {versions.length === 0 ? (
+          <div className="empty-state">No saved versions yet.</div>
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead><tr><th>Name</th><th>Saved</th><th style={{ textAlign: 'center' }}>Cohorts</th><th></th></tr></thead>
+              <tbody>
+                {versions.map((v) => (
+                  <tr key={v.id}>
+                    <td><strong>{v.label}</strong>{v.note && <div className="text-muted" style={{ fontSize: '0.78rem' }}>{v.note}</div>}</td>
+                    <td className="text-muted" style={{ fontSize: '0.8rem' }}>{new Date(v.createdAt).toLocaleDateString()}{v.createdBy ? ` · ${v.createdBy}` : ''}</td>
+                    <td style={{ textAlign: 'center' }}>{v.cohorts}</td>
+                    <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <button type="button" className="btn btn-outline btn-sm" onClick={() => renameVersion(v)} disabled={busy}>Rename</button>{' '}
+                      {isAdmin && (
+                        <>
+                          <button type="button" className="btn btn-primary btn-sm" onClick={() => restoreVersion(v)} disabled={busy}>Restore</button>{' '}
+                          <button type="button" className="btn btn-outline btn-sm" onClick={() => deleteVersion(v)} disabled={busy}>Delete</button>
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </DashboardLayout>
   );

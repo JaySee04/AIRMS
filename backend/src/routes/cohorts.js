@@ -3,7 +3,7 @@
 // `editCohortNorms` capability; the tunable settings + queue governance stay
 // admin-only.
 const express = require('express');
-const { CohortThreshold, Athlete } = require('../models');
+const { CohortThreshold, Athlete, CohortNormVersion } = require('../models');
 const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
 const {
@@ -41,6 +41,84 @@ router.post('/recompute', auth, rbac('admin', 'medical'), canEditNorms, async (_
     const cohorts = await recomputeCohorts();
     const indicators = await recomputeIndicators();
     res.json({ message: 'Recomputed', cohorts, indicators });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+// ── Norm versions (B1): name, list, rename, restore, delete a saved norm set ──
+// Defined before /:id so "versions" is never captured as an :id.
+
+// POST /api/cohorts/versions — snapshot the current cohort norms under a name.
+router.post('/versions', auth, rbac('admin', 'medical'), canEditNorms, async (req, res) => {
+  try {
+    const label = String(req.body.label || '').trim();
+    if (!label) return res.status(400).json({ message: 'A name is required.' });
+    const rows = await CohortThreshold.findAll({ raw: true });
+    const snapshot = rows.map((r) => ({
+      tier: r.tier, sport: r.sport, programme: r.programme, gender: r.gender,
+      n: r.n, stats: r.stats, overrides: r.overrides, status: r.status,
+    }));
+    const v = await CohortNormVersion.create({
+      label, note: String(req.body.note || '').trim() || null, createdBy: req.user?.name || null, snapshot,
+    });
+    res.json({ id: v.id, label: v.label, cohorts: snapshot.length });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+// GET /api/cohorts/versions — saved versions (metadata only, no snapshot payload).
+router.get('/versions', auth, rbac('admin', 'medical'), canEditNorms, async (_req, res) => {
+  try {
+    const rows = await CohortNormVersion.findAll({ order: [['createdAt', 'DESC']] });
+    res.json(rows.map((r) => {
+      const s = r.get({ plain: true });
+      return { id: s.id, label: s.label, note: s.note, createdBy: s.createdBy, createdAt: s.createdAt, cohorts: Array.isArray(s.snapshot) ? s.snapshot.length : 0 };
+    }));
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+// PATCH /api/cohorts/versions/:id — rename a saved version.
+router.patch('/versions/:id', auth, rbac('admin', 'medical'), canEditNorms, async (req, res) => {
+  try {
+    const v = await CohortNormVersion.findByPk(req.params.id);
+    if (!v) return res.status(404).json({ message: 'Version not found' });
+    if (req.body.label !== undefined) {
+      const l = String(req.body.label).trim();
+      if (!l) return res.status(400).json({ message: 'Name cannot be empty.' });
+      await v.update({ label: l });
+    }
+    res.json({ id: v.id, label: v.label });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+// POST /api/cohorts/versions/:id/restore — upsert a saved snapshot onto the live
+// cohorts (restore n/stats/overrides/status by key), then re-score. Admin-only
+// (it replaces the whole norm set).
+router.post('/versions/:id/restore', auth, rbac('admin'), async (req, res) => {
+  try {
+    const v = await CohortNormVersion.findByPk(req.params.id, { raw: true });
+    if (!v) return res.status(404).json({ message: 'Version not found' });
+    const snap = Array.isArray(v.snapshot) ? v.snapshot : [];
+    const existing = await CohortThreshold.findAll();
+    const key = (o) => `${o.tier}|${o.sport}|${o.programme}|${o.gender}`;
+    const byKey = new Map(existing.map((r) => [key(r), r]));
+    const ops = snap.map((s) => {
+      const patch = { n: s.n, stats: s.stats, overrides: s.overrides, status: s.status };
+      const cur = byKey.get(key(s));
+      return cur
+        ? cur.update(patch)
+        : CohortThreshold.create({ tier: s.tier, sport: s.sport, programme: s.programme, gender: s.gender, ...patch, computedAt: new Date() });
+    });
+    await Promise.all(ops);
+    const indicators = await recomputeIndicators();
+    res.json({ message: 'Restored', restored: snap.length, indicators });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+// DELETE /api/cohorts/versions/:id — remove a saved version.
+router.delete('/versions/:id', auth, rbac('admin'), async (req, res) => {
+  try {
+    const n = await CohortNormVersion.destroy({ where: { id: req.params.id } });
+    if (!n) return res.status(404).json({ message: 'Version not found' });
+    res.json({ message: 'Deleted' });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 

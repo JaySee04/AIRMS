@@ -9,6 +9,7 @@ const AthleteDiscipline = require('./AthleteDiscipline');
 const Screening = require('./Screening');
 const Setting = require('./Setting');
 const CohortThreshold = require('./CohortThreshold');
+const CohortNormVersion = require('./CohortNormVersion');
 
 // Athlete ↔ MuscleFlag (1:N) — using athleteId VARCHAR as the FK so the
 // canonical "ATH0001" identifier stays the cross-table key.
@@ -36,4 +37,5 @@ module.exports = {
   Screening,
   Setting,
   CohortThreshold,
+  CohortNormVersion,
 };
