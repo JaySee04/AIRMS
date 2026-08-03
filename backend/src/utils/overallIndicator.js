@@ -122,11 +122,14 @@ function computeIndicator(screening, cohortStats, rankInfo, settings = {}) {
   return { indicator: zToScore(z), band, escalations, z: +z.toFixed(3), factors };
 }
 
-// Cohort identity an athlete resolves to at a given tier.
-function resolvedCohortId(a, tier) {
+// Cohort identity an athlete resolves to. `resolved` is the object returned by
+// resolveFromMap ({ tier, discipline, ... }) — spgd carries a discipline. (B2)
+function resolvedCohortId(a, resolved) {
   const sport = a.sport;
   const prog = a.program || a.programme;
   const gender = a.gender;
+  const tier = resolved.tier;
+  if (tier === 'spgd') return `spgd|${sport}|${prog}|${gender}|${resolved.discipline}`;
   if (tier === 'spg') return `spg|${sport}|${prog}|${gender}`;
   if (tier === 'sg') return `sg|${sport}|${gender}`;
   if (tier === 's') return `s|${sport}`;
@@ -145,12 +148,18 @@ function resolvedCohortId(a, tier) {
 // ranking peers must be the cohort's membership, not the fallback stragglers.
 function belongsToCohort(a, id) {
   const parts = id.split('|');
-  const [tier, sport, x, y] = parts;
+  const tier = parts[0];
   const prog = a.program || a.programme;
   if (tier === 'all') return true;
-  if (tier === 's') return a.sport === sport;
-  if (tier === 'sg') return a.sport === sport && a.gender === x;
-  return a.sport === sport && prog === x && a.gender === y;
+  if (tier === 's') return a.sport === parts[1];
+  if (tier === 'sg') return a.sport === parts[1] && a.gender === parts[2];
+  // spgd: also requires the athlete to hold that discipline. (B2)
+  if (tier === 'spgd') {
+    return a.sport === parts[1] && prog === parts[2] && a.gender === parts[3]
+      && Array.isArray(a.disciplines) && a.disciplines.includes(parts[4]);
+  }
+  // spg
+  return a.sport === parts[1] && prog === parts[2] && a.gender === parts[3];
 }
 
 // Recompute every athlete's overall indicator from the approved cohorts and
@@ -187,11 +196,11 @@ async function recomputeIndicators() {
   // yardstick here. Cost is O(distinct cohorts × athletes) — ~11 × 59 in the
   // seeded set, so it stays comfortably inside the post-import recompute.
   const scoredAthletes = enriched.filter((e) => e.resolved && e.z !== null);
-  const cohortIds = [...new Set(scoredAthletes.map((e) => resolvedCohortId(e.athlete, e.resolved.tier)))];
+  const cohortIds = [...new Set(scoredAthletes.map((e) => resolvedCohortId(e.athlete, e.resolved)))];
   const rankOf = new Map();
   for (const id of cohortIds) {
     // Any athlete resolving to this id shares its stats, so take the first.
-    const stats = scoredAthletes.find((e) => resolvedCohortId(e.athlete, e.resolved.tier) === id).resolved.stats;
+    const stats = scoredAthletes.find((e) => resolvedCohortId(e.athlete, e.resolved) === id).resolved.stats;
     const peerZs = enriched
       .filter((e) => belongsToCohort(e.athlete, id))
       .map((e) => compositeZ(e.screening, stats))
@@ -199,7 +208,7 @@ async function recomputeIndicators() {
       .sort((a, b) => a - b);
     const k = effectiveK(peerZs.length, settings);
     for (const e of scoredAthletes) {
-      if (resolvedCohortId(e.athlete, e.resolved.tier) !== id) continue;
+      if (resolvedCohortId(e.athlete, e.resolved) !== id) continue;
       // rank 1 = worst; ties share the best (highest) rank of the tied block.
       const rank = peerZs.findIndex((z) => z >= e.z) + 1;
       rankOf.set(e.screening.id, { rank: rank || peerZs.length, total: peerZs.length, k });

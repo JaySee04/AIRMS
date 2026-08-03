@@ -11,10 +11,15 @@
 //   balance   — negative mean left/right asymmetry from the subitem scores;
 //               more symmetric → higher good (null when subitems weren't read)
 
-const { Screening, Athlete, CohortThreshold } = require('../models');
+const { Screening, Athlete, CohortThreshold, AthleteDiscipline } = require('../models');
 const { getSettings } = require('./settings');
 
 const COMPONENTS = ['totalScore', 'rom', 'stability', 'symmetry', 'riskGood', 'balance'];
+
+// Stable Map-key for a cohort tier row. Order is fixed and must match every
+// caller (recompute grouping, approved-map, resolve). Discipline is only set on
+// the spgd tier; '' on every coarser tier. (B2)
+const cohortKeyOf = (o) => `${o.tier}|${o.sport}|${o.programme}|${o.gender}|${o.discipline || ''}`;
 
 // A manual norm edit is considered to have "drifted" from the freshly computed
 // value once any overridden component mean differs by more than this (means sit
@@ -84,17 +89,27 @@ function computeStats(screenings) {
   return { n: screenings.length, stats };
 }
 
-// The four fallback-tier keys for an athlete, most specific first.
+// The fallback-tier keys for an athlete, most specific first. The most-specific
+// tier is spgd (sport+programme+gender+discipline) — one per discipline the
+// athlete holds, so a multi-discipline athlete belongs to each; when a discipline
+// cohort is too small it falls back through spg → sg → s → all exactly as before,
+// so scoring is unchanged for athletes/sports without populated disciplines. (B2)
 function tierKeysFor(athlete) {
   const sport = athlete.sport || null;
   const programme = athlete.program || athlete.programme || null;
   const gender = athlete.gender || null;
-  return [
-    { tier: 'spg', sport, programme, gender },
-    { tier: 'sg', sport, programme: null, gender },
-    { tier: 's', sport, programme: null, gender: null },
-    { tier: 'all', sport: '*', programme: null, gender: null },
-  ];
+  const disciplines = Array.isArray(athlete.disciplines) ? athlete.disciplines : [];
+  const keys = [];
+  for (const d of disciplines) {
+    if (d) keys.push({ tier: 'spgd', sport, programme, gender, discipline: d });
+  }
+  keys.push(
+    { tier: 'spg', sport, programme, gender, discipline: null },
+    { tier: 'sg', sport, programme: null, gender, discipline: null },
+    { tier: 's', sport, programme: null, gender: null, discipline: null },
+    { tier: 'all', sport: '*', programme: null, gender: null, discipline: null },
+  );
+  return keys;
 }
 
 // The latest Screening per athlete, joined with the athlete's cohort keys.
@@ -102,19 +117,26 @@ function tierKeysFor(athlete) {
 // large JSON/TEXT blobs); `subitems` stays because orientedComponents' balance
 // term needs it.
 async function latestScreeningsByAthlete() {
-  const [athletes, screenings] = await Promise.all([
+  const [athletes, screenings, disciplineRows] = await Promise.all([
     Athlete.findAll({ where: { isActive: true }, raw: true }),
     Screening.findAll({
       attributes: { exclude: ['summaryText', 'muscleFlags'] },
       order: [['assessedAt', 'DESC'], ['id', 'DESC']],
       raw: true,
     }),
+    AthleteDiscipline.findAll({ raw: true }),
   ]);
   // raw:true returns attribute names (athleteId), not column names.
   const latest = new Map();
   for (const s of screenings) if (!latest.has(s.athleteId)) latest.set(s.athleteId, s);
+  // Athlete → their disciplines (drives the spgd tier). (B2)
+  const discByAthlete = new Map();
+  for (const d of disciplineRows) {
+    const arr = discByAthlete.get(d.athleteId) || [];
+    arr.push(d.discipline); discByAthlete.set(d.athleteId, arr);
+  }
   return athletes
-    .map((a) => ({ athlete: a, screening: latest.get(a.athleteId) }))
+    .map((a) => ({ athlete: { ...a, disciplines: discByAthlete.get(a.athleteId) || [] }, screening: latest.get(a.athleteId) }))
     .filter((x) => x.screening);
 }
 
@@ -224,7 +246,7 @@ async function recomputeCohorts() {
   // Group screenings under each tier key they belong to.
   const groups = new Map(); // key string -> { keyObj, screenings[] }
   const add = (keyObj, s) => {
-    const k = `${keyObj.tier}|${keyObj.sport}|${keyObj.programme}|${keyObj.gender}`;
+    const k = cohortKeyOf(keyObj);
     if (!groups.has(k)) groups.set(k, { keyObj, screenings: [] });
     groups.get(k).screenings.push(s);
   };
@@ -234,15 +256,14 @@ async function recomputeCohorts() {
 
   // Preload existing rows once (no per-cohort findOne), then batch updates +
   // one bulkCreate for the new cohorts.
-  const cohortKey = (o) => `${o.tier}|${o.sport}|${o.programme}|${o.gender}`;
   const existingRows = await CohortThreshold.findAll();
-  const existingByKey = new Map(existingRows.map((r) => [cohortKey(r), r]));
+  const existingByKey = new Map(existingRows.map((r) => [cohortKeyOf(r), r]));
 
   const updates = [];
   const toCreate = [];
   for (const { keyObj, screenings } of groups.values()) {
     const { n, stats } = computeStats(screenings);
-    const existing = existingByKey.get(cohortKey(keyObj));
+    const existing = existingByKey.get(cohortKeyOf(keyObj));
     if (existing) {
       const patch = { n, stats, computedAt: new Date() };
       // Auto-overwrite ON → drop any manual edit so the computed norm governs.
@@ -252,7 +273,7 @@ async function recomputeCohorts() {
       // New cohort → store the auto-generated norm LIVE (approved), stamped as
       // an automatic origin so the UI can distinguish it from a human approval.
       toCreate.push({
-        sport: keyObj.sport, programme: keyObj.programme, gender: keyObj.gender, tier: keyObj.tier,
+        sport: keyObj.sport, programme: keyObj.programme, gender: keyObj.gender, discipline: keyObj.discipline || null, tier: keyObj.tier,
         n, stats, status: 'approved', computedAt: new Date(), approvedAt: new Date(), approvedBy: 'auto (import)',
       });
     }
@@ -266,7 +287,7 @@ async function recomputeCohorts() {
 // so callers can resolve many athletes without per-athlete queries.
 function buildApprovedCohortMap(approvedRows) {
   const m = new Map();
-  for (const r of approvedRows) m.set(`${r.tier}|${r.sport}|${r.programme}|${r.gender}`, r);
+  for (const r of approvedRows) m.set(cohortKeyOf(r), r);
   return m;
 }
 
@@ -275,10 +296,10 @@ function buildApprovedCohortMap(approvedRows) {
 function resolveFromMap(athlete, map, { minN = 5, fallbackEnabled = true } = {}) {
   const keys = fallbackEnabled ? tierKeysFor(athlete) : [tierKeysFor(athlete)[0]];
   for (const k of keys) {
-    const row = map.get(`${k.tier}|${k.sport}|${k.programme}|${k.gender}`);
+    const row = map.get(cohortKeyOf(k));
     // Layer admin overrides (components only) over the computed stats, so the
     // per-indicator stats survive even when a cohort's components are overridden.
-    if (row && row.n >= minN) return { tier: row.tier, n: row.n, stats: { ...row.stats, ...(row.overrides || {}) } };
+    if (row && row.n >= minN) return { tier: row.tier, discipline: row.discipline || null, n: row.n, stats: { ...row.stats, ...(row.overrides || {}) } };
   }
   return null;
 }
@@ -295,5 +316,5 @@ module.exports = {
   orientedComponents, meanSd, computeStats,
   tierKeysFor, latestScreeningsByAthlete,
   recomputeCohorts, resolveCohortStats, resolveFromMap, buildApprovedCohortMap,
-  cohortReview, screeningMovement, isEligibleForNorms,
+  cohortReview, screeningMovement, isEligibleForNorms, cohortKeyOf,
 };

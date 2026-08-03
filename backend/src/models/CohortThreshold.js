@@ -12,9 +12,12 @@ const CohortThreshold = sequelize.define('CohortThreshold', {
   sport: { type: DataTypes.STRING(64), allowNull: false },
   programme: { type: DataTypes.STRING(16), allowNull: true },
   gender: { type: DataTypes.STRING(8), allowNull: true },
-  // Fallback tier this row represents: spg = sport+programme+gender,
-  // sg = sport+gender, s = sport, all = whole population.
-  tier: { type: DataTypes.ENUM('spg', 'sg', 's', 'all'), allowNull: false },
+  // Discipline/event (e.g. Men's Singles) — only set on the most-specific `spgd`
+  // tier; null on every coarser tier. (B2)
+  discipline: { type: DataTypes.STRING(64), allowNull: true },
+  // Fallback tier this row represents: spgd = sport+programme+gender+discipline,
+  // spg = sport+programme+gender, sg = sport+gender, s = sport, all = population.
+  tier: { type: DataTypes.ENUM('spgd', 'spg', 'sg', 's', 'all'), allowNull: false },
   n: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
   // { component: { mean, sd } } for the composite inputs (see utils/cohortStats).
   stats: { type: DataTypes.JSON, allowNull: false },
@@ -28,7 +31,7 @@ const CohortThreshold = sequelize.define('CohortThreshold', {
   tableName: 'cohort_thresholds',
   underscored: true,
   indexes: [
-    { unique: true, fields: ['sport', 'programme', 'gender', 'tier'] },
+    { unique: true, fields: ['sport', 'programme', 'gender', 'discipline', 'tier'] },
   ],
 });
 

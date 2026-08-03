@@ -20,7 +20,8 @@ interface Cohort {
   sport: string;
   programme: string | null;
   gender: string | null;
-  tier: 'spg' | 'sg' | 's' | 'all';
+  discipline: string | null;
+  tier: 'spgd' | 'spg' | 'sg' | 's' | 'all';
   n: number;
   stats: Record<string, Stat>;
   overrides: Record<string, Stat> | null;
@@ -67,12 +68,12 @@ const COMPONENTS: Array<[string, string]> = [
 ];
 
 const TIER_LABEL: Record<string, string> = {
-  spg: 'Sport + Programme + Gender', sg: 'Sport + Gender', s: 'Sport', all: 'All athletes',
+  spgd: 'Sport + Programme + Gender + Discipline', spg: 'Sport + Programme + Gender', sg: 'Sport + Gender', s: 'Sport', all: 'All athletes',
 };
 
 function cohortLabel(c: Cohort): string {
   if (c.tier === 'all') return 'All athletes';
-  return [c.sport, c.programme, c.gender].filter(Boolean).join(' · ');
+  return [c.sport, c.programme, c.gender, c.discipline].filter(Boolean).join(' · ');
 }
 
 interface Version { id: number; label: string; note: string | null; createdBy: string | null; createdAt: string; cohorts: number; }

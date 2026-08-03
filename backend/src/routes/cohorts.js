@@ -8,7 +8,7 @@ const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
 const {
   recomputeCohorts, cohortReview,
-  latestScreeningsByAthlete, tierKeysFor, isEligibleForNorms,
+  latestScreeningsByAthlete, tierKeysFor, isEligibleForNorms, cohortKeyOf,
 } = require('../utils/cohorts');
 const { recomputeIndicators } = require('../utils/overallIndicator');
 const { getSettings, setSetting, DEFAULTS } = require('../utils/settings');
@@ -54,7 +54,7 @@ router.post('/versions', auth, rbac('admin', 'medical'), canEditNorms, async (re
     if (!label) return res.status(400).json({ message: 'A name is required.' });
     const rows = await CohortThreshold.findAll({ raw: true });
     const snapshot = rows.map((r) => ({
-      tier: r.tier, sport: r.sport, programme: r.programme, gender: r.gender,
+      tier: r.tier, sport: r.sport, programme: r.programme, gender: r.gender, discipline: r.discipline,
       n: r.n, stats: r.stats, overrides: r.overrides, status: r.status,
     }));
     const v = await CohortNormVersion.create({
@@ -98,14 +98,13 @@ router.post('/versions/:id/restore', auth, rbac('admin'), async (req, res) => {
     if (!v) return res.status(404).json({ message: 'Version not found' });
     const snap = Array.isArray(v.snapshot) ? v.snapshot : [];
     const existing = await CohortThreshold.findAll();
-    const key = (o) => `${o.tier}|${o.sport}|${o.programme}|${o.gender}`;
-    const byKey = new Map(existing.map((r) => [key(r), r]));
+    const byKey = new Map(existing.map((r) => [cohortKeyOf(r), r]));
     const ops = snap.map((s) => {
       const patch = { n: s.n, stats: s.stats, overrides: s.overrides, status: s.status };
-      const cur = byKey.get(key(s));
+      const cur = byKey.get(cohortKeyOf(s));
       return cur
         ? cur.update(patch)
-        : CohortThreshold.create({ tier: s.tier, sport: s.sport, programme: s.programme, gender: s.gender, ...patch, computedAt: new Date() });
+        : CohortThreshold.create({ tier: s.tier, sport: s.sport, programme: s.programme, gender: s.gender, discipline: s.discipline || null, ...patch, computedAt: new Date() });
     });
     await Promise.all(ops);
     const indicators = await recomputeIndicators();
@@ -162,11 +161,11 @@ router.get('/:id/members', auth, rbac('admin', 'medical'), canEditNorms, async (
     const row = await CohortThreshold.findByPk(req.params.id, { raw: true });
     if (!row) return res.status(404).json({ message: 'Cohort not found' });
     const settings = await getSettings();
-    const rowKey = `${row.tier}|${row.sport}|${row.programme}|${row.gender}`;
+    const rowKey = cohortKeyOf(row);
     const num = (v) => (v === null || v === undefined || v === '' || Number.isNaN(Number(v)) ? null : Number(v));
     const rows = await latestScreeningsByAthlete();
     const members = rows
-      .filter(({ athlete }) => tierKeysFor(athlete).some((k) => `${k.tier}|${k.sport}|${k.programme}|${k.gender}` === rowKey))
+      .filter(({ athlete }) => tierKeysFor(athlete).some((k) => cohortKeyOf(k) === rowKey))
       .map(({ athlete, screening }) => {
         const elig = isEligibleForNorms(athlete, screening, settings);
         return {
