@@ -70,6 +70,19 @@ function pickProgram(age) {
 // small, so most athletes norm against the sport+gender or sport tier.
 const DEMO_SPORTS = ['Badminton', 'Swimming', 'Athletics', 'Football', 'Hockey'];
 
+// A fake but valid-SHAPE 12-digit Malaysian IC (YYMMDD + PB + ###G), used as the
+// athlete KEY now that IC replaces the old ATHxxxx id (A2). NOT real ICs — the
+// digits are derived deterministically from a sequence number so the seed=42
+// dataset stays stable and every athlete's key is unique.
+function icFor(seq) {
+  const yy = String((88 + seq) % 100).padStart(2, '0');
+  const mm = String((seq % 12) + 1).padStart(2, '0');
+  const dd = String((seq % 28) + 1).padStart(2, '0');
+  const pb = String((seq % 59) + 1).padStart(2, '0');
+  const rest = String(1000 + seq).slice(-4);
+  return `${yy}${mm}${dd}${pb}${rest}`;
+}
+
 function buildAthletes() {
   const athletes = [];
   for (let i = 1; i <= 60; i++) {
@@ -82,7 +95,7 @@ function buildAthletes() {
     const defFlags = screened ? buildFlags(MUSCLES_DEFICIENCY, 0.18) : {};
     const tensionFlags = screened ? buildFlags(MUSCLES_TENSION, 0.18) : {};
     athletes.push({
-      athleteId: 'ATH' + String(i).padStart(4, '0'),
+      athleteId: icFor(i),
       name: `${pick(FIRST_NAMES)} ${pick(LAST_NAMES)}`,
       age,
       gender,
@@ -119,7 +132,7 @@ function buildAthletes() {
   // threshold in classifyCompositeRisk so his band escalates via active
   // injuries ("Elevated"), not muscle-flag pile-up ("High Risk").
   athletes[0] = {
-    athleteId: 'ATH0001',
+    athleteId: icFor(1),
     name: 'John Doe',
     age: 19,
     gender: 'Male',
@@ -155,7 +168,7 @@ function buildAthletes() {
   // The extraction ground truth (the printed 07-19 values) lives in
   // scripts/verify-holomotion-extract.js. sport/program are operator-supplied.
   athletes.push({
-    athleteId: 'ATH0061',
+    athleteId: icFor(61),
     name: 'Thung Jin Seng',
     age: 51,
     gender: 'Male',
@@ -189,7 +202,7 @@ function buildAthletes() {
   // extractor and gives a genuine two-athlete batch demo. Subitem scores +
   // real values live on his seeded Screening snapshot (see buildScreenings).
   athletes.push({
-    athleteId: 'ATH0062',
+    athleteId: icFor(62),
     name: 'Muhammad Nazwan Bin Abdullah',
     age: 21,
     gender: 'Male',
@@ -290,7 +303,7 @@ function buildScreenings(athletes) {
   for (const a of athletes) {
     const screened = a.overallActivityScore != null;
     if (!screened) continue;
-    if (a.athleteId === 'ATH0062') {
+    if (a.athleteId === icFor(62)) {
       rows.push(snap(a, daysAgo(6), { subitems: NAZWAN_SUBITEMS }));
     } else {
       rows.push(snap(a, daysAgo(range(20, 75)), { subitems: genSubitems(a) }));
@@ -326,10 +339,10 @@ function buildUsers() {
     // recipients use fake @isn.gov.my addresses, so real sends to those bounce
     // to the SMTP account — expected; delete those bounce-backs.)
     { name: 'Medical Demo 02', email: '23005005@siswa.um.edu.my', password: 'medical123', role: 'medical' },
-    { name: 'John Doe', email: 'athlete@isn.gov.my', password: 'athlete123', role: 'athlete', athleteId: 'ATH0001' },
+    { name: 'John Doe', email: 'athlete@isn.gov.my', password: 'athlete123', role: 'athlete', athleteId: icFor(1) },
     // Ground-truth athlete login — Dr Thung's own HoloMotion report seeded
     // 1:1 as ATH0061, so the athlete view can be checked against the PDF.
-    { name: 'Thung Jin Seng', email: 'thung@isn.gov.my', password: 'thung123', role: 'athlete', athleteId: 'ATH0061' },
+    { name: 'Thung Jin Seng', email: 'thung@isn.gov.my', password: 'thung123', role: 'athlete', athleteId: icFor(61) },
     // Coach role (first-class 4th role) — one sport per coach. Badminton includes ATH0001
     // (John Doe) + ATH0061 (Thung), so the coach's squad overlaps the athlete
     // demo logins.
@@ -459,8 +472,8 @@ async function seed() {
   console.log('  Admin:   poseidonapollo11@gmail.com    / admin123');
   console.log('  Medical: medical@isn.gov.my            / medical123');
   console.log('  Medical: 23005005@siswa.um.edu.my      / medical123   (live-alert test inbox)');
-  console.log('  Athlete: athlete@isn.gov.my            / athlete123   (John Doe, ATH0001)');
-  console.log('  Athlete: thung@isn.gov.my              / thung123     (Thung Jin Seng, ATH0061 — 1:1 with the sample HoloMotion PDF)');
+  console.log(`  Athlete: athlete@isn.gov.my            / athlete123   (John Doe, IC ${icFor(1)})`);
+  console.log(`  Athlete: thung@isn.gov.my              / thung123     (Thung Jin Seng, IC ${icFor(61)} — 1:1 with the sample HoloMotion PDF)`);
   console.log('  Coach:   coach@isn.gov.my              / coach123');
 
   await sequelize.close();
