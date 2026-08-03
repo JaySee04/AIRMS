@@ -1,28 +1,20 @@
 'use client';
 
-// Admin · Screening Analytics. A HoloMotion-only, chart-driven overview of the
-// screened population — coverage, band distribution, average physical-quality
-// scores, per-indicator risk spread, previous-vs-latest movement, and muscle
-// hotspots. Every panel follows the cohort filters (sport / programme / gender /
-// age), so "by sport / by gender / by age group" (Dr Thung) is the interaction.
-// Injury-log analytics were removed 2026-08-02 (HoloMotion-only scope).
+// Admin · Screening Analytics. A HoloMotion-only overview of the screened
+// population — coverage, band distribution, average physical-quality scores,
+// per-indicator risk spread, previous-vs-latest movement, and muscle hotspots.
+// Every panel follows the cohort filters (sport / programme / gender / age), so
+// "by sport / by gender / by age group" (Dr Thung) is the interaction.
+//
+// The visuals are plain HTML/CSS (theme-aware CSS vars), not a chart library:
+// 100%-stacked distribution bars replace the old pies, horizontal labeled bars
+// replace the vertical bars, and every value is directly labelled so meaning is
+// never colour-alone. Injury-log analytics were removed 2026-08-02 (HoloMotion
+// scope); Chart.js was retired from this page in the 2026-08-04 viz upgrade.
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import type { Chart as ChartType } from 'chart.js';
+import { useEffect, useMemo, useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { api } from '@/lib/api';
-import { useIsDark, chartPalette } from '@/lib/chartTheme';
-
-async function loadChartJs() {
-  const m = await import('chart.js');
-  m.Chart.register(
-    m.BarController, m.BarElement,
-    m.DoughnutController, m.ArcElement,
-    m.LinearScale, m.CategoryScale,
-    m.Legend, m.Tooltip,
-  );
-  return m.Chart;
-}
 
 interface ScreeningCohort {
   totalAthletes: number;
@@ -51,8 +43,109 @@ const AGE_GROUPS: Array<{ label: string; min?: number; max?: number }> = [
   { label: '30+ (veteran)', min: 30 },
 ];
 
-// Band colours — match the traffic-light used everywhere else.
-const BAND = { green: '#2e9e5b', amber: '#d99a16', red: '#d14b4b', none: '#9aa5b1' };
+// Status colours (theme-aware). Reserved for state — never reused as series hues.
+const C = { green: 'var(--risk-low)', amber: 'var(--risk-moderate)', red: 'var(--risk-high)', neutral: 'var(--text-muted)', gold: 'var(--brand-gold)', blue: 'var(--risk-undertrained)' };
+
+interface Seg { label: string; value: number; color: string }
+
+// 100%-stacked horizontal distribution bar + a counted legend. Replaces a pie:
+// proportion reads left-to-right and every slice carries its count and share.
+function DistributionBar({ segments }: { segments: Seg[] }) {
+  const shown = segments.filter((s) => s.value > 0);
+  const total = shown.reduce((s, x) => s + x.value, 0) || 1;
+  return (
+    <div>
+      <div style={{ display: 'flex', height: 30, borderRadius: 6, overflow: 'hidden', background: 'var(--border)' }}>
+        {shown.map((s, i) => (
+          <div key={s.label} title={`${s.label}: ${s.value} (${Math.round((s.value / total) * 100)}%)`}
+            style={{ width: `${(s.value / total) * 100}%`, background: s.color, borderRight: i < shown.length - 1 ? '2px solid var(--bg)' : undefined }} />
+        ))}
+      </div>
+      <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', marginTop: 14 }}>
+        {segments.map((s) => (
+          <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: '0.85rem' }}>
+            <span style={{ width: 12, height: 12, borderRadius: 3, background: s.color, flexShrink: 0 }} />
+            <span>{s.label}</span><strong>{s.value}</strong>
+            <span className="text-muted">({Math.round((s.value / total) * 100)}%)</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Horizontal labelled bars on a 0–max track. Replaces the vertical score bars.
+function ScoreBars({ rows, max = 100 }: { rows: Array<{ label: string; value: number | null }>; max?: number }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 6 }}>
+      {rows.map((r) => (
+        <div key={r.label} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ width: 84, fontSize: '0.85rem', flexShrink: 0 }}>{r.label}</div>
+          <div style={{ flex: 1, height: 18, background: 'var(--border)', borderRadius: 5, overflow: 'hidden' }} title={r.value == null ? 'No data' : `${r.label}: ${r.value} / ${max}`}>
+            <div style={{ width: `${Math.max(0, Math.min(100, ((r.value ?? 0) / max) * 100))}%`, height: '100%', background: C.gold, borderRadius: 5 }} />
+          </div>
+          <div style={{ width: 42, textAlign: 'right', fontWeight: 700, fontSize: '0.9rem', flexShrink: 0 }}>{r.value == null ? '—' : r.value}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// One 100%-stacked bar per exercise-risk indicator (Low / Watch / Elevated),
+// sorted most-elevated first, with the elevated count called out on the right.
+function IndicatorBars({ indicators }: { indicators: ScreeningCohort['indicators'] }) {
+  const rows = [...indicators].sort((a, b) => (b.high - a.high) || (b.watch - a.watch));
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 6 }}>
+      {rows.map((r) => {
+        const total = r.ok + r.watch + r.high || 1;
+        const segs = [
+          { label: 'Low', value: r.ok, color: C.green },
+          { label: 'Watch', value: r.watch, color: C.amber },
+          { label: 'Elevated', value: r.high, color: C.red },
+        ].filter((s) => s.value > 0);
+        return (
+          <div key={r.key} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 118, fontSize: '0.82rem', flexShrink: 0 }}>{r.label}</div>
+            <div style={{ flex: 1, display: 'flex', height: 18, borderRadius: 5, overflow: 'hidden', background: 'var(--border)' }}>
+              {segs.map((s, i) => (
+                <div key={s.label} title={`${r.label} — ${s.label}: ${s.value} (${Math.round((s.value / total) * 100)}%)`}
+                  style={{ width: `${(s.value / total) * 100}%`, background: s.color, borderRight: i < segs.length - 1 ? '2px solid var(--bg)' : undefined }} />
+              ))}
+            </div>
+            <div style={{ width: 58, textAlign: 'right', fontSize: '0.8rem', flexShrink: 0 }}>
+              {r.high > 0 ? <span style={{ color: C.red, fontWeight: 700 }}>{r.high} elev.</span> : <span className="text-muted">0 elev.</span>}
+            </div>
+          </div>
+        );
+      })}
+      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginTop: 6, fontSize: '0.8rem' }}>
+        {([['Low ≤15', C.green], ['Watch 16–25', C.amber], ['Elevated >25', C.red]] as const).map(([l, c]) => (
+          <span key={l} style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 12, height: 12, borderRadius: 3, background: c }} />{l}</span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Horizontal count bars for the most-flagged muscles (weak = gold, tight = blue;
+// the label also carries weak/tight so it's never colour-alone).
+function MuscleBars({ items }: { items: Array<{ label: string; count: number; weak: boolean }> }) {
+  const max = Math.max(1, ...items.map((m) => m.count));
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingTop: 6 }}>
+      {items.map((m) => (
+        <div key={m.label} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ width: 150, fontSize: '0.8rem', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={m.label}>{m.label}</div>
+          <div style={{ flex: 1, height: 16, background: 'var(--border)', borderRadius: 4, overflow: 'hidden' }} title={`${m.label}: ${m.count} athlete${m.count === 1 ? '' : 's'}`}>
+            <div style={{ width: `${(m.count / max) * 100}%`, height: '100%', background: m.weak ? C.gold : C.blue, borderRadius: 4 }} />
+          </div>
+          <div style={{ width: 28, textAlign: 'right', fontWeight: 700, fontSize: '0.85rem', flexShrink: 0 }}>{m.count}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function AdminDashboard() {
   const [cohort, setCohort] = useState<ScreeningCohort | null>(null);
@@ -64,15 +157,6 @@ export default function AdminDashboard() {
   const [gender, setGender] = useState('');
   const [programme, setProgramme] = useState('');
   const [ageGroupIndex, setAgeGroupIndex] = useState(0);
-
-  const isDark = useIsDark();
-
-  const bandRef = useRef<HTMLCanvasElement | null>(null);
-  const scoresRef = useRef<HTMLCanvasElement | null>(null);
-  const indicatorsRef = useRef<HTMLCanvasElement | null>(null);
-  const trendRef = useRef<HTMLCanvasElement | null>(null);
-  const muscleRef = useRef<HTMLCanvasElement | null>(null);
-  const charts = useRef<ChartType[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -114,85 +198,18 @@ export default function AdminDashboard() {
     [cohort],
   );
 
-  useEffect(() => {
-    charts.current.forEach((c) => c.destroy());
-    charts.current = [];
-    if (!cohort) return;
-    let cancelled = false;
-    (async () => {
-      const Chart = await loadChartJs();
-      if (cancelled) return;
-      const pal = chartPalette(isDark);
-      const cat = { grid: { color: pal.grid }, ticks: { color: pal.tick } };
-      const val = { grid: { color: pal.grid }, ticks: { color: pal.tick, precision: 0 }, beginAtZero: true };
-      const legend = { labels: { color: pal.tick, boxWidth: 12, font: { size: 11 } } };
-      // Shared pie builder — entries are [label, value, colour]. Full pies
-      // (cutout 0) with slices sectioned by card-coloured lines, Google-Forms
-      // style. `cutout` overridable if a ring is ever wanted again.
-      const pie = (canvas: HTMLCanvasElement, entries: ReadonlyArray<readonly [string, number, string]>, cutout = '0%') => new Chart(canvas, {
-        type: 'doughnut',
-        data: { labels: entries.map((e) => e[0]), datasets: [{ data: entries.map((e) => e[1]), backgroundColor: entries.map((e) => e[2]), borderColor: pal.cardBg, borderWidth: 2 }] },
-        options: { responsive: true, maintainAspectRatio: false, cutout, plugins: { legend: { position: 'bottom', ...legend } } },
-      });
-
-      // Band distribution — full pie
-      if (bandRef.current) {
-        const bd = cohort.bandDistribution;
-        charts.current.push(pie(bandRef.current, [['Safe', bd.green, BAND.green], ['Needs attention', bd.amber, BAND.amber], ['Immediate', bd.red, BAND.red]]));
-      }
-
-      // Average physical-quality scores — bar (0–100, higher better)
-      if (scoresRef.current) {
-        const a = cohort.averages;
-        const rows: Array<[string, number | null]> = [['Total', a.overallActivityScore], ['ROM', a.mobility], ['Stability', a.stability], ['Symmetry', a.symmetry]];
-        charts.current.push(new Chart(scoresRef.current, {
-          type: 'bar',
-          data: { labels: rows.map((r) => r[0]), datasets: [{ label: 'Cohort average', data: rows.map((r) => r[1] ?? 0), backgroundColor: pal.bar, borderRadius: 4, maxBarThickness: 42 }] },
-          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: cat, y: { ...val, max: 100 } } },
-        }));
-      }
-
-      // Risk indicators by band — stacked bar
-      if (indicatorsRef.current) {
-        charts.current.push(new Chart(indicatorsRef.current, {
-          type: 'bar',
-          data: {
-            labels: cohort.indicators.map((i) => i.label),
-            datasets: [
-              { label: 'Low', data: cohort.indicators.map((i) => i.ok), backgroundColor: BAND.green, borderRadius: 2, maxBarThickness: 46 },
-              { label: 'Watch', data: cohort.indicators.map((i) => i.watch), backgroundColor: BAND.amber, borderRadius: 2, maxBarThickness: 46 },
-              { label: 'Elevated', data: cohort.indicators.map((i) => i.high), backgroundColor: BAND.red, borderRadius: 2, maxBarThickness: 46 },
-            ],
-          },
-          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', ...legend } }, scales: { x: { ...cat, stacked: true }, y: { ...val, stacked: true } } },
-        }));
-      }
-
-      // Screening momentum — full pie (previous vs latest)
-      if (trendRef.current) {
-        const t = cohort.trend;
-        charts.current.push(pie(trendRef.current, [['Improving', t.improving, BAND.green], ['Declining', t.declining, BAND.red], ['Steady', t.steady, BAND.none]]));
-      }
-
-      // Muscle hotspots — horizontal bar (myodynamia + tension merged, top 8)
-      if (muscleRef.current) {
-        const merged = [
-          ...cohort.topMyodynamia.map((m) => ({ label: `${m.muscle} (weak)`, count: m.count, weak: true })),
-          ...cohort.topTension.map((m) => ({ label: `${m.muscle} (tight)`, count: m.count, weak: false })),
-        ].sort((x, y) => y.count - x.count).slice(0, 8);
-        charts.current.push(new Chart(muscleRef.current, {
-          type: 'bar',
-          data: { labels: merged.map((m) => m.label), datasets: [{ label: 'Athletes', data: merged.map((m) => m.count), backgroundColor: merged.map((m) => (m.weak ? pal.bar : BAND.red)), borderRadius: 4 }] },
-          options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: val, y: cat } },
-        }));
-      }
-    })();
-    return () => { cancelled = true; charts.current.forEach((c) => c.destroy()); charts.current = []; };
-  }, [cohort, isDark, elevatedTotal]);
+  const muscles = useMemo(() => {
+    if (!cohort) return [];
+    return [
+      ...cohort.topMyodynamia.map((m) => ({ label: `${m.muscle} (weak)`, count: m.count, weak: true })),
+      ...cohort.topTension.map((m) => ({ label: `${m.muscle} (tight)`, count: m.count, weak: false })),
+    ].sort((x, y) => y.count - x.count).slice(0, 8);
+  }, [cohort]);
 
   function reset() { setSport(''); setGender(''); setProgramme(''); setAgeGroupIndex(0); }
 
   const a = cohort?.averages;
+  const bd = cohort?.bandDistribution;
 
   return (
     <DashboardLayout allowedRoles={['admin']} title="Screening Analytics">
@@ -257,20 +274,33 @@ export default function AdminDashboard() {
       </div>
 
       {/* Row 1 — band distribution + average scores */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, 1fr) minmax(320px, 1.4fr)', gap: 20, marginTop: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20, marginTop: 20 }}>
         <div className="card">
           <div className="card-header"><div>
             <h2 className="card-title" style={{ marginBottom: 0 }}>Overall Risk Distribution</h2>
-            <span className="card-sub">One slice per athlete, by their latest screening</span>
+            <span className="card-sub">Screened athletes by their latest risk band</span>
           </div></div>
-          <div style={{ position: 'relative', height: 260 }}><canvas ref={bandRef} /></div>
+          {bd ? (
+            <DistributionBar segments={[
+              { label: 'Safe', value: bd.green, color: C.green },
+              { label: 'Needs attention', value: bd.amber, color: C.amber },
+              { label: 'Immediate', value: bd.red, color: C.red },
+            ]} />
+          ) : <p className="text-muted">Loading…</p>}
         </div>
         <div className="card">
           <div className="card-header"><div>
             <h2 className="card-title" style={{ marginBottom: 0 }}>Average Physical-Quality Scores</h2>
-            <span className="card-sub">Cohort average · higher is better</span>
+            <span className="card-sub">Cohort average · 0–100, higher is better</span>
           </div></div>
-          <div style={{ position: 'relative', height: 260 }}><canvas ref={scoresRef} /></div>
+          {a ? (
+            <ScoreBars rows={[
+              { label: 'Total', value: a.overallActivityScore ?? null },
+              { label: 'ROM', value: a.mobility ?? null },
+              { label: 'Stability', value: a.stability ?? null },
+              { label: 'Symmetry', value: a.symmetry ?? null },
+            ]} />
+          ) : <p className="text-muted">Loading…</p>}
         </div>
       </div>
 
@@ -278,13 +308,13 @@ export default function AdminDashboard() {
       <div className="card" style={{ marginTop: 20 }}>
         <div className="card-header"><div>
           <h2 className="card-title" style={{ marginBottom: 0 }}>Exercise-Risk Indicators by Band</h2>
-          <span className="card-sub">How many screened athletes fall in each band per indicator (Low ≤15 · Watch 16–25 · Elevated &gt;25)</span>
+          <span className="card-sub">Share of screened athletes in each band per indicator, most-elevated first</span>
         </div></div>
-        <div style={{ position: 'relative', height: 300 }}><canvas ref={indicatorsRef} /></div>
+        {cohort ? <IndicatorBars indicators={cohort.indicators} /> : <p className="text-muted">Loading…</p>}
       </div>
 
       {/* Row 3 — screening trend + muscle hotspots */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 1fr) minmax(320px, 1.2fr)', gap: 20, marginTop: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20, marginTop: 20 }}>
         <div className="card">
           <div className="card-header"><div>
             <h2 className="card-title" style={{ marginBottom: 0 }}>Screening Trend</h2>
@@ -294,37 +324,37 @@ export default function AdminDashboard() {
           </div></div>
           {cohort && cohort.trend.comparable === 0 ? (
             <div className="text-muted" style={{ fontSize: '0.85rem' }}>No athlete in this cohort has two screenings yet — import a newer HoloMotion report to compare.</div>
-          ) : (
+          ) : cohort ? (
             <>
-              <div style={{ position: 'relative', height: 200 }}><canvas ref={trendRef} /></div>
-              {cohort && (
-                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginTop: 12, justifyContent: 'center' }}>
-                  {cohort.trend.deltas.map((d) => {
-                    const v = d.avgDelta;
-                    const good = v === null || v === 0 ? null : (d.higherBetter ? v > 0 : v < 0);
-                    const color = good === null ? 'var(--text-muted)' : good ? 'var(--risk-low)' : 'var(--risk-high)';
-                    return (
-                      <div key={d.key} style={{ textAlign: 'center', minWidth: 66 }}>
-                        <div className="stat-tile-label" style={{ fontSize: '0.68rem' }}>{d.label}</div>
-                        <div style={{ fontSize: '1rem', fontWeight: 700, color }}>{v === null ? '—' : `${v > 0 ? '+' : ''}${v}`}</div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+              <DistributionBar segments={[
+                { label: 'Improving', value: cohort.trend.improving, color: C.green },
+                { label: 'Steady', value: cohort.trend.steady, color: C.neutral },
+                { label: 'Declining', value: cohort.trend.declining, color: C.red },
+              ]} />
+              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginTop: 16, justifyContent: 'center' }}>
+                {cohort.trend.deltas.map((d) => {
+                  const v = d.avgDelta;
+                  const good = v === null || v === 0 ? null : (d.higherBetter ? v > 0 : v < 0);
+                  const color = good === null ? 'var(--text-muted)' : good ? 'var(--risk-low)' : 'var(--risk-high)';
+                  return (
+                    <div key={d.key} style={{ textAlign: 'center', minWidth: 66 }}>
+                      <div className="stat-tile-label" style={{ fontSize: '0.68rem' }}>{d.label}</div>
+                      <div style={{ fontSize: '1rem', fontWeight: 700, color }}>{v === null ? '—' : `${v > 0 ? '+' : ''}${v}`}</div>
+                    </div>
+                  );
+                })}
+              </div>
             </>
-          )}
+          ) : <p className="text-muted">Loading…</p>}
         </div>
         <div className="card">
           <div className="card-header"><div>
             <h2 className="card-title" style={{ marginBottom: 0 }}>Most-Flagged Muscles</h2>
             <span className="card-sub">Athletes flagged per muscle (weak = myodynamia · tight = tension)</span>
           </div></div>
-          {cohort && cohort.topMyodynamia.length + cohort.topTension.length === 0 ? (
+          {cohort && muscles.length === 0 ? (
             <div className="text-muted" style={{ fontSize: '0.85rem' }}>No muscle flags on record for this cohort.</div>
-          ) : (
-            <div style={{ position: 'relative', height: 300 }}><canvas ref={muscleRef} /></div>
-          )}
+          ) : <MuscleBars items={muscles} />}
         </div>
       </div>
     </DashboardLayout>
