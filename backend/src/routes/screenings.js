@@ -37,6 +37,68 @@ router.get('/athlete/:id', auth, requirePermission('viewRecords'), async (req, r
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
+// GET /api/screenings/:id/full — ONE screening reshaped into the athlete-dashboard
+// shape (flat scores + risks{} + muscle arrays + the indicator sub-object), so any
+// role can render a PAST screening's dashboard, not only the latest. Muscle flags
+// come from the row's JSON snapshot (history), not the live muscle_flags table.
+// Same access control as the history list: athlete self, coach sport-scoped,
+// medical/admin any (viewRecords).
+router.get('/:id/full', auth, requirePermission('viewRecords'), async (req, res) => {
+  try {
+    const s = await Screening.findByPk(req.params.id, { raw: true });
+    if (!s) return res.status(404).json({ message: 'Screening not found' });
+    if (req.user.role === 'athlete' && req.user.athleteId !== s.athleteId) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+    const athlete = await Athlete.findOne({
+      where: { athleteId: s.athleteId },
+      attributes: ['athleteId', 'name', 'sport', 'age', 'gender'],
+      raw: true,
+    });
+    if (!athlete) return res.status(404).json({ message: 'Athlete not found' });
+    if (req.user.role === 'coach' && athlete.sport !== req.user.coachSport) {
+      return res.status(403).json({ message: 'Coaches can only view athletes in their assigned sport.' });
+    }
+
+    const num = (v) => (v == null ? 0 : Number(v));
+    const flags = s.muscleFlags || {};
+    res.json({
+      ...athlete,
+      overallActivityScore: num(s.totalScore),
+      injuryRiskIndex: num(s.exerciseRisks),
+      mobility: num(s.rom),
+      stability: num(s.stability),
+      symmetry: num(s.symmetry),
+      risks: {
+        neckInjuryRisk: num(s.neckInjuryRisk),
+        shoulderInjuryRisk: num(s.shoulderInjuryRisk),
+        scoliosis: num(s.scoliosis),
+        spinalDiscHerniation: num(s.spinalDiscHerniation),
+        lumbarPelvisInjury: num(s.lumbarPelvisInjury),
+        jointPain: num(s.jointPain),
+        kneeInjuryRisk: num(s.kneeInjuryRisk),
+        ankleInjuryRisk: num(s.ankleInjuryRisk),
+      },
+      myodynamia: Array.isArray(flags.myodynamia) ? flags.myodynamia.map(({ muscle, side }) => ({ muscle, side })) : [],
+      tension: Array.isArray(flags.tension) ? flags.tension.map(({ muscle, side }) => ({ muscle, side })) : [],
+      screening: {
+        screeningId: s.id,
+        assessedAt: s.assessedAt,
+        overallIndicator: s.overallIndicator,
+        overallBand: s.overallBand,
+        escalations: s.escalations,
+        factors: Array.isArray(s.factors) ? s.factors : [],
+        subitems: s.subitems || null,
+        overrideBand: s.overrideBand,
+        overrideNote: s.overrideNote,
+        overrideBy: s.overrideBy,
+        overrideAt: s.overrideAt,
+        effectiveBand: s.overrideBand || s.overallBand,
+      },
+    });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
 // PATCH /api/screenings/:id/override — clinician sets the effective band after a
 // real assessment (e.g. an amber athlete checked and cleared to green). A note
 // is required. The override auto-expires when a newer screening is imported
