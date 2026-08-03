@@ -22,6 +22,7 @@ import { api } from '@/lib/api';
 import { getSession } from '@/lib/auth';
 import TagCombobox from '@/components/ui/TagCombobox';
 import AthleteSearchSelect from '@/components/ui/AthleteSearchSelect';
+import IsnLookup from '@/components/upload/IsnLookup';
 import ScreeningPreview from '@/components/upload/ScreeningPreview';
 import * as uploadStore from '@/lib/screeningUploadStore';
 import type { QueueItem, CommittedEntry, RosterAthlete } from '@/lib/screeningUploadStore';
@@ -292,9 +293,26 @@ export default function PdfScreeningUpload() {
                       placeholder="Search the roster by name…"
                     />
                     <div className="text-muted" style={{ fontSize: '0.72rem', marginTop: 3 }}>
-                      {it.matched ? `Attached · ${it.matched.name} (${it.athleteId})` : 'Pick an athlete, or fill in a new one’s details below.'}
+                      {it.matched ? `Attached · ${it.matched.name} (${it.athleteId})` : 'Pick an athlete, look them up in ISN, or fill in a new one’s details below.'}
                     </div>
                   </div>
+
+                  {/* Athlete AIRMS has never seen → pull their master record from
+                      the ISN directory (A3). Fills IC / name / sport / programme /
+                      age / gender / events. */}
+                  {!it.matched && (
+                    <IsnLookup onPick={(r) => patchItem(it.id, {
+                      athleteId: r.icNumber,
+                      name: r.name,
+                      sport: r.sport,
+                      program: r.programme,
+                      gender: r.gender,
+                      age: r.age != null ? String(r.age) : '',
+                      disciplines: r.disciplines ?? [],
+                      disciplinesTouched: true,
+                      matched: null,
+                    })} />
+                  )}
 
                   {/* Editable identity. Name/sport/programme are filled from the
                       roster when an athlete is picked (the name is redacted from
