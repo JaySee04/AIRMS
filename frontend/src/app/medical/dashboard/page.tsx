@@ -16,6 +16,7 @@ const RiskRadar = dynamic(() => import('@/components/dashboard/RiskRadar'), { ss
 import ScreeningAlertBanner from '@/components/dashboard/ScreeningAlertBanner';
 import ScreeningHistory from '@/components/dashboard/ScreeningHistory';
 import ScreeningPanel from '@/components/dashboard/ScreeningPanel';
+import ScreeningDatePicker, { FullScreening } from '@/components/dashboard/ScreeningDatePicker';
 import { api } from '@/lib/api';
 import { disciplinesForSport } from '@/lib/disciplines';
 import { getInitials } from '@/lib/name';
@@ -99,6 +100,8 @@ export default function MedicalDashboard() {
   // Selected-athlete state
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedAthlete, setSelectedAthlete] = useState<AthleteFull | null>(null);
+  // A PAST screening the clinician chose to view (null = the athlete's latest).
+  const [picked, setPicked] = useState<FullScreening | null>(null);
   const [loadingSelected, setLoadingSelected] = useState(false);
   const [selectedError, setSelectedError] = useState<string | null>(null);
   const [pdfBusy, setPdfBusy] = useState<'' | 'ind' | 'team'>('');
@@ -112,6 +115,9 @@ export default function MedicalDashboard() {
   const [editingEvents, setEditingEvents] = useState(false);
   const [eventDraft, setEventDraft] = useState<string[]>([]);
   const [eventsSaving, setEventsSaving] = useState(false);
+
+  // Reset any picked past-screening when the selected athlete changes.
+  useEffect(() => { setPicked(null); }, [selectedId]);
 
   async function saveEvents() {
     if (!selectedAthlete) return;
@@ -272,6 +278,11 @@ export default function MedicalDashboard() {
     setSelectedAthlete(a);
   }
 
+  // Screening-derived rendering uses `view` — the picked PAST screening if one is
+  // selected, else the athlete's latest live data. Identity fields keep using
+  // selectedAthlete. `selectedAthlete && view` in the detail guard narrows view.
+  const view = picked ?? selectedAthlete;
+
   return (
     <DashboardLayout allowedRoles={['medical']} requiredPermission="viewRecords" title="Athlete Dashboard">
       <div className="medical-shell">
@@ -389,7 +400,7 @@ export default function MedicalDashboard() {
             <p className="text-muted">Loading athlete details…</p>
           ) : selectedError ? (
             <div className="alert alert-error">{selectedError}</div>
-          ) : selectedAthlete ? (
+          ) : selectedAthlete && view ? (
             <>
               {/* Athlete header card */}
               <div className="card" style={{ marginBottom: 20 }}>
@@ -488,8 +499,12 @@ export default function MedicalDashboard() {
                   is kept (locked decision, MASTER_CLARIFICATIONS §12) but has
                   no live callers left on this page — see
                   docs/fyp/ACWR_REBUILD.md for the model's own history. */}
-              <OverallRiskBadge screening={selectedAthlete.screening} hero />
-              {selectedAthlete.screening?.screeningId && (
+              <ScreeningDatePicker athleteId={selectedAthlete.athleteId} onPick={setPicked} />
+
+              <OverallRiskBadge screening={view.screening} hero />
+              {/* Clinical override acts on the LATEST screening only — hidden
+                  while viewing a past screening (you can't re-band history). */}
+              {!picked && selectedAthlete.screening?.screeningId && (
                 <ClinicianBandOverride
                   screeningId={selectedAthlete.screening.screeningId}
                   systemBand={selectedAthlete.screening.overallBand}
@@ -505,9 +520,9 @@ export default function MedicalDashboard() {
                   when the athlete is green overall. Sits between the verdict and
                   the radar overview: verdict → why → overview → detail. */}
               <ScreeningAlertBanner
-                risks={selectedAthlete.risks}
+                risks={view.risks}
                 sport={selectedAthlete.sport}
-                band={selectedAthlete.screening?.effectiveBand}
+                band={view.screening?.effectiveBand}
                 audience="staff"
               />
 
@@ -522,13 +537,13 @@ export default function MedicalDashboard() {
                   <div style={{ flex: '1 1 420px', minWidth: 300, maxWidth: 520 }}>
                     <RiskRadar
                       labels={RISK_KEYS.map((k) => RISK_LABEL[k])}
-                      values={RISK_KEYS.map((k) => Math.min(30, Math.max(0, selectedAthlete.risks[k] ?? 0)))}
+                      values={RISK_KEYS.map((k) => Math.min(30, Math.max(0, view.risks[k] ?? 0)))}
                       thresholds={highThresholdsFor(selectedAthlete.sport)}
                     />
                   </div>
                   <div style={{ flex: '1 1 260px', minWidth: 240 }}>
                     <p style={{ margin: '0 0 10px', fontSize: '0.9rem', lineHeight: 1.5 }}>
-                      Each spoke is one exercise-risk indicator from the athlete&apos;s latest
+                      Each spoke is one exercise-risk indicator from the athlete&apos;s
                       HoloMotion screening, on a 0–30 scale. <strong>Closer to the centre
                       is better.</strong>
                     </p>
@@ -549,7 +564,7 @@ export default function MedicalDashboard() {
               <div style={{ marginTop: 20 }}>
                 {/* subitems live only on `.screening` (never duplicated onto
                     the flat athlete row), so they're merged in here. */}
-                <ScreeningPanel athlete={{ ...selectedAthlete, subitems: selectedAthlete.screening?.subitems }} showTrainingFocus={false} />
+                <ScreeningPanel athlete={{ ...selectedAthlete, ...view, subitems: view.screening?.subitems }} showTrainingFocus={false} />
               </div>
 
               {/* Report-to-report progress — the on-screen counterpart of the
@@ -567,9 +582,9 @@ export default function MedicalDashboard() {
                   </div>
                 </div>
                 <BodyMap
-                  myodynamia={selectedAthlete.myodynamia ?? []}
-                  tension={selectedAthlete.tension ?? []}
-                  subitems={selectedAthlete.screening?.subitems}
+                  myodynamia={view.myodynamia ?? []}
+                  tension={view.tension ?? []}
+                  subitems={view.screening?.subitems}
                 />
               </div>
             </>

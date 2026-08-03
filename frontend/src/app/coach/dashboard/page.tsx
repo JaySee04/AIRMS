@@ -22,6 +22,7 @@ import OverallRiskBadge, { ScreeningIndicator } from '@/components/dashboard/Ove
 import ScreeningAlertBanner from '@/components/dashboard/ScreeningAlertBanner';
 import ScreeningHistory from '@/components/dashboard/ScreeningHistory';
 import ScreeningPanel from '@/components/dashboard/ScreeningPanel';
+import ScreeningDatePicker, { FullScreening } from '@/components/dashboard/ScreeningDatePicker';
 
 // Heavy client-only visuals — split out so the roster shell paints first.
 const BodyMap = dynamic(() => import('@/components/dashboard/BodyMap'), { ssr: false, loading: () => <div style={{ minHeight: 300 }} /> });
@@ -122,8 +123,10 @@ export default function CoachDashboard() {
   const [filterGender, setFilterGender] = useState('');
   const [filterDiscipline, setFilterDiscipline] = useState('');
 
-  // Selected athlete → read-only detail view.
+  // Selected athlete → read-only detail view. `picked` is a PAST screening the
+  // coach chose to view (null = the athlete's latest/live data).
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [picked, setPicked] = useState<FullScreening | null>(null);
 
   async function downloadTeamReport() {
     if (!data?.sport) return;
@@ -168,6 +171,7 @@ export default function CoachDashboard() {
   // top so the detail opens at the athlete's header instead of mid-page.
   useEffect(() => {
     window.scrollTo({ top: 0 });
+    setPicked(null); // reset to the latest screening when switching athletes
   }, [selectedId]);
 
   // Programmes present in the squad (for the filter dropdown).
@@ -331,18 +335,22 @@ export default function CoachDashboard() {
 
   // ── Detail view ─────────────────────────────────────────────────────────
   if (selected) {
+    // Identity (name/sport/age/…) always comes from the roster row; the
+    // screening-derived fields come from `view` — the picked past screening if
+    // one is selected, else the athlete's latest live data.
+    const view = picked ?? selected;
     const screeningData = {
       name: selected.name,
       sport: selected.sport,
       age: selected.age ?? undefined,
       gender: selected.gender ?? undefined,
-      overallActivityScore: selected.overallActivityScore,
-      injuryRiskIndex: selected.injuryRiskIndex,
-      mobility: selected.mobility,
-      stability: selected.stability,
-      symmetry: selected.symmetry,
-      risks: selected.risks,
-      subitems: selected.screening?.subitems,
+      overallActivityScore: view.overallActivityScore,
+      injuryRiskIndex: view.injuryRiskIndex,
+      mobility: view.mobility,
+      stability: view.stability,
+      symmetry: view.symmetry,
+      risks: view.risks,
+      subitems: view.screening?.subitems,
     };
     return (
       <DashboardLayout allowedRoles={['coach']} title="Squad Readiness">
@@ -380,11 +388,13 @@ export default function CoachDashboard() {
           </div>
         </div>
 
-        <OverallRiskBadge screening={selected.screening} hero />
+        <ScreeningDatePicker athleteId={selected.athleteId} onPick={setPicked} />
+
+        <OverallRiskBadge screening={view.screening} hero />
         <ScreeningAlertBanner
-          risks={selected.risks}
+          risks={view.risks}
           sport={selected.sport}
-          band={selected.screening?.effectiveBand}
+          band={view.screening?.effectiveBand}
           audience="staff"
         />
 
@@ -399,13 +409,13 @@ export default function CoachDashboard() {
             <div style={{ flex: '1 1 420px', minWidth: 300, maxWidth: 520 }}>
               <RiskRadar
                 labels={RISK_KEYS.map((k) => RISK_LABEL[k])}
-                values={RISK_KEYS.map((k) => Math.min(30, Math.max(0, selected.risks[k] ?? 0)))}
+                values={RISK_KEYS.map((k) => Math.min(30, Math.max(0, view.risks[k] ?? 0)))}
                 thresholds={highThresholdsFor(selected.sport)}
               />
             </div>
             <div style={{ flex: '1 1 220px', minWidth: 200 }}>
               <p style={{ margin: '0 0 10px', fontSize: '0.9rem', lineHeight: 1.5 }}>
-                Each spoke is one exercise-risk indicator from {selected.name.split(' ')[0]}&apos;s latest HoloMotion
+                Each spoke is one exercise-risk indicator from {selected.name.split(' ')[0]}&apos;s HoloMotion
                 screening, on a 0–30 scale.
               </p>
               <p className="text-muted" style={{ margin: 0, fontSize: '0.82rem', lineHeight: 1.5 }}>
@@ -432,7 +442,7 @@ export default function CoachDashboard() {
               <span className="card-sub">L = left · R = right · B = both</span>
             </div>
           </div>
-          <BodyMap myodynamia={selected.myodynamia ?? []} tension={selected.tension ?? []} subitems={selected.screening?.subitems} />
+          <BodyMap myodynamia={view.myodynamia ?? []} tension={view.tension ?? []} subitems={view.screening?.subitems} />
         </div>
       </DashboardLayout>
     );
