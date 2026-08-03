@@ -6,8 +6,11 @@
 //     section spans pages 1-6 (Info+Summary p1, Muscle Imbalance p3, Posture
 //     p4, Risk Screening + Subitems p5, Exercise Risk Evaluation p6; pages
 //     7-38 are image analysis / trajectory / prescription, not extracted).
-// Together they exercise BOTH known layouts. The script picks the matching
-// ground truth by the extracted name, so it works against either PDF.
+// Together they exercise BOTH known layouts. The name is redacted on-device
+// before extraction (see utils/redactName.js), so the script identifies the
+// athlete by best data-match, not by the name, and verifies the real name is
+// ABSENT from the model output (redaction confirmed) — see groundTruthFor /
+// the 'name redacted' check.
 //
 // This script runs the real extraction pipeline against a PDF and diffs every
 // persisted field against the known values — a correct end-to-end run must
@@ -95,11 +98,21 @@ const GROUND_TRUTH = {
   },
 };
 
-// Pick the ground-truth set matching the extracted name; default to Thung
-// (keeps the bare --json path working when a name isn't present).
+// The name is redacted on-device before extraction, so we can't key the ground
+// truth by it. Pick the GROUND_TRUTH entry whose numeric fields best match the
+// extraction instead — redaction-proof self-identification.
 function groundTruthFor(mapped) {
-  const name = String(mapped?.athlete?.name ?? '').trim().toLowerCase();
-  return GROUND_TRUTH[name] || GROUND_TRUTH['thung jin seng'];
+  const a = mapped?.athlete ?? {};
+  let best = GROUND_TRUTH['thung jin seng'];
+  let bestScore = -1;
+  for (const gt of Object.values(GROUND_TRUTH)) {
+    let score = 0;
+    for (const [k, v] of Object.entries(gt.athlete)) {
+      if (k !== 'name' && Number(a[k]) === Number(v)) score++;
+    }
+    if (score > bestScore) { bestScore = score; best = gt; }
+  }
+  return best;
 }
 
 function normName(s) { return String(s ?? '').trim().toLowerCase(); }
@@ -115,7 +128,10 @@ function compare(mapped) {
   };
 
   const a = mapped.athlete ?? {};
-  check('name', a.name, EXPECTED.athlete.name, normName(a.name) === EXPECTED.athlete.name);
+  // The name is REDACTED on-device before extraction, so success = the athlete's
+  // real name is ABSENT from the model output (empty, or at worst a
+  // hallucination) — never the actual name. A returned real name is a leak.
+  check('name redacted', a.name ? `"${a.name}"` : '(empty)', `not "${EXPECTED.athlete.name}"`, normName(a.name) !== EXPECTED.athlete.name);
   for (const key of Object.keys(EXPECTED.athlete)) {
     if (key === 'name') continue;
     const want = EXPECTED.athlete[key];
