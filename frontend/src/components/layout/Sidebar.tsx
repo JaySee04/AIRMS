@@ -46,6 +46,7 @@ const NAV: Record<'athlete' | 'medical' | 'admin' | 'coach', NavItem[]> = {
   athlete: [
     { href: '/athlete/dashboard',     label: 'My Dashboard',      icon: <IconHome /> },
     { href: '/athlete/history',       label: 'Screening History', icon: <IconFileText /> },
+    { href: '/athlete/squad',         label: 'My Squad',          icon: <IconUsers /> },
   ],
   medical: [
     { href: '/medical/dashboard',      label: 'Athlete Dashboard',  icon: <IconHome />,        perm: 'viewRecords' },

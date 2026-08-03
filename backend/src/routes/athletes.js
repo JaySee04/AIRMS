@@ -242,6 +242,39 @@ router.get('/analytics/screening', auth, rbac('admin'), async (req, res) => {
   }
 });
 
+// GET /api/athletes/teammates — an athlete's own squad (same sport), SUMMARY
+// only: name, programme, gender, and the overall risk band. Read-only, no peer
+// clinical/screening detail — athletes see squad readiness, not each other's
+// reports. Defined before /:id so "teammates" isn't captured as an id. (C3)
+router.get('/teammates', auth, async (req, res) => {
+  try {
+    if (req.user.role !== 'athlete' || !req.user.athleteId) {
+      return res.status(403).json({ message: 'Squad view is for athletes.' });
+    }
+    const me = await Athlete.findOne({ where: { athleteId: req.user.athleteId }, attributes: ['sport'], raw: true });
+    if (!me || !me.sport) return res.status(404).json({ message: 'No sport on your athlete profile.' });
+    const mates = await Athlete.findAll({
+      where: { sport: me.sport, isActive: true },
+      attributes: ['athleteId', 'name', 'program', 'gender'],
+      order: [['name', 'ASC']],
+      raw: true,
+    });
+    const teammates = await Promise.all(mates.map(async (m) => {
+      const ind = await latestIndicator(m.athleteId);
+      return {
+        athleteId: m.athleteId,
+        name: m.name,
+        program: m.program,
+        gender: m.gender,
+        isSelf: m.athleteId === req.user.athleteId,
+        overallIndicator: ind ? ind.overallIndicator : null,
+        effectiveBand: ind ? ind.effectiveBand : null,
+      };
+    }));
+    res.json({ sport: me.sport, teammates });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
 // GET /api/athletes/:id — single athlete full detail (with muscle flags).
 // requirePermission only constrains medical staff; athletes (own record),
 // coaches (own sport) and admin pass through, with the ownership/sport-scope
