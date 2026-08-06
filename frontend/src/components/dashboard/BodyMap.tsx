@@ -4,6 +4,9 @@ import { useMemo, useState } from 'react';
 import { bodyFront } from './bodymap-data/bodyFront';
 import { bodyBack } from './bodymap-data/bodyBack';
 import { FRONT_OUTLINE, BACK_OUTLINE } from './bodymap-data/outlines';
+import {
+  muscleFront, muscleBack, INERT_FRONT, INERT_BACK, RENDERABLE_MUSCLES, MUSCLE_ALIASES,
+} from './bodymap-data/muscles';
 import type { BodyPart } from './bodymap-data/types';
 import type { Subitems, SubitemRow } from './OverallRiskBadge';
 import SubitemTable from './SubitemTable';
@@ -29,52 +32,28 @@ type FlagMap = Record<string, MuscleSide>;
 type TierState = 'excellent' | 'good' | 'average' | 'below';
 type ViewMode = 'flags' | 'subitems';
 
-// AIRMS muscle name → library region slug. Some library regions cover
-// multiple AIRMS muscles (e.g. all three quadriceps heads map to
-// "quadriceps"); the flag-card list below the figure preserves the
-// individual muscle names with their sides.
-const AIRMS_TO_SLUG: Record<string, string> = {
-  // Neck
-  'Sternocleidomastoid': 'neck',
-  'Rectus Capitis Anterior': 'neck',
-  // Trapezius
-  'Upper Trapezius': 'trapezius',
-  // Deltoid (3 heads on front + 1 on back map to the same region)
-  'Middle Deltoid': 'deltoids',
-  'Lateral Deltoid': 'deltoids',
-  'Posterior Deltoid': 'deltoids',
-  // Chest
-  'Pectoralis Major': 'chest',
-  // Biceps
-  'Biceps Brachii': 'biceps',
-  // Core
-  'Rectus Abdominis': 'abs',
-  'External Oblique': 'obliques',
-  'Internal Oblique': 'obliques',
-  // Hip flexor — adductors region is closest visual home
-  'Iliopsoas': 'adductors',
-  // Quadriceps (3 heads + Sartorius all map to quads region)
-  'Vastus Lateralis': 'quadriceps',
-  'Rectus Femoris': 'quadriceps',
-  'Vastus Medialis': 'quadriceps',
-  'Sartorius': 'quadriceps',
-  // Lats
-  'Latissimus Dorsi': 'upper-back',
-  // Glutes (3 heads + Piriformis)
-  'Gluteus Medius': 'gluteal',
-  'Gluteus Minimus': 'gluteal',
-  'Gluteus Maximus': 'gluteal',
-  'Piriformis': 'gluteal',
-  // Hamstring
-  'Biceps Femoris': 'hamstring',
-};
+// HoloMotion muscle name → the slug the figure draws it under.
+//
+// This used to collapse the report's 22 muscles onto ~15 workout regions from
+// the source atlas, which merged clinically distinct findings: every glute
+// muscle (maximus, medius, minimus, piriformis) landed on one "gluteal" shape,
+// so "piriformis weak WHILE gluteus maximus tight" — a textbook deep-stabiliser
+// compensation pattern — rendered as a single undifferentiated blob.
+//
+// The figure is now partitioned to the HoloMotion vocabulary itself
+// (bodymap-data/muscles.ts), so the mapping is the identity for every muscle
+// the asset can draw. The only remaining collapse is Middle → Lateral Deltoid,
+// which is not a loss of information: HoloMotion names both, but they are the
+// same anatomical head.
+function slugForMuscle(muscle: string): string | undefined {
+  const resolved = MUSCLE_ALIASES[muscle] ?? muscle;
+  return RENDERABLE_MUSCLES.has(resolved) ? resolved : undefined;
+}
 
-// Library slugs within the HoloMotion muscle set AIRMS reports on (the 22
-// muscles in AIRMS_TO_SLUG above — the report's Myodynamia/Tension vocabulary).
-// Anything outside this set (head, hair, hands, feet, knees, forearm, etc.)
-// renders as inert silhouette in FLAGS mode — no hover, no tooltip, no pointer
-// cursor. (SUBITEMS mode uses a different, broader scope — see below.)
-const SCOPED_SLUGS: Set<string> = new Set(Object.values(AIRMS_TO_SLUG));
+// Slugs that take colour + hover in FLAGS mode. Everything else (head, hands,
+// feet, forearm, calves …) draws as inert silhouette so the figure still reads
+// as a body. SUBITEMS mode uses a different, broader scope — see below.
+const SCOPED_SLUGS: Set<string> = RENDERABLE_MUSCLES;
 
 // The Physical Fitness Subitem Score covers the WHOLE body at a coarser
 // grain than the muscle flags do (5 regions vs 22 named muscles), so this is
@@ -144,7 +123,7 @@ function aggregateBySlug(
 
   const apply = (flags: FlagMap, kind: 'weak' | 'tight') => {
     Object.entries(flags).forEach(([muscle, side]) => {
-      const slug = AIRMS_TO_SLUG[muscle];
+      const slug = slugForMuscle(muscle);
       if (!slug) return;
       if (side === 'L' || side === 'B') ensureSide(slug, 'L', kind);
       if (side === 'R' || side === 'B') ensureSide(slug, 'R', kind);
@@ -189,10 +168,11 @@ function aggregateSubitemsBySlug(subitems: Subitems | null | undefined): Map<str
   return result;
 }
 
+// Hover text for one muscle-side. The figure now draws the muscle itself, so
+// this is normally a single line naming it; the alias pair (Middle/Lateral
+// Deltoid) is the one case that can contribute two.
 function tooltipForSlug(slug: string, side: 'L' | 'R', myo: FlagMap, ten: FlagMap): string {
-  const reverseList = Object.entries(AIRMS_TO_SLUG)
-    .filter(([, s]) => s === slug)
-    .map(([m]) => m);
+  const reverseList = [slug, ...Object.keys(MUSCLE_ALIASES).filter((m) => MUSCLE_ALIASES[m] === slug)];
   const matches: string[] = [];
   reverseList.forEach((muscle) => {
     const myoFlag = myo[muscle];
@@ -347,12 +327,21 @@ export default function BodyMap({ myodynamia, tension, subitems }: BodyMapProps)
   const parts =
     activeMode === 'flags'
       ? {
+          // Muscle-level geometry: the report names individual muscles, so the
+          // figure draws individual muscles. Inert scaffolding is listed first
+          // so the named muscles (and the deep insets within them) paint on top.
+          frontData: [...INERT_FRONT, ...muscleFront],
+          backData: [...INERT_BACK, ...muscleBack],
           states: slugFlags as Map<string, string>,
           inScope: SCOPED_SLUGS,
           tooltipFor: (slug: string, side: 'L' | 'R') => tooltipForSlug(slug, side, myo, ten),
           merge: mergeFlagState as (a?: string, b?: string) => string | undefined,
         }
       : {
+          // Region-level geometry: the Physical Fitness Subitem Score IS five
+          // regions, so drawing regions here matches the grain of the data.
+          frontData: bodyFront,
+          backData: bodyBack,
           states: slugTiers as Map<string, string>,
           inScope: SUBITEM_SCOPED_SLUGS,
           tooltipFor: (slug: string, side: 'L' | 'R') => tooltipForSubitemSlug(slug, side, subitems),
@@ -388,14 +377,14 @@ export default function BodyMap({ myodynamia, tension, subitems }: BodyMapProps)
             <div className="bm-fig-title">Front</div>
             <svg viewBox="0 0 724 1448" xmlns="http://www.w3.org/2000/svg" aria-label="Front body view">
               <path className="bodymap-silhouette" d={FRONT_OUTLINE} />
-              {renderParts(bodyFront, parts.states, parts.inScope, parts.tooltipFor, parts.merge)}
+              {renderParts(parts.frontData, parts.states, parts.inScope, parts.tooltipFor, parts.merge)}
             </svg>
           </div>
           <div className="bm-fig">
             <div className="bm-fig-title">Back</div>
             <svg viewBox="724 0 724 1448" xmlns="http://www.w3.org/2000/svg" aria-label="Back body view">
               <path className="bodymap-silhouette" d={BACK_OUTLINE} />
-              {renderParts(bodyBack, parts.states, parts.inScope, parts.tooltipFor, parts.merge)}
+              {renderParts(parts.backData, parts.states, parts.inScope, parts.tooltipFor, parts.merge)}
             </svg>
           </div>
         </div>
