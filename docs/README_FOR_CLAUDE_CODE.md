@@ -8,6 +8,11 @@
 
 ---
 
+> **Note:** this mission/vision/non-goals statement is mirrored in
+> [`MASTER_CLARIFICATIONS.md §1`](MASTER_CLARIFICATIONS.md), which is the copy
+> that reaches the submission repo (this file is stripped by the sync). Keep the
+> two in step — §1 is the canonical one if they ever diverge.
+
 ## Mission (what AIRMS is for)
 
 **Turn ISN's existing HoloMotion screening reports into a risk signal a clinician, a coach and an athlete can each act on — without any of them needing to read a PDF.**

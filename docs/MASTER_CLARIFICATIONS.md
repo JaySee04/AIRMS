@@ -4,23 +4,76 @@
 >
 > This file is the architectural truth of AIRMS. Locked decisions live here. If a different document or memory entry contradicts this file, **this file wins**.
 >
-> **Scope direction — HoloMotion-only (2026-08-01).** JC set that the
+> **Scope direction — HoloMotion-only (2026-08-01, executed 2026-08-02).** The
 > **HoloMotion PDF is the single source of truth**: everything the site presents
-> derives from it, and features fed by other inputs (the manual injury log, the
-> athlete self-report channel, the active-injury floor, the injury PDF builder)
-> are **flagged, not removed** — kept live and *integrated* (e.g. the admin
-> dashboard's screening↔injury "necessity bridge") so JC can judge whether each
-> earns its place before a keep/retire decision. The full scope note, flag list,
-> and the deferred Cohort-Norm-settings decision live in
+> derives from it. The 08-01 note said features fed by other inputs were
+> "flagged, not removed" — **that decision was taken the next day and they were
+> removed.** The manual injury log, the athlete self-report channel, the
+> active-injury floor and the injury PDF builder are **deleted**, along with the
+> `Injury` and `SelfReport` models and their routes. What survives is a
+> clinician-set `isInjured` flag on the athlete row, whose purpose is cohort-norm
+> eligibility. Scope note and flag list:
 > `docs/fyp/HOLOMOTION_SCOPE_2026-08.md`.
 
 ---
 
-## 1. What AIRMS is (one paragraph)
+## 1. What AIRMS is — mission, vision, non-goals
 
-AIRMS is a web app that helps **Institut Sukan Negara (ISN)** manage and predict injury risk for national-level Malaysian athletes. Athletes log their training; medical staff log injuries and review screenings; admins oversee analytics and data uploads. Built on Next.js / Node.js / MySQL. Submitted as **JC's Final Year Project** with **Dr Thung** (ISN) as stakeholder and **Dr Hoo Wai Lam** as academic supervisor.
+AIRMS is a web application that helps **Institut Sukan Negara (ISN)** read injury
+risk for national-level Malaysian athletes. Built on Next.js / Node.js / MySQL.
+Submitted as **JC's Final Year Project** with **Dr Thung** (ISN) as stakeholder
+and **Dr Hoo Wai Lam** as academic supervisor. It iterates on an HTML prototype
+(`airms-prototype/`) inherited from prior students Shewin and Keying.
 
-The project is an iteration on a previous HTML prototype (`airms-prototype/`) inherited from prior students Shewin and Keying. AIRMS rebuilds the prototype on a real fullstack codebase and adds new analytical capabilities — most importantly the **composite risk model** (see §6).
+### Mission
+
+**Turn ISN's existing HoloMotion screening reports into a risk signal a
+clinician, a coach and an athlete can each act on — without any of them needing
+to read a PDF.** Three load-bearing parts:
+
+1. **Ingest what ISN already produces.** ISN screens athletes on a HoloMotion
+   rig, which emits a per-athlete PDF. That PDF is the system's single source of
+   truth. AIRMS asks no one to key in data by hand, asks athletes to self-log
+   nothing, and invents no second measurement stream.
+2. **Score each athlete against their own peers, not a textbook.** A raw
+   HoloMotion number means little alone. AIRMS builds cohort norms — mean and
+   standard deviation per (sport, programme, gender, discipline) — and expresses
+   an athlete as a z-score-derived 0–100 indicator, banded by explicit escalation
+   rules. The band always carries its reasons.
+3. **Deliver the same truth in four shapes.** One computation, four audiences:
+   the athlete's dashboard, the clinician's assessment surface, the coach's
+   sport-scoped readiness board, and the administrator's governance and reporting.
+   Nobody sees a number the others cannot reconcile.
+
+*One sentence, for viva:* **"AIRMS reads the screening reports ISN already
+generates, norms every athlete against their real peer group instead of a
+published threshold, and surfaces one explainable risk verdict to the athlete,
+the clinician, the coach and the administrator."**
+
+### Vision
+
+- **Institutional, not personal.** Norms are admin-governed: computed on import,
+  but approved, editable, versioned and restorable. A system ISN could adopt.
+- **Clinician-final.** Any automated band can be overridden with a required note;
+  the override is provenance-tagged and expires on the next screening.
+- **Privacy by construction.** The athlete's name is located and obscured
+  on-device before any image reaches the extraction model — the sole direct
+  identifier never leaves the machine, and the process fails closed.
+- **Integration-ready.** ISN's athlete directory sits behind a swappable seam.
+- **Defensible over impressive.** Every decision needs an answer to *"why this
+  and not X?"*
+
+### Non-goals (settled — do not revive without discussion)
+
+| Not doing | Settled |
+|---|---|
+| Athlete self-reporting of injuries; injury table, history, recovery milestones | 2026-08-02 |
+| Training-load logging (sRPE sessions) and ACWR displays — §6's formula stays locked and citable, but nothing computes it | 2026-07-20 |
+| Posture Evaluation | 2026-08-01 |
+| Excel screening **import** (the backup **export** remains) | 2026-07-12 |
+| Displaying Lumbar Disc Herniation anywhere — extracted and stored, never shown, because ISN's facilities cannot support the assessment | Dr Thung |
+| Responsive/mobile layouts | 2026-07-16, one future-work line |
+| Any feature outside the six-module FDD | Standing |
 
 ---
 
@@ -326,4 +379,4 @@ Do not let this file drift from reality. When code and this doc disagree, fix wh
 
 ---
 
-*Last updated: 2026-08-06 · Four roles (coach promoted 2026-07-19). Module 1 complete; Module 2 **removed** by the HoloMotion-only cut (2026-08-02) and surviving only as a clinician-set flag; Modules 3–6 functional with explicit deferred items. The athlete key's values are **IC numbers** since 2026-08-04. The body map's aggregation policy changed the same day (22 muscles in flags mode) — asset + MIT attribution still locked. Composite risk model still locked, still without live callers. Mission / vision / non-goals: [README_FOR_CLAUDE_CODE.md](README_FOR_CLAUDE_CODE.md). Previous: 2026-06-11.*
+*Last updated: 2026-08-06 · Four roles (coach promoted 2026-07-19). Module 1 complete; Module 2 **removed** by the HoloMotion-only cut (2026-08-02) and surviving only as a clinician-set flag; Modules 3–6 functional with explicit deferred items. The athlete key's values are **IC numbers** since 2026-08-04. The body map's aggregation policy changed the same day (22 muscles in flags mode) — asset + MIT attribution still locked. Composite risk model still locked, still without live callers. Mission, vision and non-goals are now stated in §1. Previous: 2026-06-11.*
