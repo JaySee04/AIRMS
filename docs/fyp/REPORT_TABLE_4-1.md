@@ -7,27 +7,31 @@
 
 ---
 
-## ⚠ ONE DECISION IS YOURS BEFORE THIS TABLE IS FINAL
+## Module 2 was recast — decided 2026-08-06
 
-**Module 2 (Injury & Recovery Logging) no longer exists.** The HoloMotion-only
-cut of 2026-08-02 deleted the `Injury` and `SelfReport` models, both their
-routes, all three of their pages, and the approve→promote transaction. All six
-of its use cases (old UC-17–22) are gone, plus four more elsewhere that read
-injury data (old UC-16, UC-34–37, UC-43).
+**Injury & Recovery Logging no longer exists.** The HoloMotion-only cut of
+2026-08-02 deleted the `Injury` and `SelfReport` models, both their routes, all
+three of their pages, and the approve→promote transaction. All six of its use
+cases (old UC-17–22) are gone, plus four more elsewhere that read injury data
+(old UC-16, UC-34–37, UC-43).
 
-There were three ways to answer "so what is Module 2 now?":
+**Module 2 is now Athlete Roster & Identity Management** — JC's decision,
+2026-08-06. Two alternatives were put and rejected: dropping to five modules
+(rejected for the same reason as on 2026-07-20 — a six-module FDD is the shape
+of the report, and shrinking mid-project reads as scope failure rather than
+scope discipline), and keeping the old name to describe the single surviving
+flag (a one-use-case module invites the question "why is this a module?", whose
+honest answer is "it used to be bigger").
 
-| Option | Verdict |
-|---|---|
-| **A. Drop to five modules** | Honest, but you rejected this on 2026-07-20 for the same reason it's weak now — a six-module FDD is the shape of the report, and shrinking mid-project reads as scope failure rather than scope discipline |
-| **B. Recast Module 2 as Athlete Roster & Identity Management** ✅ **recommended, and drafted below** | Fills a **real gap**: athlete CRUD, the IC-number key (A2), the ISN directory lookup (A3), event maintenance, roster search and the surviving clinician injured-flag currently have **no use case anywhere** in the 44. They are built, they are demonstrable, and master-data management is a module every institutional system has. Keeps six modules without inventing anything |
-| **C. Keep the name, describe only the flag** | A one-use-case module. A panellist will ask why it's a module, and the honest answer is "it used to be bigger" |
+The recast invents nothing. Athlete registration keyed by identity-card number,
+roster maintenance and search, the event vocabulary, the institute-directory
+lookup and the surviving clinician injury-status flag are **all built**, all
+demonstrable, and all previously had **no use case anywhere** in the 44 —
+master-data management was the gap in the decomposition, not a new claim.
 
-**This draft assumes B.** If you'd rather have A or C, say so and I'll redo the
-table — the per-use-case content barely changes, only the grouping does.
-
-**The rest of the rewrite is not a judgement call** — it's the system as built,
-and it's drafted below regardless of which option you pick.
+**If a panellist asks why the module changed name:** the system's master data
+always needed managing; what changed is that the injury stream it used to sit
+beside was removed, which made the omission visible.
 
 ---
 
@@ -191,4 +195,4 @@ Each of these is defensible and already true of the build:
 
 ---
 
-*Revised 2026-08-06 for the HoloMotion-only cut (2026-08-02) and the 2026-08-03 roadmap batch. Supersedes the 2026-07-20 44-use-case table, which described injury logging, self-reports and injury analytics — all since deleted. **Module 2's recast is proposed, not decided** — see the decision box at the top.*
+*Revised 2026-08-06 for the HoloMotion-only cut (2026-08-02) and the 2026-08-03 roadmap batch. Supersedes the 2026-07-20 44-use-case table, which described injury logging, self-reports and injury analytics — all since deleted. **Module 2's recast to Athlete Roster & Identity Management was ratified by JC on 2026-08-06**; the alternatives considered are recorded at the top so the choice is defensible rather than merely made.*

@@ -134,11 +134,11 @@ set across a fresh six**. The current module set:
 | # | Module | Primary role | Status |
 |---|---|---|---|
 | 1 | Athlete Dashboard & Overall Risk Indicator | athlete | ✅ fully complete |
-| 2 | Injury & Recovery Logging | medical | 🟢 functional, recovery milestones deferred |
-| 3 | Screening Data Ingestion | admin | 🟢 functional — vision-AI PDF ingestion (batch + name-match autofill). Excel *import* retired 2026-07-12 (archived in `archive/excel-upload/`) |
-| 4 | Cohort Norms & Governance | admin | 🟢 functional — norm engine, alerts, settings, backup, cohort analytics |
-| 5 | Analytics & Reporting | admin | ✅ fully complete (live PDF generation via pdfkit) |
-| 6 | Clinical & Squad Monitoring | medical | 🟢 functional, watchlist deferred |
+| 2 | **Athlete Roster & Identity Management** | admin + medical | 🟢 functional — roster CRUD keyed by IC number, roster search, event vocabulary, ISN directory lookup, clinician injury-status flag. **Recast 2026-08-06** from *Injury & Recovery Logging*, which the HoloMotion-only cut deleted on 2026-08-02 |
+| 3 | Screening Data Ingestion | admin + medical | 🟢 functional — vision-AI PDF ingestion (batch + on-device name redaction + filename/roster attach). Excel *import* retired 2026-07-12 (archived in `archive/excel-upload/`) |
+| 4 | Cohort Norms & Governance | admin | 🟢 functional — norm engine (incl. the discipline `spgd` tier), membership resolver, versioning, alerts, settings, backup |
+| 5 | Analytics & Reporting | admin + coach | 🟢 functional — screening-derived only; the injury analytics half went with the 2026-08-02 cut. Three cohort-normed PDFs via pdfkit |
+| 6 | Clinical & Squad Monitoring | medical + coach | 🟢 functional, watchlist deferred |
 
 Detailed status and per-module specs: [MODULES_STATUS.md](MODULES_STATUS.md).
 Full use-case model with the old→new module/UC mapping: `docs/fyp/FYP2_MODULES_USECASES.md` (Appendix A/B).

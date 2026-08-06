@@ -3,63 +3,91 @@
 <head>
 <meta charset="utf-8" />
 <title>AIRMS — Activity Diagram: Screening Data Import</title>
+<!--
+  Regenerated 2026-08-06. Two corrections over the previous version:
+
+  1. THE REDACTION STEP WAS MISSING. The athlete's name is located by local
+     OCR and obscured before any page image is transmitted (UC-25). It is the
+     system's privacy contribution and it sits on the critical path, so it
+     belongs on this diagram.
+
+  2. THE BRANCH WAS WRONG, and wrong in a way redaction makes obvious. The old
+     diagram asked "Extracted name on roster?" — but the name is redacted
+     BEFORE extraction, so there is no extracted name to match on. The system
+     actually proposes an athlete from the LOCAL FILENAME (which never leaves
+     the browser), and the operator confirms or picks by name search.
+
+  Also added: the post-commit recompute (cohort norms re-scored and alerts
+  sent once the queue drains, not per file), and the immutable screening
+  snapshot in the commit step.
+-->
 <style>
   html, body { margin: 0; padding: 0; background: #fff; color: #1a1a1a; font-family: Helvetica, Arial, sans-serif; }
   .page { width: 1020px; margin: 16px auto; }
-  h1 { margin: 0 0 10px; font-size: 17px; font-weight: 700; text-align: center; letter-spacing: 0.3px; }
+  h1 { margin: 0 0 4px; font-size: 17px; font-weight: 700; text-align: center; letter-spacing: 0.3px; }
+  .sub { margin: 0 0 12px; text-align: center; font-size: 11px; color: #555; }
+  .foot { width: 1000px; margin: 10px auto 0; font-size: 10.5px; color: #666; line-height: 1.5; }
 </style>
 </head>
 <body>
 <div class="page">
   <h1>Activity Diagram — Screening Data Import (HoloMotion PDF, batch)</h1>
+  <div class="sub">Shaded band = runs entirely on the operator's machine; nothing inside it reaches an external service</div>
 
-  <svg width="1000" height="1100" viewBox="0 0 1000 1100" font-family="Helvetica, Arial, sans-serif">
+  <svg width="1000" height="1160" viewBox="0 0 1000 1160" font-family="Helvetica, Arial, sans-serif">
     <defs>
       <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto">
         <path d="M0,0 L10,5 L0,10 z" fill="#444"/>
       </marker>
     </defs>
 
+    <!-- ── On-device band (render + redact) ── -->
+    <rect x="330" y="126" width="340" height="154" fill="#f3f7f2" stroke="#82b366" stroke-width="1.1" stroke-dasharray="5,3" rx="6"/>
+    <text x="676" y="150" font-size="10.5" font-style="italic" fill="#5b7a4b">on-device</text>
+    <text x="676" y="164" font-size="10.5" font-style="italic" fill="#5b7a4b">(no network)</text>
+
     <!-- ── Flows ── -->
     <g stroke="#444" stroke-width="1.3" fill="none">
       <line x1="500" y1="39" x2="500" y2="56" marker-end="url(#arrow)"/>
       <line x1="500" y1="104" x2="500" y2="136" marker-end="url(#arrow)"/>
       <line x1="500" y1="186" x2="500" y2="218" marker-end="url(#arrow)"/>
-      <line x1="500" y1="268" x2="500" y2="306" marker-end="url(#arrow)"/>
+      <line x1="500" y1="268" x2="500" y2="300" marker-end="url(#arrow)"/>
+      <line x1="500" y1="350" x2="500" y2="373" marker-end="url(#arrow)"/>
 
-      <!-- name-match branch -->
-      <path d="M 422 345 L 260 345 L 260 416" marker-end="url(#arrow)"/>
-      <path d="M 578 345 L 740 345 L 740 416" marker-end="url(#arrow)"/>
+      <!-- filename-match branch -->
+      <path d="M 415 412 L 260 412 L 260 483" marker-end="url(#arrow)"/>
+      <path d="M 585 412 L 740 412 L 740 483" marker-end="url(#arrow)"/>
       <!-- merge into preview -->
-      <path d="M 260 468 L 260 545 L 366 545" marker-end="url(#arrow)"/>
-      <path d="M 740 468 L 740 545 L 634 545" marker-end="url(#arrow)"/>
+      <path d="M 260 535 L 260 612 L 366 612" marker-end="url(#arrow)"/>
+      <path d="M 740 535 L 740 612 L 634 612" marker-end="url(#arrow)"/>
 
       <!-- preview → confirm -->
-      <line x1="500" y1="569" x2="500" y2="606" marker-end="url(#arrow)"/>
+      <line x1="500" y1="636" x2="500" y2="673" marker-end="url(#arrow)"/>
 
       <!-- [no] → skip → more-reports -->
-      <line x1="585" y1="640" x2="656" y2="640" marker-end="url(#arrow)"/>
-      <path d="M 745 664 L 745 810 L 592 810" marker-end="url(#arrow)"/>
+      <line x1="585" y1="707" x2="656" y2="707" marker-end="url(#arrow)"/>
+      <path d="M 745 731 L 745 877 L 592 877" marker-end="url(#arrow)"/>
 
       <!-- [yes] → commit → more-reports -->
-      <line x1="500" y1="674" x2="500" y2="706" marker-end="url(#arrow)"/>
-      <line x1="500" y1="760" x2="500" y2="778" marker-end="url(#arrow)"/>
+      <line x1="500" y1="741" x2="500" y2="773" marker-end="url(#arrow)"/>
+      <line x1="500" y1="827" x2="500" y2="845" marker-end="url(#arrow)"/>
 
       <!-- more-reports loop back up to render -->
-      <path d="M 412 810 L 100 810 L 100 243 L 366 243" marker-end="url(#arrow)"/>
+      <path d="M 410 877 L 100 877 L 100 162 L 366 162" marker-end="url(#arrow)"/>
 
-      <!-- more-reports [no] → dashboards → end -->
-      <line x1="500" y1="842" x2="500" y2="886" marker-end="url(#arrow)"/>
-      <line x1="500" y1="936" x2="500" y2="966" marker-end="url(#arrow)"/>
+      <!-- more-reports [no] → recompute → dashboards → end -->
+      <line x1="500" y1="909" x2="500" y2="953" marker-end="url(#arrow)"/>
+      <line x1="500" y1="1003" x2="500" y2="1035" marker-end="url(#arrow)"/>
+      <line x1="500" y1="1085" x2="500" y2="1116" marker-end="url(#arrow)"/>
     </g>
 
     <!-- Guard labels -->
-    <text x="300" y="336" font-size="11" font-style="italic">[name matches roster]</text>
-    <text x="592" y="336" font-size="11" font-style="italic">[new athlete]</text>
-    <text x="606" y="630" font-size="11" font-style="italic">[no]</text>
-    <text x="510" y="694" font-size="11" font-style="italic">[yes]</text>
-    <text x="330" y="800" font-size="11" font-style="italic">[more reports]</text>
-    <text x="510" y="862" font-size="11" font-style="italic">[queue empty]</text>
+    <text x="120" y="403" font-size="11" font-style="italic">[filename identifies exactly one athlete]</text>
+    <text x="592" y="403" font-size="11" font-style="italic">[no match, or new athlete]</text>
+    <text x="604" y="697" font-size="11" font-style="italic">[no]</text>
+    <text x="510" y="762" font-size="11" font-style="italic">[yes]</text>
+    <text x="326" y="867" font-size="11" font-style="italic">[more reports]</text>
+    <text x="510" y="934" font-size="11" font-style="italic">[queue empty]</text>
 
     <!-- ── Start node ── -->
     <circle cx="500" cy="30" r="9" fill="#1a1a1a"/>
@@ -72,62 +100,84 @@
 
       <rect x="370" y="138" width="260" height="48" rx="12" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.3"/>
       <text x="500" y="158" text-anchor="middle" font-size="12">Render next report&#8217;s data</text>
-      <text x="500" y="173" text-anchor="middle" font-size="12">sections to images</text>
+      <text x="500" y="173" text-anchor="middle" font-size="12">pages to images</text>
 
-      <rect x="370" y="220" width="260" height="48" rx="12" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.3"/>
-      <text x="500" y="240" text-anchor="middle" font-size="12">Vision AI model extracts</text>
-      <text x="500" y="255" text-anchor="middle" font-size="12">structured data (one call/report)</text>
+      <rect x="370" y="220" width="260" height="48" rx="12" fill="#d5e8d4" stroke="#82b366" stroke-width="1.3"/>
+      <text x="500" y="240" text-anchor="middle" font-size="12">Locate and obscure the</text>
+      <text x="500" y="255" text-anchor="middle" font-size="12">athlete&#8217;s name (local OCR)</text>
 
-      <!-- name-match decision -->
-      <polygon points="500,308 580,345 500,382 420,345" fill="#fff" stroke="#6c8ebf" stroke-width="1.3"/>
-      <text x="500" y="341" text-anchor="middle" font-size="11">Extracted name</text>
-      <text x="500" y="355" text-anchor="middle" font-size="11">on roster?</text>
+      <rect x="370" y="302" width="260" height="48" rx="12" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.3"/>
+      <text x="500" y="322" text-anchor="middle" font-size="12">Vision AI model extracts</text>
+      <text x="500" y="337" text-anchor="middle" font-size="12">structured data (one call/report)</text>
 
-      <rect x="150" y="418" width="220" height="50" rx="12" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.3"/>
-      <text x="260" y="438" text-anchor="middle" font-size="12">Auto-fill Athlete ID,</text>
-      <text x="260" y="453" text-anchor="middle" font-size="12">Sport, Programme</text>
+      <!-- filename-match decision -->
+      <polygon points="500,375 585,412 500,449 415,412" fill="#fff" stroke="#6c8ebf" stroke-width="1.3"/>
+      <text x="500" y="408" text-anchor="middle" font-size="11">Local filename</text>
+      <text x="500" y="422" text-anchor="middle" font-size="11">matches roster?</text>
 
-      <rect x="630" y="418" width="220" height="50" rx="12" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.3"/>
-      <text x="740" y="438" text-anchor="middle" font-size="12">Operator enters details</text>
-      <text x="740" y="453" text-anchor="middle" font-size="12">(sport from ISN 52-sport list)</text>
+      <rect x="150" y="485" width="220" height="50" rx="12" fill="#d5e8d4" stroke="#82b366" stroke-width="1.3"/>
+      <text x="260" y="505" text-anchor="middle" font-size="12">Pre-attach that athlete;</text>
+      <text x="260" y="520" text-anchor="middle" font-size="12">fill IC, sport, programme</text>
+
+      <rect x="630" y="485" width="220" height="50" rx="12" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.3"/>
+      <text x="740" y="505" text-anchor="middle" font-size="12">Operator attaches by name</text>
+      <text x="740" y="520" text-anchor="middle" font-size="12">search, or looks up directory</text>
 
       <!-- Preview (merge) -->
-      <rect x="368" y="521" width="264" height="48" rx="12" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.3"/>
-      <text x="500" y="541" text-anchor="middle" font-size="12">Display preview</text>
-      <text x="500" y="556" text-anchor="middle" font-size="12">(no data committed)</text>
+      <rect x="368" y="588" width="264" height="48" rx="12" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.3"/>
+      <text x="500" y="608" text-anchor="middle" font-size="12">Display preview</text>
+      <text x="500" y="623" text-anchor="middle" font-size="12">(no data committed)</text>
 
       <!-- Confirm decision -->
-      <polygon points="500,608 588,640 500,672 412,640" fill="#fff" stroke="#6c8ebf" stroke-width="1.3"/>
-      <text x="500" y="637" text-anchor="middle" font-size="12">Operator</text>
-      <text x="500" y="651" text-anchor="middle" font-size="12">confirms?</text>
+      <polygon points="500,675 585,707 500,739 415,707" fill="#fff" stroke="#6c8ebf" stroke-width="1.3"/>
+      <text x="500" y="704" text-anchor="middle" font-size="12">Operator</text>
+      <text x="500" y="718" text-anchor="middle" font-size="12">confirms?</text>
 
       <!-- Skip -->
-      <rect x="660" y="616" width="170" height="48" rx="12" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.3"/>
-      <text x="745" y="644" text-anchor="middle" font-size="12">Skip this report</text>
+      <rect x="660" y="683" width="170" height="48" rx="12" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.3"/>
+      <text x="745" y="711" text-anchor="middle" font-size="12">Skip this report</text>
 
       <!-- Commit -->
-      <rect x="368" y="708" width="264" height="52" rx="12" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.3"/>
-      <text x="500" y="728" text-anchor="middle" font-size="12">Upsert athlete record;</text>
-      <text x="500" y="743" text-anchor="middle" font-size="12">replace muscle flags (transaction)</text>
+      <rect x="360" y="773" width="280" height="54" rx="12" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.3"/>
+      <text x="500" y="791" text-anchor="middle" font-size="12">Upsert athlete; replace muscle flags;</text>
+      <text x="500" y="806" text-anchor="middle" font-size="12">append immutable screening</text>
+      <text x="500" y="821" text-anchor="middle" font-size="12">snapshot (transaction)</text>
 
       <!-- more-reports decision -->
-      <polygon points="500,780 590,810 500,840 410,810" fill="#fff" stroke="#6c8ebf" stroke-width="1.3"/>
-      <text x="500" y="807" text-anchor="middle" font-size="11">More reports</text>
-      <text x="500" y="821" text-anchor="middle" font-size="11">in queue?</text>
+      <polygon points="500,847 590,877 500,907 410,877" fill="#fff" stroke="#6c8ebf" stroke-width="1.3"/>
+      <text x="500" y="874" text-anchor="middle" font-size="11">More reports</text>
+      <text x="500" y="888" text-anchor="middle" font-size="11">in queue?</text>
+
+      <!-- Recompute -->
+      <rect x="360" y="955" width="280" height="48" rx="12" fill="#d5e8d4" stroke="#82b366" stroke-width="1.3"/>
+      <text x="500" y="975" text-anchor="middle" font-size="12">Recompute cohort norms, re-score</text>
+      <text x="500" y="990" text-anchor="middle" font-size="12">every athlete, send risk alerts</text>
 
       <!-- Dashboards -->
-      <rect x="368" y="888" width="264" height="48" rx="12" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.3"/>
-      <text x="500" y="908" text-anchor="middle" font-size="12">Dashboards reflect new</text>
-      <text x="500" y="923" text-anchor="middle" font-size="12">screening data</text>
+      <rect x="368" y="1037" width="264" height="48" rx="12" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.3"/>
+      <text x="500" y="1057" text-anchor="middle" font-size="12">Dashboards reflect new</text>
+      <text x="500" y="1072" text-anchor="middle" font-size="12">screening data</text>
     </g>
 
     <!-- ── End node ── -->
     <g>
-      <circle cx="500" cy="980" r="11" fill="none" stroke="#1a1a1a" stroke-width="1.6"/>
-      <circle cx="500" cy="980" r="5.5" fill="#1a1a1a"/>
+      <circle cx="500" cy="1128" r="11" fill="none" stroke="#1a1a1a" stroke-width="1.6"/>
+      <circle cx="500" cy="1128" r="5.5" fill="#1a1a1a"/>
     </g>
 
   </svg>
+
+  <div class="foot">
+    <b>Redaction precedes transmission.</b> The report's pages are rendered and the athlete's name is located and
+    obscured entirely on the operator's machine; only then is an image sent to the vision model, which therefore
+    receives a complete but anonymous report. If the name cannot be located confidently, the whole identifying
+    region is obscured rather than risking disclosure.
+    <b>Re-attachment is also local.</b> Because the name is gone from the extracted data, the athlete is proposed
+    from the PDF's own filename — read in the browser, never uploaded — and confirmed or corrected by the
+    operator; so the link between identity and assessment is never transmitted either.
+    <b>Nothing is written until the operator confirms</b>, and the cohort recompute runs once after the queue
+    drains rather than per file, so importing a batch of <i>N</i> reports triggers one re-scoring pass, not <i>N</i>.
+  </div>
 </div>
 </body>
 </html>

@@ -70,7 +70,7 @@ System *(automated behaviour, no human actor — same convention as FYP I)*.
 > |---|---|---|
 > | G | General | UC-1–7 |
 > | 1 | Athlete Dashboard & Overall Risk Indicator | UC-8–17 |
-> | 2 | **Athlete Roster & Identity Management** *(recast — proposed)* | UC-18–23 |
+> | 2 | **Athlete Roster & Identity Management** *(recast, ratified 2026-08-06)* | UC-18–23 |
 > | 3 | Screening Data Ingestion | UC-24–29 |
 > | 4 | Cohort Norms & Governance | UC-30–36 |
 > | 5 | Analytics & Reporting *(screening-derived only)* | UC-37–42 |

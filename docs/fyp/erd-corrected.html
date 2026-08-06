@@ -4,15 +4,37 @@
 <meta charset="utf-8" />
 <title>AIRMS — Entity Relationship Diagram</title>
 <!--
-  2026-07-20: the `activities` and `recovery_baselines` tables were dropped
-  from the schema — Activity Tracking (the FYP I Module 1) was fully removed at JC's
-  request (backend/src/models/Activity.js, RecoveryBaseline.js, and their
-  routes are deleted; the seeder drops both tables outright on reseed).
-  `muscle_flags` moved into the vacated top-left slot; the athletes ──
-  muscle_flags connector was recomputed for the new position. This ERD does
-  not yet include the FYP II additions (screenings, cohort_thresholds,
-  settings, athlete_disciplines) — out of scope for this pass, which only
-  removes what Activity Tracking's removal actually dropped from the schema.
+  Regenerated 2026-08-06 against backend/src/models/. This is the first ERD to
+  show the COMPLETE live schema — all eight tables.
+
+  Removed (deleted 2026-08-02 by the HoloMotion-only cut):
+    injuries, self_reports
+
+  Added (FYP II tables the previous pass explicitly deferred as "out of scope"):
+    screenings              — the immutable per-import snapshot; the table the
+                              whole cohort-norm model is computed from
+    athlete_disciplines     — the events an athlete competes in
+    cohort_thresholds       — one approved reference distribution per cohort
+                              per fallback tier; gained `discipline` and the
+                              `spgd` tier on 2026-08-04 (B2)
+    cohort_norm_versions    — named, restorable snapshots of the whole norm
+                              set (B1, 2026-08-03)
+    settings                — admin-tunable knobs
+
+  Changed on `athletes`:
+    - athlete_id VALUES are now IC numbers (2026-08-04, A2). The column name
+      and its role as PK/FK are unchanged.
+    - added sex, is_injured, injury_note, injury_by, injury_at (the surviving
+      clinician flag) and norm_excluded (B3).
+
+  Earlier (2026-07-20): activities and recovery_baselines dropped with
+  Activity Tracking.
+
+  NOTE ON cohort_thresholds: it carries no foreign key to athletes or
+  screenings. A cohort is identified by the VALUES (sport, programme, gender,
+  discipline, tier), not by a reference — so the link to screenings is drawn
+  dashed and labelled as a derivation, not a referential constraint. That is
+  deliberate and worth saying if asked.
 -->
 <style>
   html, body {
@@ -30,16 +52,17 @@
     box-sizing: border-box;
   }
   h1 {
-    margin: 0 0 14px;
+    margin: 0 0 4px;
     font-size: 17px;
     font-weight: 700;
     text-align: center;
     letter-spacing: 0.3px;
   }
+  .sub { margin: 0 0 14px; text-align: center; font-size: 11px; color: #555; }
   .canvas {
     position: relative;
     width: 1500px;
-    height: 780px;
+    height: 1120px;
     background: #fff;
   }
   .lines {
@@ -67,6 +90,10 @@
     font-size: 13px;
     color: #1a1a1a;
   }
+  /* FYP II tables — same green as the FDD's "added since FYP I" legend */
+  .table.new { border-color: #82b366; }
+  .table.new .title { background: #d5e8d4; border-bottom-color: #82b366; }
+
   .table table { border-collapse: collapse; width: 100%; table-layout: fixed; }
   .table td {
     padding: 4px 10px;
@@ -95,7 +122,13 @@
     color: #6c3fb8;
     border-right-color: #e4d6f1;
   }
+  .key.uk {
+    background: #fdf0e3;
+    color: #a9631b;
+    border-right-color: #f0dcc4;
+  }
   .col { font-weight: 500; color: #1a1a1a; }
+  .col .note { color: #888; font-size: 10.5px; font-style: italic; }
 
   .relname {
     position: absolute;
@@ -107,16 +140,23 @@
     font-style: italic;
     letter-spacing: 0.2px;
   }
+  .legend { text-align: center; font-size: 11px; color: #555; margin-bottom: 10px; }
+  .legend .sw { display: inline-block; width: 10px; height: 10px; border: 1px solid #82b366; background: #d5e8d4; vertical-align: -1px; margin: 0 4px 0 12px; }
+  .foot { width: 1500px; margin: 12px auto 0; font-size: 10.5px; color: #666; line-height: 1.5; }
 </style>
 </head>
 <body>
 
 <div class="page">
   <h1>AIRMS — Entity Relationship Diagram</h1>
+  <div class="sub">Eight tables — the complete live schema</div>
+  <div class="legend">
+    <span class="sw"></span> added in FYP II
+  </div>
 
   <div class="canvas">
 
-    <svg class="lines" viewBox="0 0 1500 780" preserveAspectRatio="none">
+    <svg class="lines" viewBox="0 0 1500 1120" preserveAspectRatio="none">
       <defs>
         <marker id="many" viewBox="0 0 16 16" refX="15" refY="8" markerWidth="16" markerHeight="16" orient="auto-start-reverse">
           <path d="M0,8 L14,1 M0,8 L14,8 M0,8 L14,15" fill="none" stroke="#444" stroke-width="1.4"/>
@@ -130,47 +170,57 @@
         </marker>
       </defs>
 
-      <!-- users ──── athletes (vertical) -->
-      <path d="M 550 244 L 550 280"
+      <!-- users ──── athletes (soft link via users.athlete_id) -->
+      <path d="M 550 350 L 550 380"
             stroke="#444" stroke-width="1.4" fill="none"
             marker-start="url(#zeroOne)" marker-end="url(#one)"/>
 
-      <!-- athletes ──── muscle_flags (L-shape, top-left — repositioned
-           2026-07-20 into the slot `activities` used to occupy) -->
-      <path d="M 440 320 L 360 320 L 360 100 L 280 100"
+      <!-- athletes ──── muscle_flags -->
+      <path d="M 430 470 L 320 470"
             stroke="#444" stroke-width="1.4" fill="none"
             marker-start="url(#one)" marker-end="url(#many)"/>
 
-      <!-- athletes ──── injuries (L-shape, top-right) -->
-      <path d="M 660 320 L 1100 320 L 1100 186 L 1200 186"
+      <!-- athletes ──── athlete_disciplines -->
+      <path d="M 430 647 L 320 647"
             stroke="#444" stroke-width="1.4" fill="none"
             marker-start="url(#one)" marker-end="url(#many)"/>
 
-      <!-- athletes ──── self_reports (straight horizontal) -->
-      <path d="M 660 548 L 1200 548"
+      <!-- athletes ──── screenings -->
+      <path d="M 670 420 L 880 420"
             stroke="#444" stroke-width="1.4" fill="none"
             marker-start="url(#one)" marker-end="url(#many)"/>
+
+      <!-- screenings ╌╌╌ cohort_thresholds (derivation, NOT a foreign key) -->
+      <path d="M 1130 180 L 1240 180"
+            stroke="#8a6d3b" stroke-width="1.3" fill="none" stroke-dasharray="6,4"/>
+
+      <!-- cohort_thresholds ╌╌╌ cohort_norm_versions (snapshot, NOT a foreign key) -->
+      <path d="M 1360 350 L 1360 390"
+            stroke="#8a6d3b" stroke-width="1.3" fill="none" stroke-dasharray="6,4"/>
     </svg>
 
     <!-- Relationship verb labels -->
-    <div class="relname" style="left: 562px; top: 246px;">has profile</div>
-    <div class="relname" style="left: 300px; top: 304px;">flagged with</div>
-    <div class="relname" style="left: 1110px; top: 280px;">sustains</div>
-    <div class="relname" style="left: 880px; top: 530px;">submits</div>
+    <div class="relname" style="left: 560px; top: 353px;">has login</div>
+    <div class="relname" style="left: 330px; top: 452px;">flagged with</div>
+    <div class="relname" style="left: 322px; top: 629px;">competes in</div>
+    <div class="relname" style="left: 700px; top: 402px;">screened by</div>
+    <div class="relname" style="left: 1122px; top: 148px; color: #8a6d3b;">&#171;derived from&#187; (no FK)</div>
+    <div class="relname" style="left: 1372px; top: 353px; color: #8a6d3b;">&#171;snapshot of&#187;</div>
 
 
-    <!-- ===== USERS (top-center) ===== -->
-    <div class="table" style="left: 440px; top: 20px; width: 220px;">
+    <!-- ===== USERS ===== -->
+    <div class="table" style="left: 430px; top: 20px; width: 240px;">
       <div class="title">users</div>
       <table>
         <colgroup><col style="width:44px"><col></colgroup>
         <tr><td class="key">PK</td><td class="col">id</td></tr>
         <tr><td></td><td class="col">name</td></tr>
-        <tr><td></td><td class="col">email</td></tr>
-        <tr><td></td><td class="col">password</td></tr>
+        <tr><td class="key uk">UK</td><td class="col">email</td></tr>
+        <tr><td></td><td class="col">password <span class="note">bcrypt</span></td></tr>
         <tr><td></td><td class="col">role</td></tr>
         <tr><td class="key fk">FK</td><td class="col">athlete_id</td></tr>
-        <tr><td></td><td class="col">permissions</td></tr>
+        <tr><td></td><td class="col">coach_sport</td></tr>
+        <tr><td></td><td class="col">permissions <span class="note">JSON</span></td></tr>
         <tr><td></td><td class="col">is_active</td></tr>
         <tr><td></td><td class="col">reset_token_hash</td></tr>
         <tr><td></td><td class="col">reset_token_expires_at</td></tr>
@@ -179,15 +229,16 @@
       </table>
     </div>
 
-    <!-- ===== ATHLETES (center) ===== -->
-    <div class="table" style="left: 440px; top: 280px; width: 220px;">
+    <!-- ===== ATHLETES ===== -->
+    <div class="table" style="left: 430px; top: 380px; width: 240px;">
       <div class="title">athletes</div>
       <table>
         <colgroup><col style="width:44px"><col></colgroup>
-        <tr><td class="key">PK</td><td class="col">athlete_id</td></tr>
+        <tr><td class="key">PK</td><td class="col">athlete_id <span class="note">IC no.</span></td></tr>
         <tr><td></td><td class="col">name</td></tr>
         <tr><td></td><td class="col">age</td></tr>
         <tr><td></td><td class="col">gender</td></tr>
+        <tr><td></td><td class="col">sex</td></tr>
         <tr><td></td><td class="col">weight</td></tr>
         <tr><td></td><td class="col">height</td></tr>
         <tr><td></td><td class="col">sport</td></tr>
@@ -207,14 +258,16 @@
         <tr><td></td><td class="col">knee_injury_risk</td></tr>
         <tr><td></td><td class="col">ankle_injury_risk</td></tr>
         <tr><td></td><td class="col">is_active</td></tr>
+        <tr><td></td><td class="col">is_injured</td></tr>
+        <tr><td></td><td class="col">injury_note</td></tr>
+        <tr><td></td><td class="col">injury_by</td></tr>
+        <tr><td></td><td class="col">injury_at</td></tr>
+        <tr><td></td><td class="col">norm_excluded</td></tr>
       </table>
     </div>
 
-    <!-- ===== MUSCLE_FLAGS (top-left — moved 2026-07-20 into the slot
-         `activities` used to occupy; `activities` and `recovery_baselines`
-         were both dropped from the schema when Activity Tracking was
-         removed) ===== -->
-    <div class="table" style="left: 60px; top: 20px; width: 220px;">
+    <!-- ===== MUSCLE_FLAGS ===== -->
+    <div class="table" style="left: 100px; top: 400px; width: 220px;">
       <div class="title">muscle_flags</div>
       <table>
         <colgroup><col style="width:44px"><col></colgroup>
@@ -223,58 +276,118 @@
         <tr><td></td><td class="col">flag_type</td></tr>
         <tr><td></td><td class="col">muscle</td></tr>
         <tr><td></td><td class="col">side</td></tr>
-        <tr><td></td><td class="col">created_at</td></tr>
       </table>
     </div>
 
-    <!-- ===== INJURIES (top-right) ===== -->
-    <div class="table" style="left: 1200px; top: 20px; width: 220px;">
-      <div class="title">injuries</div>
+    <!-- ===== ATHLETE_DISCIPLINES ===== -->
+    <div class="table new" style="left: 100px; top: 600px; width: 220px;">
+      <div class="title">athlete_disciplines</div>
       <table>
         <colgroup><col style="width:44px"><col></colgroup>
         <tr><td class="key">PK</td><td class="col">id</td></tr>
         <tr><td class="key fk">FK</td><td class="col">athlete_id</td></tr>
-        <tr><td></td><td class="col">athlete_name</td></tr>
-        <tr><td></td><td class="col">sport</td></tr>
-        <tr><td></td><td class="col">gender</td></tr>
-        <tr><td></td><td class="col">program</td></tr>
-        <tr><td></td><td class="col">athlete_age</td></tr>
-        <tr><td></td><td class="col">body_part</td></tr>
-        <tr><td></td><td class="col">side</td></tr>
-        <tr><td></td><td class="col">injury_type</td></tr>
-        <tr><td></td><td class="col">severity</td></tr>
-        <tr><td></td><td class="col">mechanism</td></tr>
-        <tr><td></td><td class="col">date</td></tr>
-        <tr><td></td><td class="col">recovery_status</td></tr>
-        <tr><td></td><td class="col">source</td></tr>
-        <tr><td></td><td class="col">logged_by</td></tr>
-        <tr><td></td><td class="col">notes</td></tr>
+        <tr><td></td><td class="col">discipline</td></tr>
       </table>
     </div>
 
-    <!-- ===== SELF_REPORTS (bottom-right) ===== -->
-    <div class="table" style="left: 1200px; top: 400px; width: 220px;">
-      <div class="title">self_reports</div>
+    <!-- ===== SCREENINGS ===== -->
+    <div class="table new" style="left: 880px; top: 20px; width: 250px;">
+      <div class="title">screenings</div>
       <table>
         <colgroup><col style="width:44px"><col></colgroup>
         <tr><td class="key">PK</td><td class="col">id</td></tr>
         <tr><td class="key fk">FK</td><td class="col">athlete_id</td></tr>
-        <tr><td></td><td class="col">athlete_name</td></tr>
-        <tr><td></td><td class="col">sport</td></tr>
-        <tr><td></td><td class="col">body_part</td></tr>
-        <tr><td></td><td class="col">side</td></tr>
-        <tr><td></td><td class="col">injury_type</td></tr>
-        <tr><td></td><td class="col">severity</td></tr>
-        <tr><td></td><td class="col">description</td></tr>
-        <tr><td></td><td class="col">attachment</td></tr>
+        <tr><td></td><td class="col">assessed_at</td></tr>
+        <tr><td></td><td class="col">imported_by</td></tr>
+        <tr><td></td><td class="col">total_score</td></tr>
+        <tr><td></td><td class="col">exercise_risks</td></tr>
+        <tr><td></td><td class="col">rom</td></tr>
+        <tr><td></td><td class="col">stability</td></tr>
+        <tr><td></td><td class="col">symmetry</td></tr>
+        <tr><td></td><td class="col">neck_injury_risk</td></tr>
+        <tr><td></td><td class="col">shoulder_injury_risk</td></tr>
+        <tr><td></td><td class="col">scoliosis</td></tr>
+        <tr><td></td><td class="col">spinal_disc_herniation</td></tr>
+        <tr><td></td><td class="col">lumbar_pelvis_injury</td></tr>
+        <tr><td></td><td class="col">joint_pain</td></tr>
+        <tr><td></td><td class="col">knee_injury_risk</td></tr>
+        <tr><td></td><td class="col">ankle_injury_risk</td></tr>
+        <tr><td></td><td class="col">subitems <span class="note">JSON</span></td></tr>
+        <tr><td></td><td class="col">summary_text</td></tr>
+        <tr><td></td><td class="col">muscle_flags <span class="note">JSON</span></td></tr>
+        <tr><td></td><td class="col">overall_indicator</td></tr>
+        <tr><td></td><td class="col">overall_band</td></tr>
+        <tr><td></td><td class="col">escalations</td></tr>
+        <tr><td></td><td class="col">factors <span class="note">JSON</span></td></tr>
+        <tr><td></td><td class="col">override_band</td></tr>
+        <tr><td></td><td class="col">override_note</td></tr>
+        <tr><td></td><td class="col">override_by</td></tr>
+        <tr><td></td><td class="col">override_at</td></tr>
+      </table>
+    </div>
+
+    <!-- ===== COHORT_THRESHOLDS ===== -->
+    <div class="table new" style="left: 1240px; top: 20px; width: 240px;">
+      <div class="title">cohort_thresholds</div>
+      <table>
+        <colgroup><col style="width:44px"><col></colgroup>
+        <tr><td class="key">PK</td><td class="col">id</td></tr>
+        <tr><td class="key uk">UK</td><td class="col">sport</td></tr>
+        <tr><td class="key uk">UK</td><td class="col">programme</td></tr>
+        <tr><td class="key uk">UK</td><td class="col">gender</td></tr>
+        <tr><td class="key uk">UK</td><td class="col">discipline</td></tr>
+        <tr><td class="key uk">UK</td><td class="col">tier <span class="note">spgd&#8230;all</span></td></tr>
+        <tr><td></td><td class="col">n</td></tr>
+        <tr><td></td><td class="col">stats <span class="note">JSON</span></td></tr>
+        <tr><td></td><td class="col">overrides <span class="note">JSON</span></td></tr>
         <tr><td></td><td class="col">status</td></tr>
-        <tr><td></td><td class="col">review_note</td></tr>
-        <tr><td></td><td class="col">reviewed_by</td></tr>
-        <tr><td></td><td class="col">reviewed_at</td></tr>
-        <tr><td></td><td class="col">created_at</td></tr>
+        <tr><td></td><td class="col">computed_at</td></tr>
+        <tr><td></td><td class="col">approved_at</td></tr>
+        <tr><td></td><td class="col">approved_by</td></tr>
       </table>
     </div>
 
+    <!-- ===== COHORT_NORM_VERSIONS ===== -->
+    <div class="table new" style="left: 1240px; top: 390px; width: 240px;">
+      <div class="title">cohort_norm_versions</div>
+      <table>
+        <colgroup><col style="width:44px"><col></colgroup>
+        <tr><td class="key">PK</td><td class="col">id</td></tr>
+        <tr><td></td><td class="col">label</td></tr>
+        <tr><td></td><td class="col">note</td></tr>
+        <tr><td></td><td class="col">created_by</td></tr>
+        <tr><td></td><td class="col">snapshot <span class="note">JSON</span></td></tr>
+      </table>
+    </div>
+
+    <!-- ===== SETTINGS ===== -->
+    <div class="table new" style="left: 1240px; top: 580px; width: 240px;">
+      <div class="title">settings</div>
+      <table>
+        <colgroup><col style="width:44px"><col></colgroup>
+        <tr><td class="key">PK</td><td class="col">key</td></tr>
+        <tr><td></td><td class="col">value <span class="note">JSON</span></td></tr>
+      </table>
+    </div>
+
+  </div>
+
+  <div class="foot">
+    <b>Eight tables.</b> <code>injuries</code> and <code>self_reports</code> were dropped on 2026-08-02 with the
+    HoloMotion-only cut; <code>activities</code> and <code>recovery_baselines</code> on 2026-07-20 with Activity
+    Tracking. What remains of injury state is five columns on <code>athletes</code>
+    (<code>is_injured</code> … <code>norm_excluded</code>), set by a clinician and read by the cohort-norm
+    eligibility rule.
+    <b><code>athletes.athlete_id</code> is the cross-table key throughout</b>, and since 2026-08-04 its values are
+    the athlete's 12-digit identity-card number; the column name and its role are unchanged, and the API
+    serialises it as <code>_id</code>. <code>users.athlete_id</code> is a deliberate soft link rather than an
+    enforced constraint, so seeding order cannot deadlock.
+    <b><code>screenings</code> is append-only</b> — one immutable row per committed import, which is what makes
+    history, progress deltas and the cohort norms possible; <code>athletes</code> holds only the latest values.
+    <b>The two dashed links are derivations, not foreign keys:</b> a cohort is identified by the <i>values</i>
+    (sport, programme, gender, discipline, tier) rather than by a reference, and a norm version stores a JSON
+    snapshot of every cohort row rather than pointing at them — which is precisely what lets a restore reinstate
+    cohorts that have since been recomputed or deleted.
   </div>
 </div>
 

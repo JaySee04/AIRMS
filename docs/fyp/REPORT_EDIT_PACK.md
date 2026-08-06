@@ -51,9 +51,10 @@ Also resolve the sprint-count inconsistency (report "two broad sprints" vs slide
 
 That file now holds the complete paste-ready table (UC-1–47, six modules plus
 General), the notes for the surrounding §4.1.1 prose, and Appendix C mapping
-every previous use case to its disposition. **One decision there is yours** —
-whether Module 2 is recast as Athlete Roster & Identity Management (recommended)
-or the system drops to five modules.
+every previous use case to its disposition. **Module 2 is now Athlete Roster &
+Identity Management** (ratified 2026-08-06); Chapter 4 prose that names it
+"Injury & Recovery Logging" must change throughout, and any figure caption
+citing 44 use cases becomes 47.
 
 Stale General-module rows to fix if the current draft still has them:
 
@@ -80,11 +81,13 @@ Remove "import history log" from this table — no such feature exists (overclai
 
 Open each HTML at 100% zoom, screenshot, paste into the doc.
 
-- **Fig 4.1 FDD** → [`fdd-updated.html`](fdd-updated.html) — **regenerated 2026-08-06.** Six modules plus General, 46 leaves. Module 2 is now Athlete Roster & Identity Management; Module 5 is screening-derived only; Module 3 gains the redaction leaf. ⚠ If you choose the five-module option, this figure needs a column removed **and** the connector geometry regenerated — the column centres assume seven
-- **Fig 4.2 General UC diagram** → [`uc-general-updated.html`](uc-general-updated.html) — ⚠ **needs regenerating**: "Manage Staff Permissions" is now "Manage Personnel & Permissions" (creates coach and medical accounts, assigns a coach's sport)
-- **Fig 4.6 Data Management UC diagram** → [`uc-datamgmt-updated.html`](uc-datamgmt-updated.html) — ⚠ **needs regenerating**: it still shows **both import paths**; the Excel import is retired. Should show the PDF path only, with «include» → Redact Name → Extract → Preview, plus Export Data Backup and the Vision AI Provider as an «external system» actor
-- **Data-import activity diagram** → [`activity-dataimport-updated.html`](activity-dataimport-updated.html) — ⚠ **needs a redaction step** inserted between render and extraction. (Slides: also mislabelled "Self-Reported Injury Workflow" on p. 38 — and that workflow no longer exists at all)
-- **Fig 4.9 ERD** → [`erd-corrected.html`](erd-corrected.html) — ⚠ **needs regenerating**: `injuries` and `self_reports` are **deleted**; `cohort_norm_versions` is **new**; `cohort_thresholds` gains `discipline` and the `spgd` tier; `athletes` gains `is_injured` / `injury_note` / `injury_by` / `injury_at` / `norm_excluded`, and its primary key values are now IC numbers. Live tables: `users`, `athletes`, `athlete_disciplines`, `screenings`, `muscle_flags`, `cohort_thresholds`, `cohort_norm_versions`, `settings`
+**All five were regenerated on 2026-08-06 and are screenshot-ready.**
+
+- **Fig 4.1 FDD** → [`fdd-updated.html`](fdd-updated.html) — six modules plus General, 46 leaves. Module 2 is Athlete Roster & Identity Management; Module 5 is screening-derived only; Module 3 gains the redaction leaf
+- **Fig 4.2 General UC diagram** → [`uc-general-updated.html`](uc-general-updated.html) — "Manage Personnel & Permissions" (the merged page creates coach *and* medical accounts and assigns a coach's sport); the coach is no longer marked experimental and now associates with Change Password and View Profile, since `/coach/profile` ships
+- **Fig 4.6 Data Management UC diagram** → [`uc-datamgmt-updated.html`](uc-datamgmt-updated.html) — **fully redrawn.** The old one showed a single pre-split module and *both* import paths. Now two system boundaries (Module 3 Ingestion, Module 4 Cohort Norms) on one canvas — screenshot whole for one figure, or crop at the dashed divider for two. The PDF path only; the «include» chain Import → Redact → Extract makes the point that no image reaches the provider before the name is obscured
+- **Data-import activity diagram** → [`activity-dataimport-updated.html`](activity-dataimport-updated.html) — **redaction step added, and a real error fixed**: the old diagram branched on *"Extracted name on roster?"*, but the name is redacted **before** extraction, so no extracted name exists. The branch is now the local filename, which is what the system actually matches on. Also adds the post-queue recompute. (Slides: still mislabelled "Self-Reported Injury Workflow" on p. 38 — and that workflow no longer exists at all)
+- **Fig 4.9 ERD** → [`erd-corrected.html`](erd-corrected.html) — **first ERD showing the complete live schema, all eight tables.** `injuries` and `self_reports` removed; `screenings`, `athlete_disciplines`, `cohort_thresholds`, `cohort_norm_versions` and `settings` added (the previous pass deferred them as out of scope); `athletes` gains the five injury/exclusion columns and its key values are now IC numbers. The two dashed links are labelled as derivations rather than foreign keys — a cohort is identified by values, not by reference, which is worth a sentence if asked
 
 ## R7 · Chapter 5 — AI-assisted screening ingestion
 

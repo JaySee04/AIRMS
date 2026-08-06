@@ -4,15 +4,17 @@
 <meta charset="utf-8" />
 <title>AIRMS — Use Case Diagram: General Module</title>
 <!--
-  As-built UC diagram, regenerated 2026-07-17 against FYP2_MODULES_USECASES.md
-  (General Module, UC-1..7). Changes vs the previous version:
-    - "Manage User Profile" → "View Profile": profiles are view + change-password
-      only; identity fields (name/age/gender/sport/programme) are maintained via
-      the Module 3 (Screening Data Ingestion) import or the admin, not self-service.
-    - Added UC-7 "Enforce Per-User Permissions" (the System-side enforcement of
-      the admin's per-staffer capability revocations).
-    - Added the Coach actor (experimental 4th role) — it can log in and reset a
-      password, but has no profile/change-password surface.
+  As-built UC diagram, regenerated 2026-08-06 against REPORT_TABLE_4-1.md
+  (General Module, UC-1..7). Changes vs the 2026-07-17 version:
+    - "Manage Staff Permissions & Account Activation" → "Manage Personnel &
+      Permissions": the merged /admin/personnel page (2026-08-01) creates coach
+      AND medical accounts and assigns a coach's sport, not just permissions.
+    - Coach is no longer «experimental» — promoted to a first-class 4th role
+      2026-07-19 — and now associates with Change Password and View Profile
+      too, since /coach/profile ships.
+  Earlier (2026-07-17): "Manage User Profile" → "View Profile" (profiles are
+  view + change-password only; identity fields come from the Module 3 import or
+  the admin, not self-service); added UC-7 "Enforce Per-User Permissions".
   Green = added since the FYP I decomposition.
 -->
 <style>
@@ -49,10 +51,12 @@
       <line x1="138" y1="338" x2="435" y2="196"/>
       <line x1="138" y1="346" x2="435" y2="274"/>
       <line x1="138" y1="354" x2="435" y2="352"/>
-      <!-- Coach → Login, Reset only -->
-      <line x1="138" y1="500" x2="435" y2="128"/>
-      <line x1="138" y1="508" x2="435" y2="202"/>
-      <!-- Administrator → Login, Reset, Change, View Profile, Manage Staff Permissions -->
+      <!-- Coach → Login, Reset, Change, View Profile (first-class 4th role since 2026-07-19) -->
+      <line x1="138" y1="492" x2="435" y2="128"/>
+      <line x1="138" y1="500" x2="435" y2="204"/>
+      <line x1="138" y1="508" x2="435" y2="282"/>
+      <line x1="138" y1="516" x2="435" y2="360"/>
+      <!-- Administrator → Login, Reset, Change, View Profile, Manage Personnel & Permissions -->
       <line x1="962" y1="200" x2="665" y2="112"/>
       <line x1="962" y1="208" x2="665" y2="190"/>
       <line x1="962" y1="216" x2="665" y2="270"/>
@@ -79,8 +83,8 @@
       <text x="550" y="354" text-anchor="middle" font-size="12">View Profile</text>
 
       <ellipse cx="550" cy="440" rx="115" ry="27" fill="#d5e8d4" stroke="#82b366" stroke-width="1.3"/>
-      <text x="550" y="437" text-anchor="middle" font-size="12">Manage Staff Permissions</text>
-      <text x="550" y="451" text-anchor="middle" font-size="11">&amp; Account Activation</text>
+      <text x="550" y="437" text-anchor="middle" font-size="12">Manage Personnel</text>
+      <text x="550" y="451" text-anchor="middle" font-size="11">&amp; Permissions</text>
 
       <ellipse cx="550" cy="520" rx="115" ry="27" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.3"/>
       <text x="550" y="517" text-anchor="middle" font-size="12">Enforce Role-Based</text>
@@ -112,7 +116,7 @@
     </g>
     <text x="110" y="384" text-anchor="middle" font-size="12" font-weight="bold">Medical Staff</text>
 
-    <!-- Coach (experimental 4th role) -->
+    <!-- Coach (first-class 4th role) -->
     <g stroke="#1a1a1a" stroke-width="1.5" fill="none">
       <circle cx="110" cy="470" r="11"/>
       <line x1="110" y1="481" x2="110" y2="512"/>
@@ -120,8 +124,7 @@
       <line x1="110" y1="512" x2="96" y2="536"/>
       <line x1="110" y1="512" x2="124" y2="536"/>
     </g>
-    <text x="110" y="554" text-anchor="middle" font-size="12" font-weight="bold">Coach*</text>
-    <text x="110" y="568" text-anchor="middle" font-size="10.5" font-style="italic">&#171;experimental&#187;</text>
+    <text x="110" y="554" text-anchor="middle" font-size="12" font-weight="bold">Coach</text>
 
     <!-- Administrator -->
     <g stroke="#1a1a1a" stroke-width="1.5" fill="none">
@@ -148,11 +151,13 @@
   <div class="foot">
     Profiles are view-only plus in-place change-password; identity fields (name, age, gender, sport, programme)
     are maintained through the Module 3 (Screening Data Ingestion) import or by the administrator, not self-service — there is no
-    self-registration (accounts are provisioned). Per-user permissions are an opt-out model: an administrator
-    revokes individual capabilities from a medical staffer, and the system blocks them server-side while the
-    feature disappears from that staffer's UI.
-    &nbsp;*&nbsp;The Coach is a first-class fourth role (read-only, FYP II) alongside athlete / medical /
-    administrator; it can sign in and reset a password but has no profile surface.
+    self-registration (accounts are provisioned). All four roles have the full account surface: login, password
+    reset, in-place change-password and profile. <b>Manage Personnel &amp; Permissions</b> is one administrator
+    capability covering both personnel types — creating a coach or medical account, assigning or changing a
+    coach's single sport, and granting or revoking a medical staffer's individual capabilities. Per-user
+    permissions are an opt-out model: a capability is granted unless explicitly revoked, and on revocation the
+    system blocks it server-side while the feature disappears from that staffer's interface on their next
+    navigation.
   </div>
 </div>
 </body>
