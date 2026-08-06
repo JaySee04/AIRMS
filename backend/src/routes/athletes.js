@@ -3,14 +3,17 @@ const { Op } = require('sequelize');
 const { Athlete, MuscleFlag, Screening, AthleteDiscipline } = require('../models');
 const { screeningMovement } = require('../utils/cohorts');
 
-// Latest screening's overall indicator for an athlete, with the clinician
-// override applied as the effective band. Returns null when no screening.
-async function latestIndicator(athleteId) {
-  const s = await Screening.findOne({
-    where: { athleteId },
-    order: [['assessedAt', 'DESC'], ['id', 'DESC']],
-    raw: true,
-  });
+// The Screening columns latestIndicator() actually reads. Naming them keeps the
+// big JSON/TEXT columns this shape never uses (muscle_flags, summary_text) and
+// the 12 raw score columns out of the row — the dashboard's per-athlete fetch
+// is on the critical path for every page load.
+const INDICATOR_ATTRS = [
+  'id', 'assessedAt', 'overallIndicator', 'overallBand', 'escalations', 'factors',
+  'subitems', 'overrideBand', 'overrideNote', 'overrideBy', 'overrideAt',
+];
+
+// Shape one Screening row into the indicator payload the dashboards read.
+function toIndicator(s) {
   if (!s) return null;
   return {
     screeningId: s.id,
@@ -28,6 +31,38 @@ async function latestIndicator(athleteId) {
     effectiveBand: s.overrideBand || s.overallBand,
   };
 }
+
+// Latest screening's overall indicator for ONE athlete, with the clinician
+// override applied as the effective band. Returns null when no screening.
+async function latestIndicator(athleteId) {
+  const s = await Screening.findOne({
+    where: { athleteId },
+    attributes: INDICATOR_ATTRS,
+    order: [['assessedAt', 'DESC'], ['id', 'DESC']],
+    raw: true,
+  });
+  return toIndicator(s);
+}
+
+// Same thing for MANY athletes in a single query. One ordered fetch, then keep
+// the first row per athlete — the (athlete_id, assessed_at) index on screenings
+// serves the ordering. Mirrors the batching already used in routes/coach.js;
+// doing this per-athlete instead costs one round trip per squad member.
+async function latestIndicatorsFor(athleteIds) {
+  const byAthlete = new Map();
+  if (!athleteIds.length) return byAthlete;
+  const rows = await Screening.findAll({
+    where: { athleteId: { [Op.in]: athleteIds } },
+    attributes: ['athleteId', ...INDICATOR_ATTRS],
+    order: [['assessedAt', 'DESC'], ['id', 'DESC']],
+    raw: true,
+  });
+  for (const s of rows) {
+    if (!byAthlete.has(s.athleteId)) byAthlete.set(s.athleteId, toIndicator(s));
+  }
+  return byAthlete;
+}
+
 const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
 const requirePermission = require('../middleware/permission');
@@ -259,8 +294,9 @@ router.get('/teammates', auth, async (req, res) => {
       order: [['name', 'ASC']],
       raw: true,
     });
-    const teammates = await Promise.all(mates.map(async (m) => {
-      const ind = await latestIndicator(m.athleteId);
+    const indicators = await latestIndicatorsFor(mates.map((m) => m.athleteId));
+    const teammates = mates.map((m) => {
+      const ind = indicators.get(m.athleteId);
       return {
         athleteId: m.athleteId,
         name: m.name,
@@ -270,7 +306,7 @@ router.get('/teammates', auth, async (req, res) => {
         overallIndicator: ind ? ind.overallIndicator : null,
         effectiveBand: ind ? ind.effectiveBand : null,
       };
-    }));
+    });
     res.json({ sport: me.sport, teammates });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
