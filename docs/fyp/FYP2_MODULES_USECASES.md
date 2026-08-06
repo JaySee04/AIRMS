@@ -1,5 +1,24 @@
 # AIRMS — Modules & Use Cases (As Built, FYP II)
 
+> # ⚠ SUPERSEDED FOR THE UC NUMBERING — 2026-08-06
+>
+> **The UC-1–44 model below no longer matches the system.** The HoloMotion-only
+> cut (2026-08-02) deleted Module 2 entirely and four more injury-derived use
+> cases; the 2026-08-03 roadmap batch added thirteen. The current model is
+> **UC-1–47** and lives in **[`REPORT_TABLE_4-1.md`](REPORT_TABLE_4-1.md)** —
+> that file is now the authority for Chapter 4, and its **Appendix C** maps
+> every UC below to its replacement.
+>
+> **What this file is still good for:** the module narratives, the per-use-case
+> detail on everything that survived, and **Appendix A** (FYP I UC-1–36 → FYP II)
+> and **Appendix B** (interim 2026-07-16 UC-1–52 → 2026-07-20 UC-1–44), which
+> nothing else records. Read a use case here for its *description*; take its
+> *number* from `REPORT_TABLE_4-1.md`.
+>
+> Everything about Modules 2 and 5's injury half below describes deleted code.
+>
+> ---
+>
 > **Status: restructured 2026-07-20.** Original draft (2026-07-16) had six
 > functional modules; Module 1 (Activity Tracking & Logging) was fully
 > removed that day, with the fallout accepted (see `MASTER_CLARIFICATIONS.md
@@ -44,14 +63,29 @@ System *(automated behaviour, no human actor — same convention as FYP I)*.
 
 ## Functional decomposition (overview)
 
+> **Current model (2026-08-06, UC-1–47)** — the table immediately below is the
+> superseded 2026-07-20 one, kept for the narratives. Current shape:
+>
+> | # | Module | UCs |
+> |---|---|---|
+> | G | General | UC-1–7 |
+> | 1 | Athlete Dashboard & Overall Risk Indicator | UC-8–17 |
+> | 2 | **Athlete Roster & Identity Management** *(recast — proposed)* | UC-18–23 |
+> | 3 | Screening Data Ingestion | UC-24–29 |
+> | 4 | Cohort Norms & Governance | UC-30–36 |
+> | 5 | Analytics & Reporting *(screening-derived only)* | UC-37–42 |
+> | 6 | Clinical & Squad Monitoring | UC-43–47 |
+
+### Superseded overview (2026-07-20, UC-1–44)
+
 | # | Module | One-line charter | Primary roles | UCs |
 |---|---|---|---|---|
 | G | **General** | Authentication, account security, and role/permission enforcement for every other module | All + System | UC-1–7 |
 | 1 | **Athlete Dashboard & Overall Risk Indicator** | The athlete's single risk verdict: the cohort-normed screening indicator, with the full screening picture behind it | Athlete + System | UC-8–16 |
-| 2 | **Injury & Recovery Logging** | Official injury records, recovery tracking, and the athlete self-report → clinical review pipeline | Medical, Athlete | UC-17–22 |
+| 2 | ~~**Injury & Recovery Logging**~~ **DELETED 2026-08-02** | Official injury records, recovery tracking, and the athlete self-report → clinical review pipeline | Medical, Athlete | ~~UC-17–22~~ |
 | 3 | **Screening Data Ingestion** | HoloMotion PDF batch upload, vision-AI extraction, human-verified commit into an immutable history | Admin, Medical + System | UC-23–27 |
 | 4 | **Cohort Norms & Governance** | The norm engine behind the indicator: recompute, threshold approval, tunable settings, import-commit alerts, cohort-coverage analytics, and data backup | Admin + System | UC-28–33 |
-| 5 | **Analytics & Reporting** | Organisation-wide injury analytics and all three PDF report generators | Admin | UC-34–39 |
+| 5 | **Analytics & Reporting** | ~~Organisation-wide injury analytics~~ and all three PDF report generators | Admin | UC-34–39 |
 | 6 | **Clinical & Squad Monitoring** | The clinician's per-athlete working view (with override authority) and the coach's squad readiness board | Medical, Coach | UC-40–44 |
 
 ---

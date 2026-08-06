@@ -4,23 +4,27 @@
 <meta charset="utf-8" />
 <title>AIRMS — Functional Decomposition Diagram</title>
 <!--
-  As-built FDD, regenerated 2026-07-20 to match the shipped system and the
-  verified use-case model in FYP2_MODULES_USECASES.md (General + 6 modules,
-  UC-1..44). Supersedes the 2026-07-17 figure (which still showed Module 1 =
-  Activity Tracking) and the interim 2026-07-20 figure (which greyed out a
-  removed Module 1 column instead of restructuring).
+  As-built FDD, regenerated 2026-08-06 to match the shipped system and the
+  revised use-case model in REPORT_TABLE_4-1.md (General + 6 modules,
+  UC-1..47). Supersedes the 2026-07-20 figure, which still showed Module 2 =
+  Injury & Recovery Logging and the injury analytics in Module 5.
 
-  2026-07-20 restructure: Module 1 (Activity Tracking & Logging) was fully
-  removed from the codebase, at JC's request — its ACWR/composite-risk
-  display had already left every dashboard on 2026-07-16, and with nothing
-  left to surface its output, the module itself was removed. Rather than
-  leave a hole or drop to five modules, the surviving feature set was
-  redistributed across a fresh six: the old "Screening Data Management &
-  Cohort Norms" module (10 leaves, the largest) is split into "Screening
-  Data Ingestion" and "Cohort Norms & Governance" (which also gains "View
-  Screening Cohort Analytics", moved in from the old Analytics module).
+  2026-08-02 HoloMotion-only cut: the Injury and SelfReport models, their
+  routes and their pages were deleted. Module 2 lost all six leaves; Module 5
+  lost four; Module 1 lost "View Injury Records"; Module 6 lost "View
+  Sport-Level Context". Module 2 is RECAST as "Athlete Roster & Identity
+  Management" — the master-data capabilities that were always built but never
+  enumerated (athlete CRUD, roster search, event vocabulary) plus the
+  institute-directory lookup (A3) and the surviving clinician injury-status
+  flag (B4).
+
+  ⚠ THAT RECAST IS PROPOSED, NOT RATIFIED — see the decision box at the top of
+  REPORT_TABLE_4-1.md. If JC prefers dropping to five modules instead, this
+  figure needs one column removed AND the connector geometry below regenerated:
+  the column centres (x = 105 + n·220) and the 7-stub path both assume 7.
+
   Column count is unchanged (General + 6), so the root→module connector
-  geometry below is untouched — only module titles/leaves changed.
+  geometry below is untouched — only module titles and leaves changed.
 
   Green leaves = added since the FYP I FDD.
 -->
@@ -159,7 +163,7 @@
         <div class="vline"></div><div class="leaf">Change Password</div>
         <div class="vline"></div><div class="leaf">View Profile</div>
         <div class="vline"></div><div class="leaf">Role-Based<br/>Access Control</div>
-        <div class="vline"></div><div class="leaf new">Manage Staff<br/>Permissions</div>
+        <div class="vline"></div><div class="leaf new">Manage Personnel<br/>&amp; Permissions</div>
       </div>
 
       <!-- 1 -->
@@ -173,27 +177,29 @@
         <div class="vline"></div><div class="leaf new">Display Screening<br/>Panel (thresholds)</div>
         <div class="vline"></div><div class="leaf new">Display Training<br/>Focus</div>
         <div class="vline"></div><div class="leaf">Display Muscle<br/>Body Map</div>
-        <div class="vline"></div><div class="leaf">View Injury<br/>Records</div>
+        <div class="vline"></div><div class="leaf new">View Screening<br/>History</div>
+        <div class="vline"></div><div class="leaf new">View Squad<br/>Readiness Summary</div>
       </div>
 
       <!-- 2 -->
       <div class="module">
-        <div class="module-title">2. Injury &amp; Recovery<br/>Logging</div>
-        <div class="vline"></div><div class="leaf">Log Official Injury</div>
-        <div class="vline"></div><div class="leaf">Update Recovery<br/>Status</div>
-        <div class="vline"></div><div class="leaf">View Athlete<br/>Injury Records</div>
-        <div class="vline"></div><div class="leaf">Submit Self-Report</div>
-        <div class="vline"></div><div class="leaf">Review &amp; Approve<br/>Self-Report</div>
-        <div class="vline"></div><div class="leaf">Track Self-Report<br/>Status</div>
+        <div class="module-title">2. Athlete Roster &amp;<br/>Identity Management</div>
+        <div class="vline"></div><div class="leaf">Register Athlete<br/>Record (IC key)</div>
+        <div class="vline"></div><div class="leaf">Maintain Athlete<br/>Record</div>
+        <div class="vline"></div><div class="leaf new">Look Up Athlete in<br/>Institute Directory†</div>
+        <div class="vline"></div><div class="leaf">Search Athlete<br/>Roster</div>
+        <div class="vline"></div><div class="leaf new">Maintain Event List</div>
+        <div class="vline"></div><div class="leaf new">Set Athlete<br/>Injury Status</div>
       </div>
 
       <!-- 3 -->
       <div class="module">
         <div class="module-title">3. Screening Data<br/>Ingestion</div>
         <div class="vline"></div><div class="leaf new">Import HoloMotion<br/>PDFs (batch)</div>
+        <div class="vline"></div><div class="leaf new">Redact Athlete Name<br/>On-Device</div>
         <div class="vline"></div><div class="leaf new">Extract Screening<br/>Data (Vision AI)</div>
         <div class="vline"></div><div class="leaf new">Preview &amp; Verify<br/>Extraction</div>
-        <div class="vline"></div><div class="leaf new">Match Athlete<br/>&amp; Identity</div>
+        <div class="vline"></div><div class="leaf new">Attach Report to<br/>Roster Athlete</div>
         <div class="vline"></div><div class="leaf new">Commit Screening<br/>Snapshot</div>
       </div>
 
@@ -201,32 +207,33 @@
       <div class="module">
         <div class="module-title">4. Cohort Norms &amp;<br/>Governance</div>
         <div class="vline"></div><div class="leaf new">Recompute Cohort<br/>Norms &amp; Re-score</div>
-        <div class="vline"></div><div class="leaf new">Email Risk Alerts</div>
+        <div class="vline"></div><div class="leaf new">Resolve Norm<br/>Membership</div>
         <div class="vline"></div><div class="leaf new">Manage Cohort<br/>Thresholds</div>
+        <div class="vline"></div><div class="leaf new">Version &amp; Restore<br/>Cohort Norms</div>
         <div class="vline"></div><div class="leaf new">Tune Norming &amp;<br/>Alert Settings</div>
+        <div class="vline"></div><div class="leaf new">Email Risk Alerts</div>
         <div class="vline"></div><div class="leaf">Export Data Backup</div>
-        <div class="vline"></div><div class="leaf new">View Screening<br/>Cohort Analytics</div>
       </div>
 
       <!-- 5 -->
       <div class="module">
         <div class="module-title">5. Analytics &amp;<br/>Reporting</div>
-        <div class="vline"></div><div class="leaf">View Injury<br/>Overview (KPIs)</div>
-        <div class="vline"></div><div class="leaf">Filter Injury Data</div>
-        <div class="vline"></div><div class="leaf">View Temporal<br/>Trends</div>
-        <div class="vline"></div><div class="leaf">Generate Injury<br/>PDF Report</div>
+        <div class="vline"></div><div class="leaf new">View Screening<br/>Cohort Analytics</div>
+        <div class="vline"></div><div class="leaf">Filter Cohort<br/>Analytics</div>
+        <div class="vline"></div><div class="leaf new">View Cohort Trend</div>
         <div class="vline"></div><div class="leaf new">Generate Holistic<br/>Screening PDF</div>
-        <div class="vline"></div><div class="leaf new">Generate Individual<br/>&amp; Team PDFs</div>
+        <div class="vline"></div><div class="leaf new">Generate Individual<br/>Screening PDF</div>
+        <div class="vline"></div><div class="leaf new">Generate Team<br/>Screening PDF</div>
       </div>
 
       <!-- 6 -->
       <div class="module">
         <div class="module-title">6. Clinical &amp; Squad<br/>Monitoring</div>
-        <div class="vline"></div><div class="leaf">Search &amp; Filter<br/>Athlete Roster</div>
         <div class="vline"></div><div class="leaf">View Athlete<br/>Clinical Overview</div>
+        <div class="vline"></div><div class="leaf new">Review Screening<br/>History</div>
         <div class="vline"></div><div class="leaf new">Override Risk Band</div>
-        <div class="vline"></div><div class="leaf">View Sport-Level<br/>Context</div>
-        <div class="vline"></div><div class="leaf new">View Squad<br/>Readiness (Coach)*</div>
+        <div class="vline"></div><div class="leaf new">View Squad Readiness<br/>Board (Coach)*</div>
+        <div class="vline"></div><div class="leaf new">View Squad Focus &amp;<br/>Needs-Attention*</div>
       </div>
 
     </div>
@@ -234,19 +241,25 @@
 
   <div class="foot">
     The General Module is cross-cutting and is not counted among the six functional modules.
-    Module 1 in the FYP I decomposition (Activity Tracking &amp; Logging) was fully removed
-    2026-07-20, at JC's request — its ACWR/composite-risk display had already left every
-    dashboard on 2026-07-16, and with nothing left to surface its output, the module itself
-    (plus the Prevention Insight and Recovery Baseline leaves that depended on it) was removed
-    rather than kept as dead weight. To keep six modules, the old "Screening Data Management &amp;
-    Cohort Norms" module (the largest, 10 leaves) was split into Module 3 (Screening Data Ingestion)
-    and Module 4 (Cohort Norms &amp; Governance) — the latter also gains "View Screening Cohort
-    Analytics", moved in from Analytics &amp; Reporting. The composite formula
-    (<code>classifyCompositeRisk()</code>) is preserved in <code>lib/risk.ts</code> as a locked
-    decision but has no live caller. The cohort-normed overall risk indicator (Module 1) is the
-    system's single risk verdict.
-    &nbsp;*&nbsp;The Coach is a first-class fourth role (read-only, FYP II) alongside
-    athlete / medical / administrator.
+    <b>Injury &amp; Recovery Logging (Module 2 in the previous decomposition) was removed
+    2026-08-02</b> under the HoloMotion-only directive: the system derives every signal from
+    the screening instrument, so a parallel, manually maintained injury stream was inconsistent
+    with that premise. Its six leaves, and the four injury-derived leaves elsewhere (Injury
+    Overview, Filter Injury Data, Temporal Trends, Injury PDF, Sport-Level Context), are gone.
+    All that survives is <i>Set Athlete Injury Status</i> — a clinician-set flag whose purpose
+    is norm eligibility: an injured athlete should not shape the reference distribution their
+    peers are judged against. To keep six modules, Module 2 is recast as <b>Athlete Roster &amp;
+    Identity Management</b>, gathering the master-data capabilities that were previously
+    scattered and unenumerated (athlete registration keyed by identity-card number, roster
+    maintenance and search, event vocabulary) together with the institute-directory lookup.
+    Earlier: Activity Tracking &amp; Logging (Module 1 in the FYP I decomposition) was removed
+    2026-07-20; the composite formula (<code>classifyCompositeRisk()</code>) is preserved in
+    <code>lib/risk.ts</code> as a locked decision but has no live caller. The cohort-normed
+    overall risk indicator (Module 1) is the system's single risk verdict.
+    &nbsp;*&nbsp;The Coach is a first-class fourth role (read-only, sport-scoped, FYP II)
+    alongside athlete / medical / administrator.
+    &nbsp;†&nbsp;The institute directory is demonstrated against a stand-in source, built as a
+    swappable integration seam pending ISN access.
   </div>
 </div>
 
