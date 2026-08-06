@@ -106,7 +106,13 @@ Total 100% across four components:
 
 ### Deliverables-shift items (2026-07-03 review — report + slides vs. shipped system)
 
-The report/slides drafts predate the HoloMotion pivot and its sibling features. Full replacement text in [`docs/fyp/REPORT_EDIT_PACK.md`](fyp/REPORT_EDIT_PACK.md); summary:
+The report/slides drafts predate the HoloMotion pivot and its sibling features. Full replacement text in [`docs/fyp/REPORT_EDIT_PACK.md`](fyp/REPORT_EDIT_PACK.md) — **revised 2026-08-06**, and the revision matters: three instructions in the original pack (keep the Excel path, treat the coach as future work, present the ACWR composite as the differentiator) became wrong before it was applied.
+
+> **Bigger than this list, as of 2026-08-02:** the HoloMotion-only cut deleted the `Injury` and `SelfReport` models, their routes and all three of their pages. **Module 2 (Injury & Recovery Logging) no longer exists**, and the injury half of Module 5 went with it. The report, Table 4.1, the FDD and the slides all still describe them. The rewritten table (UC-1–47) and regenerated FDD are in [`fyp/REPORT_TABLE_4-1.md`](fyp/REPORT_TABLE_4-1.md) and [`fyp/fdd-updated.html`](fyp/fdd-updated.html); **one decision there is JC's** — recast Module 2 as Athlete Roster & Identity Management (recommended) or drop to five modules.
+>
+> **Two things worth writing that the report never mentions:** the on-device name redaction (the strongest defensible contribution in the system — pack item R7a) and the identity-card-as-key trade-off (R7b). Expect a panel question on the second.
+
+Summary of the original deliverables-shift items:
 
 1. **Module 4 described as Excel-only** in §1.4 scope, §3.2.1 key feature 4, Table 4.1 UCs, FDD (Fig 4.1), Data Management UC diagram (Fig 4.6), data-import activity diagram, and the §2.5/2.6 comparison "Bulk Data Import" column. Must describe: HoloMotion PDF vision-AI ingestion as the **sole** import path (batch + athlete name-matching; the Excel import was retired 2026-07-12 and archived) plus the admin backup export. The comparison cell is also an unclaimed differentiator — no compared system does AI-assisted ingestion of image-only clinical PDFs.
 2. **Overclaimed Module 4 UCs** — "import history log" (comparison table + UC-25) and "delete imported dataset" (UC-26) are not built. Drop or mark future work.
