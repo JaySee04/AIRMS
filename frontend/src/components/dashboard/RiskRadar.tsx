@@ -25,8 +25,6 @@ interface RiskRadarProps {
   thresholds?: number[];
 }
 
-const THRESHOLD_RED = '#d14b4b'; // matches --risk-high / BAND.red used everywhere else "Elevated" is drawn
-
 export default function RiskRadar({ labels, values, thresholds }: RiskRadarProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const chartRef = useRef<Chart | null>(null);
@@ -43,7 +41,10 @@ export default function RiskRadar({ labels, values, thresholds }: RiskRadarProps
     // so the breached spokes read at a glance instead of by eyeballing overlap.
     const hasThresholds = !!thresholds && thresholds.length === values.length;
     const over = hasThresholds ? values.map((v, i) => v >= thresholds![i]) : values.map(() => false);
-    const ptColor = over.map((o) => (o ? THRESHOLD_RED : pal.gold));
+    // pal.riskHigh, not a literal: this red also appears as the risk hero's
+    // band colour a few pixels away, and it has to lift in dark mode with it.
+    const thresholdRed = pal.riskHigh;
+    const ptColor = over.map((o) => (o ? thresholdRed : pal.gold));
 
     chartRef.current?.destroy();
     chartRef.current = new Chart(ctx, {
@@ -59,7 +60,7 @@ export default function RiskRadar({ labels, values, thresholds }: RiskRadarProps
                   label: 'Elevated threshold',
                   data: thresholds,
                   backgroundColor: 'transparent',
-                  borderColor: THRESHOLD_RED,
+                  borderColor: thresholdRed,
                   borderDash: [5, 4],
                   borderWidth: 1.5,
                   pointRadius: 0,

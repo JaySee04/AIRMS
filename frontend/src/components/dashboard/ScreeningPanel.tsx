@@ -19,6 +19,7 @@
 // Flags" and "ROM & Stability" on the same figure, so repeating either here
 // would be noise.
 
+import { tierMeta } from '@/lib/holomotionTiers';
 import {
   AthleteRisks, BAND_LABEL, INDICATORS, WATCH_THRESHOLD, HIGH_THRESHOLD,
   TIGHT_WATCH_THRESHOLD, TIGHT_HIGH_THRESHOLD,
@@ -50,12 +51,10 @@ export interface ScreeningData {
 const STRIP_MAX = 40;
 
 // HoloMotion quality tiers for the 0–100 gauges (higher is better).
-function qualityBand(v: number): { label: string; color: string } {
-  if (v >= 85) return { label: 'Excellent', color: 'var(--risk-low, #2e9e5b)' };
-  if (v >= 75) return { label: 'Good', color: 'var(--risk-undertrained)' };
-  if (v >= 60) return { label: 'Average', color: 'var(--risk-mod, #d99a16)' };
-  return { label: 'Below Average', color: 'var(--risk-high, #d14b4b)' };
-}
+// Boundaries, wording and colour all come from lib/holomotionTiers.ts — the
+// same source the subitem table and the body map read, so one score cannot be
+// called "Below Average" here and "Below" in the table rendered beneath it.
+const qualityBand = tierMeta;
 
 // Presentation for a lower-is-better band (Exercise Risks gauge + indicators).
 // Words come from BAND_LABEL so the strips, the alert banner, the admin cohort
@@ -63,9 +62,9 @@ function qualityBand(v: number): { label: string; color: string } {
 // "Elevated", not "High" — the report reserves High for 56–100. See the band
 // vocabulary note in lib/screeningAlerts.ts.
 const BAND_META = {
-  ok: { label: BAND_LABEL.ok, color: 'var(--risk-low, #2e9e5b)' },
-  watch: { label: BAND_LABEL.watch, color: 'var(--risk-mod, #d99a16)' },
-  high: { label: BAND_LABEL.high, color: 'var(--risk-high, #d14b4b)' },
+  ok: { label: BAND_LABEL.ok, color: 'var(--risk-low)' },
+  watch: { label: BAND_LABEL.watch, color: 'var(--risk-moderate)' },
+  high: { label: BAND_LABEL.high, color: 'var(--risk-high)' },
 } as const;
 
 // The overall Exercise Risks gauge is banded on the instrument's own scale —

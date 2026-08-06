@@ -24,9 +24,12 @@
   --risk-high-bg: #fdecea;
   --risk-undertrained: #2a6391;
   --risk-undertrained-bg: #e8f0fa;
-  /* Short aliases used by the screening-alert layer and newer components.
-     Kept as aliases so there is a single source of truth for the moderate
-     hue and they inherit the dark-mode overrides automatically. */
+  /* Short aliases used by the screening-alert rules further down this file.
+     Kept as aliases so there is a single source of truth for the moderate hue
+     and they inherit the dark-mode overrides automatically.
+     TSX components use the full --risk-moderate name (2026-08-06) — mixing the
+     two made it look like there were two amber tokens. Prefer the full name in
+     new code; these two exist for the .screening-alert--mod rules only. */
   --risk-mod: var(--risk-moderate);
   --risk-mod-bg: var(--risk-moderate-bg);
 

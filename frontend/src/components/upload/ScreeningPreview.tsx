@@ -9,6 +9,8 @@
 // ("muscle hero") that the uploader renders beneath this panel — it toggles
 // between the two rather than duplicating either here.
 
+import { tierMeta } from '@/lib/holomotionTiers';
+
 interface Props {
   athlete: Record<string, unknown>; // flat extracted scores (values read via num())
 }
@@ -39,24 +41,24 @@ const num = (v: unknown): number | null => (v === null || v === undefined || v =
 
 // Exercise-risk band (lower is better): Low ≤15 · Watch ≤25 · Elevated >25.
 function riskBand(v: number) {
-  if (v > 25) return { label: 'Elevated', color: 'var(--risk-high)' };
-  if (v > 15) return { label: 'Watch', color: 'var(--risk-mod)' };
-  return { label: 'Low', color: 'var(--risk-low)' };
+  if (v > 25) return { label: 'Elevated', color: 'var(--risk-high)', onFill: '#fff' };
+  if (v > 15) return { label: 'Watch', color: 'var(--risk-moderate)', onFill: AMBER_INK };
+  return { label: 'Low', color: 'var(--risk-low)', onFill: '#fff' };
 }
-// HoloMotion quality tier for the 0–100 headline gauges (higher is better).
-// (SubitemTable/BodyMap keep their own copies for the same boundaries.)
-function tier(v: number) {
-  if (v >= 85) return { label: 'Excellent', color: 'var(--risk-low)' };
-  if (v >= 75) return { label: 'Good', color: 'var(--risk-undertrained)' };
-  if (v >= 60) return { label: 'Average', color: 'var(--risk-mod)' };
-  return { label: 'Below', color: 'var(--risk-high)' };
-}
+// HoloMotion quality tier for the 0–100 headline gauges (higher is better) —
+// from lib/holomotionTiers.ts, the same source the dashboards read, so the
+// operator verifies an import against the wording they will see afterwards.
+const tier = tierMeta;
 
-function Pill({ text, color }: { text: string; color: string }) {
+// The amber token is a light yellow: white on it fails legibility, so filled
+// amber marks take dark ink. Same rule the PDF applies (pdfDraw.js BAND_INK).
+const AMBER_INK = '#3d2f05';
+
+function Pill({ text, color, ink = '#fff' }: { text: string; color: string; ink?: string }) {
   return (
     <span style={{
       fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.02em',
-      padding: '2px 8px', borderRadius: 999, color: '#fff', background: color, whiteSpace: 'nowrap',
+      padding: '2px 8px', borderRadius: 999, color: ink, background: color, whiteSpace: 'nowrap',
     }}>{text}</span>
   );
 }
@@ -86,7 +88,7 @@ export default function ScreeningPreview({ athlete }: Props) {
       <div>
         <div className="screening-block-h">Exercise risk evaluation</div>
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 8 }}>
-          {[['Low', 'var(--risk-low)'], ['Watch', 'var(--risk-mod)'], ['Elevated', 'var(--risk-high)']].map(([l, c]) => (
+          {[['Low', 'var(--risk-low)'], ['Watch', 'var(--risk-moderate)'], ['Elevated', 'var(--risk-high)']].map(([l, c]) => (
             <span key={l} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: '0.72rem', color: 'var(--text-muted)' }}>
               <span style={{ width: 9, height: 9, borderRadius: '50%', background: c }} />{l}
             </span>
@@ -106,7 +108,7 @@ export default function ScreeningPreview({ athlete }: Props) {
                 </div>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                   <strong style={{ fontSize: '0.78rem', minWidth: 18, textAlign: 'right' }}>{v}</strong>
-                  <Pill text={band.label} color={band.color} />
+                  <Pill text={band.label} color={band.color} ink={band.onFill} />
                 </span>
               </div>
             );

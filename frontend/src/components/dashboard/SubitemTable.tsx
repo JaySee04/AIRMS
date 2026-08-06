@@ -7,6 +7,7 @@
 // so both surfaces present this section identically.
 
 import type { Subitems } from './OverallRiskBadge';
+import { TIER_COLOR, TIER_LABEL, TIER_ORDER, TIER_RANGE, tierMeta } from '@/lib/holomotionTiers';
 
 const SUBITEM_REGIONS: Array<[keyof Subitems, string]> = [
   ['neck', 'Neck'], ['shoulder', 'Shoulder & Upper Limbs'], ['torso', 'Torso'],
@@ -19,12 +20,9 @@ const SUBITEM_COLS: Array<[string, string]> = [
 const num = (v: unknown): number | null => (v === null || v === undefined || v === '' || Number.isNaN(Number(v)) ? null : Number(v));
 
 // HoloMotion quality tier for the 0–100 subitem scores (higher is better).
-function tier(v: number) {
-  if (v >= 85) return { label: 'Excellent', color: 'var(--risk-low)' };
-  if (v >= 75) return { label: 'Good', color: 'var(--risk-undertrained, #2a9db8)' };
-  if (v >= 60) return { label: 'Average', color: 'var(--risk-mod)' };
-  return { label: 'Below', color: 'var(--risk-high)' };
-}
+// Shared with the score gauges above this table and the body map beside it —
+// see lib/holomotionTiers.ts.
+const tier = tierMeta;
 
 export default function SubitemTable({ subitems }: { subitems: Subitems | null | undefined }) {
   if (!subitems || typeof subitems !== 'object') {
@@ -66,9 +64,9 @@ export default function SubitemTable({ subitems }: { subitems: Subitems | null |
         </table>
       </div>
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 8 }}>
-        {[['Excellent ≥85', 'var(--risk-low)'], ['Good ≥75', 'var(--risk-undertrained, #2a9db8)'], ['Average ≥60', 'var(--risk-mod)'], ['Below <60', 'var(--risk-high)']].map(([l, c]) => (
-          <span key={l} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-            <span style={{ width: 9, height: 9, borderRadius: 2, background: c }} />{l}
+        {TIER_ORDER.map((t) => (
+          <span key={t} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+            <span style={{ width: 9, height: 9, borderRadius: 2, background: TIER_COLOR[t] }} />{TIER_LABEL[t]} {TIER_RANGE[t]}
           </span>
         ))}
       </div>

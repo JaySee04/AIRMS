@@ -567,4 +567,59 @@ one squad).
 
 ---
 
-*Last updated: 2026-08-06 — **§4a** added: the body map's Muscle Flags mode now draws HoloMotion's 22 individual muscles by re-slicing the same MIT-licensed geometry (16 recovered from existing sub-paths, 6 deep ones as measured insets, selection by geometry not index, test-guarded); supersedes the aggregation half of §4 while leaving the asset and its attribution locked. Previous: 2026-08-03 — §18 on-device name redaction before vision extraction (Tesseract-located, page-1-only, fail-closed; verified against both HoloMotion layouts). Previous: 2026-07-20 — Activity Tracking (the FYP I Module 1) fully removed at JC's request; §1, §2, §3, §10 and §16 annotated to mark their decisions as locked-but-dormant (no live caller) rather than actively running. The six-module set was restructured the same day to fill the gap this left — see `MASTER_CLARIFICATIONS.md §4` for the current numbering. Previous: 2026-07-19 (§16 gains the per-indicator escalation — threshold + peer-outlier, z ≥ 1.5, admin toggle, persisted factors), 2026-07-18 (§17 coach one-sport + athlete detail view + event disciplines), 2026-07-13 (§16 FYP II cohort-normed overall indicator + ACWR demotion), 2026-07-06 (§15 dashboard-embedded screening), 2026-06-28 (§13–14).*
+## 19. One status palette, four renderers (2026-08-06)
+
+**Decision:** A status colour is defined once, in `globals.css`, as one of four
+risk tokens. Everything that draws that status — CSS, inline styles, Chart.js,
+and the backend's pdfkit reports — resolves to those same values.
+
+```
+--risk-low          green   Safe        · Low        · Excellent (≥85)
+--risk-undertrained blue                             · Good (≥75)
+--risk-moderate     amber   Needs att.  · Watch      · Average (≥60)
+--risk-high         red     Immediate   · Elevated   · Below Average (<60)
+```
+
+**Why:** an audit found four renderers had drifted apart.
+
+- **The PDF had invented a second palette.** Bands were `#2e9e5b / #d99a16 /
+  #d14b4b` against the website's `#3d7c47 / #c89b3c / #b03030`. Worse, the same
+  file's subitem tiers *already* used the website values — so a "Safe" pill and
+  an "Excellent" disc were two different greens **on the same page**.
+- **The radar's threshold ring was a hardcoded literal** (`#d14b4b`) while every
+  other colour in that chart flipped with the theme. It sits inches from the
+  risk hero, so in dark mode the hero lifted to `#e57373` and the ring did not.
+- **The 60/75/85 tier was defined five times** — the panel, the subitem table,
+  the body map, the import preview and the PDF. Boundaries agreed; wording had
+  not. The lowest tier read **"Below Average"** in two and **"Below"** in three,
+  and since the panel *renders the subitem table inside itself*, both words were
+  on screen at once describing the same number.
+- **Eight CSS-variable fallbacks carried the retired PDF palette**
+  (`var(--risk-low, #2e9e5b)`), so a stylesheet failure would have repainted the
+  app in a design system that no longer existed.
+
+**Implementation:** [`lib/holomotionTiers.ts`](../frontend/src/lib/holomotionTiers.ts)
+owns the tier (boundaries, ranks, wording, colours, legend ranges);
+[`lib/chartTheme.ts`](../frontend/src/lib/chartTheme.ts) gains `riskLow/Mod/High`
+so Chart.js gets theme-aware status colours; `pdfDraw.js` keeps a written-out
+copy of the light-theme values, marked as a mirror, because a Node process
+cannot read CSS custom properties.
+
+**Contrast rule that comes with it:** the amber token is a light yellow. White
+on it fails legibility, so any *filled* amber mark takes dark ink (`#3d2f05`),
+and amber used as *text on white* darkens to `#8a6a16`. This already existed for
+the PDF's "Average" tier and is now applied consistently — it caught a
+white-on-amber pill in the import preview.
+
+**Rejected:** *let print differ from screen.* Print legibility is a real
+constraint, but it argues for the ink/onLight rule above, not for a second set
+of hues — and the divergence here was accidental, not a print decision.
+
+**Defensibility one-liner:** *"A risk band is one colour with one name, whether
+you meet it on the dashboard, in a chart, or on the printed report. The tokens
+live in one file, and the two places that can't read CSS — Chart.js and the PDF
+generator — carry a copy that's marked as a mirror."*
+
+---
+
+*Last updated: 2026-08-06 (later same day) — **§19** added: one status palette across CSS, inline styles, Chart.js and the PDF reports. An audit found the PDF had a second band palette (and disagreed with its own tier colours), the radar's threshold red was a non-theme-aware literal, the 60/75/85 tier was defined five times with two different words for its lowest band, and eight CSS-variable fallbacks still carried the retired PDF palette. Earlier same day: **§4a** added: the body map's Muscle Flags mode now draws HoloMotion's 22 individual muscles by re-slicing the same MIT-licensed geometry (16 recovered from existing sub-paths, 6 deep ones as measured insets, selection by geometry not index, test-guarded); supersedes the aggregation half of §4 while leaving the asset and its attribution locked. Previous: 2026-08-03 — §18 on-device name redaction before vision extraction (Tesseract-located, page-1-only, fail-closed; verified against both HoloMotion layouts). Previous: 2026-07-20 — Activity Tracking (the FYP I Module 1) fully removed at JC's request; §1, §2, §3, §10 and §16 annotated to mark their decisions as locked-but-dormant (no live caller) rather than actively running. The six-module set was restructured the same day to fill the gap this left — see `MASTER_CLARIFICATIONS.md §4` for the current numbering. Previous: 2026-07-19 (§16 gains the per-indicator escalation — threshold + peer-outlier, z ≥ 1.5, admin toggle, persisted factors), 2026-07-18 (§17 coach one-sport + athlete detail view + event disciplines), 2026-07-13 (§16 FYP II cohort-normed overall indicator + ACWR demotion), 2026-07-06 (§15 dashboard-embedded screening), 2026-06-28 (§13–14).*

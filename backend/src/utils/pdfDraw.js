@@ -28,8 +28,25 @@ const GOLD = '#c89b3c';
 const MUTED = '#6b7280';
 const TEXT = '#1a2533';
 const GRID = '#e2e6ea';
-const BAND = { green: '#2e9e5b', amber: '#d99a16', red: '#d14b4b' };
+// Traffic-light bands. These are the LIGHT-THEME values of the website's
+// --risk-low / --risk-moderate / --risk-high tokens, so the same verdict is the
+// same colour on screen and on paper.
+//
+// They used to be #2e9e5b / #d99a16 / #d14b4b — a second, slightly brighter
+// palette invented for the PDF. That made the reports internally inconsistent
+// as well as divergent from the app: TIERS below already used the website
+// values, so an "Excellent" disc (#3d7c47) and a "Safe" pill (#2e9e5b) were two
+// different greens on the same page. Aligned 2026-08-06.
+const BAND = { green: '#3d7c47', amber: '#c89b3c', red: '#b03030' };
 const bandColor = (b) => BAND[b] || MUTED;
+// Text drawn ON a band fill. Amber is a light yellow — white on it fails
+// legibility, so it takes dark ink, exactly as the 'Average' tier does below.
+const BAND_INK = { green: '#ffffff', amber: '#3d2f05', red: '#ffffff' };
+const bandInk = (b) => BAND_INK[b] || '#ffffff';
+// The band colour used as TEXT on white paper. Green and red carry themselves;
+// amber is darkened, the same allowance the 'Average' tier's onLight makes.
+const BAND_ON_LIGHT = { green: BAND.green, amber: '#8a6a16', red: BAND.red };
+const bandOnLight = (b) => BAND_ON_LIGHT[b] || TEXT;
 const bandLabel = (b) => ({ green: 'Safe', amber: 'Needs attention', red: 'Immediate assessment' }[b] || '—');
 
 // Exercise Risk Evaluation bands. These MUST agree with the dashboards —
@@ -46,10 +63,16 @@ const bandLabel = (b) => ({ green: 'Safe', amber: 'Needs attention', red: 'Immed
 // reports used the printed legend while the dashboards used ≤15/≤25/>25, so a
 // 26 read "Medium Risk" on the PDF and "HIGH RISK" on screen.
 const RISK_AXIS_MAX = 40; // display axis, matches the dashboard strips
+// Zone tints are the light-theme --risk-low-bg / --risk-moderate-bg /
+// --risk-high-bg, i.e. exactly what .screening-strip-zone--{ok,watch,high} paint
+// on the dashboard, so a printed strip and an on-screen strip are the same
+// picture.
+// `color` fills marks (markers, ticks, swatches); `onLight` is the same meaning
+// as text on white paper, with the amber darkened for legibility.
 const RISK_ZONES = [
-  { max: 15, label: 'Low', color: BAND.green, tint: '#e3f2e8' },
-  { max: 25, label: 'Watch', color: BAND.amber, tint: '#f8eed5' },
-  { max: RISK_AXIS_MAX, label: 'Elevated', color: BAND.red, tint: '#f8e2e2' },
+  { max: 15, label: 'Low', color: BAND.green, onLight: bandOnLight('green'), tint: '#e8f5ea' },
+  { max: 25, label: 'Watch', color: BAND.amber, onLight: bandOnLight('amber'), tint: '#fef9e7' },
+  { max: RISK_AXIS_MAX, label: 'Elevated', color: BAND.red, onLight: bandOnLight('red'), tint: '#fdecea' },
 ];
 const riskZone = (v) => RISK_ZONES[v > 25 ? 2 : v > 15 ? 1 : 0];
 const ELEVATED_THRESHOLD = RISK_ZONES[1].max; // 25 — the radar guide polygon is drawn at this boundary
@@ -201,7 +224,7 @@ function zoneGauge(doc, label, value) {
   const mx = bx + barW * Math.max(0, Math.min(1, v / RISK_AXIS_MAX));
   doc.moveTo(mx, y - 2).lineTo(mx, y + 13).strokeColor(zone.color).lineWidth(2).stroke().lineWidth(1);
   doc.circle(mx, y - 3.5, 2.2).fill(zone.color);
-  doc.fillColor(zone.color).fontSize(9).font('Helvetica-Bold')
+  doc.fillColor(zone.onLight).fontSize(9).font('Helvetica-Bold')
     .text(`${v}  ${zone.label}`, bx + barW + 8, y + 1, { width: 92, lineBreak: false });
   doc.fillColor(TEXT);
   doc.y = y + 17;
@@ -244,9 +267,9 @@ function bandTable(doc, entries) {
     const y = doc.y;
     doc.fontSize(9).font('Helvetica').fillColor(TEXT).text(e.label, 50, y, { width: 195, lineBreak: false });
     doc.text(String(e.n), 250, y, { width: 60, align: 'right', lineBreak: false });
-    doc.fillColor(BAND.green).text(String(e.green), 320, y, { width: 50, align: 'right', lineBreak: false });
-    doc.fillColor(BAND.amber).text(String(e.amber), 380, y, { width: 60, align: 'right', lineBreak: false });
-    doc.fillColor(BAND.red).text(String(e.red), 450, y, { width: 65, align: 'right', lineBreak: false });
+    doc.fillColor(bandOnLight('green')).text(String(e.green), 320, y, { width: 50, align: 'right', lineBreak: false });
+    doc.fillColor(bandOnLight('amber')).text(String(e.amber), 380, y, { width: 60, align: 'right', lineBreak: false });
+    doc.fillColor(bandOnLight('red')).text(String(e.red), 450, y, { width: 65, align: 'right', lineBreak: false });
     doc.fillColor(TEXT);
     doc.y = y + 14;
   }
@@ -511,7 +534,7 @@ function symmetrySection(doc, subitems) {
     const cx = x + labelW + symW / 2;
     doc.circle(cx, y + 7, 10).fill(r.tier.color);
     doc.fillColor(r.tier.ink).fontSize(8).font('Helvetica-Bold').text(String(r.sym), cx - 10, y + 3.5, { width: 20, align: 'center', lineBreak: false });
-    doc.fontSize(9).font('Helvetica').fillColor(r.sym >= 75 ? TEXT : BAND.amber).text(r.status, x + labelW + symW + 10, y + 3, { width: statusW - 12, lineBreak: false });
+    doc.fontSize(9).font('Helvetica').fillColor(r.sym >= 75 ? TEXT : bandOnLight('amber')).text(r.status, x + labelW + symW + 10, y + 3, { width: statusW - 12, lineBreak: false });
     doc.fillColor(MUTED).text(r.weaker === 'Balanced' ? 'Balanced' : `${r.weaker} weaker by ${r.gap}`, x + labelW + symW + statusW, y + 3, { lineBreak: false });
     y += 22;
   }
@@ -605,7 +628,7 @@ function squadSymmetrySection(doc, members) {
     const cx = x + labelW + avgW / 2;
     doc.circle(cx, y + 7, 10).fill(r.tier.color);
     doc.fillColor(r.tier.ink).fontSize(8).font('Helvetica-Bold').text(String(r.avg), cx - 10, y + 3.5, { width: 20, align: 'center', lineBreak: false });
-    doc.fontSize(9).font('Helvetica').fillColor(r.below ? BAND.amber : TEXT).text(`${r.below} of ${r.n}`, x + labelW + avgW + 10, y + 3, { lineBreak: false });
+    doc.fontSize(9).font('Helvetica').fillColor(r.below ? bandOnLight('amber') : TEXT).text(`${r.below} of ${r.n}`, x + labelW + avgW + 10, y + 3, { lineBreak: false });
     doc.fillColor(MUTED).text(r.lean, x + labelW + avgW + belowW, y + 3, { lineBreak: false });
     y += 22;
   }
@@ -695,7 +718,7 @@ function radar(doc, axes, { max = 40, rings = 4, r = 85, color = GOLD, guide = n
 function bandPill(doc, band, x, y) {
   const c = bandColor(band);
   doc.roundedRect(x, y, 130, 20, 4).fill(c);
-  doc.fillColor('#fff').fontSize(9).font('Helvetica-Bold').text(bandLabel(band).toUpperCase(), x, y + 6, { width: 130, align: 'center', lineBreak: false });
+  doc.fillColor(bandInk(band)).fontSize(9).font('Helvetica-Bold').text(bandLabel(band).toUpperCase(), x, y + 6, { width: 130, align: 'center', lineBreak: false });
   doc.fillColor(TEXT);
 }
 

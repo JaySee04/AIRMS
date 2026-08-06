@@ -55,9 +55,9 @@ interface ReadinessResponse {
 type Band = 'full' | 'observation' | 'restricted';
 
 const BAND_META: Record<Band, { label: string; badge: string; color: string }> = {
-  full: { label: 'Full-Go', badge: 'badge-low', color: 'var(--risk-low, #2e9e5b)' },
-  observation: { label: 'Observation', badge: 'badge-moderate', color: 'var(--risk-mod, #d99a16)' },
-  restricted: { label: 'Restricted', badge: 'badge-high', color: 'var(--risk-high, #d14b4b)' },
+  full: { label: 'Full-Go', badge: 'badge-low', color: 'var(--risk-low)' },
+  observation: { label: 'Observation', badge: 'badge-moderate', color: 'var(--risk-moderate)' },
+  restricted: { label: 'Restricted', badge: 'badge-high', color: 'var(--risk-high)' },
 };
 
 // Display name per body region for the coaching-suggestion card (the alert
@@ -581,7 +581,7 @@ export default function CoachDashboard() {
 
       {/* Needs attention — the athletes to flag to the medical team */}
       {attention.length > 0 && (
-        <div className="card" style={{ marginBottom: 20, borderLeft: '4px solid var(--risk-high, #d14b4b)' }}>
+        <div className="card" style={{ marginBottom: 20, borderLeft: '4px solid var(--risk-high)' }}>
           <div className="card-header">
             <div>
               <h2 className="card-title" style={{ marginBottom: 0 }}>Needs attention ({attention.length})</h2>
@@ -647,7 +647,7 @@ export default function CoachDashboard() {
                   {readinessByEvent.map((e) => {
                     const parts = [
                       e.full > 0 ? <span key="f" style={{ color: 'var(--risk-low)' }}>{e.full} full</span> : null,
-                      e.observation > 0 ? <span key="o" style={{ color: 'var(--risk-mod)' }}>{e.observation} obs</span> : null,
+                      e.observation > 0 ? <span key="o" style={{ color: 'var(--risk-moderate)' }}>{e.observation} obs</span> : null,
                       e.restricted > 0 ? <span key="r" style={{ color: 'var(--risk-high)' }}>{e.restricted} restricted</span> : null,
                       e.unscored > 0 ? <span key="u" className="text-muted">{e.unscored} n/a</span> : null,
                     ].filter(Boolean);

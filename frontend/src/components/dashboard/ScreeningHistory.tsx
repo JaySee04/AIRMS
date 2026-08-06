@@ -127,7 +127,7 @@ export default function ScreeningHistory({ athleteId, headerAction }: {
                   // exerciseRisks: lower is better — colour improvement accordingly.
                   const good = key === 'exerciseRisks' ? d !== null && d <= 0 : d !== null && d >= 0;
                   return (
-                    <td key={key} style={{ textAlign: 'right', color: d === null ? undefined : good ? 'var(--risk-low, #2e9e5b)' : 'var(--risk-high, #d14b4b)' }}>
+                    <td key={key} style={{ textAlign: 'right', color: d === null ? undefined : good ? 'var(--risk-low)' : 'var(--risk-high)' }}>
                       {d === null ? '—' : d >= 0 ? `+${d}` : `${d}`}
                     </td>
                   );

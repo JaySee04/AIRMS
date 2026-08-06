@@ -10,6 +10,9 @@ import {
 import type { BodyPart } from './bodymap-data/types';
 import type { Subitems, SubitemRow } from './OverallRiskBadge';
 import SubitemTable from './SubitemTable';
+import {
+  TIER_LABEL, TIER_ORDER, TIER_RANGE, TIER_RANK, tierOf, type TierState,
+} from '@/lib/holomotionTiers';
 
 export type MuscleSide = 'L' | 'R' | 'B';
 export interface MuscleEntry {
@@ -29,7 +32,6 @@ interface BodyMapProps {
 
 type FlagState = 'weak' | 'tight' | 'both';
 type FlagMap = Record<string, MuscleSide>;
-type TierState = 'excellent' | 'good' | 'average' | 'below';
 type ViewMode = 'flags' | 'subitems';
 
 // HoloMotion muscle name → the slug the figure draws it under.
@@ -83,18 +85,13 @@ const SLUG_TO_SUBITEM_REGION: Record<string, SubitemRegionKey> = Object.fromEntr
 );
 const SUBITEM_SCOPED_SLUGS: Set<string> = new Set(Object.keys(SLUG_TO_SUBITEM_REGION));
 
-// HoloMotion quality tiers, 0–100 higher-better — same boundaries as
-// SubitemTable's own copy (kept local per the existing convention: this pair
-// of numbers is small enough that every consumer keeps its own copy rather
-// than importing a shared constant).
-const TIER_RANK: Record<TierState, number> = { below: 0, average: 1, good: 2, excellent: 3 };
-function subitemTierOf(v: number): TierState {
-  if (v >= 85) return 'excellent';
-  if (v >= 75) return 'good';
-  if (v >= 60) return 'average';
-  return 'below';
-}
-const TIER_LABEL: Record<TierState, string> = { excellent: 'Excellent', good: 'Good', average: 'Average', below: 'Below' };
+// HoloMotion quality tiers, 0–100 higher-better. The local copies these used
+// to be were the reason the lowest tier read "Below" here and "Below Average"
+// in the panel this figure sits beside; boundaries, ranks and wording now come
+// from lib/holomotionTiers.ts. The FILLS still come from the
+// .excellent/.good/.average/.below classes in globals.css, which resolve to the
+// same four risk tokens that file names.
+const subitemTierOf = tierOf;
 
 function buildFlagMap(entries: MuscleEntry[]): FlagMap {
   const out: FlagMap = {};
@@ -410,10 +407,9 @@ export default function BodyMap({ myodynamia, tension, subitems }: BodyMapProps)
                 <div className="bm-summary-label">Region{belowCount === 1 ? '' : 's'} below average</div>
               </div>
               <div className="bm-legend">
-                <span><i className="excellent" /><span>Excellent <em>(≥85)</em></span></span>
-                <span><i className="good" /><span>Good <em>(≥75)</em></span></span>
-                <span><i className="average" /><span>Average <em>(≥60)</em></span></span>
-                <span><i className="below" /><span>Below <em>(&lt;60)</em></span></span>
+                {TIER_ORDER.map((t) => (
+                  <span key={t}><i className={t} /><span>{TIER_LABEL[t]} <em>({TIER_RANGE[t]})</em></span></span>
+                ))}
                 <span className="bm-legend-note">Colour = worse of ROM / Stability on that side</span>
               </div>
             </>
