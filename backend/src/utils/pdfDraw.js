@@ -266,6 +266,112 @@ function bandTable(doc, entries) {
   }
 }
 
+// Screening-programme activity per calendar period — the administrator's own
+// performance table. Throughput (tests / distinct athletes) alongside the
+// population average and its change against the previous period in the series.
+// Newest first, matching the admin dashboard.
+function periodTable(doc, periods) {
+  if (!periods || !periods.length) {
+    doc.fontSize(9).fillColor(MUTED).text('No screenings on record for this population.', 50);
+    return;
+  }
+  const yStart = doc.y;
+  doc.fontSize(9).font('Helvetica-Bold').fillColor(MUTED);
+  doc.text('Period', 50, yStart, { lineBreak: false });
+  doc.text('Tests', 200, yStart, { width: 50, align: 'right', lineBreak: false });
+  doc.text('Athletes', 260, yStart, { width: 55, align: 'right', lineBreak: false });
+  doc.text('Avg indicator', 325, yStart, { width: 75, align: 'right', lineBreak: false });
+  doc.text('Change', 410, yStart, { width: 55, align: 'right', lineBreak: false });
+  doc.text('Avg risk', 475, yStart, { width: 55, align: 'right', lineBreak: false });
+  doc.y = yStart + 14;
+
+  for (const p of [...periods].reverse()) {
+    ensure(doc, 15);
+    const y = doc.y;
+    doc.fontSize(9).font('Helvetica').fillColor(TEXT).text(p.label, 50, y, { width: 145, lineBreak: false });
+    doc.text(String(p.tests), 200, y, { width: 50, align: 'right', lineBreak: false });
+    const reps = p.retestedWithin ? ` (${p.retestedWithin} re)` : '';
+    doc.text(`${p.athletes}${reps}`, 260, y, { width: 55, align: 'right', lineBreak: false });
+    doc.text(p.averages.overallIndicator == null ? '—' : String(p.averages.overallIndicator), 325, y, { width: 75, align: 'right', lineBreak: false });
+
+    // The SIGNED number carries the direction, not an arrow glyph: pdfkit's
+    // Helvetica is WinAnsi-encoded and has no triangle/arrow, so one renders as
+    // mojibake. Colour only reinforces what the sign already says.
+    const d = p.deltas ? p.deltas.overallIndicator : null;
+    if (!d || d.delta === null) {
+      doc.fillColor(MUTED).text(p.deltas ? '—' : 'baseline', 410, y, { width: 55, align: 'right', lineBreak: false });
+    } else {
+      const flat = d.delta === 0;
+      doc.fillColor(flat ? MUTED : bandOnLight(d.delta > 0 ? 'green' : 'red'))
+        .text(`${d.delta > 0 ? '+' : ''}${d.delta}`, 410, y, { width: 55, align: 'right', lineBreak: false });
+    }
+    doc.fillColor(TEXT).text(p.averages.exerciseRisks == null ? '—' : String(p.averages.exerciseRisks), 475, y, { width: 55, align: 'right', lineBreak: false });
+    doc.y = y + 14;
+  }
+
+  doc.moveDown(0.4);
+  doc.fontSize(7.5).fillColor(MUTED).font('Helvetica').text(
+    'Avg indicator is the cohort-normed 0-100 score (higher is better); avg risk is the exercise-risk burden '
+    + '(lower is better). "re" counts athletes screened more than once inside the period. Change compares the '
+    + 'previous period PRESENT in this table, so an empty period is skipped rather than read as a zero. Period '
+    + 'averages mix cohorts - a period with a different intake reads differently for that reason alone, so treat '
+    + 'these as programme throughput and direction, not as proof any individual athlete changed.',
+    50, doc.y, { width: doc.page.width - 100 },
+  );
+}
+
+// Within-athlete consecutive pairs. The counterpart to periodTable: each
+// athlete is their own control here, which is the only way to claim athletes
+// actually improved rather than the tested population having changed.
+function betweenTestsBlock(doc, bt) {
+  if (!bt || !bt.pairs) {
+    doc.fontSize(9).fillColor(MUTED).text(
+      'No athlete in this population has been screened twice yet, so there is nothing to compare test-to-test.', 50,
+    );
+    return;
+  }
+  doc.fontSize(9).fillColor(TEXT).font('Helvetica').text(
+    `${bt.pairs} consecutive test pair${bt.pairs === 1 ? '' : 's'} across ${bt.athletesWithRetest} athlete`
+    + `${bt.athletesWithRetest === 1 ? '' : 's'}`
+    + (bt.intervalDays.median === null ? '' : `, median ${bt.intervalDays.median} days apart`
+      + (bt.intervalDays.min === bt.intervalDays.max ? '' : ` (range ${bt.intervalDays.min}-${bt.intervalDays.max})`))
+    + '.', 50,
+  );
+  doc.moveDown(0.4);
+
+  const total = bt.improved + bt.declined + bt.steady || 1;
+  bar(doc, 'Improved', bt.improved, total, BAND.green, { valueText: String(bt.improved) });
+  bar(doc, 'Unchanged', bt.steady, total, MUTED, { valueText: String(bt.steady) });
+  bar(doc, 'Declined', bt.declined, total, BAND.red, { valueText: String(bt.declined) });
+
+  ensure(doc, 16);
+  doc.moveDown(0.3);
+  doc.fontSize(9).font('Helvetica').fillColor(TEXT).text(
+    `Risk band improved for ${bt.bandMoves.better}, held for ${bt.bandMoves.same}, worsened for ${bt.bandMoves.worse}.`, 50,
+  );
+  doc.moveDown(0.3);
+
+  const named = bt.deltas.filter((d) => d.avgDelta !== null);
+  if (named.length) {
+    ensure(doc, 16);
+    doc.fontSize(8).font('Helvetica-Bold').fillColor(MUTED).text('AVERAGE CHANGE PER SCORE, TEST TO TEST', 50);
+    doc.moveDown(0.2);
+    for (const d of named) {
+      ensure(doc, 13);
+      const y = doc.y;
+      const better = d.higherBetter ? d.avgDelta > 0 : d.avgDelta < 0;
+      const flat = d.avgDelta === 0;
+      doc.fontSize(9).font('Helvetica').fillColor(TEXT).text(d.label, 50, y, { width: 150, lineBreak: false });
+      doc.fillColor(flat ? MUTED : bandOnLight(better ? 'green' : 'red'))
+        .text(`${d.avgDelta > 0 ? '+' : ''}${d.avgDelta}`, 205, y, { width: 60, align: 'right', lineBreak: false });
+      doc.fillColor(MUTED).fontSize(8)
+        .text(d.higherBetter ? '(higher is better)' : '(lower is better)', 275, y + 1, { lineBreak: false });
+      doc.fillColor(TEXT);
+      doc.y = y + 13;
+    }
+  }
+}
+
 function riskLegend(doc) {
   ensure(doc, 16);
   const y = doc.y; let x = 50;
@@ -771,9 +877,9 @@ function interpret(screening, cohort, subitems) {
 
 
 module.exports = {
-  BAND, ELEVATED_THRESHOLD, GOLD, GRID, MUTED, NAVY, RISKS, SCORE_ROWS, TEXT, bandColor, bandLabel, 
-  bandPill, bandTable, bar, bullets, cover, ensure, fileSlug, finish, fmtDate, hotspotBar, interpret, 
-  keyFindings, keyFindingsBox, muscleFigure, num, radar, riskLegend, sectionTitle, squadMuscleHotspots, 
-  squadSubitemHeatmap, squadSymmetrySection, startDoc, subitemPriorities, subitemTable, symmetrySection, 
-  todayStamp, zoneGauge,
+  BAND, ELEVATED_THRESHOLD, GOLD, GRID, MUTED, NAVY, RISKS, SCORE_ROWS, TEXT, bandColor, bandLabel,
+  bandPill, bandTable, bar, betweenTestsBlock, bullets, cover, ensure, fileSlug, finish, fmtDate,
+  hotspotBar, interpret, keyFindings, keyFindingsBox, muscleFigure, num, periodTable, radar,
+  riskLegend, sectionTitle, squadMuscleHotspots, squadSubitemHeatmap, squadSymmetrySection, startDoc,
+  subitemPriorities, subitemTable, symmetrySection, todayStamp, zoneGauge,
 };

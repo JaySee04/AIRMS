@@ -2,6 +2,7 @@ const express = require('express');
 const { Op } = require('sequelize');
 const { Athlete, MuscleFlag, Screening, AthleteDiscipline } = require('../models');
 const { screeningMovement } = require('../utils/cohorts');
+const { screeningPeriods, GRAINS } = require('../utils/screeningPeriods');
 
 // Only the columns the indicator payload needs — keeps the big JSON/TEXT
 // columns (muscle_flags, summary_text) and the 12 raw scores out of the row.
@@ -270,6 +271,90 @@ router.get('/analytics/screening', auth, rbac('admin'), async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+});
+
+// GET /api/athletes/analytics/periods — screening-programme activity over time.
+// The administrator's own performance view: how many athletes were tested per
+// year / quarter / month, whether population scores are rising or falling, and
+// what happens between an athlete's own successive tests. Declared BEFORE /:id.
+//
+// Takes the same cohort slicers as /analytics/screening (sport / programme /
+// gender / age) plus `discipline`, so a period comparison can be narrowed to
+// the group actually under discussion — a whole-institution average moves for
+// reasons that have nothing to do with any one squad.
+//
+// `from`/`to` bound the window (ISO dates). Aggregation runs over the immutable
+// `screenings` history rather than the athletes table, so every test an athlete
+// has ever had counts, not just their latest.
+router.get('/analytics/periods', auth, rbac('admin'), async (req, res) => {
+  try {
+    const {
+      grain = 'quarter', sport, program, gender, discipline, ageMin, ageMax, from, to,
+    } = req.query;
+    if (!GRAINS.includes(String(grain))) {
+      return res.status(400).json({ message: `grain must be one of: ${GRAINS.join(', ')}` });
+    }
+
+    const where = { isActive: true };
+    if (sport) where.sport = sport;
+    if (program) where.program = program;
+    if (gender) where.gender = gender;
+    if (ageMin || ageMax) {
+      where.age = {};
+      if (ageMin) where.age[Op.gte] = Number(ageMin);
+      if (ageMax) where.age[Op.lte] = Number(ageMax);
+    }
+
+    // Discipline is a separate table, so narrow the roster by a subquery on the
+    // athletes who compete in it rather than joining every screening row.
+    if (discipline) {
+      const inDiscipline = await AthleteDiscipline.findAll({
+        where: { discipline }, attributes: ['athleteId'], raw: true,
+      });
+      where.athleteId = { [Op.in]: inDiscipline.map((d) => d.athleteId) };
+    }
+
+    const roster = await Athlete.findAll({ where, attributes: ['athleteId'], raw: true });
+    const ids = roster.map((r) => r.athleteId);
+
+    const empty = {
+      grain, periods: [], betweenTests: null,
+      coverage: { rostered: roster.length, tested: 0, untested: roster.length, tests: 0 },
+    };
+    if (!ids.length) return res.json(empty);
+
+    const scrWhere = { athleteId: { [Op.in]: ids } };
+    if (from || to) {
+      scrWhere.assessedAt = {};
+      if (from) scrWhere.assessedAt[Op.gte] = new Date(from);
+      if (to) scrWhere.assessedAt[Op.lte] = new Date(to);
+    }
+    const rows = await Screening.findAll({
+      where: scrWhere,
+      attributes: [
+        'id', 'athleteId', 'assessedAt', 'totalScore', 'rom', 'stability', 'symmetry',
+        'exerciseRisks', 'overallIndicator', 'overallBand', 'overrideBand',
+      ],
+      order: [['assessedAt', 'ASC'], ['id', 'ASC']],
+      raw: true,
+    });
+
+    const result = screeningPeriods(rows, { grain });
+    const tested = new Set(rows.map((r) => r.athleteId)).size;
+    return res.json({
+      ...result,
+      // Coverage is the roster measured against the WINDOW, so a narrow
+      // from/to correctly shows athletes as untested in that window.
+      coverage: {
+        rostered: roster.length,
+        tested,
+        untested: Math.max(0, roster.length - tested),
+        tests: rows.length,
+      },
+    });
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
   }
 });
 

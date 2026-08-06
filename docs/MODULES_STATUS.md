@@ -290,6 +290,21 @@ removed with the `Injury` model by the HoloMotion-only cut.
 > these — rewrite pending, see [`fyp/JC_CHECKLIST.md`](fyp/JC_CHECKLIST.md).
 
 **Current state (functional):**
+- ✅ **Screening-programme activity (2026-08-06)** — the administrator's own
+  performance view rather than an athlete's. `GET /athletes/analytics/periods`
+  buckets the immutable screening history **yearly / quarterly / monthly** and
+  reports throughput (athletes tested vs rostered, tests performed, athletes
+  retested within a period) alongside population averages and the direction of
+  travel against the previous period. A second reading, **between successive
+  tests**, pairs each athlete with themselves — improved / declined / unchanged,
+  band moves, and the median retest interval — because that is the only
+  comparison that can claim athletes changed rather than the tested population
+  having changed. Both take the same cohort slicers as the rest of the page
+  (sport / programme / gender / age, plus `discipline` on the API) so a period
+  comparison can be narrowed to the group under discussion. Surfaced on
+  `/admin/dashboard` behind a Monthly/Quarterly/Yearly toggle **and** as the
+  opening two sections of the holistic PDF (`?grain=`), since that report is
+  what goes to management
 - ✅ `/admin/dashboard` is a **screening** cohort analytics page — reads
   `GET /api/athletes/analytics/screening` (band counts per indicator, averages,
   top-flagged muscles, cohort trend, band distribution), filtered by

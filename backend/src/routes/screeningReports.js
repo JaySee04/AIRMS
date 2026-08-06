@@ -20,23 +20,40 @@ const {
   latestScreeningsByAthlete, resolveCohortStats, orientedComponents, computeStats,
 } = require('../utils/cohorts');
 const { getSettings } = require('../utils/settings');
+const { screeningPeriods } = require('../utils/screeningPeriods');
 const {
   BAND, ELEVATED_THRESHOLD, GOLD, GRID, MUTED, NAVY, RISKS, SCORE_ROWS, TEXT, bandColor, bandLabel,
-  bandPill, bandTable, bar, bullets, cover, ensure, fileSlug, finish, fmtDate, hotspotBar, interpret,
-  keyFindings, keyFindingsBox, muscleFigure, num, radar, riskLegend, sectionTitle, squadMuscleHotspots,
-  squadSubitemHeatmap, squadSymmetrySection, startDoc, subitemPriorities, subitemTable, symmetrySection,
-  todayStamp, zoneGauge,
+  bandPill, bandTable, bar, betweenTestsBlock, bullets, cover, ensure, fileSlug, finish, fmtDate,
+  hotspotBar, interpret, keyFindings, keyFindingsBox, muscleFigure, num, periodTable, radar,
+  riskLegend, sectionTitle, squadMuscleHotspots, squadSubitemHeatmap, squadSymmetrySection, startDoc,
+  subitemPriorities, subitemTable, symmetrySection, todayStamp, zoneGauge,
 } = require('../utils/pdfDraw');
 
 const router = express.Router();
 
 // ── 1. Holistic (admin) ─────────────────────────────────────────────────────
-router.get('/holistic.pdf', auth, rbac('admin'), async (_req, res) => {
+router.get('/holistic.pdf', auth, rbac('admin'), async (req, res) => {
   try {
-    const [rows, totalActive] = await Promise.all([
+    // `grain` lets the same report be pulled for a monthly, quarterly or yearly
+    // management review; quarterly is the default because it is the cadence ISN
+    // actually screens at.
+    const grain = ['month', 'quarter', 'year'].includes(String(req.query.grain))
+      ? String(req.query.grain) : 'quarter';
+    const [rows, totalActive, history] = await Promise.all([
       latestScreeningsByAthlete(),
       Athlete.count({ where: { isActive: true } }),
+      // The FULL screening history, not just each athlete's latest — the
+      // programme-activity section counts every test ever performed.
+      Screening.findAll({
+        attributes: [
+          'id', 'athleteId', 'assessedAt', 'totalScore', 'rom', 'stability', 'symmetry',
+          'exerciseRisks', 'overallIndicator', 'overallBand', 'overrideBand',
+        ],
+        order: [['assessedAt', 'ASC'], ['id', 'ASC']],
+        raw: true,
+      }),
     ]);
+    const activity = screeningPeriods(history, { grain });
     const doc = startDoc(res, `AIRMS_Holistic_${todayStamp()}.pdf`);
     cover(doc, 'Holistic Screening Report', `All athletes · ${todayStamp()}`);
 
@@ -45,8 +62,19 @@ router.get('/holistic.pdf', auth, rbac('admin'), async (_req, res) => {
       + `(${totalActive ? Math.round((rows.length / totalActive) * 100) : 0}% coverage). `
       + 'All comparisons below are cohort-normed (sport × programme × gender).', 50);
 
+    // Screening-programme activity. Deliberately the FIRST section: this report
+    // goes to management, and "how much did we screen, and which way is the
+    // population moving" is their question. Everything after it is the current
+    // snapshot.
+    const grainWord = { month: 'Monthly', quarter: 'Quarterly', year: 'Yearly' }[grain];
+    sectionTitle(doc, `Screening Programme Activity (${grainWord})`);
+    periodTable(doc, activity.periods);
+
+    sectionTitle(doc, 'Change Between Successive Tests', 120);
+    betweenTestsBlock(doc, activity.betweenTests);
+
     // Band distribution
-    sectionTitle(doc, 'Overall Risk Distribution');
+    sectionTitle(doc, 'Overall Risk Distribution', 110);
     const bands = { green: 0, amber: 0, red: 0, none: 0 };
     rows.forEach(({ screening }) => { bands[(screening.overrideBand || screening.overallBand) || 'none']++; });
     const total = rows.length || 1;

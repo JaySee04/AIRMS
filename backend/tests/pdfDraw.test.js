@@ -131,6 +131,38 @@ describe('pdfDraw toolkit', () => {
     expect(Array.isArray(D.squadMuscleHotspots(members))).toBe(true);
   });
 
+  it('renders the programme-activity sections without throwing', async () => {
+    const { screeningPeriods } = require('../src/utils/screeningPeriods');
+    const activity = screeningPeriods([
+      { id: 1, athleteId: 'A', assessedAt: new Date('2026-01-10T00:00:00Z'), overallIndicator: 48, exerciseRisks: 22, totalScore: 70, rom: 74, stability: 68, symmetry: 71, overallBand: 'amber' },
+      { id: 2, athleteId: 'B', assessedAt: new Date('2026-02-02T00:00:00Z'), overallIndicator: 55, exerciseRisks: 18, totalScore: 76, rom: 80, stability: 72, symmetry: 75, overallBand: 'green' },
+      { id: 3, athleteId: 'A', assessedAt: new Date('2026-05-11T00:00:00Z'), overallIndicator: 61, exerciseRisks: 14, totalScore: 80, rom: 85, stability: 76, symmetry: 78, overallBand: 'green' },
+    ], { grain: 'quarter' });
+
+    const { pdf } = await render((doc) => {
+      D.cover(doc, 'Holistic Screening Report', 'All athletes');
+      D.sectionTitle(doc, 'Screening Programme Activity (Quarterly)');
+      D.periodTable(doc, activity.periods);
+      D.sectionTitle(doc, 'Change Between Successive Tests', 120);
+      D.betweenTestsBlock(doc, activity.betweenTests);
+    });
+    expect(isPdf(pdf)).toBe(true);
+  });
+
+  // A brand-new institution: a roster, but nobody screened twice yet.
+  it('renders programme activity with no periods and no retests', async () => {
+    const { pdf } = await render((doc) => {
+      D.periodTable(doc, []);
+      D.betweenTestsBlock(doc, null);
+      D.betweenTestsBlock(doc, {
+        pairs: 0, athletesWithRetest: 0, improved: 0, declined: 0, steady: 0,
+        intervalDays: { median: null, min: null, max: null },
+        bandMoves: { better: 0, worse: 0, same: 0 }, deltas: [],
+      });
+    });
+    expect(isPdf(pdf)).toBe(true);
+  });
+
   // The shapes manual eyeballing never covers: a screening with nothing in it.
   it('survives null / empty screening data', async () => {
     const empty = { athleteId: 'x' };
