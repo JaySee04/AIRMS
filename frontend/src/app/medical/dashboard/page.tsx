@@ -65,7 +65,6 @@ export default function MedicalDashboard() {
   const [loadingList, setLoadingList] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
 
-  // Selected-athlete state
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedAthlete, setSelectedAthlete] = useState<AthleteFull | null>(null);
   // A PAST screening the clinician chose to view (null = the athlete's latest).
@@ -84,7 +83,6 @@ export default function MedicalDashboard() {
   const [eventDraft, setEventDraft] = useState<string[]>([]);
   const [eventsSaving, setEventsSaving] = useState(false);
 
-  // Reset any picked past-screening when the selected athlete changes.
   useEffect(() => { setPicked(null); }, [selectedId]);
 
   async function saveEvents() {
@@ -140,7 +138,6 @@ export default function MedicalDashboard() {
     }
   }
 
-  // Initial roster load.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -166,7 +163,6 @@ export default function MedicalDashboard() {
     };
   }, []);
 
-  // Per-selection data load
   useEffect(() => {
     if (!selectedId) {
       setSelectedAthlete(null);
@@ -194,7 +190,6 @@ export default function MedicalDashboard() {
     };
   }, [selectedId]);
 
-  // Filtered roster
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return athletes.filter((a) => {

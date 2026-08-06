@@ -44,7 +44,6 @@ export default function AdminPersonnelPage() {
   const [error, setError] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
 
-  // Add-account form
   const [role, setRole] = useState<Role>('coach');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');

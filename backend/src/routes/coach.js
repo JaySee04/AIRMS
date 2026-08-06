@@ -87,7 +87,6 @@ router.get('/readiness', auth, rbac('coach'), async (req, res) => {
         program: a.program,
         gender: a.gender ?? null,
         age: a.age ?? null,
-        // Events this athlete competes in (e.g. badminton Men's Doubles).
         disciplines: (a.disciplines || []).map((d) => d.discipline),
         // 8 per-region exercise-risk indicators — drive the sport-aware
         // screening detail on the coach dashboard (lib/screeningAlerts.ts).

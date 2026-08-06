@@ -85,12 +85,8 @@ const SLUG_TO_SUBITEM_REGION: Record<string, SubitemRegionKey> = Object.fromEntr
 );
 const SUBITEM_SCOPED_SLUGS: Set<string> = new Set(Object.keys(SLUG_TO_SUBITEM_REGION));
 
-// HoloMotion quality tiers, 0–100 higher-better. The local copies these used
-// to be were the reason the lowest tier read "Below" here and "Below Average"
-// in the panel this figure sits beside; boundaries, ranks and wording now come
-// from lib/holomotionTiers.ts. The FILLS still come from the
-// .excellent/.good/.average/.below classes in globals.css, which resolve to the
-// same four risk tokens that file names.
+// Boundaries, ranks and wording from lib/holomotionTiers.ts; the fills come
+// from the .excellent/.good/.average/.below classes, same four tokens.
 const subitemTierOf = tierOf;
 
 function buildFlagMap(entries: MuscleEntry[]): FlagMap {

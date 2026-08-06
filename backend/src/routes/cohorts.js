@@ -75,7 +75,6 @@ router.get('/versions', auth, rbac('admin', 'medical'), canEditNorms, async (_re
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-// PATCH /api/cohorts/versions/:id — rename a saved version.
 router.patch('/versions/:id', auth, rbac('admin', 'medical'), canEditNorms, async (req, res) => {
   try {
     const v = await CohortNormVersion.findByPk(req.params.id);
@@ -112,7 +111,6 @@ router.post('/versions/:id/restore', auth, rbac('admin'), async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-// DELETE /api/cohorts/versions/:id — remove a saved version.
 router.delete('/versions/:id', auth, rbac('admin'), async (req, res) => {
   try {
     const n = await CohortNormVersion.destroy({ where: { id: req.params.id } });
@@ -208,7 +206,6 @@ router.get('/settings/all', auth, rbac('admin', 'medical'), canEditNorms, async 
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-// PATCH /api/settings — update one or more settings, then re-score.
 router.patch('/settings/all', auth, rbac('admin'), async (req, res) => {
   try {
     for (const [k, v] of Object.entries(req.body || {})) {

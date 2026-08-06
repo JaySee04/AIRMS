@@ -30,7 +30,6 @@ const RESET_VERIFY_TOKEN_BYTES = 32;
 const generateResetCode = () => String(crypto.randomInt(0, 1000000)).padStart(6, '0');
 const hashResetCode = (raw) => crypto.createHash('sha256').update(String(raw)).digest('hex');
 
-// POST /api/auth/login
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -199,7 +198,6 @@ router.post('/reset-password', async (req, res) => {
       return res.status(400).json({ message: 'Verification token is invalid. Please restart the password reset.' });
     }
 
-    // Apply the new password and clear all reset state.
     user.password = password;
     user.resetTokenHash = null;
     user.resetTokenExpiresAt = null;
@@ -251,7 +249,6 @@ router.post('/change-password', authMiddleware, async (req, res) => {
   }
 });
 
-// GET /api/auth/me — verify token and return current user
 router.get('/me', authMiddleware, (req, res) => {
   res.json({
     user: {

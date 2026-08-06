@@ -163,7 +163,6 @@ export default function CoachDashboard() {
     setPicked(null); // reset to the latest screening when switching athletes
   }, [selectedId]);
 
-  // Programmes present in the squad (for the filter dropdown).
   const programmes = useMemo(() => {
     const set = new Set<string>();
     (data?.athletes ?? []).forEach((a) => { if (a.program) set.add(a.program); });
@@ -208,7 +207,6 @@ export default function CoachDashboard() {
     return c;
   }, [classified]);
 
-  // Screening coverage in the current view.
   const coverage = useMemo(
     () => ({ scored: classified.filter((x) => x.band).length, total: classified.length }),
     [classified],

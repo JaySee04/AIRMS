@@ -23,7 +23,6 @@ function publicUser(user) {
   return { ...plain, _id: String(user.id) };
 }
 
-// GET /api/users/permission-meta — the permission catalogue for the UI.
 router.get('/permission-meta', (_req, res) => {
   res.json({ keys: PERMISSION_KEYS, labels: PERMISSION_LABELS });
 });

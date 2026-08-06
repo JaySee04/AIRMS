@@ -50,10 +50,8 @@ export interface ScreeningData {
 // stays exact.
 const STRIP_MAX = 40;
 
-// HoloMotion quality tiers for the 0–100 gauges (higher is better).
-// Boundaries, wording and colour all come from lib/holomotionTiers.ts — the
-// same source the subitem table and the body map read, so one score cannot be
-// called "Below Average" here and "Below" in the table rendered beneath it.
+// HoloMotion quality tiers for the 0–100 gauges — shared with the subitem
+// table rendered beneath and the body map beside (lib/holomotionTiers.ts).
 const qualityBand = tierMeta;
 
 // Presentation for a lower-is-better band (Exercise Risks gauge + indicators).

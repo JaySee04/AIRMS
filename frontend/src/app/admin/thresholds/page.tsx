@@ -31,7 +31,6 @@ interface Cohort {
 }
 interface SettingsResp { settings: Record<string, number | boolean | string>; defaults: Record<string, number | boolean | string>; }
 
-// A cohort member row for the membership panel (B3/B4/B5).
 interface Member {
   athleteId: string; name: string; program: string | null; gender: string | null;
   isInjured: boolean; normExcluded: boolean;
@@ -45,7 +44,6 @@ const REASON_LABEL: Record<string, string> = {
   injured: 'Injured', excluded: 'Excluded (manual)', 'below-total': 'Below Total', 'below-rom': 'Below ROM', 'below-stability': 'Below Stability',
 };
 
-// Compact 0–100 score bar for the membership panel.
 function ScoreBar({ v }: { v: number | null }) {
   const val = v ?? 0;
   return (
@@ -87,7 +85,6 @@ export default function CohortThresholdsPage() {
   const [membersFor, setMembersFor] = useState<number | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [membersBusy, setMembersBusy] = useState(false);
-  // Saved norm versions (B1).
   const [versions, setVersions] = useState<Version[]>([]);
   const [versionName, setVersionName] = useState('');
   const [busy, setBusy] = useState(false);

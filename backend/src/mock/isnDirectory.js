@@ -95,7 +95,6 @@ const ISN_DIRECTORY = [
   },
 ];
 
-// Age in whole years from a YYYY-MM-DD date of birth.
 function ageFromDob(dob) {
   if (!dob) return null;
   const d = new Date(dob);
@@ -139,7 +138,6 @@ function searchIsn(query, { limit = 20 } = {}) {
     .map(toAirmsRecord);
 }
 
-// Fetch a single ISN athlete by exact IC number, or null.
 function getIsnByIC(ic) {
   const key = String(ic || '').trim();
   const hit = ISN_DIRECTORY.find((r) => r.icNumber === key);

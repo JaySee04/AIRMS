@@ -22,7 +22,6 @@ export const SPORT_DISCIPLINES: Record<string, string[]> = {
   Squash: RACKET_EVENTS,
 };
 
-// Events for a sport, or an empty list if the sport has none.
 export function disciplinesForSport(sport: string | null | undefined): string[] {
   if (!sport) return [];
   return SPORT_DISCIPLINES[sport] ?? [];

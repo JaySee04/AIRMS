@@ -11,8 +11,8 @@ const Setting = require('./Setting');
 const CohortThreshold = require('./CohortThreshold');
 const CohortNormVersion = require('./CohortNormVersion');
 
-// Athlete ↔ MuscleFlag (1:N) — using athleteId VARCHAR as the FK so the
-// canonical "ATH0001" identifier stays the cross-table key.
+// Athlete ↔ MuscleFlag (1:N) — athleteId is a VARCHAR FK: its values are the
+// athlete’s IC number (A2, 2026-08-04), not a synthetic integer.
 Athlete.hasMany(MuscleFlag, { foreignKey: 'athleteId', sourceKey: 'athleteId', as: 'muscleFlags' });
 MuscleFlag.belongsTo(Athlete, { foreignKey: 'athleteId', targetKey: 'athleteId' });
 

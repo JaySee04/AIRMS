@@ -12,17 +12,8 @@
 //     threshold" rule: a threshold breach alone won't escalate (>90% of the
 //     squad trips one), only a breach where the athlete is also clearly worse
 //     than their cohort on that specific measure. Admin-toggleable.
-//   FLOOR (not a stacking escalation): a SIGNIFICANT active injury —
-//     Moderate/Severe, or any Chronic (Module 2 logging stream) — floors the
-//     band at amber ("needs attention"). It never by itself produces red:
-//     "immediate assessment" stays the screening cohort verdict. A Minor
-//     still-recovering niggle is logged/shown but does not floor the band.
-//     Admin-toggleable. Reconnects injury history to the score without
-//     inflating the red population (stacking it as +1 took the squad to ~36%
-//     red vs the ~25% screening baseline; the floor keeps red anchored there).
 //   band: 0 escalations = green · 1 = amber (needs attention) · ≥2 = red
-//         (immediate assessment); the injury floor can lift green → amber.
-//         The escalation count (screening only) reaches at most 3.
+//         (immediate assessment). The count reaches at most 3.
 //
 // So a "good raw score" athlete who is nonetheless below his cohort and among
 // the worst performers escalates twice → red, exactly as specified.

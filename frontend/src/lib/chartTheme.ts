@@ -29,10 +29,8 @@ export interface ChartPalette {
   barFill: string;  // translucent fill for line/area datasets
   cardBg: string;   // the card surface — used to section pie/doughnut slices (Google-Forms style)
   // Status colours, for charts that draw a risk meaning (an Elevated cutoff, a
-  // breached spoke). These MUST track the --risk-* custom properties in
-  // globals.css, because the same status is drawn as CSS elsewhere on the page:
-  // a radar sits directly beside the risk hero, so a threshold ring in one red
-  // and a band badge in another reads as two different meanings.
+  // breached spoke). Must track --risk-* in globals.css: a radar sits beside
+  // the risk hero, and two reds a few pixels apart read as two meanings.
   riskLow: string;
   riskMod: string;
   riskHigh: string;

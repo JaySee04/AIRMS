@@ -65,7 +65,7 @@ export default function AthleteSearchSelect({ athletes, onSelect, placeholder = 
     else if (e.key === 'Enter') {
       e.preventDefault();
       if (open && filtered[active]) { choose(filtered[active]); return; }
-      // No highlighted row: accept a typed exact-name / ATH-id match.
+      // No highlighted row: accept a typed exact-name / IC-number match.
       const id = resolveAthleteId(input, athletes);
       const hit = athletes.find((a) => a.athleteId === id);
       if (hit) choose(hit);

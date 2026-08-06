@@ -25,7 +25,6 @@ router.get('/athletes', auth, rbac('medical', 'admin'), async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-// GET /api/isn/athletes/:ic — one ISN athlete by IC, or 404.
 router.get('/athletes/:ic', auth, rbac('medical', 'admin'), async (req, res) => {
   try {
     const rec = getIsnByIC(req.params.ic);

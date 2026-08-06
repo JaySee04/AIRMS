@@ -1,9 +1,6 @@
-// pdfkit drawing toolkit for the HoloMotion screening reports.
-//
-// Extracted verbatim from routes/screeningReports.js (2026-08-06) — that file
-// had grown to ~60 KB by holding both "how a report is drawn" and "which route
-// serves it". Nothing here was rewritten in the move; only the module boundary
-// is new. Route handlers live in routes/screeningReports.js and call into this.
+// pdfkit drawing toolkit for the HoloMotion screening reports. Route handlers
+// live in routes/screeningReports.js and call into this; that file does
+// routing, fetching and page composition only.
 //
 // Scale/density is modelled on the TMG group/individual report format JC
 // provided (multi-page, radar + zone gauges + per-athlete sections +
@@ -28,15 +25,9 @@ const GOLD = '#c89b3c';
 const MUTED = '#6b7280';
 const TEXT = '#1a2533';
 const GRID = '#e2e6ea';
-// Traffic-light bands. These are the LIGHT-THEME values of the website's
-// --risk-low / --risk-moderate / --risk-high tokens, so the same verdict is the
-// same colour on screen and on paper.
-//
-// They used to be #2e9e5b / #d99a16 / #d14b4b — a second, slightly brighter
-// palette invented for the PDF. That made the reports internally inconsistent
-// as well as divergent from the app: TIERS below already used the website
-// values, so an "Excellent" disc (#3d7c47) and a "Safe" pill (#2e9e5b) were two
-// different greens on the same page. Aligned 2026-08-06.
+// Traffic-light bands — the light-theme values of the website's --risk-low /
+// --risk-moderate / --risk-high, so a verdict is the same colour on screen and
+// on paper. Do not re-invent a print palette here (DESIGN_DECISIONS §19).
 const BAND = { green: '#3d7c47', amber: '#c89b3c', red: '#b03030' };
 const bandColor = (b) => BAND[b] || MUTED;
 // Text drawn ON a band fill. Amber is a light yellow — white on it fails

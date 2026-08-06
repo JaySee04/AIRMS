@@ -39,20 +39,20 @@ const RISK_AXIS = 40; // display axis — matches the dashboard strips
 
 const num = (v: unknown): number | null => (v === null || v === undefined || v === '' || Number.isNaN(Number(v)) ? null : Number(v));
 
+// Amber is a light yellow — white on it fails legibility, so filled amber
+// marks take dark ink (same rule as pdfDraw.js BAND_INK).
+const AMBER_INK = '#3d2f05';
+
 // Exercise-risk band (lower is better): Low ≤15 · Watch ≤25 · Elevated >25.
 function riskBand(v: number) {
   if (v > 25) return { label: 'Elevated', color: 'var(--risk-high)', onFill: '#fff' };
   if (v > 15) return { label: 'Watch', color: 'var(--risk-moderate)', onFill: AMBER_INK };
   return { label: 'Low', color: 'var(--risk-low)', onFill: '#fff' };
 }
-// HoloMotion quality tier for the 0–100 headline gauges (higher is better) —
-// from lib/holomotionTiers.ts, the same source the dashboards read, so the
-// operator verifies an import against the wording they will see afterwards.
-const tier = tierMeta;
 
-// The amber token is a light yellow: white on it fails legibility, so filled
-// amber marks take dark ink. Same rule the PDF applies (pdfDraw.js BAND_INK).
-const AMBER_INK = '#3d2f05';
+// Same tier source as the dashboards, so the operator verifies an import
+// against the wording they will see afterwards.
+const tier = tierMeta;
 
 function Pill({ text, color, ink = '#fff' }: { text: string; color: string; ink?: string }) {
   return (

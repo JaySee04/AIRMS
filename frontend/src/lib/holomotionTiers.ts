@@ -1,29 +1,16 @@
 // The HoloMotion quality tier — the instrument's own 60 / 75 / 85 boundaries
-// for every 0-100 "higher is better" score (headline gauges, the 25 subitem
-// scores, the body map's ROM & Stability mode).
+// for every 0–100 "higher is better" score: the headline gauges, the 25 subitem
+// scores, and the body map's ROM & Stability mode.
 //
-// WHY THIS EXISTS
-// This tier was defined independently in four places — ScreeningPanel's
-// qualityBand(), SubitemTable's tier(), BodyMap's worstTier() + TIER_LABEL, and
-// the PDF's TIERS in backend/src/utils/pdfDraw.js. The boundaries agreed, but
-// the wording had already drifted: the lowest tier read "Below Average" in the
-// panel and on the PDF, and "Below" in the subitem table and the body-map
-// legend — and ScreeningPanel *renders SubitemTable inside itself*, so both
-// words appeared on screen at once, describing the same number.
+// Sole definition of the boundaries, wording and colours. It was previously
+// duplicated across five components and the wording had drifted (see
+// DESIGN_DECISIONS §19). Colours are CSS custom properties so a tier follows
+// the theme; BodyMap paints via the .excellent/.good/.average/.below classes,
+// which resolve to the same four tokens.
 //
-// Colours are CSS custom properties, not literals, so a tier follows the theme.
-// The four risk tokens carry the tier meaning across the whole app:
-//   --risk-low          green   Excellent
-//   --risk-undertrained blue    Good
-//   --risk-moderate     amber   Average
-//   --risk-high         red     Below Average
-// (BodyMap fills its shapes through the .excellent/.good/.average/.below
-// classes in globals.css, which resolve to these same four tokens.)
-//
-// The backend PDF cannot read CSS variables, so pdfDraw.js keeps its own TIERS
-// table with the light-theme values of these tokens written out. That copy is
-// deliberate and is marked as a mirror of this file — if a boundary, a label or
-// a colour changes here, change it there too.
+// pdfDraw.js keeps a written-out copy of the light-theme values — a Node
+// process can't read CSS variables. Change a boundary, label or colour here and
+// change it there too.
 
 export type TierState = 'excellent' | 'good' | 'average' | 'below';
 

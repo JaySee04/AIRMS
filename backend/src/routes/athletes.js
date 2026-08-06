@@ -3,10 +3,8 @@ const { Op } = require('sequelize');
 const { Athlete, MuscleFlag, Screening, AthleteDiscipline } = require('../models');
 const { screeningMovement } = require('../utils/cohorts');
 
-// The Screening columns latestIndicator() actually reads. Naming them keeps the
-// big JSON/TEXT columns this shape never uses (muscle_flags, summary_text) and
-// the 12 raw score columns out of the row — the dashboard's per-athlete fetch
-// is on the critical path for every page load.
+// Only the columns the indicator payload needs — keeps the big JSON/TEXT
+// columns (muscle_flags, summary_text) and the 12 raw scores out of the row.
 const INDICATOR_ATTRS = [
   'id', 'assessedAt', 'overallIndicator', 'overallBand', 'escalations', 'factors',
   'subitems', 'overrideBand', 'overrideNote', 'overrideBy', 'overrideAt',
@@ -44,10 +42,9 @@ async function latestIndicator(athleteId) {
   return toIndicator(s);
 }
 
-// Same thing for MANY athletes in a single query. One ordered fetch, then keep
-// the first row per athlete — the (athlete_id, assessed_at) index on screenings
-// serves the ordering. Mirrors the batching already used in routes/coach.js;
-// doing this per-athlete instead costs one round trip per squad member.
+// Many athletes in ONE query: one ordered fetch off the (athlete_id,
+// assessed_at) index, keeping the first row per athlete. Per-athlete calls here
+// cost a round trip per squad member. Same batching as routes/coach.js.
 async function latestIndicatorsFor(athleteIds) {
   const byAthlete = new Map();
   if (!athleteIds.length) return byAthlete;
@@ -84,7 +81,6 @@ async function syncDisciplines(athleteId, disciplines) {
   }
 }
 
-// GET /api/athletes — list athletes (medical, admin)
 router.get('/', auth, rbac('medical', 'admin'), requirePermission('viewRecords'), async (req, res) => {
   try {
     const { sport, program, gender, discipline, search } = req.query;
@@ -341,7 +337,6 @@ router.get('/:id', auth, requirePermission('viewRecords'), async (req, res) => {
   }
 });
 
-// POST /api/athletes — create athlete (admin only)
 router.post('/', auth, rbac('admin'), async (req, res) => {
   try {
     // Caller may submit nested `risks` { ... }; flatten to columns.
@@ -349,7 +344,6 @@ router.post('/', auth, rbac('admin'), async (req, res) => {
     const payload = { ...rest, ...(risks || {}) };
     const athlete = await Athlete.create(payload);
 
-    // Optional muscle-flag rows submitted alongside the athlete payload.
     if (Array.isArray(myodynamia)) {
       await MuscleFlag.bulkCreate(
         myodynamia.map((m) => ({ athleteId: athlete.athleteId, flagType: 'myodynamia', muscle: m.muscle, side: m.side }))
@@ -375,7 +369,6 @@ router.post('/', auth, rbac('admin'), async (req, res) => {
   }
 });
 
-// PATCH /api/athletes/:id — update athlete record (medical, admin)
 router.patch('/:id', auth, rbac('medical', 'admin'), requirePermission('viewRecords'), async (req, res) => {
   try {
     const { risks, myodynamia, tension, disciplines, ...rest } = req.body;
@@ -387,7 +380,6 @@ router.patch('/:id', auth, rbac('medical', 'admin'), requirePermission('viewReco
     if (!exists) return res.status(404).json({ message: 'Athlete not found' });
     if (Object.keys(payload).length > 0) await Athlete.update(payload, { where: { athleteId: req.params.id } });
 
-    // Replace muscle-flag arrays if the caller sent new ones.
     if (Array.isArray(myodynamia)) {
       await MuscleFlag.destroy({ where: { athleteId: req.params.id, flagType: 'myodynamia' } });
       await MuscleFlag.bulkCreate(

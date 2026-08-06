@@ -67,7 +67,6 @@ export default function ScreeningHistory({ athleteId, headerAction }: {
     return () => { cancelled = true; };
   }, [athleteId]);
 
-  // Nothing to say until there's at least one screening on record.
   if (!rows || rows.length === 0) return null;
 
   const first = rows[rows.length - 1]; // oldest

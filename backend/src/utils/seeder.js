@@ -125,12 +125,9 @@ function buildAthletes() {
     });
   }
 
-  // Anchor athlete — John Doe, the athlete-login demo (ATH0001). Values are
-  // HoloMotion-shaped integers preserving the profile the Module 2 walkthrough
-  // depends on: healthy overall, moderate spinal-disc / lumbar indicators, an
-  // elevated ankle, and 2+2 muscle flags — below the 5-flag escalation
-  // threshold in classifyCompositeRisk so his band escalates via active
-  // injuries ("Elevated"), not muscle-flag pile-up ("High Risk").
+  // Anchor athlete — John Doe, the athlete-login demo. Values are
+  // HoloMotion-shaped integers: healthy overall, moderate lumbar indicators, an
+  // elevated ankle, and 2+2 muscle flags.
   athletes[0] = {
     athleteId: icFor(1),
     name: 'John Doe',
@@ -196,7 +193,7 @@ function buildAthletes() {
     ],
   });
 
-  // Second ground-truth athlete — Muhammad Nazwan Bin Abdullah (ATH0062),
+  // Second ground-truth athlete — Muhammad Nazwan Bin Abdullah ,
   // transcribed 1:1 from his real HoloMotion report (2025-08-13). Distinct
   // page layout from Thung's, so importing both proves the layout-robust
   // extractor and gives a genuine two-athlete batch demo. Subitem scores +
@@ -272,10 +269,10 @@ function genSubitems(a) {
 // Build immutable Screening history snapshots. Every screened athlete gets one
 // snapshot mirroring their latest (athletes-table) values so Stage B cohort
 // stats have a full population. Ground-truth athletes get richer snapshots:
-//   - Thung (ATH0061): his seeded STALE values dated earlier — importing his
+//   - Thung: his seeded STALE values dated earlier — importing his
 //     real PDF then adds a newer, better snapshot → the individual report shows
 //     stale→good progress.
-//   - Nazwan (ATH0062): his real values + the real subitem table.
+//   - Nazwan: his real values + the real subitem table.
 function buildScreenings(athletes) {
   const daysAgo = (d) => { const dt = new Date(); dt.setDate(dt.getDate() - d); return dt; };
   const snap = (a, assessedAt, extra = {}) => ({
@@ -341,10 +338,10 @@ function buildUsers() {
     { name: 'Medical Demo 02', email: '23005005@siswa.um.edu.my', password: 'medical123', role: 'medical' },
     { name: 'John Doe', email: 'athlete@isn.gov.my', password: 'athlete123', role: 'athlete', athleteId: icFor(1) },
     // Ground-truth athlete login — Dr Thung's own HoloMotion report seeded
-    // 1:1 as ATH0061, so the athlete view can be checked against the PDF.
+    // 1:1, so the athlete view can be checked against the printed PDF.
     { name: 'Thung Jin Seng', email: 'thung@isn.gov.my', password: 'thung123', role: 'athlete', athleteId: icFor(61) },
-    // Coach role (first-class 4th role) — one sport per coach. Badminton includes ATH0001
-    // (John Doe) + ATH0061 (Thung), so the coach's squad overlaps the athlete
+    // Coach role (first-class 4th role) — one sport per coach. Badminton includes
+    // John Doe and Thung, so the coach's squad overlaps the athlete
     // demo logins.
     { name: 'Coach Demo 01', email: 'coach@isn.gov.my', password: 'coach123', role: 'coach', coachSport: 'Badminton' },
   ];
