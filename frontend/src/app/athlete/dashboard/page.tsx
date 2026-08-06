@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import type { MuscleEntry } from '@/components/dashboard/BodyMap';
 
@@ -16,18 +16,8 @@ import ScreeningPanel from '@/components/dashboard/ScreeningPanel';
 import OverallRiskBadge, { ScreeningIndicator } from '@/components/dashboard/OverallRiskBadge';
 import { api } from '@/lib/api';
 import { getSession } from '@/lib/auth';
-import { highThresholdsFor } from '@/lib/screeningAlerts';
-
-interface AthleteRisks {
-  neckInjuryRisk: number;
-  shoulderInjuryRisk: number;
-  scoliosis: number;
-  spinalDiscHerniation: number;
-  lumbarPelvisInjury: number;
-  jointPain: number;
-  kneeInjuryRisk: number;
-  ankleInjuryRisk: number;
-}
+import type { AthleteRisks } from '@/lib/screeningAlerts';
+import { RADAR_LABELS, highThresholdsFor, riskRadarSeries } from '@/lib/screeningAlerts';
 
 interface Athlete {
   athleteId: string;
@@ -45,17 +35,6 @@ interface Athlete {
   symmetry?: number;
   screening?: ScreeningIndicator | null;
 }
-
-const RISK_LABEL: Record<keyof AthleteRisks, string> = {
-  neckInjuryRisk: 'Neck',
-  shoulderInjuryRisk: 'Shoulder',
-  scoliosis: 'Scoliosis',
-  spinalDiscHerniation: 'Spinal Disc',
-  lumbarPelvisInjury: 'Lumbar/Pelvis',
-  jointPain: 'Joint Pain',
-  kneeInjuryRisk: 'Knee',
-  ankleInjuryRisk: 'Ankle',
-};
 
 export default function AthleteDashboard() {
   const [athleteId, setAthleteId] = useState<string | null>(null);
@@ -127,25 +106,15 @@ export default function AthleteDashboard() {
     );
   }
 
-  // Fixed canonical ordering (don't trust Object.keys iteration order).
-  // Values are clamped to the radar's display max so an out-of-range
-  // backend value can't silently clip outside the chart.
-  // spinalDiscHerniation (Lumbar Disc Herniation) is deliberately ABSENT: it is
-  // extracted and stored, but excluded from every risk display per Dr Thung —
-  // ISN's facilities don't support that assessment, so showing it would imply a
-  // reading the institute cannot stand behind. See MASTER_CLARIFICATIONS §6 and
-  // SHOWN_RISK_KEYS in backend/src/utils/cohorts.js (the scoring counterpart).
-  const RISK_KEYS: Array<keyof AthleteRisks> = [
-    'neckInjuryRisk',
-    'shoulderInjuryRisk',
-    'scoliosis',
-    'lumbarPelvisInjury',
-    'jointPain',
-    'kneeInjuryRisk',
-    'ankleInjuryRisk',
-  ];
-  const riskLabels = RISK_KEYS.map((k) => RISK_LABEL[k]);
-  const riskValues = RISK_KEYS.map((k) => Math.min(30, Math.max(0, athlete.risks[k] ?? 0)));
+  // Axis order, labels and clamping all come from RADAR_AXES in
+  // lib/screeningAlerts.ts — the single place that decides which indicators are
+  // shown. spinalDiscHerniation (Lumbar Disc Herniation) is deliberately absent
+  // there: it is extracted and stored, but excluded from every risk display per
+  // Dr Thung — ISN's facilities don't support that assessment, so showing it
+  // would imply a reading the institute cannot stand behind. See
+  // MASTER_CLARIFICATIONS §6 and SHOWN_RISK_KEYS in backend/src/utils/cohorts.js
+  // (the scoring counterpart).
+  const riskValues = riskRadarSeries(athlete.risks);
   const riskThresholds = highThresholdsFor(athlete.sport);
 
   return (
@@ -189,7 +158,7 @@ export default function AthleteDashboard() {
         </div>
         <div style={{ display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap' }}>
           <div style={{ flex: '1 1 420px', minWidth: 300, maxWidth: 520 }}>
-            <RiskRadar labels={riskLabels} values={riskValues} thresholds={riskThresholds} />
+            <RiskRadar labels={RADAR_LABELS} values={riskValues} thresholds={riskThresholds} />
           </div>
           <div style={{ flex: '1 1 260px', minWidth: 240 }}>
             <p style={{ margin: '0 0 10px', fontSize: '0.9rem', lineHeight: 1.5 }}>

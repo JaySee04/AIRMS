@@ -16,15 +16,12 @@ import ScreeningPanel from '@/components/dashboard/ScreeningPanel';
 import OverallRiskBadge, { ScreeningIndicator } from '@/components/dashboard/OverallRiskBadge';
 import { api } from '@/lib/api';
 import { getSession } from '@/lib/auth';
-import { highThresholdsFor } from '@/lib/screeningAlerts';
+import type { AthleteRisks } from '@/lib/screeningAlerts';
+import { RADAR_LABELS, highThresholdsFor, riskRadarSeries } from '@/lib/screeningAlerts';
 
 const BodyMap = dynamic(() => import('@/components/dashboard/BodyMap'), { ssr: false, loading: () => <div style={{ minHeight: 300 }} /> });
 const RiskRadar = dynamic(() => import('@/components/dashboard/RiskRadar'), { ssr: false, loading: () => <div style={{ height: 300 }} /> });
 
-interface AthleteRisks {
-  neckInjuryRisk: number; shoulderInjuryRisk: number; scoliosis: number; spinalDiscHerniation: number;
-  lumbarPelvisInjury: number; jointPain: number; kneeInjuryRisk: number; ankleInjuryRisk: number;
-}
 interface FullScreening {
   athleteId: string; name: string; sport: string; age?: number; gender?: string;
   risks: AthleteRisks; myodynamia: MuscleEntry[]; tension: MuscleEntry[];
@@ -33,13 +30,6 @@ interface FullScreening {
 }
 interface HistoryRow { id: number; assessedAt: string | null; overallBand?: string | null; overrideBand?: string | null; }
 
-const RISK_KEYS: Array<keyof AthleteRisks> = [
-  'neckInjuryRisk', 'shoulderInjuryRisk', 'scoliosis', 'lumbarPelvisInjury', 'jointPain', 'kneeInjuryRisk', 'ankleInjuryRisk',
-];
-const RISK_LABEL: Record<keyof AthleteRisks, string> = {
-  neckInjuryRisk: 'Neck', shoulderInjuryRisk: 'Shoulder', scoliosis: 'Scoliosis', spinalDiscHerniation: 'Spinal Disc',
-  lumbarPelvisInjury: 'Lumbar/Pelvis', jointPain: 'Joint Pain', kneeInjuryRisk: 'Knee', ankleInjuryRisk: 'Ankle',
-};
 const fmtDate = (d: string | null) => (d
   ? new Date(d).toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
   : 'Undated');
@@ -92,8 +82,7 @@ export default function AthleteHistoryPage() {
     return () => { cancelled = true; };
   }, [selectedId]);
 
-  const riskLabels = RISK_KEYS.map((k) => RISK_LABEL[k]);
-  const riskValues = useMemo(() => (full ? RISK_KEYS.map((k) => Math.min(30, Math.max(0, full.risks[k] ?? 0))) : []), [full]);
+  const riskValues = useMemo(() => (full ? riskRadarSeries(full.risks) : []), [full]);
   const riskThresholds = full ? highThresholdsFor(full.sport) : [];
 
   return (
@@ -137,7 +126,7 @@ export default function AthleteHistoryPage() {
             </div>
             <div style={{ display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap' }}>
               <div style={{ flex: '1 1 420px', minWidth: 300, maxWidth: 520 }}>
-                <RiskRadar labels={riskLabels} values={riskValues} thresholds={riskThresholds} />
+                <RiskRadar labels={RADAR_LABELS} values={riskValues} thresholds={riskThresholds} />
               </div>
               <div style={{ flex: '1 1 260px', minWidth: 240 }}>
                 <p style={{ margin: '0 0 10px', fontSize: '0.9rem', lineHeight: 1.5 }}>

@@ -34,7 +34,7 @@ interface Props {
 
 export default function ScreeningAlertBanner({ risks, sport, band, audience = 'staff' }: Props) {
   const result = computeBodyPartAlerts(risks, sport);
-  const { alerts, criticalRegions, topBand, hasCriticalAlert } = result;
+  const { alerts, criticalRegions, hasCriticalAlert } = result;
   if (alerts.length === 0) return null;
   // Not a standalone alarm: only explain a band that is already flagged.
   if (band !== 'amber' && band !== 'red') return null;

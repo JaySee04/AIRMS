@@ -16,7 +16,7 @@ import dynamic from 'next/dynamic';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { api } from '@/lib/api';
 import { MuscleEntry } from '@/lib/risk';
-import { computeBodyPartAlerts, AthleteRisks, BodyRegion, highThresholdsFor } from '@/lib/screeningAlerts';
+import { computeBodyPartAlerts, AthleteRisks, BodyRegion, RADAR_LABELS, highThresholdsFor, riskRadarSeries } from '@/lib/screeningAlerts';
 import { getInitials } from '@/lib/name';
 import OverallRiskBadge, { ScreeningIndicator } from '@/components/dashboard/OverallRiskBadge';
 import ScreeningAlertBanner from '@/components/dashboard/ScreeningAlertBanner';
@@ -58,17 +58,6 @@ const BAND_META: Record<Band, { label: string; badge: string; color: string }> =
   full: { label: 'Full-Go', badge: 'badge-low', color: 'var(--risk-low, #2e9e5b)' },
   observation: { label: 'Observation', badge: 'badge-moderate', color: 'var(--risk-mod, #d99a16)' },
   restricted: { label: 'Restricted', badge: 'badge-high', color: 'var(--risk-high, #d14b4b)' },
-};
-
-// spinalDiscHerniation excluded (ISN doesn't assess LDH) — mirrors the athlete
-// and medical dashboards.
-const RISK_KEYS: Array<keyof AthleteRisks> = [
-  'neckInjuryRisk', 'shoulderInjuryRisk', 'scoliosis', 'lumbarPelvisInjury', 'jointPain', 'kneeInjuryRisk', 'ankleInjuryRisk',
-];
-const RISK_LABEL: Record<keyof AthleteRisks, string> = {
-  neckInjuryRisk: 'Neck', shoulderInjuryRisk: 'Shoulder', scoliosis: 'Scoliosis',
-  spinalDiscHerniation: 'Spinal Disc', lumbarPelvisInjury: 'Lumbar/Pelvis',
-  jointPain: 'Joint Pain', kneeInjuryRisk: 'Knee', ankleInjuryRisk: 'Ankle',
 };
 
 // Display name per body region for the coaching-suggestion card (the alert
@@ -408,8 +397,8 @@ export default function CoachDashboard() {
           <div style={{ display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap' }}>
             <div style={{ flex: '1 1 420px', minWidth: 300, maxWidth: 520 }}>
               <RiskRadar
-                labels={RISK_KEYS.map((k) => RISK_LABEL[k])}
-                values={RISK_KEYS.map((k) => Math.min(30, Math.max(0, view.risks[k] ?? 0)))}
+                labels={RADAR_LABELS}
+                values={riskRadarSeries(view.risks)}
                 thresholds={highThresholdsFor(selected.sport)}
               />
             </div>

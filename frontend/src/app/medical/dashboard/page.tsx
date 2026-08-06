@@ -6,7 +6,8 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import type { MuscleEntry } from '@/components/dashboard/BodyMap';
 import OverallRiskBadge, { ScreeningIndicator } from '@/components/dashboard/OverallRiskBadge';
 import ClinicianBandOverride from '@/components/dashboard/ClinicianBandOverride';
-import { highThresholdsFor } from '@/lib/screeningAlerts';
+import type { AthleteRisks } from '@/lib/screeningAlerts';
+import { RADAR_LABELS, highThresholdsFor, riskRadarSeries } from '@/lib/screeningAlerts';
 
 // Chart.js and the body-map path data are the heaviest client code on this
 // page and render nothing on the server anyway — split them out so the
@@ -22,17 +23,6 @@ import { api } from '@/lib/api';
 import { disciplinesForSport } from '@/lib/disciplines';
 import { getInitials } from '@/lib/name';
 import TagCombobox from '@/components/ui/TagCombobox';
-
-interface AthleteRisks {
-  neckInjuryRisk: number;
-  shoulderInjuryRisk: number;
-  scoliosis: number;
-  spinalDiscHerniation: number;
-  lumbarPelvisInjury: number;
-  jointPain: number;
-  kneeInjuryRisk: number;
-  ankleInjuryRisk: number;
-}
 
 interface AthleteListItem {
   athleteId: string;
@@ -63,33 +53,6 @@ interface AthleteFull extends AthleteListItem {
   injuryAt?: string | null;
   screening?: (ScreeningIndicator & { screeningId?: number; overrideAt?: string | null }) | null;
 }
-
-const RISK_LABEL: Record<keyof AthleteRisks, string> = {
-  neckInjuryRisk: 'Neck',
-  shoulderInjuryRisk: 'Shoulder',
-  scoliosis: 'Scoliosis',
-  spinalDiscHerniation: 'Spinal Disc',
-  lumbarPelvisInjury: 'Lumbar/Pelvis',
-  jointPain: 'Joint Pain',
-  kneeInjuryRisk: 'Knee',
-  ankleInjuryRisk: 'Ankle',
-};
-
-// spinalDiscHerniation (Lumbar Disc Herniation) is deliberately ABSENT: stored
-// on import but excluded from every risk display per Dr Thung — ISN's
-// facilities don't support that assessment. Mirrors the athlete dashboard and
-// SHOWN_RISK_KEYS in backend/src/utils/cohorts.js.
-const RISK_KEYS: Array<keyof AthleteRisks> = [
-  'neckInjuryRisk',
-  'shoulderInjuryRisk',
-  'scoliosis',
-  'lumbarPelvisInjury',
-  'jointPain',
-  'kneeInjuryRisk',
-  'ankleInjuryRisk',
-];
-
-
 
 export default function MedicalDashboard() {
   const [athletes, setAthletes] = useState<AthleteListItem[]>([]);
@@ -549,8 +512,8 @@ export default function MedicalDashboard() {
                 <div style={{ display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap' }}>
                   <div style={{ flex: '1 1 420px', minWidth: 300, maxWidth: 520 }}>
                     <RiskRadar
-                      labels={RISK_KEYS.map((k) => RISK_LABEL[k])}
-                      values={RISK_KEYS.map((k) => Math.min(30, Math.max(0, view.risks[k] ?? 0)))}
+                      labels={RADAR_LABELS}
+                      values={riskRadarSeries(view.risks)}
                       thresholds={highThresholdsFor(selectedAthlete.sport)}
                     />
                   </div>

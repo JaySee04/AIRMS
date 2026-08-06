@@ -43,6 +43,35 @@ export const INDICATORS: Array<{ key: keyof AthleteRisks; region: BodyRegion; la
   { key: 'ankleInjuryRisk', region: 'Ankle', label: 'Ankle' },
 ];
 
+// Radar-axis view of the same shown indicators, in the same canonical order.
+// Kept separate from INDICATORS.label because the chart needs terser Title Case
+// axis labels ('Lumbar/Pelvis', 'Joint Pain') than the prose alert layer uses
+// ('Lumbar / pelvis', 'Joint pain') — the keys and their order are identical,
+// and the exclusion of spinalDiscHerniation is inherited from INDICATORS, so
+// there is still exactly one place that decides WHICH indicators are shown.
+export const RADAR_AXES: Array<{ key: keyof AthleteRisks; label: string }> = [
+  { key: 'neckInjuryRisk', label: 'Neck' },
+  { key: 'shoulderInjuryRisk', label: 'Shoulder' },
+  { key: 'scoliosis', label: 'Scoliosis' },
+  { key: 'lumbarPelvisInjury', label: 'Lumbar/Pelvis' },
+  { key: 'jointPain', label: 'Joint Pain' },
+  { key: 'kneeInjuryRisk', label: 'Knee' },
+  { key: 'ankleInjuryRisk', label: 'Ankle' },
+];
+
+export const RADAR_LABELS: string[] = RADAR_AXES.map((a) => a.label);
+
+// Radar display max. Deliberately tighter than RISK_AXIS_MAX (the threshold
+// strips' 40): the radar is a shape-comparison view, so it clamps to 30 to keep
+// real readings — which top out near 27 — legible across the plot area.
+export const RADAR_MAX = 30;
+
+// Values for the radar's spokes, clamped into [0, RADAR_MAX] so an out-of-range
+// backend value can't silently clip outside the chart.
+export function riskRadarSeries(risks: AthleteRisks): number[] {
+  return RADAR_AXES.map(({ key }) => Math.min(RADAR_MAX, Math.max(0, risks[key] ?? 0)));
+}
+
 // Exercise-risk indicators are 0–40 on AIRMS' display axis, lower is better.
 //
 // BAND VOCABULARY — must agree with the PDF reports (backend/src/routes/

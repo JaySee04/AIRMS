@@ -17,7 +17,7 @@ function VerifyOtpContent() {
   const searchParams = useSearchParams();
   const emailFromUrl = searchParams.get('email') ?? '';
 
-  const [email, setEmail] = useState(emailFromUrl);
+  const [email] = useState(emailFromUrl);
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
