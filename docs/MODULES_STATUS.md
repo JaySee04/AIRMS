@@ -30,6 +30,30 @@
 > - Email band wording made consistent; backend suite 34 → 45 tests.
 > - Full scope + flag list + deferred norm-settings decision:
 >   `docs/fyp/HOLOMOTION_SCOPE_2026-08.md`.
+>
+> **The 2026-08-03 roadmap batch (A–F), landed 2026-08-03 → 08-06.** Tracked in
+> [`fyp/ROADMAP_2026-08-03.md`](fyp/ROADMAP_2026-08-03.md):
+> - **A** — filename→name local autofill; **the athlete key is now the IC
+>   number** (A2); a **mock ISN directory** + lookup in the import flow, built as
+>   a swappable integration seam (A3).
+> - **B** — cohort-norm **versioning** (named, restorable snapshots), a
+>   **discipline-level `spgd` tier** at the top of the fallback ladder, and one
+>   unified **norm-membership model** (manual-out → injured → below-threshold,
+>   each with a reason).
+> - **C** — screening **history** for all three roles; athlete **My Squad**.
+> - **D** — hardened the "reader stops after idle" bug (Tesseract worker
+>   timeout + recycle, MySQL keep-alive/pool/retry).
+> - **E** — admin dashboard rebuilt as theme-aware HTML/CSS, Chart.js dropped
+>   from that page.
+> - **F** — vision cost/capacity measured (~8.25k tokens/PDF; RPD is the binding
+>   free-tier limit), research only.
+>
+> **Consolidation pass, 2026-08-06.** No behaviour change, three
+> single-source-of-truth fixes: all pdfkit drawing extracted to
+> [`utils/pdfDraw.js`](../backend/src/utils/pdfDraw.js) (+ a headless render
+> test); the four dashboards' duplicated radar axis/label/clamp copies replaced
+> by `RADAR_AXES` / `riskRadarSeries()` in `lib/screeningAlerts.ts`; and
+> `/athletes/teammates` de-N+1'd via a batched `latestIndicatorsFor()`.
 
 ---
 
@@ -38,19 +62,19 @@
 | # | Module | Role | Status | Pages | Backend route(s) |
 |---|---|---|---|---|---|
 | **G** | **General (auth + RBAC)** | **all** | ✅ **fully complete** | `/`, `/forgot-password`, `/verify-otp`, `/reset-password`, `<role>/profile` | `/api/auth/login`, `/api/auth/forgot-password`, `/api/auth/verify-otp`, `/api/auth/reset-password`, `/api/auth/change-password`, `/api/auth/me` |
-| 1 | Athlete Dashboard & Overall Risk Indicator | athlete | ✅ **fully complete** | `/athlete/dashboard` | `/api/athletes/:id`, `/api/injuries/athlete/:id` |
-| 2 | Injury & Recovery Logging | medical (+ athlete self-report) | 🟢 **functional, deferred polish** | `/medical/injury-log`, `/medical/review-reports`, `/athlete/injury-report` | `/api/injuries`, `/api/self-reports` |
-| 3 | Screening Data Ingestion | admin | 🟢 **functional — HoloMotion PDF ingestion (batch + on-device name redaction + roster attach)** | `/admin/data-upload`, `/medical/data-upload` | `/api/upload/screening/pdf[/preview\|/status]` |
-| 4 | Cohort Norms & Governance | admin | 🟢 **functional — norm engine, alerts, tunable settings, cohort analytics, data backup** | `/admin/thresholds` | `/api/cohorts`, `/api/export/backup.xlsx` |
-| 5 | Analytics & Reporting | admin | ✅ **fully complete** | `/admin/dashboard`, `/admin/reports` | `/api/injuries/analytics/summary`, `/api/injuries`, `/api/reports/injuries-pdf` |
-| 6 | Clinical & Squad Monitoring | medical | 🟢 **functional, watchlist deferred** | `/medical/dashboard` | `/api/athletes`, `/api/athletes/:id` |
+| 1 | Athlete Dashboard & Overall Risk Indicator | athlete | ✅ **fully complete** | `/athlete/dashboard`, `/athlete/history`, `/athlete/squad` | `/api/athletes/:id`, `/api/screenings/:id/full`, `/api/athletes/teammates` |
+| 2 | Injury & Recovery Logging | medical | ⚠️ **REMOVED 2026-08-02** — survives only as a clinician-set flag | — | `PATCH /api/athletes/:id/injury` |
+| 3 | Screening Data Ingestion | admin + medical | 🟢 **functional — HoloMotion PDF ingestion (batch + on-device name redaction + roster attach + ISN directory lookup)** | `/admin/data-upload`, `/medical/data-upload` | `/api/upload/screening/pdf[/preview\|/status]`, `/api/isn/athletes` |
+| 4 | Cohort Norms & Governance | admin (+ medical via `editCohortNorms`) | 🟢 **functional — norm engine, versioning, membership model, alerts, tunable settings, data backup** | `/admin/thresholds`, `/admin/settings`, `/medical/cohort-norms` | `/api/cohorts` (incl. `/versions`, `/:id/members`), `/api/export/backup.xlsx` |
+| 5 | Analytics & Reporting | admin (+ coach) | 🟢 **functional — screening-derived only** (the injury half went with the cut) | `/admin/dashboard`, `/admin/reports`, `/coach/reports` | `/api/athletes/analytics/screening`, `/api/screening-reports/*` |
+| 6 | Clinical & Squad Monitoring | medical + coach | 🟢 **functional, watchlist deferred** | `/medical/dashboard`, `/coach/dashboard` | `/api/athletes`, `/api/athletes/:id`, `/api/coach/readiness` |
 
 **Legend:**
 - ✅ Fully complete — meets all FYP rubric requirements; no known gaps
 - 🟢 Functional — system clicks through end-to-end; one or two minor refinements deferred
 - 🟡 Infrastructure complete — full pipeline works; one external dependency unresolved
 
-Module 1 is the FYP showcase requiring no further iteration. Activity Tracking (the FYP I Module 1) was removed 2026-07-20 — see its historical section below. Modules 2–6 are now functional enough for the system to be used end-to-end across all three roles, with each known gap explicitly tied to either an external dependency (Module 3 → ISN canonical schema) or a deferred polish item (Module 2 recovery milestones, Module 5 severity×time heatmap, Module 6 watchlist).
+Module 1 is the FYP showcase requiring no further iteration. Activity Tracking (the FYP I Module 1) was removed 2026-07-20 — see its historical section below. Module 2 was removed 2026-08-02 by the HoloMotion-only cut and is retained as a record, not a spec. Modules 3–6 are functional end-to-end across all four roles, with each known gap tied to either an external dependency (**Module 3 → real ISN directory access**; the seam is mocked and ready) or a deferred polish item (Module 5 PODIUM-vs-PELAPIS comparison view, Module 6 watchlist).
 
 ---
 
@@ -138,15 +162,16 @@ formula is ever wired back up to a different training-load input, is
 
 *(Was Module 2 before the 2026-07-20 restructure.)*
 
-**What it does:** Shows the athlete their current injury-risk picture: cohort-normed risk hero, risk indicator radar, muscle assessment body map, injury records.
+**What it does:** Shows the athlete their current injury-risk picture: cohort-normed risk hero, risk indicator radar, muscle assessment body map, embedded HoloMotion screening panel — plus, since 2026-08, screening **history** and a same-sport **squad** readiness view.
 
-**Page:** [frontend/src/app/athlete/dashboard/page.tsx](../frontend/src/app/athlete/dashboard/page.tsx)
+**Pages:** [`/athlete/dashboard`](../frontend/src/app/athlete/dashboard/page.tsx) · [`/athlete/history`](../frontend/src/app/athlete/history/page.tsx) (C2) · [`/athlete/squad`](../frontend/src/app/athlete/squad/page.tsx) (C3)
 
 **Sub-components:**
-- [BodyMap.tsx](../frontend/src/components/dashboard/BodyMap.tsx) — front+back silhouette with flagged regions
-- [WorkloadChart.tsx](../frontend/src/components/dashboard/WorkloadChart.tsx) — bar+line dual-axis chart
-- [RiskRadar.tsx](../frontend/src/components/dashboard/RiskRadar.tsx) — 8-axis risk radar
-- [risk.ts](../frontend/src/lib/risk.ts) — composite risk model logic
+- [BodyMap.tsx](../frontend/src/components/dashboard/BodyMap.tsx) — front+back silhouette. **Muscle Flags mode draws HoloMotion's 22 individual muscles** since 2026-08-04 ([`bodymap-data/muscles.ts`](../frontend/src/components/dashboard/bodymap-data/muscles.ts), test-guarded); **ROM & Stability mode still draws the 5 regions**, because the subitem score genuinely is 5 regions. Rationale: [DESIGN_DECISIONS §4a](DESIGN_DECISIONS.md)
+- [RiskRadar.tsx](../frontend/src/components/dashboard/RiskRadar.tsx) — 7-axis risk radar; axes/labels/clamping come from `RADAR_AXES` in [`lib/screeningAlerts.ts`](../frontend/src/lib/screeningAlerts.ts), shared with the medical and coach dashboards
+- [OverallRiskBadge.tsx](../frontend/src/components/dashboard/OverallRiskBadge.tsx) — the cohort-normed hero (band + 0–100 indicator + escalation "why" chips)
+- [ScreeningPanel.tsx](../frontend/src/components/dashboard/ScreeningPanel.tsx) — the embedded HoloMotion report
+- ⚫ [WorkloadChart.tsx](../frontend/src/components/dashboard/WorkloadChart.tsx) + [risk.ts](../frontend/src/lib/risk.ts) — retained, **not rendered** on this or any page since 2026-07-16
 
 **User flow:** see [USER_MANUAL.md §4](USER_MANUAL.md#4-athlete-dashboard)
 
@@ -154,8 +179,8 @@ formula is ever wired back up to a different training-load input, is
 - **Overall risk indicator hero** — the page's only risk verdict: band in large type with a plain-English meaning, the 0–100 cohort-normed indicator (50 = cohort average), and a "why" chip naming the escalation rules that fired (or the clinician's override note)
 - **"Regions behind this band"** detail renders under the hero only when the band is amber/red — the explanation of the verdict, not a second verdict
 - 7-indicator radar from screening data (LDH stored, never displayed)
-- Body map shows muscle flags aggregated by region; flag cards below preserve per-muscle granularity; only ISN-scoped regions are interactive
-- Tabbed injury records (Active / All History)
+- Body map draws the 22 HoloMotion muscles in flags mode (regions in ROM & Stability mode); flag cards below preserve per-muscle names with sides; only assessed shapes are interactive
+- Screening history: any past assessment can be selected and the whole page re-renders against it (the clinician override stays bound to the latest)
 - **HoloMotion screening embedded on the dashboard** via the shared [`ScreeningPanel`](../frontend/src/components/dashboard/ScreeningPanel.tsx): five tier-ticked score gauges, the seven shown exercise-risk indicators as **threshold strips** (Low ≤15 / Watch ≤25 / Elevated >25 zones with the athlete's value marked and sport-critical regions tightened + starred), and the myodynamia/tension muscle-flag chips. There is no separate screening page — the dashboard is the single working surface
 
 **FYP defensibility hook:** The **composite risk model** is the FYP innovation. It integrates workload + biomechanical screening + injury history into one classification, instead of the textbook Gabbett ACWR bands. See [DESIGN_DECISIONS.md §2](DESIGN_DECISIONS.md#2-composite-risk-model).
@@ -164,26 +189,33 @@ formula is ever wired back up to a different training-load input, is
 
 ---
 
-## Module 2 — Injury & Recovery Logging 🟢
+## Module 2 — Injury & Recovery Logging ⚠️ REMOVED (2026-08-02)
 
 *(Was Module 3 before the 2026-07-20 restructure.)*
 
-**What it does (full vision):** Medical staff record official injuries against athlete records and track recovery status. Injuries are captured through **two channels by origin**: the medical team logs what they observe or assess in-session directly; the athlete self-report handles what surfaces **between sessions** (waking up sore, a tweak during unsupervised gym/mobility work, an old niggle flaring) — the athlete's async channel to raise it before their next session, triaged through a clinical review gate before it joins the official record. Self-reporting is *not* positioned as the primary detection path (in-session pain is assessed on the spot); its value is out-of-session capture plus the athlete-raise → clinician-validate governance workflow.
+> **This module was removed by the HoloMotion-only cut.** JC's directive was
+> *"as long as it is not HoloMotion PDF related, remove"* — see
+> [`fyp/HOLOMOTION_SCOPE_2026-08.md`](fyp/HOLOMOTION_SCOPE_2026-08.md). The
+> section is kept (not deleted) because the FDD, Table 4.1 and the report still
+> describe the old module and need a matching rewrite before viva — that rewrite
+> is an open item on [`fyp/JC_CHECKLIST.md`](fyp/JC_CHECKLIST.md).
 
-**Current state (functional):**
-- ✅ Athlete submits a self-report at `/athlete/injury-report` — full form, validates, lists their own past submissions with status badges
-- ✅ Medical logs official injury at `/medical/injury-log` — datalist-based athlete picker, all enum dropdowns wired, accepts `?athleteId=ATH0001` query param for deep-linking from Medical Dashboard
-- ✅ Medical reviews self-reports at `/medical/review-reports` — tabbed Pending/Approved/Rejected, modal review with reviewer-note textarea, Approve promotes to official `Injury` record (server-side via `selfReports.js:50`)
-- ✅ Backend routes complete: `POST /api/injuries`, `GET /api/injuries/athlete/:id`, `PATCH /api/injuries/:id`, `GET /api/self-reports`, `GET /api/self-reports/mine`, `POST /api/self-reports`, `PATCH /api/self-reports/:id/review`
-- ✅ Body part + injury type + side + mechanism + severity dropdowns lock to the `Injury` model enums
-- ✅ Last 8 entries appear inline on `/medical/injury-log` for quick context
+**What was removed:** the `Injury` and `SelfReport` models; `routes/injuries.js`
+and `routes/selfReports.js` (including the approve→promote-to-`Injury` Sequelize
+transaction); the `/athlete/injury-report`, `/medical/injury-log` and
+`/medical/review-reports` pages; the injuries sheet in the Excel backup export;
+and the injury-floor contribution to the overall indicator.
 
-**Deferred (not blocking system use):**
-- **Recovery milestone tracking** — Dr Thung has not specified the milestone schema (e.g. "phases: acute → sub-acute → return-to-play"). Currently we have `recoveryStatus: Recovering | Recovered | Chronic` which is editable on entry
-- **Structured treatment plan** — single free-text Clinical Notes field for now; could be split into sections once ISN provides a template
-- **Return-to-play clearance signature** — single recoveryStatus toggle for now
+**What survives:** a single clinician-set flag on the Athlete row —
+`isInjured`, `injuryNote`, `injuryBy`, `injuryAt` — written by
+`PATCH /api/athletes/:id/injury` (medical + admin, `requirePermission('viewRecords')`).
+It marks an athlete as currently injured and is surfaced on the medical
+dashboard. There is **no injury table, no injury history, no self-reporting and
+no recovery-status tracking**.
 
-**Prototype reference:** [airms-prototype/medical/injury-log.html](../airms-prototype/medical/injury-log.html), [review-reports.html](../airms-prototype/medical/review-reports.html), [athlete/injury-report.html](../airms-prototype/athlete/injury-report.html)
+**Open decision:** whether the surviving flag is enough to keep claiming a
+distinct "Injury & Recovery Logging" module in the FDD, or whether the six-module
+structure should be renumbered. JC's call — do not renumber unilaterally.
 
 ---
 
@@ -238,25 +270,40 @@ FYP II table below for the full feature list), plus the data-backup export.
 *(Was "Injury Analytics" before the 2026-07-20 restructure; loses "View
 Screening Cohort Analytics" to Module 4 above, keeps everything else.)*
 
-**What it does (full vision):** Admin dashboard with filterable injury KPIs and breakdown charts: total cases, athletes affected, currently recovering, sports affected, distribution by body part / injury type / severity / month. Backed by a PDF report generator for ISN management.
+**What it does (current, post-2026-08-02):** Admin cohort analytics over **screening**
+data, plus the PDF report generators. The injury half of this module — KPI cards,
+body-part / injury-type / monthly-cases charts and the filtered injury PDF — was
+removed with the `Injury` model by the HoloMotion-only cut.
+
+> **Removed 2026-08-02:** `routes/reports.js` (`POST /api/reports/injuries-pdf`),
+> `GET /api/injuries/analytics/summary` and `/analytics/trends`, the 4 injury KPI
+> cards, the body-part / injury-type / monthly-cases charts, and the injury filter
+> bar (body part, injury type, date range). The FDD and Table 4.1 still describe
+> these — rewrite pending, see [`fyp/JC_CHECKLIST.md`](fyp/JC_CHECKLIST.md).
 
 **Current state (functional):**
-- ✅ Page at `/admin/dashboard` renders the filter bar — sport, gender, programme, body part, injury type, **age group**, date range — all POST through to the backend
-- ✅ Backend `GET /api/injuries/analytics/summary` extended to accept all 8 filter params including `ageMin`/`ageMax` (driven from age-group dropdown) for Dr Thung's "by age group" ask
-- ✅ 4 KPI cards (Total Cases / Athletes Affected / Currently Recovering / Sports Affected) re-fetch live on filter change
-- ✅ Body part distribution bar chart (Chart.js, navy) — uses canonical ordering, fills missing categories with 0
-- ✅ Active dashboard filters (sport, gender, programme, body part, injury type, age group, date range) carry into `/admin/reports` via URL query params on the "Generate PDF Report" link, so the analyst doesn't re-enter what they already chose
-- ✅ Injury type distribution bar chart (Chart.js, gold) — same pattern
-- ✅ Monthly cases line chart — Chart.js, smooth curve, fed by Sequelize `GROUP BY YEAR(date), MONTH(date)` aggregation
-- ✅ "Generate PDF Report" button navigates to `/admin/reports`
-- ✅ `/admin/reports` page is a **live PDF generator**: the same filter inputs as the analytics dashboard (report type, period, sport, programme, gender, body part, injury type, age group, plus section toggles for severity/recovery, monthly trend, athlete index). Submitting POSTs to `/api/reports/injuries-pdf` and streams a fresh PDF straight to the browser as a download. Server-side rendering via `pdfkit`
-- ✅ Backend `POST /api/reports/injuries-pdf` (admin only) reads the live `Injury` table against the filters and assembles a multi-page PDF: cover with AIRMS branding, executive summary table, body-part distribution chart, injury-type distribution chart, optional severity + recovery breakdowns, optional monthly trend, optional athlete index (paginated), appendix with filter context. Page numbers in the footer
+- ✅ `/admin/dashboard` is a **screening** cohort analytics page — reads
+  `GET /api/athletes/analytics/screening` (band counts per indicator, averages,
+  top-flagged muscles, cohort trend, band distribution), filtered by
+  `sport` / `program` / `gender` / `ageMin` / `ageMax`. Sport list from
+  `GET /api/athletes/meta/sports`
+- ✅ `/admin/reports` picks an athlete (`GET /api/athletes`) and downloads a
+  screening PDF via `api.downloadGet` — it is a download page, not a filter-driven
+  generator any more
+- ✅ Three cohort-normed screening PDFs stream from
+  [`routes/screeningReports.js`](../backend/src/routes/screeningReports.js) with
+  `pdfkit`, no temp files: `GET /holistic.pdf` (admin),
+  `GET /individual/:id.pdf`, `GET /team.pdf?sport&programme&gender`
+- ✅ `/coach/reports` — sport-scoped team + individual screening PDF download for
+  coaches, off `GET /api/coach/readiness`
+- ✅ Excel backup export `GET /api/export/backup.xlsx` (admin) — Athletes +
+  MuscleFlags sheets
 
 **Deferred (not blocking system use):**
-- **Severity × time heatmap** — designed in prototype, not yet built
-- **PODIUM vs PELAPIS comparison view** — backend supports both via filters; explicit side-by-side comparison page is not built
+- **PODIUM vs PELAPIS comparison view** — backend supports both via filters; an
+  explicit side-by-side page is not built
 
-**Prototype reference:** [airms-prototype/admin/dashboard.html](../airms-prototype/admin/dashboard.html), [airms-prototype/admin/reports.html](../airms-prototype/admin/reports.html)
+**Prototype reference:** [airms-prototype/admin/dashboard.html](../airms-prototype/admin/dashboard.html), [airms-prototype/admin/reports.html](../airms-prototype/admin/reports.html) — *both predate the screening pivot; treat as layout reference only*
 
 ---
 
@@ -314,9 +361,9 @@ Items left for JC to eyeball are in [`docs/fyp/JC_CHECKLIST.md`](fyp/JC_CHECKLIS
 | **On-screen screening history + athlete self-download (2026-07-23)** — `ScreeningHistory` table (newest-first rows + "Change since first" delta row, Ex. Risks coloured lower-is-better like the PDF) on the athlete dashboard and the medical + coach detail views; its API (`GET /screenings/athlete/:id`, previously caller-less) slimmed to summary columns and sport-scoped for coaches. The athlete dashboard's copy hosts a **Download PDF** button so athletes can pull their own individual report (UC-39 actor already permitted server-side, previously had no UI path) | ✅ | [`ScreeningHistory.tsx`](../frontend/src/components/dashboard/ScreeningHistory.tsx), [`routes/screenings.js`](../backend/src/routes/screenings.js) |
 | **Post-import threshold prompt** — after a screening is committed the uploader always pops a modal to update the (now-stale) cohort norms; admin can recompute in place or deep-link into the affected cohort rows on the thresholds page, medical get an informational variant (recompute is admin-only) | ✅ | [`PdfScreeningUpload.tsx`](../frontend/src/components/upload/PdfScreeningUpload.tsx), [`/admin/thresholds`](../frontend/src/app/admin/thresholds/page.tsx) |
 | **Email alerts on import commit** — to medical staff + the sport's coaches when an athlete lands amber/red or escalated | ✅ | [`utils/alerts.js`](../backend/src/utils/alerts.js) |
-| **Event-driven email notifications** (2026-07-30) — beyond the import alerts: (1) an athlete filing a **self-report** emails active medical staff to prompt review (closes the between-sessions loop, Module 2); (2) a clinician **override to amber/red** emails the sport's coach(es) so squad readiness reflects it (never on a green clear). Each gated by its own default-on setting (`notify_self_report`, `notify_override`); fire-and-forget + non-fatal; same mailer (env SMTP + console/dry-run fallback). The **whole email surface is now admin-governable** from Cohort Thresholds → **Email Notifications** (import-alert toggle + amber/red threshold, plus the two event toggles) | ✅ | [`utils/notifications.js`](../backend/src/utils/notifications.js), [`routes/selfReports.js`](../backend/src/routes/selfReports.js), [`routes/screenings.js`](../backend/src/routes/screenings.js), [`/admin/thresholds`](../frontend/src/app/admin/thresholds/page.tsx) |
+| **Event-driven email notifications** (2026-07-30) — a clinician **override to amber/red** emails the sport's coach(es) so squad readiness reflects it (never on a green clear). Gated by the default-on `notify_override` setting; fire-and-forget + non-fatal; same mailer (env SMTP + console/dry-run fallback). Admin-governable from Cohort Thresholds → **Email Notifications** (import-alert toggle + amber/red threshold, plus the override toggle). ⚠️ **The self-report notification (`notify_self_report`) went with `routes/selfReports.js` on 2026-08-02** — `utils/notifications.js` now exports only `notifyOverrideToCoach` | ✅ | [`utils/notifications.js`](../backend/src/utils/notifications.js), [`routes/screenings.js`](../backend/src/routes/screenings.js), [`/admin/thresholds`](../frontend/src/app/admin/thresholds/page.tsx) |
 | **Coach view (FYP II — first-class 4th role)** — read-only squad readiness scoped to the coach's **one** assigned sport; athletes sorted worst-first with the worst region named, **filterable by programme / gender / event**; selecting a row opens a **read-only screening detail** (risk badge + radar + ScreeningPanel + body map + events), no clinical affordances; can download the team screening PDF for the sport and (since 2026-07-23) the individual screening PDF from the detail view, both sport-scoped. **Coaching cockpit:** a *Needs-attention* list (Restricted + injured athletes, each with its persisted escalation reason), a *Squad focus* card (common weak spots + muscle hotspots + readiness-by-event + coverage + momentum), and a per-athlete **trend** arrow vs the previous screening | ✅ | [`/coach/dashboard`](../frontend/src/app/coach/dashboard/page.tsx), [`routes/coach.js`](../backend/src/routes/coach.js) |
-| **Recovery & Trends (admin)** — recovery-status split + recovery rate, athletes fully recovered vs still affected, recurring problems (2+ injuries in the same body part, plus recurrent-mechanism + chronic), and same-sport clustering (injuries + distinct athletes + active per sport); sport filter | ✅ | [`/admin/trends`](../frontend/src/app/admin/trends/page.tsx), `GET /injuries/analytics/trends` in [`routes/injuries.js`](../backend/src/routes/injuries.js) |
+| ~~**Recovery & Trends (admin)**~~ — recovery-status split, recurring problems, same-sport clustering | ⚠️ **REMOVED 2026-08-02** | The `/admin/trends` page and `GET /injuries/analytics/trends` were deleted with the `Injury` model by the HoloMotion-only cut. `frontend/src/app/admin/` now contains only: `dashboard`, `data-upload`, `personnel`, `profile`, `reports`, `settings`, `thresholds` |
 | **Admin personnel management** — one `/admin/personnel` page creates a coach **or** a medical account, assigns/changes a coach's one sport, and manages medical per-capability permissions + activation (merged the former `/admin/coaches` + `/admin/staff` on 2026-08-01). Coaches are fully wired into the shell: a **`/coach/profile`** page and a **`/coach/reports`** page (individual/team downloads, 30-day window) | ✅ | [`/admin/personnel`](../frontend/src/app/admin/personnel/page.tsx), [`routes/users.js`](../backend/src/routes/users.js), [`/coach/reports`](../frontend/src/app/coach/reports/page.tsx) |
 | **Admin screening-cohort card follows filters** — the `/admin/dashboard` HoloMotion cohort card (stat tiles, per-indicator bands, muscle hotspots) now respects the athlete-level filters (sport / programme / gender / age), like the injury charts; injury-only filters (body part / type / date) don't apply | ✅ | [`/admin/dashboard`](../frontend/src/app/admin/dashboard/page.tsx), [`routes/athletes.js`](../backend/src/routes/athletes.js) |
 | **Athlete events / disciplines** — `athlete_disciplines` join table (an athlete can hold several events, e.g. badminton Men's Singles + Men's Doubles). Set on the PDF-import identity step via a **combobox**: pick an event already on record (autocomplete from `GET /athletes/meta/disciplines`) **or type a new one**, for any sport; badminton's 5 ship as seed suggestions. Shown as chips on the medical + coach athlete views and **editable on the medical athlete header** (same combobox, PATCH `/athletes/:id`, no re-import); roster event filters are data-driven (list the events actually present), so admin-added events are immediately filterable. Seed suggestions ship for badminton + tennis + table tennis + squash | ✅ | [`models/AthleteDiscipline.js`](../backend/src/models/AthleteDiscipline.js), [`lib/disciplines.ts`](../frontend/src/lib/disciplines.ts), [`PdfScreeningUpload.tsx`](../frontend/src/components/upload/PdfScreeningUpload.tsx), [`routes/athletes.js`](../backend/src/routes/athletes.js) |
@@ -384,4 +431,4 @@ The umbrella message: *"All six FDD modules are functional. Activity Tracking (o
 
 ---
 
-*Last updated: 2026-07-20. **Module restructure**: Activity Tracking (Module 1) fully removed; the surviving six-module set redistributed as Module 1 — Athlete Dashboard & Overall Risk Indicator, Module 2 — Injury & Recovery Logging, Module 3 — Screening Data Ingestion, Module 4 — Cohort Norms & Governance, Module 5 — Analytics & Reporting, Module 6 — Clinical & Squad Monitoring. Full mapping: `docs/fyp/FYP2_MODULES_USECASES.md` Appendix A/B. Previous: 2026-07-14 — **FYP II — Screening-Centred Redesign** (see the dedicated section above): cohort-normed overall risk indicator (TSA z-score + escalation) is now the primary risk signal; immutable screening snapshots + history; admin-approved cohort norms + tunable settings; clinician override; three cohort-normed PDF reports; import-commit email alerts; coach role (promoted to a first-class 4th role 2026-07-19); ACWR demoted to a secondary Training-Load view. Perf pass on the cohort/indicator recompute paths (preload-into-Map + batched writes, no N+1). Earlier: 2026-07-06 — screening pages (then Modules 2 & 6, now Modules 1 & 6) folded into the dashboards as the shared `ScreeningPanel`; HoloMotion-only seed with ATH0061 (Thung Jin Seng) as pipeline ground truth; General Module revoked staff features vanish (sidebar hide + redirect + live session refresh); five-step pro-team injury intake (then Module 3, now Module 2); screening-cohort analytics (then Module 5, now Module 4). 2026-06-28 (HoloMotion ingestion + backup, then Module 4, now split across Modules 3–4; per-user permissions).*
+*Last updated: 2026-08-06 — quick-status table corrected against the live routes (Module 2 marked REMOVED; Module 5 is screening-derived only; Modules 3–6 gained their new pages). Module 1 section updated for the 22-muscle body map, the shared radar axes, and the new history + squad pages. The A–F roadmap batch and the 2026-08-06 consolidation pass summarised in the header. Previous: 2026-08-02 — **HoloMotion-only cut**: `Injury` + `SelfReport` models, their routes/pages, the injury analytics and `/admin/trends` all removed. Previous: 2026-07-20. **Module restructure**: Activity Tracking (Module 1) fully removed; the surviving six-module set redistributed as Module 1 — Athlete Dashboard & Overall Risk Indicator, Module 2 — Injury & Recovery Logging, Module 3 — Screening Data Ingestion, Module 4 — Cohort Norms & Governance, Module 5 — Analytics & Reporting, Module 6 — Clinical & Squad Monitoring. Full mapping: `docs/fyp/FYP2_MODULES_USECASES.md` Appendix A/B. Previous: 2026-07-14 — **FYP II — Screening-Centred Redesign** (see the dedicated section above): cohort-normed overall risk indicator (TSA z-score + escalation) is now the primary risk signal; immutable screening snapshots + history; admin-approved cohort norms + tunable settings; clinician override; three cohort-normed PDF reports; import-commit email alerts; coach role (promoted to a first-class 4th role 2026-07-19); ACWR demoted to a secondary Training-Load view. Perf pass on the cohort/indicator recompute paths (preload-into-Map + batched writes, no N+1). Earlier: 2026-07-06 — screening pages (then Modules 2 & 6, now Modules 1 & 6) folded into the dashboards as the shared `ScreeningPanel`; HoloMotion-only seed with ATH0061 (Thung Jin Seng) as pipeline ground truth; General Module revoked staff features vanish (sidebar hide + redirect + live session refresh); five-step pro-team injury intake (then Module 3, now Module 2); screening-cohort analytics (then Module 5, now Module 4). 2026-06-28 (HoloMotion ingestion + backup, then Module 4, now split across Modules 3–4; per-user permissions).*

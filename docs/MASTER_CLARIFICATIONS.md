@@ -251,15 +251,25 @@ These rules came from JC's Figma mockups and explicit feedback. **Do not deviate
 ```
 
 ### `Athlete` (MySQL `athletes` table)
-- `athleteId` (e.g. `ATH0001`) is the primary key and the cross-table foreign key
+- `athleteId` is the primary key and the cross-table foreign key. **Its VALUES changed 2026-08-04 (A2):** they are now the athlete's 12-digit **IC number** (e.g. `890202021001`), not the old `ATH0001` scheme. The column name stays `athleteId` internally and serialises as `_id`; the UI labels it "IC Number"
 - The 8 injury-risk indicators are stored as flat columns and reassembled into a nested `risks` object by the response serialiser
 - `myodynamia` and `tension` flags live in the normalised `muscle_flags` table, discriminated by `flag_type`; the serialiser splits them back into two arrays for the frontend
 - See [backend/src/models/Athlete.js](../backend/src/models/Athlete.js) and [backend/src/models/MuscleFlag.js](../backend/src/models/MuscleFlag.js)
 
-### `Injury` (MySQL `injuries` table)
+### ~~`Injury` (MySQL `injuries` table)~~ — DELETED 2026-08-02
+
+> The `Injury` and `SelfReport` models were removed by the HoloMotion-only cut.
+> **Nothing in the running system uses these enums.** They are retained here as a
+> record of the FYP I schema (and because the report/FDD still cite them pending
+> JC's rewrite) — not as a live constraint.
+
 - `bodyPart` enum: `Neck`, `Shoulder`, `Spine`, `Lumbar/Pelvis`, `Knee`, `Ankle`, `Hip`, `Elbow`, `Wrist`, `Other`
 - `injuryType` enum: `Sprain`, `Strain`, `Tendinitis`, `Bursitis`, `Fracture`, `Contusion`, `Dislocation`, `Other`
-- `mechanism` enum: `Contact`, `Non-contact`, `Overuse`, `Recurrent` — **note `Overuse` is a mechanism, not an injuryType**
+- `mechanism` enum: `Contact`, `Non-contact`, `Overuse`, `Recurrent` — `Overuse` was a mechanism, not an injuryType
+
+**What replaced it:** a single clinician-set flag on the Athlete row —
+`isInjured` / `injuryNote` / `injuryBy` / `injuryAt`, written by
+`PATCH /api/athletes/:id/injury`. No enums, no history.
 
 ---
 
@@ -292,9 +302,9 @@ These rules came from JC's Figma mockups and explicit feedback. **Do not deviate
 - The composite risk model formula (`computeVulnerability`, `personalisedThresholds`, escalation logic) — this is the locked ACWR `risk.ts` model; the FYP II cohort-normed overall indicator (`overallIndicator.js`) is a separate, extensible model
 - The sRPE method for load calculation (`load = duration × intensity`) — **retired 2026-07-20** with Activity Tracking (§4); the formula stays locked/citable for the FYP report even though nothing implements it right now
 - The body map asset source and MIT attribution
-- The aggregation policy (figure shows regions, cards show specific muscles)
+- ~~The aggregation policy (figure shows regions, cards show specific muscles)~~ — **changed 2026-08-04 on JC's instruction.** The figure now draws HoloMotion's individual muscles in Muscle Flags mode (regions were a pre-HoloMotion artefact and were merging clinically distinct findings); ROM & Stability mode still draws regions, because the subitem score genuinely is 5 regions. Cards keep listing specifics either way. Rationale + the geometry argument: [DESIGN_DECISIONS.md §4a](DESIGN_DECISIONS.md). **The asset source and its MIT attribution are untouched and remain locked.**
 - The Figma-derived UI design (split login card, sidebar branding, topbar dropdown)
-- The MySQL schema for `Athlete`, `Injury`, `MuscleFlag`, `SelfReport` (see [backend/src/models/](../backend/src/models/))
+- The MySQL schema for `Athlete`, `MuscleFlag` and `Screening` (see [backend/src/models/](../backend/src/models/)). ~~`Injury`, `SelfReport`~~ — both models were deleted 2026-08-02, so those locks no longer have a subject. Live models: `User`, `Athlete`, `AthleteDiscipline`, `Screening`, `MuscleFlag`, `CohortThreshold`, `CohortNormVersion`, `Setting`
 - The single-database direction: AIRMS persists to MySQL. The historical MongoDB stack is documented in [MONGO_RECOVERY.md](MONGO_RECOVERY.md) as an emergency restoration path, not a supported alternative
 - The ACWR thresholds 0.8 / 1.3 / 1.5 as the baseline (personalised modifiers are ±15% around these)
 
@@ -316,4 +326,4 @@ Do not let this file drift from reality. When code and this doc disagree, fix wh
 
 ---
 
-*Last updated: 2026-06-11 · All 6 modules functional. Modules 1+2 fully complete; 3–6 have explicit deferred items. Composite risk model + body map locked. Intentional snapshot denormalisation in injuries/self_reports documented in DESIGN_DECISIONS.md §5.*
+*Last updated: 2026-08-06 · Four roles (coach promoted 2026-07-19). Module 1 complete; Module 2 **removed** by the HoloMotion-only cut (2026-08-02) and surviving only as a clinician-set flag; Modules 3–6 functional with explicit deferred items. The athlete key's values are **IC numbers** since 2026-08-04. The body map's aggregation policy changed the same day (22 muscles in flags mode) — asset + MIT attribution still locked. Composite risk model still locked, still without live callers. Mission / vision / non-goals: [README_FOR_CLAUDE_CODE.md](README_FOR_CLAUDE_CODE.md). Previous: 2026-06-11.*

@@ -96,9 +96,56 @@
 - **Hand-drawn primitives** — boxy, unprofessional, not befitting elite athletes
 - **react-body-highlighter by Giavinh** — also evaluated; visually too cartoony, low-poly polygon shapes
 - **Buying a commercial atlas** — out of scope for FYP budget
-- **Subdividing library paths into the specific AIRMS muscles** — possible but adds significant maintenance burden and risks visual misalignment with the underlying silhouette
+- **Subdividing library paths into the specific AIRMS muscles** — ~~possible but adds significant maintenance burden and risks visual misalignment with the underlying silhouette~~ **superseded 2026-08-04, see §4a**
 
-**Defensibility one-liner:** *"The figure communicates regions visually — the side cards communicate the specific muscles clinically. Both layers exist; nothing is lost. The asset is MIT-licensed and credited."*
+---
+
+## 4a. Body map: muscle-level partition to the HoloMotion vocabulary (2026-08-04)
+
+**Supersedes the aggregation half of §4.** The asset, its MIT attribution and the
+side cards are unchanged; what changed is the *grain* of the figure in Muscle
+Flags mode.
+
+**Decision:** In flags mode the figure draws HoloMotion's individual muscles, not
+the library's workout regions. ROM & Stability mode still draws regions.
+
+**Why:**
+- §4's aggregation was set when AIRMS ingested a different data source. After the
+  HoloMotion-only pivot the figure was rendering a *clinical postural* vocabulary
+  (piriformis, iliopsoas, rectus capitis anterior) on a *workout* atlas (chest,
+  biceps, quads). The taxonomies don't correspond
+- The collapse was destroying clinically meaningful contrast. All four glute
+  muscles shared one shape, so "piriformis weak **while** gluteus maximus tight"
+  — a textbook deep-stabiliser compensation pattern, and exactly the pairing in
+  the Nazwan 2025-08-13 report — rendered as one undifferentiated blob
+- `Iliopsoas` was mapped to `adductors`, putting a deep hip-flexor finding on the
+  inner thigh
+- §4's stated risk (misalignment) applied to *drawing new paths*. It does not
+  apply here: **16 of the 22 muscles are recovered from sub-paths the asset
+  already contains** — the library draws the three vasti and the two glute heads
+  as separate `d` strings and merely labels them all `quadriceps` / `gluteal`. No
+  geometry is redrawn, so nothing can drift
+- Sub-paths are selected by **measured geometry, not array index**: the asset does
+  not order left and right limbs identically (`upper-back` left `[1]` is the large
+  sheet, right `[2]` is), so index slicing would have mirror-swapped muscles.
+  `bodymap-data/muscles.test.ts` asserts this — e.g. vastus medialis is medial to
+  vastus lateralis on *both* legs
+- The 6 genuinely deep/absent muscles (Piriformis, Gluteus Minimus, Iliopsoas,
+  Internal Oblique, Rectus Capitis Anterior, Sartorius) are drawn as schematic
+  insets derived from their parent's measured bounding box — the same convention
+  the HoloMotion report itself uses, which shades piriformis *inside* the gluteal
+  mass rather than as surface anatomy
+- Mode grain now matches data grain: the Physical Fitness Subitem Score genuinely
+  *is* five regions, so ROM & Stability mode still renders regions. The backend
+  PDF figure is fed subitems only, so it needed no change
+
+**Known collapse (deliberate):** `Middle Deltoid` and `Lateral Deltoid` share one
+shape. HoloMotion names both, but they are the same anatomical head — this is not
+information loss. Declared explicitly as `MUSCLE_ALIASES`.
+
+**Defensibility one-liner:** *"The figure speaks the instrument's own vocabulary.
+We partitioned the licensed geometry the asset already contained rather than
+inventing anatomy — and the partition is verified by test, not by eye."*
 
 ---
 
@@ -520,4 +567,4 @@ one squad).
 
 ---
 
-*Last updated: 2026-08-03 — §18 on-device name redaction before vision extraction (Tesseract-located, page-1-only, fail-closed; verified against both HoloMotion layouts). Previous: 2026-07-20 — Activity Tracking (the FYP I Module 1) fully removed at JC's request; §1, §2, §3, §10 and §16 annotated to mark their decisions as locked-but-dormant (no live caller) rather than actively running. The six-module set was restructured the same day to fill the gap this left — see `MASTER_CLARIFICATIONS.md §4` for the current numbering. Previous: 2026-07-19 (§16 gains the per-indicator escalation — threshold + peer-outlier, z ≥ 1.5, admin toggle, persisted factors), 2026-07-18 (§17 coach one-sport + athlete detail view + event disciplines), 2026-07-13 (§16 FYP II cohort-normed overall indicator + ACWR demotion), 2026-07-06 (§15 dashboard-embedded screening), 2026-06-28 (§13–14).*
+*Last updated: 2026-08-06 — **§4a** added: the body map's Muscle Flags mode now draws HoloMotion's 22 individual muscles by re-slicing the same MIT-licensed geometry (16 recovered from existing sub-paths, 6 deep ones as measured insets, selection by geometry not index, test-guarded); supersedes the aggregation half of §4 while leaving the asset and its attribution locked. Previous: 2026-08-03 — §18 on-device name redaction before vision extraction (Tesseract-located, page-1-only, fail-closed; verified against both HoloMotion layouts). Previous: 2026-07-20 — Activity Tracking (the FYP I Module 1) fully removed at JC's request; §1, §2, §3, §10 and §16 annotated to mark their decisions as locked-but-dormant (no live caller) rather than actively running. The six-module set was restructured the same day to fill the gap this left — see `MASTER_CLARIFICATIONS.md §4` for the current numbering. Previous: 2026-07-19 (§16 gains the per-indicator escalation — threshold + peer-outlier, z ≥ 1.5, admin toggle, persisted factors), 2026-07-18 (§17 coach one-sport + athlete detail view + event disciplines), 2026-07-13 (§16 FYP II cohort-normed overall indicator + ACWR demotion), 2026-07-06 (§15 dashboard-embedded screening), 2026-06-28 (§13–14).*
