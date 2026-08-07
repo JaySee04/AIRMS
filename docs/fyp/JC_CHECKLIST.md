@@ -25,6 +25,22 @@ in the stage section linked.
   - [ ] **Now it's Word work — nobody but you can do it.** Apply `REPORT_EDIT_PACK.md` R1–R10 to the document, screenshot the five regenerated diagrams in a browser at 100% zoom, re-export, replace `reports/FYP-I-Report.pdf`.
   - [ ] **Two sections the report has never contained** — paste-ready: **R7a** on-device name redaction (the strongest defensible contribution in the system) and **R7b** the IC-as-key trade-off. **Expect a panel question on R7b** — it's the one place the design argues against itself.
   - Dormant ACWR files (`lib/risk.ts`, `WorkloadChart`) stay — unchanged decision.
+- [ ] **Put the injury-summary question to Dr Thung (2026-08-07).** His most
+  specific ask in the 2026-04-24 meeting was an administrator view of injury
+  CASES — how many, which body part, left or right, what type, trending over
+  time (transcript 12:01–12:39). The HoloMotion-only cut removed it on
+  2026-08-02. AIRMS answers the anatomical half from screening instead, but
+  cannot answer "how many knee injuries last year". **He should decide** whether
+  that substitution is acceptable or whether a thin injury-reporting layer comes
+  back — this should not surface first in the viva. Full analysis, with quotes:
+  [`../stakeholder/REQUIREMENTS_TRACEABILITY.md`](../stakeholder/REQUIREMENTS_TRACEABILITY.md) §4.
+  - [ ] Offer him **scheduled monthly reports** (§16) — he asked in those words
+    ("something standard, then you can actually generate every month"); the PDFs
+    and the mailer both exist, only the schedule is missing.
+  - [ ] Restore the **sport-context** card on the medical view (§11), from
+    screening data this time.
+  - [ ] Name **seasonality** (§6 — "which quarter is the risky one") as future
+    work: it needs years of history, and AIRMS has months.
 - [ ] **Dr Thung sign-off** — the deployment gate you're keeping in view (kiv).
 - [ ] **Rename the pushed branch** if you still want `feat/mysql-migration` off the
   working name (has an upstream — your call; see 2026-07-17 decisions).

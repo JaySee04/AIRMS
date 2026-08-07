@@ -89,7 +89,16 @@ router.get('/', auth, rbac('medical', 'admin'), requirePermission('viewRecords')
     if (sport) where.sport = sport;
     if (program) where.program = program;
     if (gender) where.gender = gender;
-    if (search) where.name = { [Op.like]: `%${search}%` };
+    // Name OR IC number — the clinician's stated way in is the IC ("they can
+    // trace through their IC number", Dr Thung, 2026-04-24). The roster UIs
+    // filter client-side and already match both; this keeps the API honest for
+    // any caller that filters server-side instead.
+    if (search) {
+      where[Op.or] = [
+        { name: { [Op.like]: `%${search}%` } },
+        { athleteId: { [Op.like]: `%${search}%` } },
+      ];
+    }
     // Discipline lives in a join table — resolve the matching athlete IDs first,
     // then filter the main query by them (keeps every athlete's full discipline
     // list intact for display, unlike a where on the include).
