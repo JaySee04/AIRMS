@@ -182,17 +182,23 @@ function MuscleBars({ items }: { items: Array<{ label: string; count: number; we
   );
 }
 
-// Direction arrow + colour for a delta, respecting the score's orientation
-// (exercise risks improve by going DOWN). Never colour-alone: the arrow
-// glyph and the signed number both carry the meaning.
+// A delta, showing BOTH which way the number moved and whether that is good.
+// The arrow tracks the sign; the colour tracks the score's orientation, since
+// exercise risks improve by going down. Tying the arrow to goodness instead
+// produced "▲ -2.2" for a risk that had fallen — an up-arrow on a negative
+// number, which reads as a contradiction. Colour is never the sole carrier:
+// the sign is always visible, and the table legend states each orientation.
 function Move({ delta, higherBetter, compact = false }: { delta: number | null; higherBetter: boolean; compact?: boolean }) {
   if (delta === null || delta === 0) {
     return <span className="text-muted" style={{ fontSize: compact ? '0.75rem' : '0.85rem' }}>→ 0</span>;
   }
   const better = higherBetter ? delta > 0 : delta < 0;
   return (
-    <span style={{ color: better ? C.green : C.red, fontWeight: 700, fontSize: compact ? '0.75rem' : '0.85rem' }}>
-      {better ? '▲' : '▼'} {delta > 0 ? '+' : ''}{delta}
+    <span
+      title={`${delta > 0 ? 'up' : 'down'} ${Math.abs(delta)} — ${better ? 'better' : 'worse'}`}
+      style={{ color: better ? C.green : C.red, fontWeight: 700, fontSize: compact ? '0.75rem' : '0.85rem' }}
+    >
+      {delta > 0 ? '▲' : '▼'} {delta > 0 ? '+' : ''}{delta}
     </span>
   );
 }
