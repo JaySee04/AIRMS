@@ -144,6 +144,7 @@ Pages mapped to the 4 roles + profile pages. **The URL hierarchy is the role bou
 | [`/medical/data-upload`](../frontend/src/app/medical/data-upload/page.tsx) | medical | Module 3 — HoloMotion PDF import (batch + name-match) |
 | [`/medical/profile`](../frontend/src/app/medical/profile/page.tsx) | medical | Profile |
 | [`/admin/dashboard`](../frontend/src/app/admin/dashboard/page.tsx) | admin | **2026-08** Screening Analytics — HoloMotion screening cohort (stat tiles + previous-vs-latest screening trend + risk-indicator bands + muscle hotspots), filtered by sport / programme / gender / age. The injury-log analytics half was removed with the `Injury` model (2026-08-02). **E1 (2026-08-04):** all five Chart.js charts rebuilt as theme-aware HTML/CSS — Chart.js is no longer imported on this page |
+| [`/admin/activity`](../frontend/src/app/admin/activity/page.tsx) | admin | **2026-08-07** Programme Activity — the administrator's own performance view, kept OFF the analytics page because they answer different questions. Screening throughput by `grain=month/quarter/year` (tested vs rostered, tests, within-period retests, population averages, change vs the previous period) + Between Successive Tests (within-athlete pairs, band moves, median retest gap). Same cohort slicers via the shared `CohortFilters` |
 | [`/admin/reports`](../frontend/src/app/admin/reports/page.tsx) | admin | Module 5 — screening reports (holistic / **individual-by-name** / team downloads). The filter-driven injury PDF builder went with the `Injury` model (2026-08-02) |
 | [`/admin/settings`](../frontend/src/app/admin/settings/page.tsx) | admin | **FYP II** tunable norm settings — `min_cohort_n`, fallback, escalation toggles, `bottom_k`, and the **B5** eligibility floors (`norm_min_total` / `norm_min_rom` / `norm_min_stability`, default 0 = no gate) |
 | [`/admin/thresholds`](../frontend/src/app/admin/thresholds/page.tsx) | admin | **FYP II** Cohort Norms — auto-generated + live per import, editable norm values with a "review · new data" drift flag + reset-to-computed, tunable settings, recompute. Also mounted at `/medical/cohort-norms` for norm-editing medical staff (admin-only controls hidden there) |
@@ -181,6 +182,13 @@ Pages mapped to the 4 roles + profile pages. **The URL hierarchy is the role bou
 | [ScreeningAlertBanner.tsx](../frontend/src/components/dashboard/ScreeningAlertBanner.tsx) | Athlete + Medical dashboards. Renders the sport-aware screening alert (a body region critical for the athlete's sport whose HoloMotion indicator is out of range). Backed by `lib/screeningAlerts.ts`; renders nothing when there's nothing to flag |
 | [OverallRiskBadge.tsx](../frontend/src/components/dashboard/OverallRiskBadge.tsx) | **FYP II** Athlete + Medical + Coach dashboards. Traffic-light badge for the cohort-normed overall indicator (0–100 score, band, escalation factors); compact + full modes. On Medical the clinician band-override control sits beneath it |
 | [ClinicianBandOverride.tsx](../frontend/src/components/dashboard/ClinicianBandOverride.tsx) | **FYP II** Medical dashboard only. The band-override control under the risk hero: outcome-labelled Safe / Needs-attention / Immediate-assessment cards (colour reinforces, never the sole carrier), `In force` + `Calculated` tags so the clinician sees what they're diverging from, and the required assessment note captured inline (replaced the old bare green/amber/red buttons + `window.prompt`). PATCHes `/api/screenings/:id/override` |
+
+### Admin analytics components — `frontend/src/components/admin/`
+
+| File | Role |
+|---|---|
+| [CohortFilters.tsx](../frontend/src/components/admin/CohortFilters.tsx) | The sport / gender / programme / age slicer shared by `/admin/dashboard` and `/admin/activity`, plus the `useCohortFilters()` hook that owns the state and builds the query string. Shared rather than copied so the two pages cannot drift into slicing the population differently — a comparison between them is only meaningful if "Badminton · Female" means the same on both |
+| [DistributionBar.tsx](../frontend/src/components/admin/DistributionBar.tsx) | 100%-stacked horizontal bar + counted legend; every slice carries its count and share so meaning is never colour-alone |
 
 ### Upload component — `frontend/src/components/upload/`
 

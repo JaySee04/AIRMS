@@ -36,6 +36,11 @@ const IconUsers = () => (
     <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
   </svg>
 );
+const IconTrend = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="23,6 13.5,15.5 8.5,10.5 1,18"/><polyline points="17,6 23,6 23,12"/>
+  </svg>
+);
 const IconPulse = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
@@ -55,6 +60,7 @@ const NAV: Record<'athlete' | 'medical' | 'admin' | 'coach', NavItem[]> = {
   ],
   admin: [
     { href: '/admin/dashboard',   label: 'Screening Analytics', icon: <IconBarChart /> },
+    { href: '/admin/activity',    label: 'Programme Activity',  icon: <IconTrend /> },
     { href: '/admin/reports',     label: 'PDF Reports',        icon: <IconFileText /> },
     { href: '/admin/thresholds',  label: 'Cohort Norms',       icon: <IconPulse /> },
     { href: '/admin/personnel',   label: 'Personnel',          icon: <IconUsers /> },
