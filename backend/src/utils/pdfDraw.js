@@ -794,7 +794,6 @@ function radar(doc, axes, { max = 40, rings = 4, r = 85, color = GOLD, guide = n
     doc.stroke();
     doc.undash();
   }
-  // value polygon
   const vals = axes.map((a, i) => pt(i, r * Math.max(0, Math.min(1, (num(a.value) ?? 0) / max))));
   doc.moveTo(vals[0][0], vals[0][1]);
   for (let i = 1; i <= n; i++) doc.lineTo(vals[i % n][0], vals[i % n][1]);

@@ -14,8 +14,7 @@ AIRMS (JC FYP)/
 ├── assets/                   # Original source logos (logo1, logo2, logofull)
 ├── backend/                  # Node.js / Express / MySQL API (Sequelize)
 ├── docs/                     # All project documentation (this folder)
-│   ├── stakeholder/          # Meeting transcripts
-│   └── data-samples/         # ISN-provided sample files
+│   └── stakeholder/          # Meeting transcripts
 ├── frontend/                 # Next.js 14 app (App Router, TypeScript)
 ├── reports/                  # FYP submitted reports
 ├── node_modules/             # Root deps (concurrently)
@@ -242,7 +241,6 @@ Useful files:
 | [FYP_RUBRICS.md](FYP_RUBRICS.md) | FYP I rubric weighting (Report 30 / Soft 10 / Viva Tech 50 / Viva Soft 10) and pre-viva priority list |
 | [ATHLETE_ASSESSMENT_FIELDS.md](ATHLETE_ASSESSMENT_FIELDS.md) | Every field in the ISN spreadsheet explained |
 | [stakeholder/meeting-2026-04-24-dr-thung.txt](stakeholder/meeting-2026-04-24-dr-thung.txt) | Full transcript of stakeholder meeting |
-| [data-samples/isn-csv-template.xlsx](data-samples/isn-csv-template.xlsx) | Canonical ISN screening data sample |
 
 ---
 

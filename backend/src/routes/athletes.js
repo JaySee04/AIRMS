@@ -494,7 +494,6 @@ router.patch('/:id', auth, rbac('medical', 'admin'), requirePermission('viewReco
   }
 });
 
-// DELETE /api/athletes/:id — soft delete (admin only)
 router.delete('/:id', auth, rbac('admin'), async (req, res) => {
   try {
     const [count] = await Athlete.update({ isActive: false }, { where: { athleteId: req.params.id } });

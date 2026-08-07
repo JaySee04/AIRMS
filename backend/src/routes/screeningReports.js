@@ -73,7 +73,6 @@ router.get('/holistic.pdf', auth, rbac('admin'), async (req, res) => {
     sectionTitle(doc, 'Change Between Successive Tests', 120);
     betweenTestsBlock(doc, activity.betweenTests);
 
-    // Band distribution
     sectionTitle(doc, 'Overall Risk Distribution', 110);
     const bands = { green: 0, amber: 0, red: 0, none: 0 };
     rows.forEach(({ screening }) => { bands[(screening.overrideBand || screening.overallBand) || 'none']++; });
@@ -83,7 +82,6 @@ router.get('/holistic.pdf', auth, rbac('admin'), async (req, res) => {
     bar(doc, 'Immediate assessment', bands.red, total, BAND.red, { valueText: `${bands.red}` });
     if (bands.none) bar(doc, 'Unscored (small cohort)', bands.none, total, MUTED, { valueText: `${bands.none}` });
 
-    // Cohort average headline scores
     sectionTitle(doc, 'Population Average Scores');
     const avg = (key) => {
       const vals = rows.map(({ screening }) => num(screening[key])).filter((v) => v !== null);
@@ -223,7 +221,6 @@ router.get('/individual/:id.pdf', auth, requirePermission('viewRecords'), async 
     sectionTitle(doc, 'Lateral Symmetry', 170);
     symmetrySection(doc, latest.subitems);
 
-    // Muscle legend
     sectionTitle(doc, 'Muscle Flags');
     const mf = latest.muscleFlags || {};
     doc.fontSize(9).fillColor(TEXT).font('Helvetica-Bold').text('Myodynamia deficiency: ', 50, doc.y, { continued: true }).font('Helvetica')
@@ -338,14 +335,12 @@ router.get('/team.pdf', auth, rbac('medical', 'admin', 'coach'), requirePermissi
       `${members.length} screened athletes of ${athletes.length} in the group. `
       + 'Group thresholds are this group’s own averages; the ranking and attention table below read every athlete against them.', 50);
 
-    // Group thresholds (means)
     sectionTitle(doc, 'Group Thresholds (average scores)');
     for (const [key, label, max] of SCORE_ROWS) {
       const m = group.stats[key];
       bar(doc, label, m ? m.mean : 0, max, GOLD, { valueText: m ? m.mean.toFixed(1) : '—' });
     }
 
-    // Group risk profile — average per printed indicator
     sectionTitle(doc, 'Group Exercise Risk Profile (average)');
     riskLegend(doc);
     const avgRisk = (k) => {
@@ -374,7 +369,6 @@ router.get('/team.pdf', auth, rbac('medical', 'admin', 'coach'), requirePermissi
       }
     }
 
-    // Ranking by overall indicator
     sectionTitle(doc, 'Ranking (by overall indicator)');
     const ranked = members.slice().sort((a, b) => (b.s.overallIndicator ?? 0) - (a.s.overallIndicator ?? 0));
     ranked.forEach((m, i) => {

@@ -121,7 +121,6 @@ router.patch('/:id/override', auth, rbac('medical', 'admin'), requirePermission(
       const athlete = await Athlete.findOne({ where: { athleteId: row.athleteId }, attributes: ['name', 'sport'], raw: true });
       if (athlete) notifyOverrideToCoach(athlete, band, String(note).trim(), req.user?.name);
     } else {
-      // Clear the override.
       await row.update({ overrideBand: null, overrideNote: null, overrideBy: null, overrideAt: null });
     }
     res.json(row);

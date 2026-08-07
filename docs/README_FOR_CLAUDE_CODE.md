@@ -61,7 +61,7 @@ Do not propose these. Each was considered and settled:
 
 - **Dr Thung** — ISN sports scientist, primary stakeholder. His requirements drive what AIRMS must do. Transcript: [docs/stakeholder/meeting-2026-04-24-dr-thung.txt](stakeholder/meeting-2026-04-24-dr-thung.txt)
 - **Dr Hoo Wai Lam** — JC's FYP supervisor. He drives the *academic* requirements (rubric, modules, deliverables). Same transcript covers his asks
-- **ISN as institution** — Malaysia's national sports institute. The canonical data shape is now the **HoloMotion report** itself; the older `docs/data-samples/isn-csv-template.xlsx` is a historical reference from the Excel era
+- **ISN as institution** — Malaysia's national sports institute. The canonical data shape is the **HoloMotion report** itself. (The Excel-era `isn-csv-template.xlsx` sample is no longer in the repo — the import it described was retired 2026-07-12.)
 
 ---
 
