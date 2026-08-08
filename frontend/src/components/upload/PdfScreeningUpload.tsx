@@ -25,6 +25,7 @@ import AthleteSearchSelect from '@/components/ui/AthleteSearchSelect';
 import IsnLookup from '@/components/upload/IsnLookup';
 import ScreeningPreview from '@/components/upload/ScreeningPreview';
 import * as uploadStore from '@/lib/screeningUploadStore';
+import { parseNameFromFilename } from '@/lib/screeningUploadStore';
 import type { QueueItem, CommittedEntry, RosterAthlete } from '@/lib/screeningUploadStore';
 
 // The "muscle hero" — the shared body-map figure (front/back) with flag cards.
@@ -282,37 +283,61 @@ export default function PdfScreeningUpload() {
                     </div>
                   )}
 
-                  {/* Attach to a roster athlete — search by name. The name is
-                      redacted from the report image, so the athlete is identified
-                      here from OUR roster; picking fills the fields below. */}
-                  <div className="form-group">
-                    <label>Find athlete {!it.matched && <span style={{ color: 'var(--risk-high)' }}>*</span>}</label>
-                    <AthleteSearchSelect
-                      athletes={roster ?? []}
-                      onSelect={(athleteId) => setItemAthleteId(it.id, athleteId)}
-                      placeholder="Search the roster by name…"
-                    />
-                    <div className="text-muted" style={{ fontSize: '0.72rem', marginTop: 3 }}>
-                      {it.matched ? `Attached · ${it.matched.name} (${it.athleteId})` : 'Pick an athlete, look them up in ISN, or fill in a new one’s details below.'}
+                  {/* The athlete is resolved FROM THE NAME on the report's
+                      filename — the roster first, then ISN's directory — so the
+                      identity below is already filled in. The search controls
+                      are a correction, not the first step: they only open when
+                      the name resolved to nobody, or the operator chooses to
+                      override. */}
+                  {it.matchSource === 'roster' && (
+                    <div className="alert" style={{ background: 'var(--risk-low-bg)', borderLeft: '3px solid var(--risk-low)', marginBottom: 12 }}>
+                      <strong>{it.matchedName}</strong> — matched on your roster from the report&rsquo;s filename.
+                      <span className="text-muted"> IC {it.athleteId}. Details below are filled in; edit any of them if the report disagrees.</span>
                     </div>
-                  </div>
-
-                  {/* Athlete AIRMS has never seen → pull their master record from
-                      the ISN directory (A3). Fills IC / name / sport / programme /
-                      age / gender / events. */}
-                  {!it.matched && (
-                    <IsnLookup onPick={(r) => patchItem(it.id, {
-                      athleteId: r.icNumber,
-                      name: r.name,
-                      sport: r.sport,
-                      program: r.programme,
-                      gender: r.gender,
-                      age: r.age != null ? String(r.age) : '',
-                      disciplines: r.disciplines ?? [],
-                      disciplinesTouched: true,
-                      matched: null,
-                    })} />
                   )}
+                  {it.matchSource === 'isn' && (
+                    <div className="alert" style={{ background: 'var(--risk-moderate-bg)', borderLeft: '3px solid var(--risk-moderate)', marginBottom: 12 }}>
+                      <strong>{it.matchedName}</strong> — not on your roster, found in the ISN directory and filled in from their master record.
+                      <span className="text-muted"> IC {it.athleteId}. Committing this report adds them to AIRMS.</span>
+                    </div>
+                  )}
+                  {it.matchSource === null && (
+                    <div className="alert" style={{ background: 'var(--risk-high-bg)', borderLeft: '3px solid var(--risk-high)', marginBottom: 12 }}>
+                      Could not resolve an athlete from the file name
+                      {parseNameFromFilename(it.file.name) ? <> (<em>{parseNameFromFilename(it.file.name)}</em>)</> : null}
+                      {' '}— no unique match on the roster or in the ISN directory. Pick them below, or fill in the details by hand.
+                    </div>
+                  )}
+
+                  {/* Correction path. Open by default only when nothing resolved. */}
+                  <details open={it.matchSource === null} style={{ marginBottom: 12 }}>
+                    <summary style={{ cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600 }}>
+                      {it.matchSource === null ? 'Find this athlete' : 'Wrong athlete? Search instead'}
+                    </summary>
+                    <div className="form-group" style={{ marginTop: 10 }}>
+                      <label>Search your roster</label>
+                      <AthleteSearchSelect
+                        athletes={roster ?? []}
+                        onSelect={(athleteId) => setItemAthleteId(it.id, athleteId)}
+                        placeholder="Search the roster by name or IC…"
+                      />
+                    </div>
+                    {!it.matched && (
+                      <IsnLookup onPick={(r) => patchItem(it.id, {
+                        athleteId: r.icNumber,
+                        name: r.name,
+                        sport: r.sport,
+                        program: r.programme,
+                        gender: r.gender,
+                        age: r.age != null ? String(r.age) : '',
+                        disciplines: r.disciplines ?? [],
+                        disciplinesTouched: true,
+                        matched: null,
+                        matchSource: 'isn',
+                        matchedName: r.name,
+                      })} />
+                    )}
+                  </details>
 
                   {/* Editable identity. Name/sport/programme are filled from the
                       roster when an athlete is picked (the name is redacted from

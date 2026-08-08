@@ -68,6 +68,15 @@ export interface QueueItem {
   error: string | null;
   doneNote: string | null;
   matched: RosterAthlete | null;
+  // WHERE the identity below came from, so the operator can see it was resolved
+  // for them rather than wonder whether they filled it in:
+  //   'roster' — an existing AIRMS athlete, matched on the filename name
+  //   'isn'    — not on our roster, but found in ISN's directory; committing
+  //              creates them
+  //   null     — nothing matched; the operator picks manually
+  matchSource: 'roster' | 'isn' | null;
+  /** The resolved name, whatever the source — used for the provenance line. */
+  matchedName: string;
   athleteId: string;
   sport: string;
   program: string;
@@ -127,6 +136,33 @@ function matchByName(name: string | undefined): RosterAthlete | null {
   return hits.length === 1 ? hits[0] : null;
 }
 
+// One ISN directory record, as GET /api/isn/athletes returns it.
+interface IsnHit {
+  icNumber: string; name: string; sport?: string; programme?: string;
+  gender?: string; age?: number | null; disciplines?: string[]; inRoster?: boolean;
+}
+
+// Look the parsed name up in ISN's directory. Only a UNIQUE hit is accepted:
+// auto-filling the wrong athlete is far worse than asking the operator to pick,
+// so anything ambiguous falls through to the manual controls. Never throws —
+// the directory is an external dependency and a screening import must not fail
+// because it is unreachable.
+async function matchInIsn(name: string): Promise<IsnHit | null> {
+  const q = name.trim();
+  if (q.length < 3) return null;
+  try {
+    const hits = await api.get<IsnHit[]>(`/isn/athletes?q=${encodeURIComponent(q)}`);
+    if (!Array.isArray(hits) || hits.length === 0) return null;
+    // Prefer an exact full-name match; otherwise accept a single partial hit.
+    const key = q.toLowerCase().replace(/\s+/g, ' ');
+    const exact = hits.filter((h) => h.name.toLowerCase().replace(/\s+/g, ' ') === key);
+    if (exact.length === 1) return exact[0];
+    return hits.length === 1 ? hits[0] : null;
+  } catch {
+    return null;
+  }
+}
+
 // Best-effort athlete name out of a HoloMotion PDF FILENAME. Safe to use: the
 // filename is a LOCAL browser value, never sent to the vision model (only the
 // redacted images are) — so this pre-fills the roster pick without weakening the
@@ -149,18 +185,37 @@ async function extractOne(item: QueueItem): Promise<void> {
     // Name is redacted from the IMAGE, so it isn't in the extraction. Recover a
     // pre-fill from the LOCAL filename instead (never sent to the model): a unique
     // roster name-match attaches the athlete; otherwise the operator picks below.
-    const hit = matchByName(parseNameFromFilename(item.file.name));
+    const parsedName = parseNameFromFilename(item.file.name);
+    const hit = matchByName(parsedName);
+
+    // Resolve the athlete FROM THE NAME rather than making the operator search.
+    // The roster first — most reports are for athletes we already hold. If they
+    // are new to AIRMS, fall through to ISN's directory and fill from the master
+    // record, so an athlete with no prior record needs no lookup step either.
+    // The search controls remain, demoted to a correction.
+    const isn = hit ? null : await matchInIsn(parsedName);
+
+    const fromReport = {
+      age: preview.athlete.age != null ? String(preview.athlete.age) : '',
+      gender: preview.athlete.gender ?? '',
+    };
+
     patchItemInternal(item.id, {
       status: 'ready',
       preview,
       matched: hit,
-      athleteId: hit?.athleteId ?? '',
-      sport: hit?.sport ?? '',
-      program: hit?.program ?? hit?.programme ?? '',
-      disciplines: hit?.disciplines ?? [],
-      name: hit?.name ?? '',
-      age: preview.athlete.age != null ? String(preview.athlete.age) : '',
-      gender: preview.athlete.gender ?? '',
+      matchSource: hit ? 'roster' : isn ? 'isn' : null,
+      matchedName: hit?.name ?? isn?.name ?? '',
+      athleteId: hit?.athleteId ?? isn?.icNumber ?? '',
+      sport: hit?.sport ?? isn?.sport ?? '',
+      program: hit?.program ?? hit?.programme ?? isn?.programme ?? '',
+      disciplines: hit?.disciplines ?? isn?.disciplines ?? [],
+      disciplinesTouched: Boolean(isn?.disciplines?.length),
+      name: hit?.name ?? isn?.name ?? '',
+      // The report is the authority for age/gender when it carries them; ISN
+      // fills the gap for an athlete whose report did not read cleanly.
+      age: fromReport.age || (isn?.age != null ? String(isn.age) : ''),
+      gender: fromReport.gender || isn?.gender || '',
     });
   } catch (e) {
     patchItemInternal(item.id, { status: 'error', error: e instanceof Error ? e.message : 'Failed to read PDF' });
@@ -257,6 +312,8 @@ export function addFiles(files: FileList | File[] | null) {
         error: null,
         doneNote: null,
         matched: null,
+        matchSource: null,
+        matchedName: '',
         athleteId: '',
         sport: '',
         program: '',
