@@ -16,8 +16,13 @@ describe('parseNameFromFilename', () => {
 
   // The bug JC hit: ISN exports a screening run as a numbered set, so the index
   // rode into the name and every lookup missed.
+  //
+  // This is the verbatim filename of the real export (supplied 2026-08-09), not
+  // a reconstruction — 32-char hex suffix and all. The index is in the report
+  // BODY too ("Name：14. MOHAMED ELFFIE DANISH BIN"), which confirms it is ISN's
+  // own numbering rather than something the download added.
   it('strips a leading batch number — the real ISN export shape', () => {
-    expect(parseNameFromFilename('rpt_2025-07-25_14. MOHAMED ELFFIE DANISH BIN KHIR JOHARI_db57448821f843885825.pdf'))
+    expect(parseNameFromFilename('rpt_2025-07-29_14. MOHAMED ELFFIE DANISH BIN KHIR JOHARI_db5744c82170455099020c5ccdce32f3.pdf'))
       .toBe('MOHAMED ELFFIE DANISH BIN KHIR JOHARI');
   });
 

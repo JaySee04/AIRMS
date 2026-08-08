@@ -1,6 +1,6 @@
 // Ground-truth verification for the HoloMotion vision-ingestion pipeline.
 //
-// Two real reports are transcribed 1:1 below as ground truth (both also seeded):
+// Three real reports are transcribed 1:1 below as ground truth:
 //   - ATH0061 Thung Jin Seng — the original sample, a COMPACT ~3-page layout.
 //   - ATH0062 Muhammad Nazwan Bin Abdullah — an EXPANDED layout whose data
 //     section spans pages 1-6 (Info+Summary p1, Muscle Imbalance p3, Posture
@@ -96,6 +96,46 @@ const GROUND_TRUTH = {
       lowerLimbs: [66, 68, 76, 79, 91],
     },
   },
+  // Verified 1:1 against the full 38-page report (2025-07-29 18:08). Supplied by
+  // JC 2026-08-09 as the "no prior record" walkthrough athlete — he is in the
+  // ISN directory but not the roster, so importing him exercises the
+  // create-on-import path the other two fixtures never touch.
+  //
+  // Two traps this report carries, both real ISN artefacts:
+  //  1. The printed name is INDEXED and TRUNCATED — "14. MOHAMED ELFFIE DANISH
+  //     BIN" — so the batch number is in the report body, not just the filename,
+  //     and the surname is cut off entirely. Neither is used: the name is
+  //     redacted before extraction and resolved from the filename afterwards.
+  //  2. Four headline values collide with Nazwan (78 / 14 / 71 / 82). Only
+  //     symmetry separates them at a glance, which is why groundTruthFor()
+  //     scores across ALL fields and now prints which fixture it chose.
+  'mohamed elffie danish bin khir johari': {
+    athlete: {
+      name: 'mohamed elffie danish bin khir johari', age: 18, gender: 'Male',
+      overallActivityScore: 78, injuryRiskIndex: 14,
+      mobility: 71, stability: 82, symmetry: 85,
+      neckInjuryRisk: 15, shoulderInjuryRisk: 7, scoliosis: 9,
+      spinalDiscHerniation: 19, lumbarPelvisInjury: 19, jointPain: 19,
+      kneeInjuryRisk: 22, ankleInjuryRisk: 29,
+    },
+    myodynamia: [
+      { muscle: 'Internal Oblique', side: 'R' },
+      { muscle: 'Piriformis', side: 'R' },
+      { muscle: 'Gluteus Medius', side: 'R' },
+    ],
+    tension: [
+      { muscle: 'Gluteus Maximus', side: 'R' },
+      { muscle: 'Iliopsoas', side: 'L' },
+      { muscle: 'Gluteus Maximus', side: 'L' },
+    ],
+    subitems: {
+      neck: [86, 71, 74, 75, 76],
+      shoulder: [89, 87, 86, 86, 90],
+      torso: [80, 75, 88, 89, 93],
+      pelvis: [53, 66, 73, 82, 80],
+      lowerLimbs: [60, 61, 80, 73, 79],
+    },
+  },
 };
 
 // The name is redacted on-device before extraction, so we can't key the ground
@@ -105,17 +145,42 @@ function groundTruthFor(mapped) {
   const a = mapped?.athlete ?? {};
   let best = GROUND_TRUTH['thung jin seng'];
   let bestScore = -1;
+  let runnerUp = -1;
   for (const gt of Object.values(GROUND_TRUTH)) {
     let score = 0;
     for (const [k, v] of Object.entries(gt.athlete)) {
       if (k !== 'name' && Number(a[k]) === Number(v)) score++;
     }
-    if (score > bestScore) { bestScore = score; best = gt; }
+    if (score > bestScore) { runnerUp = bestScore; bestScore = score; best = gt; }
+    else if (score > runnerUp) { runnerUp = score; }
+  }
+  // Say which report we think this is. Two fixtures share four headline values,
+  // so a silent misattribution would surface as a wall of unexplained FAILs.
+  console.log(
+    `Matched ground truth: ${best.athlete.name} `
+    + `(${bestScore} fields, next best ${Math.max(runnerUp, 0)})`,
+  );
+  if (bestScore - runnerUp < 2) {
+    console.log('  ! Ambiguous match — the comparison below may be against the wrong report.');
   }
   return best;
 }
 
 function normName(s) { return String(s ?? '').trim().toLowerCase(); }
+
+// A leak is not only the name returned verbatim. HoloMotion prints the name
+// indexed and truncated ("14. MOHAMED ELFFIE DANISH BIN"), so an exact-match
+// test would wave that straight through while the athlete's given names sat in
+// the model's output. Treat ANY distinctive token from the real name as a leak;
+// 3-letter particles like "bin" are skipped because they identify nobody.
+function leaksName(got, realName) {
+  const hay = normName(got);
+  if (!hay) return false;
+  return normName(realName)
+    .split(/[^a-z]+/)
+    .filter((t) => t.length >= 4)
+    .some((t) => hay.includes(t));
+}
 function muscleKey(m) { return `${normName(m.muscle)}|${m.side}`; }
 
 function compare(mapped) {
@@ -131,7 +196,7 @@ function compare(mapped) {
   // The name is REDACTED on-device before extraction, so success = the athlete's
   // real name is ABSENT from the model output (empty, or at worst a
   // hallucination) — never the actual name. A returned real name is a leak.
-  check('name redacted', a.name ? `"${a.name}"` : '(empty)', `not "${EXPECTED.athlete.name}"`, normName(a.name) !== EXPECTED.athlete.name);
+  check('name redacted', a.name ? `"${a.name}"` : '(empty)', 'no name tokens', !leaksName(a.name, EXPECTED.athlete.name));
   for (const key of Object.keys(EXPECTED.athlete)) {
     if (key === 'name') continue;
     const want = EXPECTED.athlete[key];
