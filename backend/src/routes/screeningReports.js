@@ -12,7 +12,7 @@
 // data fetching and page composition only.
 
 const express = require('express');
-const { Screening, Athlete } = require('../models');
+const { Screening, Athlete, AthleteDiscipline } = require('../models');
 const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
 const requirePermission = require('../middleware/permission');
@@ -22,9 +22,12 @@ const {
 const { getSettings } = require('../utils/settings');
 const { screeningPeriods } = require('../utils/screeningPeriods');
 const {
-  BAND, ELEVATED_THRESHOLD, GOLD, GRID, MUTED, NAVY, RISKS, SCORE_ROWS, TEXT, bandColor, bandLabel,
+  focusBreakdown, isShownIndicator, ageGroupOf, SHOWN_INDICATORS, INDICATOR_LABEL,
+} = require('../utils/cohortFocus');
+const {
+  BAND, ELEVATED_THRESHOLD, GOLD, GRID, MUTED, NAVY, RISKS, SCORE_ROWS, TEXT, bandColor, bandLabel, bandOnLight,
   bandPill, bandTable, bar, betweenTestsBlock, bullets, cover, ensure, fileSlug, finish, fmtDate,
-  hotspotBar, interpret, keyFindings, keyFindingsBox, muscleFigure, num, periodTable, radar,
+  focusTable, hotspotBar, interpret, keyFindings, keyFindingsBox, muscleFigure, num, periodTable, radar,
   riskLegend, sectionTitle, squadMuscleHotspots, squadSubitemHeatmap, squadSymmetrySection, startDoc,
   subitemPriorities, subitemTable, symmetrySection, todayStamp, zoneGauge,
 } = require('../utils/pdfDraw');
@@ -39,6 +42,14 @@ router.get('/holistic.pdf', auth, rbac('admin'), async (req, res) => {
     // actually screens at.
     const grain = ['month', 'quarter', 'year'].includes(String(req.query.grain))
       ? String(req.query.grain) : 'quarter';
+    // POPULATION filters — the same slicers the admin dashboard offers, so a
+    // report can be pulled for exactly the group under discussion rather than
+    // always being institute-wide. A filtered report states its filters on the
+    // cover, so a printed copy is self-describing.
+    const {
+      sport, program, gender, ageMin, ageMax, discipline, region,
+    } = req.query;
+
     const [rows, totalActive, history] = await Promise.all([
       latestScreeningsByAthlete(),
       Athlete.count({ where: { isActive: true } }),
@@ -53,14 +64,58 @@ router.get('/holistic.pdf', auth, rbac('admin'), async (req, res) => {
         raw: true,
       }),
     ]);
+    // Narrow in memory: the population is small (tens to low hundreds) and this
+    // keeps one fetch path for filtered and unfiltered reports alike.
+    const disciplineOf = new Map();
+    if (discipline) {
+      const owners = await AthleteDiscipline.findAll({ where: { discipline }, attributes: ['athleteId'], raw: true });
+      owners.forEach((o) => disciplineOf.set(o.athleteId, true));
+    }
+    const allRows = rows;
+    const kept = rows.filter(({ athlete: a }) => {
+      if (sport && a.sport !== sport) return false;
+      if (program && a.program !== program) return false;
+      if (gender && a.gender !== gender) return false;
+      if (ageMin && !(Number(a.age) >= Number(ageMin))) return false;
+      if (ageMax && !(Number(a.age) <= Number(ageMax))) return false;
+      if (discipline && !disciplineOf.has(a.athleteId)) return false;
+      return true;
+    });
+
+    // A filter description that reads as a sentence on the cover and slugs into
+    // the filename, so a saved report says who it is about.
+    const parts = [];
+    if (sport) parts.push(sport);
+    if (program) parts.push(program);
+    if (gender) parts.push(gender);
+    if (discipline) parts.push(discipline);
+    if (ageMin || ageMax) parts.push(`age ${ageMin || '0'}-${ageMax || '+'}`);
+    const scope = parts.length ? parts.join(' · ') : 'All athletes';
+    const focused = region && isShownIndicator(region) ? region : null;
+
     const activity = screeningPeriods(history, { grain });
-    const doc = startDoc(res, `AIRMS_Holistic_${todayStamp()}.pdf`);
-    cover(doc, 'Holistic Screening Report', `All athletes · ${todayStamp()}`);
+    const nameBits = ['AIRMS_Holistic'];
+    if (parts.length) nameBits.push(fileSlug(parts.join('_')));
+    if (focused) nameBits.push(fileSlug(INDICATOR_LABEL[focused]));
+    const doc = startDoc(res, `${nameBits.join('_')}_${todayStamp()}.pdf`);
+    cover(doc, 'Holistic Screening Report', `${scope} · ${todayStamp()}`);
 
     doc.fontSize(10).fillColor(MUTED).text(
-      `Population: ${rows.length} of ${totalActive} active athletes have a HoloMotion screening on record `
-      + `(${totalActive ? Math.round((rows.length / totalActive) * 100) : 0}% coverage). `
+      `Population: ${kept.length} of ${totalActive} active athletes`
+      + (parts.length ? ` (filtered to ${scope})` : '')
+      + ` have a HoloMotion screening on record`
+      + `${parts.length ? '' : ` (${totalActive ? Math.round((kept.length / totalActive) * 100) : 0}% coverage)`}. `
       + 'All comparisons below are cohort-normed (sport × programme × gender).', 50);
+
+    if (focused) {
+      doc.moveDown(0.3);
+      doc.fontSize(10).fillColor(TEXT).font('Helvetica-Bold')
+        .text(`Focused on: ${INDICATOR_LABEL[focused]}`, 50);
+      doc.fontSize(8.5).fillColor(MUTED).font('Helvetica').text(
+        'A focus does not remove any athlete from this report - it re-reads the same population through one '
+        + 'indicator, split by sport, gender, age and programme, so the group carrying the problem is visible. '
+        + 'The sections after it are the unfocused picture.', 50, doc.y, { width: doc.page.width - 100 });
+    }
 
     // Screening-programme activity. Deliberately the FIRST section: this report
     // goes to management, and "how much did we screen, and which way is the
@@ -75,8 +130,8 @@ router.get('/holistic.pdf', auth, rbac('admin'), async (req, res) => {
 
     sectionTitle(doc, 'Overall Risk Distribution', 110);
     const bands = { green: 0, amber: 0, red: 0, none: 0 };
-    rows.forEach(({ screening }) => { bands[(screening.overrideBand || screening.overallBand) || 'none']++; });
-    const total = rows.length || 1;
+    kept.forEach(({ screening }) => { bands[(screening.overrideBand || screening.overallBand) || 'none']++; });
+    const total = kept.length || 1;
     bar(doc, 'Safe (green)', bands.green, total, BAND.green, { valueText: `${bands.green}` });
     bar(doc, 'Needs attention', bands.amber, total, BAND.amber, { valueText: `${bands.amber}` });
     bar(doc, 'Immediate assessment', bands.red, total, BAND.red, { valueText: `${bands.red}` });
@@ -84,7 +139,7 @@ router.get('/holistic.pdf', auth, rbac('admin'), async (req, res) => {
 
     sectionTitle(doc, 'Population Average Scores');
     const avg = (key) => {
-      const vals = rows.map(({ screening }) => num(screening[key])).filter((v) => v !== null);
+      const vals = kept.map(({ screening }) => num(screening[key])).filter((v) => v !== null);
       return vals.length ? +(vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1) : 0;
     };
     for (const [key, label, max] of SCORE_ROWS) bar(doc, label, avg(key), max, NAVY);
@@ -95,8 +150,8 @@ router.get('/holistic.pdf', auth, rbac('admin'), async (req, res) => {
     riskLegend(doc);
     const hot = RISKS.map(([k, label]) => ({
       label,
-      watch: rows.filter(({ screening }) => (num(screening[k]) ?? 0) > 15 && (num(screening[k]) ?? 0) <= 25).length,
-      elevated: rows.filter(({ screening }) => (num(screening[k]) ?? 0) > 25).length,
+      watch: kept.filter(({ screening }) => (num(screening[k]) ?? 0) > 15 && (num(screening[k]) ?? 0) <= 25).length,
+      elevated: kept.filter(({ screening }) => (num(screening[k]) ?? 0) > 25).length,
     })).sort((a, b) => (b.watch + b.elevated) - (a.watch + a.elevated));
     for (const h of hot) hotspotBar(doc, h.label, h.watch, h.elevated, total);
 
@@ -105,7 +160,7 @@ router.get('/holistic.pdf', auth, rbac('admin'), async (req, res) => {
     // table shape so every slice reads the same.
     const groupBands = (keyFn, order) => {
       const m = new Map();
-      for (const { athlete, screening } of rows) {
+      for (const { athlete, screening } of kept) {
         const key = keyFn(athlete);
         if (key == null || key === '') continue;
         if (!m.has(key)) m.set(key, { label: String(key), n: 0, green: 0, amber: 0, red: 0 });
@@ -116,23 +171,61 @@ router.get('/holistic.pdf', auth, rbac('admin'), async (req, res) => {
       const entries = [...m.values()];
       return order ? entries.sort((a, b) => order.indexOf(a.label) - order.indexOf(b.label)) : entries.sort((a, b) => b.n - a.n);
     };
-    const ageBand = (a) => {
-      const v = num(a.age);
-      if (v === null) return null;
-      // ASCII-safe labels — pdfkit's Helvetica has no ≤ glyph.
-      if (v <= 20) return '20 & under'; if (v <= 25) return '21-25'; if (v <= 30) return '26-30'; return '31+';
-    };
+    // Shared buckets (utils/cohortFocus.js), so the age rows here, the focus
+    // breakdown above and the dashboard's age filter all mean the same thing.
+    // They used to disagree: "21-25" in print vs "18-23 (junior)" on screen.
+    const ageBand = (a) => ageGroupOf(a.age);
+    const AGE_ORDER = ['Under 18', '18-23 (junior)', '24-29 (senior)', '30+ (veteran)'];
+
+    if (focused) {
+      const flat = (list) => list.map(({ athlete, screening }) => {
+        const out = { ...athlete };
+        for (const { key } of SHOWN_INDICATORS) out[key] = screening[key];
+        return out;
+      });
+      const fb = focusBreakdown(flat(kept), focused, flat(allRows));
+      if (fb) {
+        sectionTitle(doc, `Focus: where ${fb.label} concentrates`, 150);
+        const pct = fb.n ? Math.round((fb.high / fb.n) * 100) : 0;
+        doc.fontSize(9).fillColor(TEXT).font('Helvetica').text(
+          `${fb.high} of ${fb.n} athletes in this report are Elevated on ${fb.label} (${pct}%), `
+          + `${fb.watch} are in Watch. Average reading ${fb.avg === null ? '-' : fb.avg}`
+          + (fb.baselineAvg === null ? '.' : `, against ${fb.baselineAvg} across the whole institute - `
+            + `${fb.avg === fb.baselineAvg ? 'the same' : fb.avg > fb.baselineAvg ? 'worse than normal' : 'better than normal'}.`),
+          50, doc.y, { width: doc.page.width - 100 });
+        doc.moveDown(0.5);
+        riskLegend(doc);
+        doc.moveDown(0.3);
+        focusTable(doc, 'By sport', fb.bySlice.sport);
+        focusTable(doc, 'By gender', fb.bySlice.gender);
+        focusTable(doc, 'By age group', fb.bySlice.ageGroup);
+        focusTable(doc, 'By programme', fb.bySlice.programme);
+
+        if (fb.worst.length) {
+          ensure(doc, 30 + fb.worst.length * 13);
+          doc.fontSize(9).font('Helvetica-Bold').fillColor(TEXT).text(`Highest ${fb.label} readings`, 50);
+          doc.moveDown(0.2);
+          for (const w of fb.worst) {
+            ensure(doc, 13);
+            doc.fontSize(9).font('Helvetica').fillColor(bandOnLight(w.band === 'high' ? 'red' : w.band === 'watch' ? 'amber' : 'green'))
+              .text('•  ', 50, doc.y, { continued: true })
+              .fillColor(TEXT).text(`${w.name} (${w.athleteId}) · ${w.sport} · ${fb.label} ${w.value}`);
+          }
+          doc.moveDown(0.4);
+        }
+      }
+    }
 
     sectionTitle(doc, 'Risk Bands by Sport');
     bandTable(doc, groupBands((a) => a.sport));
     sectionTitle(doc, 'Risk Bands by Gender', 90);
     bandTable(doc, groupBands((a) => a.gender, ['Male', 'Female']));
     sectionTitle(doc, 'Risk Bands by Age Group', 110);
-    bandTable(doc, groupBands(ageBand, ['20 & under', '21-25', '26-30', '31+']));
+    bandTable(doc, groupBands(ageBand, AGE_ORDER));
 
     // Athletes needing attention
     sectionTitle(doc, 'Athletes Flagged for Assessment');
-    const flagged = rows
+    const flagged = kept
       .filter(({ screening }) => ['amber', 'red'].includes(screening.overrideBand || screening.overallBand))
       .sort((a, b) => (a.screening.overallIndicator ?? 100) - (b.screening.overallIndicator ?? 100));
     if (!flagged.length) doc.fontSize(10).fillColor(MUTED).text('No athletes currently flagged.', 50);

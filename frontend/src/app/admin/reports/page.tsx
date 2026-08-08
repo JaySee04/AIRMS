@@ -9,8 +9,15 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import { api } from '@/lib/api';
 import AthleteSearchSelect, { PickableAthlete } from '@/components/ui/AthleteSearchSelect';
 import SportSelect from '@/components/ui/SportSelect';
+import CohortFilters, { useCohortFilters } from '@/components/admin/CohortFilters';
 
 export default function AdminReportsPage() {
+  // The holistic report takes the same slicers as the analytics page, so an
+  // administrator can pull the report for exactly the group under discussion
+  // rather than always the whole institute. The report states its filters on
+  // its own cover, so a printed copy stays self-describing.
+  const hf = useCohortFilters();
+  const [disciplines, setDisciplines] = useState<Array<{ sport: string; discipline: string }>>([]);
   const [roster, setRoster] = useState<PickableAthlete[]>([]);
   const [selectedId, setSelectedId] = useState('');
   const [sport, setSport] = useState('Badminton');
@@ -23,8 +30,14 @@ export default function AdminReportsPage() {
     let cancelled = false;
     (async () => {
       try {
-        const rows = await api.get<PickableAthlete[]>('/athletes');
-        if (!cancelled) setRoster(rows.map((a) => ({ athleteId: a.athleteId, name: a.name, sport: a.sport })));
+        const [rows, ds] = await Promise.all([
+          api.get<PickableAthlete[]>('/athletes'),
+          api.get<Array<{ sport: string; discipline: string }>>('/athletes/meta/disciplines').catch(() => []),
+        ]);
+        if (!cancelled) {
+          setRoster(rows.map((a) => ({ athleteId: a.athleteId, name: a.name, sport: a.sport })));
+          setDisciplines(ds);
+        }
       } catch { /* picker still renders; roster just empty */ }
     })();
     return () => { cancelled = true; };
@@ -43,6 +56,14 @@ export default function AdminReportsPage() {
 
   return (
     <DashboardLayout allowedRoles={['admin']} title="PDF Reports">
+      <CohortFilters
+        f={hf}
+        sports={sports}
+        disciplines={disciplines}
+        showFocus
+        note="Applies to the Holistic report. The individual and team reports carry their own scope."
+      />
+
       <div className="card">
         <div className="card-header"><div>
           <h2 className="card-title" style={{ marginBottom: 0 }}>HoloMotion Screening Reports</h2>
@@ -51,9 +72,12 @@ export default function AdminReportsPage() {
         {err && <div className="alert alert-error">{err}</div>}
         <div className="grid-3" style={{ gap: 16 }}>
           <div>
-            <strong style={{ fontSize: '0.85rem' }}>Holistic (all athletes)</strong>
-            <p className="text-muted" style={{ fontSize: '0.8rem', margin: '4px 0 8px' }}>Cohort-wide risk distribution, averages, and flagged athletes.</p>
-            <button type="button" className="btn btn-primary btn-sm" disabled={busy !== ''} onClick={() => dl('h', '/screening-reports/holistic.pdf', 'AIRMS-holistic.pdf')}>{busy === 'h' ? '…' : 'Download'}</button>
+            <strong style={{ fontSize: '0.85rem' }}>Holistic {hf.active ? '(filtered)' : '(all athletes)'}</strong>
+            <p className="text-muted" style={{ fontSize: '0.8rem', margin: '4px 0 8px' }}>
+              Risk distribution, averages, programme activity and flagged athletes
+              {hf.active ? ' — for the group selected above.' : ' — for every athlete. Use the filters above to narrow it.'}
+            </p>
+            <button type="button" className="btn btn-primary btn-sm" disabled={busy !== ''} onClick={() => dl('h', `/screening-reports/holistic.pdf${hf.query ? `?${hf.query}` : ''}`, 'AIRMS-holistic.pdf')}>{busy === 'h' ? '…' : 'Download'}</button>
           </div>
           <div>
             <strong style={{ fontSize: '0.85rem' }}>Individual</strong>

@@ -38,6 +38,18 @@ interface ScreeningCohort {
     bandMoves: { better: number; worse: number };
     deltas: Array<{ key: string; label: string; higherBetter: boolean; avgDelta: number | null }>;
   };
+  focus: FocusBreakdown | null;
+}
+
+// One indicator expressed across every slice — present only when a region
+// focus is applied. See backend/src/utils/cohortFocus.js.
+export interface FocusSlice { label: string; n: number; ok: number; watch: number; high: number; avg: number | null }
+export interface FocusBreakdown {
+  key: string; label: string;
+  n: number; ok: number; watch: number; high: number; avg: number | null;
+  baselineAvg: number | null; baselineHighShare: number | null;
+  bySlice: { sport: FocusSlice[]; gender: FocusSlice[]; ageGroup: FocusSlice[]; programme: FocusSlice[] };
+  worst: Array<{ athleteId: string; name: string; sport: string; gender: string; value: number; band: string }>;
 }
 
 // Status colours (theme-aware). Reserved for state — never reused as series hues.
@@ -116,10 +128,58 @@ function MuscleBars({ items }: { items: Array<{ label: string; count: number; we
   );
 }
 
+// One slice dimension as rows: n, the Low/Watch/Elevated split, the share
+// elevated and the average. Ordered worst-first by the backend, because the
+// admin is looking for where a problem concentrates.
+function SliceTable({ title, rows, note }: { title: string; rows: FocusSlice[]; note?: string }) {
+  // A one-row breakdown is a tautology: it only happens when the population is
+  // already filtered on this dimension (focus Knee within Female, and "By
+  // gender" is just Female again). Hide it rather than show a single bar.
+  if (rows.length < 2) return null;
+  const maxAvg = Math.max(1, ...rows.map((r) => r.avg ?? 0));
+  return (
+    <div>
+      <div style={{ fontSize: '0.82rem', fontWeight: 700, marginBottom: 8 }}>{title}</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {rows.map((r) => {
+          const share = r.n ? Math.round((r.high / r.n) * 100) : 0;
+          const segs = [
+            { label: 'Low', value: r.ok, color: C.green },
+            { label: 'Watch', value: r.watch, color: C.amber },
+            { label: 'Elevated', value: r.high, color: C.red },
+          ].filter((x) => x.value > 0);
+          return (
+            <div key={r.label} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ width: 132, fontSize: '0.8rem', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.label}>
+                {r.label} <span className="text-muted">({r.n})</span>
+              </div>
+              <div style={{ flex: 1, display: 'flex', height: 16, borderRadius: 4, overflow: 'hidden', background: 'var(--border)' }}
+                title={`${r.label}: ${r.ok} Low · ${r.watch} Watch · ${r.high} Elevated`}>
+                {segs.map((x, i) => (
+                  <div key={x.label} style={{ width: `${(x.value / r.n) * 100}%`, background: x.color, borderRight: i < segs.length - 1 ? '2px solid var(--bg)' : undefined }} />
+                ))}
+              </div>
+              <div style={{ width: 74, textAlign: 'right', fontSize: '0.78rem', flexShrink: 0 }}>
+                {r.high > 0
+                  ? <span style={{ color: C.red, fontWeight: 700 }}>{r.high} ({share}%)</span>
+                  : <span className="text-muted">0 elev.</span>}
+              </div>
+              <div style={{ width: 42, textAlign: 'right', fontWeight: 700, fontSize: '0.8rem', flexShrink: 0 }}
+                title={`Average reading — lower is better (worst here ${maxAvg})`}>{r.avg ?? '—'}</div>
+            </div>
+          );
+        })}
+      </div>
+      {note && <div className="text-muted" style={{ fontSize: '0.72rem', marginTop: 8 }}>{note}</div>}
+    </div>
+  );
+}
+
 export default function AdminDashboard() {
   const f = useCohortFilters();
   const [cohort, setCohort] = useState<ScreeningCohort | null>(null);
   const [sports, setSports] = useState<string[]>([]);
+  const [disciplines, setDisciplines] = useState<Array<{ sport: string; discipline: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -127,8 +187,11 @@ export default function AdminDashboard() {
     let cancelled = false;
     (async () => {
       try {
-        const s = await api.get<string[]>('/athletes/meta/sports').catch(() => [] as string[]);
-        if (!cancelled) setSports(s);
+        const [sp, ds] = await Promise.all([
+          api.get<string[]>('/athletes/meta/sports').catch(() => [] as string[]),
+          api.get<Array<{ sport: string; discipline: string }>>('/athletes/meta/disciplines').catch(() => []),
+        ]);
+        if (!cancelled) { setSports(sp); setDisciplines(ds); }
       } catch { /* filter still usable without */ }
     })();
     return () => { cancelled = true; };
@@ -163,6 +226,7 @@ export default function AdminDashboard() {
     ].sort((x, y) => y.count - x.count).slice(0, 8);
   }, [cohort]);
 
+  const focus = cohort?.focus ?? null;
   const a = cohort?.averages;
   const bd = cohort?.bandDistribution;
 
@@ -173,8 +237,124 @@ export default function AdminDashboard() {
       <CohortFilters
         f={f}
         sports={sports}
+        disciplines={disciplines}
+        showFocus
         note="Slices every panel below. Programme throughput over time lives on Programme Activity."
       />
+
+      {focus && (
+        <>
+          {/* Focused headline — the same cohort read through one indicator, set
+              against the institute baseline so "worse than normal?" is
+              answerable rather than left to intuition. */}
+          <div className="card" style={{ marginBottom: 20, borderLeft: '4px solid var(--risk-high)' }}>
+            <div className="card-header"><div>
+              <h2 className="card-title" style={{ marginBottom: 0 }}>Focus &middot; {focus.label}</h2>
+              <span className="card-sub">
+                This cohort read through one indicator. No athlete is filtered out &mdash; that is what makes the
+                comparisons below meaningful.
+              </span>
+            </div></div>
+            <div className="stat-grid">
+              <div className="stat-tile">
+                <div className="stat-tile-label">Elevated on {focus.label}</div>
+                <div className="stat-tile-value" style={{ color: focus.high > 0 ? C.red : undefined }}>
+                  {focus.high}<span style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: 500 }}> / {focus.n}</span>
+                </div>
+                <div className="stat-tile-delta">{focus.n ? Math.round((focus.high / focus.n) * 100) : 0}% of this cohort</div>
+              </div>
+              <div className="stat-tile">
+                <div className="stat-tile-label">Watch</div>
+                <div className="stat-tile-value" style={{ color: focus.watch > 0 ? C.amber : undefined }}>{focus.watch}</div>
+                <div className="stat-tile-delta">16&ndash;25 &middot; monitor</div>
+              </div>
+              <div className="stat-tile">
+                <div className="stat-tile-label">Average reading</div>
+                <div className="stat-tile-value">{focus.avg ?? '—'}</div>
+                <div className="stat-tile-delta">lower is better</div>
+              </div>
+              <div className="stat-tile">
+                <div className="stat-tile-label">vs whole institute</div>
+                {(() => {
+                  const d = focus.avg !== null && focus.baselineAvg !== null
+                    ? Number((focus.avg - focus.baselineAvg).toFixed(1)) : null;
+                  if (d === null) return <div className="stat-tile-value">&mdash;</div>;
+                  const worse = d > 0;
+                  return (
+                    <>
+                      <div className="stat-tile-value" style={{ color: d === 0 ? undefined : worse ? C.red : C.green }}>
+                        {d > 0 ? '+' : ''}{d}
+                      </div>
+                      <div className="stat-tile-delta">
+                        institute avg {focus.baselineAvg} &middot; {d === 0 ? 'the same' : worse ? 'worse than normal' : 'better than normal'}
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+            </div>
+          </div>
+
+          {/* The panel that answers "why do women have more knee" — one
+              indicator, split every way the admin can think in. */}
+          <div className="card" style={{ marginBottom: 20 }}>
+            <div className="card-header"><div>
+              <h2 className="card-title" style={{ marginBottom: 0 }}>Where {focus.label} concentrates</h2>
+              <span className="card-sub">
+                Each group&apos;s Low / Watch / Elevated split on {focus.label}, ordered worst-first by the SHARE
+                elevated &mdash; a squad of 4 with 3 elevated outranks one of 60 with 5, because policy follows
+                proportion, not headcount.
+              </span>
+            </div></div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 24 }}>
+              <SliceTable title="By sport" rows={focus.bySlice.sport} />
+              <SliceTable title="By gender" rows={focus.bySlice.gender} />
+              <SliceTable title="By age group" rows={focus.bySlice.ageGroup} />
+              <SliceTable title="By programme" rows={focus.bySlice.programme} />
+            </div>
+            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginTop: 16, fontSize: '0.78rem' }}>
+              {([['Low ≤15', C.green], ['Watch 16–25', C.amber], ['Elevated >25', C.red]] as const).map(([l, c]) => (
+                <span key={l} style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 12, height: 12, borderRadius: 3, background: c }} />{l}</span>
+              ))}
+              <span className="text-muted">Right-hand columns: elevated count (share of group) &middot; group average</span>
+            </div>
+          </div>
+
+          {focus.worst.length > 0 && (
+            <div className="card" style={{ marginBottom: 20 }}>
+              <div className="card-header"><div>
+                <h2 className="card-title" style={{ marginBottom: 0 }}>Highest {focus.label} readings</h2>
+                <span className="card-sub">Who to look at first &mdash; one step from where the problem is to who has it.</span>
+              </div></div>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ minWidth: 520 }}>
+                  <thead>
+                    <tr>
+                      <th>Athlete</th><th>IC number</th><th>Sport</th>
+                      <th style={{ textAlign: 'right' }}>{focus.label}</th><th style={{ textAlign: 'right' }}>Band</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {focus.worst.map((w) => (
+                      <tr key={w.athleteId}>
+                        <td style={{ fontWeight: 600 }}>{w.name}</td>
+                        <td className="text-muted" style={{ fontSize: '0.8rem' }}>{w.athleteId}</td>
+                        <td>{w.sport}</td>
+                        <td style={{ textAlign: 'right', fontWeight: 700 }}>{w.value}</td>
+                        <td style={{ textAlign: 'right' }}>
+                          <span className={w.band === 'high' ? 'badge-high' : w.band === 'watch' ? 'badge-moderate' : 'badge-low'}>
+                            {w.band === 'high' ? 'Elevated' : w.band === 'watch' ? 'Watch' : 'Low'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </>
+      )}
 
       {/* KPI tiles */}
       <div className="stat-grid">

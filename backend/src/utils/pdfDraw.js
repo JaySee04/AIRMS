@@ -372,6 +372,47 @@ function betweenTestsBlock(doc, bt) {
   }
 }
 
+// One slice dimension for a focused indicator: group, n, the Low/Watch/Elevated
+// split, the share elevated, and the group average. The share is what a policy
+// decision hangs on — a squad of 4 with 3 elevated matters more than one of 60
+// with 5 — so it is printed, not left to be worked out from the counts.
+function focusTable(doc, title, rows) {
+  // A one-row breakdown teaches nothing — it happens when the population is
+  // already filtered on this dimension (focus Knee within Female, then "By
+  // gender" is just Female again). Skip it rather than print a tautology.
+  if (!rows || rows.length < 2) return;
+  ensure(doc, 30 + rows.length * 14);
+  doc.fontSize(9).font('Helvetica-Bold').fillColor(TEXT).text(title, 50);
+  doc.moveDown(0.25);
+  const y0 = doc.y;
+  doc.fontSize(8).font('Helvetica-Bold').fillColor(MUTED);
+  doc.text('Group', 50, y0, { lineBreak: false });
+  doc.text('n', 230, y0, { width: 30, align: 'right', lineBreak: false });
+  doc.text('Low', 270, y0, { width: 40, align: 'right', lineBreak: false });
+  doc.text('Watch', 320, y0, { width: 45, align: 'right', lineBreak: false });
+  doc.text('Elevated', 375, y0, { width: 55, align: 'right', lineBreak: false });
+  doc.text('% elev.', 440, y0, { width: 45, align: 'right', lineBreak: false });
+  doc.text('Avg', 495, y0, { width: 40, align: 'right', lineBreak: false });
+  doc.y = y0 + 13;
+
+  for (const r of rows) {
+    ensure(doc, 14);
+    const y = doc.y;
+    const share = r.n ? Math.round((r.high / r.n) * 100) : 0;
+    doc.fontSize(9).font('Helvetica').fillColor(TEXT).text(String(r.label), 50, y, { width: 175, lineBreak: false });
+    doc.text(String(r.n), 230, y, { width: 30, align: 'right', lineBreak: false });
+    doc.fillColor(bandOnLight('green')).text(String(r.ok), 270, y, { width: 40, align: 'right', lineBreak: false });
+    doc.fillColor(bandOnLight('amber')).text(String(r.watch), 320, y, { width: 45, align: 'right', lineBreak: false });
+    doc.fillColor(bandOnLight('red')).text(String(r.high), 375, y, { width: 55, align: 'right', lineBreak: false });
+    doc.fillColor(r.high ? bandOnLight('red') : MUTED).font('Helvetica-Bold')
+      .text(`${share}%`, 440, y, { width: 45, align: 'right', lineBreak: false });
+    doc.fillColor(TEXT).font('Helvetica')
+      .text(r.avg === null || r.avg === undefined ? '-' : String(r.avg), 495, y, { width: 40, align: 'right', lineBreak: false });
+    doc.y = y + 13;
+  }
+  doc.moveDown(0.4);
+}
+
 function riskLegend(doc) {
   ensure(doc, 16);
   const y = doc.y; let x = 50;
@@ -876,9 +917,9 @@ function interpret(screening, cohort, subitems) {
 
 
 module.exports = {
-  BAND, ELEVATED_THRESHOLD, GOLD, GRID, MUTED, NAVY, RISKS, SCORE_ROWS, TEXT, bandColor, bandLabel,
+  BAND, ELEVATED_THRESHOLD, GOLD, GRID, MUTED, NAVY, RISKS, SCORE_ROWS, TEXT, bandColor, bandLabel, bandOnLight,
   bandPill, bandTable, bar, betweenTestsBlock, bullets, cover, ensure, fileSlug, finish, fmtDate,
-  hotspotBar, interpret, keyFindings, keyFindingsBox, muscleFigure, num, periodTable, radar,
+  focusTable, hotspotBar, interpret, keyFindings, keyFindingsBox, muscleFigure, num, periodTable, radar,
   riskLegend, sectionTitle, squadMuscleHotspots, squadSubitemHeatmap, squadSymmetrySection, startDoc,
   subitemPriorities, subitemTable, symmetrySection, todayStamp, zoneGauge,
 };

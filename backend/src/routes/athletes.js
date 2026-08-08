@@ -3,6 +3,20 @@ const { Op } = require('sequelize');
 const { Athlete, MuscleFlag, Screening, AthleteDiscipline } = require('../models');
 const { screeningMovement } = require('../utils/cohorts');
 const { screeningPeriods, GRAINS } = require('../utils/screeningPeriods');
+const { focusBreakdown, isShownIndicator } = require('../utils/cohortFocus');
+
+// Headline columns that mark an athlete as "screened" — one of these present
+// means a HoloMotion report has landed for them.
+const SCREENED_SCORES = ['overallActivityScore', 'injuryRiskIndex', 'mobility', 'stability', 'symmetry'];
+const isScreened = (r) => SCREENED_SCORES.some((k) => r[k] !== null && r[k] !== undefined);
+
+// The whole screened institute, ignoring every population filter — the
+// baseline a focused cohort is compared against ("is Badminton's knee problem
+// worse than everyone's?"). Only queried when a region focus is active.
+async function allScreenedRows() {
+  const rows = await Athlete.findAll({ where: { isActive: true }, raw: true });
+  return rows.filter(isScreened);
+}
 
 // Only the columns the indicator payload needs — keeps the big JSON/TEXT
 // columns (muscle_flags, summary_text) and the 12 raw scores out of the row.
@@ -196,10 +210,8 @@ router.get('/analytics/screening', auth, rbac('admin'), async (req, res) => {
     ];
     const SCORES = ['overallActivityScore', 'injuryRiskIndex', 'mobility', 'stability', 'symmetry'];
 
-    // Athlete-level filters (sport / programme / gender / age) so this picture
-    // tracks the dashboard filters. The injury-only filters (body part, injury
-    // type, date) don't apply — a screening isn't an injury.
-    const { sport, program, gender, ageMin, ageMax } = req.query;
+    // POPULATION filters — who is in the picture.
+    const { sport, program, gender, ageMin, ageMax, discipline, region } = req.query;
     const where = { isActive: true };
     if (sport) where.sport = sport;
     if (program) where.program = program;
@@ -208,6 +220,10 @@ router.get('/analytics/screening', auth, rbac('admin'), async (req, res) => {
       where.age = {};
       if (ageMin) where.age[Op.gte] = Number(ageMin);
       if (ageMax) where.age[Op.lte] = Number(ageMax);
+    }
+    if (discipline) {
+      const owners = await AthleteDiscipline.findAll({ where: { discipline }, attributes: ['athleteId'], raw: true });
+      where.athleteId = { [Op.in]: owners.map((o) => o.athleteId) };
     }
     const rows = await Athlete.findAll({ where, raw: true });
     const screenedRows = rows.filter((r) => SCORES.some((k) => r[k] !== null && r[k] !== undefined));
@@ -277,6 +293,14 @@ router.get('/analytics/screening', auth, rbac('admin'), async (req, res) => {
       topTension: topMuscles('tension'),
       trend,
       bandDistribution,
+      // REGION FOCUS — a lens, not a population filter. It does not remove any
+      // athlete; it re-expresses the SAME cohort through one indicator, split
+      // by every other dimension, so "which group carries this problem" is
+      // answerable. Baseline is the whole institute, so a filtered cohort can
+      // be read as better or worse than normal. See utils/cohortFocus.js.
+      focus: region && isShownIndicator(region)
+        ? focusBreakdown(screenedRows, region, await allScreenedRows())
+        : null,
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
