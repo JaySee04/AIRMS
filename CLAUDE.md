@@ -62,7 +62,7 @@ demo credentials below, click through the affected flow.
 
 | Role | Email | Password |
 |---|---|---|
-| athlete | `athlete@isn.gov.my` | `athlete123` (John Doe — the athlete key is now the IC number, e.g. `890202021001`; `npm run seed` prints each demo athlete's IC) |
+| athlete | `athlete@isn.gov.my` | `athlete123` (John Doe — the athlete key is now the IC number, e.g. `070202021001`; `npm run seed` prints each demo athlete's IC) |
 | athlete | `thung@isn.gov.my` | `thung123` (Thung Jin Seng — seeded as a deliberately STALE earlier assessment so importing the sample HoloMotion PDF visibly updates his dashboard to the printed values; extraction ground truth lives in `backend/scripts/verify-holomotion-extract.js`) |
 | medical | `medical@isn.gov.my` | `medical123` (Medical Demo 01) |
 | medical (alert inbox) | `23005005@siswa.um.edu.my` | `medical123` (Medical Demo 02 — real deliverable inbox; import-commit alerts land here so the email feature demos against a checkable inbox) |

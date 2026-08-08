@@ -93,6 +93,26 @@ const ISN_DIRECTORY = [
     dateRegistered: '2023-04-05',
     status: 'active',
   },
+  // Walkthrough record for the "athlete AIRMS has never seen" path: he is in
+  // ISN's directory and deliberately NOT in the seeded AIRMS roster, so a
+  // lookup returns inRoster:false and the operator can create him pre-filled in
+  // one step. Badminton/PELAPIS puts him in a cohort that already has peers, so
+  // his first screening scores against a real norm rather than falling back.
+  {
+    icNumber: '080319101817',
+    name: 'Mohamed Elffie Danish Bin Khir Johari',
+    dateOfBirth: '2008-03-19',
+    gender: 'Male',
+    sport: 'Badminton',
+    programme: 'PELAPIS',
+    disciplines: ["Men's Singles"],
+    nationality: 'Malaysian',
+    stateOfBirth: 'Selangor',
+    contactEmail: 'elffie.danish@isn-athlete.example.my',
+    contactPhone: '0123456786',
+    dateRegistered: '2025-01-13',
+    status: 'active',
+  },
 ];
 
 function ageFromDob(dob) {
