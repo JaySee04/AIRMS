@@ -68,6 +68,7 @@ demo credentials below, click through the affected flow.
 | medical (alert inbox) | `23005005@siswa.um.edu.my` | `medical123` (Medical Demo 02 — real deliverable inbox; import-commit alerts land here so the email feature demos against a checkable inbox) |
 | admin | `admin@isn.gov.my` | `admin123` |
 | admin (SMTP demo) | `poseidonapollo11@gmail.com` | `admin123` (real-Gmail account so the email-reset flow demos against an inbox you can check) |
+| executive | `executive@isn.gov.my` | `executive123` (Datuk Executive — **read-only oversight**: admin analytics + PDF reports, and nothing that writes) |
 
 Seeded passwords intentionally do not satisfy the 10-char + complexity password policy — the policy gates user-driven password setting via `change-password` / `reset-password`, not seeded fixtures.
 
@@ -133,7 +134,7 @@ Do not weaken this to plain Gabbett ACWR. If a refactor touches `risk.ts`, menti
 
 From `docs/MASTER_CLARIFICATIONS.md §12`:
 
-- The role model: FYP I shipped **3 roles** (athlete / medical / admin); **FYP II promotes `coach` to a first-class 4th role** (read-only, sport-scoped — squad readiness, team-report download, athlete screening detail, individual screening-PDF download for their sport's athletes). Adding *further* roles still needs discussion.
+- The role model: FYP I shipped **3 roles** (athlete / medical / admin); **FYP II promotes `coach` to a first-class 4th role** (read-only, sport-scoped — squad readiness, team-report download, athlete screening detail, individual screening-PDF download for their sport's athletes). **A 5th role, `executive`, was added on JC's instruction 2026-08-08** — read-only institutional oversight (admin analytics + the three PDF reports) with no write access anywhere: no import, no norm edits, no roster or personnel changes, no settings, no backup export. It is deliberately NOT a "super admin": it has strictly fewer powers than `admin`, and naming it super-admin would misdescribe it. Adding *further* roles still needs discussion.
 - The composite risk model formula
 - sRPE method for load calculation (`load = duration × intensity`) — validated by Inoue (2022) for scale reliability and Yang (2024) for physiological correspondence. **Retired 2026-07-20** along with Activity Tracking (the only thing that computed it) — the formula itself stays locked/citable for the FYP report, it's just not implemented anywhere right now
 - The body map asset source — path data adapted from MIT-licensed [`react-muscle-highlighter`](https://github.com/soroojshehryar/react-muscle-highlighter) by Sorooj Shehryar; lives in `frontend/src/components/dashboard/bodymap-data/` with MIT attribution preserved at the top of every file. **This attribution must stay in the FYP references section.**
@@ -206,7 +207,7 @@ NEXT_PUBLIC_API_URL=http://localhost:5000/api
 1. **Stale Next.js process holds port 3000** → new instance auto-bumps to 3001 → CORS blocks API calls. Backend allows both as a safety net, but the cleaner fix is `Stop-Process -Id <pid> -Force` and restart `npm run dev`. Never edit CORS as a workaround.
 2. **MySQL password with special characters** (`#`, `$`, `%`, `^`) must be wrapped in single quotes in `backend/.env` so `dotenv` doesn't interpret them.
 3. **Seeder enum errors** — the classic offender (`Injury` enums) went with the model. The live enums to check seed data against are:
-   - `User.role` — `athlete` | `medical` | `admin` | `coach`
+   - `User.role` — `athlete` | `medical` | `admin` | `coach` | `executive` (adding a value needs an `ALTER TABLE users MODIFY COLUMN role ENUM(...)` on an existing dev DB; a fresh clone gets it from `npm run seed`)
    - `Athlete.gender` — `Male` | `Female`; `Athlete.sex` — `M` | `F` (two separate columns)
    - `Athlete.program` — `PODIUM` | `PELAPIS` | `OTHERS`
    - `MuscleFlag.flagType` — `myodynamia` | `tension`; `MuscleFlag.side` — `L` | `R` | `B`

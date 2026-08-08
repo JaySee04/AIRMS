@@ -24,7 +24,7 @@ export default function AdminProfile() {
   }, []);
 
   return (
-    <DashboardLayout allowedRoles={['admin']} title="My Profile">
+    <DashboardLayout allowedRoles={['admin', 'executive']} title="My Profile">
       <ProfileShell
         stats={[
           { label: 'Total athletes', value: '…' },

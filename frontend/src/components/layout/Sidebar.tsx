@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import Image from 'next/image';
-import { SessionUser, PermissionKey, hasPermission } from '@/lib/auth';
+import { SessionUser, PermissionKey, Role, hasPermission } from '@/lib/auth';
 
 interface NavItem { href: string; label: string; icon: React.ReactNode; perm?: PermissionKey; }
 
@@ -47,7 +47,7 @@ const IconPulse = () => (
   </svg>
 );
 
-const NAV: Record<'athlete' | 'medical' | 'admin' | 'coach', NavItem[]> = {
+const NAV: Record<Role, NavItem[]> = {
   athlete: [
     { href: '/athlete/dashboard',     label: 'My Dashboard',      icon: <IconHome /> },
     { href: '/athlete/history',       label: 'Screening History', icon: <IconFileText /> },
@@ -70,6 +70,14 @@ const NAV: Record<'athlete' | 'medical' | 'admin' | 'coach', NavItem[]> = {
   coach: [
     { href: '/coach/dashboard', label: 'Squad Readiness', icon: <IconPulse /> },
     { href: '/coach/reports',   label: 'Reports',         icon: <IconFileText /> },
+  ],
+  // Executive — read-only oversight. The admin's two analytics surfaces and the
+  // reports, and nothing that writes: no Cohort Norms, no Personnel, no Data
+  // Uploading. The absence of those three entries IS the role.
+  executive: [
+    { href: '/admin/dashboard', label: 'Screening Analytics', icon: <IconBarChart /> },
+    { href: '/admin/activity',  label: 'Programme Activity',  icon: <IconTrend /> },
+    { href: '/admin/reports',   label: 'PDF Reports',         icon: <IconFileText /> },
   ],
 };
 

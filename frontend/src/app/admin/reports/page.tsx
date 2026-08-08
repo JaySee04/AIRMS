@@ -55,7 +55,7 @@ export default function AdminReportsPage() {
   }
 
   return (
-    <DashboardLayout allowedRoles={['admin']} title="PDF Reports">
+    <DashboardLayout allowedRoles={['admin', 'executive']} title="PDF Reports">
       <CohortFilters
         f={hf}
         sports={sports}

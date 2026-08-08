@@ -12,6 +12,7 @@ import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { api } from '@/lib/api';
+import { tierMeta } from '@/lib/holomotionTiers';
 import { getSession } from '@/lib/auth';
 
 interface Stat { mean: number; sd: number; n?: number; }
@@ -44,14 +45,37 @@ const REASON_LABEL: Record<string, string> = {
   injured: 'Injured', excluded: 'Excluded (manual)', 'below-total': 'Below Total', 'below-rom': 'Below ROM', 'below-stability': 'Below Stability',
 };
 
-function ScoreBar({ v }: { v: number | null }) {
-  const val = v ?? 0;
+// A 0–100 score as a ring: the number sits inside, the arc length is the score,
+// and the colour is the HoloMotion tier the score falls in. Boundaries and
+// colours come from lib/holomotionTiers.ts — the same source the dashboards and
+// the PDF read — so a 74 is the same amber here as everywhere else.
+function ScoreRing({ v, label }: { v: number | null; label: string }) {
+  const has = v !== null && v !== undefined;
+  const val = has ? Math.max(0, Math.min(100, v as number)) : 0;
+  const meta = has ? tierMeta(v as number) : null;
+  const R = 17;
+  const CIRC = 2 * Math.PI * R;
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 96 }}>
-      <div style={{ flex: 1, height: 8, background: 'var(--border)', borderRadius: 4, overflow: 'hidden' }}>
-        <div style={{ width: `${Math.max(0, Math.min(100, val))}%`, height: '100%', background: 'var(--brand-gold)' }} />
-      </div>
-      <span style={{ fontSize: '0.75rem', width: 24, textAlign: 'right' }}>{v == null ? '—' : val}</span>
+    <div
+      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, minWidth: 46 }}
+      title={has ? `${label}: ${v} / 100 — ${meta?.label}` : `${label}: no reading`}
+    >
+      <svg width="42" height="42" viewBox="0 0 42 42" role="img"
+        aria-label={`${label} ${has ? `${v} of 100, ${meta?.label}` : 'no reading'}`}>
+        <circle cx="21" cy="21" r={R} fill="none" stroke="var(--border)" strokeWidth="4" />
+        {has && (
+          <circle
+            cx="21" cy="21" r={R} fill="none"
+            stroke={meta?.color} strokeWidth="4" strokeLinecap="round"
+            strokeDasharray={CIRC} strokeDashoffset={CIRC * (1 - val / 100)}
+            transform="rotate(-90 21 21)"
+          />
+        )}
+        <text x="21" y="25.5" textAnchor="middle" fontSize="13" fontWeight="700" fill="var(--text)">
+          {has ? v : '–'}
+        </text>
+      </svg>
+      <span className="text-muted" style={{ fontSize: '0.62rem', textTransform: 'uppercase', letterSpacing: '0.03em' }}>{label}</span>
     </div>
   );
 }
@@ -288,7 +312,35 @@ export default function CohortThresholdsPage() {
                 return (
                 <Fragment key={c.id}>
                   <tr id={`cohort-${c.id}`} className={highlightIds.has(c.id) ? 'row-flash' : undefined}>
-                    <td><strong>{cohortLabel(c)}</strong></td>
+                    <td>
+                      {/* Members opens from a disclosure at the START of the
+                          row, next to the cohort it belongs to, rather than a
+                          button at the far right — the control now sits with
+                          the thing it expands. */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <button
+                          type="button"
+                          onClick={() => openMembers(c)}
+                          aria-expanded={membersFor === c.id}
+                          aria-label={membersFor === c.id ? `Hide the athletes in ${cohortLabel(c)}` : `Show the athletes shaping ${cohortLabel(c)}`}
+                          title="Which athletes shape this norm"
+                          style={{
+                            border: '1px solid var(--border)',
+                            background: membersFor === c.id ? 'var(--brand-navy)' : 'transparent',
+                            color: membersFor === c.id ? '#fff' : 'var(--text-muted)',
+                            borderRadius: 6, width: 24, height: 24, flexShrink: 0, padding: 0,
+                            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+                          }}
+                        >
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"
+                            style={{ transform: membersFor === c.id ? 'rotate(90deg)' : 'none', transition: 'transform 120ms' }}>
+                            <polyline points="9,6 15,12 9,18" />
+                          </svg>
+                        </button>
+                        <strong>{cohortLabel(c)}</strong>
+                      </div>
+                    </td>
                     <td className="text-muted" style={{ fontSize: '0.8rem' }}>{TIER_LABEL[c.tier]}</td>
                     <td style={{ textAlign: 'center', color: c.n >= Number(set.min_cohort_n ?? 5) ? 'inherit' : 'var(--risk-high)' }}>{c.n}</td>
                     <td>
@@ -303,9 +355,6 @@ export default function CohortThresholdsPage() {
                     <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                       <button type="button" className="btn btn-outline btn-sm" onClick={() => setExpanded(expanded === c.id ? null : c.id)}>
                         {expanded === c.id ? 'Close' : 'Edit'}
-                      </button>{' '}
-                      <button type="button" className="btn btn-outline btn-sm" onClick={() => openMembers(c)} title="Choose which athletes shape this norm">
-                        {membersFor === c.id ? 'Hide members' : 'Members'}
                       </button>{' '}
                       {isAdmin && (c.status === 'pending'
                         ? <button type="button" className="btn btn-primary btn-sm" onClick={() => approve(c, 'approved')} disabled={busy}>Set live</button>
@@ -382,7 +431,7 @@ export default function CohortThresholdsPage() {
                                 <thead><tr>
                                   <th style={{ width: 36, textAlign: 'center' }} title="Include in the norm calculation">In</th>
                                   <th>Athlete</th>
-                                  <th>Total</th><th>ROM</th><th>Stability</th>
+                                  <th style={{ textAlign: 'center' }} colSpan={3} title="0-100, higher is better. Ring colour is the HoloMotion tier.">Scores</th>
                                   <th style={{ textAlign: 'center' }}>Sym</th>
                                   <th style={{ textAlign: 'center' }}>Band</th>
                                   <th>Status</th>
@@ -395,9 +444,9 @@ export default function CohortThresholdsPage() {
                                         <input type="checkbox" checked={!m.normExcluded} onChange={() => toggleExclude(m)} aria-label={`Include ${m.name} in the norm`} />
                                       </td>
                                       <td><strong>{m.name}</strong>{' '}<span className="text-muted" style={{ fontSize: '0.76rem' }}>{m.program ?? ''}{m.gender ? ` · ${m.gender}` : ''}</span></td>
-                                      <td><ScoreBar v={m.totalScore} /></td>
-                                      <td><ScoreBar v={m.rom} /></td>
-                                      <td><ScoreBar v={m.stability} /></td>
+                                      <td style={{ textAlign: 'center' }}><ScoreRing v={m.totalScore} label="Total" /></td>
+                                      <td style={{ textAlign: 'center' }}><ScoreRing v={m.rom} label="ROM" /></td>
+                                      <td style={{ textAlign: 'center' }}><ScoreRing v={m.stability} label="Stab" /></td>
                                       <td style={{ textAlign: 'center', fontSize: '0.8rem' }}>{m.symmetry ?? '—'}</td>
                                       <td style={{ textAlign: 'center' }}>
                                         <span title={m.overallBand ?? 'unscored'} style={{ display: 'inline-block', width: 12, height: 12, borderRadius: '50%', background: m.overallBand ? BAND_DOT[m.overallBand] : 'var(--border)' }} />

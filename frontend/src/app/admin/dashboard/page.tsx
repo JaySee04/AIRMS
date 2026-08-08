@@ -231,7 +231,7 @@ export default function AdminDashboard() {
   const bd = cohort?.bandDistribution;
 
   return (
-    <DashboardLayout allowedRoles={['admin']} title="Screening Analytics">
+    <DashboardLayout allowedRoles={['admin', 'executive']} title="Screening Analytics">
       {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
 
       <CohortFilters

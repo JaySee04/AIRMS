@@ -126,7 +126,7 @@ export default function AdminActivity() {
   const bt = data?.betweenTests;
 
   return (
-    <DashboardLayout allowedRoles={['admin']} title="Programme Activity">
+    <DashboardLayout allowedRoles={['admin', 'executive']} title="Programme Activity">
       {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
 
       <CohortFilters

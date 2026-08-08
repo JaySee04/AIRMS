@@ -96,7 +96,7 @@ async function syncDisciplines(athleteId, disciplines) {
   }
 }
 
-router.get('/', auth, rbac('medical', 'admin'), requirePermission('viewRecords'), async (req, res) => {
+router.get('/', auth, rbac('medical', 'admin', 'executive'), requirePermission('viewRecords'), async (req, res) => {
   try {
     const { sport, program, gender, discipline, search } = req.query;
     const where = { isActive: true };
@@ -139,7 +139,7 @@ router.get('/', auth, rbac('medical', 'admin'), requirePermission('viewRecords')
 
 // GET /api/athletes/meta/sports — list of distinct sports (for filter dropdowns)
 // Must be declared BEFORE /:id so Express doesn't match "meta" as an id.
-router.get('/meta/sports', auth, rbac('medical', 'admin'), requirePermission('viewRecords'), async (req, res) => {
+router.get('/meta/sports', auth, rbac('medical', 'admin', 'executive'), requirePermission('viewRecords'), async (req, res) => {
   try {
     const rows = await Athlete.findAll({
       attributes: ['sport'],
@@ -156,7 +156,7 @@ router.get('/meta/sports', auth, rbac('medical', 'admin'), requirePermission('vi
 // GET /api/athletes/meta/disciplines — distinct (sport, discipline) pairs already
 // on record, so the import picker can offer "choose an existing event" as well
 // as "type a new one". Declared BEFORE /:id. Scoped to active athletes.
-router.get('/meta/disciplines', auth, rbac('medical', 'admin'), requirePermission('viewRecords'), async (req, res) => {
+router.get('/meta/disciplines', auth, rbac('medical', 'admin', 'executive'), requirePermission('viewRecords'), async (req, res) => {
   try {
     const [discRows, athleteRows] = await Promise.all([
       AthleteDiscipline.findAll({ attributes: ['athleteId', 'discipline'], raw: true }),
@@ -191,7 +191,7 @@ router.get('/meta/disciplines', auth, rbac('medical', 'admin'), requirePermissio
 //     numbers and must not contradict each other.
 //   - cohort averages for the five headline gauges
 //   - most-flagged muscles for each flag type
-router.get('/analytics/screening', auth, rbac('admin'), async (req, res) => {
+router.get('/analytics/screening', auth, rbac('admin', 'executive'), async (req, res) => {
   try {
     const WATCH = 15;
     const HIGH = 25;
@@ -320,7 +320,7 @@ router.get('/analytics/screening', auth, rbac('admin'), async (req, res) => {
 // `from`/`to` bound the window (ISO dates). Aggregation runs over the immutable
 // `screenings` history rather than the athletes table, so every test an athlete
 // has ever had counts, not just their latest.
-router.get('/analytics/periods', auth, rbac('admin'), async (req, res) => {
+router.get('/analytics/periods', auth, rbac('admin', 'executive'), async (req, res) => {
   try {
     const {
       grain = 'quarter', sport, program, gender, discipline, ageMin, ageMax, from, to,

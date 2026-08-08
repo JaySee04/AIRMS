@@ -12,6 +12,7 @@ const ROLE_REDIRECTS: Record<string, string> = {
   medical: '/medical/dashboard',
   admin: '/admin/dashboard',
   coach: '/coach/dashboard',
+  executive: '/admin/dashboard',
 };
 
 export default function LoginPage() {

@@ -25,7 +25,9 @@ const User = sequelize.define('User', {
     allowNull: false,
   },
   role: {
-    type: DataTypes.ENUM('athlete', 'medical', 'admin', 'coach'),
+    // 'executive' is a READ-ONLY oversight role: the admin analytics and the PDF
+    // reports, and nothing that writes. See middleware/rbac.js.
+    type: DataTypes.ENUM('athlete', 'medical', 'admin', 'coach', 'executive'),
     allowNull: false,
   },
   athleteId: {

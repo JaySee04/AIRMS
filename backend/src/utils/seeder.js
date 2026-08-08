@@ -74,14 +74,31 @@ const DEMO_SPORTS = ['Badminton', 'Swimming', 'Athletics', 'Football', 'Hockey']
 // athlete KEY now that IC replaces the old ATHxxxx id (A2). NOT real ICs — the
 // digits are derived deterministically from a sequence number so the seed=42
 // dataset stays stable and every athlete's key is unique.
-function icFor(seq) {
-  const yy = String((88 + seq) % 100).padStart(2, '0');
+//
+// The birth year is derived from the athlete's OWN age, so the IC and the age
+// column agree — anyone cross-checking the two (which is exactly what an IC is
+// for) sees a consistent record. It previously ran off the sequence number
+// alone, `(88 + seq) % 100`, which handed later athletes birth years in the
+// 1930s and 40s: a 22-year-old whose IC said 1933.
+function icFor(seq, age) {
+  const birthYear = new Date().getFullYear() - Number(age);
+  const yy = String(birthYear % 100).padStart(2, '0');
   const mm = String((seq % 12) + 1).padStart(2, '0');
   const dd = String((seq % 28) + 1).padStart(2, '0');
   const pb = String((seq % 59) + 1).padStart(2, '0');
+  // Last 4 keep the key unique even when two athletes share a birth year.
   const rest = String(1000 + seq).slice(-4);
   return `${yy}${mm}${dd}${pb}${rest}`;
 }
+
+// The three anchor athletes' ages, kept beside their ICs so the two cannot
+// drift apart. Thung is a real reference record (the sample HoloMotion PDF).
+const AGE_JOHN = 19;
+const AGE_THUNG = 51;
+const AGE_NAZWAN = 21;
+const IC_JOHN = icFor(1, AGE_JOHN);
+const IC_THUNG = icFor(61, AGE_THUNG);
+const IC_NAZWAN = icFor(62, AGE_NAZWAN);
 
 function buildAthletes() {
   const athletes = [];
@@ -95,7 +112,7 @@ function buildAthletes() {
     const defFlags = screened ? buildFlags(MUSCLES_DEFICIENCY, 0.18) : {};
     const tensionFlags = screened ? buildFlags(MUSCLES_TENSION, 0.18) : {};
     athletes.push({
-      athleteId: icFor(i),
+      athleteId: icFor(i, age),
       name: `${pick(FIRST_NAMES)} ${pick(LAST_NAMES)}`,
       age,
       gender,
@@ -129,9 +146,9 @@ function buildAthletes() {
   // HoloMotion-shaped integers: healthy overall, moderate lumbar indicators, an
   // elevated ankle, and 2+2 muscle flags.
   athletes[0] = {
-    athleteId: icFor(1),
+    athleteId: IC_JOHN,
     name: 'John Doe',
-    age: 19,
+    age: AGE_JOHN,
     gender: 'Male',
     sport: 'Badminton', program: 'PODIUM',
     overallActivityScore: 80,
@@ -165,9 +182,9 @@ function buildAthletes() {
   // The extraction ground truth (the printed 07-19 values) lives in
   // scripts/verify-holomotion-extract.js. sport/program are operator-supplied.
   athletes.push({
-    athleteId: icFor(61),
+    athleteId: IC_THUNG,
     name: 'Thung Jin Seng',
-    age: 51,
+    age: AGE_THUNG,
     gender: 'Male',
     sport: 'Badminton', program: 'OTHERS',
     overallActivityScore: 68,
@@ -199,9 +216,9 @@ function buildAthletes() {
   // extractor and gives a genuine two-athlete batch demo. Subitem scores +
   // real values live on his seeded Screening snapshot (see buildScreenings).
   athletes.push({
-    athleteId: icFor(62),
+    athleteId: IC_NAZWAN,
     name: 'Muhammad Nazwan Bin Abdullah',
-    age: 21,
+    age: AGE_NAZWAN,
     gender: 'Male',
     sport: 'Badminton', program: 'PODIUM',
     overallActivityScore: 78,   // Total Score
@@ -300,7 +317,7 @@ function buildScreenings(athletes) {
   for (const a of athletes) {
     const screened = a.overallActivityScore != null;
     if (!screened) continue;
-    if (a.athleteId === icFor(62)) {
+    if (a.athleteId === IC_NAZWAN) {
       rows.push(snap(a, daysAgo(6), { subitems: NAZWAN_SUBITEMS }));
     } else {
       rows.push(snap(a, daysAgo(range(20, 75)), { subitems: genSubitems(a) }));
@@ -336,14 +353,17 @@ function buildUsers() {
     // recipients use fake @isn.gov.my addresses, so real sends to those bounce
     // to the SMTP account — expected; delete those bounce-backs.)
     { name: 'Medical Demo 02', email: '23005005@siswa.um.edu.my', password: 'medical123', role: 'medical' },
-    { name: 'John Doe', email: 'athlete@isn.gov.my', password: 'athlete123', role: 'athlete', athleteId: icFor(1) },
+    { name: 'John Doe', email: 'athlete@isn.gov.my', password: 'athlete123', role: 'athlete', athleteId: IC_JOHN },
     // Ground-truth athlete login — Dr Thung's own HoloMotion report seeded
     // 1:1, so the athlete view can be checked against the printed PDF.
-    { name: 'Thung Jin Seng', email: 'thung@isn.gov.my', password: 'thung123', role: 'athlete', athleteId: icFor(61) },
+    { name: 'Thung Jin Seng', email: 'thung@isn.gov.my', password: 'thung123', role: 'athlete', athleteId: IC_THUNG },
     // Coach role (first-class 4th role) — one sport per coach. Badminton includes
     // John Doe and Thung, so the coach's squad overlaps the athlete
     // demo logins.
     { name: 'Coach Demo 01', email: 'coach@isn.gov.my', password: 'coach123', role: 'coach', coachSport: 'Badminton' },
+    // Executive — read-only oversight. Sees the admin analytics and can download
+    // the reports; cannot import, edit norms, touch the roster or personnel.
+    { name: 'Datuk Executive', email: 'executive@isn.gov.my', password: 'executive123', role: 'executive' },
   ];
 }
 
@@ -469,8 +489,9 @@ async function seed() {
   console.log('  Admin:   poseidonapollo11@gmail.com    / admin123');
   console.log('  Medical: medical@isn.gov.my            / medical123');
   console.log('  Medical: 23005005@siswa.um.edu.my      / medical123   (live-alert test inbox)');
-  console.log(`  Athlete: athlete@isn.gov.my            / athlete123   (John Doe, IC ${icFor(1)})`);
-  console.log(`  Athlete: thung@isn.gov.my              / thung123     (Thung Jin Seng, IC ${icFor(61)} — 1:1 with the sample HoloMotion PDF)`);
+  console.log('  Executive: executive@isn.gov.my        / executive123 (read-only: analytics + reports)');
+  console.log(`  Athlete: athlete@isn.gov.my            / athlete123   (John Doe, IC ${IC_JOHN})`);
+  console.log(`  Athlete: thung@isn.gov.my              / thung123     (Thung Jin Seng, IC ${IC_THUNG} — 1:1 with the sample HoloMotion PDF)`);
   console.log('  Coach:   coach@isn.gov.my              / coach123');
 
   await sequelize.close();

@@ -1,8 +1,18 @@
+// The role set, named once. It was previously written out at each use site, so
+// adding `executive` meant finding four unions that had to agree.
+//
+//   athlete   own dashboard, history, squad
+//   medical   clinical view + import + norms, gated per-capability
+//   admin     everything institutional
+//   coach     read-only, scoped to one sport
+//   executive read-only oversight: admin analytics + reports, nothing that writes
+export type Role = 'athlete' | 'medical' | 'admin' | 'coach' | 'executive';
+
 export interface SessionUser {
   id: string;
   name: string;
   email: string;
-  role: 'athlete' | 'medical' | 'admin' | 'coach';
+  role: Role;
   athleteId?: string;
   // Per-feature toggles for medical staff (opt-out model). null/undefined or a
   // missing key means the capability is granted. Only `false` blocks.
@@ -45,7 +55,7 @@ export function clearSession(): void {
 }
 
 export function requireRole(
-  allowedRoles: Array<'athlete' | 'medical' | 'admin' | 'coach'>
+  allowedRoles: Role[]
 ): SessionUser | null {
   const session = getSession();
   if (!session) return null;

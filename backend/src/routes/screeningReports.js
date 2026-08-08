@@ -35,7 +35,7 @@ const {
 const router = express.Router();
 
 // ── 1. Holistic (admin) ─────────────────────────────────────────────────────
-router.get('/holistic.pdf', auth, rbac('admin'), async (req, res) => {
+router.get('/holistic.pdf', auth, rbac('admin', 'executive'), async (req, res) => {
   try {
     // `grain` lets the same report be pulled for a monthly, quarterly or yearly
     // management review; quarterly is the default because it is the cadence ISN
@@ -241,7 +241,7 @@ router.get('/holistic.pdf', auth, rbac('admin'), async (req, res) => {
 });
 
 // ── 2. Individual ───────────────────────────────────────────────────────────
-router.get('/individual/:id.pdf', auth, requirePermission('viewRecords'), async (req, res) => {
+router.get('/individual/:id.pdf', auth, rbac('medical', 'admin', 'coach', 'executive'), requirePermission('viewRecords'), async (req, res) => {
   try {
     if (req.user.role === 'athlete' && req.user.athleteId !== req.params.id) {
       return res.status(403).json({ message: 'Access denied' });
@@ -388,7 +388,7 @@ router.get('/individual/:id.pdf', auth, requirePermission('viewRecords'), async 
 // individual report handles athletes with an explicit self-only check instead.
 // Coaches may pull the team report, but only for a sport they are assigned to
 // (their read-only remit) — enforced by the coachSports scope check below.
-router.get('/team.pdf', auth, rbac('medical', 'admin', 'coach'), requirePermission('viewRecords'), async (req, res) => {
+router.get('/team.pdf', auth, rbac('medical', 'admin', 'coach', 'executive'), requirePermission('viewRecords'), async (req, res) => {
   try {
     const { sport, programme, gender } = req.query;
     if (!sport) return res.status(400).json({ message: 'sport is required' });

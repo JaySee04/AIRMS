@@ -7,12 +7,12 @@ import Topbar from './Topbar';
 import { api } from '@/lib/api';
 import {
   getSession, saveSession, clearSession,
-  SessionUser, PermissionKey, hasPermission, firstPermittedPath,
+  SessionUser, PermissionKey, Role, hasPermission, firstPermittedPath,
 } from '@/lib/auth';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
-  allowedRoles: Array<'athlete' | 'medical' | 'admin' | 'coach'>;
+  allowedRoles: Role[];
   title: string;
   // When set, medical staff lacking this capability are routed to their first
   // still-permitted page — revoked features simply don't exist for them (no
