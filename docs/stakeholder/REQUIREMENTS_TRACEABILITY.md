@@ -16,8 +16,8 @@
 
 | | Count |
 |---|---|
-| ✅ Met | 9 |
-| ⚠️ Partial / recast | 4 |
+| ✅ Met | 10 |
+| ⚠️ Partial / recast | 3 |
 | ❌ Gap | 1 |
 | ⏸ Deferred by agreement | 2 |
 
@@ -172,7 +172,7 @@ Immutable screening history per athlete, a date picker that replays any past
 assessment across the whole clinical view, report-to-report progress deltas,
 and the individual PDF's progress section.
 
-## 11. Per-sport prominent problems, to advise on ⚠️ partial
+## 11. Per-sport prominent problems, to advise on ✅ *(closed 2026-08-09)*
 
 > *"the doctor in the room can also see, okay, this spot, what are the
 > prominent kind of injury and when going to happen? So you can also give them
@@ -180,10 +180,13 @@ and the individual PDF's progress section.
 
 The **coach** has this: squad focus, muscle hotspots and readiness by event for
 their sport. The **medical** view lost its sport-context card when the injury
-data went, so a clinician looking at one athlete no longer sees that athlete's
-sport pattern beside them — which is precisely the comparison this quote asks
-for. Restoring it from screening data (rather than injury data) is a small,
-well-defined piece of work.
+data went — rebuilt 2026-08-09 from screening instead, as a **Sport context**
+card on the athlete detail (`GET /athletes/:id/sport-context`). It names what
+the squad carries most and where this athlete stands against it, e.g.
+*"Badminton carries Knee most: 3 of 15 elevated (20%). This athlete is furthest
+above their squad on Ankle (+15.5 vs the squad average)."* Indicators are
+ordered by what is prominent in the SPORT, not by the athlete's worst reading,
+because the quote asks what the squad tends to have.
 
 ## 12. Two audiences, two different dashboards ✅
 
@@ -262,7 +265,7 @@ a genuinely small addition if he wants it.
    those words.
 3. **Name §6 (seasonality) as future work** with the data-maturity reason, so
    it reads as understood rather than missed.
-4. **Restore §11's sport context** on the medical view from screening data.
+4. ~~Restore §11's sport context on the medical view~~ — **done 2026-08-09.**
 
 ---
 

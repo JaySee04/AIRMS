@@ -10,8 +10,11 @@
 The short list you asked me to keep in front of you. Fuller detail for each is
 in the stage section linked.
 
-- [ ] **Open the three PDFs in a real viewer** (Holistic / Individual ATH0061 /
-  Team Badminton) — Stage D below. *You said "later, remind me."*
+- [ ] **Open the three PDFs in a real viewer** (Holistic / Individual / Team
+  Badminton) — Stage D below. *You said "later, remind me."* Note the holistic
+  report has changed substantially since that note: it now opens with programme
+  activity and takes cohort filters + a region focus. (The old "ATH0061" here
+  was the retired ID scheme — pick any athlete by name.)
 - [ ] **Eyeball the injury-floor band distribution** — confirm you're happy that
   a significant active injury floors a clean athlete to amber (toggle is ON).
   Stage "Decisions 2026-07-27" above. *"remind me."*
@@ -20,7 +23,10 @@ in the stage section linked.
   section at the bottom. *"remind me."*
 - [ ] **Report writing + viva rehearsal** — the remaining big rock; `VIVA_SCRIPT.md`
   / `VIVA_ANSWERS.md` are the starting point (note their FYP I dating). *"remind me."*
-- [ ] **Judge the injury features' necessity** (2026-08-02) — the manual injury log + Injury Report Builder are kept for now but now *integrated* so you can see their value: the Screening Analytics dashboard shows a screening↔injury bridge (e.g. "5 athletes would read Safe on HoloMotion alone but a logged injury lifts them to Needs-attention"). Decide later whether they earn their place. See `HOLOMOTION_SCOPE_2026-08.md`.
+- [x] ~~**Judge the injury features' necessity** (2026-08-02)~~ — **moot.** The
+  injury log and the injury report builder were deleted on 2026-08-02; the
+  decision this item was waiting for has been taken. What remains of the
+  question is whether Dr Thung accepts the substitution — tracked below.
 - [x] **Update the FDD / report / CLAUDE.md for the HoloMotion-only cut (2026-08-02)** — **DONE 2026-08-06.** `REPORT_TABLE_4-1.md` rewritten (44 → **47** use cases across the same six modules, *after* deleting one — ten injury use cases out, thirteen screening ones in, incl. the name-redaction step that was built but never enumerated). **Module 2 recast as Athlete Roster & Identity Management** (your call, ratified 2026-08-06; the two rejected alternatives are recorded so the choice is defensible). **All five diagrams regenerated.** `REPORT_EDIT_PACK.md` revised — three of its instructions had gone actively wrong. `MASTER_CLARIFICATIONS §1` now states mission/vision/non-goals. CLAUDE.md and the docs folder re-synced.
   - [ ] **Now it's Word work — nobody but you can do it.** Apply `REPORT_EDIT_PACK.md` R1–R10 to the document, screenshot the five regenerated diagrams in a browser at 100% zoom, re-export, replace `reports/FYP-I-Report.pdf`.
   - [ ] **Two sections the report has never contained** — paste-ready: **R7a** on-device name redaction (the strongest defensible contribution in the system) and **R7b** the IC-as-key trade-off. **Expect a panel question on R7b** — it's the one place the design argues against itself.
@@ -37,8 +43,8 @@ in the stage section linked.
   - [ ] Offer him **scheduled monthly reports** (§16) — he asked in those words
     ("something standard, then you can actually generate every month"); the PDFs
     and the mailer both exist, only the schedule is missing.
-  - [ ] Restore the **sport-context** card on the medical view (§11), from
-    screening data this time.
+  - [x] ~~Restore the **sport-context** card on the medical view (§11)~~ — **done
+    2026-08-09**, rebuilt from screening data.
   - [ ] Name **seasonality** (§6 — "which quarter is the risky one") as future
     work: it needs years of history, and AIRMS has months.
 - [ ] **Dr Thung sign-off** — the deployment gate you're keeping in view (kiv).

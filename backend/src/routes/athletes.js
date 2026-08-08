@@ -3,7 +3,9 @@ const { Op } = require('sequelize');
 const { Athlete, MuscleFlag, Screening, AthleteDiscipline } = require('../models');
 const { screeningMovement } = require('../utils/cohorts');
 const { screeningPeriods, GRAINS } = require('../utils/screeningPeriods');
-const { focusBreakdown, isShownIndicator } = require('../utils/cohortFocus');
+const {
+  focusBreakdown, isShownIndicator, SHOWN_INDICATORS, tally, bandOf,
+} = require('../utils/cohortFocus');
 
 // Headline columns that mark an athlete as "screened" — one of these present
 // means a HoloMotion report has landed for them.
@@ -429,6 +431,53 @@ router.get('/teammates', auth, async (req, res) => {
 // requirePermission only constrains medical staff; athletes (own record),
 // coaches (own sport) and admin pass through, with the ownership/sport-scope
 // checks enforced below.
+// GET /api/athletes/:id/sport-context — this athlete read against their OWN
+// sport, for the clinician looking at them.
+//
+// Dr Thung, 2026-04-24 (13:00): "the doctor in the room can also see, okay, this
+// spot, what are the prominent kind of injury and when going to happen? So you
+// can also give them a good advice." The medical view used to answer that from
+// the injury log; that went with the HoloMotion-only cut, so it is answered from
+// screening instead — which region is prominent across the sport, and whether
+// THIS athlete is worse or better than their squad on it.
+//
+// Declared BEFORE /:id so Express doesn't swallow "sport-context" as an id.
+router.get('/:id/sport-context', auth, rbac('medical', 'admin'), requirePermission('viewRecords'), async (req, res) => {
+  try {
+    const me = await Athlete.findOne({ where: { athleteId: req.params.id }, raw: true });
+    if (!me) return res.status(404).json({ message: 'Athlete not found' });
+    if (!me.sport) return res.json({ sport: null, n: 0, indicators: [] });
+
+    const squad = (await Athlete.findAll({ where: { isActive: true, sport: me.sport }, raw: true }))
+      .filter(isScreened);
+
+    // Every shown indicator: how the sport sits on it, and where this athlete
+    // falls. Ordered by what is most prominent IN THE SPORT, so the squad's
+    // characteristic problem leads rather than this athlete's worst reading.
+    const indicators = SHOWN_INDICATORS.map(({ key, label }) => {
+      const t = tally(squad, key);
+      const mine = me[key] === null || me[key] === undefined ? null : Number(me[key]);
+      return {
+        key,
+        label,
+        squadAvg: t.avg,
+        squadN: t.n,
+        elevated: t.high,
+        watch: t.watch,
+        elevatedShare: t.n ? +(t.high / t.n).toFixed(3) : null,
+        value: mine,
+        band: mine === null ? null : bandOf(mine),
+        // Positive = worse than the squad on this indicator (risk is lower-better).
+        vsSquad: mine === null || t.avg === null ? null : +(mine - t.avg).toFixed(1),
+      };
+    }).sort((a, b) => (b.elevatedShare ?? 0) - (a.elevatedShare ?? 0) || (b.squadAvg ?? 0) - (a.squadAvg ?? 0));
+
+    return res.json({ sport: me.sport, n: squad.length, indicators });
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
+});
+
 router.get('/:id', auth, requirePermission('viewRecords'), async (req, res) => {
   try {
     if (req.user.role === 'athlete' && req.user.athleteId !== req.params.id) {

@@ -17,6 +17,7 @@ const RiskRadar = dynamic(() => import('@/components/dashboard/RiskRadar'), { ss
 import ScreeningAlertBanner from '@/components/dashboard/ScreeningAlertBanner';
 import ScreeningHistory from '@/components/dashboard/ScreeningHistory';
 import ScreeningPanel from '@/components/dashboard/ScreeningPanel';
+import SportContext from '@/components/dashboard/SportContext';
 import ScreeningDatePicker, { FullScreening } from '@/components/dashboard/ScreeningDatePicker';
 import InjuryStatusControl from '@/components/dashboard/InjuryStatusControl';
 import { api } from '@/lib/api';
@@ -536,6 +537,13 @@ export default function MedicalDashboard() {
                 {/* subitems live only on `.screening` (never duplicated onto
                     the flat athlete row), so they're merged in here. */}
                 <ScreeningPanel athlete={{ ...selectedAthlete, ...view, subitems: view.screening?.subitems }} showTrainingFocus={false} />
+              </div>
+
+              {/* The athlete against their own squad. Restores the sport-level
+                  comparison the medical view lost with the injury log, from
+                  screening data instead (Dr Thung 2026-04-24, 13:00). */}
+              <div style={{ marginTop: 20 }}>
+                <SportContext athleteId={selectedAthlete.athleteId} />
               </div>
 
               {/* Report-to-report progress — the on-screen counterpart of the
