@@ -172,8 +172,19 @@ async function matchInIsn(name: string): Promise<IsnHit | null> {
 export function parseNameFromFilename(filename: string): string {
   let s = filename.replace(/\.pdf$/i, '');
   s = s.replace(/^rpt_\d{4}-\d{2}-\d{2}[_-]*/i, '');   // drop a leading rpt_<date>_ prefix
-  s = s.replace(/[_-]+(?:[0-9a-f]{6,}|\d{6,})$/i, ''); // drop a trailing _<hash|phone>
-  return s.replace(/_+/g, ' ').trim();
+  // Drop a trailing _<hash|phone>. Two shapes: a hex digest, and any long
+  // alphanumeric run containing a digit (a real name word never does).
+  s = s.replace(/[_-]+(?:[0-9a-f]{6,}|\d{6,})$/i, '');
+  s = s.replace(/[_-]+(?=[0-9a-z]*\d)[0-9a-z]{8,}$/i, '');
+  s = s.replace(/_+/g, ' ').trim();
+  // Drop a leading batch/index number. ISN exports a screening run as a
+  // numbered set, so the real filename is "rpt_2025-07-25_14. MOHAMED ELFFIE
+  // …_<hash>.pdf" and the "14." rode along into the name — which then matched
+  // nothing, because a directory lookup for "14. Mohamed Elffie …" is not a
+  // substring of "Mohamed Elffie …". Covers "14.", "14", "14)", "(14)", "#14",
+  // "14 -". A person's name never begins with a digit, so this cannot eat one.
+  s = s.replace(/^\(?\s*#?\d+\s*\)?\s*[.)\-:]*\s*/, '').trim();
+  return s;
 }
 
 async function extractOne(item: QueueItem): Promise<void> {

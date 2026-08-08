@@ -45,7 +45,7 @@ cd frontend; npm run build
 
 # Unit tests (jest, in both packages — no linter configured for the backend)
 cd backend; npx jest      # 5 suites: cohorts, overallIndicator, permissions, rbac, pdfDraw
-cd frontend; npx jest     # 2 suites: lib/risk.ts, bodymap-data/muscles.ts
+cd frontend; npx jest     # 3 suites: lib/risk.ts, lib/screeningUploadStore.ts, bodymap-data/muscles.ts
 ```
 
 Jest covers the pure logic: scoring/permissions (`backend/tests/`), the PDF
