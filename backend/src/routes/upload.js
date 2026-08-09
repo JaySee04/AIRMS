@@ -1,4 +1,5 @@
 const express = require('express');
+const { recordAudit } = require('../utils/audit');
 const multer = require('multer');
 const { sequelize, Athlete, MuscleFlag, Screening, AthleteDiscipline } = require('../models');
 const { cleanDisciplineList } = require('../utils/disciplines');
@@ -187,6 +188,14 @@ router.post('/screening/pdf', auth, rbac('medical', 'admin'), requirePermission(
     // as before — a failed recompute is corrected by the next import or the
     // admin "Recompute" button.
     queuePostImport(data.athleteId);
+
+    recordAudit(req, {
+      action: 'screening.import',
+      entity: 'athlete',
+      entityId: data.athleteId,
+      summary: `${action === 'created' ? 'Created' : 'Updated'} ${athlete.name || data.athleteId} from a HoloMotion import`,
+      meta: { action, muscleFlags: flagRows.length, assessedAt, tokens: req.body?.usage || null },
+    });
 
     res.json({ message: 'Import complete', action, athleteId: data.athleteId, muscleFlags: flagRows.length });
   } catch (err) {

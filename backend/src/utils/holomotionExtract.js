@@ -148,10 +148,14 @@ function mapToAthlete(extracted) {
 async function extractFromPdf(buffer) {
   const images = await renderForExtraction(buffer);
   if (!images.length) throw new Error('Could not render any pages from the PDF');
-  const reply = await visionComplete(EXTRACTION_PROMPT, images);
-  const extracted = parseJsonReply(reply);
+  const { text, usage } = await visionComplete(EXTRACTION_PROMPT, images);
+  const extracted = parseJsonReply(text);
   const mapped = mapToAthlete(extracted);
-  return { ...mapped, raw: extracted, pagesRead: images.map((i) => i.page) };
+  // `usage` answers "what does one report cost to ingest?" — carried through to
+  // the preview response so the operator sees it per file, and logged.
+  return {
+    ...mapped, raw: extracted, pagesRead: images.map((i) => i.page), usage: usage || null,
+  };
 }
 
 module.exports = { extractFromPdf, mapToAthlete, parseJsonReply, EXTRACTION_PROMPT };

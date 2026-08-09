@@ -10,6 +10,7 @@ const Screening = require('./Screening');
 const Setting = require('./Setting');
 const CohortThreshold = require('./CohortThreshold');
 const CohortNormVersion = require('./CohortNormVersion');
+const AuditLog = require('./AuditLog');
 
 // Athlete ↔ MuscleFlag (1:N) — athleteId is a VARCHAR FK: its values are the
 // athlete’s IC number (A2, 2026-08-04), not a synthetic integer.
@@ -38,4 +39,5 @@ module.exports = {
   Setting,
   CohortThreshold,
   CohortNormVersion,
+  AuditLog,
 };

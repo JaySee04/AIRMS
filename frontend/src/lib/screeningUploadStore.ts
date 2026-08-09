@@ -47,6 +47,10 @@ export interface PreviewResponse {
   pagesRead: number[];
   summary?: string | null;
   subitems?: Record<string, Record<string, number | null>> | null;
+  // What the vision call cost. Passed back on commit so the Activity Log can
+  // answer "what does ingesting one report cost?" per import; null when the
+  // provider doesn't report usage.
+  usage?: { inputTokens: number | null; outputTokens: number | null; totalTokens: number | null } | null;
 }
 
 export interface RosterAthlete {
@@ -374,6 +378,7 @@ async function commitOne(item: QueueItem): Promise<CommittedEntry | null> {
       assessedAt: item.preview.assessedAt,
       summary: item.preview.summary ?? null,
       subitems: item.preview.subitems ?? null,
+      usage: item.preview.usage ?? null,
     });
     patchItemInternal(item.id, {
       status: 'done',

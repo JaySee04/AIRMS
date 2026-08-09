@@ -1,4 +1,5 @@
 const express = require('express');
+const { recordAudit } = require('../utils/audit');
 const { Op } = require('sequelize');
 const { Athlete, MuscleFlag, Screening, AthleteDiscipline } = require('../models');
 const { screeningMovement } = require('../utils/cohorts');
@@ -600,6 +601,14 @@ router.patch('/:id/injury', auth, rbac('medical', 'admin'), requirePermission('v
       injuryNote: injured ? (String(req.body.note || '').trim() || null) : null,
       injuryBy: injured ? (req.user?.name || null) : null,
       injuryAt: injured ? new Date() : null,
+    });
+    recordAudit(req, {
+      action: 'athlete.injury',
+      entity: 'athlete',
+      entityId: a.athleteId,
+      summary: `Marked ${a.name || a.athleteId} ${injured ? 'INJURED' : 'not injured'}`
+        + (injured ? ' — excluded from norm calculation' : ''),
+      meta: { isInjured: injured, note: a.injuryNote },
     });
     res.json({ athleteId: a.athleteId, isInjured: a.isInjured, injuryNote: a.injuryNote, injuryBy: a.injuryBy, injuryAt: a.injuryAt });
   } catch (err) { res.status(500).json({ message: err.message }); }

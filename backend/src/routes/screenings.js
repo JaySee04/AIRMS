@@ -1,5 +1,6 @@
 // Screening history + clinician override (redesign spec §3.4, §5).
 const express = require('express');
+const { recordAudit } = require('../utils/audit');
 const { Screening, Athlete } = require('../models');
 const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
@@ -123,6 +124,15 @@ router.patch('/:id/override', auth, rbac('medical', 'admin'), requirePermission(
     } else {
       await row.update({ overrideBand: null, overrideNote: null, overrideBy: null, overrideAt: null });
     }
+    recordAudit(req, {
+      action: 'screening.override',
+      entity: 'screening',
+      entityId: row.id,
+      summary: band
+        ? `Overrode ${row.athleteId}'s band to ${band.toUpperCase()}`
+        : `Cleared the band override on ${row.athleteId}`,
+      meta: { band: band || null, note: band ? String(note).trim() : null, computed: row.overallBand },
+    });
     res.json(row);
   } catch (err) { res.status(500).json({ message: err.message }); }
 });

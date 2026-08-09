@@ -3,6 +3,7 @@
 // `editCohortNorms` capability; the tunable settings + queue governance stay
 // admin-only.
 const express = require('express');
+const { recordAudit } = require('../utils/audit');
 const { CohortThreshold, Athlete, CohortNormVersion } = require('../models');
 const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
@@ -107,6 +108,13 @@ router.post('/versions/:id/restore', auth, rbac('admin'), async (req, res) => {
     });
     await Promise.all(ops);
     const indicators = await recomputeIndicators();
+    recordAudit(req, {
+      action: 'norm.restore',
+      entity: 'normVersion',
+      entityId: req.params.id,
+      summary: `Restored saved norm set "${v.label}" over the live norms (${snap.length} cohorts)`,
+      meta: { cohorts: snap.length, rescored: indicators },
+    });
     res.json({ message: 'Restored', restored: snap.length, indicators });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
@@ -192,7 +200,17 @@ router.patch('/members/:athleteId', auth, rbac('admin', 'medical'), canEditNorms
   try {
     const a = await Athlete.findByPk(req.params.athleteId);
     if (!a) return res.status(404).json({ message: 'Athlete not found' });
-    if (req.body.normExcluded !== undefined) await a.update({ normExcluded: !!req.body.normExcluded });
+    if (req.body.normExcluded !== undefined) {
+      await a.update({ normExcluded: !!req.body.normExcluded });
+      recordAudit(req, {
+        action: 'norm.member',
+        entity: 'athlete',
+        entityId: a.athleteId,
+        summary: `${a.normExcluded ? 'Excluded' : 'Re-included'} ${a.name || a.athleteId} `
+          + `${a.normExcluded ? 'from' : 'in'} norm calculation`,
+        meta: { normExcluded: a.normExcluded },
+      });
+    }
     res.json({ athleteId: a.athleteId, normExcluded: a.normExcluded });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
@@ -212,6 +230,12 @@ router.patch('/settings/all', auth, rbac('admin'), async (req, res) => {
       if (k in DEFAULTS) await setSetting(k, v);
     }
     const indicators = await recomputeIndicators();
+    recordAudit(req, {
+      action: 'settings.update',
+      entity: 'settings',
+      summary: `Changed norm settings: ${Object.keys(req.body || {}).filter((k) => k in DEFAULTS).join(', ') || 'none'}`,
+      meta: { changed: req.body || null, rescored: indicators },
+    });
     res.json({ settings: await getSettings(), indicators });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });

@@ -65,6 +65,7 @@ const NAV: Record<Role, NavItem[]> = {
     { href: '/admin/thresholds',  label: 'Cohort Norms',       icon: <IconPulse /> },
     { href: '/admin/personnel',   label: 'Personnel',          icon: <IconUsers /> },
     { href: '/admin/data-upload', label: 'Data Uploading',     icon: <IconUpload /> },
+    { href: '/admin/audit',       label: 'Activity Log',       icon: <IconFileText /> },
   ],
   // Coach role (first-class 4th role) — read-only squad readiness for the assigned sport.
   coach: [
@@ -78,6 +79,9 @@ const NAV: Record<Role, NavItem[]> = {
     { href: '/admin/dashboard', label: 'Screening Analytics', icon: <IconBarChart /> },
     { href: '/admin/activity',  label: 'Programme Activity',  icon: <IconTrend /> },
     { href: '/admin/reports',   label: 'PDF Reports',         icon: <IconFileText /> },
+    // Reading the activity log is oversight, not administration — it is the
+    // one thing this role exists for.
+    { href: '/admin/audit',     label: 'Activity Log',        icon: <IconFileText /> },
   ],
 };
 

@@ -70,6 +70,28 @@ function buildAnthropicContent(prompt, images) {
   return content;
 }
 
+// Token accounting for one call. Every provider returns this and AIRMS used to
+// discard it, so "what does a report cost to ingest?" had no answer.
+//
+// The two wire formats disagree on the field names — OpenAI-compatible says
+// prompt/completion, Anthropic says input/output — so they are normalised here
+// rather than at each call site. Images dominate the input count; the reply is
+// a small fixed JSON, so the input side is what moves with VISION_MAX_PAGES and
+// VISION_RENDER_SCALE.
+function readUsage(u) {
+  if (!u || typeof u !== 'object') return null;
+  const input = Number(u.prompt_tokens ?? u.input_tokens);
+  const output = Number(u.completion_tokens ?? u.output_tokens);
+  const inOk = Number.isFinite(input);
+  const outOk = Number.isFinite(output);
+  if (!inOk && !outOk) return null;
+  return {
+    inputTokens: inOk ? input : null,
+    outputTokens: outOk ? output : null,
+    totalTokens: Number(u.total_tokens) || ((inOk ? input : 0) + (outOk ? output : 0)) || null,
+  };
+}
+
 // The expanded extraction JSON (headline + 8 risks + 25 subitems + 8 posture
 // axes + summary text + muscle lists) runs ~1200-1600 tokens; 2500 leaves
 // headroom for a verbose summary without letting a rambling model run away.
@@ -94,7 +116,10 @@ async function callOpenAICompatible(cfg, prompt, images) {
     throw new Error(`Vision API ${res.status}: ${detail.slice(0, 300)}`);
   }
   const json = await res.json();
-  return json.choices?.[0]?.message?.content ?? '';
+  return {
+    text: json.choices?.[0]?.message?.content ?? '',
+    usage: readUsage(json.usage),
+  };
 }
 
 async function callAnthropic(cfg, prompt, images) {
@@ -117,10 +142,14 @@ async function callAnthropic(cfg, prompt, images) {
     throw new Error(`Vision API ${res.status}: ${detail.slice(0, 300)}`);
   }
   const json = await res.json();
-  return json.content?.map((b) => b.text || '').join('') ?? '';
+  return {
+    text: json.content?.map((b) => b.text || '').join('') ?? '',
+    usage: readUsage(json.usage),
+  };
 }
 
-// Send a prompt + images, return the model's raw text reply.
+// Send a prompt + images, return { text, usage } — the model's raw text reply
+// and what the call cost in tokens (usage is null if the provider omits it).
 // `images` is [{ base64, mediaType, label? }] from pdfRender.renderPdfRegions()
 // (or renderPdfPages()); when a label is present it is sent as a caption
 // immediately before its image.

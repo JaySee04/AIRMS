@@ -21,6 +21,7 @@ const uploadRoutes = require('./routes/upload');
 const exportRoutes = require('./routes/export');
 const coachRoutes = require('./routes/coach');
 const cohortRoutes = require('./routes/cohorts');
+const auditRoutes = require('./routes/audit');
 const screeningRoutes = require('./routes/screenings');
 const screeningReportRoutes = require('./routes/screeningReports');
 const isnRoutes = require('./routes/isn');
@@ -73,6 +74,7 @@ app.use('/api/cohorts', cohortRoutes);
 app.use('/api/screenings', screeningRoutes);
 app.use('/api/screening-reports', screeningReportRoutes);
 app.use('/api/isn', isnRoutes);
+app.use('/api/audit', auditRoutes);
 
 app.get('/api/health', (_req, res) => res.json({
   status: 'ok',
