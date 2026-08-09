@@ -1,11 +1,12 @@
 // Screening history + clinician override (redesign spec §3.4, §5).
 const express = require('express');
 const { recordAudit } = require('../utils/audit');
-const { Screening, Athlete } = require('../models');
+const { sequelize, Screening, Athlete, MuscleFlag } = require('../models');
 const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
 const requirePermission = require('../middleware/permission');
 const { notifyOverrideToCoach } = require('../utils/notifications');
+const { queuePostImport } = require('../utils/postImport');
 
 const router = express.Router();
 
@@ -134,6 +135,120 @@ router.patch('/:id/override', auth, rbac('medical', 'admin'), requirePermission(
       meta: { band: band || null, note: band ? String(note).trim() : null, computed: row.overallBand },
     });
     res.json(row);
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+// POST /api/screenings/:id/reinstate — make an EARLIER screening the athlete's
+// current one again.
+//
+// The athletes table holds only the LATEST import; the screenings table holds
+// every one. So a mis-attached import — the operator picked the wrong athlete,
+// or a bad extraction was committed — permanently overwrote the flat columns
+// with no way back, even though the good snapshot was still sitting in history.
+// This copies a chosen snapshot back over the flat columns and muscle flags.
+//
+// Nothing is deleted and nothing is rewritten: the screenings table is append
+// only and is not touched here. That makes the operation inherently reversible —
+// to undo a reinstatement you reinstate the row you came from, which is still
+// there. It changes which snapshot is CURRENT, not what the history says.
+router.post('/:id/reinstate', auth, rbac('medical', 'admin'), requirePermission('viewRecords'), async (req, res) => {
+  try {
+    const row = await Screening.findByPk(req.params.id);
+    if (!row) return res.status(404).json({ message: 'Screening not found' });
+
+    const athlete = await Athlete.findOne({ where: { athleteId: row.athleteId } });
+    if (!athlete) return res.status(404).json({ message: 'Athlete not found' });
+
+    // The newest screening by date, used only to word the audit entry.
+    //
+    // Deliberately NOT used to reject "you are already current". The flat
+    // columns and the newest row are not the same thing — after any reinstate
+    // they are precisely NOT — so refusing the newest row would make the undo
+    // impossible: having gone back to an older screening you could never return
+    // to the latest. Reinstating something already current is a harmless no-op.
+    const latest = await Screening.findOne({
+      where: { athleteId: row.athleteId },
+      order: [['assessedAt', 'DESC'], ['id', 'DESC']],
+    });
+
+    // Screening column → the flat Athlete column it feeds. Named explicitly
+    // because the two differ (totalScore/overallActivityScore, rom/mobility)
+    // and a silent mismatch would put the wrong number on a dashboard.
+    const FLAT = {
+      totalScore: 'overallActivityScore',
+      exerciseRisks: 'injuryRiskIndex',
+      rom: 'mobility',
+      stability: 'stability',
+      symmetry: 'symmetry',
+      neckInjuryRisk: 'neckInjuryRisk',
+      shoulderInjuryRisk: 'shoulderInjuryRisk',
+      scoliosis: 'scoliosis',
+      spinalDiscHerniation: 'spinalDiscHerniation',
+      lumbarPelvisInjury: 'lumbarPelvisInjury',
+      jointPain: 'jointPain',
+      kneeInjuryRisk: 'kneeInjuryRisk',
+      ankleInjuryRisk: 'ankleInjuryRisk',
+    };
+    const patch = {};
+    for (const [from, to] of Object.entries(FLAT)) {
+      if (row[from] !== null && row[from] !== undefined) patch[to] = row[from];
+    }
+
+    // Muscle flags travel with the snapshot, so they have to move too — leaving
+    // the newer set behind would show one screening's scores beside another's
+    // flags, which is worse than either alone.
+    //
+    // But an ABSENT snapshot is not an EMPTY one. Rows written before flags were
+    // snapshotted (and the seeded trend history) carry no muscleFlags at all;
+    // treating that as "this report found nothing" silently deletes every flag
+    // the athlete has. When the snapshot is missing we restore the scores and
+    // leave the flags alone, and say so in the response.
+    const snap = row.muscleFlags && typeof row.muscleFlags === 'object' ? row.muscleFlags : null;
+    const hasFlagSnapshot = !!snap && (Array.isArray(snap.myodynamia) || Array.isArray(snap.tension));
+    const flagRows = !hasFlagSnapshot ? [] : [
+      ...(Array.isArray(snap.myodynamia) ? snap.myodynamia : []).map((m) => ({ ...m, flagType: 'myodynamia' })),
+      ...(Array.isArray(snap.tension) ? snap.tension : []).map((m) => ({ ...m, flagType: 'tension' })),
+    ]
+      .filter((m) => m && m.muscle && ['L', 'R', 'B'].includes(m.side))
+      .map((m) => ({
+        athleteId: row.athleteId, flagType: m.flagType, muscle: String(m.muscle).trim(), side: m.side,
+      }));
+
+    await sequelize.transaction(async (t) => {
+      await Athlete.update(patch, { where: { athleteId: row.athleteId }, transaction: t });
+      if (hasFlagSnapshot) {
+        await MuscleFlag.destroy({ where: { athleteId: row.athleteId }, transaction: t });
+        if (flagRows.length) await MuscleFlag.bulkCreate(flagRows, { transaction: t });
+      }
+    });
+
+    // Same rescore path an import takes — the cohort indicator is derived from
+    // the flat columns, so it is stale until this runs.
+    queuePostImport(row.athleteId);
+
+    recordAudit(req, {
+      action: 'screening.reinstate',
+      entity: 'screening',
+      entityId: row.id,
+      summary: `Reinstated ${athlete.name || row.athleteId}'s screening of `
+        + `${row.assessedAt ? new Date(row.assessedAt).toISOString().slice(0, 10) : 'unknown date'}`
+        + ` as current${latest ? `, replacing ${latest.assessedAt ? new Date(latest.assessedAt).toISOString().slice(0, 10) : 'the newest'}` : ''}`,
+      meta: {
+        reinstatedScreeningId: row.id,
+        replacedScreeningId: latest ? latest.id : null,
+        muscleFlags: hasFlagSnapshot ? flagRows.length : 'kept (snapshot had none recorded)',
+      },
+    });
+
+    res.json({
+      message: 'Reinstated',
+      athleteId: row.athleteId,
+      screeningId: row.id,
+      muscleFlags: flagRows.length,
+      // Tells the UI (and the operator) that this older row predates flag
+      // snapshotting, so the flags on screen still belong to a later report.
+      muscleFlagsRestored: hasFlagSnapshot,
+    });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 

@@ -549,7 +549,10 @@ export default function MedicalDashboard() {
               {/* Report-to-report progress — the on-screen counterpart of the
                   individual PDF's progress section. */}
               <div style={{ marginTop: 20 }}>
-                <ScreeningHistory athleteId={selectedAthlete.athleteId} />
+                {/* Medical/admin only — the athlete and coach views mount the
+                    same component without this, so they read history but
+                    cannot change which screening counts as current. */}
+                <ScreeningHistory athleteId={selectedAthlete.athleteId} canReinstate />
               </div>
 
               {/* Body map */}

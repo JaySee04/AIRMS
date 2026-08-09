@@ -16,6 +16,7 @@ const router = express.Router();
 const ACTION_LABELS = {
   'screening.import': 'Screening imported',
   'screening.override': 'Risk band overridden',
+  'screening.reinstate': 'Screening reinstated',
   'athlete.injury': 'Injury status changed',
   'norm.restore': 'Norm set restored',
   'norm.member': 'Norm membership changed',

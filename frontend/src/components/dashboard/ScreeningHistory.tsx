@@ -51,12 +51,22 @@ function fmtDate(iso: string | null | undefined): string {
   return iso ? new Date(iso).toISOString().slice(0, 10) : '—';
 }
 
-export default function ScreeningHistory({ athleteId, headerAction }: {
+export default function ScreeningHistory({ athleteId, headerAction, canReinstate = false }: {
   athleteId: string;
   /** Optional right-side header slot (e.g. the athlete's Download PDF button). */
   headerAction?: ReactNode;
+  /**
+   * Show the "Make current" control. Opt-in, and only passed by the medical /
+   * admin view — an athlete or coach reading their own history must not be able
+   * to change which screening the dashboards treat as current. The backend
+   * enforces this too; this only decides whether the button is drawn.
+   */
+  canReinstate?: boolean;
 }) {
   const [rows, setRows] = useState<ScreeningRow[] | null>(null);
+  const [busy, setBusy] = useState<number | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -65,7 +75,34 @@ export default function ScreeningHistory({ athleteId, headerAction }: {
       .then((r) => { if (!cancelled) setRows(r); })
       .catch(() => { if (!cancelled) setRows([]); }); // non-critical surface — fail quiet
     return () => { cancelled = true; };
-  }, [athleteId]);
+  }, [athleteId, reloadKey]);
+
+  // Copy an earlier snapshot back over the athlete's current scores + muscle
+  // flags. History is append-only and untouched, so this is reversible: to undo
+  // it, make the row you came from current again.
+  async function reinstate(r: ScreeningRow) {
+    const when = fmtDate(r.assessedAt);
+    const ok = window.confirm(
+      [
+        `Make the screening of ${when} this athlete's current one?`,
+        '',
+        'Their scores and muscle flags will be replaced by that report’s, and the '
+        + 'risk indicator recalculated. No history is deleted — you can make another '
+        + 'screening current at any time.',
+      ].join('\n'),
+    );
+    if (!ok) return;
+    setBusy(r.id); setNote(null);
+    try {
+      await api.post(`/screenings/${r.id}/reinstate`, {});
+      setNote(`Screening of ${when} is now current.`);
+      setReloadKey((k) => k + 1);
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : 'Could not reinstate that screening.');
+    } finally {
+      setBusy(null);
+    }
+  }
 
   if (!rows || rows.length === 0) return null;
 
@@ -89,6 +126,7 @@ export default function ScreeningHistory({ athleteId, headerAction }: {
               <th style={{ textAlign: 'center' }}>Band</th>
               <th style={{ textAlign: 'right' }}>Indicator</th>
               {COLS.map((c) => (<th key={c.key} style={{ textAlign: 'right' }}>{c.label}</th>))}
+              {canReinstate && <th aria-label="Actions" />}
             </tr>
           </thead>
           <tbody>
@@ -113,6 +151,21 @@ export default function ScreeningHistory({ athleteId, headerAction }: {
                   {COLS.map((c) => (
                     <td key={c.key} style={{ textAlign: 'right' }}>{num(r[c.key]) ?? '—'}</td>
                   ))}
+                  {canReinstate && (
+                    <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <button
+                        type="button"
+                        className="btn btn-outline btn-sm"
+                        disabled={busy !== null}
+                        onClick={() => reinstate(r)}
+                        title={r.id === last.id
+                          ? 'Restore the newest screening — use this to undo an earlier reinstatement'
+                          : 'Make this screening the current one'}
+                      >
+                        {busy === r.id ? 'Working…' : r.id === last.id ? 'Restore newest' : 'Make current'}
+                      </button>
+                    </td>
+                  )}
                 </tr>
               );
             })}
@@ -131,11 +184,13 @@ export default function ScreeningHistory({ athleteId, headerAction }: {
                     </td>
                   );
                 })}
+                {canReinstate && <td />}
               </tr>
             )}
           </tbody>
         </table>
       </div>
+      {note && <div className="alert" style={{ marginTop: 12 }}>{note}</div>}
       <p className="text-muted" style={{ fontSize: '0.78rem', marginTop: 12, marginBottom: 0 }}>
         {rows.length < 2
           ? 'Only one screening on record — progress deltas appear once a newer report is imported.'
