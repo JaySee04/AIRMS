@@ -14,19 +14,54 @@ function rnd() { _seed = (_seed * 9301 + 49297) % 233280; return _seed / 233280;
 function pick(arr) { return arr[Math.floor(rnd() * arr.length)]; }
 function range(min, max) { return Math.floor(rnd() * (max - min + 1)) + min; }
 function rfloat(min, max, dp = 1) { return parseFloat((rnd() * (max - min) + min).toFixed(dp)); }
-function maybeFlag(p) {
-  if (rnd() > p) return null;
-  const r = rnd();
-  return r < 0.45 ? 'L' : r < 0.85 ? 'R' : 'B';
-}
-function buildFlags(muscles, p) {
-  const out = {};
-  muscles.forEach((m) => { const f = maybeFlag(p); if (f) out[m] = f; });
+// HoloMotion emits EXACTLY three myodynamia-deficiency and three muscle-tension
+// entries per report, each carrying a single side. Verified against all three
+// real reports we hold (Thung, Nazwan, Elffie — 18 slots, no exceptions).
+//
+// Three ways the old seeder diverged from that, all now fixed:
+//
+//  1. COUNT. It rolled every muscle independently at p=0.18, so an athlete
+//     could surface zero flags or eight. Real reports are always 3 + 3.
+//  2. SIDE. It emitted 'B' (bilateral) ~15% of the time. HoloMotion has no
+//     such value — a bilateral finding is printed as TWO sided lines, e.g.
+//     Elffie's "Gluteus maximus R" and "Gluteus maximus L". The old
+//     object-keyed shape physically could not represent that, one key per
+//     muscle, which is why 'B' existed. An array of pairs can.
+//  3. VOCABULARY. It drew uniformly from 24 invented names. Real output is
+//     hip-dominated: 14 of the 18 observed slots are Gluteus Maximus, Gluteus
+//     Medius, Piriformis, Iliopsoas or Sartorius.
+//
+// The observed set is only 18 draws, so it is treated as a weighted core rather
+// than a closed list — the plausible tail stays reachable so the body map still
+// exercises other regions, just at realistic rarity.
+//
+// Deliberately NOT tuned to reproduce the observed 77.8% hip share: that figure
+// rests on 18 slots and is inflated by two of the three athletes happening to be
+// hip-heavy, while Thung's entire tension set was upper-body. Landing near 55%
+// keeps the distribution honestly hip-dominant without overfitting the sample.
+const SIDES = ['L', 'R'];
+const CORE_P = 0.8; // share of draws taken from the observed vocabulary
+
+// `exclude` carries the (muscle|side) keys already taken by the other list. A
+// muscle cannot be simultaneously weak and tense on the same side — none of the
+// three real reports does it — but Gluteus Maximus sits in both cores, so
+// drawing the two lists independently produced exactly that contradiction.
+function buildFlags(core, tail, exclude = new Set()) {
+  const out = [];
+  const seen = new Set(exclude);
+  let guard = 0;
+  while (out.length < 3 && guard < 200) {
+    guard += 1;
+    const muscle = pick(rnd() < CORE_P || tail.length === 0 ? core : tail);
+    const side = SIDES[rnd() < 0.5 ? 0 : 1];
+    const key = `${muscle}|${side}`;
+    if (seen.has(key)) continue; // the same muscle may recur on the OTHER side
+    seen.add(key);
+    out.push({ muscle, side });
+  }
   return out;
 }
-function objToArray(obj) {
-  return Object.entries(obj).map(([muscle, side]) => ({ muscle, side }));
-}
+function flagKeys(flags) { return new Set(flags.map((f) => `${f.muscle}|${f.side}`)); }
 
 // ── Reference data ──────────────────────────────────────────────────────────
 const SPORTS = [
@@ -35,16 +70,22 @@ const SPORTS = [
   'Shooting','Rugby','Football','Hockey','Netball','Sepak Takraw','Bowls','Pencak Silat',
 ];
 const GENDERS = ['Male', 'Female'];
-const MUSCLES_DEFICIENCY = [
+// CORE = muscles actually observed in HoloMotion output; TAIL = the rest of the
+// body map's vocabulary, kept reachable but rare. See buildFlags above.
+const MUSCLES_DEFICIENCY_CORE = [
+  'Gluteus Maximus', 'Gluteus Medius', 'Piriformis', 'Sartorius', 'Internal Oblique',
+];
+const MUSCLES_DEFICIENCY_TAIL = [
   'Biceps Brachii','Pectoralis Major','Lateral Deltoid','Posterior Deltoid',
-  'Rectus Abdominis','External Oblique','Internal Oblique','Latissimus Dorsi',
-  'Gluteus Maximus','Gluteus Medius','Piriformis','Sartorius','Vastus Lateralis',
+  'Rectus Abdominis','External Oblique','Latissimus Dorsi','Vastus Lateralis',
   'Upper Trapezius','Rectus Femoris','Gluteus Minimus',
 ];
-const MUSCLES_TENSION = [
+const MUSCLES_TENSION_CORE = [
+  'Gluteus Maximus', 'Iliopsoas', 'Pectoralis Major', 'Biceps Brachii',
+];
+const MUSCLES_TENSION_TAIL = [
   'Sternocleidomastoid','Vastus Medialis','Rectus Capitis Anterior','Upper Trapezius',
-  'Middle Deltoid','Biceps Brachii','Pectoralis Major','External Oblique',
-  'Internal Oblique','Iliopsoas','Gluteus Maximus','Sartorius','Biceps Femoris',
+  'Middle Deltoid','External Oblique','Internal Oblique','Sartorius','Biceps Femoris',
 ];
 const FIRST_NAMES = ['Aiman','Hafiz','Nurul','Siti','Faris','Zikri','Aisha','Lina','Adam','Hadi','Yusof','Imran','Aina','Sarah','Ariff','Iqbal','Maya','Daniel','Hannah','Zara'];
 const LAST_NAMES = ['Hassan','Ibrahim','Rahman','Yusoff','Zainal','Othman','Bakar','Saleh','Ismail','Latif','Tan','Lee','Wong','Lim','Chong','Kumar','Raj','Devi','Ahmad','Karim'];
@@ -109,8 +150,10 @@ function buildAthletes() {
     // Roughly 1 in 10 athletes has no HoloMotion report ingested yet — their
     // scores stay null / indicators 0 so the "no data" states are demoable.
     const screened = rnd() > 0.1;
-    const defFlags = screened ? buildFlags(MUSCLES_DEFICIENCY, 0.18) : {};
-    const tensionFlags = screened ? buildFlags(MUSCLES_TENSION, 0.18) : {};
+    const defFlags = screened ? buildFlags(MUSCLES_DEFICIENCY_CORE, MUSCLES_DEFICIENCY_TAIL) : [];
+    const tensionFlags = screened
+      ? buildFlags(MUSCLES_TENSION_CORE, MUSCLES_TENSION_TAIL, flagKeys(defFlags))
+      : [];
     athletes.push({
       athleteId: icFor(i, age),
       name: `${pick(FIRST_NAMES)} ${pick(LAST_NAMES)}`,
@@ -137,8 +180,8 @@ function buildAthletes() {
       jointPain: screened ? range(0, 20) : 0,
       kneeInjuryRisk: screened ? range(2, 28) : 0,
       ankleInjuryRisk: screened ? range(2, 28) : 0,
-      _myodynamia: objToArray(defFlags),
-      _tension: objToArray(tensionFlags),
+      _myodynamia: defFlags,
+      _tension: tensionFlags,
     });
   }
 
@@ -162,13 +205,16 @@ function buildAthletes() {
     jointPain: 6,
     kneeInjuryRisk: 3,
     ankleInjuryRisk: 20,
+    // Three of each — HoloMotion always emits exactly that.
     _myodynamia: [
       { muscle: 'Vastus Lateralis', side: 'R' },
       { muscle: 'Gluteus Medius', side: 'L' },
+      { muscle: 'Gluteus Maximus', side: 'R' },
     ],
     _tension: [
       { muscle: 'Upper Trapezius', side: 'L' },
       { muscle: 'Iliopsoas', side: 'R' },
+      { muscle: 'Pectoralis Major', side: 'L' },
     ],
   };
 
@@ -200,13 +246,17 @@ function buildAthletes() {
     jointPain: 9,
     kneeInjuryRisk: 26,
     ankleInjuryRisk: 27,
+    // Deliberately NOT the report's values — Thung is seeded stale so importing
+    // his PDF visibly updates him. Three of each, matching HoloMotion's shape.
     _myodynamia: [
       { muscle: 'Rectus Femoris', side: 'L' },
       { muscle: 'Upper Trapezius', side: 'R' },
+      { muscle: 'Piriformis', side: 'L' },
     ],
     _tension: [
       { muscle: 'Iliopsoas', side: 'R' },
       { muscle: 'Sternocleidomastoid', side: 'L' },
+      { muscle: 'Gluteus Maximus', side: 'L' },
     ],
   });
 
