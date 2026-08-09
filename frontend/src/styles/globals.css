@@ -770,6 +770,43 @@ button { cursor: pointer; font-family: inherit; }
 .bodymap-region-group--below:hover     .bodymap-region {
   filter: brightness(1.12);
 }
+/* Cross-highlight between the flag lists and the figure, plus the keyboard
+   focus ring. Focus is drawn on the shape itself rather than as a browser
+   outline round the <g>'s bounding box, which on a limb would be a rectangle
+   nowhere near the muscle. */
+.bodymap-region-group.is-active .bodymap-region,
+.bodymap-region-group:focus-visible .bodymap-region {
+  filter: brightness(1.18);
+  stroke: var(--text-primary);
+  stroke-width: 3;
+}
+.bodymap-region-group:focus { outline: none; }
+
+/* List entry paired with the figure. Full-bleed button so the row still reads
+   as a row, not a control sitting inside one. */
+.bm-card-item {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 4px;
+  margin: 0 -4px;
+  background: none;
+  border: 0;
+  border-radius: 4px;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.bm-card-item:hover,
+.bm-card-item.is-active,
+.bm-card-item:focus-visible {
+  background: var(--bg-hover, rgba(127, 145, 170, 0.14));
+}
+.bm-card-item:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+
 .bodymap-muscle--weak  { fill: var(--flag-weak);  stroke: rgba(0, 0, 0, 0.35); }
 .bodymap-muscle--tight { fill: var(--flag-tight); stroke: rgba(0, 0, 0, 0.35); }
 .bodymap-muscle--both  { fill: var(--flag-both);  stroke: rgba(0, 0, 0, 0.35); }
@@ -892,7 +929,9 @@ button { cursor: pointer; font-family: inherit; }
 }
 .bm-card-list { list-style: none; padding: 0; margin: 0; font-size: 0.85rem; }
 .bm-card-list li {
-  padding: 6px 0;
+  /* Spacing lives on the .bm-card-item button inside, so its hover and focus
+     background covers the whole row rather than a strip within it. */
+  padding: 0;
   display: flex;
   justify-content: space-between;
   align-items: center;

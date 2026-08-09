@@ -232,6 +232,14 @@ function renderParts(
   // Slugs drawn as a marker glyph rather than as their own anatomy. They are
   // omitted entirely when unflagged — see MARKER_MUSCLES.
   markerSlugs: Set<string> = new Set(),
+  // Keyboard/pointer wiring. Only parts that actually carry a finding become
+  // focusable: tabbing through 22 unremarkable muscles to reach the three that
+  // matter is worse than not being able to tab at all.
+  interaction?: {
+    focusable: boolean;
+    activeKeys: string[];
+    onActive: (keys: string[]) => void;
+  },
 ): React.ReactNode[] {
   const out: React.ReactNode[] = [];
   data.forEach((part) => {
@@ -266,12 +274,31 @@ function renderParts(
       }
 
       const title = sideTag === 'C' ? part.slug : tooltipFor(part.slug, sideTag);
+
+      // Interactive only when there is something to report. Everything else is
+      // scenery, so it is hidden from assistive tech rather than narrated as a
+      // list of body parts with nothing to say.
+      const canFocus = Boolean(interaction?.focusable && state);
+      const isActive = Boolean(interaction?.activeKeys.includes(key));
+      const a11y = canFocus
+        ? {
+          tabIndex: 0,
+          role: 'img',
+          'aria-label': `${title.replace(/\n/g, '; ')} (${sideTag === 'R' ? 'right' : 'left'} side)`,
+          onMouseEnter: () => interaction?.onActive([key]),
+          onMouseLeave: () => interaction?.onActive([]),
+          onFocus: () => interaction?.onActive([key]),
+          onBlur: () => interaction?.onActive([]),
+        }
+        : { 'aria-hidden': true as const };
+
       out.push(
         <g
           key={`${part.slug}-${sideTag}-group`}
-          className={groupClassForState(state)}
+          className={`${groupClassForState(state)}${isActive ? ' is-active' : ''}`}
           data-slug={part.slug}
           data-side={sideTag}
+          {...a11y}
         >
           <title>{title}</title>
           {paths.map((d, i) => (
@@ -294,6 +321,10 @@ function renderParts(
 export default function BodyMap({ myodynamia, tension, subitems }: BodyMapProps) {
   const myo = useMemo(() => buildFlagMap(myodynamia), [myodynamia]);
   const ten = useMemo(() => buildFlagMap(tension), [tension]);
+  // Shared highlight between the lists and the figure. Reading "Gluteus Maximus,
+  // Right" told you the name but not where it was, and the only way to find out
+  // was to hover blindly over the drawing. Now each answers the other.
+  const [activeKeys, setActiveKeys] = useState<string[]>([]);
   const slugFlags = useMemo(() => aggregateBySlug(myo, ten), [myo, ten]);
   const slugTiers = useMemo(() => aggregateSubitemsBySlug(subitems), [subitems]);
 
@@ -337,6 +368,9 @@ export default function BodyMap({ myodynamia, tension, subitems }: BodyMapProps)
           tooltipFor: (slug: string, side: 'L' | 'R') => tooltipForSlug(slug, side, myo, ten),
           merge: mergeFlagState as (a?: string, b?: string) => string | undefined,
           markers: MARKER_MUSCLES,
+          // Flags mode has at most a handful of findings, so every one of them
+          // is worth a tab stop.
+          interaction: { focusable: true, activeKeys, onActive: setActiveKeys },
         }
       : {
           // Region-level geometry: the Physical Fitness Subitem Score IS five
@@ -349,6 +383,10 @@ export default function BodyMap({ myodynamia, tension, subitems }: BodyMapProps)
           merge: mergeTierState as (a?: string, b?: string) => string | undefined,
           // Region mode draws regions, none of which are markers.
           markers: new Set<string>(),
+          // Deliberately NOT focusable: the 5 regions are painted across ~17
+          // slugs, so tabbing the figure would mean 34 stops repeating 5 scores.
+          // SubitemTable below is a real table and carries the same data better.
+          interaction: { focusable: false, activeKeys, onActive: setActiveKeys },
         };
 
   return (
@@ -380,14 +418,14 @@ export default function BodyMap({ myodynamia, tension, subitems }: BodyMapProps)
             <div className="bm-fig-title">Front</div>
             <svg viewBox="0 0 724 1448" xmlns="http://www.w3.org/2000/svg" aria-label="Front body view">
               <path className="bodymap-silhouette" d={FRONT_OUTLINE} />
-              {renderParts(parts.frontData, parts.states, parts.inScope, parts.tooltipFor, parts.merge, parts.markers)}
+              {renderParts(parts.frontData, parts.states, parts.inScope, parts.tooltipFor, parts.merge, parts.markers, parts.interaction)}
             </svg>
           </div>
           <div className="bm-fig">
             <div className="bm-fig-title">Back</div>
             <svg viewBox="724 0 724 1448" xmlns="http://www.w3.org/2000/svg" aria-label="Back body view">
               <path className="bodymap-silhouette" d={BACK_OUTLINE} />
-              {renderParts(parts.backData, parts.states, parts.inScope, parts.tooltipFor, parts.merge, parts.markers)}
+              {renderParts(parts.backData, parts.states, parts.inScope, parts.tooltipFor, parts.merge, parts.markers, parts.interaction)}
             </svg>
           </div>
         </div>
@@ -431,35 +469,38 @@ export default function BodyMap({ myodynamia, tension, subitems }: BodyMapProps)
         ) : (
           <div className="bm-cards">
             <FlagCard
-              title="Myodynamia Deficiency"
-              subtitle="Weakness"
+              title="Weakness"
+              subtitle="Myodynamia deficiency"
               accent="var(--flag-weak)"
               items={myoEntries.map(([k, c]) => (
-                <li key={k}><span>{k}</span><span className="lat-code">{c} · {sideText(c)}</span></li>
+                <FlagItem key={k} name={k} side={c} activeKeys={activeKeys} onActive={setActiveKeys}>
+                  <span className="lat-code">{c} · {sideText(c)}</span>
+                </FlagItem>
               ))}
               count={myoEntries.length}
             />
             <FlagCard
-              title="Muscle Tension"
-              subtitle="Over-activation"
+              title="Tension"
+              subtitle="Muscle over-activation"
               accent="var(--flag-tight)"
               items={tenEntries.map(([k, c]) => (
-                <li key={k}><span>{k}</span><span className="lat-code">{c} · {sideText(c)}</span></li>
+                <FlagItem key={k} name={k} side={c} activeKeys={activeKeys} onActive={setActiveKeys}>
+                  <span className="lat-code">{c} · {sideText(c)}</span>
+                </FlagItem>
               ))}
               count={tenEntries.length}
             />
             <FlagCard
               title="Compensation Pattern"
-              subtitle="Weak + Tight in same muscle"
+              subtitle="Weak + tight in same muscle"
               accent="var(--flag-both)"
               items={compEntries.map((c) => (
-                <li key={c.name}>
-                  <span>{c.name}</span>
+                <FlagItem key={c.name} name={c.name} side="B" activeKeys={activeKeys} onActive={setActiveKeys}>
                   <span>
                     <span className="lat-code">W:{c.weak}</span>{' '}
                     <span className="lat-code">T:{c.tight}</span>
                   </span>
-                </li>
+                </FlagItem>
               ))}
               count={compEntries.length}
               hint={
@@ -476,6 +517,43 @@ export default function BodyMap({ myodynamia, tension, subitems }: BodyMapProps)
         </div>
       )}
     </>
+  );
+}
+
+// One muscle in a flag list. A button, not a bare <li>, so it is reachable by
+// keyboard and announced as interactive — and because pointing at a name should
+// point at the body. Highlighting is keyed on the same "slug:side" the figure
+// uses, so the two stay in step without either knowing about the other.
+function FlagItem({
+  name, side, activeKeys, onActive, children,
+}: {
+  name: string;
+  side: MuscleSide;
+  activeKeys: string[];
+  onActive: (keys: string[]) => void;
+  children: React.ReactNode;
+}) {
+  const slug = slugForMuscle(name);
+  // 'B' means the finding is on both sides, so it lights both.
+  const keys = slug
+    ? (side === 'B' ? [`${slug}:L`, `${slug}:R`] : [`${slug}:${side}`])
+    : [];
+  const isActive = keys.length > 0 && keys.every((k) => activeKeys.includes(k));
+  return (
+    <li>
+      <button
+        type="button"
+        className={`bm-card-item${isActive ? ' is-active' : ''}`}
+        aria-label={`${name}, ${sideText(side).toLowerCase()}. Highlight on the body diagram.`}
+        onMouseEnter={() => onActive(keys)}
+        onMouseLeave={() => onActive([])}
+        onFocus={() => onActive(keys)}
+        onBlur={() => onActive([])}
+      >
+        <span>{name}</span>
+        {children}
+      </button>
+    </li>
   );
 }
 
