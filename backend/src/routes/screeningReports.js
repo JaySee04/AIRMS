@@ -12,7 +12,9 @@
 // data fetching and page composition only.
 
 const express = require('express');
-const { Screening, Athlete, AthleteDiscipline } = require('../models');
+const { Op } = require('sequelize');
+const { Screening, Athlete, AthleteDiscipline, AuditLog } = require('../models');
+const { ACTION_LABELS: AUDIT_LABELS } = require('./audit');
 const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
 const requirePermission = require('../middleware/permission');
@@ -27,7 +29,7 @@ const {
 const {
   BAND, ELEVATED_THRESHOLD, GOLD, GRID, MUTED, NAVY, RISKS, SCORE_ROWS, TEXT, bandColor, bandLabel, bandOnLight,
   bandPill, bandTable, bar, betweenTestsBlock, bullets, cover, ensure, fileSlug, finish, fmtDate,
-  focusTable, hotspotBar, interpret, keyFindings, keyFindingsBox, muscleFigure, num, periodTable, radar,
+  auditTable, focusTable, hotspotBar, interpret, keyFindings, keyFindingsBox, muscleFigure, num, periodTable, radar,
   riskLegend, sectionTitle, squadMuscleHotspots, squadSubitemHeatmap, squadSymmetrySection, startDoc,
   subitemPriorities, subitemTable, symmetrySection, todayStamp, zoneGauge,
 } = require('../utils/pdfDraw');
@@ -519,6 +521,69 @@ router.get('/team.pdf', auth, rbac('medical', 'admin', 'coach', 'executive'), re
 
     finish(doc, 'Team Screening Report');
   } catch (err) { if (!res.headersSent) res.status(500).json({ message: err.message }); }
+});
+
+// GET /api/screening-reports/activity-log.pdf — the Activity Log as a document.
+//
+// The on-screen log answers "who changed what" for someone sitting at AIRMS.
+// A transparency record usually has to leave the system — attached to a report,
+// filed, or handed to whoever is asking — and a page cannot do that. Same data,
+// same filters, in a form that can be printed and signed off.
+//
+// Admin and executive, matching the log itself: oversight without write access
+// is the whole point of the executive role.
+router.get('/activity-log.pdf', auth, rbac('admin', 'executive'), async (req, res) => {
+  try {
+    const where = {};
+    if (req.query.action) where.action = String(req.query.action);
+    if (req.query.from || req.query.to) {
+      where.createdAt = {};
+      if (req.query.from) where.createdAt[Op.gte] = new Date(String(req.query.from));
+      if (req.query.to) {
+        const end = new Date(String(req.query.to));
+        end.setHours(23, 59, 59, 999);
+        where.createdAt[Op.lte] = end;
+      }
+    }
+    // Capped: a log export is a review document, not a database dump. The page
+    // paginates for anything longer.
+    const LIMIT = 400;
+    const { rows, count } = await AuditLog.findAndCountAll({
+      where, order: [['createdAt', 'DESC']], limit: LIMIT, raw: true,
+    });
+
+    const scope = [
+      req.query.action ? `Action: ${req.query.action}` : null,
+      req.query.from ? `From ${String(req.query.from)}` : null,
+      req.query.to ? `To ${String(req.query.to)}` : null,
+    ].filter(Boolean).join(' · ') || 'All recorded activity';
+
+    const doc = startDoc(res, `AIRMS-activity-log-${todayStamp()}.pdf`);
+    cover(doc, 'Activity Log', scope);
+
+    doc.fontSize(10).fillColor(MUTED).text(
+      `${count} record${count === 1 ? '' : 's'} match this selection`
+      + (count > LIMIT ? `; the ${LIMIT} most recent are listed.` : '.')
+      + ' Entries are written automatically when an action is performed and cannot be edited or deleted.',
+      50, doc.y, { width: doc.page.width - 100 },
+    );
+    doc.moveDown(0.8);
+
+    if (!rows.length) {
+      sectionTitle(doc, 'No activity');
+      doc.fontSize(10).fillColor(MUTED).text('Nothing was recorded in this selection.', 50);
+      finish(doc, 'Activity Log');
+      return;
+    }
+
+    sectionTitle(doc, 'Recorded actions');
+    auditTable(doc, rows, AUDIT_LABELS);
+
+    finish(doc, 'Activity Log');
+  } catch (err) {
+    if (!res.headersSent) res.status(500).json({ message: err.message });
+    else res.end();
+  }
 });
 
 module.exports = router;

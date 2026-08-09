@@ -187,4 +187,36 @@ describe('pdfDraw toolkit', () => {
     expect(D.num('12.5')).toBe(12.5);
     expect(D.num(null)).toBeNull();
   });
+
+  // The activity-log export. Its risk is not arithmetic but layout: a long
+  // summary must wrap without colliding with the next row, and a run longer
+  // than one page must repeat the header rather than orphan its columns.
+  it('renders the activity log, wrapping long detail and paging cleanly', async () => {
+    const LABELS = { 'screening.import': 'Screening imported', 'athlete.injury': 'Injury status changed' };
+    const rows = Array.from({ length: 60 }, (_, i) => ({
+      createdAt: new Date(2026, 6, (i % 28) + 1),
+      actorName: i % 3 === 0 ? 'Medical Demo 01' : 'Admin User',
+      action: i % 2 ? 'screening.import' : 'athlete.injury',
+      summary: i % 5 === 0
+        ? 'Marked a very long athlete name INJURED - excluded from norm calculation, with a note that runs on well past the width of its column so the row has to grow'
+        : 'Updated an athlete from a HoloMotion import',
+    }));
+    const { pdf } = await render((doc) => {
+      D.cover(doc, 'Activity Log', 'All recorded activity');
+      D.sectionTitle(doc, 'Recorded actions');
+      D.auditTable(doc, rows, LABELS);
+    });
+    expect(pdf.length).toBeGreaterThan(1000);
+    expect(pdf.slice(0, 5).toString()).toBe('%PDF-');
+  });
+
+  it('survives an empty log and rows missing every optional field', async () => {
+    const { pdf } = await render((doc) => {
+      D.auditTable(doc, [], {});
+      // No actor, no summary, no label for the action — all real possibilities
+      // for a row written by an older build or a background job.
+      D.auditTable(doc, [{ action: 'unknown.thing' }, {}], {});
+    });
+    expect(pdf.slice(0, 5).toString()).toBe('%PDF-');
+  });
 });

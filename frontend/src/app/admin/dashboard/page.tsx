@@ -20,6 +20,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import CohortFilters, { useCohortFilters } from '@/components/admin/CohortFilters';
+import TrendStrip from '@/components/admin/TrendStrip';
 import DistributionBar from '@/components/admin/DistributionBar';
 import { api } from '@/lib/api';
 
@@ -241,6 +242,14 @@ export default function AdminDashboard() {
         showFocus
         note="Slices every panel below. Programme throughput over time lives on Programme Activity."
       />
+
+      {/* Every other panel here is a snapshot; this is the only one that says
+          which way things are moving. Kept to a summary — the full throughput,
+          coverage and retest analysis stays on Programme Activity, which is a
+          separate page on purpose. */}
+      <div style={{ marginBottom: 20 }}>
+        <TrendStrip query={f.query} />
+      </div>
 
       {focus && (
         <>

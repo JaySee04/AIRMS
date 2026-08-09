@@ -62,6 +62,7 @@ export default function AuditPage() {
   const [to, setTo] = useState('');
   const [offset, setOffset] = useState(0);
   const [open, setOpen] = useState<string | null>(null);
+  const [dl, setDl] = useState(false);
 
   const load = useCallback(async () => {
     setError(null);
@@ -120,8 +121,35 @@ export default function AuditPage() {
               Clear
             </button>
           )}
-          <div className="text-muted" style={{ fontSize: '0.8rem', marginLeft: 'auto' }}>
-            {total} record{total === 1 ? '' : 's'}
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginLeft: 'auto' }}>
+            <span className="text-muted" style={{ fontSize: '0.8rem' }}>
+              {total} record{total === 1 ? '' : 's'}
+            </span>
+            {/* A transparency record usually has to leave the system to be of
+                any use — filed, attached, or handed to whoever asked. Exports
+                exactly what the filters above select. */}
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              disabled={dl || total === 0}
+              onClick={async () => {
+                const q = new URLSearchParams();
+                if (action) q.set('action', action);
+                if (from) q.set('from', from);
+                if (to) q.set('to', to);
+                setDl(true); setError(null);
+                try {
+                  await api.downloadGet(
+                    `/screening-reports/activity-log.pdf${q.toString() ? `?${q.toString()}` : ''}`,
+                    'AIRMS-activity-log.pdf',
+                  );
+                } catch (e) {
+                  setError(e instanceof Error ? e.message : 'Download failed');
+                } finally { setDl(false); }
+              }}
+            >
+              {dl ? 'Preparing…' : 'Download PDF'}
+            </button>
           </div>
         </div>
 

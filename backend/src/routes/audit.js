@@ -73,3 +73,7 @@ router.get('/', auth, rbac('admin', 'executive'), async (req, res) => {
 });
 
 module.exports = router;
+// Shared with the PDF export so the wording has ONE definition — a log that
+// says 'Screening imported' on screen and something else on paper is worse
+// than either alone.
+module.exports.ACTION_LABELS = ACTION_LABELS;

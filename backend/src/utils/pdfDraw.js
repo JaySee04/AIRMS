@@ -916,8 +916,50 @@ function interpret(screening, cohort, subitems) {
 }
 
 
+// Activity-log table. Four columns, only the last of which wraps, so row height
+// is driven by the detail text and the header repeats on every page.
+//
+// Lives here rather than in the route for the same reason as every other
+// drawing helper: routes do routing, pdfDraw does pdfkit — and it means this
+// can be rendered headlessly in tests instead of only by downloading it.
+function auditTable(doc, rows, labels = {}) {
+  const COLW = { when: 96, who: 116, what: 118 };
+  const xWhen = 50;
+  const xWho = xWhen + COLW.when;
+  const xWhat = xWho + COLW.who;
+  const xDetail = xWhat + COLW.what;
+  const detailW = doc.page.width - 50 - xDetail;
+
+  const header = () => {
+    const y = doc.y;
+    doc.fontSize(8.5).font('Helvetica-Bold').fillColor(MUTED);
+    doc.text('When', xWhen, y, { width: COLW.when, lineBreak: false });
+    doc.text('Who', xWho, y, { width: COLW.who, lineBreak: false });
+    doc.text('Action', xWhat, y, { width: COLW.what, lineBreak: false });
+    doc.text('Detail', xDetail, y, { width: detailW, lineBreak: false });
+    doc.y = y + 13;
+    doc.moveTo(50, doc.y - 3).lineTo(doc.page.width - 50, doc.y - 3).strokeColor(GRID).stroke();
+    doc.font('Helvetica').fillColor(TEXT);
+  };
+  header();
+
+  for (const r of rows || []) {
+    const detail = r.summary || '-';
+    doc.fontSize(8.5);
+    const h = Math.max(14, doc.heightOfString(detail, { width: detailW }) + 5);
+    if (doc.y + h > doc.page.height - 70) { doc.addPage(); doc.y = 50; header(); doc.fontSize(8.5); }
+    const y = doc.y;
+    doc.fontSize(8.5).fillColor(TEXT);
+    doc.text(fmtDate(r.created_at || r.createdAt), xWhen, y, { width: COLW.when, lineBreak: false });
+    doc.text(String(r.actor_name || r.actorName || 'Unknown'), xWho, y, { width: COLW.who, lineBreak: false });
+    doc.text(labels[r.action] || r.action || '-', xWhat, y, { width: COLW.what, lineBreak: false });
+    doc.text(detail, xDetail, y, { width: detailW });
+    doc.y = y + h;
+  }
+}
+
 module.exports = {
-  BAND, ELEVATED_THRESHOLD, GOLD, GRID, MUTED, NAVY, RISKS, SCORE_ROWS, TEXT, bandColor, bandLabel, bandOnLight,
+  BAND, ELEVATED_THRESHOLD, GOLD, GRID, MUTED, NAVY, RISKS, SCORE_ROWS, TEXT, auditTable, bandColor, bandLabel, bandOnLight,
   bandPill, bandTable, bar, betweenTestsBlock, bullets, cover, ensure, fileSlug, finish, fmtDate,
   focusTable, hotspotBar, interpret, keyFindings, keyFindingsBox, muscleFigure, num, periodTable, radar,
   riskLegend, sectionTitle, squadMuscleHotspots, squadSubitemHeatmap, squadSymmetrySection, startDoc,
