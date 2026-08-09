@@ -291,21 +291,21 @@ export default function PdfScreeningUpload() {
                       override. */}
                   {it.matchSource === 'roster' && (
                     <div className="alert" style={{ background: 'var(--risk-low-bg)', borderLeft: '3px solid var(--risk-low)', marginBottom: 12 }}>
-                      <strong>{it.matchedName}</strong> — matched on your roster from the report&rsquo;s filename.
-                      <span className="text-muted"> IC {it.athleteId}. Details below are filled in; edit any of them if the report disagrees.</span>
+                      <strong>{it.matchedName}</strong> — on your roster.
+                      <span className="text-muted"> IC {it.athleteId}. Edit below if anything is wrong.</span>
                     </div>
                   )}
                   {it.matchSource === 'isn' && (
                     <div className="alert" style={{ background: 'var(--risk-moderate-bg)', borderLeft: '3px solid var(--risk-moderate)', marginBottom: 12 }}>
-                      <strong>{it.matchedName}</strong> — not on your roster, found in the ISN directory and filled in from their master record.
-                      <span className="text-muted"> IC {it.athleteId}. Committing this report adds them to AIRMS.</span>
+                      <strong>{it.matchedName}</strong> — new, from the ISN directory.
+                      <span className="text-muted"> IC {it.athleteId}. Added when you commit.</span>
                     </div>
                   )}
                   {it.matchSource === null && (
                     <div className="alert" style={{ background: 'var(--risk-high-bg)', borderLeft: '3px solid var(--risk-high)', marginBottom: 12 }}>
-                      Could not resolve an athlete from the file name
-                      {parseNameFromFilename(it.file.name) ? <> (<em>{parseNameFromFilename(it.file.name)}</em>)</> : null}
-                      {' '}— no unique match on the roster or in the ISN directory. Pick them below, or fill in the details by hand.
+                      No match for
+                      {parseNameFromFilename(it.file.name) ? <> <em>{parseNameFromFilename(it.file.name)}</em></> : <> the file name</>}
+                      {' '}— pick the athlete below.
                     </div>
                   )}
 
