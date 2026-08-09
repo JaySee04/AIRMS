@@ -112,18 +112,61 @@ const height = (d: string) => { const b = bbox(d); return b.maxY - b.minY; };
 const centreX = (d: string) => { const b = bbox(d); return (b.minX + b.maxX) / 2; };
 const topY = (d: string) => bbox(d).minY;
 
-// An ellipse expressed as a path, so insets need no new element type and flow
-// through the existing <path> renderer untouched.
-function ellipsePath(cx: number, cy: number, rx: number, ry: number): string {
-  return `M ${cx - rx} ${cy} a ${rx} ${ry} 0 1 0 ${rx * 2} 0 a ${rx} ${ry} 0 1 0 ${-rx * 2} 0 Z`;
+// A circle as a path. `sweep` flips the winding direction, which is what lets
+// two concentric circles fill as a ring under the default nonzero fill rule.
+function circlePath(cx: number, cy: number, r: number, sweep: 0 | 1 = 0): string {
+  return `M ${cx - r} ${cy} a ${r} ${r} 0 1 ${sweep} ${r * 2} 0 a ${r} ${r} 0 1 ${sweep} ${-r * 2} 0 Z`;
 }
 
-// Place an inset inside a parent box using fractional coordinates, so the shape
-// is always contained by the muscle it sits under.
-function inset(parent: Box, fx: number, fy: number, frx: number, fry: number): string {
-  const w = parent.maxX - parent.minX;
-  const h = parent.maxY - parent.minY;
-  return ellipsePath(parent.minX + w * fx, parent.minY + h * fy, w * frx, h * fry);
+// Deep muscles are drawn as a MARKER — a ring with a centre dot — not as a
+// pseudo-anatomical blob.
+//
+// Why: the licensed asset is a surface atlas and simply has no geometry for
+// piriformis, iliopsoas, gluteus minimus, the internal oblique or rectus capitis
+// anterior. The previous convention filled an ellipse inside the parent muscle,
+// which looked like an attempt to draw the muscle and failed at it — and these
+// are not rare edge cases: four of the eight muscles HoloMotion actually emits
+// are in this set, so the instrument's commonest findings were exactly the ones
+// rendered worst.
+//
+// A marker makes a different and truthful claim: "this structure, at this
+// location" rather than "this is its shape". Fixed radius, so every deep finding
+// reads at the same weight regardless of how big the parent happens to be.
+const MARKER_R = 18;
+
+function markerPaths(cx: number, cy: number): string[] {
+  return [
+    // Ring: outer circle + inner circle wound the other way, so the middle
+    // stays hollow. One path, so it takes the flag colour like any other.
+    `${circlePath(cx, cy, MARKER_R, 0)} ${circlePath(cx, cy, MARKER_R * 0.58, 1)}`,
+    circlePath(cx, cy, MARKER_R * 0.26),
+  ];
+}
+
+// Fractional point inside a parent's measured box.
+function at(parent: Box, fx: number, fy: number): { cx: number; cy: number } {
+  return {
+    cx: parent.minX + (parent.maxX - parent.minX) * fx,
+    cy: parent.minY + (parent.maxY - parent.minY) * fy,
+  };
+}
+
+function marker(parent: Box, fx: number, fy: number): string[] {
+  const { cx, cy } = at(parent, fx, fy);
+  return markerPaths(cx, cy);
+}
+
+// A strap muscle drawn as the band it is: a thin quad from origin to insertion.
+// Used for sartorius, which really does run as a single diagonal strap and so
+// reads better as a band than as two disconnected dots.
+function strap(parent: Box, from: [number, number], to: [number, number], w: number): string {
+  const a = at(parent, from[0], from[1]);
+  const b = at(parent, to[0], to[1]);
+  const dx = b.cx - a.cx, dy = b.cy - a.cy;
+  const len = Math.hypot(dx, dy) || 1;
+  const nx = (-dy / len) * w, ny = (dx / len) * w; // normal, scaled to half-width
+  return `M ${a.cx + nx} ${a.cy + ny} L ${b.cx + nx} ${b.cy + ny} `
+    + `L ${b.cx - nx} ${b.cy - ny} L ${a.cx - nx} ${a.cy - ny} Z`;
 }
 
 // ---------------------------------------------------------------------------
@@ -229,27 +272,26 @@ function put(fig: Figure, muscle: string, side: Side, ds: string[]) {
   // -- External oblique: the superficial flank slips --------------------------
   put('front', 'External Oblique', side, paths('front', 'obliques', side));
 
-  // -- Deep / absent muscles: schematic insets inside their parent ------------
-  // These six have no surface representation in a workout atlas. Each is placed
-  // inside the measured box of the structure it lies under, mirroring how the
-  // HoloMotion report shades them within the parent region.
+  // -- Deep muscles: located by MARKER, not drawn as pseudo-anatomy -----------
+  // See markerPaths above for why. Placement is still derived from the measured
+  // box of the structure each one lies under, so the marker lands inside the
+  // right region rather than being positioned freehand.
   {
     const glute = paths('back', 'gluteal', side);
     if (glute.length) {
       const gb = unionBox(glute);
       // Piriformis: deep, upper-medial third of the buttock, under max.
-      put('back', 'Piriformis', side, [inset(gb, side === 'left' ? 0.62 : 0.38, 0.30, 0.17, 0.09)]);
+      put('back', 'Piriformis', side, marker(gb, side === 'left' ? 0.62 : 0.38, 0.30));
       // Gluteus minimus: deepest of the three, under medius.
-      put('back', 'Gluteus Minimus', side, [inset(gb, side === 'left' ? 0.34 : 0.66, 0.20, 0.14, 0.07)]);
+      put('back', 'Gluteus Minimus', side, marker(gb, side === 'left' ? 0.34 : 0.66, 0.20));
     }
   }
   {
     const add = paths('front', 'adductors', side);
     if (add.length) {
       const ab = unionBox(add);
-      // Iliopsoas: deep hip flexor at the groin — previously mis-homed onto the
-      // whole adductor mass, which put a hip-flexor finding on the inner thigh.
-      put('front', 'Iliopsoas', side, [inset(ab, side === 'left' ? 0.70 : 0.30, 0.10, 0.20, 0.07)]);
+      // Iliopsoas: deep hip flexor at the groin — not the inner-thigh mass.
+      put('front', 'Iliopsoas', side, marker(ab, side === 'left' ? 0.70 : 0.30, 0.10));
     }
   }
   {
@@ -257,7 +299,7 @@ function put(fig: Figure, muscle: string, side: Side, ds: string[]) {
     if (ob.length) {
       const bb = unionBox(ob);
       // Internal oblique: deep to the external, same flank column.
-      put('front', 'Internal Oblique', side, [inset(bb, 0.5, 0.62, 0.30, 0.11)]);
+      put('front', 'Internal Oblique', side, marker(bb, 0.5, 0.62));
     }
   }
   {
@@ -265,22 +307,20 @@ function put(fig: Figure, muscle: string, side: Side, ds: string[]) {
     if (n.length) {
       const nb = unionBox(n);
       // Rectus capitis anterior: deep anterior neck flexor, high and medial.
-      put('front', 'Rectus Capitis Anterior', side, [inset(nb, side === 'left' ? 0.72 : 0.28, 0.28, 0.22, 0.10)]);
+      put('front', 'Rectus Capitis Anterior', side, marker(nb, side === 'left' ? 0.72 : 0.28, 0.28));
     }
   }
   {
     const q = paths('front', 'quadriceps', side);
     if (q.length) {
       const qb = unionBox(q);
-      // Sartorius: long strap, ASIS (outer hip) → medial knee. Drawn as two
-      // insets marking its origin and insertion, which is the readable way to
-      // show a diagonal strap on a front-facing figure.
+      // Sartorius: long strap, ASIS (outer hip) → medial knee. It genuinely is
+      // a single diagonal band, so it is drawn as one — clearer than the two
+      // disconnected origin/insertion dots it used to be, which read as two
+      // separate findings.
       const originFx = side === 'left' ? 0.22 : 0.78;
       const insertFx = side === 'left' ? 0.80 : 0.20;
-      put('front', 'Sartorius', side, [
-        inset(qb, originFx, 0.08, 0.13, 0.035),
-        inset(qb, insertFx, 0.88, 0.11, 0.035),
-      ]);
+      put('front', 'Sartorius', side, [strap(qb, [originFx, 0.08], [insertFx, 0.88], 7)]);
     }
   }
 });
@@ -304,6 +344,14 @@ export const muscleBack: BodyPart[] = build('back');
 
 // Every muscle slug the figure can render, for scope checks in BodyMap.
 export const RENDERABLE_MUSCLES: Set<string> = new Set([...acc.keys()]);
+
+// Muscles drawn as a marker rather than as their own shape. BodyMap hides these
+// entirely when nothing is flagged: a marker is an attention glyph, so leaving
+// it on the figure unflagged reads as a finding that isn't there. The surface
+// muscles have no such problem — they ARE the body, so they always draw.
+export const MARKER_MUSCLES: Set<string> = new Set([
+  'Piriformis', 'Gluteus Minimus', 'Iliopsoas', 'Internal Oblique', 'Rectus Capitis Anterior',
+]);
 
 // HoloMotion names that are the same anatomical structure as a rendered muscle
 // and therefore share its shape. Kept explicit so the collapse is visible in

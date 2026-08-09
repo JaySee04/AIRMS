@@ -109,6 +109,50 @@ describe('HoloMotion muscle partition', () => {
     });
   });
 
+  // The asset is a surface atlas with no geometry for these, so they are marked
+  // rather than drawn. Four of the eight muscles HoloMotion actually emits are
+  // in this set, so this is the commonest thing the figure has to show.
+  const DEEP = ['Piriformis', 'Gluteus Minimus', 'Iliopsoas', 'Internal Oblique', 'Rectus Capitis Anterior'];
+
+  it('draws every deep muscle as a hollow ring plus a centre dot', () => {
+    DEEP.forEach((slug) => {
+      (['left', 'right'] as const).forEach((s) => {
+        const ds = by(slug).path[s] ?? [];
+        expect(ds).toHaveLength(2);
+        // The ring is one path holding two circles wound in OPPOSITE directions;
+        // that opposition is what leaves the centre hollow under nonzero fill.
+        // Drawn the same way round, it would fill solid and be a blob again.
+        const sweeps = [...ds[0].matchAll(/a [\d.]+ [\d.]+ 0 1 ([01])/g)].map((m) => m[1]);
+        expect(sweeps).toEqual(['0', '0', '1', '1']);
+        // Centre dot sits concentric with the ring.
+        expect(bbox(ds[1]).cx).toBeCloseTo(bbox(ds[0]).cx, 5);
+        expect(bbox(ds[1]).cy).toBeCloseTo(bbox(ds[0]).cy, 5);
+      });
+    });
+  });
+
+  it('gives every deep marker the same size, whatever its parent', () => {
+    const widths = DEEP.flatMap((slug) => (['left', 'right'] as const).map((s) => {
+      const b = bbox((by(slug).path[s] ?? [])[0]);
+      return b.maxX - b.minX;
+    }));
+    // A marker is a fixed-radius glyph, not a fraction of whatever it sits in —
+    // otherwise a hip finding would shout and a neck finding would whisper.
+    expect(new Set(widths.map((w) => w.toFixed(3))).size).toBe(1);
+  });
+
+  it('draws sartorius as one continuous strap, not two loose dots', () => {
+    (['left', 'right'] as const).forEach((s) => {
+      const ds = by('Sartorius').path[s] ?? [];
+      expect(ds).toHaveLength(1);
+      // Runs corner to corner: outer hip down to medial knee, so it should span
+      // a good part of the thigh in BOTH axes rather than sitting in one spot.
+      const b = bbox(ds[0]);
+      const q = box('Rectus Femoris', s);
+      expect(b.maxY - b.minY).toBeGreaterThan((q.maxY - q.minY) * 0.5);
+    });
+  });
+
   it('separates left and right so no muscle straddles the midline', () => {
     all.forEach((p) => {
       const l = box(p.slug, 'left');

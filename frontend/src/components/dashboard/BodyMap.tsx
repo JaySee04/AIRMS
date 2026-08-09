@@ -5,7 +5,7 @@ import { bodyFront } from './bodymap-data/bodyFront';
 import { bodyBack } from './bodymap-data/bodyBack';
 import { FRONT_OUTLINE, BACK_OUTLINE } from './bodymap-data/outlines';
 import {
-  muscleFront, muscleBack, INERT_FRONT, INERT_BACK, RENDERABLE_MUSCLES, MUSCLE_ALIASES,
+  muscleFront, muscleBack, INERT_FRONT, INERT_BACK, RENDERABLE_MUSCLES, MUSCLE_ALIASES, MARKER_MUSCLES,
 } from './bodymap-data/muscles';
 import type { BodyPart } from './bodymap-data/types';
 import type { Subitems, SubitemRow } from './OverallRiskBadge';
@@ -229,6 +229,9 @@ function renderParts(
   inScopeSlugs: Set<string>,
   tooltipFor: (slug: string, side: 'L' | 'R') => string,
   merge: (a?: string, b?: string) => string | undefined,
+  // Slugs drawn as a marker glyph rather than as their own anatomy. They are
+  // omitted entirely when unflagged — see MARKER_MUSCLES.
+  markerSlugs: Set<string> = new Set(),
 ): React.ReactNode[] {
   const out: React.ReactNode[] = [];
   data.forEach((part) => {
@@ -243,6 +246,10 @@ function renderParts(
           ? merge(states.get(key), states.get(otherKey))
           : states.get(key)
         : undefined;
+
+      // A marker with nothing to report is just noise pointing at a healthy
+      // structure, so it does not draw at all.
+      if (!state && markerSlugs.has(part.slug)) return;
 
       if (!inScope) {
         // Inert: just render the paths, no group wrapper, no tooltip, no hover.
@@ -329,6 +336,7 @@ export default function BodyMap({ myodynamia, tension, subitems }: BodyMapProps)
           inScope: SCOPED_SLUGS,
           tooltipFor: (slug: string, side: 'L' | 'R') => tooltipForSlug(slug, side, myo, ten),
           merge: mergeFlagState as (a?: string, b?: string) => string | undefined,
+          markers: MARKER_MUSCLES,
         }
       : {
           // Region-level geometry: the Physical Fitness Subitem Score IS five
@@ -339,6 +347,8 @@ export default function BodyMap({ myodynamia, tension, subitems }: BodyMapProps)
           inScope: SUBITEM_SCOPED_SLUGS,
           tooltipFor: (slug: string, side: 'L' | 'R') => tooltipForSubitemSlug(slug, side, subitems),
           merge: mergeTierState as (a?: string, b?: string) => string | undefined,
+          // Region mode draws regions, none of which are markers.
+          markers: new Set<string>(),
         };
 
   return (
@@ -370,14 +380,14 @@ export default function BodyMap({ myodynamia, tension, subitems }: BodyMapProps)
             <div className="bm-fig-title">Front</div>
             <svg viewBox="0 0 724 1448" xmlns="http://www.w3.org/2000/svg" aria-label="Front body view">
               <path className="bodymap-silhouette" d={FRONT_OUTLINE} />
-              {renderParts(parts.frontData, parts.states, parts.inScope, parts.tooltipFor, parts.merge)}
+              {renderParts(parts.frontData, parts.states, parts.inScope, parts.tooltipFor, parts.merge, parts.markers)}
             </svg>
           </div>
           <div className="bm-fig">
             <div className="bm-fig-title">Back</div>
             <svg viewBox="724 0 724 1448" xmlns="http://www.w3.org/2000/svg" aria-label="Back body view">
               <path className="bodymap-silhouette" d={BACK_OUTLINE} />
-              {renderParts(parts.backData, parts.states, parts.inScope, parts.tooltipFor, parts.merge)}
+              {renderParts(parts.backData, parts.states, parts.inScope, parts.tooltipFor, parts.merge, parts.markers)}
             </svg>
           </div>
         </div>
