@@ -263,6 +263,16 @@ a genuinely small addition if he wants it.
    discovered in the viva.
 2. **Offer §16 (scheduled monthly report)** — small, and he asked for it in
    those words.
+2a. **Ask whether he wants Posture Evaluation back.** Cut 2026-08-01 as "not
+   required by Dr Thung" — but he never mentions posture anywhere in the
+   transcript, so that was inferred from silence, not refused the way LDH was.
+   It is the richest HoloMotion layer AIRMS does not use: 8 axes, each a signed
+   deviation with a vendor-published normal range (Elffie is outside range on
+   7 of 8, Neck L/R at -20.38 against ±5). It sits on page 4, which the
+   extractor already renders and transmits, so the marginal cost is a few lines
+   of prompt rather than a bigger upload. Do not rebuild it on spec — if he says
+   he would use it, it returns with stakeholder backing, which is worth more in
+   viva than a unilateral reversal.
 3. **Name §6 (seasonality) as future work** with the data-maturity reason, so
    it reads as understood rather than missed.
 4. ~~Restore §11's sport context on the medical view~~ — **done 2026-08-09.**
