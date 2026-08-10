@@ -19,6 +19,8 @@ import { useEffect, useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import CohortFilters, { useCohortFilters } from '@/components/admin/CohortFilters';
 import DistributionBar from '@/components/admin/DistributionBar';
+import StaffActivity from '@/components/admin/StaffActivity';
+import { DivergingBar, PeriodChart, Ring } from '@/components/charts/Charts';
 import { api } from '@/lib/api';
 
 type Grain = 'month' | 'quarter' | 'year';
@@ -164,22 +166,51 @@ export default function AdminActivity() {
           </div>
         ) : (
           <>
-            <div className="stat-grid">
-              <div className="stat-tile">
-                <div className="stat-tile-label">Athletes tested</div>
-                <div className="stat-tile-value">{data.coverage.tested}<span style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: 500 }}> / {data.coverage.rostered}</span></div>
-              </div>
-              <div className="stat-tile">
-                <div className="stat-tile-label">Tests performed</div>
-                <div className="stat-tile-value">{data.coverage.tests}</div>
-              </div>
-              <div className="stat-tile">
-                <div className="stat-tile-label">Never tested</div>
-                <div className="stat-tile-value" style={{ color: data.coverage.untested > 0 ? C.amber : undefined }}>{data.coverage.untested}</div>
-              </div>
-              <div className="stat-tile">
-                <div className="stat-tile-label">{GRAINS.find((g) => g.key === data.grain)?.label} periods</div>
-                <div className="stat-tile-value">{data.periods.length}</div>
+            {/* Coverage as a ring beside the work actually done over time.
+                Replaces four flat tiles, one of which counted PERIODS — a KPI of
+                the axis rather than of anything achieved. */}
+            <div className="verdict" style={{ marginBottom: 24 }}>
+              <Ring
+                value={data.coverage.tested}
+                total={data.coverage.rostered}
+                label="Roster covered"
+                sublabel={data.coverage.untested > 0
+                  ? `${data.coverage.untested} never tested`
+                  : 'Every athlete has been tested'}
+              />
+              <div className="verdict-main">
+                <div style={{ marginTop: 18 }}>
+                  <PeriodChart
+                    points={data.periods.map((p) => ({
+                      key: p.key,
+                      label: p.label,
+                      value: p.tests,
+                      line: p.averages.overallIndicator ?? null,
+                    }))}
+                    valueLabel="Tests performed"
+                    lineLabel="Average indicator"
+                    height={150}
+                  />
+                </div>
+                <div className="verdict-stats">
+                  <div>
+                    <span className="verdict-stat-label">Tests performed</span>
+                    <span className="verdict-stat-value">{data.coverage.tests}</span>
+                    <span className="verdict-stat-hint">across {data.periods.length} {data.grain === 'year' ? 'year' : data.grain}{data.periods.length === 1 ? '' : 's'}</span>
+                  </div>
+                  <div>
+                    <span className="verdict-stat-label">Athletes tested</span>
+                    <span className="verdict-stat-value">{data.coverage.tested}</span>
+                    <span className="verdict-stat-hint">of {data.coverage.rostered} on the roster</span>
+                  </div>
+                  <div>
+                    <span className="verdict-stat-label">Tests per athlete</span>
+                    <span className="verdict-stat-value">
+                      {data.coverage.tested > 0 ? (data.coverage.tests / data.coverage.tested).toFixed(1) : '—'}
+                    </span>
+                    <span className="verdict-stat-hint">retest depth, not just reach</span>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -252,27 +283,37 @@ export default function AdminActivity() {
               Each athlete is their own comparison, so this measures change rather than a shift in who was tested.
             </span>
           </div></div>
-          <div className="stat-grid">
-            <div className="stat-tile">
-              <div className="stat-tile-label">Improved</div>
-              <div className="stat-tile-value" style={{ color: C.green }}>{bt.improved}</div>
+          {/* Improved vs declined GROWING APART from a shared centre. As two
+              stat tiles ("10" and "9" in separate boxes) the eye never actually
+              compared them, which is the single thing this panel exists to
+              show. */}
+          <div style={{ marginBottom: 20 }}>
+            <DivergingBar
+              left={{ label: `${bt.improved} improved`, value: bt.improved, color: C.green }}
+              right={{ label: `${bt.declined} declined`, value: bt.declined, color: C.red }}
+              middle={{ label: 'unchanged', value: bt.steady }}
+            />
+          </div>
+          <div className="verdict-stats" style={{ marginTop: 0, marginBottom: 20, borderTop: 'none', paddingTop: 0 }}>
+            <div>
+              <span className="verdict-stat-label">Median retest gap</span>
+              <span className="verdict-stat-value">
+                {bt.intervalDays.median === null ? '—' : bt.intervalDays.median}
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 500 }}> days</span>
+              </span>
+              <span className="verdict-stat-hint">
+                {bt.intervalDays.min !== null && bt.intervalDays.max !== null
+                  ? `range ${bt.intervalDays.min}–${bt.intervalDays.max} days`
+                  : 'how often athletes come back'}
+              </span>
             </div>
-            <div className="stat-tile">
-              <div className="stat-tile-label">Declined</div>
-              <div className="stat-tile-value" style={{ color: C.red }}>{bt.declined}</div>
-            </div>
-            <div className="stat-tile">
-              <div className="stat-tile-label">Unchanged</div>
-              <div className="stat-tile-value">{bt.steady}</div>
-            </div>
-            <div className="stat-tile">
-              <div className="stat-tile-label">Median retest gap</div>
-              <div className="stat-tile-value">
-                {bt.intervalDays.median === null ? '—' : `${bt.intervalDays.median}`}
-                <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: 500 }}> days</span>
-              </div>
+            <div>
+              <span className="verdict-stat-label">Retested athletes</span>
+              <span className="verdict-stat-value">{bt.athletesWithRetest}</span>
+              <span className="verdict-stat-hint">{bt.pairs} comparable pair{bt.pairs === 1 ? '' : 's'}</span>
             </div>
           </div>
+          <div style={{ fontSize: '0.8rem', fontWeight: 600, marginBottom: 8 }}>Band movement, test to test</div>
           <div style={{ marginBottom: 16 }}>
             <DistributionBar segments={[
               { label: 'Band improved', value: bt.bandMoves.better, color: C.green },
@@ -303,6 +344,15 @@ export default function AdminActivity() {
           </div>
         </div>
       )}
+      {/* Who actually did the work. "Programme activity" without the people in
+          it measures only the athletes; this is the half that showcases the
+          staff — imports committed, overrides recorded, norms governed — and it
+          is the same component (and endpoint) the Activity Log uses, so the two
+          pages cannot disagree about who did what. */}
+      <div style={{ marginTop: 20 }}>
+        <StaffActivity />
+      </div>
+
     </DashboardLayout>
   );
 }

@@ -22,6 +22,7 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import CohortFilters, { useCohortFilters } from '@/components/admin/CohortFilters';
 import TrendStrip from '@/components/admin/TrendStrip';
 import DistributionBar from '@/components/admin/DistributionBar';
+import { DotPlot, RankedBars, Ring } from '@/components/charts/Charts';
 import { api } from '@/lib/api';
 
 interface ScreeningCohort {
@@ -53,81 +54,13 @@ export interface FocusBreakdown {
   worst: Array<{ athleteId: string; name: string; sport: string; gender: string; value: number; band: string }>;
 }
 
-// Status colours (theme-aware). Reserved for state — never reused as series hues.
-const C = { green: 'var(--risk-low)', amber: 'var(--risk-moderate)', red: 'var(--risk-high)', gold: 'var(--brand-gold)', blue: 'var(--risk-undertrained)' };
-
-// Horizontal labelled bars on a 0–max track. Replaces the vertical score bars.
-function ScoreBars({ rows, max = 100 }: { rows: Array<{ label: string; value: number | null }>; max?: number }) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 6 }}>
-      {rows.map((r) => (
-        <div key={r.label} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 84, fontSize: '0.85rem', flexShrink: 0 }}>{r.label}</div>
-          <div style={{ flex: 1, height: 18, background: 'var(--border)', borderRadius: 5, overflow: 'hidden' }} title={r.value == null ? 'No data' : `${r.label}: ${r.value} / ${max}`}>
-            <div style={{ width: `${Math.max(0, Math.min(100, ((r.value ?? 0) / max) * 100))}%`, height: '100%', background: C.gold, borderRadius: 5 }} />
-          </div>
-          <div style={{ width: 42, textAlign: 'right', fontWeight: 700, fontSize: '0.9rem', flexShrink: 0 }}>{r.value == null ? '—' : r.value}</div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// One 100%-stacked bar per exercise-risk indicator (Low / Watch / Elevated),
-// sorted most-elevated first, with the elevated count called out on the right.
-function IndicatorBars({ indicators }: { indicators: ScreeningCohort['indicators'] }) {
-  const rows = [...indicators].sort((a, b) => (b.high - a.high) || (b.watch - a.watch));
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 6 }}>
-      {rows.map((r) => {
-        const total = r.ok + r.watch + r.high || 1;
-        const segs = [
-          { label: 'Low', value: r.ok, color: C.green },
-          { label: 'Watch', value: r.watch, color: C.amber },
-          { label: 'Elevated', value: r.high, color: C.red },
-        ].filter((s) => s.value > 0);
-        return (
-          <div key={r.key} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 118, fontSize: '0.82rem', flexShrink: 0 }}>{r.label}</div>
-            <div style={{ flex: 1, display: 'flex', height: 18, borderRadius: 5, overflow: 'hidden', background: 'var(--border)' }}>
-              {segs.map((s, i) => (
-                <div key={s.label} title={`${r.label} — ${s.label}: ${s.value} (${Math.round((s.value / total) * 100)}%)`}
-                  style={{ width: `${(s.value / total) * 100}%`, background: s.color, borderRight: i < segs.length - 1 ? '2px solid var(--bg)' : undefined }} />
-              ))}
-            </div>
-            <div style={{ width: 58, textAlign: 'right', fontSize: '0.8rem', flexShrink: 0 }}>
-              {r.high > 0 ? <span style={{ color: C.red, fontWeight: 700 }}>{r.high} elev.</span> : <span className="text-muted">0 elev.</span>}
-            </div>
-          </div>
-        );
-      })}
-      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginTop: 6, fontSize: '0.8rem' }}>
-        {([['Low ≤15', C.green], ['Watch 16–25', C.amber], ['Elevated >25', C.red]] as const).map(([l, c]) => (
-          <span key={l} style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 12, height: 12, borderRadius: 3, background: c }} />{l}</span>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// Horizontal count bars for the most-flagged muscles (weak = gold, tight = blue;
-// the label also carries weak/tight so it's never colour-alone).
-function MuscleBars({ items }: { items: Array<{ label: string; count: number; weak: boolean }> }) {
-  const max = Math.max(1, ...items.map((m) => m.count));
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingTop: 6 }}>
-      {items.map((m) => (
-        <div key={m.label} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 150, fontSize: '0.8rem', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={m.label}>{m.label}</div>
-          <div style={{ flex: 1, height: 16, background: 'var(--border)', borderRadius: 4, overflow: 'hidden' }} title={`${m.label}: ${m.count} athlete${m.count === 1 ? '' : 's'}`}>
-            <div style={{ width: `${(m.count / max) * 100}%`, height: '100%', background: m.weak ? C.gold : C.blue, borderRadius: 4 }} />
-          </div>
-          <div style={{ width: 28, textAlign: 'right', fontWeight: 700, fontSize: '0.85rem', flexShrink: 0 }}>{m.count}</div>
-        </div>
-      ))}
-    </div>
-  );
-}
+// Status colours (theme-aware). Reserved for STATE — a clinical band. Never a
+// series hue: `gold` and `blue` used to be pressed into service for the average
+// physical-quality bars and the weak/tight muscle split, so a healthy 76/100 was
+// drawn in the same amber the app uses for "needs attention". Quantities now use
+// the --series-* tokens.
+const C = { green: 'var(--risk-low)', amber: 'var(--risk-moderate)', red: 'var(--risk-high)' };
+const S = { s1: 'var(--series-1)', s2: 'var(--series-2)', s3: 'var(--series-3)' };
 
 // One slice dimension as rows: n, the Low/Watch/Elevated split, the share
 // elevated and the average. Ordered worst-first by the backend, because the
@@ -219,13 +152,11 @@ export default function AdminDashboard() {
     [cohort],
   );
 
-  const muscles = useMemo(() => {
-    if (!cohort) return [];
-    return [
-      ...cohort.topMyodynamia.map((m) => ({ label: `${m.muscle} (weak)`, count: m.count, weak: true })),
-      ...cohort.topTension.map((m) => ({ label: `${m.muscle} (tight)`, count: m.count, weak: false })),
-    ].sort((x, y) => y.count - x.count).slice(0, 8);
-  }, [cohort]);
+  // Two separate lists, each already ordered by the backend. They used to be
+  // merged into one list of 8 and sorted together, which meant a cohort with
+  // heavy tension could push every weakness finding off the panel entirely.
+  const weakMuscles = useMemo(() => (cohort?.topMyodynamia ?? []).slice(0, 7), [cohort]);
+  const tightMuscles = useMemo(() => (cohort?.topTension ?? []).slice(0, 7), [cohort]);
 
   const focus = cohort?.focus ?? null;
   const a = cohort?.averages;
@@ -365,68 +296,112 @@ export default function AdminDashboard() {
         </>
       )}
 
-      {/* KPI tiles */}
-      <div className="stat-grid">
-        <div className="stat-tile">
-          <div className="stat-tile-label">Athletes screened</div>
-          <div className="stat-tile-value">{loading ? '…' : cohort?.screened ?? 0}<span style={{ fontSize: '0.95rem', color: 'var(--text-muted)' }}> / {cohort?.totalAthletes ?? 0}</span></div>
-          <div className="stat-tile-delta">{loading ? '' : `${cohort?.unscreened ?? 0} awaiting a report`}</div>
-        </div>
-        <div className="stat-tile">
-          <div className="stat-tile-label">Avg Total Score</div>
-          <div className="stat-tile-value">{loading ? '…' : a?.overallActivityScore ?? '—'}</div>
-          <div className="stat-tile-delta">Physical quality · / 100</div>
-        </div>
-        <div className="stat-tile">
-          <div className="stat-tile-label">Avg Exercise Risks</div>
-          <div className="stat-tile-value">{loading ? '…' : a?.injuryRiskIndex ?? '—'}</div>
-          <div className="stat-tile-delta">Lower is better</div>
-        </div>
-        <div className="stat-tile">
-          <div className="stat-tile-label">Elevated indicators</div>
-          <div className="stat-tile-value">{loading ? '…' : elevatedTotal}</div>
-          <div className="stat-tile-delta">Readings above 25, across the cohort</div>
-        </div>
-      </div>
-
-      {/* Row 1 — band distribution + average scores */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20, marginTop: 20 }}>
-        <div className="card">
-          <div className="card-header"><div>
-            <h2 className="card-title" style={{ marginBottom: 0 }}>Overall Risk Distribution</h2>
-            <span className="card-sub">Screened athletes by their latest risk band</span>
-          </div></div>
-          {bd ? (
-            <DistributionBar segments={[
-              { label: 'Safe', value: bd.green, color: C.green },
-              { label: 'Needs attention', value: bd.amber, color: C.amber },
-              { label: 'Immediate', value: bd.red, color: C.red },
-            ]} />
-          ) : <p className="text-muted">Loading…</p>}
-        </div>
-        <div className="card">
-          <div className="card-header"><div>
-            <h2 className="card-title" style={{ marginBottom: 0 }}>Average Physical-Quality Scores</h2>
-            <span className="card-sub">Cohort average · 0–100, higher is better</span>
-          </div></div>
-          {a ? (
-            <ScoreBars rows={[
-              { label: 'Total', value: a.overallActivityScore ?? null },
-              { label: 'ROM', value: a.mobility ?? null },
-              { label: 'Stability', value: a.stability ?? null },
-              { label: 'Symmetry', value: a.symmetry ?? null },
-            ]} />
-          ) : <p className="text-muted">Loading…</p>}
-        </div>
-      </div>
-
-      {/* Row 2 — risk indicators by band */}
+      {/* ── Population verdict ───────────────────────────────────────────────
+          Coverage ring + band split + the two headline averages in ONE panel.
+          Previously four flat stat tiles and a separate distribution card, which
+          gave the page no dominant element — the reader's eye had nothing to land
+          on and every panel competed at the same weight. */}
       <div className="card" style={{ marginTop: 20 }}>
         <div className="card-header"><div>
-          <h2 className="card-title" style={{ marginBottom: 0 }}>Exercise-Risk Indicators by Band</h2>
-          <span className="card-sub">Share of screened athletes in each band per indicator, most-elevated first</span>
+          <h2 className="card-title" style={{ marginBottom: 0 }}>Where the squad stands</h2>
+          <span className="card-sub">Coverage, band split and headline averages for the current filters</span>
         </div></div>
-        {cohort ? <IndicatorBars indicators={cohort.indicators} /> : <p className="text-muted">Loading…</p>}
+        {loading || !cohort ? <p className="text-muted">Loading…</p> : (
+          <div className="verdict">
+            <Ring
+              value={cohort.screened}
+              total={cohort.totalAthletes}
+              label="Screened"
+              sublabel={cohort.unscreened > 0 ? `${cohort.unscreened} awaiting a report` : 'Everyone has a report'}
+            />
+            <div className="verdict-main">
+              {bd && (
+                <DistributionBar segments={[
+                  { label: 'Safe', value: bd.green, color: C.green },
+                  { label: 'Needs attention', value: bd.amber, color: C.amber },
+                  { label: 'Immediate', value: bd.red, color: C.red },
+                ]} />
+              )}
+              <div className="verdict-stats">
+                <div>
+                  <span className="verdict-stat-label">Avg Total Score</span>
+                  <span className="verdict-stat-value">{a?.overallActivityScore ?? '—'}</span>
+                  <span className="verdict-stat-hint">of 100 · higher is better</span>
+                </div>
+                <div>
+                  <span className="verdict-stat-label">Avg Exercise Risks</span>
+                  <span className="verdict-stat-value">{a?.injuryRiskIndex ?? '—'}</span>
+                  <span className="verdict-stat-hint">lower is better</span>
+                </div>
+                <div>
+                  <span className="verdict-stat-label">Elevated readings</span>
+                  <span className="verdict-stat-value" style={{ color: elevatedTotal > 0 ? C.red : undefined }}>{elevatedTotal}</span>
+                  <span className="verdict-stat-hint">above 25, across the cohort</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Row 1 — physical quality (zoomed) + indicator counts (shared axis) */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 20, marginTop: 20 }}>
+        <div className="card">
+          <div className="card-header"><div>
+            <h2 className="card-title" style={{ marginBottom: 0 }}>Physical Quality — which is weakest?</h2>
+            <span className="card-sub">Cohort averages, 0–100 and higher is better</span>
+          </div></div>
+          {a ? (
+            /* A ZOOMED axis, because these four numbers cluster inside a few
+               points of each other and on a 0–100 track they rendered as four
+               identical bars — hiding the only thing the panel is for. The dot
+               plot states its own zoom so the exaggeration is declared. */
+            <DotPlot
+              rows={[
+                { label: 'Total', value: a.overallActivityScore ?? null },
+                { label: 'ROM', value: a.mobility ?? null },
+                { label: 'Stability', value: a.stability ?? null },
+                { label: 'Symmetry', value: a.symmetry ?? null },
+              ]}
+              min={0}
+              max={100}
+            />
+          ) : <p className="text-muted">Loading…</p>}
+        </div>
+
+        <div className="card">
+          <div className="card-header"><div>
+            <h2 className="card-title" style={{ marginBottom: 0 }}>Where the risk sits</h2>
+            <span className="card-sub">Athletes at Watch or Elevated per indicator, worst first</span>
+          </div></div>
+          {cohort ? (
+            <>
+              {/* Counts on ONE shared axis, not each row normalised to its own
+                  100% — that made rows impossible to compare, so "Ankle 13" vs
+                  "Neck 6" was readable only from the text at the end. */}
+              <RankedBars
+                rows={[...cohort.indicators]
+                  .sort((x, y) => (y.high - x.high) || (y.watch - x.watch))
+                  .map((r) => ({
+                    label: r.label,
+                    segments: [
+                      { label: 'Elevated', value: r.high, color: C.red },
+                      { label: 'Watch', value: r.watch, color: C.amber },
+                    ],
+                    note: r.high > 0
+                      ? <><strong style={{ color: C.red }}>{r.high}</strong> <span className="text-muted">elev · {r.watch} watch</span></>
+                      : <span className="text-muted">{r.watch} watch</span>,
+                  }))}
+              />
+              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginTop: 10, fontSize: '0.78rem' }}>
+                {([['Elevated >25', C.red], ['Watch 16–25', C.amber]] as const).map(([l, c]) => (
+                  <span key={l} style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 12, height: 12, borderRadius: 3, background: c }} />{l}</span>
+                ))}
+                <span className="text-muted">Athletes at Low are not drawn — the bar is the problem, not the population.</span>
+              </div>
+            </>
+          ) : <p className="text-muted">Loading…</p>}
+        </div>
       </div>
 
       {/* Change over time moved to /admin/activity, which owns that question:
@@ -435,14 +410,44 @@ export default function AdminDashboard() {
           does across ALL their consecutive pairs. Two near-identical cards on
           two pages invites the reader to reconcile numbers that mean the same
           thing. */}
-      <div className="card" style={{ marginTop: 20 }}>
-        <div className="card-header"><div>
-          <h2 className="card-title" style={{ marginBottom: 0 }}>Most-Flagged Muscles</h2>
-          <span className="card-sub">Athletes flagged per muscle (weak = myodynamia · tight = tension)</span>
-        </div></div>
-        {cohort && muscles.length === 0 ? (
-          <div className="text-muted" style={{ fontSize: '0.85rem' }}>No muscle flags on record for this cohort.</div>
-        ) : <MuscleBars items={muscles} />}
+      {/* Two lists rather than one mixed list colour-coded weak-vs-tight. The
+          old version used gold for weak and blue for tight, which reads as a
+          severity scale (it is not — they are opposite findings), and interleaved
+          them so neither could be scanned. Splitting them means the colour
+          carries nothing and the heading carries everything. */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 20, marginTop: 20 }}>
+        <div className="card">
+          <div className="card-header"><div>
+            <h2 className="card-title" style={{ marginBottom: 0 }}>Most-Flagged Weak Muscles</h2>
+            <span className="card-sub">Myodynamia deficiency · athletes flagged</span>
+          </div></div>
+          {weakMuscles.length === 0 ? (
+            <div className="text-muted" style={{ fontSize: '0.85rem' }}>No weakness flags on record for this cohort.</div>
+          ) : (
+            <RankedBars
+              rows={weakMuscles.map((m) => ({
+                label: m.muscle,
+                segments: [{ label: 'athletes', value: m.count, color: S.s1 }],
+              }))}
+            />
+          )}
+        </div>
+        <div className="card">
+          <div className="card-header"><div>
+            <h2 className="card-title" style={{ marginBottom: 0 }}>Most-Flagged Tight Muscles</h2>
+            <span className="card-sub">Muscle tension · athletes flagged</span>
+          </div></div>
+          {tightMuscles.length === 0 ? (
+            <div className="text-muted" style={{ fontSize: '0.85rem' }}>No tension flags on record for this cohort.</div>
+          ) : (
+            <RankedBars
+              rows={tightMuscles.map((m) => ({
+                label: m.muscle,
+                segments: [{ label: 'athletes', value: m.count, color: S.s2 }],
+              }))}
+            />
+          )}
+        </div>
       </div>
     </DashboardLayout>
   );

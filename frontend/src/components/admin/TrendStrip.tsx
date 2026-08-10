@@ -16,6 +16,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
+import { PeriodChart } from '@/components/charts/Charts';
 
 type Grain = 'month' | 'quarter' | 'year';
 
@@ -54,54 +55,11 @@ const GRAINS: Array<{ key: Grain; label: string }> = [
 // Programme Activity page.
 const SHOWN = 6;
 
-// Columns are a FIXED width rather than flexing to fill the row. A yearly view
-// of a young dataset is one period, and a single flexing bar stretched the whole
-// card into a tricolour banner that looked like a status flag rather than a
-// chart. One period should look like one column.
-const COL_W = 62;
-const PLOT_H = 78;
-
 const BAND_TOKENS = [
-  { key: 'green' as const, label: 'Green', color: 'var(--risk-low)' },
-  { key: 'amber' as const, label: 'Amber', color: 'var(--risk-moderate)' },
-  { key: 'red' as const, label: 'Red', color: 'var(--risk-high)' },
+  { key: 'green' as const, label: 'Safe', color: 'var(--risk-low)' },
+  { key: 'amber' as const, label: 'Needs attention', color: 'var(--risk-moderate)' },
+  { key: 'red' as const, label: 'Immediate', color: 'var(--risk-high)' },
 ];
-
-function PeriodColumn({ p, max }: { p: Period; max: number }) {
-  const banded = p.bands.green + p.bands.amber + p.bands.red;
-  const h = max > 0 ? Math.max(10, Math.round((p.athletes / max) * PLOT_H)) : 10;
-  const parts = BAND_TOKENS
-    .map((b) => ({ ...b, n: p.bands[b.key] }))
-    .filter((b) => b.n > 0);
-
-  return (
-    <div style={{ width: COL_W, flex: `0 0 ${COL_W}px`, textAlign: 'center' }}>
-      <div style={{ fontSize: '0.72rem', fontWeight: 700, marginBottom: 3 }}>{p.athletes}</div>
-      {/* Fixed-height plot area so every column's bar grows from the same
-          baseline — otherwise short bars float and the row reads as noise. */}
-      <div style={{ height: PLOT_H, display: 'flex', alignItems: 'flex-end' }}>
-        <div
-          style={{
-            width: '100%', height: h, display: 'flex', flexDirection: 'column-reverse',
-            borderRadius: 3, overflow: 'hidden',
-            background: banded > 0 ? 'transparent' : 'var(--border)',
-          }}
-        >
-          {parts.map((b) => (
-            <div
-              key={b.key}
-              title={`${p.label} — ${b.label}: ${b.n} of ${banded}`}
-              style={{ height: `${(b.n / banded) * 100}%`, background: b.color }}
-            />
-          ))}
-        </div>
-      </div>
-      <div className="text-muted" style={{ fontSize: '0.64rem', marginTop: 5, whiteSpace: 'nowrap' }}>
-        {p.label}
-      </div>
-    </div>
-  );
-}
 
 export default function TrendStrip({ query }: { query: string }) {
   const [grain, setGrain] = useState<Grain>('quarter');
@@ -120,7 +78,6 @@ export default function TrendStrip({ query }: { query: string }) {
   }, [query, grain]);
 
   const periods = (data?.periods ?? []).slice(-SHOWN);
-  const max = Math.max(1, ...periods.map((p) => p.athletes));
   const latest = periods.length ? periods[periods.length - 1] : null;
 
   // Direction on the headline score, straight from the API.
@@ -172,8 +129,23 @@ export default function TrendStrip({ query }: { query: string }) {
 
       {periods.length > 0 && (
         <>
-          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', marginBottom: 6 }}>
-            {periods.map((p) => (<PeriodColumn key={p.key} p={p} max={max} />))}
+          {/* Columns FLEX to fill the card (capped, so two periods are two
+              columns in a full-width chart, not two 62px stubs marooned in
+              1500px — which is exactly how this read before). The score line
+              over them is what makes it a direction rather than a snapshot. */}
+          <div style={{ marginTop: 22 }}>
+            <PeriodChart
+              points={periods.map((p) => ({
+                key: p.key,
+                label: p.label,
+                value: p.athletes,
+                segments: BAND_TOKENS.map((b) => ({ label: b.label, value: p.bands[b.key], color: b.color })),
+                line: typeof p.averages?.totalScore === 'number' ? p.averages.totalScore : null,
+              }))}
+              valueLabel="Athletes tested"
+              lineLabel="Average Total Score"
+              height={158}
+            />
           </div>
 
           {/* Counts, not just colour: the stack shows proportion, these say how
@@ -219,9 +191,10 @@ export default function TrendStrip({ query }: { query: string }) {
             )}
           </div>
 
-          <p className="text-muted" style={{ fontSize: '0.7rem', marginTop: 8, marginBottom: 0 }}>
-            Bar height = athletes tested that period. Counted from screening history,
-            so an athlete tested twice counts once per period they were tested in.
+          <p className="chart-note" style={{ marginBottom: 0 }}>
+            Column height = athletes tested that period, split by their band; the line is the
+            period&apos;s average Total Score on its own zoomed scale. Counted from screening
+            history, so an athlete tested twice counts once per period they were tested in.
           </p>
         </>
       )}

@@ -33,6 +33,23 @@
   --risk-mod: var(--risk-moderate);
   --risk-mod-bg: var(--risk-moderate-bg);
 
+  /* ── Neutral SERIES colours, for charts that measure a quantity ──────────
+     Status hues (--risk-low/moderate/high) mean a clinical state and must never
+     stand in as a chart's series colour. They were: the admin dashboard painted
+     every average physical-quality bar --brand-gold, so a perfectly healthy 76
+     out of 100 was drawn in the same amber the app uses for "needs attention",
+     and the muscle chart used gold-vs-blue to distinguish weak from tight — two
+     categories that carry no severity at all.
+     These four are for "how much of a thing", where no state is implied. */
+  --series-1: #2f5d8a;
+  --series-2: #4a89b8;
+  --series-3: #7fb2d4;
+  --series-4: #b9d4e6;
+  /* Chart furniture: axis rules, gridlines and empty track. Deliberately weaker
+     than --border, which is a structural line and reads too heavy behind data. */
+  --chart-grid: #e6eaf1;
+  --chart-track: #eef1f6;
+
   --shadow-sm: 0 1px 3px rgba(0,0,0,.08);
   --shadow-md: 0 4px 12px rgba(0,0,0,.10);
 
@@ -66,6 +83,16 @@
   --risk-high-bg: rgba(176, 48, 48, 0.18);
   --risk-undertrained: #6bb0e0;
   --risk-undertrained-bg: rgba(42, 99, 145, 0.18);
+
+  /* Series colours lightened for a dark surface — the light-mode ramp goes dark
+     to pale, which inverts against a dark card (the "strongest" series would be
+     the least visible). */
+  --series-1: #7fb2d4;
+  --series-2: #5f9ac2;
+  --series-3: #47799e;
+  --series-4: #33586f;
+  --chart-grid: #2a3a4a;
+  --chart-track: #223141;
 }
 
 /* ── Reset ────────────────────────────────────────────────────────────────────── */
@@ -1978,3 +2005,176 @@ textarea:focus-visible,
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   Admin analytics chart primitives (components/charts/Charts.tsx)
+   Plain CSS + SVG. Status hues are NEVER used here as series colours — see the
+   --series-* tokens at the top of this file for why.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+.chart-note {
+  margin: 10px 0 0;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+/* ── DotPlot: tightly-clustered values on a zoomed axis ───────────────────── */
+.dotplot-rows { display: flex; flex-direction: column; gap: 10px; }
+.dotplot-row { display: flex; align-items: center; gap: 12px; }
+.dotplot-label { width: 96px; flex-shrink: 0; font-size: 0.85rem; font-weight: 600; }
+.dotplot-track {
+  position: relative;
+  flex: 1;
+  height: 22px;
+  min-width: 120px;
+  border-radius: 4px;
+  background: var(--chart-track);
+}
+.dotplot-grid { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--chart-grid); }
+.dotplot-ref {
+  position: absolute; top: -3px; bottom: -3px; width: 0;
+  border-left: 2px dashed var(--text-muted);
+}
+.dotplot-stem {
+  position: absolute; left: 0; top: 50%;
+  height: 4px; transform: translateY(-50%);
+  border-radius: 2px;
+  background: var(--series-3);
+}
+.dotplot-dot {
+  position: absolute; top: 50%;
+  width: 14px; height: 14px; margin-left: -7px;
+  transform: translateY(-50%);
+  border-radius: 50%;
+  background: var(--series-1);
+  box-shadow: 0 0 0 2px var(--bg-card);
+}
+.dotplot-value {
+  width: 46px; flex-shrink: 0; text-align: right;
+  font-weight: 700; font-size: 0.9rem; font-variant-numeric: tabular-nums;
+}
+.dotplot-axis {
+  position: relative; height: 16px;
+  /* Aligned to the track: label width + gap on the left, value column + gap on
+     the right, so the ticks sit under the data rather than under the card. */
+  margin: 4px 58px 0 108px;
+}
+.dotplot-tick {
+  position: absolute; top: 0; transform: translateX(-50%);
+  font-size: 0.68rem; color: var(--text-muted); font-variant-numeric: tabular-nums;
+}
+
+/* ── RankedBars: counts on ONE shared axis so rows compare ────────────────── */
+.ranked { display: flex; flex-direction: column; gap: 8px; }
+.ranked-row { display: flex; align-items: center; gap: 12px; }
+.ranked-label {
+  width: 122px; flex-shrink: 0; font-size: 0.82rem;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ranked-track {
+  position: relative; flex: 1; min-width: 120px; height: 20px;
+  border-radius: 4px; background: var(--chart-track);
+}
+.ranked-grid { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--chart-grid); }
+.ranked-bar {
+  position: absolute; inset: 0 auto 0 0;
+  display: flex; height: 100%;
+  border-radius: 4px; overflow: hidden;
+  min-width: 2px;
+}
+.ranked-bar > span { display: block; }
+.ranked-note {
+  /* Wide enough for "13 elev · 25 watch" on ONE line — at 96px it wrapped and
+     every row grew a ragged second line. */
+  width: 132px; flex-shrink: 0; text-align: right; white-space: nowrap;
+  font-size: 0.8rem; font-variant-numeric: tabular-nums;
+}
+.ranked-axis { position: relative; height: 16px; margin: 2px 144px 0 134px; }
+.ranked-tick {
+  position: absolute; top: 0; transform: translateX(-50%);
+  font-size: 0.68rem; color: var(--text-muted); font-variant-numeric: tabular-nums;
+}
+
+/* ── PeriodChart: throughput columns + score line ─────────────────────────── */
+.periodchart-plot { position: relative; }
+.periodchart-svg { display: block; width: 100%; height: 100%; overflow: visible; }
+/* Column totals and period labels are HTML in evenly-spaced flex cells, matching
+   the SVG's equal slots. Drawn outside the SVG because preserveAspectRatio="none"
+   stretches it horizontally and would distort any text inside. */
+.periodchart-axis { display: flex; }
+/* One label per column, sitting just above THAT column's top edge. */
+.periodchart-top {
+  position: absolute;
+  transform: translate(-50%, -3px);
+  font-size: 0.74rem; font-weight: 700;
+  white-space: nowrap; pointer-events: none;
+}
+.periodchart-axis > span {
+  flex: 1 1 0; min-width: 0; text-align: center;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.periodchart-axis { margin-top: 7px; }
+.periodchart-axis > span { font-size: 0.72rem; color: var(--text-muted); }
+
+/* ── Ring: one proportion ────────────────────────────────────────────────── */
+.ring { text-align: center; flex-shrink: 0; }
+.ring svg { display: block; }
+.ring-value { font-size: 30px; font-weight: 700; fill: var(--text); }
+.ring-total { font-size: 13px; fill: var(--text-muted); }
+.ring-label { font-size: 0.78rem; font-weight: 700; margin-top: 6px; }
+.ring-sub { font-size: 0.72rem; color: var(--text-muted); margin-top: 2px; line-height: 1.4; }
+
+/* ── DivergingBar: two opposed counts from a shared centre ────────────────── */
+.diverge-row { display: flex; align-items: center; gap: 8px; }
+.diverge-side { flex: 1; display: flex; align-items: center; gap: 10px; min-width: 0; }
+/* The left half mirrors so its bar grows leftwards from the centre axis. */
+.diverge-side--l { flex-direction: row; }
+.diverge-side--l .diverge-track { justify-content: flex-end; }
+.diverge-track {
+  flex: 1; min-width: 40px; height: 26px;
+  display: flex; align-items: stretch;
+  border-radius: 4px; background: var(--chart-track); overflow: hidden;
+}
+.diverge-track > span { display: block; border-radius: 4px; }
+.diverge-axis { width: 2px; height: 38px; background: var(--border); flex-shrink: 0; }
+.diverge-count { font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.diverge-legend {
+  display: flex; justify-content: space-between; gap: 12px;
+  margin-top: 8px; font-size: 0.8rem;
+}
+
+@media (max-width: 640px) {
+  .dotplot-label { width: 74px; font-size: 0.8rem; }
+  .dotplot-axis { margin-left: 86px; margin-right: 52px; }
+  .ranked-label { width: 92px; }
+  .ranked-note { width: 74px; }
+  .ranked-axis { margin-left: 104px; margin-right: 86px; }
+}
+
+/* ── "Where the squad stands": coverage ring + band split + headline averages ──
+   One dominant panel, replacing four flat stat tiles and a separate distribution
+   card. The page previously had no visual hierarchy at all — every panel carried
+   the same weight, so nothing read as the answer. */
+.verdict {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  flex-wrap: wrap;
+}
+.verdict-main { flex: 1 1 340px; min-width: 260px; }
+.verdict-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 16px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.verdict-stats > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.verdict-stat-label {
+  font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--text-muted); font-weight: 700;
+}
+.verdict-stat-value { font-size: 1.7rem; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.verdict-stat-hint { font-size: 0.72rem; color: var(--text-muted); }
