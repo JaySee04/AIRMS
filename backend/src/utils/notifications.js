@@ -9,7 +9,7 @@ const { User } = require('../models');
 const { sendMail } = require('./mailer');
 const { getSettings } = require('./settings');
 
-const BAND_LABEL = { amber: 'Needs attention', red: 'Immediate assessment' };
+const { BAND_LABEL } = require('./bands');
 const SIGNOFF = '— AIRMS · Institut Sukan Negara';
 
 // Shared skeleton: gate on `setting`, resolve recipients, build + send. Returns

@@ -10,11 +10,7 @@ const { User, Athlete, Screening } = require('../models');
 const { sendMail } = require('./mailer');
 const { getSettings } = require('./settings');
 
-const BAND_RANK = { green: 0, amber: 1, red: 2 };
-// Title case, matching the band wording used on the dashboards and PDF reports.
-// (Was 'IMMEDIATE ASSESSMENT' — all-caps reads as shouting, is inconsistent with
-// the rest of the system, and is a spam-filter trigger in a subject line.)
-const BAND_LABEL = { amber: 'Needs attention', red: 'Immediate assessment' };
+const { BAND_RANK, BAND_LABEL, effectiveBand } = require('./bands');
 
 // email → the flagged athletes that recipient should see. Medical staff cover
 // the whole institute so they get everything; a coach gets only their own sport.
@@ -80,7 +76,7 @@ async function alertMany(athleteIds) {
     const s = latestBy.get(id);
     if (!s) { results.push({ athleteId: id, sent: false, reason: 'no screening' }); continue; }
 
-    const band = s.overrideBand || s.overallBand;
+    const band = effectiveBand(s);
     if (!band || BAND_RANK[band] < BAND_RANK[threshold]) {
       results.push({ athleteId: id, sent: false, reason: 'below alert threshold', band });
       continue;

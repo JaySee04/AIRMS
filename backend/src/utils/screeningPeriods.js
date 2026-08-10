@@ -35,7 +35,7 @@ const PERIOD_SCORES = [
   ['exerciseRisks', 'Exercise risks', false],
 ];
 
-const BAND_RANK = { green: 0, amber: 1, red: 2 };
+const { BAND_RANK, effectiveBand } = require('./bands');
 const GRAINS = ['month', 'quarter', 'year'];
 
 const num = (v) => (v === null || v === undefined || v === '' || Number.isNaN(Number(v)) ? null : Number(v));
@@ -93,7 +93,7 @@ function bucketByPeriod(screenings, grain, noise) {
       for (const r of rows) perAthlete.set(r.athleteId, (perAthlete.get(r.athleteId) ?? 0) + 1);
       const bands = { green: 0, amber: 0, red: 0, none: 0 };
       for (const r of rows) {
-        const b = r.overrideBand || r.overallBand;
+        const b = effectiveBand(r);
         bands[b in bands ? b : 'none'] += 1;
       }
       const averages = {};
@@ -175,8 +175,8 @@ function bucketBetweenTests(screenings, noise) {
       if (dir === 'improving') out.improved += 1;
       else if (dir === 'declining') out.declined += 1;
       else if (dir === 'steady') out.steady += 1;
-      const pb = BAND_RANK[prev.overrideBand || prev.overallBand];
-      const cb = BAND_RANK[cur.overrideBand || cur.overallBand];
+      const pb = BAND_RANK[effectiveBand(prev)];
+      const cb = BAND_RANK[effectiveBand(cur)];
       if (pb != null && cb != null) {
         if (cb < pb) out.bandMoves.better += 1;
         else if (cb > pb) out.bandMoves.worse += 1;

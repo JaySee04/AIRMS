@@ -187,7 +187,7 @@ const TREND_SCORES = [
   ['symmetry', 'Symmetry', true],
   ['exerciseRisks', 'Exercise Risks', false],
 ];
-const BAND_RANK = { green: 0, amber: 1, red: 2 };
+const { BAND_RANK, effectiveBand } = require('./bands');
 
 // Previous-vs-latest screening movement from a flat list of screening rows
 // (each { athleteId, assessedAt, id, totalScore, rom, stability, symmetry,
@@ -217,8 +217,8 @@ function screeningMovement(screenings, { noise = 2 } = {}) {
     }
     const di = Number(latest.overallIndicator) - Number(prev.overallIndicator);
     if (Number.isFinite(di)) { if (di >= noise) trend.improving++; else if (di <= -noise) trend.declining++; else trend.steady++; }
-    const pb = BAND_RANK[prev.overrideBand || prev.overallBand];
-    const lb = BAND_RANK[latest.overrideBand || latest.overallBand];
+    const pb = BAND_RANK[effectiveBand(prev)];
+    const lb = BAND_RANK[effectiveBand(latest)];
     if (pb != null && lb != null) { if (lb < pb) trend.bandMoves.better++; else if (lb > pb) trend.bandMoves.worse++; }
   }
   trend.deltas = TREND_SCORES.map(([k, label, higherBetter]) => {

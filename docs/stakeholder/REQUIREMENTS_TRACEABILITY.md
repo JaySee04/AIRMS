@@ -16,8 +16,8 @@
 
 | | Count |
 |---|---|
-| ✅ Met | 10 |
-| ⚠️ Partial / recast | 3 |
+| ✅ Met | 11 |
+| ⚠️ Partial / recast | 2 |
 | ❌ Gap | 1 |
 | ⏸ Deferred by agreement | 2 |
 
@@ -238,7 +238,7 @@ provider is deliberately provider-agnostic including a **fully local Ollama**
 option, so athlete images need never leave the premises. Deployment is an
 operational gate (Dr Thung's sign-off), not a code gap.
 
-## 16. Standard, automatic, monthly reporting ⚠️ partial
+## 16. Standard, automatic, monthly reporting ✅ *(closed 2026-08-10)*
 
 > Dr Hoo: *"maybe you want to think about reporting, automatic reporting as one
 > of the features … given feature that they actually selected we can do some
@@ -246,12 +246,26 @@ operational gate (Dr Thung's sign-off), not a code gap.
 > Dr Thung: *"I think something standard, then you can actually generate every
 > month."* — 31:16
 
-Three standard PDFs exist (holistic, individual, team), they honour the
-selected filters, and the holistic one now takes a period grain — so the
-*content* of a monthly report is there and reproducible. What is missing is the
-**automatic** part: nothing generates or emails it on a schedule; an
-administrator downloads it. Given the alert mailer already exists, scheduling is
-a genuinely small addition if he wants it.
+Three standard PDFs exist (holistic, individual, team), they honour the selected
+filters, and the holistic one takes a period grain — so the *content* of a
+monthly report has been there and reproducible for some time.
+
+**The automatic half was built 2026-08-10.** `utils/scheduler.js` emails admin
+and executive accounts a monthly summary — roster size, how many are screened,
+the current band mix, and this month's testing activity with the change in
+average Total Score against last month — computed from the same helpers the
+holistic PDF uses so the email and the report cannot disagree. Configurable day,
+hour and on/off in Admin → Settings.
+
+Deliberately **not** a cron expression: an hourly tick asks whether this month is
+still owed, against a persisted `YYYY-MM` marker. A cron instant missed while the
+process is down skips the month with no error — for a monthly report that means
+the year quietly has eleven entries. See `DESIGN_DECISIONS.md §20e`.
+
+⚠️ Remaining gap, stated honestly: the digest carries the **headline numbers, not
+the PDF itself**. The report route streams straight to the HTTP response, so
+attaching it needs the handler's data-fetching extracted first. If Dr Thung wants
+the document rather than the summary, that is the follow-up.
 
 ---
 
@@ -261,8 +275,8 @@ a genuinely small addition if he wants it.
    is gone. He should decide whether the screening-based substitute satisfies
    him or whether a thin injury-reporting layer returns. Do not let this be
    discovered in the viva.
-2. **Offer §16 (scheduled monthly report)** — small, and he asked for it in
-   those words.
+2. ~~**Offer §16 (scheduled monthly report)**~~ — **built 2026-08-10.** Ask instead
+   whether the summary numbers are enough or he wants the holistic PDF attached.
 2a. **Ask whether he wants Posture Evaluation back.** Cut 2026-08-01 as "not
    required by Dr Thung" — but he never mentions posture anywhere in the
    transcript, so that was inferred from silence, not refused the way LDH was.

@@ -622,4 +622,148 @@ generator — carry a copy that's marked as a mirror."*
 
 ---
 
-*Last updated: 2026-08-06 (later same day) — **§19** added: one status palette across CSS, inline styles, Chart.js and the PDF reports. An audit found the PDF had a second band palette (and disagreed with its own tier colours), the radar's threshold red was a non-theme-aware literal, the 60/75/85 tier was defined five times with two different words for its lowest band, and eight CSS-variable fallbacks still carried the retired PDF palette. Earlier same day: **§4a** added: the body map's Muscle Flags mode now draws HoloMotion's 22 individual muscles by re-slicing the same MIT-licensed geometry (16 recovered from existing sub-paths, 6 deep ones as measured insets, selection by geometry not index, test-guarded); supersedes the aggregation half of §4 while leaving the asset and its attribution locked. Previous: 2026-08-03 — §18 on-device name redaction before vision extraction (Tesseract-located, page-1-only, fail-closed; verified against both HoloMotion layouts). Previous: 2026-07-20 — Activity Tracking (the FYP I Module 1) fully removed at JC's request; §1, §2, §3, §10 and §16 annotated to mark their decisions as locked-but-dormant (no live caller) rather than actively running. The six-module set was restructured the same day to fill the gap this left — see `MASTER_CLARIFICATIONS.md §4` for the current numbering. Previous: 2026-07-19 (§16 gains the per-indicator escalation — threshold + peer-outlier, z ≥ 1.5, admin toggle, persisted factors), 2026-07-18 (§17 coach one-sport + athlete detail view + event disciplines), 2026-07-13 (§16 FYP II cohort-normed overall indicator + ACWR demotion), 2026-07-06 (§15 dashboard-embedded screening), 2026-06-28 (§13–14).*
+## 20. Accountability, immediate norms, and reporting that happens unasked (2026-08-10)
+
+Five decisions from one session. They share a shape: the *data* was usually
+already there, and what was missing was either a way to read it or a guarantee
+that it stayed true.
+
+### 20a. The audit trail copies the actor, and is fire-and-forget
+
+AIRMS could not say who imported a screening, who moved a norm, or who marked an
+athlete injured. Six actions now write an append-only `AuditLog` row.
+
+**Decided:** the actor's **name and role are copied onto the row**, not joined
+from `users`.
+
+**Why:** a trail that changes when someone is renamed, has their role changed, or
+is deleted is not a trail. It has to say who they *were* when they acted. The
+cost is duplication that cannot be normalised away, which is the correct cost for
+this table and the wrong one almost everywhere else.
+
+**Decided:** audit writes are **fire-and-forget**, never awaited inside the
+caller's transaction.
+
+**Why:** logging must not be able to fail the operation it describes. A missing
+`audit_logs` table on an older dev DB would otherwise take down every import.
+
+**The cost, stated plainly:** a lost audit row is silent to the user. That is the
+right trade for *transparency* logging and the wrong one for anything the
+institution must be able to **prove**. If AIRMS ever needs the latter, this
+becomes an awaited write inside the caller's transaction — noted in
+`utils/audit.js` for whoever needs it.
+
+**Defensibility one-liner:** *"It records who they were when they acted, not who
+they are now — and it can never be the reason an import fails."*
+
+### 20b. Norm eligibility applies immediately, and says so
+
+Marking an athlete injured, or unticking them on the Cohort Norms page, changed
+who was **eligible** but left the published norm untouched until someone
+happened to import a report. The route comment said so out loud — *"applied on
+the next recompute"*.
+
+**Decided:** both routes rebuild the norms and rescore every indicator **in the
+same request**, awaited rather than queued like the import path.
+
+**Why:** the admin is looking at the cohort table and expects it to move when the
+tick does. Deferral made the exclusion real in the eligibility rules and
+invisible in the numbers — the worst of both.
+
+**Decided:** a one-time modal discloses that the norm moves, dismissible for
+good.
+
+**Why:** unticking one athlete silently shifts the baseline every *other* athlete
+in that cohort is scored against. That is a governance action wearing the clothes
+of a checkbox. Once, not every time: a confirmation that fires on every click
+stops being read by the third one.
+
+**Rejected:** *disclosure instead of immediacy.* JC offered either. Immediacy
+without disclosure is surprising; disclosure without immediacy just explains a
+stale number.
+
+### 20c. Deep muscles are marked, not drawn
+
+The muscle hero rendered five deep muscles (piriformis, iliopsoas, gluteus
+minimus, internal oblique, rectus capitis anterior) as filled ellipses inside
+their parent. The licensed asset is a *surface* atlas with no geometry for any of
+them, so the ellipse was an attempt to draw a muscle that failed at it — and
+**four of the eight muscles HoloMotion actually emits are in that set**, so the
+instrument's commonest findings were the ones drawn worst.
+
+**Decided:** a ring-and-dot **marker** at a fixed radius, hidden entirely when
+unflagged.
+
+**Why:** the marker makes a truthful claim — *this structure, at this location* —
+where the ellipse claimed to be its shape. Always-visible markers were the first
+attempt and were worse than the blobs: every deep muscle became a grey target
+sitting on a healthy structure. A marker is an attention glyph and has to earn
+its place.
+
+**Defensibility one-liner:** *"A surface atlas cannot draw a deep muscle, so it
+points at one instead of pretending."*
+
+### 20d. Alerts group by recipient
+
+`alertMany` called `sendMail` inside the per-athlete loop. A 15-PDF import where
+all 15 landed amber sent **15 separate emails into every medical inbox**, over 15
+sequential SMTP round-trips. The burst was already coalesced one layer up —
+`queuePostImport` debounces so N commits produce one recompute — and that
+batching stopped short of the mailer.
+
+**Decided:** one email per recipient. Medical see every flagged athlete; each
+coach sees only their own sport. A single finding keeps its full detail;
+multi-athlete digests sort worst-first.
+
+**Why:** an alert that arrives 15 times gets filtered, which makes the feature
+worse than not having it. Worst-first because a red buried under six ambers is
+the one thing that must not be missed.
+
+**Rejected:** *sport-scope the medical alerts too.* A physio at ISN covers many
+sports, so scoping would hide athletes from the people meant to see them.
+
+### 20e. The monthly digest uses a marker, not a cron expression
+
+**Decided:** an hourly tick asking *"is this month still owed?"* against a
+`YYYY-MM` marker persisted in settings — no cron library.
+
+**Why:** a cron expression fires at an *instant*. If the process is down at that
+instant, the month is skipped with no error, no log and no email; for a monthly
+report that means the year quietly has eleven entries. The marker approach is
+idempotent (a restart cannot double-send), self-healing (down all of the 1st →
+sends on the 2nd), and safe under two instances (the loser sees the month already
+recorded). A cron library would have given none of those.
+
+The marker is written only *after* a successful send, so an SMTP failure retries
+next hour rather than losing the month — but it **is** written when there are no
+recipients, so an empty admin list does not retry hourly for ever.
+
+**Not done:** the holistic PDF is not attached. The report route streams straight
+to `res`, so buffering it requires extracting the handler's data-fetching. The
+email carries the headline numbers and points at PDF Reports.
+
+**Defensibility one-liner:** *"It asks whether the month is owed, so being switched
+off on the 1st delays the report instead of losing it."*
+
+### 20f. One band vocabulary
+
+`BAND_RANK` was defined in three files and `BAND_LABEL` in two. Identical, and
+nothing stopped them drifting.
+
+**Decided:** `utils/bands.js` is the single source, with `effectiveBand(screening)`
+for the override-wins precedence.
+
+**Why:** the repetition was not the problem — the drift was. A divergent
+`BAND_RANK` makes "worse than" disagree between the alert threshold and the
+period comparison, so an athlete is flagged in one place and not the other. A
+divergent `BAND_LABEL` makes two emails call the same band different things.
+Neither raises an error. Same failure mode as §19.
+
+`overrideBand || overallBand` still appears inline at ~20 pre-existing sites and
+was **deliberately not churned** pre-viva: it cannot drift to a wrong *value*,
+only be written backwards, and `effectiveBand` now exists to prevent that in new
+code.
+
+---
+
+*Last updated: 2026-08-10 — **§20** added: accountability (audit trail that copies the actor, fire-and-forget writes), immediate norm eligibility with one-time disclosure, deep muscles marked rather than drawn, alerts grouped per recipient, the monthly digest's marker-not-cron design, and one band vocabulary in `utils/bands.js`. Previous: 2026-08-06 (later same day) — **§19** added: one status palette across CSS, inline styles, Chart.js and the PDF reports. An audit found the PDF had a second band palette (and disagreed with its own tier colours), the radar's threshold red was a non-theme-aware literal, the 60/75/85 tier was defined five times with two different words for its lowest band, and eight CSS-variable fallbacks still carried the retired PDF palette. Earlier same day: **§4a** added: the body map's Muscle Flags mode now draws HoloMotion's 22 individual muscles by re-slicing the same MIT-licensed geometry (16 recovered from existing sub-paths, 6 deep ones as measured insets, selection by geometry not index, test-guarded); supersedes the aggregation half of §4 while leaving the asset and its attribution locked. Previous: 2026-08-03 — §18 on-device name redaction before vision extraction (Tesseract-located, page-1-only, fail-closed; verified against both HoloMotion layouts). Previous: 2026-07-20 — Activity Tracking (the FYP I Module 1) fully removed at JC's request; §1, §2, §3, §10 and §16 annotated to mark their decisions as locked-but-dormant (no live caller) rather than actively running. The six-module set was restructured the same day to fill the gap this left — see `MASTER_CLARIFICATIONS.md §4` for the current numbering. Previous: 2026-07-19 (§16 gains the per-indicator escalation — threshold + peer-outlier, z ≥ 1.5, admin toggle, persisted factors), 2026-07-18 (§17 coach one-sport + athlete detail view + event disciplines), 2026-07-13 (§16 FYP II cohort-normed overall indicator + ACWR demotion), 2026-07-06 (§15 dashboard-embedded screening), 2026-06-28 (§13–14).*

@@ -25,6 +25,7 @@ const { sendMail } = require('./mailer');
 const { getSettings, setSetting } = require('./settings');
 const { latestScreeningsByAthlete } = require('./cohorts');
 const { screeningPeriods } = require('./screeningPeriods');
+const { effectiveBand } = require('./bands');
 
 const HOUR = 60 * 60 * 1000;
 const SIGNOFF = '— AIRMS · Institut Sukan Negara';
@@ -48,7 +49,12 @@ async function buildDigest(now) {
   const [rows, rostered, history] = await Promise.all([
     latestScreeningsByAthlete(),
     Athlete.count({ where: { isActive: true } }),
+    // Only the window the digest actually reports on. This used to fetch EVERY
+    // screening ever recorded to derive a two-month comparison — fine at 77 rows,
+    // and a full-table read that grows for ever once ISN is really using it.
+    // Thirteen months keeps a year-on-year view available without that.
     Screening.findAll({
+      where: { assessedAt: { [Op.gte]: new Date(now.getFullYear(), now.getMonth() - 12, 1) } },
       attributes: ['id', 'athleteId', 'assessedAt', 'totalScore', 'rom', 'stability', 'symmetry',
         'exerciseRisks', 'overallIndicator', 'overallBand', 'overrideBand'],
       order: [['assessedAt', 'ASC']],
@@ -58,7 +64,7 @@ async function buildDigest(now) {
 
   const bands = { green: 0, amber: 0, red: 0, none: 0 };
   for (const { screening } of rows) {
-    const b = screening && (screening.overrideBand || screening.overallBand);
+    const b = effectiveBand(screening);
     bands[b && b in bands ? b : 'none'] += 1;
   }
 

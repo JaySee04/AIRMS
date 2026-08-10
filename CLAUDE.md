@@ -44,7 +44,8 @@ cd frontend; npm run lint  # next lint
 cd frontend; npm run build
 
 # Unit tests (jest, in both packages — no linter configured for the backend)
-cd backend; npx jest      # 5 suites: cohorts, overallIndicator, permissions, rbac, pdfDraw
+cd backend; npx jest      # 10 suites: cohorts, overallIndicator, permissions, rbac, pdfDraw,
+                          # screeningPeriods, cohortFocus, visionUsage, alerts, scheduler
 cd frontend; npx jest     # 3 suites: lib/risk.ts, lib/screeningUploadStore.ts, bodymap-data/muscles.ts
 ```
 
@@ -84,6 +85,41 @@ Three-tier monorepo orchestrated by `concurrently` from the root `package.json`.
 - Every response goes through `utils/serialize.js`, which aliases the numeric `id` to a stringified `_id` field and reassembles Athlete's flat columns into the nested `risks` / `myodynamia[]` / `tension[]` shape the frontend reads
 - Module 2 is **Athlete Roster & Identity Management** (athlete CRUD keyed by IC number, roster search, event vocabulary, ISN directory lookup, clinician injury-status flag). It was **Injury & Recovery Logging** until the HoloMotion-only cut (2026-08-02) deleted the `Injury` and `SelfReport` models, `routes/injuries.js`, `routes/selfReports.js` and the self-report→injury promotion transaction. There is no injury table, no injury history and no athlete self-reporting; what survives is a single clinician-set flag on the Athlete row (`isInjured` / `injuryNote` / `injuryBy` / `injuryAt`), written by `PATCH /api/athletes/:id/injury` (medical + admin), whose purpose is cohort-norm eligibility. **The recast was ratified by JC on 2026-08-06** along with the UC-1–47 rewrite in `docs/fyp/REPORT_TABLE_4-1.md` — that file is the authority for Chapter 4. Module numbering is now settled; **still do not renumber or rename modules on your own**
 - Module 5 (Analytics & Reporting) PDF generation streams `application/pdf` directly from `routes/screeningReports.js` using `pdfkit` (no temp files). Its injury-analytics half went with the same cut; what remains is screening-derived reporting (holistic / individual / team). **All pdfkit drawing (palette, gauges, radar, tables, body figure, the interpretation generator) lives in `utils/pdfDraw.js`** — the route file is routing, data fetching and page composition only. `backend/tests/pdfDraw.test.js` renders reports headlessly against a fake `res`, so PDF changes have smoke coverage without a DB
+- **Accountability & transparency (2026-08-10).** Six actions write an append-only
+  `AuditLog` row: `screening.import`, `screening.override`, `screening.reinstate`,
+  `athlete.injury`, `norm.restore`, `norm.member`, `settings.update`. Surfaced at
+  **Admin → Activity Log** (`/admin/audit`, admin + executive; 403 for medical and
+  coach) with action/date filters, a **Staff activity** rollup, and a PDF export
+  (`GET /api/screening-reports/activity-log.pdf`). Audit writes are
+  **fire-and-forget** — logging must never fail the operation it describes — so a
+  lost row is silent; that is the right trade for transparency logging and the
+  wrong one for anything the institution must *prove*. Provenance already stored
+  on the records themselves (`Screening.importedBy`, `Screening.overrideBy`,
+  `Athlete.injuryBy`) is now displayed in Screening History and the cohort
+  members panel
+- **Norm eligibility is immediate.** Declaring an athlete injured
+  (`PATCH /api/athletes/:id/injury`) or clearing their tick
+  (`PATCH /api/cohorts/members/:athleteId`) rebuilds the cohort norms and rescores
+  every indicator **in the same request** — it used to be deferred to "the next
+  recompute", which made the exclusion real in the rules and invisible in the
+  published norm. Both surfaces re-read the cohort rows afterwards, and a one-time
+  `NormChangeNotice` modal discloses that the norm moves (dismissible for good)
+- **Email.** Import alerts are grouped **one email per recipient** (medical see
+  every flagged athlete, each coach only their own sport) — they were one email per
+  *athlete*, so a 15-PDF batch sent 15 mails to every medical inbox. Injury
+  declarations notify the sport's coach in **both** directions (`notify_injury`).
+  A **monthly digest** (`utils/scheduler.js`) emails admin + executive: hourly tick
+  against a persisted `digest_last_sent` month marker rather than a cron instant,
+  so a process that was down when it came due sends late instead of never
+- **Vision token usage** is captured per import (`utils/visionClient.js`
+  normalises OpenAI-compatible `prompt/completion` and Anthropic `input/output`)
+  and shown on the Activity Log row. A HoloMotion report costs ~11,400 tokens
+  (~9,288 image + ~700 prompt + ~1,400 reply) at the default 6 pages
+- **Risk band vocabulary has one definition** — `utils/bands.js` (`BAND_RANK`,
+  `BAND_LABEL`, `effectiveBand`, `atLeastAsBad`). `BAND_RANK` had stood in three
+  files and `BAND_LABEL` in two; new code should call `effectiveBand(screening)`
+  rather than inline `overrideBand || overallBand`, which is the one expression
+  here that could be written backwards and silently ignore every clinical override
 - Module 3 (Screening Data Ingestion) is **HoloMotion PDF only** (the Excel import was retired 2026-07-12; code archived in `archive/excel-upload/`). Two-step flow: `POST /api/upload/screening/pdf/preview` (render + vision-extract, no commit) → `POST /api/upload/screening/pdf` (commit the previewed JSON). The uploader is batch-capable (sequential extraction). **The athlete's name is redacted on-device (page-1 OCR locates it, blacks out the value) before any image reaches the vision model** — so the sole direct identifier never leaves the machine (`utils/redactName.js`; see `docs/DESIGN_DECISIONS.md §18`). The operator then attaches each report to a roster athlete by **name search** (`AthleteSearchSelect`), which fills Athlete ID/sport/programme from the roster; the commit backfills the name server-side. The Excel **backup export** (`GET /api/export/backup.xlsx`, Module 4 — Cohort Norms & Governance) remains
 
 **Frontend** (`frontend/`, Next.js 14 App Router, TypeScript, plain CSS with variables):
@@ -143,7 +179,14 @@ From `docs/MASTER_CLARIFICATIONS.md §12`:
 - The MySQL schema for `Athlete` and `Screening` (Sequelize models in `backend/src/models/`). ~~`Injury`~~ — that model was deleted by the HoloMotion-only cut (2026-08-02); the lock no longer has a subject
 - ACWR thresholds 0.8 / 1.3 / 1.5 as the baseline
 
-The live models are exactly: `User`, `Athlete`, `AthleteDiscipline`, `Screening`, `MuscleFlag`, `CohortThreshold`, `CohortNormVersion`, `Setting` (see `backend/src/models/index.js`).
+The live models are exactly: `User`, `Athlete`, `AthleteDiscipline`, `Screening`, `MuscleFlag`, `CohortThreshold`, `CohortNormVersion`, `Setting`, `AuditLog` (see `backend/src/models/index.js`).
+
+`AuditLog` is append-only: rows are written by `utils/audit.js` from the routes that
+perform an action and only ever read back. There is no update or delete path
+anywhere, and the actor's name and role are **copied onto the row** rather than
+joined from `users` — a trail that changes when someone is renamed or deleted is
+not a trail. Its table is created by `npm run seed`, or by boot-time
+`sequelize.sync()` **only when `SQL_SYNC=1`**.
 
 ~~Injury enums are locked (`docs/MASTER_CLARIFICATIONS.md §9`)~~ — **no longer applicable.** The `Injury` model and its enums are gone, so the old "`Overuse` is a mechanism, not an `injuryType`" seeder trap cannot occur. `MASTER_CLARIFICATIONS.md §9` is retained as a historical record of the FYP I schema.
 
@@ -192,7 +235,13 @@ VISION_MAX_PAGES=                # leading pages sent to the model (default 6 �
                                  # both compact & expanded HoloMotion layouts). Extraction
                                  # renders full pages of the data section (layout-robust),
                                  # not fixed crops — HoloMotion ships >1 page layout.
-VISION_RENDER_SCALE=             # render scale 1-4 (default 2); lower = fewer tokens
+VISION_RENDER_SCALE=             # render scale 1-4 (default 2). Does NOT reduce Gemini
+                                 # tokens: its crop unit is floor(min(w,h)/1.5), derived
+                                 # from the image's own dimensions, so an A4 page is 2x3
+                                 # = 6 tiles at every scale (measured 9,288 image tokens
+                                 # at scales 1, 1.5, 2 and 3). VISION_MAX_PAGES is the
+                                 # real lever — 1,548 tokens per page. Lowering the scale
+                                 # only costs gauge legibility.
 ```
 
 When you change `SMTP_*` values, restart the backend — the mailer transport is built once and cached.
