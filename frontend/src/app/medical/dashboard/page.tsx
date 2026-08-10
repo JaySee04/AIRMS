@@ -240,6 +240,13 @@ export default function MedicalDashboard() {
     if (!selectedId) return;
     const a = await api.get<AthleteFull>(`/athletes/${selectedId}`);
     setSelectedAthlete(a);
+    // Declaring an athlete injured rebuilds their cohort's norm, which re-scores
+    // EVERY athlete in it — so the roster's bands beside us are stale too, not
+    // just this one's. Refreshed quietly; a failure here must not surface as if
+    // the save failed, because it did not.
+    try {
+      setAthletes(await api.get<AthleteListItem[]>('/athletes'));
+    } catch { /* list keeps its current values until the next load */ }
   }
 
   // Screening-derived rendering uses `view` — the picked PAST screening if one is

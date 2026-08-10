@@ -224,17 +224,25 @@ export default function CohortThresholdsPage() {
 
   // Toggle manual norm opt-out (B3) or injury (B4), then re-read so the eligible/
   // reason state (which depends on both + thresholds) is recomputed server-side.
+  // Both of these rebuild the norm server-side, so BOTH the member rows and the
+  // cohort rows have to be re-read. Refreshing only the members was the reason
+  // the change looked like it had not happened: n, the norm rings and the band
+  // dots all still showed the pre-change numbers until a manual reload.
   async function applyExclude(m: Member) {
     if (membersFor == null) return;
     setError(null);
-    try { await api.patch(`/cohorts/members/${m.athleteId}`, { normExcluded: !m.normExcluded }); await refreshMembers(membersFor); }
-    catch (e) { setError(e instanceof Error ? e.message : 'Update failed'); }
+    try {
+      await api.patch(`/cohorts/members/${m.athleteId}`, { normExcluded: !m.normExcluded });
+      await Promise.all([refreshMembers(membersFor), load()]);
+    } catch (e) { setError(e instanceof Error ? e.message : 'Update failed'); }
   }
   async function applyInjury(m: Member) {
     if (membersFor == null) return;
     setError(null);
-    try { await api.patch(`/athletes/${m.athleteId}/injury`, { isInjured: !m.isInjured }); await refreshMembers(membersFor); }
-    catch (e) { setError(e instanceof Error ? e.message : 'Update failed'); }
+    try {
+      await api.patch(`/athletes/${m.athleteId}/injury`, { isInjured: !m.isInjured });
+      await Promise.all([refreshMembers(membersFor), load()]);
+    } catch (e) { setError(e instanceof Error ? e.message : 'Update failed'); }
   }
   // Both of these rebuild the norm server-side, so the first one in a browser
   // says so before it happens.
