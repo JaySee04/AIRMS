@@ -15,6 +15,7 @@ const { Op } = require('sequelize');
 const { Athlete, MuscleFlag, Screening, AthleteDiscipline } = require('../models');
 const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
+const { effectiveBand } = require('../utils/bands');
 
 const router = express.Router();
 
@@ -65,7 +66,7 @@ router.get('/readiness', auth, rbac('coach'), async (req, res) => {
           overrideBand: s.overrideBand,
           overrideNote: s.overrideNote,
           overrideBy: s.overrideBy,
-          effectiveBand: s.overrideBand || s.overallBand,
+          effectiveBand: effectiveBand(s),
           prevIndicator: null,
           prevAssessedAt: null,
         });

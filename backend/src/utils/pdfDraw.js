@@ -15,6 +15,7 @@
 const PDFDocument = require('pdfkit');
 const { orientedComponents } = require('../utils/cohorts');
 const { compositeZ } = require('../utils/overallIndicator');
+const { effectiveBand } = require('./bands');
 const {
   bodyFront, bodyBack, frontOutline, backOutline, SCOPED_SLUGS: BODYMAP_SCOPED_SLUGS, worstValueBySlug,
 } = require('../utils/bodymap');
@@ -530,7 +531,7 @@ function squadSubitemHeatmap(doc, members) {
   y += 14;
   for (const m of rows) {
     ensure(doc, rowH);
-    const b = m.s.overrideBand || m.s.overallBand;
+    const b = effectiveBand(m.s);
     doc.circle(x + 4, y + 8, 3).fill(bandColor(b));
     doc.fillColor(TEXT).fontSize(8.5).font('Helvetica')
       .text(m.a.name, x + 12, y + 3, { width: nameW - 16, height: 12, lineBreak: false, ellipsis: true });

@@ -7,6 +7,7 @@ const rbac = require('../middleware/rbac');
 const requirePermission = require('../middleware/permission');
 const { notifyOverrideToCoach } = require('../utils/notifications');
 const { queuePostImport } = require('../utils/postImport');
+const { effectiveBand } = require('../utils/bands');
 
 const router = express.Router();
 
@@ -95,7 +96,7 @@ router.get('/:id/full', auth, requirePermission('viewRecords'), async (req, res)
         overrideNote: s.overrideNote,
         overrideBy: s.overrideBy,
         overrideAt: s.overrideAt,
-        effectiveBand: s.overrideBand || s.overallBand,
+        effectiveBand: effectiveBand(s),
       },
     });
   } catch (err) { res.status(500).json({ message: err.message }); }

@@ -14,6 +14,7 @@ const {
 const { recomputeIndicators } = require('../utils/overallIndicator');
 const { getSettings, setSetting, DEFAULTS } = require('../utils/settings');
 const { hasPermission } = require('../utils/permissions');
+const { effectiveBand } = require('../utils/bands');
 
 const router = express.Router();
 
@@ -187,7 +188,7 @@ router.get('/:id/members', auth, rbac('admin', 'medical'), canEditNorms, async (
           importedBy: screening.importedBy || null,
           totalScore: num(screening.totalScore), rom: num(screening.rom),
           stability: num(screening.stability), symmetry: num(screening.symmetry),
-          overallBand: screening.overrideBand || screening.overallBand,
+          overallBand: effectiveBand(screening),
           overallIndicator: num(screening.overallIndicator),
           eligible: elig.eligible, reason: elig.reason,
         };

@@ -22,6 +22,7 @@ const {
   latestScreeningsByAthlete, resolveCohortStats, orientedComponents, computeStats,
 } = require('../utils/cohorts');
 const { getSettings } = require('../utils/settings');
+const { effectiveBand } = require('../utils/bands');
 const { screeningPeriods } = require('../utils/screeningPeriods');
 const {
   focusBreakdown, isShownIndicator, ageGroupOf, SHOWN_INDICATORS, INDICATOR_LABEL,
@@ -132,7 +133,7 @@ router.get('/holistic.pdf', auth, rbac('admin', 'executive'), async (req, res) =
 
     sectionTitle(doc, 'Overall Risk Distribution', 110);
     const bands = { green: 0, amber: 0, red: 0, none: 0 };
-    kept.forEach(({ screening }) => { bands[(screening.overrideBand || screening.overallBand) || 'none']++; });
+    kept.forEach(({ screening }) => { bands[(effectiveBand(screening)) || 'none']++; });
     const total = kept.length || 1;
     bar(doc, 'Safe (green)', bands.green, total, BAND.green, { valueText: `${bands.green}` });
     bar(doc, 'Needs attention', bands.amber, total, BAND.amber, { valueText: `${bands.amber}` });
@@ -167,7 +168,7 @@ router.get('/holistic.pdf', auth, rbac('admin', 'executive'), async (req, res) =
         if (key == null || key === '') continue;
         if (!m.has(key)) m.set(key, { label: String(key), n: 0, green: 0, amber: 0, red: 0 });
         const s = m.get(key); s.n++;
-        const b = screening.overrideBand || screening.overallBand;
+        const b = effectiveBand(screening);
         if (s[b] !== undefined) s[b]++;
       }
       const entries = [...m.values()];
@@ -228,12 +229,12 @@ router.get('/holistic.pdf', auth, rbac('admin', 'executive'), async (req, res) =
     // Athletes needing attention
     sectionTitle(doc, 'Athletes Flagged for Assessment');
     const flagged = kept
-      .filter(({ screening }) => ['amber', 'red'].includes(screening.overrideBand || screening.overallBand))
+      .filter(({ screening }) => ['amber', 'red'].includes(effectiveBand(screening)))
       .sort((a, b) => (a.screening.overallIndicator ?? 100) - (b.screening.overallIndicator ?? 100));
     if (!flagged.length) doc.fontSize(10).fillColor(MUTED).text('No athletes currently flagged.', 50);
     flagged.slice(0, 25).forEach(({ athlete, screening }) => {
       ensure(doc, 14);
-      const b = screening.overrideBand || screening.overallBand;
+      const b = effectiveBand(screening);
       doc.fontSize(9).fillColor(bandColor(b)).font('Helvetica-Bold').text('•  ', 50, doc.y, { continued: true })
         .fillColor(TEXT).font('Helvetica').text(`${athlete.name} (${athlete.athleteId}) · ${athlete.sport} · indicator ${screening.overallIndicator ?? '—'} · ${bandLabel(b)}`);
     });
@@ -268,7 +269,7 @@ router.get('/individual/:id.pdf', auth, rbac('medical', 'admin', 'coach', 'execu
     doc.fontSize(10).fillColor(TEXT).text(
       `${athlete.sport} · ${athlete.program} · ${athlete.gender ?? '—'} · age ${athlete.age ?? '—'}   ·   assessed ${fmtDate(latest.assessedAt)}   ·   imported by ${latest.importedBy ?? '—'}`, 50);
     doc.moveDown(0.4);
-    const eff = latest.overrideBand || latest.overallBand;
+    const eff = effectiveBand(latest);
     const pillY = doc.y;
     bandPill(doc, eff, 50, pillY);
     doc.fontSize(11).fillColor(TEXT).font('Helvetica-Bold')
@@ -468,7 +469,7 @@ router.get('/team.pdf', auth, rbac('medical', 'admin', 'coach', 'executive'), re
     const ranked = members.slice().sort((a, b) => (b.s.overallIndicator ?? 0) - (a.s.overallIndicator ?? 0));
     ranked.forEach((m, i) => {
       ensure(doc, 18);
-      const b = m.s.overrideBand || m.s.overallBand;
+      const b = effectiveBand(m.s);
       const y = doc.y;
       doc.fontSize(9).fillColor(TEXT).font('Helvetica').text(`${i + 1}.`, 50, y + 1, { width: 20, lineBreak: false });
       // Clip long names to one line so they never wrap into the next ranking row.
@@ -487,7 +488,7 @@ router.get('/team.pdf', auth, rbac('medical', 'admin', 'coach', 'executive'), re
     sectionTitle(doc, 'Attention Table (parts needing follow-up)');
     doc.fontSize(8).fillColor(MUTED).text('For each flagged athlete: score components below the group average, exercise-risk indicators beyond Low, and marked left/right gaps — for the coach to note.', 50, doc.y, { width: doc.page.width - 100 });
     doc.moveDown(0.3);
-    const flagged = ranked.filter((m) => ['amber', 'red'].includes(m.s.overrideBand || m.s.overallBand));
+    const flagged = ranked.filter((m) => ['amber', 'red'].includes(effectiveBand(m.s)));
     if (!flagged.length) doc.fontSize(10).fillColor(MUTED).text('No athletes flagged in this group.', 50);
     for (const m of flagged) {
       ensure(doc, 30);
@@ -501,7 +502,7 @@ router.get('/team.pdf', auth, rbac('medical', 'admin', 'coach', 'executive'), re
         .map(([k, label]) => ({ label, v: num(m.s[k]) ?? 0 }))
         .filter((r) => r.v > 15)
         .map((r) => `${r.label} ${r.v}`);
-      const b = m.s.overrideBand || m.s.overallBand;
+      const b = effectiveBand(m.s);
       doc.fontSize(9).fillColor(bandColor(b)).font('Helvetica-Bold').text('•  ', 50, doc.y, { continued: true })
         .fillColor(TEXT).text(`${m.a.name} (${m.a.athleteId}): `, { continued: true })
         .font('Helvetica').fillColor(MUTED)

@@ -759,10 +759,14 @@ period comparison, so an athlete is flagged in one place and not the other. A
 divergent `BAND_LABEL` makes two emails call the same band different things.
 Neither raises an error. Same failure mode as §19.
 
-`overrideBand || overallBand` still appears inline at ~20 pre-existing sites and
-was **deliberately not churned** pre-viva: it cannot drift to a wrong *value*,
-only be written backwards, and `effectiveBand` now exists to prevent that in new
-code.
+The inline `overrideBand || overallBand` was initially left alone at its ~20
+pre-existing sites — it cannot drift to a wrong *value*, only be written
+backwards. On JC's instruction all **14** remaining ones (six files: the athlete,
+coach, cohort, screening and report routes, plus `pdfDraw`) now call
+`effectiveBand`. The mechanical win is small; the real one is that the
+override-wins precedence is no longer *restatable*, so a future reader cannot
+introduce a backwards copy by pattern-matching the neighbouring line. It also
+made every call null-safe, where the inline form threw on a missing screening.
 
 ---
 

@@ -6,6 +6,7 @@ const { screeningMovement, recomputeCohorts } = require('../utils/cohorts');
 const { recomputeIndicators } = require('../utils/overallIndicator');
 const { notifyInjuryToCoach } = require('../utils/notifications');
 const { screeningPeriods, GRAINS } = require('../utils/screeningPeriods');
+const { effectiveBand } = require('../utils/bands');
 const {
   focusBreakdown, isShownIndicator, SHOWN_INDICATORS, tally, bandOf,
 } = require('../utils/cohortFocus');
@@ -46,7 +47,7 @@ function toIndicator(s) {
     overrideBy: s.overrideBy,
     overrideAt: s.overrideAt,
     // The band clinicians/coaches act on: an override wins until the next import.
-    effectiveBand: s.overrideBand || s.overallBand,
+    effectiveBand: effectiveBand(s),
   };
 }
 
@@ -283,7 +284,7 @@ router.get('/analytics/screening', auth, rbac('admin', 'executive'), async (req,
       for (const s of scr) {
         if (seenBand.has(s.athleteId)) continue;
         seenBand.add(s.athleteId);
-        const b = s.overrideBand || s.overallBand || 'none';
+        const b = effectiveBand(s) || 'none';
         if (bandDistribution[b] !== undefined) bandDistribution[b]++; else bandDistribution.none++;
       }
     }
