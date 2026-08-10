@@ -11,6 +11,7 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import DashboardLayout from '@/components/layout/DashboardLayout';
+import { useNormChangeNotice } from '@/components/admin/NormChangeNotice';
 import { api } from '@/lib/api';
 import { tierMeta } from '@/lib/holomotionTiers';
 import { getSession } from '@/lib/auth';
@@ -109,6 +110,7 @@ export default function CohortThresholdsPage() {
   const [membersFor, setMembersFor] = useState<number | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [membersBusy, setMembersBusy] = useState(false);
+  const { guard, notice } = useNormChangeNotice();
   const [versions, setVersions] = useState<Version[]>([]);
   const [versionName, setVersionName] = useState('');
   const [busy, setBusy] = useState(false);
@@ -222,18 +224,22 @@ export default function CohortThresholdsPage() {
 
   // Toggle manual norm opt-out (B3) or injury (B4), then re-read so the eligible/
   // reason state (which depends on both + thresholds) is recomputed server-side.
-  async function toggleExclude(m: Member) {
+  async function applyExclude(m: Member) {
     if (membersFor == null) return;
     setError(null);
     try { await api.patch(`/cohorts/members/${m.athleteId}`, { normExcluded: !m.normExcluded }); await refreshMembers(membersFor); }
     catch (e) { setError(e instanceof Error ? e.message : 'Update failed'); }
   }
-  async function toggleInjury(m: Member) {
+  async function applyInjury(m: Member) {
     if (membersFor == null) return;
     setError(null);
     try { await api.patch(`/athletes/${m.athleteId}/injury`, { isInjured: !m.isInjured }); await refreshMembers(membersFor); }
     catch (e) { setError(e instanceof Error ? e.message : 'Update failed'); }
   }
+  // Both of these rebuild the norm server-side, so the first one in a browser
+  // says so before it happens.
+  const toggleExclude = (m: Member) => guard(() => { void applyExclude(m); });
+  const toggleInjury = (m: Member) => guard(() => { void applyInjury(m); });
 
   // ── Saved norm versions (B1) ─────────────────────────────────────────────
   async function saveVersion() {
@@ -275,6 +281,7 @@ export default function CohortThresholdsPage() {
 
   return (
     <DashboardLayout allowedRoles={['admin', 'medical']} requiredPermission="editCohortNorms" title="Cohort Norms">
+      {notice}
       {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
       {msg && <div className="alert alert-success" style={{ marginBottom: 16 }}>{msg}</div>}
 
@@ -383,9 +390,6 @@ export default function CohortThresholdsPage() {
                               </ul>
                             </div>
                           )}
-                          <div className="text-muted" style={{ fontSize: '0.8rem', marginBottom: 8 }}>
-                            Component means (the norm each athlete is z-scored against) — pre-filled from the computed average; edit to override. SD stays computed.
-                          </div>
                           <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
                             {COMPONENTS.map(([key, label]) => {
                               const base = c.overrides?.[key] ?? c.stats[key];
@@ -419,7 +423,7 @@ export default function CohortThresholdsPage() {
                       <td colSpan={5} style={{ background: 'var(--bg)' }}>
                         <div style={{ padding: '8px 4px' }}>
                           <div className="text-muted" style={{ fontSize: '0.8rem', marginBottom: 8 }}>
-                            Athletes in this cohort. Untick to keep one out of the norm, or mark them injured — either excludes them from the calculation (they&apos;re still scored against it). <strong>Recompute to apply.</strong>
+                            Athletes in this cohort. Untick to keep one out of the norm, or mark them injured — either excludes them from the calculation (they&apos;re still scored against it). <strong>The norm rebuilds immediately.</strong>
                           </div>
                           {membersBusy ? (
                             <p className="text-muted">Loading members…</p>
