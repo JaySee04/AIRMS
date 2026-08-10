@@ -13,6 +13,14 @@ interface StatTile {
   hint?: string;
 }
 
+/** One addressable email notification, as returned by the backend for this role. */
+interface NotifyPref {
+  key: string;
+  label: string;
+  detail: string;
+  enabled: boolean;
+}
+
 interface ProfileShellProps {
   /** Role-specific stat tiles shown under the hero. */
   stats: StatTile[];
@@ -48,11 +56,53 @@ export default function ProfileShell({ stats: initialStats, onLoadStats, roleBlu
   const [pwShowNext, setPwShowNext] = useState(false);
   const [pwShowConfirm, setPwShowConfirm] = useState(false);
   const [pwSubmitting, setPwSubmitting] = useState(false);
+  const [prefs, setPrefs] = useState<NotifyPref[] | null>(null);
+  const [prefsSaving, setPrefsSaving] = useState<string | null>(null);
+  const [prefsError, setPrefsError] = useState<string | null>(null);
 
   useEffect(() => {
     const session = getSession();
     if (session) setUser(session.user);
   }, []);
+
+  // Email preferences. Roles that receive no AIRMS email (athletes today) get an
+  // empty list from the backend and the card is not rendered at all — an empty
+  // "Email notifications" card would read as a fault.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await api.get<{ preferences: NotifyPref[] }>('/auth/notification-preferences');
+        if (!cancelled) setPrefs(res.preferences || []);
+      } catch {
+        // Non-fatal: the rest of the profile is unaffected, so fail quiet rather
+        // than putting an error banner over the whole page.
+        if (!cancelled) setPrefs([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  async function togglePref(key: string, next: boolean) {
+    if (!prefs) return;
+    const optimistic = prefs.map((p) => (p.key === key ? { ...p, enabled: next } : p));
+    setPrefs(optimistic);
+    setPrefsSaving(key);
+    setPrefsError(null);
+    try {
+      // Send only the opt-OUTs, matching what the backend stores.
+      const body = Object.fromEntries(optimistic.filter((p) => !p.enabled).map((p) => [p.key, false]));
+      const res = await api.put<{ preferences: NotifyPref[] }>('/auth/notification-preferences', { preferences: body });
+      setPrefs(res.preferences);
+    } catch (e) {
+      // Put the toggle back where it was — a switch that stays flipped after a
+      // failed save is a lie about what the server will do.
+      setPrefs(prefs);
+      setPrefsError(e instanceof Error ? e.message : 'Could not save that preference');
+    } finally {
+      setPrefsSaving(null);
+    }
+  }
 
   useEffect(() => {
     if (!onLoadStats) return;
@@ -172,6 +222,44 @@ export default function ProfileShell({ stats: initialStats, onLoadStats, roleBlu
           </div>
         </div>
       </div>
+
+      {/* Email notifications — only for roles that actually receive email. */}
+      {prefs && prefs.length > 0 && (
+        <div className="card" style={{ marginTop: 20 }}>
+          <div className="card-header"><div>
+            <h2 className="card-title" style={{ marginBottom: 0 }}>Email notifications</h2>
+            <span className="card-sub">
+              Which AIRMS emails reach <strong>{user.email}</strong>. Turning one off affects only
+              your inbox — colleagues in your role keep receiving it.
+            </span>
+          </div></div>
+          {prefsError && <div className="alert alert-error" style={{ marginBottom: 12 }}>{prefsError}</div>}
+          <div className="stat-grid">
+            {prefs.map((p) => (
+              <div key={p.key} className="stat-tile">
+                <div className="stat-tile-label">{p.label}</div>
+                <div>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={p.enabled}
+                      disabled={prefsSaving === p.key}
+                      onChange={(e) => togglePref(p.key, e.target.checked)}
+                    />
+                    {' '}
+                    {p.enabled ? 'email me' : 'muted'}
+                  </label>
+                </div>
+                <div className="stat-tile-delta">{p.detail}</div>
+              </div>
+            ))}
+          </div>
+          <p className="text-muted" style={{ fontSize: '0.82rem', marginTop: 10, marginBottom: 0 }}>
+            An administrator can switch any of these off institution-wide, which overrides your
+            choice here. Everything still appears in AIRMS whether or not it is emailed.
+          </p>
+        </div>
+      )}
 
       {pwModalOpen && (
         <div className="modal-backdrop" onClick={() => setPwModalOpen(false)}>

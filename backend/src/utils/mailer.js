@@ -34,6 +34,12 @@ function buildTransport() {
         console.log('From:    ', msg.from);
         console.log('To:      ', msg.to);
         console.log('Subject: ', msg.subject);
+        // Named explicitly: a dry run that silently omits the attachment would
+        // let "the digest carries the report" go untested in the only mode it is
+        // safe to test in.
+        for (const a of msg.attachments || []) {
+          console.log('Attached:', `${a.filename} (${a.content ? a.content.length : 0} bytes)`);
+        }
         console.log('────────────────────────────────────────────────────────────');
         console.log(msg.text || msg.html);
         console.log('────────────────────────────────────────────────────────────');
@@ -56,10 +62,17 @@ function getTransport() {
   return transporterPromise;
 }
 
-async function sendMail({ to, subject, text, html }) {
+// `attachments` is nodemailer's own shape ([{ filename, content, contentType }]).
+// It has to be listed here explicitly — this function destructures rather than
+// spreads, so an unlisted field is dropped silently.
+async function sendMail({
+  to, subject, text, html, attachments,
+}) {
   const transport = await getTransport();
   const from = process.env.SMTP_FROM || 'AIRMS <no-reply@airms.local>';
-  return transport.sendMail({ from, to, subject, text, html });
+  return transport.sendMail({
+    from, to, subject, text, html, attachments,
+  });
 }
 
 // Email-template builder for password reset OTP. Plain text only — the

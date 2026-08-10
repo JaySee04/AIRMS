@@ -26,6 +26,8 @@ const { getSettings, setSetting } = require('./settings');
 const { latestScreeningsByAthlete } = require('./cohorts');
 const { screeningPeriods } = require('./screeningPeriods');
 const { effectiveBand } = require('./bands');
+const { renderHolisticPdf } = require('./holisticReport');
+const { recipientsFor } = require('./mailPrefs');
 
 const HOUR = 60 * 60 * 1000;
 const SIGNOFF = '— AIRMS · Institut Sukan Negara';
@@ -45,7 +47,7 @@ function isDue(now, settings) {
 
 // The numbers a monthly review opens with. Deliberately the same helpers the
 // holistic PDF uses, so the email and the report cannot disagree.
-async function buildDigest(now) {
+async function buildDigest(now, { attached = false } = {}) {
   const [rows, rostered, history] = await Promise.all([
     latestScreeningsByAthlete(),
     Athlete.count({ where: { isActive: true } }),
@@ -105,9 +107,16 @@ async function buildDigest(now) {
     lines.push('No screenings on record yet.', '');
   }
 
+  // The wording follows what actually got attached. Claiming an attachment that
+  // is not there sends the reader looking for a file, and is exactly the kind of
+  // small lie that costs a report its credibility.
   lines.push(
-    'The full holistic, team and individual reports are on AIRMS under PDF Reports,',
-    'where they can be filtered by sport, programme, gender and age group.',
+    ...(attached
+      ? ['The Holistic Screening Report for the whole institute is attached.']
+      : ['The Holistic Screening Report could not be generated for this email —',
+        'it is still available on AIRMS under PDF Reports.']),
+    'Team and individual reports, and holistic reports filtered by sport, programme,',
+    'gender or age group, are on AIRMS under PDF Reports.',
     '',
     SIGNOFF,
   );
@@ -118,16 +127,35 @@ async function buildDigest(now) {
   };
 }
 
+// The holistic PDF, rendered for the digest. Non-fatal by design: the summary
+// numbers are the point of the email, so a report that fails to render must
+// downgrade the digest rather than cancel it — the alternative is a silent month
+// with no report AND no numbers, which is the failure this whole feature exists
+// to prevent.
+async function digestAttachment(now) {
+  try {
+    // Deliberately unfiltered and monthly: this is the institute-wide review.
+    const { buffer, filename } = await renderHolisticPdf({ grain: 'month' }, monthKey(now));
+    return [{ filename, content: buffer, contentType: 'application/pdf' }];
+  } catch (e) {
+    console.error('[scheduler] holistic report render failed, sending summary only:', e.message);
+    return null;
+  }
+}
+
 async function runDigestOnce(now = new Date()) {
   const settings = await getSettings();
   if (!isDue(now, settings)) return { sent: false, reason: 'not due' };
 
   const users = await User.findAll({
     where: { role: { [Op.in]: ['admin', 'executive'] }, isActive: true },
-    attributes: ['email'],
+    attributes: ['email', 'notifyPrefs'],
     raw: true,
   });
-  const to = users.map((u) => u.email).filter(Boolean);
+  // An admin who has opted out of the digest is not a recipient. If that empties
+  // the list the month is still MARKED below, so we do not retry hourly against a
+  // deliberate choice.
+  const to = recipientsFor(users, 'digest').map((u) => u.email).filter(Boolean);
   // The marker is set even with no recipients, so a permanently empty admin list
   // does not retry every hour forever.
   if (!to.length) {
@@ -135,12 +163,17 @@ async function runDigestOnce(now = new Date()) {
     return { sent: false, reason: 'no recipients' };
   }
 
-  const { subject, text } = await buildDigest(now);
-  await sendMail({ to: to.join(','), subject, text });
+  const attachments = await digestAttachment(now);
+  const { subject, text } = await buildDigest(now, { attached: !!attachments });
+  await sendMail({
+    to: to.join(','), subject, text, attachments: attachments || undefined,
+  });
   // Marked only AFTER a successful send, so a mail failure retries next hour
   // instead of losing the month.
   await setSetting('digest_last_sent', monthKey(now));
-  return { sent: true, recipients: to.length, month: monthKey(now) };
+  return {
+    sent: true, recipients: to.length, month: monthKey(now), attached: !!attachments,
+  };
 }
 
 let timer = null;
@@ -150,7 +183,10 @@ function startScheduler() {
   const tick = async () => {
     try {
       const r = await runDigestOnce();
-      if (r.sent) console.log(`[scheduler] monthly digest sent to ${r.recipients} recipient(s) for ${r.month}`);
+      if (r.sent) {
+        console.log(`[scheduler] monthly digest sent to ${r.recipients} recipient(s) for ${r.month}`
+          + `${r.attached ? ' with the holistic report attached' : ' (summary only — report render failed)'}`);
+      }
     } catch (e) {
       // Never let the scheduler take the process down; it retries next hour.
       console.error('[scheduler] monthly digest failed:', e.message);
@@ -167,4 +203,6 @@ function stopScheduler() {
   if (timer) { clearInterval(timer); timer = null; }
 }
 
-module.exports = { startScheduler, stopScheduler, runDigestOnce, isDue, buildDigest, monthKey };
+module.exports = {
+  startScheduler, stopScheduler, runDigestOnce, isDue, buildDigest, digestAttachment, monthKey,
+};

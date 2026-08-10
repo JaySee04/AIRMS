@@ -198,6 +198,100 @@ function bucketBetweenTests(screenings, noise) {
   return out;
 }
 
+// SEASONALITY — Dr Thung's third reading: not "how are we doing over time" but
+// "WHICH PART OF THE YEAR is the risky one". Same rows, bucketed by calendar
+// POSITION with the year discarded, so every Q3 ever screened lands together.
+//
+//   *"is it that particular season, that particular quarter that they have more
+//   injuries"* — meeting of 2026-04-24, 11:38
+//
+// WHY THIS REPORTS ITS OWN LIMITS
+// With one year of data, "Q3 is worst" and "Q3 is when we happened to screen the
+// weakest squad" produce identical numbers. A seasonal claim needs the pattern to
+// REPEAT, so `yearsCovered` and `sufficient` travel with the buckets and the
+// callers must render the caveat. Stating a season off a single year would be the
+// most confidently wrong output in the system — a policy decision ("shift the
+// pre-season block") made from one coincidence.
+const QUARTER_LABEL = ['Q1 (Jan-Mar)', 'Q2 (Apr-Jun)', 'Q3 (Jul-Sep)', 'Q4 (Oct-Dec)'];
+
+// Calendar position, year discarded. Fixed slot count so a month with no
+// screening is still a visible gap rather than a missing row.
+function seasonSlots(grain) {
+  return grain === 'month'
+    ? MONTHS.map((label, i) => ({ key: String(i + 1).padStart(2, '0'), label, pos: i }))
+    : QUARTER_LABEL.map((label, i) => ({ key: `Q${i + 1}`, label, pos: i }));
+}
+
+function seasonality(screenings, { grain = 'quarter', noise = 2 } = {}) {
+  const g = grain === 'month' ? 'month' : 'quarter';
+  const rows = (screenings || []).filter((s) => s && s.assessedAt);
+  const slots = seasonSlots(g);
+  const byKey = new Map(slots.map((s) => [s.key, { ...s, rows: [], years: new Set() }]));
+  const allYears = new Set();
+
+  for (const s of rows) {
+    const d = new Date(s.assessedAt);
+    if (Number.isNaN(d.getTime())) continue;
+    const m = d.getUTCMonth();
+    const key = g === 'month' ? String(m + 1).padStart(2, '0') : `Q${Math.floor(m / 3) + 1}`;
+    const slot = byKey.get(key);
+    if (!slot) continue;
+    slot.rows.push(s);
+    slot.years.add(d.getUTCFullYear());
+    allYears.add(d.getUTCFullYear());
+  }
+
+  const buckets = [...byKey.values()].map(({
+    key, label, pos, rows: bucketRows, years,
+  }) => {
+    const perAthlete = new Set(bucketRows.map((r) => r.athleteId));
+    const bands = { green: 0, amber: 0, red: 0, none: 0 };
+    for (const r of bucketRows) {
+      const b = effectiveBand(r);
+      bands[b in bands ? b : 'none'] += 1;
+    }
+    const averages = {};
+    for (const [k] of PERIOD_SCORES) {
+      averages[k] = mean(bucketRows.map((r) => num(r[k])).filter((v) => v !== null));
+    }
+    const scored = bands.green + bands.amber + bands.red;
+    return {
+      key,
+      label,
+      pos,
+      tests: bucketRows.length,
+      athletes: perAthlete.size,
+      // Years this bucket has data from — a bucket seen once is not a season even
+      // when the dataset as a whole spans several years.
+      years: years.size,
+      bands,
+      // The comparable "how bad was this part of the year" number. A share, not a
+      // count, because ISN does not screen the same number of athletes each quarter.
+      flaggedShare: scored ? +((bands.amber + bands.red) / scored).toFixed(3) : null,
+      averages,
+    };
+  }).sort((a, b) => a.pos - b.pos);
+
+  const yearsCovered = allYears.size;
+  const sufficient = yearsCovered >= 2;
+  const present = buckets.filter((b) => b.tests > 0 && b.flaggedShare !== null);
+
+  // Only named when the pattern could have repeated. Below that it stays null and
+  // the caller says why, rather than printing a season nobody should act on.
+  let worst = null;
+  if (sufficient && present.length >= 2) {
+    const ranked = [...present].sort((a, b) => b.flaggedShare - a.flaggedShare);
+    const [top, next] = ranked;
+    // A dead band, same idea as `noise` on the period deltas: two quarters within
+    // a couple of percentage points are not a season, they are a coin toss.
+    if ((top.flaggedShare - next.flaggedShare) * 100 >= noise) worst = top.key;
+  }
+
+  return {
+    grain: g, buckets, yearsCovered, years: [...allYears].sort(), sufficient, worst,
+  };
+}
+
 // `screenings`: flat rows carrying at least { athleteId, assessedAt, id } plus
 // any of the PERIOD_SCORES columns and overallBand / overrideBand.
 function screeningPeriods(screenings, { grain = 'quarter', noise = 2 } = {}) {
@@ -207,7 +301,13 @@ function screeningPeriods(screenings, { grain = 'quarter', noise = 2 } = {}) {
     grain: g,
     periods: bucketByPeriod(rows, g, noise),
     betweenTests: bucketBetweenTests(rows, noise),
+    // Seasonality reads at quarter grain regardless of the caller's `grain`: a
+    // month-of-year split over ISN's data is a dozen buckets of two or three
+    // tests, which looks like a pattern and is not one.
+    seasonality: seasonality(rows, { grain: 'quarter', noise }),
   };
 }
 
-module.exports = { screeningPeriods, periodKeyOf, PERIOD_SCORES, GRAINS };
+module.exports = {
+  screeningPeriods, seasonality, periodKeyOf, PERIOD_SCORES, GRAINS,
+};

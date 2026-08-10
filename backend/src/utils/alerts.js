@@ -11,6 +11,7 @@ const { sendMail } = require('./mailer');
 const { getSettings } = require('./settings');
 
 const { BAND_RANK, BAND_LABEL, effectiveBand } = require('./bands');
+const { recipientsFor } = require('./mailPrefs');
 
 // email → the flagged athletes that recipient should see. Medical staff cover
 // the whole institute so they get everything; a coach gets only their own sport.
@@ -59,13 +60,16 @@ async function alertMany(athleteIds) {
   const [athletes, screenings, users] = await Promise.all([
     Athlete.findAll({ where: { athleteId: ids }, raw: true }),
     Screening.findAll({ where: { athleteId: ids }, order: [['assessedAt', 'DESC'], ['id', 'DESC']], raw: true }),
-    User.findAll({ where: { role: ['medical', 'coach'], isActive: true }, attributes: ['email', 'role', 'coachSport'], raw: true }),
+    User.findAll({ where: { role: ['medical', 'coach'], isActive: true }, attributes: ['email', 'role', 'coachSport', 'notifyPrefs'], raw: true }),
   ]);
   const athleteBy = new Map(athletes.map((a) => [a.athleteId, a]));
   const latestBy = new Map();
   for (const s of screenings) if (!latestBy.has(s.athleteId)) latestBy.set(s.athleteId, s);
-  const medicalEmails = users.filter((u) => u.role === 'medical').map((u) => u.email).filter(Boolean);
-  const coaches = users.filter((u) => u.role === 'coach' && u.coachSport);
+  // Per-user opt-out applies on top of the institution's `alerts_enabled` above:
+  // the setting says whether AIRMS alerts at all, this says who still wants it.
+  const willing = recipientsFor(users, 'import_alerts');
+  const medicalEmails = willing.filter((u) => u.role === 'medical').map((u) => u.email).filter(Boolean);
+  const coaches = willing.filter((u) => u.role === 'coach' && u.coachSport);
 
   // Pass 1: decide who is flagged, and why. No mail yet.
   const flagged = [];

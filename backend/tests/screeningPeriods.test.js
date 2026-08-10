@@ -1,4 +1,4 @@
-const { screeningPeriods, periodKeyOf } = require('../src/utils/screeningPeriods');
+const { screeningPeriods, seasonality, periodKeyOf } = require('../src/utils/screeningPeriods');
 
 // Helper: one screening row. Dates are UTC so bucketing can't drift with the
 // machine's timezone.
@@ -220,5 +220,121 @@ describe('screeningPeriods — between tests', () => {
     const risk = betweenTests.deltas.find((d) => d.key === 'exerciseRisks');
     expect(rom).toMatchObject({ avgDelta: 10, higherBetter: true, direction: 'improving' });
     expect(risk).toMatchObject({ avgDelta: -6, higherBetter: false, direction: 'improving' });
+  });
+});
+
+describe('seasonality — which quarter carries the risk', () => {
+  const bucket = (out, key) => out.buckets.find((b) => b.key === key);
+
+  it('pools the same quarter across years and discards the year', () => {
+    const out = seasonality([
+      s('a', '2025-08-10', { overallBand: 'red' }),
+      s('b', '2026-07-02', { overallBand: 'amber' }),
+      s('c', '2026-02-14', { overallBand: 'green' }),
+    ]);
+    expect(bucket(out, 'Q3').tests).toBe(2);
+    expect(bucket(out, 'Q3').years).toBe(2);
+    expect(bucket(out, 'Q1').tests).toBe(1);
+    expect(out.yearsCovered).toBe(2);
+    expect(out.years).toEqual([2025, 2026]);
+  });
+
+  it('always returns four quarters, so an unscreened quarter is a visible gap', () => {
+    const out = seasonality([s('a', '2026-02-01', { overallBand: 'green' })]);
+    expect(out.buckets.map((b) => b.key)).toEqual(['Q1', 'Q2', 'Q3', 'Q4']);
+    expect(bucket(out, 'Q2').tests).toBe(0);
+    expect(bucket(out, 'Q2').flaggedShare).toBeNull();
+  });
+
+  it('flagged is a SHARE, so a busy quarter does not outrank a bad one', () => {
+    // Q1: 4 tests, 1 flagged (25%). Q3: 2 tests, 2 flagged (100%).
+    // Ranking by count would name Q1; ranking by share names Q3, which is right.
+    const out = seasonality([
+      s('a', '2025-01-05', { overallBand: 'red' }), s('b', '2025-01-06', { overallBand: 'green' }),
+      s('c', '2026-01-07', { overallBand: 'green' }), s('d', '2026-01-08', { overallBand: 'green' }),
+      s('e', '2025-08-05', { overallBand: 'red' }), s('f', '2026-08-06', { overallBand: 'amber' }),
+    ]);
+    expect(bucket(out, 'Q1').flaggedShare).toBeCloseTo(0.25, 3);
+    expect(bucket(out, 'Q3').flaggedShare).toBeCloseTo(1, 3);
+    expect(out.worst).toBe('Q3');
+  });
+
+  it('a clinician override decides whether a screening counts as flagged', () => {
+    const out = seasonality([
+      s('a', '2025-08-01', { overallBand: 'green', overrideBand: 'red' }),
+      s('b', '2026-08-01', { overallBand: 'green', overrideBand: 'red' }),
+      s('c', '2025-02-01', { overallBand: 'green' }), s('d', '2026-02-01', { overallBand: 'green' }),
+    ]);
+    expect(bucket(out, 'Q3').flaggedShare).toBeCloseTo(1, 3);
+    expect(out.worst).toBe('Q3');
+  });
+
+  it('names no season from a single year, however lopsided the numbers', () => {
+    // THE POINT OF THE FEATURE'S CAVEAT. Q3 is 100% flagged and Q1 is 0%, and it
+    // still must not be reported as seasonal — one year cannot separate a season
+    // from the quarter in which the weaker squads happened to be screened.
+    const out = seasonality([
+      s('a', '2026-08-01', { overallBand: 'red' }), s('b', '2026-08-02', { overallBand: 'red' }),
+      s('c', '2026-02-01', { overallBand: 'green' }), s('d', '2026-02-02', { overallBand: 'green' }),
+    ]);
+    expect(out.yearsCovered).toBe(1);
+    expect(out.sufficient).toBe(false);
+    expect(out.worst).toBeNull();
+    // The numbers are still computed — the report shows them under the caveat.
+    expect(bucket(out, 'Q3').flaggedShare).toBeCloseTo(1, 3);
+  });
+
+  it('needs two quarters with data before naming one', () => {
+    const out = seasonality([
+      s('a', '2025-08-01', { overallBand: 'red' }),
+      s('b', '2026-08-01', { overallBand: 'red' }),
+    ]);
+    expect(out.sufficient).toBe(true);
+    expect(out.worst).toBeNull();
+  });
+
+  it('a margin inside the noise band is a coin toss, not a season', () => {
+    // Q1 6/12 = 50.0%, Q3 7/12 ~ 58.3% — an 8.3pt gap clears the default noise of
+    // 2, but not a noise of 10.
+    const rows = [];
+    for (let i = 0; i < 12; i += 1) {
+      rows.push(s(`q1-${i}`, `${i % 2 ? 2025 : 2026}-01-1${i % 10}`, { overallBand: i < 6 ? 'red' : 'green' }));
+      rows.push(s(`q3-${i}`, `${i % 2 ? 2025 : 2026}-08-1${i % 10}`, { overallBand: i < 7 ? 'red' : 'green' }));
+    }
+    expect(seasonality(rows).worst).toBe('Q3');
+    expect(seasonality(rows, { noise: 10 }).worst).toBeNull();
+  });
+
+  it('ignores unparseable and missing dates instead of throwing', () => {
+    const out = seasonality([
+      s('a', '2026-02-01', { overallBand: 'green' }),
+      { athleteId: 'b', assessedAt: 'not a date', overallBand: 'red' },
+      { athleteId: 'c', overallBand: 'red' },
+      null,
+    ]);
+    expect(out.buckets.reduce((n, b) => n + b.tests, 0)).toBe(1);
+  });
+
+  it('handles no data at all', () => {
+    const out = seasonality([]);
+    expect(out.yearsCovered).toBe(0);
+    expect(out.sufficient).toBe(false);
+    expect(out.worst).toBeNull();
+    expect(out.buckets).toHaveLength(4);
+  });
+
+  it('month grain gives twelve slots in calendar order', () => {
+    const out = seasonality([s('a', '2026-03-01', { overallBand: 'green' })], { grain: 'month' });
+    expect(out.buckets).toHaveLength(12);
+    expect(out.buckets[0].label).toBe('Jan');
+    expect(out.buckets[2].tests).toBe(1);
+  });
+
+  it('is exposed on screeningPeriods at quarter grain whatever the caller asked for', () => {
+    // A month-of-year split over ISN's volume is a dozen buckets of two or three
+    // tests, which looks like a pattern and is not one.
+    const out = screeningPeriods([s('a', '2026-03-01', { overallBand: 'green' })], { grain: 'month' });
+    expect(out.seasonality.grain).toBe('quarter');
+    expect(out.seasonality.buckets).toHaveLength(4);
   });
 });

@@ -6,6 +6,7 @@ const { User } = require('../models');
 const authMiddleware = require('../middleware/auth');
 const { sendMail, buildResetEmail } = require('../utils/mailer');
 const { validatePassword } = require('../utils/passwordPolicy');
+const { prefsForUser, sanitizePrefs } = require('../utils/mailPrefs');
 
 const router = express.Router();
 
@@ -262,6 +263,27 @@ router.get('/me', authMiddleware, (req, res) => {
       lastLoginAt: req.user.lastLoginAt,
     },
   });
+});
+
+// ── Per-user email preferences ──────────────────────────────────────────────
+// Deliberately on /auth and scoped to `req.user`: these are the caller's OWN
+// preferences, so there is no id in the path and no way to address anybody
+// else's. Silencing a colleague's clinical alerts would be a quietly serious
+// thing to allow, and the safest way to not allow it is to have no route for it.
+router.get('/notification-preferences', authMiddleware, (req, res) => {
+  res.json({ preferences: prefsForUser(req.user) });
+});
+
+router.put('/notification-preferences', authMiddleware, async (req, res) => {
+  try {
+    // sanitizePrefs drops unknown keys and any key this role cannot receive, so a
+    // crafted body cannot write junk into the column.
+    const prefs = sanitizePrefs(req.body && req.body.preferences, req.user.role);
+    await req.user.update({ notifyPrefs: prefs });
+    res.json({ preferences: prefsForUser(req.user) });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 });
 
 module.exports = router;

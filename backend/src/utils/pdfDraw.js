@@ -133,6 +133,20 @@ function startDoc(res, filename) {
   return doc;
 }
 
+// Same document, collected into memory instead of piped at a response — for the
+// monthly digest, which has to attach the bytes rather than stream them. The
+// promise resolves on `finish(doc, …)`, which is what ends the stream.
+function bufferDoc() {
+  const doc = new PDFDocument({ size: 'A4', margin: 50, bufferPages: true });
+  const chunks = [];
+  doc.on('data', (c) => chunks.push(c));
+  const done = new Promise((resolve, reject) => {
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+    doc.on('error', reject);
+  });
+  return { doc, done };
+}
+
 // Stamp "page i of n" footers on every buffered page, then end the stream.
 // The footer sits inside the bottom margin, so the margin must be zeroed while
 // stamping — otherwise pdfkit auto-adds a page for text below the margin line.
@@ -271,6 +285,81 @@ function bandTable(doc, entries) {
 // performance table. Throughput (tests / distinct athletes) alongside the
 // population average and its change against the previous period in the series.
 // Newest first, matching the admin dashboard.
+// Seasonality — which part of the YEAR carries the risk, every year pooled.
+//
+// The caveat is drawn FIRST and unconditionally. This table's whole danger is
+// that it reads like a finding at a glance: four quarters, one of them worst,
+// therefore move the pre-season block. Until the pattern has repeated across
+// years that reading is unsupported, and the reader has to meet that sentence
+// before the numbers, not after them.
+function seasonTable(doc, season) {
+  if (!season || !season.buckets) return;
+  const present = season.buckets.filter((b) => b.tests > 0);
+
+  doc.fontSize(8.5).fillColor(MUTED).font('Helvetica').text(
+    season.sufficient
+      ? `Every screening pooled by quarter of the year, across ${season.yearsCovered} years `
+        + `(${season.years.join(', ')}). A quarter is only worth acting on if it repeats.`
+      : `NOT YET A SEASONAL READING. All screenings on record fall in ${season.yearsCovered === 1 ? 'a single year' : 'no complete year'}`
+        + `${season.years.length ? ` (${season.years.join(', ')})` : ''}, so a quarter that looks worst here is `
+        + 'indistinguishable from the quarter in which the weaker squads happened to be screened. '
+        + 'Shown for completeness; it becomes a seasonal reading once a second year of screening exists.',
+    50, doc.y, { width: doc.page.width - 100 },
+  );
+  doc.moveDown(0.5);
+
+  if (!present.length) {
+    doc.fontSize(9).fillColor(MUTED).text('No screenings on record for this population.', 50);
+    return;
+  }
+
+  const yStart = doc.y;
+  doc.fontSize(9).font('Helvetica-Bold').fillColor(MUTED);
+  doc.text('Quarter', 50, yStart, { lineBreak: false });
+  doc.text('Years', 200, yStart, { width: 45, align: 'right', lineBreak: false });
+  doc.text('Tests', 255, yStart, { width: 45, align: 'right', lineBreak: false });
+  doc.text('Athletes', 310, yStart, { width: 55, align: 'right', lineBreak: false });
+  doc.text('Flagged', 375, yStart, { width: 60, align: 'right', lineBreak: false });
+  doc.text('Avg indicator', 445, yStart, { width: 85, align: 'right', lineBreak: false });
+  doc.y = yStart + 14;
+
+  for (const b of season.buckets) {
+    ensure(doc, 15);
+    const y = doc.y;
+    const empty = b.tests === 0;
+    doc.fontSize(9).font(season.worst === b.key ? 'Helvetica-Bold' : 'Helvetica')
+      .fillColor(empty ? MUTED : TEXT)
+      .text(b.label, 50, y, { width: 145, lineBreak: false });
+    doc.font('Helvetica').fillColor(empty ? MUTED : TEXT);
+    doc.text(empty ? '—' : String(b.years), 200, y, { width: 45, align: 'right', lineBreak: false });
+    doc.text(empty ? 'none' : String(b.tests), 255, y, { width: 45, align: 'right', lineBreak: false });
+    doc.text(empty ? '—' : String(b.athletes), 310, y, { width: 55, align: 'right', lineBreak: false });
+    // A share, not a count: ISN does not screen the same number of athletes each
+    // quarter, so counts would rank by throughput rather than by risk.
+    doc.fillColor(empty || b.flaggedShare === null ? MUTED
+      : bandOnLight(b.flaggedShare >= 0.5 ? 'red' : b.flaggedShare >= 0.25 ? 'amber' : 'green'))
+      .text(b.flaggedShare === null ? '—' : `${Math.round(b.flaggedShare * 100)}%`, 375, y, { width: 60, align: 'right', lineBreak: false });
+    doc.fillColor(empty ? MUTED : TEXT)
+      .text(b.averages.overallIndicator == null ? '—' : String(b.averages.overallIndicator), 445, y, { width: 85, align: 'right', lineBreak: false });
+    doc.y = y + 14;
+  }
+
+  doc.moveDown(0.4);
+  doc.fontSize(7.5).fillColor(MUTED).font('Helvetica').text(
+    'Flagged is the share of screenings in that quarter that landed at Needs attention or Immediate assessment '
+    + '(a share, not a count, because throughput differs by quarter). Years counts the distinct years contributing '
+    + 'to the quarter.'
+    + (season.worst
+      ? ` ${season.buckets.find((b) => b.key === season.worst).label} carries the highest flagged share and has `
+        + 'repeated across years — the candidate for a seasonal preventive block.'
+      : season.sufficient
+        ? ' No quarter stands clear of the others by more than rounding, so there is no seasonal candidate.'
+        : ''),
+    50, doc.y, { width: doc.page.width - 100 },
+  );
+  doc.moveDown(0.6);
+}
+
 function periodTable(doc, periods) {
   if (!periods || !periods.length) {
     doc.fontSize(9).fillColor(MUTED).text('No screenings on record for this population.', 50);
@@ -1000,8 +1089,8 @@ function staffTable(doc, staff, labels = {}) {
 
 module.exports = {
   BAND, ELEVATED_THRESHOLD, GOLD, GRID, MUTED, NAVY, RISKS, SCORE_ROWS, TEXT, auditTable, staffTable, bandColor, bandLabel, bandOnLight,
-  bandPill, bandTable, bar, betweenTestsBlock, bullets, cover, ensure, fileSlug, finish, fmtDate,
+  bandPill, bandTable, bar, betweenTestsBlock, bufferDoc, bullets, cover, ensure, fileSlug, finish, fmtDate,
   focusTable, hotspotBar, interpret, keyFindings, keyFindingsBox, muscleFigure, num, periodTable, radar,
-  riskLegend, sectionTitle, squadMuscleHotspots, squadSubitemHeatmap, squadSymmetrySection, startDoc,
+  riskLegend, seasonTable, sectionTitle, squadMuscleHotspots, squadSubitemHeatmap, squadSymmetrySection, startDoc,
   subitemPriorities, subitemTable, symmetrySection, todayStamp, zoneGauge,
 };

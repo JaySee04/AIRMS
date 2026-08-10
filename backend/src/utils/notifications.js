@@ -10,14 +10,20 @@ const { sendMail } = require('./mailer');
 const { getSettings } = require('./settings');
 
 const { BAND_LABEL } = require('./bands');
+const { recipientsFor } = require('./mailPrefs');
 const SIGNOFF = '— AIRMS · Institut Sukan Negara';
 
-// Shared skeleton: gate on `setting`, resolve recipients, build + send. Returns
-// a small { sent, reason } summary and swallows errors (logged, non-fatal).
-async function notify(setting, recipientsFn, buildFn) {
+// Shared skeleton: gate on `setting`, resolve recipients, drop the ones who have
+// opted out of `prefKey`, build + send. Returns a small { sent, reason } summary
+// and swallows errors (logged, non-fatal).
+//
+// Two gates, in this order: the institution setting decides whether AIRMS sends
+// this kind of mail at all, then the per-user opt-out decides who still wants it.
+async function notify(setting, prefKey, recipientsFn, buildFn) {
   try {
     if ((await getSettings())[setting] === false) return { sent: false, reason: 'disabled' };
-    const to = (await recipientsFn()).map((u) => u.email).filter(Boolean);
+    const users = recipientsFor(await recipientsFn(), prefKey);
+    const to = users.map((u) => u.email).filter(Boolean);
     if (!to.length) return { sent: false, reason: 'no recipients' };
     await sendMail({ to: to.join(','), ...buildFn() });
     return { sent: true, recipients: to.length };
@@ -28,8 +34,10 @@ async function notify(setting, recipientsFn, buildFn) {
   }
 }
 
+// notifyPrefs must be selected, or recipientsFor above sees undefined on every
+// row and treats an opt-out as consent.
 const activeUsers = (where) => () =>
-  User.findAll({ where: { isActive: true, ...where }, attributes: ['email'], raw: true });
+  User.findAll({ where: { isActive: true, ...where }, attributes: ['email', 'notifyPrefs'], raw: true });
 
 // Medical overrode an athlete's band → tell the sport's coach(es) so their
 // squad-readiness view reflects it. Only amber/red (an escalation worth
@@ -37,7 +45,7 @@ const activeUsers = (where) => () =>
 function notifyOverrideToCoach(athlete, band, note, by) {
   if (!['amber', 'red'].includes(band)) return Promise.resolve({ sent: false, reason: 'not an escalation' });
   if (!athlete || !athlete.sport) return Promise.resolve({ sent: false, reason: 'no sport' });
-  return notify('notify_override', activeUsers({ role: 'coach', coachSport: athlete.sport }), () => ({
+  return notify('notify_override', 'override', activeUsers({ role: 'coach', coachSport: athlete.sport }), () => ({
     subject: `AIRMS — ${athlete.name} set to ${BAND_LABEL[band]} by the medical team`,
     text: [
       `The medical team has assessed ${athlete.name} and set their status to: ${BAND_LABEL[band]}.`,
@@ -63,7 +71,7 @@ function notifyOverrideToCoach(athlete, band, note, by) {
 // a band settling back to green is routine.
 function notifyInjuryToCoach(athlete, injured, note, by) {
   if (!athlete || !athlete.sport) return Promise.resolve({ sent: false, reason: 'no sport' });
-  return notify('notify_injury', activeUsers({ role: 'coach', coachSport: athlete.sport }), () => ({
+  return notify('notify_injury', 'injury', activeUsers({ role: 'coach', coachSport: athlete.sport }), () => ({
     subject: injured
       ? `AIRMS — ${athlete.name} declared injured by the medical team`
       : `AIRMS — ${athlete.name} cleared to train`,

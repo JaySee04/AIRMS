@@ -54,6 +54,17 @@ const User = sequelize.define('User', {
     allowNull: true,
     defaultValue: null,
   },
+  // Per-user email opt-out, same opt-out shape as `permissions` above: null means
+  // every notification this role can receive is on. Only the opt-OUTs are stored
+  // ({ digest: false }), so a notification added later defaults to on rather than
+  // inheriting a stale `true`. See utils/mailPrefs.js — the institution-wide admin
+  // settings still gate whether AIRMS sends the mail at all.
+  notifyPrefs: {
+    type: DataTypes.JSON,
+    allowNull: true,
+    defaultValue: null,
+    field: 'notify_prefs',
+  },
   isActive: {
     type: DataTypes.BOOLEAN,
     defaultValue: true,
