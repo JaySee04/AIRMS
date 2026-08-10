@@ -22,6 +22,7 @@ const exportRoutes = require('./routes/export');
 const coachRoutes = require('./routes/coach');
 const cohortRoutes = require('./routes/cohorts');
 const auditRoutes = require('./routes/audit');
+const { startScheduler, stopScheduler } = require('./utils/scheduler');
 const screeningRoutes = require('./routes/screenings');
 const screeningReportRoutes = require('./routes/screeningReports');
 const isnRoutes = require('./routes/isn');
@@ -98,6 +99,11 @@ const PORT = process.env.PORT || 5000;
 
   const server = app.listen(PORT, () => console.log(`AIRMS backend running on port ${PORT}`));
 
+  // Monthly digest (§16). Hourly tick against a persisted month marker rather
+  // than a cron instant, so a process that was down when the report came due
+  // sends it late instead of never. See utils/scheduler.js.
+  startScheduler();
+
   // Turn a port clash (a previous instance still holding the port, a deploy
   // overlap, or something else already on PORT) into a clear message + clean
   // exit, instead of an unhandled 'error' event that crashes cryptically. That
@@ -122,6 +128,7 @@ const PORT = process.env.PORT || 5000;
     if (shuttingDown) return;
     shuttingDown = true;
     console.log(`${signal} received — shutting down gracefully…`);
+    stopScheduler();
     setTimeout(() => { console.error('Draining timed out; forcing exit.'); process.exit(1); }, 10000).unref();
     server.close(async () => {
       try { await sequelize.close(); } catch { /* pool may already be closed */ }

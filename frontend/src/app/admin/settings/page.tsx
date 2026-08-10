@@ -163,6 +163,42 @@ export default function AdminSettingsPage() {
               onChange={(e) => saveSetting('notify_injury', e.target.checked)} /> enabled</label></div>
             <div className="stat-tile-delta">Email the sport&apos;s coach when medical declares an athlete injured, and again when they are cleared &mdash; the athlete is unavailable and leaves the cohort norm while injured</div>
           </div>
+          <div className="stat-tile">
+            <div className="stat-tile-label">Monthly summary</div>
+            <div><label><input type="checkbox" checked={Boolean(set.digest_enabled)}
+              onChange={(e) => saveSetting('digest_enabled', e.target.checked)} /> enabled</label></div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6 }}>
+              <label style={{ fontSize: '0.78rem' }}>day
+                <input type="number" min={1} max={28} value={Number(set.digest_day ?? 1)}
+                  onChange={(e) => saveSetting('digest_day', Number(e.target.value))}
+                  style={{ width: 56, marginLeft: 4 }} />
+              </label>
+              <label style={{ fontSize: '0.78rem' }}>hour
+                <input type="number" min={0} max={23} value={Number(set.digest_hour ?? 7)}
+                  onChange={(e) => saveSetting('digest_hour', Number(e.target.value))}
+                  style={{ width: 56, marginLeft: 4 }} />
+              </label>
+            </div>
+            <div className="stat-tile-delta">
+              Email admin and executive accounts a roster, band-mix and activity summary once a month.
+              Capped at day 28 so February always fires. If AIRMS is down when it falls due it sends
+              late rather than skipping the month
+              {set.digest_last_sent ? ` — last sent ${String(set.digest_last_sent)}` : ' — not sent yet'}
+            </div>
+            {/* Clearing the marker is the only way to see this fire without
+                waiting for next month, so it is offered rather than left to a
+                database edit. */}
+            {Boolean(set.digest_last_sent) && (
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                style={{ marginTop: 8 }}
+                onClick={() => saveSetting('digest_last_sent', '')}
+              >
+                Send again at the next hourly check
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </DashboardLayout>

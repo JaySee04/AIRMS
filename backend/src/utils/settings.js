@@ -38,6 +38,13 @@ const DEFAULTS = {
   // governable, default on:
   notify_override: true,       // email the sport's coach when medical overrides an athlete to amber/red
   notify_injury: true,         // email the sport's coach when medical declares an athlete injured or clears them
+  // Scheduled monthly digest (utils/scheduler.js). `digest_last_sent` is the
+  // YYYY-MM already delivered — it is the idempotency marker, not a preference,
+  // and lives here so a restart cannot double-send or silently skip a month.
+  digest_enabled: true,        // email admin + executive a monthly summary
+  digest_day: 1,               // day of month to send (capped at 28 so February always fires)
+  digest_hour: 7,              // hour of day, local time, 0-23
+  digest_last_sent: '',        // internal marker, set by the scheduler
 };
 
 // Merge stored overrides over defaults. Unknown/legacy keys are ignored.
