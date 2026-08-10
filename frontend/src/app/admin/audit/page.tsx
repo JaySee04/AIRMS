@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { api } from '@/lib/api';
+import StaffActivity from '@/components/admin/StaffActivity';
 
 interface Entry {
   _id: string;
@@ -87,6 +88,10 @@ export default function AuditPage() {
 
   return (
     <DashboardLayout allowedRoles={['admin', 'executive']} title="Activity Log">
+      {/* Who is doing the work, before the chronological detail of what they did.
+          Follows the same date filters as the log below. */}
+      <StaffActivity from={from} to={to} />
+
       <div className="card">
         <div className="card-header">
           <div>

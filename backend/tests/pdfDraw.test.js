@@ -219,4 +219,35 @@ describe('pdfDraw toolkit', () => {
     });
     expect(pdf.slice(0, 5).toString()).toBe('%PDF-');
   });
+
+  it('renders the staff activity table, including rows with no breakdown', async () => {
+    const LABELS = { 'screening.import': 'Screening imported', 'athlete.injury': 'Injury status changed' };
+    const staff = [
+      { actor: 'Medical Demo 01', role: 'medical', actions: 12, previousActions: 4, change: 8,
+        byAction: { 'screening.import': 9, 'athlete.injury': 3 }, screeningsImported: 9 },
+      // No actions and no breakdown — a pre-logging importer. Must not collapse
+      // the row or throw on the empty byAction.
+      { actor: 'Old Importer', role: null, actions: 0, previousActions: 0, change: 0,
+        byAction: {}, screeningsImported: 31 },
+      // Long name plus a negative change, which is the narrowest column.
+      { actor: 'A Very Long Staff Account Name That Runs On', role: 'admin', actions: 2,
+        previousActions: 40, change: -38, byAction: { 'athlete.injury': 2 }, screeningsImported: 0 },
+    ];
+    const { pdf } = await render((doc) => {
+      D.cover(doc, 'Activity Log', 'All recorded activity');
+      D.sectionTitle(doc, 'Activity by account');
+      D.staffTable(doc, staff, LABELS);
+    });
+    expect(pdf.slice(0, 5).toString()).toBe('%PDF-');
+    expect(pdf.length).toBeGreaterThan(1000);
+  });
+
+  it('survives an empty or malformed staff list', async () => {
+    const { pdf } = await render((doc) => {
+      D.staffTable(doc, [], {});
+      D.staffTable(doc, undefined, {});
+      D.staffTable(doc, [{}], {});
+    });
+    expect(pdf.slice(0, 5).toString()).toBe('%PDF-');
+  });
 });

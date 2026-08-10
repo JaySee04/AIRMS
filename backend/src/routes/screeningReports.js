@@ -14,7 +14,7 @@
 const express = require('express');
 const { Op } = require('sequelize');
 const { Screening, Athlete, AthleteDiscipline, AuditLog } = require('../models');
-const { ACTION_LABELS: AUDIT_LABELS } = require('./audit');
+const { ACTION_LABELS: AUDIT_LABELS, staffActivity } = require('./audit');
 const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
 const requirePermission = require('../middleware/permission');
@@ -29,7 +29,7 @@ const {
 const {
   BAND, ELEVATED_THRESHOLD, GOLD, GRID, MUTED, NAVY, RISKS, SCORE_ROWS, TEXT, bandColor, bandLabel, bandOnLight,
   bandPill, bandTable, bar, betweenTestsBlock, bullets, cover, ensure, fileSlug, finish, fmtDate,
-  auditTable, focusTable, hotspotBar, interpret, keyFindings, keyFindingsBox, muscleFigure, num, periodTable, radar,
+  auditTable, staffTable, focusTable, hotspotBar, interpret, keyFindings, keyFindingsBox, muscleFigure, num, periodTable, radar,
   riskLegend, sectionTitle, squadMuscleHotspots, squadSubitemHeatmap, squadSymmetrySection, startDoc,
   subitemPriorities, subitemTable, symmetrySection, todayStamp, zoneGauge,
 } = require('../utils/pdfDraw');
@@ -574,6 +574,15 @@ router.get('/activity-log.pdf', auth, rbac('admin', 'executive'), async (req, re
       doc.fontSize(10).fillColor(MUTED).text('Nothing was recorded in this selection.', 50);
       finish(doc, 'Activity Log');
       return;
+    }
+
+    // Who did the work comes before the blow-by-blow: a reviewer wants the
+    // shape of the period before its detail.
+    const staff = await staffActivity({ from: req.query.from, to: req.query.to });
+    if (staff.length) {
+      sectionTitle(doc, 'Activity by account');
+      staffTable(doc, staff, AUDIT_LABELS);
+      doc.moveDown(0.4);
     }
 
     sectionTitle(doc, 'Recorded actions');

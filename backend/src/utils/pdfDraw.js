@@ -958,8 +958,47 @@ function auditTable(doc, rows, labels = {}) {
   }
 }
 
+// Per-account activity table for the Activity Log export. Four numeric columns,
+// no wrapping, so rows are a fixed height.
+function staffTable(doc, staff, labels = {}) {
+  const X = { actor: 50, actions: 300, change: 380, screenings: 470 };
+  const head = () => {
+    const y = doc.y;
+    doc.fontSize(8.5).font('Helvetica-Bold').fillColor(MUTED);
+    doc.text('Account', X.actor, y, { lineBreak: false });
+    doc.text('Actions', X.actions, y, { width: 60, align: 'right', lineBreak: false });
+    doc.text('vs prev', X.change, y, { width: 70, align: 'right', lineBreak: false });
+    doc.text('Screenings', X.screenings, y, { width: 75, align: 'right', lineBreak: false });
+    doc.y = y + 13;
+    doc.moveTo(50, doc.y - 3).lineTo(doc.page.width - 50, doc.y - 3).strokeColor(GRID).stroke();
+    doc.font('Helvetica').fillColor(TEXT);
+  };
+  head();
+  for (const s of staff || []) {
+    // Two lines when a breakdown exists, so height is computed not assumed.
+    const parts = Object.entries(s.byAction || {})
+      .sort((a, b) => b[1] - a[1])
+      .map(([k, n]) => `${labels[k] || k}: ${n}`)
+      .join('  ');
+    const h = parts ? 22 : 14;
+    if (doc.y + h > doc.page.height - 70) { doc.addPage(); doc.y = 50; head(); }
+    const y = doc.y;
+    doc.fontSize(8.5).fillColor(TEXT);
+    doc.text(`${s.actor}${s.role ? ` (${s.role})` : ''}`, X.actor, y, { width: 240, lineBreak: false });
+    doc.text(String(s.actions ?? 0), X.actions, y, { width: 60, align: 'right', lineBreak: false });
+    const ch = Number(s.change) || 0;
+    doc.text(ch === 0 ? '-' : `${ch > 0 ? '+' : ''}${ch}`, X.change, y, { width: 70, align: 'right', lineBreak: false });
+    doc.text(String(s.screeningsImported ?? 0), X.screenings, y, { width: 75, align: 'right', lineBreak: false });
+    if (parts) {
+      doc.fontSize(7.5).fillColor(MUTED).text(parts, X.actor + 8, y + 10, { width: 240, lineBreak: false });
+      doc.fillColor(TEXT);
+    }
+    doc.y = y + h;
+  }
+}
+
 module.exports = {
-  BAND, ELEVATED_THRESHOLD, GOLD, GRID, MUTED, NAVY, RISKS, SCORE_ROWS, TEXT, auditTable, bandColor, bandLabel, bandOnLight,
+  BAND, ELEVATED_THRESHOLD, GOLD, GRID, MUTED, NAVY, RISKS, SCORE_ROWS, TEXT, auditTable, staffTable, bandColor, bandLabel, bandOnLight,
   bandPill, bandTable, bar, betweenTestsBlock, bullets, cover, ensure, fileSlug, finish, fmtDate,
   focusTable, hotspotBar, interpret, keyFindings, keyFindingsBox, muscleFigure, num, periodTable, radar,
   riskLegend, sectionTitle, squadMuscleHotspots, squadSubitemHeatmap, squadSymmetrySection, startDoc,

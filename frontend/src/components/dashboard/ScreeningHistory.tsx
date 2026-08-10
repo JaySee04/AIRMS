@@ -134,7 +134,22 @@ export default function ScreeningHistory({ athleteId, headerAction, canReinstate
               const band = r.overrideBand || r.overallBand;
               return (
                 <tr key={r.id}>
-                  <td>{fmtDate(r.assessedAt)}</td>
+                  <td>
+                    {fmtDate(r.assessedAt)}
+                    {/* Who put this reading in the system. Already fetched and
+                        typed on this row, just never shown — so "who screened
+                        this athlete?" had no answer on screen. */}
+                    {r.importedBy && (
+                      <div className="text-muted" style={{ fontSize: '0.7rem' }}>
+                        by {r.importedBy}
+                      </div>
+                    )}
+                    {r.overrideBand && r.overrideBy && (
+                      <div className="text-muted" style={{ fontSize: '0.7rem' }}>
+                        band set by {r.overrideBy}
+                      </div>
+                    )}
+                  </td>
                   <td style={{ textAlign: 'center' }}>
                     {band ? (
                       <span

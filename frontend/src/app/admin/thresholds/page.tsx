@@ -39,6 +39,10 @@ interface Member {
   totalScore: number | null; rom: number | null; stability: number | null; symmetry: number | null;
   overallBand: 'green' | 'amber' | 'red' | null; overallIndicator: number | null;
   eligible: boolean; reason: string | null;
+  // Attribution — who acted on this athlete, so a norm exclusion can be traced
+  // back to a person rather than just appearing.
+  injuryBy?: string | null; injuryAt?: string | null; injuryNote?: string | null;
+  importedBy?: string | null;
 }
 
 const BAND_DOT: Record<string, string> = { green: 'var(--risk-low)', amber: 'var(--risk-moderate)', red: 'var(--risk-high)' };
@@ -455,7 +459,24 @@ export default function CohortThresholdsPage() {
                                       <td style={{ textAlign: 'center' }}>
                                         <input type="checkbox" checked={!m.normExcluded} onChange={() => toggleExclude(m)} aria-label={`Include ${m.name} in the norm`} />
                                       </td>
-                                      <td><strong>{m.name}</strong>{' '}<span className="text-muted" style={{ fontSize: '0.76rem' }}>{m.program ?? ''}{m.gender ? ` · ${m.gender}` : ''}</span></td>
+                                      <td>
+                                        <strong>{m.name}</strong>{' '}
+                                        <span className="text-muted" style={{ fontSize: '0.76rem' }}>{m.program ?? ''}{m.gender ? ` · ${m.gender}` : ''}</span>
+                                        {/* Whose judgement took this athlete out of the
+                                            norm, and who put their reading in. */}
+                                        {m.isInjured && m.injuryBy && (
+                                          <div className="text-muted" style={{ fontSize: '0.7rem' }}>
+                                            injured by {m.injuryBy}
+                                            {m.injuryAt ? ` · ${new Date(m.injuryAt).toLocaleDateString()}` : ''}
+                                            {m.injuryNote ? ` · ${m.injuryNote}` : ''}
+                                          </div>
+                                        )}
+                                        {m.importedBy && (
+                                          <div className="text-muted" style={{ fontSize: '0.7rem' }}>
+                                            screened by {m.importedBy}
+                                          </div>
+                                        )}
+                                      </td>
                                       <td style={{ textAlign: 'center' }}><ScoreRing v={m.totalScore} label="Total" /></td>
                                       <td style={{ textAlign: 'center' }}><ScoreRing v={m.rom} label="ROM" /></td>
                                       <td style={{ textAlign: 'center' }}><ScoreRing v={m.stability} label="Stab" /></td>

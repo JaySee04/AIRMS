@@ -178,6 +178,13 @@ router.get('/:id/members', auth, rbac('admin', 'medical'), canEditNorms, async (
           athleteId: athlete.athleteId, name: athlete.name, sport: athlete.sport,
           program: athlete.program, gender: athlete.gender,
           isInjured: !!athlete.isInjured, normExcluded: !!athlete.normExcluded,
+          // WHO declared the injury, and when. The panel could say an athlete was
+          // excluded but not on whose judgement — which is the part an admin
+          // reviewing the norm actually needs to follow up on.
+          injuryBy: athlete.injuryBy || null,
+          injuryAt: athlete.injuryAt || null,
+          injuryNote: athlete.injuryNote || null,
+          importedBy: screening.importedBy || null,
           totalScore: num(screening.totalScore), rom: num(screening.rom),
           stability: num(screening.stability), symmetry: num(screening.symmetry),
           overallBand: screening.overrideBand || screening.overallBand,
