@@ -19,13 +19,28 @@ import { api } from '@/lib/api';
 
 type Grain = 'month' | 'quarter' | 'year';
 
+// Mirrors GET /athletes/analytics/periods. Everything past `bands` is marked
+// optional because it genuinely can be absent — and because the previous
+// version of this file declared a field the API does not send (`avg` instead of
+// `averages`), which TypeScript happily accepted and the browser did not.
+interface Delta {
+  delta: number;
+  higherBetter: boolean;
+  direction: 'improving' | 'steady' | 'declining';
+}
 interface Period {
   key: string;
   label: string;
   tests: number;
   athletes: number;
+  retestedWithin?: number;
   bands: { green: number; amber: number; red: number; none: number };
-  avg: Record<string, number | null>;
+  averages?: Record<string, number | null>;
+  // The API computes direction itself, including whether higher is better for
+  // each metric — recomputing that here would be a second opinion to keep in
+  // sync, so it is read rather than derived.
+  deltas?: Record<string, Delta | undefined>;
+  direction?: string;
 }
 interface PeriodsResponse { grain: Grain; periods: Period[] }
 
@@ -108,13 +123,18 @@ export default function TrendStrip({ query }: { query: string }) {
   const max = Math.max(1, ...periods.map((p) => p.athletes));
   const latest = periods.length ? periods[periods.length - 1] : null;
 
-  // Direction on the headline score, latest period against the one before it.
+  // Direction on the headline score, straight from the API.
   const prev = periods.length >= 2 ? periods[periods.length - 2] : null;
-  const a = prev?.avg.totalScore;
-  const b = latest?.avg.totalScore;
-  const delta = typeof a === 'number' && typeof b === 'number'
-    ? Math.round((b - a) * 10) / 10
-    : null;
+  const avgTotal = latest?.averages?.totalScore;
+  const d = latest?.deltas?.totalScore;
+  const delta = d && typeof d.delta === 'number' ? d.delta : null;
+  // Colour by the API's OWN verdict, not by the sign. It classifies small moves
+  // as "steady", and painting a -1.3 red because it is negative reports noise as
+  // a decline. This also gets Exercise Risks right for free, where improving
+  // means going DOWN (the API tracks that as higherBetter).
+  const tone = d?.direction === 'improving' ? 'var(--risk-low)'
+    : d?.direction === 'declining' ? 'var(--risk-high)'
+      : 'var(--text-muted)';
 
   return (
     <div className="card">
@@ -180,10 +200,13 @@ export default function TrendStrip({ query }: { query: string }) {
             {delta !== null && prev ? (
               <>
                 Average Total Score{' '}
-                <strong style={{ color: delta >= 0 ? 'var(--risk-low)' : 'var(--risk-high)' }}>
-                  {delta > 0 ? '+' : ''}{delta}
+                <strong>{typeof avgTotal === 'number' ? avgTotal : '—'}</strong>{' '}
+                <strong style={{ color: tone }}>
+                  ({delta > 0 ? '+' : ''}{delta})
                 </strong>{' '}
-                <span className="text-muted">vs {prev.label}</span>
+                <span className="text-muted">
+                  vs {prev.label}{d?.direction ? ` · ${d.direction}` : ''}
+                </span>
               </>
             ) : (
               // A single period has no direction. Saying so is better than
