@@ -17,9 +17,13 @@
 | | Count |
 |---|---|
 | ✅ Met | 11 |
-| ⚠️ Partial / recast | 2 |
-| ❌ Gap | 1 |
+| ⚠️ Partial / recast | 3 |
+| ❌ Gap | 0 |
 | ⏸ Deferred by agreement | 2 |
+
+*Updated 2026-08-10: §6 (seasonality) moved ❌ → ⚠️. The aggregation is built and
+in the holistic report; it declines to name a season until a second year of
+screening exists, so what remains is data maturity rather than missing work.*
 
 **The one thing to walk into viva knowing:** Dr Thung's most elaborated single
 request was an administrator view of **injury cases** — how many, which body
@@ -107,22 +111,35 @@ the holistic PDF opens with the same table. Direction of travel is shown
 against the previous period, and a second reading pairs each athlete with
 themselves between successive tests.
 
-## 6. Seasonality — *which* period is the risky one ❌ **GAP**
+## 6. Seasonality — *which* period is the risky one ⚠️ built, awaiting data *(2026-08-10)*
 
 > *"when is the most critical time, like most of the fourth quarter or
 > September, you have high risk of knee injury. The other quarters have very
 > low. So then it means we have to do some actions before."* — 12:39–12:54
 
-The period view is **chronological** (Q2 2026, then Q3 2026). It does not fold
-Q4-across-all-years together to expose a recurring seasonal peak, which is the
-question Dr Thung actually posed — he wants to act *before* the bad quarter
-arrives.
+**Built.** `seasonality()` in `utils/screeningPeriods.js` pools every screening
+by **quarter of the year with the year discarded**, so all Q3s ever screened land
+together — the fold the chronological period view (Q2 2026, then Q3 2026) cannot
+do. It reports tests, athletes, average indicator, and the **share** of
+screenings that landed amber/red per quarter. A share rather than a count,
+because ISN does not screen the same number of athletes each quarter and counts
+would rank by throughput instead of by risk. Surfaced as its own section in the
+Holistic Screening Report, which is also what the monthly digest now attaches.
 
-Not built, and honestly not yet buildable: it needs multiple years of history
-and AIRMS has roughly four months of seeded data. Worth naming as future work
-with the reason, rather than leaving it looking overlooked. The aggregation is
-small — group by quarter-of-year instead of by (year, quarter) — so it is a
-data-maturity gap, not an architectural one.
+**The honest part, and the reason this row is ⚠️ and not ✅.** The data cannot yet
+support a seasonal claim: every screening on record falls in 2026. With one year,
+*"Q3 is worst"* and *"Q3 is when the weaker squads happened to be screened"*
+produce identical numbers. So the function carries `yearsCovered` and
+`sufficient`, **names no season below two years**, and the report draws that
+caveat *before* the table rather than as a footnote — because four quarters with
+one visibly worst is exactly the shape a reader turns into a policy decision at a
+glance.
+
+What is left is therefore a **data-maturity** gap, not a missing feature: the
+reading turns itself on when a second year of screening exists, with no code
+change. Verified against the seeded data (`yearsCovered: 1`, `sufficient: false`,
+`worst: null`, numbers still shown), and against synthetic two-year fixtures in
+`tests/screeningPeriods.test.js` where a repeated Q3 *is* named.
 
 ## 7. Data drives an action plan ⚠️ partial
 
@@ -262,10 +279,20 @@ still owed, against a persisted `YYYY-MM` marker. A cron instant missed while th
 process is down skips the month with no error — for a monthly report that means
 the year quietly has eleven entries. See `DESIGN_DECISIONS.md §20e`.
 
-⚠️ Remaining gap, stated honestly: the digest carries the **headline numbers, not
-the PDF itself**. The report route streams straight to the HTTP response, so
-attaching it needs the handler's data-fetching extracted first. If Dr Thung wants
-the document rather than the summary, that is the follow-up.
+**The holistic PDF is attached too, as of the same day.** The report was
+composed inline in its route handler, straight onto the HTTP response — which is
+precisely what made it unattachable, since a stream already handed to Express
+cannot also be put in an email. Fetch and draw now live in
+`utils/holisticReport.js`, so the digest attaches the **same bytes** the download
+produces rather than a second definition of the report that would be free to
+drift from it. Verified byte-identical against the previous handler across four
+query shapes.
+
+If the render fails the digest still sends, as summary-only, and the wording
+follows what actually got attached — claiming an attachment that is not there
+sends the reader hunting for a file. The alternative (cancel the email) would
+lose both the report *and* the numbers, which is the exact failure this feature
+exists to prevent.
 
 ---
 
@@ -275,8 +302,10 @@ the document rather than the summary, that is the follow-up.
    is gone. He should decide whether the screening-based substitute satisfies
    him or whether a thin injury-reporting layer returns. Do not let this be
    discovered in the viva.
-2. ~~**Offer §16 (scheduled monthly report)**~~ — **built 2026-08-10.** Ask instead
-   whether the summary numbers are enough or he wants the holistic PDF attached.
+2. ~~**Offer §16 (scheduled monthly report)**~~ — **built 2026-08-10, with the
+   holistic PDF attached.** Ask instead whether the attached report is the right
+   one for a monthly management review, or whether the team reports should go to
+   each sport's coach on the same schedule.
 2a. **Ask whether he wants Posture Evaluation back.** Cut 2026-08-01 as "not
    required by Dr Thung" — but he never mentions posture anywhere in the
    transcript, so that was inferred from silence, not refused the way LDH was.

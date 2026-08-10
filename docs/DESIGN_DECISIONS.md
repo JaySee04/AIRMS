@@ -768,6 +768,95 @@ override-wins precedence is no longer *restatable*, so a future reader cannot
 introduce a backwards copy by pattern-matching the neighbouring line. It also
 made every call null-safe, where the inline form threw on a missing screening.
 
+### 20g. The digest attaches the report by sharing it, not by rebuilding it
+
+The monthly digest carried headline numbers and pointed at PDF Reports. The
+holistic report was composed **inline in its route handler, straight onto `res`**
+— which is exactly what made it unattachable: a stream already handed to Express
+cannot also be put in an email.
+
+**Decided:** extract `holisticData(query)` (fetch) and `drawHolistic(doc, data)`
+(draw) into `utils/holisticReport.js`; the route still streams, and
+`renderHolisticPdf()` buffers the same drawing for the mailer.
+
+**Why not just write a smaller report for the email:** two generators meant to
+agree is the §19 failure mode with a month's latency on discovering the drift. The
+email and the download now cannot disagree, because they are the same code.
+
+**Verified byte-identical** against the previous handler across four query shapes
+(unfiltered, month grain, sport+focus, gender+programme) before anything else was
+changed — a faithful extraction has to be *demonstrated*, not asserted, when the
+old code is about to be deleted.
+
+**Decided:** a render failure downgrades the digest to summary-only, and the
+wording follows what actually got attached.
+
+**Why:** cancelling the email would lose the report *and* the numbers, which is
+the silent-missing-month failure this feature exists to prevent. And claiming an
+attachment that is not there sends the reader hunting for a file — a small lie
+that costs a recurring report its credibility.
+
+### 20h. Per-user email opt-out, with the institution switch still on top
+
+The only control over who got mailed was the admin's institution-wide switches.
+A physio wanting fewer import alerts could only ask an admin to turn them off
+**for everyone** — so the realistic outcome was not an admin edit but an inbox
+rule, and a filtered alert is worse than no alert because AIRMS still believes it
+was delivered.
+
+**Decided:** `users.notify_prefs`, an **opt-OUT** JSON column mirroring
+`User.permissions`. Null means everything on.
+
+**Why opt-out:** an opt-in default would have silenced every notification in the
+system the instant the column was added — the worst possible migration for a
+clinical alert. Only the opt-*outs* are stored (`{ digest: false }`), so a
+notification added later defaults to on rather than inheriting a stale `true`
+nobody actually chose.
+
+**Decided:** two gates, in order. The institution setting decides whether AIRMS
+sends this kind of mail at all; the per-user preference decides who still wants
+it. A user cannot opt *in* to something the institution switched off.
+
+**Why:** it keeps the admin switch as governance rather than a mere default.
+
+**Decided:** the endpoint reads and writes `req.user` only — no id in the path.
+
+**Why:** muting a colleague's clinical alerts would be quietly serious, and the
+most reliable way to not allow it is to have no route that can express it.
+`sanitizePrefs` additionally refuses keys the caller's role cannot receive, so a
+coach cannot write a `digest` preference the UI would never show them.
+
+### 20i. Seasonality reports its own limits
+
+Dr Thung's §6 request — *"is it that particular quarter that they have more
+injuries"* — needed the chronological period view folded so every Q3 pools
+together. The aggregation is genuinely small.
+
+**Decided:** build it, and have it **decline to name a season below two years of
+data** (`yearsCovered`, `sufficient`), with the caveat drawn *before* the table.
+
+**Why:** with one year, *"Q3 is worst"* and *"Q3 is when the weaker squads
+happened to be screened"* produce identical numbers. Four quarters with one
+visibly worst is exactly the shape a reader converts into a policy decision at a
+glance, so the caveat cannot be a footnote. This is the one output in AIRMS whose
+plausible failure is a confidently wrong institutional decision.
+
+**Decided:** rank by the **share** of screenings flagged, not the count.
+
+**Why:** ISN does not screen the same number of athletes each quarter, so counts
+rank by throughput. In the test fixtures a 4-test quarter with 1 flagged
+outranks a 2-test quarter with 2 flagged under counting, and the second is
+plainly the worse quarter.
+
+**Rejected:** *month-of-year granularity.* Twelve buckets over ISN's volume is
+two or three tests each — it looks like a pattern and is not one. `seasonality()`
+accepts a month grain for future use, but `screeningPeriods` pins it to quarters.
+
+**Rejected:** *leaving it as a documented gap.* It was defensible while
+"unbuildable", but the aggregation is ~60 lines and the honest version is
+self-enabling: it turns into a real reading when the second year of data arrives,
+with no code change.
+
 ---
 
-*Last updated: 2026-08-10 — **§20** added: accountability (audit trail that copies the actor, fire-and-forget writes), immediate norm eligibility with one-time disclosure, deep muscles marked rather than drawn, alerts grouped per recipient, the monthly digest's marker-not-cron design, and one band vocabulary in `utils/bands.js`. Previous: 2026-08-06 (later same day) — **§19** added: one status palette across CSS, inline styles, Chart.js and the PDF reports. An audit found the PDF had a second band palette (and disagreed with its own tier colours), the radar's threshold red was a non-theme-aware literal, the 60/75/85 tier was defined five times with two different words for its lowest band, and eight CSS-variable fallbacks still carried the retired PDF palette. Earlier same day: **§4a** added: the body map's Muscle Flags mode now draws HoloMotion's 22 individual muscles by re-slicing the same MIT-licensed geometry (16 recovered from existing sub-paths, 6 deep ones as measured insets, selection by geometry not index, test-guarded); supersedes the aggregation half of §4 while leaving the asset and its attribution locked. Previous: 2026-08-03 — §18 on-device name redaction before vision extraction (Tesseract-located, page-1-only, fail-closed; verified against both HoloMotion layouts). Previous: 2026-07-20 — Activity Tracking (the FYP I Module 1) fully removed at JC's request; §1, §2, §3, §10 and §16 annotated to mark their decisions as locked-but-dormant (no live caller) rather than actively running. The six-module set was restructured the same day to fill the gap this left — see `MASTER_CLARIFICATIONS.md §4` for the current numbering. Previous: 2026-07-19 (§16 gains the per-indicator escalation — threshold + peer-outlier, z ≥ 1.5, admin toggle, persisted factors), 2026-07-18 (§17 coach one-sport + athlete detail view + event disciplines), 2026-07-13 (§16 FYP II cohort-normed overall indicator + ACWR demotion), 2026-07-06 (§15 dashboard-embedded screening), 2026-06-28 (§13–14).*
+*Last updated: 2026-08-10 (later same day) — **§20g–i** added: the digest attaches the holistic report by sharing its code rather than rebuilding it (fetch/draw extracted, verified byte-identical), per-user email opt-out under the institution switch, and seasonality that declines to name a season below two years of data. **§20f** revised — the 14 remaining inline band-precedence reads were migrated after all. Earlier same day: **§20** added: accountability (audit trail that copies the actor, fire-and-forget writes), immediate norm eligibility with one-time disclosure, deep muscles marked rather than drawn, alerts grouped per recipient, the monthly digest's marker-not-cron design, and one band vocabulary in `utils/bands.js`. Previous: 2026-08-06 (later same day) — **§19** added: one status palette across CSS, inline styles, Chart.js and the PDF reports. An audit found the PDF had a second band palette (and disagreed with its own tier colours), the radar's threshold red was a non-theme-aware literal, the 60/75/85 tier was defined five times with two different words for its lowest band, and eight CSS-variable fallbacks still carried the retired PDF palette. Earlier same day: **§4a** added: the body map's Muscle Flags mode now draws HoloMotion's 22 individual muscles by re-slicing the same MIT-licensed geometry (16 recovered from existing sub-paths, 6 deep ones as measured insets, selection by geometry not index, test-guarded); supersedes the aggregation half of §4 while leaving the asset and its attribution locked. Previous: 2026-08-03 — §18 on-device name redaction before vision extraction (Tesseract-located, page-1-only, fail-closed; verified against both HoloMotion layouts). Previous: 2026-07-20 — Activity Tracking (the FYP I Module 1) fully removed at JC's request; §1, §2, §3, §10 and §16 annotated to mark their decisions as locked-but-dormant (no live caller) rather than actively running. The six-module set was restructured the same day to fill the gap this left — see `MASTER_CLARIFICATIONS.md §4` for the current numbering. Previous: 2026-07-19 (§16 gains the per-indicator escalation — threshold + peer-outlier, z ≥ 1.5, admin toggle, persisted factors), 2026-07-18 (§17 coach one-sport + athlete detail view + event disciplines), 2026-07-13 (§16 FYP II cohort-normed overall indicator + ACWR demotion), 2026-07-06 (§15 dashboard-embedded screening), 2026-06-28 (§13–14).*

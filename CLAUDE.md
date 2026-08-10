@@ -44,20 +44,29 @@ cd frontend; npm run lint  # next lint
 cd frontend; npm run build
 
 # Unit tests (jest, in both packages — no linter configured for the backend)
-cd backend; npx jest      # 10 suites: cohorts, overallIndicator, permissions, rbac, pdfDraw,
-                          # screeningPeriods, cohortFocus, visionUsage, alerts, scheduler
+cd backend; npx jest      # 13 suites: cohorts, overallIndicator, permissions, rbac, pdfDraw,
+                          # screeningPeriods, cohortFocus, visionUsage, alerts, scheduler,
+                          # bands, mailPrefs, holisticReport
 cd frontend; npx jest     # 3 suites: lib/risk.ts, lib/screeningUploadStore.ts, bodymap-data/muscles.ts
 ```
 
 Jest covers the pure logic: scoring/permissions (`backend/tests/`), the PDF
 drawing toolkit (`backend/tests/pdfDraw.test.js` — renders reports headlessly
-against a fake `res`, no DB needed), the composite risk model
+against a fake `res`, no DB needed), the holistic report's filter/filename logic
+and drawing (`holisticReport.test.js` — mocks the models, so no DB), the band
+vocabulary and the email opt-out (`bands.test.js`, `mailPrefs.test.js` — both
+guard failure modes that are *silent*: a band comparison that disagrees between
+two call sites, or a preference that reads as consent), the composite risk model
 (`frontend/src/lib/risk.test.ts`) and the body-map muscle partition
 (`frontend/src/components/dashboard/bodymap-data/muscles.test.ts`).
 
-There are still no route, page, or end-to-end tests. Anything touching routes,
-pages or the import flow is verified manually: run `npm run dev`, log in with the
-demo credentials below, click through the affected flow.
+There are still no page or end-to-end tests, and **route handlers are only tested
+where their logic has been extracted into a util** (`holisticReport`). Anything
+touching a route body, a page or the import flow is verified manually: run
+`npm run dev`, log in with the demo credentials below, click through the affected
+flow. Some paths are additionally checked by driving the util directly against the
+dev database from a `node -e` script — see the verification notes in recent commit
+messages for what that looked like.
 
 ## Demo credentials (seeded)
 
@@ -84,7 +93,8 @@ Three-tier monorepo orchestrated by `concurrently` from the root `package.json`.
 - The canonical foreign key across tables is `athleteId` (VARCHAR) — its VALUES are now the athlete's **IC number** (12 digits, e.g. `"890202021001"`), replacing the old `ATH0001` scheme (A2, 2026-08-04). The column name stays `athleteId` (internal) and is serialised as `_id`; the UI labels it "IC Number". Engine-level FKs are defined in `models/index.js`
 - Every response goes through `utils/serialize.js`, which aliases the numeric `id` to a stringified `_id` field and reassembles Athlete's flat columns into the nested `risks` / `myodynamia[]` / `tension[]` shape the frontend reads
 - Module 2 is **Athlete Roster & Identity Management** (athlete CRUD keyed by IC number, roster search, event vocabulary, ISN directory lookup, clinician injury-status flag). It was **Injury & Recovery Logging** until the HoloMotion-only cut (2026-08-02) deleted the `Injury` and `SelfReport` models, `routes/injuries.js`, `routes/selfReports.js` and the self-report→injury promotion transaction. There is no injury table, no injury history and no athlete self-reporting; what survives is a single clinician-set flag on the Athlete row (`isInjured` / `injuryNote` / `injuryBy` / `injuryAt`), written by `PATCH /api/athletes/:id/injury` (medical + admin), whose purpose is cohort-norm eligibility. **The recast was ratified by JC on 2026-08-06** along with the UC-1–47 rewrite in `docs/fyp/REPORT_TABLE_4-1.md` — that file is the authority for Chapter 4. Module numbering is now settled; **still do not renumber or rename modules on your own**
-- Module 5 (Analytics & Reporting) PDF generation streams `application/pdf` directly from `routes/screeningReports.js` using `pdfkit` (no temp files). Its injury-analytics half went with the same cut; what remains is screening-derived reporting (holistic / individual / team). **All pdfkit drawing (palette, gauges, radar, tables, body figure, the interpretation generator) lives in `utils/pdfDraw.js`** — the route file is routing, data fetching and page composition only. `backend/tests/pdfDraw.test.js` renders reports headlessly against a fake `res`, so PDF changes have smoke coverage without a DB
+- Module 5 (Analytics & Reporting) PDF generation streams `application/pdf` directly from `routes/screeningReports.js` using `pdfkit` (no temp files). Its injury-analytics half went with the same cut; what remains is screening-derived reporting (holistic / individual / team). **All pdfkit drawing (palette, gauges, radar, tables, body figure, the interpretation generator) lives in `utils/pdfDraw.js`** — the route file is routing, data fetching and page composition only. The **holistic** report went one step further (2026-08-10): its fetch and draw live in `utils/holisticReport.js` so the monthly digest can attach the identical bytes instead of a second definition of the report. `backend/tests/pdfDraw.test.js` and `holisticReport.test.js` render headlessly against a fake `res` / an in-memory doc, so PDF changes have smoke coverage without a DB
+- **Seasonality** (`seasonality()` in `utils/screeningPeriods.js`, a section in the holistic report) answers Dr Thung's "*which quarter* is the risky one" by pooling every screening by quarter of the year with the year discarded. It **declines to name a season below two years of data** (`yearsCovered` / `sufficient`) and the report draws that caveat *before* the table — with one year, "Q3 is worst" is indistinguishable from "Q3 is when the weaker squads were screened", and this is the one output whose plausible failure is a confidently wrong institutional decision. Ranks by the *share* of flagged screenings, not the count, because throughput differs by quarter
 - **Accountability & transparency (2026-08-10).** Six actions write an append-only
   `AuditLog` row: `screening.import`, `screening.override`, `screening.reinstate`,
   `athlete.injury`, `norm.restore`, `norm.member`, `settings.update`. Surfaced at
@@ -110,7 +120,18 @@ Three-tier monorepo orchestrated by `concurrently` from the root `package.json`.
   declarations notify the sport's coach in **both** directions (`notify_injury`).
   A **monthly digest** (`utils/scheduler.js`) emails admin + executive: hourly tick
   against a persisted `digest_last_sent` month marker rather than a cron instant,
-  so a process that was down when it came due sends late instead of never
+  so a process that was down when it came due sends late instead of never. It
+  **attaches the holistic PDF** — fetch and draw live in `utils/holisticReport.js`
+  so the email sends the same bytes the download does; a render failure downgrades
+  to summary-only and the copy follows what actually got attached
+- **Per-user email opt-out** (`utils/mailPrefs.js`, `users.notify_prefs`, on every
+  profile page). **Two gates, in order:** the institution setting decides whether
+  AIRMS sends this kind of mail at all, then the user decides if they still want
+  it — a user cannot opt *in* to something an admin switched off. Opt-**out** shape
+  like `User.permissions` (null = everything on), and only the opt-outs are stored,
+  so adding the column could not silence an existing alert and a notification added
+  later defaults to on. The endpoint addresses `req.user` only: there is
+  deliberately no route by which one account can mute another's clinical alerts
 - **Vision token usage** is captured per import (`utils/visionClient.js`
   normalises OpenAI-compatible `prompt/completion` and Anthropic `input/output`)
   and shown on the Activity Log row. A HoloMotion report costs ~11,400 tokens
@@ -257,6 +278,7 @@ NEXT_PUBLIC_API_URL=http://localhost:5000/api
 2. **MySQL password with special characters** (`#`, `$`, `%`, `^`) must be wrapped in single quotes in `backend/.env` so `dotenv` doesn't interpret them.
 3. **Seeder enum errors** — the classic offender (`Injury` enums) went with the model. The live enums to check seed data against are:
    - `User.role` — `athlete` | `medical` | `admin` | `coach` | `executive` (adding a value needs an `ALTER TABLE users MODIFY COLUMN role ENUM(...)` on an existing dev DB; a fresh clone gets it from `npm run seed`)
+   - `users.notify_prefs` (JSON, per-user email opt-out, added 2026-08-10) likewise needs `ALTER TABLE users ADD COLUMN notify_prefs JSON NULL AFTER permissions` on an existing dev DB — boot-time `sequelize.sync()` only runs when `SQL_SYNC=1`. `NULL` is the correct default and means "every notification on"
    - `Athlete.gender` — `Male` | `Female`; `Athlete.sex` — `M` | `F` (two separate columns)
    - `Athlete.program` — `PODIUM` | `PELAPIS` | `OTHERS`
    - `MuscleFlag.flagType` — `myodynamia` | `tension`; `MuscleFlag.side` — `L` | `R` | `B`
