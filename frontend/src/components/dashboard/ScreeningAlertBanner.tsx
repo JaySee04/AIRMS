@@ -20,7 +20,9 @@
 // who are fine overall don't get an alarm; their elevated regions still show on
 // the threshold strips and in Training Focus, which is where detail belongs.
 
-import { AthleteRisks, BAND_LABEL, computeBodyPartAlerts, recommendedAction } from '@/lib/screeningAlerts';
+import {
+  AthleteRisks, BAND_LABEL, HISTORICAL_NOTE, computeBodyPartAlerts, recommendedAction, screeningRef,
+} from '@/lib/screeningAlerts';
 
 interface Props {
   risks: AthleteRisks | undefined | null;
@@ -30,9 +32,14 @@ interface Props {
   band?: 'green' | 'amber' | 'red' | null;
   // 'self' tunes the copy for the athlete viewing their own data.
   audience?: 'self' | 'staff';
+  // Set in the history views: the screening on screen was chosen by date, so the
+  // copy must not describe it as where the athlete stands now.
+  historical?: boolean;
 }
 
-export default function ScreeningAlertBanner({ risks, sport, band, audience = 'staff' }: Props) {
+export default function ScreeningAlertBanner({
+  risks, sport, band, audience = 'staff', historical = false,
+}: Props) {
   const result = computeBodyPartAlerts(risks, sport);
   const { alerts, criticalRegions, hasCriticalAlert } = result;
   if (alerts.length === 0) return null;
@@ -40,7 +47,12 @@ export default function ScreeningAlertBanner({ risks, sport, band, audience = 's
   if (band !== 'amber' && band !== 'red') return null;
 
   const tone = band === 'red' ? 'high' : 'mod';
-  const who = audience === 'self' ? 'your' : "this athlete's";
+  // "on this screening" in the history views, "on your/this athlete's latest
+  // screening" on a dashboard — one definition, in lib/screeningAlerts.ts.
+  const onWhich = `on ${screeningRef(historical, audience)}`;
+  // The dashboards keep the present tense they were audited with; only the
+  // history views shift to past.
+  const wasWere = historical ? 'were' : 'are';
 
   return (
     <div className={`screening-alert screening-alert--${tone}`}>
@@ -53,12 +65,14 @@ export default function ScreeningAlertBanner({ risks, sport, band, audience = 's
           </div>
           <div className="screening-alert-sub">
             {hasCriticalAlert
-              ? `These regions are out of range on ${who} latest screening, and are ones ${audience === 'self' ? 'your' : 'their'} sport loads heavily — so AIRMS holds them to a tighter standard.`
-              : `These indicators are out of range on ${who} latest screening.`}
+              ? `These regions ${wasWere} out of range ${onWhich}, and are ones ${audience === 'self' ? 'your' : 'their'} sport loads heavily — so AIRMS holds them to a tighter standard.`
+              : `These indicators ${wasWere} out of range ${onWhich}.`}
             {criticalRegions.length > 0 && (
               <> Regions AIRMS treats as critical for {sport}: <strong>{criticalRegions.join(', ')}</strong>.</>
             )}
-            {' '}{recommendedAction(result, audience)}
+            {/* On a dashboard this is the follow-up action; in history it is
+                replaced by a statement that this is not the current position. */}
+            {' '}{historical ? HISTORICAL_NOTE[audience] : recommendedAction(result, audience)}
           </div>
         </div>
       </div>

@@ -60,6 +60,11 @@ export default function ScreeningDatePicker({ athleteId, onPick }: { athleteId: 
 
   if (rows.length <= 1) return null;
 
+  // Everything below the picker re-renders to the chosen screening, so the state
+  // of the whole panel hangs on this one select. Said out loud rather than left
+  // to be inferred from a date in a dropdown.
+  const viewingPast = selId != null && rows.length > 0 && selId !== rows[0].id;
+
   return (
     <div className="form-group" style={{ maxWidth: 360, marginBottom: 0 }}>
       <label>Viewing screening {busy && <span className="text-muted" style={{ fontWeight: 400 }}>· loading…</span>}</label>
@@ -72,6 +77,12 @@ export default function ScreeningDatePicker({ athleteId, onPick }: { athleteId: 
           <option key={r.id} value={r.id}>{fmtDate(r.assessedAt)}{i === 0 ? ' · latest' : ''}</option>
         ))}
       </select>
+      {viewingPast && (
+        <p className="text-muted" style={{ fontSize: '0.8rem', margin: '6px 0 0' }}>
+          Showing a past screening — everything below is as it stood on that date, not the
+          athlete&apos;s current status. Choose the latest to return.
+        </p>
+      )}
     </div>
   );
 }

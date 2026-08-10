@@ -85,6 +85,12 @@ export default function AthleteHistoryPage() {
   const riskValues = useMemo(() => (full ? riskRadarSeries(full.risks) : []), [full]);
   const riskThresholds = full ? highThresholdsFor(full.sport) : [];
 
+  // This page always shows a chosen screening, and the first option IS the
+  // latest — so unlike the staff views (where `picked` carries the signal) the
+  // test is whether the selection is that first row. Selecting the latest here
+  // shows the same screening My Dashboard does, so present tense is correct.
+  const viewingPast = selectedId != null && rows.length > 0 && selectedId !== rows[0].id;
+
   return (
     <DashboardLayout allowedRoles={['athlete']} title="Screening History">
       <div className="card" style={{ marginBottom: 20 }}>
@@ -106,6 +112,12 @@ export default function AthleteHistoryPage() {
                 <option key={r.id} value={r.id}>{fmtDate(r.assessedAt)}{i === 0 ? ' · latest' : ''}</option>
               ))}
             </select>
+            {viewingPast && (
+              <p className="text-muted" style={{ fontSize: '0.8rem', margin: '6px 0 0' }}>
+                Showing a past screening — everything below is as it stood on that date, not where
+                you are now. Choose the latest, or open My Dashboard, for that.
+              </p>
+            )}
           </div>
         )}
       </div>
@@ -114,8 +126,8 @@ export default function AthleteHistoryPage() {
 
       {full && (
         <>
-          <OverallRiskBadge screening={full.screening} hero />
-          <ScreeningAlertBanner risks={full.risks} sport={full.sport} band={full.screening?.effectiveBand} audience="self" />
+          <OverallRiskBadge screening={full.screening} hero audience="self" historical={viewingPast} />
+          <ScreeningAlertBanner risks={full.risks} sport={full.sport} band={full.screening?.effectiveBand} audience="self" historical={viewingPast} />
 
           <div className="card" style={{ marginTop: 20 }}>
             <div className="card-header">
@@ -139,7 +151,7 @@ export default function AthleteHistoryPage() {
 
           <div style={{ height: 20 }} />
 
-          <ScreeningPanel athlete={{ ...full, subitems: full.screening?.subitems }} />
+          <ScreeningPanel athlete={{ ...full, subitems: full.screening?.subitems }} historical={viewingPast} />
 
           <div className="card" style={{ marginTop: 20, marginBottom: 20 }}>
             <div className="card-header">
@@ -148,7 +160,7 @@ export default function AthleteHistoryPage() {
                 <span className="card-sub">L = left · R = right · B = both</span>
               </div>
             </div>
-            <BodyMap myodynamia={full.myodynamia ?? []} tension={full.tension ?? []} subitems={full.screening?.subitems} />
+            <BodyMap myodynamia={full.myodynamia ?? []} tension={full.tension ?? []} subitems={full.screening?.subitems} historical={viewingPast} />
           </div>
         </>
       )}

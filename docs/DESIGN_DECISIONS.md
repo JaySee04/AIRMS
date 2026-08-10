@@ -857,6 +857,45 @@ accepts a month grain for future use, but `screeningPeriods` pins it to quarters
 self-enabling: it turns into a real reading when the second year of data arrives,
 with no code change.
 
+### 20j. Shared dashboard components take an audience and a tense (2026-08-11)
+
+The history views (athlete Screening History; the medical/coach date picker) reuse
+the dashboard components — deliberately, so all roles read one verdict. What came
+with the reuse was the dashboard's **copy**, which is written for one context and
+asserts things that are false in the other.
+
+**Decided:** `OverallRiskBadge`, `ScreeningAlertBanner`, `ScreeningPanel` and
+`BodyMap` take `historical`, and the hero also takes `audience`. Wording only —
+band, indicator, factors and geometry are whatever that screening recorded.
+
+**Why `historical`:** "Current Status" over a screening from March asserts
+something the system does not know, and "before your next high-load session"
+instructs about a session that has already happened. Worst of the set was Training
+Focus, which prescribes corrective exercises: from a superseded screening, that is
+not stale wording but stale *advice*.
+
+**Rejected:** *hiding Training Focus in history.* "What did that screening say to
+work on" is a fair question to ask of history. It is retitled *Training Focus at
+This Screening* and its footnote says to work from the latest screening — the
+block stops instructing rather than disappearing.
+
+**Why `audience`, which was a real bug and not a wording preference:** `HERO_MSG`
+was second-person only, so the **medical and coach dashboards told the clinician
+that *they* were among the athletes most in need of attention, and to arrange an
+assessment with *their* medical team**. Present on every staff view of a flagged
+athlete, and it reads plausibly until you notice who is holding the screen. Found
+by reading the rendered hero text per role, not by review — `ScreeningAlertBanner`
+had had an `audience` prop all along, which is exactly why the hero's absence went
+unnoticed.
+
+Both defaults follow `ScreeningAlertBanner`: `audience` defaults to `'staff'` and
+the athlete views pass `'self'` explicitly. One default across the shared
+components, so "which way round is it again?" never costs a bug.
+
+The phrasing itself is single-sourced in `lib/screeningAlerts.ts`
+(`screeningRef`, `HISTORICAL_NOTE`) because three components have to agree — a
+fourth divergent copy is the §19 failure mode.
+
 ---
 
-*Last updated: 2026-08-10 (later same day) — **§20g–i** added: the digest attaches the holistic report by sharing its code rather than rebuilding it (fetch/draw extracted, verified byte-identical), per-user email opt-out under the institution switch, and seasonality that declines to name a season below two years of data. **§20f** revised — the 14 remaining inline band-precedence reads were migrated after all. Earlier same day: **§20** added: accountability (audit trail that copies the actor, fire-and-forget writes), immediate norm eligibility with one-time disclosure, deep muscles marked rather than drawn, alerts grouped per recipient, the monthly digest's marker-not-cron design, and one band vocabulary in `utils/bands.js`. Previous: 2026-08-06 (later same day) — **§19** added: one status palette across CSS, inline styles, Chart.js and the PDF reports. An audit found the PDF had a second band palette (and disagreed with its own tier colours), the radar's threshold red was a non-theme-aware literal, the 60/75/85 tier was defined five times with two different words for its lowest band, and eight CSS-variable fallbacks still carried the retired PDF palette. Earlier same day: **§4a** added: the body map's Muscle Flags mode now draws HoloMotion's 22 individual muscles by re-slicing the same MIT-licensed geometry (16 recovered from existing sub-paths, 6 deep ones as measured insets, selection by geometry not index, test-guarded); supersedes the aggregation half of §4 while leaving the asset and its attribution locked. Previous: 2026-08-03 — §18 on-device name redaction before vision extraction (Tesseract-located, page-1-only, fail-closed; verified against both HoloMotion layouts). Previous: 2026-07-20 — Activity Tracking (the FYP I Module 1) fully removed at JC's request; §1, §2, §3, §10 and §16 annotated to mark their decisions as locked-but-dormant (no live caller) rather than actively running. The six-module set was restructured the same day to fill the gap this left — see `MASTER_CLARIFICATIONS.md §4` for the current numbering. Previous: 2026-07-19 (§16 gains the per-indicator escalation — threshold + peer-outlier, z ≥ 1.5, admin toggle, persisted factors), 2026-07-18 (§17 coach one-sport + athlete detail view + event disciplines), 2026-07-13 (§16 FYP II cohort-normed overall indicator + ACWR demotion), 2026-07-06 (§15 dashboard-embedded screening), 2026-06-28 (§13–14).*
+*Last updated: 2026-08-11 — **§20j** added: the shared dashboard components now take `historical` (so the history views stop speaking in the present tense) and the risk hero takes `audience` — the latter fixing a live bug in which the medical and coach dashboards addressed the clinician as the at-risk athlete. Previous: 2026-08-10 (later same day) — **§20g–i** added: the digest attaches the holistic report by sharing its code rather than rebuilding it (fetch/draw extracted, verified byte-identical), per-user email opt-out under the institution switch, and seasonality that declines to name a season below two years of data. **§20f** revised — the 14 remaining inline band-precedence reads were migrated after all. Earlier same day: **§20** added: accountability (audit trail that copies the actor, fire-and-forget writes), immediate norm eligibility with one-time disclosure, deep muscles marked rather than drawn, alerts grouped per recipient, the monthly digest's marker-not-cron design, and one band vocabulary in `utils/bands.js`. Previous: 2026-08-06 (later same day) — **§19** added: one status palette across CSS, inline styles, Chart.js and the PDF reports. An audit found the PDF had a second band palette (and disagreed with its own tier colours), the radar's threshold red was a non-theme-aware literal, the 60/75/85 tier was defined five times with two different words for its lowest band, and eight CSS-variable fallbacks still carried the retired PDF palette. Earlier same day: **§4a** added: the body map's Muscle Flags mode now draws HoloMotion's 22 individual muscles by re-slicing the same MIT-licensed geometry (16 recovered from existing sub-paths, 6 deep ones as measured insets, selection by geometry not index, test-guarded); supersedes the aggregation half of §4 while leaving the asset and its attribution locked. Previous: 2026-08-03 — §18 on-device name redaction before vision extraction (Tesseract-located, page-1-only, fail-closed; verified against both HoloMotion layouts). Previous: 2026-07-20 — Activity Tracking (the FYP I Module 1) fully removed at JC's request; §1, §2, §3, §10 and §16 annotated to mark their decisions as locked-but-dormant (no live caller) rather than actively running. The six-module set was restructured the same day to fill the gap this left — see `MASTER_CLARIFICATIONS.md §4` for the current numbering. Previous: 2026-07-19 (§16 gains the per-indicator escalation — threshold + peer-outlier, z ≥ 1.5, admin toggle, persisted factors), 2026-07-18 (§17 coach one-sport + athlete detail view + event disciplines), 2026-07-13 (§16 FYP II cohort-normed overall indicator + ACWR demotion), 2026-07-06 (§15 dashboard-embedded screening), 2026-06-28 (§13–14).*

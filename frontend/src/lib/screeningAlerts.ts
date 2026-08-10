@@ -225,10 +225,45 @@ export function criticalRegionsFor(sport: string | undefined): BodyRegion[] {
 }
 
 
+// ── Time framing: latest screening vs. a screening from a chosen date ───────
+//
+// The dashboard components are shared by two contexts. On a dashboard they show
+// the athlete's LATEST screening, so present tense is correct. In the history
+// views (athlete Screening History; the medical/coach date picker) they show a
+// screening from a chosen date, and the same words become false statements:
+// "Current Status" over a screening from March asserts something the system does
+// not know, and "before your next high-load session" gives an instruction about
+// a session that has already happened.
+//
+// Single-sourced here because three components have to agree — a fourth copy of
+// this phrasing drifting is the failure mode this repo keeps hitting.
+
+// How to refer to the screening being displayed.
+export function screeningRef(historical: boolean, audience: 'self' | 'staff' = 'staff'): string {
+  if (historical) return 'this screening';
+  return audience === 'self' ? 'your latest screening' : "this athlete's latest screening";
+}
+
+// Replaces the forward-looking advice when a past screening is on screen. The
+// point is not softer wording — it is that the reader must not mistake an old
+// screening for the current position.
+export const HISTORICAL_NOTE: Record<'self' | 'staff', string> = {
+  self: 'This is what the screening selected above showed on that date — not your current status.',
+  staff: 'This is what the screening selected above showed on that date — not the athlete’s current status.',
+};
+
 // One-line follow-up for the banner, matched to severity. Copy stays neutral
 // so the same line works for the athlete ("self") and staff views.
-export function recommendedAction(result: ScreeningAlertResult, audience: 'self' | 'staff' = 'staff'): string {
-  if (result.topBand === 'none') return '';
+//
+// `historical` returns '' rather than a past-tense variant: the caller shows
+// HISTORICAL_NOTE instead. Advice about the next session is not worth rephrasing
+// when the screening it came from has already been superseded.
+export function recommendedAction(
+  result: ScreeningAlertResult,
+  audience: 'self' | 'staff' = 'staff',
+  historical = false,
+): string {
+  if (result.topBand === 'none' || historical) return '';
   if (result.topBand === 'high') {
     return audience === 'self'
       ? 'Raise this with your medical team before the next high-load session.'

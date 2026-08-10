@@ -472,7 +472,10 @@ export default function MedicalDashboard() {
                   docs/fyp/ACWR_REBUILD.md for the model's own history. */}
               <ScreeningDatePicker athleteId={selectedAthlete.athleteId} onPick={setPicked} />
 
-              <OverallRiskBadge screening={view.screening} hero />
+              {/* `picked` is non-null only when a PAST screening is chosen, so it
+                  is exactly the signal the shared copy needs to stop speaking in
+                  the present tense. */}
+              <OverallRiskBadge screening={view.screening} hero audience="staff" historical={!!picked} />
               {/* Clinical override acts on the LATEST screening only — hidden
                   while viewing a past screening (you can't re-band history). */}
               {!picked && selectedAthlete.screening?.screeningId && (
@@ -503,6 +506,7 @@ export default function MedicalDashboard() {
                 sport={selectedAthlete.sport}
                 band={view.screening?.effectiveBand}
                 audience="staff"
+                historical={!!picked}
               />
 
               <div className="card" style={{ marginTop: 20 }}>
@@ -529,9 +533,19 @@ export default function MedicalDashboard() {
                     <p className="text-muted" style={{ margin: 0, fontSize: '0.82rem', lineHeight: 1.5 }}>
                       The dashed red line is the athlete&apos;s Elevated threshold per
                       region, tightened where the region is sport-critical. Exact
-                      values are on the screening panel below; record your own
-                      verdict in <strong>Clinical assessment</strong> above once you
-                      have examined the athlete.
+                      values are on the screening panel below
+                      {/* Clinical assessment is bound to the LATEST screening and is
+                          hidden while a past one is displayed, so pointing at it
+                          here would name a card that is not on screen. */}
+                      {picked ? (
+                        <>; this is the screening selected above, not the athlete&apos;s current
+                          position — switch back to the latest to record an assessment.
+                        </>
+                      ) : (
+                        <>; record your own verdict in <strong>Clinical assessment</strong> above
+                          once you have examined the athlete.
+                        </>
+                      )}
                     </p>
                   </div>
                 </div>
@@ -543,7 +557,7 @@ export default function MedicalDashboard() {
               <div style={{ marginTop: 20 }}>
                 {/* subitems live only on `.screening` (never duplicated onto
                     the flat athlete row), so they're merged in here. */}
-                <ScreeningPanel athlete={{ ...selectedAthlete, ...view, subitems: view.screening?.subitems }} showTrainingFocus={false} />
+                <ScreeningPanel athlete={{ ...selectedAthlete, ...view, subitems: view.screening?.subitems }} showTrainingFocus={false} historical={!!picked} />
               </div>
 
               {/* The athlete against their own squad. Restores the sport-level
@@ -574,6 +588,7 @@ export default function MedicalDashboard() {
                   myodynamia={view.myodynamia ?? []}
                   tension={view.tension ?? []}
                   subitems={view.screening?.subitems}
+                  historical={!!picked}
                 />
               </div>
             </>

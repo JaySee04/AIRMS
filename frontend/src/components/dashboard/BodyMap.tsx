@@ -28,6 +28,9 @@ interface BodyMapProps {
   // figure unchanged. When present, a mode toggle appears letting the same
   // "muscle hero" figure be read either as muscle flags or as ROM/Stability.
   subitems?: Subitems | null;
+  // Set in the history views, where the figure is drawn from a screening chosen
+  // by date. Wording only — the geometry and the flags are unaffected.
+  historical?: boolean;
 }
 
 type FlagState = 'weak' | 'tight' | 'both';
@@ -318,7 +321,9 @@ function renderParts(
   return out;
 }
 
-export default function BodyMap({ myodynamia, tension, subitems }: BodyMapProps) {
+export default function BodyMap({
+  myodynamia, tension, subitems, historical = false,
+}: BodyMapProps) {
   const myo = useMemo(() => buildFlagMap(myodynamia), [myodynamia]);
   const ten = useMemo(() => buildFlagMap(tension), [tension]);
   // Shared highlight between the lists and the figure. Reading "Gluteus Maximus,
@@ -464,7 +469,7 @@ export default function BodyMap({ myodynamia, tension, subitems }: BodyMapProps)
       {activeMode === 'flags' ? (
         total === 0 ? (
           <div className="empty-state" style={{ padding: 20 }}>
-            No muscle flags from the latest assessment.
+            {historical ? 'No muscle flags at this screening.' : 'No muscle flags from the latest assessment.'}
           </div>
         ) : (
           <div className="bm-cards">

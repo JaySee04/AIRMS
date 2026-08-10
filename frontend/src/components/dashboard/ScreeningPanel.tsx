@@ -157,7 +157,9 @@ function IndicatorStrip({ label, value, t }: { label: string; value: number; t: 
 // `showTrainingFocus` — the corrective-exercise block is useful to the athlete
 // (and coach), but redundant on the medical view (the people who actually
 // prescribe rehab), so the medical dashboard turns it off.
-export default function ScreeningPanel({ athlete, showTrainingFocus = true }: { athlete: ScreeningData; showTrainingFocus?: boolean }) {
+export default function ScreeningPanel({
+  athlete, showTrainingFocus = true, historical = false,
+}: { athlete: ScreeningData; showTrainingFocus?: boolean; historical?: boolean }) {
   const scores = [athlete.overallActivityScore, athlete.injuryRiskIndex, athlete.mobility, athlete.stability, athlete.symmetry];
   const hasReport = scores.some((v) => v !== undefined && v !== null);
   const criticalSet = new Set(criticalRegionsFor(athlete.sport));
@@ -245,26 +247,37 @@ export default function ScreeningPanel({ athlete, showTrainingFocus = true }: { 
       {/* Training focus — AIRMS' counterpart of the report's closing Training
           Prescription: corrective exercises for the regions that breached
           their sport thresholds, worst first. */}
-      {showTrainingFocus && <TrainingFocus athlete={athlete} />}
+      {showTrainingFocus && <TrainingFocus athlete={athlete} historical={historical} />}
     </>
   );
 }
 
-function TrainingFocus({ athlete }: { athlete: ScreeningData }) {
+// In the history views this is a RECORD of what the screening indicated, not a
+// programme to follow: the corrective work is derived from readings that have
+// since been superseded. So the heading, the empty state and the footnote all
+// stop instructing, rather than the block being hidden — "what did that screening
+// say to work on" is a fair question to ask of history.
+function TrainingFocus({ athlete, historical = false }: { athlete: ScreeningData; historical?: boolean }) {
   const focus = buildTrainingFocus(athlete.risks, athlete.sport);
   return (
     <div className="card" style={{ marginBottom: 20 }}>
       <div className="card-header">
         <div>
-          <h2 className="card-title" style={{ marginBottom: 0 }}>Training Focus</h2>
+          <h2 className="card-title" style={{ marginBottom: 0 }}>
+            {historical ? 'Training Focus at This Screening' : 'Training Focus'}
+          </h2>
           <span className="card-sub">
-            Corrective work for out-of-range regions
+            {historical
+              ? 'Corrective work indicated by the regions out of range at this screening'
+              : 'Corrective work for out-of-range regions'}
           </span>
         </div>
       </div>
       {focus.length === 0 ? (
         <div className="empty-state">
-          All indicators are within their sport thresholds — maintain the current programme and reassess at the next screening.
+          {historical
+            ? 'All indicators were within their sport thresholds at this screening.'
+            : 'All indicators are within their sport thresholds — maintain the current programme and reassess at the next screening.'}
         </div>
       ) : (
         <>
@@ -292,7 +305,9 @@ function TrainingFocus({ athlete }: { athlete: ScreeningData }) {
           </div>
           <p className="text-muted" style={{ fontSize: '0.76rem', marginTop: 12, marginBottom: 0 }}>
             Derived from the flagged screening indicators using the HoloMotion prescription exercise vocabulary.
-            Informational — confirm with medical staff before changing the training programme.
+            {historical
+              ? ' This reflects the screening selected above, not current guidance — work from the latest screening before changing anything.'
+              : ' Informational — confirm with medical staff before changing the training programme.'}
           </p>
         </>
       )}

@@ -377,12 +377,13 @@ export default function CoachDashboard() {
 
         <ScreeningDatePicker athleteId={selected.athleteId} onPick={setPicked} />
 
-        <OverallRiskBadge screening={view.screening} hero />
+        <OverallRiskBadge screening={view.screening} hero audience="staff" historical={!!picked} />
         <ScreeningAlertBanner
           risks={view.risks}
           sport={selected.sport}
           band={view.screening?.effectiveBand}
           audience="staff"
+          historical={!!picked}
         />
 
         <div className="card" style={{ marginTop: 20 }}>
@@ -414,7 +415,7 @@ export default function CoachDashboard() {
         </div>
 
         <div style={{ marginTop: 20 }}>
-          <ScreeningPanel athlete={screeningData} />
+          <ScreeningPanel athlete={screeningData} historical={!!picked} />
         </div>
 
         {/* Report-to-report progress (read-only, backend scopes to the coach's sport). */}
@@ -429,7 +430,7 @@ export default function CoachDashboard() {
               <span className="card-sub">L = left · R = right · B = both</span>
             </div>
           </div>
-          <BodyMap myodynamia={view.myodynamia ?? []} tension={view.tension ?? []} subitems={view.screening?.subitems} />
+          <BodyMap myodynamia={view.myodynamia ?? []} tension={view.tension ?? []} subitems={view.screening?.subitems} historical={!!picked} />
         </div>
       </DashboardLayout>
     );

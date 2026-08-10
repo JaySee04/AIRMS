@@ -136,7 +136,7 @@ export default function AthleteDashboard() {
           pairing it beside the taller radar left a dead gap). Flow reads
           verdict → why → overview → detail: the band, then the regions behind
           it, then the radar overview, then the full screening panel. */}
-      <OverallRiskBadge screening={athlete.screening} hero />
+      <OverallRiskBadge screening={athlete.screening} hero audience="self" />
 
       {/* Which regions sit behind an amber/red band. Renders nothing when the
           athlete is green overall — their detail lives on the strips below. */}
