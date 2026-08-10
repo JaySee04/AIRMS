@@ -37,6 +37,7 @@ const DEFAULTS = {
   // Event-driven notifications (utils/notifications.js), each independently
   // governable, default on:
   notify_override: true,       // email the sport's coach when medical overrides an athlete to amber/red
+  notify_injury: true,         // email the sport's coach when medical declares an athlete injured or clears them
 };
 
 // Merge stored overrides over defaults. Unknown/legacy keys are ignored.

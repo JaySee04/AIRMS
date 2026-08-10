@@ -16,9 +16,42 @@ const BAND_RANK = { green: 0, amber: 1, red: 2 };
 // the rest of the system, and is a spam-filter trigger in a subject line.)
 const BAND_LABEL = { amber: 'Needs attention', red: 'Immediate assessment' };
 
+// email → the flagged athletes that recipient should see. Medical staff cover
+// the whole institute so they get everything; a coach gets only their own sport.
+//
+// Pure and exported purely so it can be tested: "who gets told about whom" is the
+// part of this file that would break silently, and the rest of alertMany needs a
+// database to run at all.
+function groupByRecipient(flagged, medicalEmails, coaches) {
+  const out = new Map();
+  const add = (email, item) => {
+    if (!email) return;
+    if (!out.has(email)) out.set(email, []);
+    // A coach who is also somehow listed twice must not receive the athlete twice.
+    if (!out.get(email).includes(item)) out.get(email).push(item);
+  };
+  for (const item of flagged) {
+    for (const e of medicalEmails) add(e, item);
+    for (const c of coaches) {
+      if (c && c.coachSport && item.athlete && c.coachSport === item.athlete.sport) add(c.email, item);
+    }
+  }
+  return out;
+}
+
 // Batch form — one settings read, one recipients read, IN-queries for the
-// athletes/screenings, then one email per flagged athlete. The post-import
-// queue calls this with the whole burst. Returns a summary per athleteId.
+// athletes/screenings, then ONE EMAIL PER RECIPIENT covering every athlete they
+// need to see.
+//
+// It used to send one email per flagged athlete. Importing 15 PDFs that all
+// landed amber meant 15 separate emails into every medical inbox, and 15
+// sequential SMTP round-trips. The burst was already coalesced one layer up —
+// queuePostImport debounces so N commits produce ONE recompute — and that
+// batching simply stopped short of the mailer. An alert that arrives 15 times
+// gets filtered, which makes the feature worse than useless.
+//
+// Medical staff see every flagged athlete; a coach sees only their own sport's,
+// so the grouping is per recipient rather than one blast to everyone.
 async function alertMany(athleteIds) {
   const ids = [...new Set(athleteIds)].filter(Boolean);
   if (!ids.length) return [];
@@ -38,6 +71,8 @@ async function alertMany(athleteIds) {
   const medicalEmails = users.filter((u) => u.role === 'medical').map((u) => u.email).filter(Boolean);
   const coaches = users.filter((u) => u.role === 'coach' && u.coachSport);
 
+  // Pass 1: decide who is flagged, and why. No mail yet.
+  const flagged = [];
   const results = [];
   for (const id of ids) {
     const athlete = athleteBy.get(id);
@@ -50,36 +85,83 @@ async function alertMany(athleteIds) {
       results.push({ athleteId: id, sent: false, reason: 'below alert threshold', band });
       continue;
     }
+    flagged.push({
+      athlete,
+      band,
+      indicator: s.overallIndicator,
+      escalations: s.escalations,
+      // The escalation reasons are already computed and stored at commit time
+      // (utils/overallIndicator.js) — surfaced so the recipient sees WHY
+      // without opening AIRMS first.
+      factors: Array.isArray(s.factors) ? s.factors : [],
+    });
+  }
+  if (!flagged.length) return results;
 
-    const coachEmails = coaches.filter((c) => c.coachSport === athlete.sport).map((c) => c.email).filter(Boolean);
-    const recipients = [...medicalEmails, ...coachEmails];
-    if (!recipients.length) { results.push({ athleteId: id, sent: false, reason: 'no recipients', band }); continue; }
+  // Worst first: a red buried under six ambers is the one thing that must not
+  // be missed in a digest.
+  flagged.sort((a, b) => (BAND_RANK[b.band] - BAND_RANK[a.band])
+    || a.athlete.name.localeCompare(b.athlete.name));
 
-    // The escalation reasons are already computed and stored at commit time
-    // (utils/overallIndicator.js) — surface them directly so the recipient
-    // sees WHY without opening AIRMS first, instead of just the band + score.
-    const factors = Array.isArray(s.factors) ? s.factors : [];
+  // Pass 2: group by recipient. Medical get everything; each coach gets their
+  // own sport only.
+  const perRecipient = groupByRecipient(flagged, medicalEmails, coaches);
 
-    const subject = `AIRMS alert — ${athlete.name} (${athlete.athleteId}): ${BAND_LABEL[band]}`;
-    const text = [
-      `Screening alert for ${athlete.name} (${athlete.athleteId})`,
-      '',
-      `Sport: ${athlete.sport} · Programme: ${athlete.program} · ${athlete.gender ?? ''}`,
-      `A new HoloMotion screening places this athlete at: ${BAND_LABEL[band]}.`,
-      `Overall risk indicator: ${s.overallIndicator ?? '—'}/100 vs cohort · ${s.escalations} escalation(s).`,
-      '',
-      ...(factors.length ? ['Why:', ...factors.map((f) => `  - ${f}`), ''] : []),
-      band === 'red'
+  const sentFor = new Set();
+  for (const [email, items] of perRecipient) {
+    const worst = items.some((i) => i.band === 'red') ? 'red' : 'amber';
+    const subject = items.length === 1
+      ? `AIRMS alert — ${items[0].athlete.name} (${items[0].athlete.athleteId}): ${BAND_LABEL[items[0].band]}`
+      : `AIRMS alert — ${items.length} athletes flagged: ${BAND_LABEL[worst]}`;
+
+    const lines = [];
+    if (items.length === 1) {
+      // Single finding keeps the full detail it always had — a digest format for
+      // one athlete would be a step backwards.
+      const it = items[0];
+      const a = it.athlete;
+      lines.push(
+        `Screening alert for ${a.name} (${a.athleteId})`, '',
+        `Sport: ${a.sport} · Programme: ${a.program} · ${a.gender ?? ''}`,
+        `A new HoloMotion screening places this athlete at: ${BAND_LABEL[it.band]}.`,
+        `Overall risk indicator: ${it.indicator ?? '—'}/100 vs cohort · ${it.escalations} escalation(s).`, '',
+      );
+      if (it.factors.length) lines.push('Why:', ...it.factors.map((f) => `  - ${f}`), '');
+      lines.push(it.band === 'red'
         ? 'This athlete is flagged for immediate assessment. Please review before the next high-load session.'
-        : 'This athlete needs attention. Please review at the next opportunity.',
-      '',
-      'Open AIRMS → Athlete Dashboard to review the full screening and, after assessment, set the risk band.',
-      '',
-      '— AIRMS · Institut Sukan Negara',
-    ].join('\n');
+        : 'This athlete needs attention. Please review at the next opportunity.');
+    } else {
+      lines.push(
+        `${items.length} athletes were flagged by the latest screening import.`, '',
+      );
+      for (const it of items) {
+        const a = it.athlete;
+        lines.push(
+          `${BAND_LABEL[it.band]} — ${a.name} (${a.athleteId})`,
+          `  ${a.sport} · ${a.program}${a.gender ? ` · ${a.gender}` : ''} · indicator ${it.indicator ?? '—'}/100 · ${it.escalations} escalation(s)`,
+        );
+        for (const f of it.factors) lines.push(`    - ${f}`);
+        lines.push('');
+      }
+      lines.push(items.some((i) => i.band === 'red')
+        ? 'Athletes marked Immediate assessment should be reviewed before the next high-load session.'
+        : 'Please review these athletes at the next opportunity.');
+    }
+    lines.push('', 'Open AIRMS → Athlete Dashboard to review the full screening and, after assessment, set the risk band.', '', '— AIRMS · Institut Sukan Negara');
 
-    await sendMail({ to: recipients.join(','), subject, text });
-    results.push({ athleteId: id, sent: true, band, recipients: recipients.length });
+    await sendMail({ to: email, subject, text: lines.join('\n') });
+    for (const it of items) sentFor.add(it.athlete.athleteId);
+  }
+
+  // Per-athlete summary is kept: the caller discards it today, but "which
+  // athletes did we alert on" is the useful answer, not "which emails went out".
+  for (const it of flagged) {
+    results.push({
+      athleteId: it.athlete.athleteId,
+      sent: sentFor.has(it.athlete.athleteId),
+      band: it.band,
+      reason: sentFor.has(it.athlete.athleteId) ? undefined : 'no recipients',
+    });
   }
   return results;
 }
@@ -91,4 +173,4 @@ async function alertIfNeeded(athleteId) {
   return result || { sent: false, reason: 'no athlete id' };
 }
 
-module.exports = { alertIfNeeded, alertMany };
+module.exports = { alertIfNeeded, alertMany, groupByRecipient };

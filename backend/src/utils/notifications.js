@@ -53,4 +53,36 @@ function notifyOverrideToCoach(athlete, band, note, by) {
   }));
 }
 
-module.exports = { notifyOverrideToCoach };
+// An athlete was declared injured (or cleared) → tell the sport's coach(es).
+// This has two consequences a coach cannot see any other way: the athlete is
+// out, and they stop counting toward the cohort norm — so squad averages shift
+// for reasons that are not that athlete's own screening.
+//
+// Fires in BOTH directions, unlike the band override. A clearance matters here:
+// "back available" is the thing a coach is actively waiting to be told, whereas
+// a band settling back to green is routine.
+function notifyInjuryToCoach(athlete, injured, note, by) {
+  if (!athlete || !athlete.sport) return Promise.resolve({ sent: false, reason: 'no sport' });
+  return notify('notify_injury', activeUsers({ role: 'coach', coachSport: athlete.sport }), () => ({
+    subject: injured
+      ? `AIRMS — ${athlete.name} declared injured by the medical team`
+      : `AIRMS — ${athlete.name} cleared to train`,
+    text: (injured
+      ? [
+        `The medical team has declared ${athlete.name} injured.`,
+        note ? `\nClinician note: "${note}"${by ? ` — ${by}` : ''}` : (by ? `\nDeclared by ${by}.` : ''),
+        '',
+        'Treat this athlete as unavailable until the medical team clears them.',
+        'They are also excluded from their cohort norm while injured, so squad averages will shift.',
+      ]
+      : [
+        `The medical team has cleared ${athlete.name} to train.`,
+        by ? `\nCleared by ${by}.` : '',
+        '',
+        'They count toward their cohort norm again from now on.',
+      ]
+    ).concat(['', 'See AIRMS → Squad Readiness.', '', SIGNOFF]).join('\n'),
+  }));
+}
+
+module.exports = { notifyOverrideToCoach, notifyInjuryToCoach };

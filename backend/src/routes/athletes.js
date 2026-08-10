@@ -4,6 +4,7 @@ const { Op } = require('sequelize');
 const { Athlete, MuscleFlag, Screening, AthleteDiscipline } = require('../models');
 const { screeningMovement, recomputeCohorts } = require('../utils/cohorts');
 const { recomputeIndicators } = require('../utils/overallIndicator');
+const { notifyInjuryToCoach } = require('../utils/notifications');
 const { screeningPeriods, GRAINS } = require('../utils/screeningPeriods');
 const {
   focusBreakdown, isShownIndicator, SHOWN_INDICATORS, tally, bandOf,
@@ -609,6 +610,10 @@ router.patch('/:id/injury', auth, rbac('medical', 'admin'), requirePermission('v
     // published norm until somebody happened to import a report.
     const cohorts = await recomputeCohorts();
     const indicators = await recomputeIndicators();
+    // Tell the sport's coach — the athlete is unavailable and the squad's norm
+    // just moved. Fire-and-forget, same contract as the override notification:
+    // a mail failure must not fail the clinical action.
+    notifyInjuryToCoach(a, injured, a.injuryNote, req.user?.name);
     recordAudit(req, {
       action: 'athlete.injury',
       entity: 'athlete',
