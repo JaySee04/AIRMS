@@ -4,7 +4,12 @@
 // ESCALATION, matching Dr Thung's spec (redesign spec §5):
 //
 //   base = green (safe)
-//   +1 escalation if the athlete is BELOW the cohort mean (composite z < 0)
+//   +1 escalation if the athlete is MEANINGFULLY below the cohort mean
+//     (composite z < escalation_below_mean_z, default -0.5). This was a plain
+//     z < 0 until 2026-08-11, which flagged half of every cohort by
+//     construction — 27 of 58 seeded athletes tripped it, and 12 of the 14
+//     ambers rested on it alone, one at z = -0.163. A sign test is arithmetic,
+//     not a finding.
 //   +1 escalation if the athlete is among the BOTTOM-k of the cohort
 //   +1 escalation if any single exercise-risk indicator is BOTH over the
 //     Elevated threshold AND the athlete is a peer-outlier on that indicator
@@ -68,20 +73,74 @@ function effectiveK(n, settings = {}) {
   return Math.min(k, Math.max(1, Math.floor(n * BOTTOM_SHARE)));
 }
 
+// Per-component comparison against the cohort — the athlete's value, the group's
+// mean, and the signed gap. This is the same arithmetic compositeZ already does
+// internally; it was simply thrown away, leaving the UI with one abstract 0-100
+// number and no way to say WHICH component drove it.
+//
+// Real case that motivated surfacing it: Nazwan's Total Score is +0.3 against his
+// squad (dead average) and his stability and symmetry are ABOVE it — he is amber
+// because his ROM is 7.8 points below. The headline number could never say that.
+const DELTA_LABEL = {
+  totalScore: 'Total Score', rom: 'ROM', stability: 'Stability',
+  symmetry: 'Symmetry', riskGood: 'Injury risk', balance: 'L/R balance',
+};
+
+function cohortDeltas(screening, cohortStats) {
+  if (!cohortStats) return [];
+  const comps = orientedComponents(screening);
+  const out = [];
+  for (const c of COMPONENTS) {
+    const v = comps[c];
+    const st = cohortStats[c];
+    if (v === null || v === undefined || !st || !st.sd) continue;
+    out.push({
+      key: c,
+      label: DELTA_LABEL[c] || c,
+      // riskGood and balance are stored NEGATED so higher = better for scoring.
+      // Flip them back for display, or the panel shows an injury-risk mean of
+      // -14.1 to a clinician.
+      value: +(c === 'riskGood' || c === 'balance' ? -v : v).toFixed(1),
+      mean: +(c === 'riskGood' || c === 'balance' ? -st.mean : st.mean).toFixed(1),
+      // The delta keeps the ORIENTED sign throughout: positive always means
+      // better than the group, on every row, whichever way the raw scale runs.
+      delta: +(v - st.mean).toFixed(1),
+      z: +((v - st.mean) / st.sd).toFixed(2),
+      lowerIsBetter: c === 'riskGood' || c === 'balance',
+    });
+  }
+  return out;
+}
+
 // Full indicator. `rankInfo` = { rank, total, k } of this athlete within the
 // cohort (rank 1 = worst by composite z; k = the effective bottom-k for that
 // cohort); pass null if unranked.
-// Returns { indicator, band, escalations, z, factors }.
+// Returns { indicator, band, escalations, z, factors, reasonsAgainst, deltas }.
 function computeIndicator(screening, cohortStats, rankInfo, settings = {}) {
   const z = compositeZ(screening, cohortStats);
   if (z === null) {
-    return { indicator: null, band: null, escalations: 0, z: null, factors: ['insufficient cohort data'] };
+    return {
+      indicator: null, band: null, escalations: 0, z: null, factors: ['insufficient cohort data'], reasonsAgainst: [], deltas: [],
+    };
   }
+  const deltas = cohortDeltas(screening, cohortStats);
   const factors = [];
   let escalations = 0;
-  if (settings.escalation_below_mean !== false && z < 0) {
+  // A CUTOFF, not z < 0. See settings.escalation_below_mean_z: a plain sign test
+  // flags half of every cohort by construction, which is arithmetic rather than a
+  // finding.
+  const belowCut = Number(settings.escalation_below_mean_z ?? -0.5);
+  if (settings.escalation_below_mean !== false && z < belowCut) {
     escalations++;
-    factors.push('below cohort average');
+    // Name the component actually carrying it — "below cohort average" alone told
+    // the clinician nothing they could act on.
+    const worstComp = deltas.filter((d) => d.z < 0).sort((a, b) => a.z - b.z)[0];
+    // "worse than", not "below" — same orientation trap as reasonsAgainst: this
+    // component could be Injury risk or L/R balance, where a negative oriented
+    // delta means a HIGHER raw value.
+    factors.push(worstComp
+      ? `below cohort average — ${worstComp.label} ${Math.abs(worstComp.delta)} worse than the group`
+      : 'below cohort average');
   }
   const k = rankInfo?.k ?? effectiveK(rankInfo?.total, settings);
   if (settings.escalation_bottom_k !== false && rankInfo && rankInfo.rank <= k) {
@@ -110,7 +169,54 @@ function computeIndicator(screening, cohortStats, rankInfo, settings = {}) {
   }
   // Screening escalations set the band: 0 = green · 1 = amber · ≥2 = red.
   const band = BANDS[Math.min(BANDS.length - 1, escalations)];
-  return { indicator: zToScore(z), band, escalations, z: +z.toFixed(3), factors };
+  return {
+    indicator: zToScore(z),
+    band,
+    escalations,
+    z: +z.toFixed(3),
+    factors,
+    reasonsAgainst: reasonsAgainst(screening, deltas, rankInfo, settings),
+    deltas,
+  };
+}
+
+// The other half of the evidence: what argues AGAINST assessing this athlete.
+//
+// AIRMS only ever recorded reasons to escalate, so a green athlete's hero said
+// "you are fine" with nothing behind it, and an amber one showed a single
+// negative with no counterweight. A clinician deciding whether to spend a slot on
+// someone reasons both ways, and the data for the other side was already sitting
+// in the same deltas.
+//
+// Deliberately NOT symmetrical with `factors`: these are observations, never a
+// recommendation to skip an assessment. The band remains the verdict.
+function reasonsAgainst(screening, deltas, rankInfo, settings = {}) {
+  const out = [];
+  // "better than", never "above": the deltas are oriented, so on Injury risk and
+  // L/R balance a positive delta means a LOWER raw value. "L/R balance is 0.2
+  // above the group" describes the opposite of what happened.
+  const above = deltas.filter((d) => d.z > 0.25).sort((a, b) => b.z - a.z);
+  if (above.length) {
+    out.push(above.length === 1
+      ? `${above[0].label} is ${Math.abs(above[0].delta)} better than the group`
+      : `${above.slice(0, 2).map((d) => d.label).join(' and ')} better than the group`);
+  }
+  const total = deltas.find((d) => d.key === 'totalScore');
+  // Only worth saying when it is NOT already in the "above" list — otherwise the
+  // panel repeats itself.
+  if (total && Math.abs(total.z) <= 0.25) {
+    out.push('Total Score is level with the group');
+  }
+  // No exercise-risk indicator over the Elevated threshold is a genuinely
+  // reassuring, checkable statement — and it is the one the raw Total Score can
+  // never make, since Total Score does not include risk at all.
+  const high = settings.escalation_indicator_high ?? 25;
+  const over = SHOWN_RISK_KEYS.filter((k) => (num(screening[k]) ?? 0) >= high);
+  if (!over.length) out.push(`No exercise-risk indicator at or over ${high}`);
+  if (rankInfo && rankInfo.total >= 3 && rankInfo.rank > rankInfo.total / 2) {
+    out.push(`Ranks ${rankInfo.rank} of ${rankInfo.total} in the group (1 = lowest)`);
+  }
+  return out;
 }
 
 // Cohort identity an athlete resolves to. `resolved` is the object returned by
@@ -125,6 +231,20 @@ function resolvedCohortId(a, resolved) {
   if (tier === 'sg') return `sg|${sport}|${gender}`;
   if (tier === 's') return `s|${sport}`;
   return 'all';
+}
+
+// A cohort id turned into something a clinician can read. The id is a pipe-
+// delimited key ("sg|Badminton|Male"); this is what gets printed next to the
+// score, so it has to name the peer group in the words the user already uses.
+function cohortLabelFor(id) {
+  if (!id) return null;
+  const [tier, a, b, c, d] = id.split('|');
+  if (tier === 'all') return 'All athletes';
+  if (tier === 's') return a;
+  if (tier === 'sg') return `${a} · ${b}`;
+  if (tier === 'spg') return `${a} · ${b} · ${c}`;
+  if (tier === 'spgd') return `${a} · ${b} · ${c} · ${d}`;
+  return id;
 }
 
 // Does this athlete BELONG to the cohort `id` — i.e. would they be counted in
@@ -212,7 +332,19 @@ async function recomputeIndicators() {
     const r = computeIndicator(e.screening, e.resolved ? e.resolved.stats : null, rankInfo, settings);
     if (r.indicator !== null) scored++;
     return Screening.update(
-      { overallIndicator: r.indicator, overallBand: r.band, escalations: r.escalations, factors: r.factors },
+      {
+        overallIndicator: r.indicator,
+        overallBand: r.band,
+        escalations: r.escalations,
+        factors: r.factors,
+        reasonsAgainst: r.reasonsAgainst,
+        // The comparison the band was derived from, kept with the screening.
+        cohortZ: r.z,
+        cohortRank: rankInfo ? rankInfo.rank : null,
+        cohortSize: rankInfo ? rankInfo.total : null,
+        cohortLabel: e.resolved ? cohortLabelFor(resolvedCohortId(e.athlete, e.resolved)) : null,
+        cohortDeltas: r.deltas && r.deltas.length ? r.deltas : null,
+      },
       { where: { id: e.screening.id } },
     );
   });
@@ -223,5 +355,6 @@ async function recomputeIndicators() {
 module.exports = {
   computeIndicator, compositeZ, zToScore, BANDS,
   resolvedCohortId, belongsToCohort, effectiveK, BOTTOM_SHARE,
+  cohortDeltas, reasonsAgainst, cohortLabelFor,
   recomputeIndicators,
 };

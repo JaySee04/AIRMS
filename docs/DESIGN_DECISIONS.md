@@ -896,6 +896,120 @@ The phrasing itself is single-sourced in `lib/screeningAlerts.ts`
 (`screeningRef`, `HISTORICAL_NOTE`) because three components have to agree — a
 fourth divergent copy is the §19 failure mode.
 
+
+## 21. Showing the printed score, not the derived one (2026-08-11)
+
+JC, looking at the hero: *"Tell me what this indicator is"* — then *"is there no
+other way to show this? Like just straight using the total score?"* That the owner
+of the project had to ask what his own headline number meant is the finding; the
+number was `50 + z x (50/3)`, a linear remap of a z-score, presented as if it were
+a measurement.
+
+### 21a. What HoloMotion's Total Score actually is
+
+Established against the three 1:1-verified real reports, not from the vendor's
+marketing (they publish no formula and no norms — checked their assessment,
+technology and healthcare pages):
+
+**Total Score is the mean of the Physical Fitness Subitem table** (5 regions x
+{ROM L/R, Stability L/R, Symmetry}). It predicts the printed gauge to within ~1
+point on all three reports (residuals -0.9 / -1.2 / -0.1); no other combination
+came close.
+
+**It excludes injury risk.** The report is titled *"Report of Physical Quality and
+Exercise Risks"* — two halves, and Total Score sits under the first. In the real
+data Total Score is flat at **77 / 78 / 78** while the worst risk indicator climbs
+**23 -> 26 -> 29**.
+
+**And it is not age- or sex-adjusted.** Thung is **51 and scores 77**; Nazwan is
+**21 and scores 78**. On the raw number an elite 21-year-old and a 51-year-old are
+indistinguishable — which is precisely what a cohort norm exists to fix, and it is
+evidence from ISN's own reports rather than a hypothetical.
+
+**Rejected: raw Total Score as the verdict.** Blind to injury risk in a system
+named for injury risk, unadjusted for age or sex, and a black box we could not
+defend in viva. It would also reduce the project to import-and-display: the
+cohort norm is the contribution.
+
+**Discarded as evidence:** the correlation between Total Score and the indicator
+across the 58 screened athletes (r = 0.35). The seeder draws Total Score and the
+risk indicators as *independent uniform randoms*, so that number measures the
+seeder. Recorded because it is exactly the sort of figure that would collapse
+under questioning.
+
+### 21b. What the hero shows now
+
+**Decided:** the printed **Total Score** is the headline; the 0-100 indicator is
+retained internally (ranking, alerts, report ordering, coach table) and no longer
+displayed.
+
+**Why:** Total Score is the one value a clinician can check against the PDF in
+their hand — a real trust win with Dr Thung — and it needs no explanation.
+
+**Decided:** in place of the abstract score, a **signed per-component comparison**
+against the athlete's cohort, and a **two-sided reason list**.
+
+**Why:** the same z-scores, in units people already read. The case that settled it
+is Nazwan: Total Score **+0.3** against his squad (dead average), stability
+**+6.0** and symmetry **+6.3** *above* it — and amber because his **ROM is 7.8
+below** his peers. The old hero said "47/100" and "below cohort average"; neither
+could say that, and it is the only thing a clinician would act on.
+
+**The trap this had to avoid:** showing a *positive* Total Score delta beside an
+amber band reads as a contradiction — the same "competing verdicts" failure that
+got ACWR pulled (2026-07-16). The per-component profile is what resolves it: the
+delta that explains the band is visible, not just the headline one.
+
+**Decided:** all deltas are **oriented** — positive always means better than the
+group, on every row — and the copy says "better/worse than", never
+"above/below".
+
+**Why:** two components (`riskGood`, `balance`) are stored negated so that higher
+= better for scoring. Left raw, the panel showed a clinician an injury-risk group
+mean of **-14.1**, and the first draft of the reason text read *"Injury risk 4.9
+below the group"* for an athlete at 19 against a group mean of 14.1 — the exact
+opposite of the truth. Both were caught by reading the rendered page, not by
+review. Test-pinned in `overallIndicator.test.js`.
+
+**Decided:** reasons and escalations are **different things**. The rules look only
+at the composite z, the bottom-k rank and the exercise-risk indicators, so a
+single badly-below component escalates nothing: Nazwan's ROM sits 1.45 SD under
+his squad with an empty escalation list. The panel therefore also names any
+component at or below -1 SD, derived in the frontend from the deltas already sent.
+The **band is untouched** — showing "no reasons to assess" for that athlete would
+have been worse than the opaque score it replaced.
+
+**Persisted, not derived on read:** `cohortZ`, `cohortRank`, `cohortSize`,
+`cohortLabel`, `cohortDeltas`, `reasonsAgainst`. All but the last were already
+being computed inside `recomputeIndicators` and thrown away. Persisted for the
+same reason every other derived value here is: norms move when cohort membership
+changes, so a screening must carry the comparison it was actually scored against.
+
+### 21c. The below-mean rule became a cutoff
+
+**Decided:** the below-cohort-mean escalation fires at `escalation_below_mean_z`
+(default **-0.5 SD**), not at any `z < 0`.
+
+**Why:** a sign test flags half of every cohort *by construction*. Measured: 27 of
+58 tripped it, and **12 of the 14 ambers rested on it alone**, one at z = -0.163.
+"Lost a coin toss" is not a clinical finding, and the moment the reasons became
+visible a clinician would have asked why half the squad was flagged. Recomputing
+moved the seeded distribution from 29/14/15 to **41 green / 13 amber / 4 red** —
+which also retires the long-standing "red-heavy band distribution is a seed
+artifact" note.
+
+**Cost, stated:** the demo numbers changed materially, and 23 athletes moved band.
+Worth knowing before viva.
+
+### 21d. One indicator payload
+
+`toIndicator` was hand-built in three routes. They had already drifted — the coach
+payload silently dropped the clinician override, so a coach saw the generic band
+message where the override card had promised them the clinician's note. Nothing
+errored; the coach just got worse information. Adding six fields to three copies
+was the moment to extract `utils/indicatorPayload.js`. §19 again.
+
 ---
 
-*Last updated: 2026-08-11 — **§20j** added: the shared dashboard components now take `historical` (so the history views stop speaking in the present tense) and the risk hero takes `audience` — the latter fixing a live bug in which the medical and coach dashboards addressed the clinician as the at-risk athlete. Previous: 2026-08-10 (later same day) — **§20g–i** added: the digest attaches the holistic report by sharing its code rather than rebuilding it (fetch/draw extracted, verified byte-identical), per-user email opt-out under the institution switch, and seasonality that declines to name a season below two years of data. **§20f** revised — the 14 remaining inline band-precedence reads were migrated after all. Earlier same day: **§20** added: accountability (audit trail that copies the actor, fire-and-forget writes), immediate norm eligibility with one-time disclosure, deep muscles marked rather than drawn, alerts grouped per recipient, the monthly digest's marker-not-cron design, and one band vocabulary in `utils/bands.js`. Previous: 2026-08-06 (later same day) — **§19** added: one status palette across CSS, inline styles, Chart.js and the PDF reports. An audit found the PDF had a second band palette (and disagreed with its own tier colours), the radar's threshold red was a non-theme-aware literal, the 60/75/85 tier was defined five times with two different words for its lowest band, and eight CSS-variable fallbacks still carried the retired PDF palette. Earlier same day: **§4a** added: the body map's Muscle Flags mode now draws HoloMotion's 22 individual muscles by re-slicing the same MIT-licensed geometry (16 recovered from existing sub-paths, 6 deep ones as measured insets, selection by geometry not index, test-guarded); supersedes the aggregation half of §4 while leaving the asset and its attribution locked. Previous: 2026-08-03 — §18 on-device name redaction before vision extraction (Tesseract-located, page-1-only, fail-closed; verified against both HoloMotion layouts). Previous: 2026-07-20 — Activity Tracking (the FYP I Module 1) fully removed at JC's request; §1, §2, §3, §10 and §16 annotated to mark their decisions as locked-but-dormant (no live caller) rather than actively running. The six-module set was restructured the same day to fill the gap this left — see `MASTER_CLARIFICATIONS.md §4` for the current numbering. Previous: 2026-07-19 (§16 gains the per-indicator escalation — threshold + peer-outlier, z ≥ 1.5, admin toggle, persisted factors), 2026-07-18 (§17 coach one-sport + athlete detail view + event disciplines), 2026-07-13 (§16 FYP II cohort-normed overall indicator + ACWR demotion), 2026-07-06 (§15 dashboard-embedded screening), 2026-06-28 (§13–14).*
+
+*Last updated: 2026-08-11 (later same day) — **§21** added: the hero now shows HoloMotion's printed Total Score with a signed per-component cohort comparison and a two-sided reason list, the derived 0-100 indicator having been the thing nobody could explain; the below-mean escalation became a -0.5 SD cutoff rather than a sign test; one shared indicator payload. Previous: 2026-08-11 — **§20j** added: the shared dashboard components now take `historical` (so the history views stop speaking in the present tense) and the risk hero takes `audience` — the latter fixing a live bug in which the medical and coach dashboards addressed the clinician as the at-risk athlete. Previous: 2026-08-10 (later same day) — **§20g–i** added: the digest attaches the holistic report by sharing its code rather than rebuilding it (fetch/draw extracted, verified byte-identical), per-user email opt-out under the institution switch, and seasonality that declines to name a season below two years of data. **§20f** revised — the 14 remaining inline band-precedence reads were migrated after all. Earlier same day: **§20** added: accountability (audit trail that copies the actor, fire-and-forget writes), immediate norm eligibility with one-time disclosure, deep muscles marked rather than drawn, alerts grouped per recipient, the monthly digest's marker-not-cron design, and one band vocabulary in `utils/bands.js`. Previous: 2026-08-06 (later same day) — **§19** added: one status palette across CSS, inline styles, Chart.js and the PDF reports. An audit found the PDF had a second band palette (and disagreed with its own tier colours), the radar's threshold red was a non-theme-aware literal, the 60/75/85 tier was defined five times with two different words for its lowest band, and eight CSS-variable fallbacks still carried the retired PDF palette. Earlier same day: **§4a** added: the body map's Muscle Flags mode now draws HoloMotion's 22 individual muscles by re-slicing the same MIT-licensed geometry (16 recovered from existing sub-paths, 6 deep ones as measured insets, selection by geometry not index, test-guarded); supersedes the aggregation half of §4 while leaving the asset and its attribution locked. Previous: 2026-08-03 — §18 on-device name redaction before vision extraction (Tesseract-located, page-1-only, fail-closed; verified against both HoloMotion layouts). Previous: 2026-07-20 — Activity Tracking (the FYP I Module 1) fully removed at JC's request; §1, §2, §3, §10 and §16 annotated to mark their decisions as locked-but-dormant (no live caller) rather than actively running. The six-module set was restructured the same day to fill the gap this left — see `MASTER_CLARIFICATIONS.md §4` for the current numbering. Previous: 2026-07-19 (§16 gains the per-indicator escalation — threshold + peer-outlier, z ≥ 1.5, admin toggle, persisted factors), 2026-07-18 (§17 coach one-sport + athlete detail view + event disciplines), 2026-07-13 (§16 FYP II cohort-normed overall indicator + ACWR demotion), 2026-07-06 (§15 dashboard-embedded screening), 2026-06-28 (§13–14).*

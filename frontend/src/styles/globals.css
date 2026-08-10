@@ -446,6 +446,120 @@ button { cursor: pointer; font-family: inherit; }
   line-height: 1.4;
 }
 
+/* ── Cohort comparison profile (inside the risk hero) ──────────────────────
+   The signed per-component standing against the athlete's comparison group,
+   which replaced the abstract 0-100 indicator as the hero's explanation. Sits
+   on a translucent wash so it reads as a panel inside the band-tinted hero
+   without needing its own colour (which would fight the band). */
+.cohort-profile {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.5);
+}
+[data-theme="dark"] .cohort-profile { background: rgba(255, 255, 255, 0.06); }
+.cohort-profile-head {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+.cohort-profile-group { font-weight: 400; text-transform: none; letter-spacing: 0; }
+.cohort-profile-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+}
+.cohort-profile-table th,
+.cohort-profile-table td {
+  padding: 4px 6px;
+  text-align: left;
+  font-weight: 400;
+  color: var(--text);
+  /* The global `th` rule carries a 2px bottom border meant for real table
+     headings; inside the hero that draws a heavy line under every row. */
+  border-bottom: 1px solid var(--border);
+}
+.cohort-profile-table thead th {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+}
+/* Row labels are content, not column headings. The global `th` rule uppercases
+   and mutes every th in the app, which turned "Stability" into a shouted, greyed
+   "STABILITY" — undone explicitly here rather than by switching to <td>, because
+   these genuinely are the rows' headers and screen readers should treat them so. */
+.cohort-profile-table tbody th {
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text);
+  font-size: 0.86rem;
+  border-bottom: 1px solid var(--border);
+}
+.cohort-profile-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.cohort-profile-table .muted { color: var(--text-muted); }
+.cohort-profile-table .delta { font-weight: 700; }
+/* Direction is carried by the SIGN; colour only reinforces it, so a colour-blind
+   reader loses nothing.
+   Qualified by the table class deliberately: a bare `.delta--up` is one class and
+   loses to `.cohort-profile-table td` (class + element), which sets `color`. That
+   made the deltas render plain text in LIGHT mode while working in dark, because
+   the `[data-theme="dark"]` prefix happened to add the specificity the light rule
+   lacked. */
+.cohort-profile-table .delta--up   { color: var(--risk-low); }
+.cohort-profile-table .delta--down { color: var(--risk-high); }
+.cohort-profile-table .delta--flat { color: var(--text-muted); }
+[data-theme="dark"] .cohort-profile-table .delta--up   { color: #6cc77a; }
+[data-theme="dark"] .cohort-profile-table .delta--down { color: #ff7a7a; }
+.cohort-profile-sd { font-weight: 400; font-size: 0.74rem; color: var(--text-muted); }
+.cohort-profile-hint { font-weight: 400; font-size: 0.74rem; color: var(--text-muted); }
+.cohort-profile-note {
+  margin-top: 8px;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+/* ── Two-sided reason columns ──────────────────────────────────────────────
+   Why assess / why not. Deliberately equal weight: the band above is the
+   verdict, and these are the evidence a clinician weighs, not a second verdict. */
+.reason-cols {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+.reason-col {
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.5);
+  border-left: 3px solid var(--border);
+}
+[data-theme="dark"] .reason-col { background: rgba(255, 255, 255, 0.06); }
+.reason-col--for     { border-left-color: var(--risk-high); }
+.reason-col--against { border-left-color: var(--risk-low); }
+.reason-col-head {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+.reason-col ul { margin: 0; padding-left: 18px; }
+.reason-col li { font-size: 0.84rem; line-height: 1.5; margin-bottom: 3px; }
+.reason-col-empty {
+  margin: 0;
+  font-size: 0.84rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
 /* Risk modifiers (composite-risk factors and personalised band) */
 .risk-escalation-badge {
   display: inline-block;

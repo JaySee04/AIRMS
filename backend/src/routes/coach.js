@@ -15,6 +15,7 @@ const { Op } = require('sequelize');
 const { Athlete, MuscleFlag, Screening, AthleteDiscipline } = require('../models');
 const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
+const { INDICATOR_ATTRS, toIndicator } = require('../utils/indicatorPayload');
 const { effectiveBand } = require('../utils/bands');
 
 const router = express.Router();
@@ -41,7 +42,7 @@ router.get('/readiness', auth, rbac('coach'), async (req, res) => {
     const screenings = await Screening.findAll({
       where: { athleteId: { [Op.in]: ids } },
       order: [['assessedAt', 'DESC'], ['id', 'DESC']],
-      attributes: ['athleteId', 'assessedAt', 'overallIndicator', 'overallBand', 'escalations', 'factors', 'subitems', 'overrideBand', 'overrideNote', 'overrideBy'],
+      attributes: ['athleteId', ...INDICATOR_ATTRS],
       raw: true,
     });
     // Latest screening indicator per athlete (the HoloMotion risk comparison),
@@ -53,20 +54,11 @@ router.get('/readiness', auth, rbac('coach'), async (req, res) => {
     for (const s of screenings) {
       const n = seen.get(s.athleteId) || 0;
       if (n === 0) {
+        // One shared shaper (utils/indicatorPayload.js) — this payload used to be
+        // hand-built here and had already drifted, dropping the clinician
+        // override the coach's override card promises them.
         indicatorByAthlete.set(s.athleteId, {
-          overallIndicator: s.overallIndicator,
-          overallBand: s.overallBand,
-          escalations: s.escalations,
-          factors: Array.isArray(s.factors) ? s.factors : [],
-          subitems: s.subitems || null,
-          // Carry the clinician override through so the coach's OverallRiskBadge
-          // shows "set by clinician" + the note, not the generic band message —
-          // the override card promises the coach sees this. (athletes.js already
-          // ships these; the coach payload was dropping them.)
-          overrideBand: s.overrideBand,
-          overrideNote: s.overrideNote,
-          overrideBy: s.overrideBy,
-          effectiveBand: effectiveBand(s),
+          ...toIndicator(s),
           prevIndicator: null,
           prevAssessedAt: null,
         });

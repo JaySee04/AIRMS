@@ -53,6 +53,26 @@ const Screening = sequelize.define('Screening', {
   // dashboards can explain WHY a band is amber/red — including which indicator
   // triggered the per-indicator escalation. Recomputed with the indicator.
   factors: { type: DataTypes.JSON, allowNull: true },
+  // The other half of the evidence — observations arguing AGAINST assessment.
+  // Never a recommendation to skip one; the band stays the verdict.
+  reasonsAgainst: { type: DataTypes.JSON, allowNull: true, field: 'reasons_against' },
+
+  // The comparison behind the band, persisted rather than recomputed on read.
+  //
+  // All four of these were already being calculated inside recomputeIndicators
+  // and then thrown away, which left the dashboards with one abstract 0-100
+  // number and no way to say WHICH component drove it, or how the athlete sits
+  // among their peers. Persisted (not derived on read) for the same reason every
+  // other derived value here is: the norms move when cohort membership changes,
+  // so a screening must carry the comparison it was actually scored against.
+  cohortZ: { type: DataTypes.DECIMAL(6, 3), allowNull: true, field: 'cohort_z' },
+  cohortRank: { type: DataTypes.INTEGER, allowNull: true, field: 'cohort_rank' },
+  cohortSize: { type: DataTypes.INTEGER, allowNull: true, field: 'cohort_size' },
+  // Human label for the peer group, e.g. "Badminton · Male" — so the UI can name
+  // who the athlete is being compared against without re-resolving the tier.
+  cohortLabel: { type: DataTypes.STRING(160), allowNull: true, field: 'cohort_label' },
+  // Per-component [{ key,label,value,mean,delta,z,lowerIsBetter }].
+  cohortDeltas: { type: DataTypes.JSON, allowNull: true, field: 'cohort_deltas' },
 
   // Clinician override (medical staff, after a real assessment). Auto-expires
   // when a newer Screening row is imported.

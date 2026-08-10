@@ -180,6 +180,18 @@ Three-tier monorepo orchestrated by `concurrently` from the root `package.json`.
 > Dashboard & Overall Risk Indicator, ..., Module 6 = Clinical & Squad
 > Monitoring). Full mapping: `docs/fyp/FYP2_MODULES_USECASES.md` Appendix A/B.
 
+> **Status change 2026-08-11 — what the hero SHOWS changed, not the model.**
+> The cohort-normed 0-100 indicator is no longer the hero's headline number.
+> HoloMotion's own **Total Score, as printed on the report**, is — because it is
+> the one value a clinician can check against the PDF in their hand, and because
+> "what is 54?" was a question the abstract score could not answer. The indicator
+> is still computed, still persisted and still drives ranking, alerts, report
+> ordering and the coach table; it is simply not the thing displayed. In its place
+> the hero shows a **signed per-component comparison against the cohort** plus a
+> **two-sided reason list** (why assess / why not). Rationale, the evidence that
+> HoloMotion's Total Score excludes injury risk entirely, and why raw Total Score
+> alone was rejected: `docs/DESIGN_DECISIONS.md §21`.
+
 It implements `classifyCompositeRisk()` which:
 1. Computes a vulnerability score from the athlete's screening data (injury risk index, overall activity score, mobility, stability, symmetry)
 2. **Personalises** the textbook Gabbett ACWR thresholds (0.8 / 1.3 / 1.5) by ±~15% based on vulnerability
@@ -199,6 +211,7 @@ From `docs/MASTER_CLARIFICATIONS.md §12`:
 - The Figma-derived UI (split login card, sidebar branding, topbar dropdown)
 - The MySQL schema for `Athlete` and `Screening` (Sequelize models in `backend/src/models/`). ~~`Injury`~~ — that model was deleted by the HoloMotion-only cut (2026-08-02); the lock no longer has a subject
 - ACWR thresholds 0.8 / 1.3 / 1.5 as the baseline
+- The escalation rules that set the band (below-cohort-mean, bottom-k, per-indicator outlier). **Changed 2026-08-11:** the below-mean rule now fires at `escalation_below_mean_z` (default **-0.5 SD**) instead of any `z < 0`. A sign test flagged ~half of every cohort by construction — 27 of 58 seeded athletes tripped it and 12 of the 14 ambers rested on it alone, one at z = -0.163. Recomputing moved the seeded distribution from 29/14/15 to **41 green / 13 amber / 4 red**
 
 The live models are exactly: `User`, `Athlete`, `AthleteDiscipline`, `Screening`, `MuscleFlag`, `CohortThreshold`, `CohortNormVersion`, `Setting`, `AuditLog` (see `backend/src/models/index.js`).
 
@@ -288,6 +301,7 @@ NEXT_PUBLIC_API_URL=http://localhost:5000/api
 5. **The prototype folder** `airms-prototype/` is the inherited HTML reference from prior students (Shewin, Keying). It is **not deployed**, but design copy and component layouts are cherry-picked from it. Don't delete it.
 6. **HoloMotion PDF rendering uses a `canvas` npm alias** → `@napi-rs/canvas` (prebuilt, declared in `backend/package.json`). Do **not** `npm install canvas` (node-canvas) — it needs a native compiler and fails on this Windows/Node setup. The alias is what lets `pdfjs` render the image-only HoloMotion PDFs. See [docs/DESIGN_DECISIONS.md §13](docs/DESIGN_DECISIONS.md).
 7. **`Error: UNKNOWN, read (errno -4094)` from `next build` / `next lint`** — the repo lives inside OneDrive, and OneDrive's "Free up space" converts `node_modules` files into cloud reparse points that Node's ESM loader cannot read (even after hydration; plain `fs` reads work, the ESM fast path doesn't). Diagnose with `dir /s /a:l /b node_modules | find /c ":"` (counts reparse files); fix with `npm ci` in the affected package (rewrites plain files). It recurs whenever OneDrive frees space again — the durable fix is keeping OneDrive from dehydrating the project (right-click → "Always keep on this device") or moving the repo out of OneDrive.
+8. **`npm run build` while `npm run dev` is running corrupts the dev server.** Both write `frontend/.next`. A production build wipes and rewrites the chunk files underneath the running dev server, whose in-memory manifest then points at files that no longer exist — every route 500s with **`Cannot find module './NNN.js'` from `.next/server/webpack-runtime.js`**, which is unrecognisable unless you have seen it. If the build runs second it fails instead, with `EINVAL: invalid argument, readlink '.next/package.json'` (it cannot delete a file the dev server holds), leaving BOTH broken. Two `next dev` instances on the same tree do the same thing. **Order matters:** stop dev → `rm -rf frontend/.next` → build → restart dev. Recovery is the same three steps; `.next` is gitignored and regenerates.
 
 ## Submission workflow
 

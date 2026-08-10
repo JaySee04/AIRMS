@@ -12,16 +12,67 @@
 export interface SubitemRow { romL: number | null; romR: number | null; stabL: number | null; stabR: number | null; sym: number | null; }
 export type Subitems = Partial<Record<'neck' | 'shoulder' | 'torso' | 'pelvis' | 'lowerLimbs', SubitemRow>>;
 
+/** One component's standing against the athlete's comparison group. `delta` and
+ *  `z` are ORIENTED: positive always means better than the group, on every row,
+ *  including the two rows whose raw scale runs the other way. */
+export interface CohortDelta {
+  key: string;
+  label: string;
+  value: number;
+  mean: number;
+  delta: number;
+  z: number;
+  lowerIsBetter?: boolean;
+}
+
 export interface ScreeningIndicator {
+  /** HoloMotion's own headline number, as printed on the report. */
+  totalScore?: number | null;
   overallIndicator?: number | null;
   overallBand?: 'green' | 'amber' | 'red' | null;
   escalations?: number;
   factors?: string[]; // human-readable escalation reasons (why the band is amber/red)
+  reasonsAgainst?: string[]; // observations arguing against assessment
+  cohortZ?: number | null;
+  cohortRank?: number | null;
+  cohortSize?: number | null;
+  cohortLabel?: string | null;
+  cohortDeltas?: CohortDelta[];
   effectiveBand?: 'green' | 'amber' | 'red' | null;
   overrideBand?: 'green' | 'amber' | 'red' | null;
   overrideNote?: string | null;
   overrideBy?: string | null;
   subitems?: Subitems | null;
+}
+
+// A component this far below the group is worth naming even when no escalation
+// rule fired on it.
+//
+// This exists because the rules only look at the COMPOSITE z, the bottom-k rank
+// and the exercise-risk indicators — so a single badly-below component escalates
+// nothing. Nazwan's ROM is 1.45 SD under his squad and his stored escalation
+// reasons are empty; Adam Kumar's symmetry is 22.3 points under his and only a
+// shoulder rule is recorded. Showing "no reasons to assess" for either would be
+// worse than the old opaque score, so the panel lists what the deltas plainly
+// say. The BAND is untouched — reasons and escalations are different things.
+const NOTABLE_Z = -1;
+
+/** Reasons to assess: the stored escalation reasons, plus any component clearly
+ *  below the group that no rule happened to cover. */
+function whyAssess(screening: ScreeningIndicator): string[] {
+  const out = [...(screening.factors ?? [])];
+  const named = out.join(' ').toLowerCase();
+  for (const d of (screening.cohortDeltas ?? []).filter((x) => x.z <= NOTABLE_Z).sort((a, b) => a.z - b.z)) {
+    // Skip anything the stored reasons already mention, so the column doesn't
+    // say the same thing twice in different words.
+    if (named.includes(d.label.toLowerCase())) continue;
+    // "worse than", never "below". The deltas are oriented, so on Injury risk and
+    // L/R balance a negative delta means a HIGHER raw value — saying "Injury risk
+    // 4.9 below the group" for an athlete at 19 against a group mean of 14.1 states
+    // the opposite of the truth.
+    out.push(`${d.label} ${Math.abs(d.delta)} worse than the group (${d.z} SD)`);
+  }
+  return out;
 }
 
 const BAND_META = {
@@ -157,6 +208,13 @@ export default function OverallRiskBadge({
       : `A member of the medical team has assessed ${subject} and set the band manually. It stays until the next screening is imported.`)
     : HERO_MSG[audience][historical ? 'past' : 'now'][band];
 
+  const deltas = screening.cohortDeltas ?? [];
+  const forList = whyAssess(screening);
+  const againstList = screening.reasonsAgainst ?? [];
+  const rank = screening.cohortRank;
+  const size = screening.cohortSize;
+  const who = audience === 'self' ? 'you' : 'this athlete';
+
   return (
     <div className={`risk-hero risk-hero--${HERO_CLS[band]}`}>
       <div style={{ flex: 1 }}>
@@ -174,29 +232,108 @@ export default function OverallRiskBadge({
             </span>
           </div>
         )}
-        {!overridden && (hasFactors || escCount > 0) && (
+
+        {/* The comparison behind the band. Replaces the abstract 0-100 as the
+            explanation: a signed row per component says WHICH measure drove the
+            verdict, which a single composite number cannot. */}
+        {deltas.length > 0 && (
+          <div className="cohort-profile">
+            <div className="cohort-profile-head">
+              {historical ? 'Against the group at that screening' : `How ${who} compare${audience === 'self' ? '' : 's'} to the comparison group`}
+              {screening.cohortLabel && <span className="cohort-profile-group"> · {screening.cohortLabel}</span>}
+            </div>
+            <table className="cohort-profile-table">
+              <thead>
+                <tr>
+                  <th scope="col">Measure</th>
+                  <th scope="col" className="num">Score</th>
+                  <th scope="col" className="num">Group</th>
+                  <th scope="col" className="num">Difference</th>
+                </tr>
+              </thead>
+              <tbody>
+                {deltas.map((d) => {
+                  // A dead band, so a rounding-level wobble doesn't read as a
+                  // real gap. Matches the ±0.25 SD the backend uses to decide
+                  // what counts as "level with the group".
+                  const tone = d.z >= 0.25 ? 'up' : d.z <= -0.25 ? 'down' : 'flat';
+                  return (
+                    <tr key={d.key}>
+                      <th scope="row">
+                        {d.label}
+                        {d.lowerIsBetter && <span className="cohort-profile-hint" title="Lower raw values are better on this measure"> (lower is better)</span>}
+                      </th>
+                      <td className="num">{d.value}</td>
+                      <td className="num muted">{d.mean}</td>
+                      <td className={`num delta delta--${tone}`}>
+                        {/* Signed, not an arrow glyph: the sign already carries
+                            the direction, and colour only reinforces it. */}
+                        {d.delta > 0 ? '+' : ''}{d.delta}
+                        <span className="cohort-profile-sd"> ({d.z} SD)</span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            <div className="cohort-profile-note">
+              A positive difference is better than the group on every row.
+              {rank != null && size != null && size > 1 && (
+                <> Ranked <strong>{rank} of {size}</strong> in this group (1 = lowest).</>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Both sides of the evidence. AIRMS only ever recorded reasons to
+            escalate, so a green athlete's hero asserted "fine" with nothing
+            behind it and an amber one showed a lone negative with no
+            counterweight. The band above stays the verdict. */}
+        {(forList.length > 0 || againstList.length > 0) && (
+          <div className="reason-cols">
+            <div className="reason-col reason-col--for">
+              <div className="reason-col-head">Reasons to assess</div>
+              {forList.length ? (
+                <ul>{forList.map((f) => <li key={f}>{f}</li>)}</ul>
+              ) : (
+                <p className="reason-col-empty">Nothing in this screening argues for an assessment.</p>
+              )}
+            </div>
+            <div className="reason-col reason-col--against">
+              <div className="reason-col-head">Reasons not to</div>
+              {againstList.length ? (
+                <ul>{againstList.map((f) => <li key={f}>{f}</li>)}</ul>
+              ) : (
+                <p className="reason-col-empty">Nothing in this screening argues against one.</p>
+              )}
+            </div>
+          </div>
+        )}
+        {escCount > 0 && !hasFactors && (
           <div className="risk-factors">
             <span className="risk-factors-label">Why:</span>
-            {hasFactors ? (
-              screening.factors!.map((f) => (<span key={f} className="risk-factor-chip">{f}</span>))
-            ) : (
-              <span className="risk-factor-chip">
-                {escCount} escalation{escCount === 1 ? '' : 's'} · scoring below
-                {audience === 'self' ? ' your ' : ' their '}
-                comparison group, being among its lowest scorers, or a screening indicator that is both elevated
-                and worse than that group
-              </span>
-            )}
+            <span className="risk-factor-chip">
+              {escCount} escalation{escCount === 1 ? '' : 's'} recorded
+            </span>
           </div>
         )}
       </div>
+
+      {/* HoloMotion's own printed number is the headline. It is the one value a
+          clinician can check against the PDF in their hand, which the derived
+          0-100 indicator never was. The indicator is still computed and still
+          drives ranking, alerts and report ordering — it is just no longer the
+          thing shown. */}
       <div className="risk-hero-stat">
         <div className="risk-hero-stat-val" style={{ color: meta.color }}>
-          {screening.overallIndicator ?? '—'}
+          {screening.totalScore ?? '—'}
         </div>
-        <div className="risk-hero-stat-label">Indicator / 100</div>
+        <div className="risk-hero-stat-label">Total Score</div>
         <div className="risk-hero-stat-sub">
-          Comparison group<br /><strong>average = 50</strong>
+          as printed by HoloMotion
+          {rank != null && size != null && size > 1 && (
+            <><br /><strong>{rank} of {size}</strong> in group</>
+          )}
         </div>
       </div>
     </div>

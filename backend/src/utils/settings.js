@@ -6,6 +6,13 @@ const DEFAULTS = {
   min_cohort_n: 5,              // minimum athletes in a cohort before it norms/ranks
   fallback_enabled: true,      // spg → sg → s → all when a cohort is too small
   escalation_below_mean: true, // +1 escalation when the athlete is below the cohort mean
+  // How far below the mean counts. A plain z < 0 test flags ~half of every
+  // cohort BY CONSTRUCTION — measured on the seeded set, 27 of 58 athletes
+  // tripped it and 12 of the 14 ambers rested on it alone, one of them at
+  // z = -0.163. "Below average" then means "lost a coin toss", which is not a
+  // clinical finding and reads as noise once the reasons are shown to a
+  // clinician. -0.5 SD keeps the rule meaning *meaningfully* below.
+  escalation_below_mean_z: -0.5,
   escalation_bottom_k: true,   // +1 escalation when athlete in the worst k of cohort
   bottom_k: 3,                 // the "k" in bottom-k. Band: 0 escalations = green,
                                // 1 = amber (needs attention), 2+ = red (immediate assessment)

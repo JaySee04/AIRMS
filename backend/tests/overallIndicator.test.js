@@ -2,7 +2,9 @@
 // Models are stubbed so the pure function runs without a database.
 jest.mock('../src/models', () => ({ Screening: {}, CohortThreshold: {} }));
 
-const { computeIndicator, compositeZ, zToScore, effectiveK, belongsToCohort } = require('../src/utils/overallIndicator');
+const {
+  computeIndicator, compositeZ, zToScore, effectiveK, belongsToCohort, cohortDeltas, cohortLabelFor,
+} = require('../src/utils/overallIndicator');
 
 // A screening whose oriented components sit exactly on the cohort mean → z 0.
 const SCREENING = {
@@ -110,5 +112,125 @@ describe('score mapping, bottom-k cap, cohort membership', () => {
     expect(compositeZ(SCREENING, STATS_ON_MEAN)).toBe(0);
     expect(compositeZ(SCREENING, STATS_ABOVE)).toBe(-1);
     expect(compositeZ(SCREENING, null)).toBeNull();
+  });
+});
+
+// ── The below-mean CUTOFF (2026-08-11) ─────────────────────────────────────
+// This rule was `z < 0`, which flags half of every cohort by construction: 27 of
+// 58 seeded athletes tripped it and 12 of the 14 ambers rested on it alone, one
+// at z = -0.163. These tests pin the boundary so it cannot silently revert to a
+// sign test.
+describe('below-mean escalation uses a cutoff, not a sign test', () => {
+  // means shifted so every component z is exactly -0.3 → composite -0.3.
+  const statsAtZ = (z) => ({
+    totalScore: { mean: 70 - z * 5, sd: 5 }, rom: { mean: 80 - z * 5, sd: 5 },
+    stability: { mean: 78 - z * 5, sd: 5 }, symmetry: { mean: 90 - z * 5, sd: 5 },
+    riskGood: { mean: -10 - z * 5, sd: 5 },
+  });
+
+  it('does NOT escalate an athlete a hair below the mean', () => {
+    const r = computeIndicator(SCREENING, statsAtZ(-0.3), null, {});
+    expect(r.z).toBeCloseTo(-0.3, 2);
+    expect(r.escalations).toBe(0);
+    expect(r.band).toBe('green');
+  });
+
+  it('escalates once past the cutoff', () => {
+    const r = computeIndicator(SCREENING, statsAtZ(-0.8), null, {});
+    expect(r.escalations).toBe(1);
+    expect(r.band).toBe('amber');
+  });
+
+  it('the boundary itself does not escalate (strictly below)', () => {
+    expect(computeIndicator(SCREENING, statsAtZ(-0.5), null, {}).escalations).toBe(0);
+  });
+
+  it('the cutoff is admin-configurable', () => {
+    const at = statsAtZ(-0.3);
+    expect(computeIndicator(SCREENING, at, null, { escalation_below_mean_z: -0.1 }).escalations).toBe(1);
+    expect(computeIndicator(SCREENING, at, null, { escalation_below_mean_z: -2 }).escalations).toBe(0);
+  });
+
+  it('names the component carrying the escalation, not just "below average"', () => {
+    // ROM 30 SD below everything else → it should be the one named.
+    const stats = { ...statsAtZ(-0.8), rom: { mean: 95, sd: 5 } };
+    const r = computeIndicator(SCREENING, stats, null, {});
+    expect(r.factors.some((f) => /ROM/.test(f))).toBe(true);
+  });
+});
+
+describe('cohortDeltas', () => {
+  it('reports value, group mean and an oriented signed gap per component', () => {
+    const d = cohortDeltas(SCREENING, STATS_ABOVE);
+    const rom = d.find((x) => x.key === 'rom');
+    expect(rom).toMatchObject({ label: 'ROM', value: 80, mean: 85, delta: -5, z: -1 });
+  });
+
+  it('un-negates the two components stored inverted, so a clinician sees real numbers', () => {
+    // riskGood is stored as -(mean risk) so that higher = better for scoring. A
+    // panel showing an injury-risk mean of -10 to a clinician would be nonsense.
+    const d = cohortDeltas(SCREENING, STATS_ON_MEAN);
+    const risk = d.find((x) => x.key === 'riskGood');
+    expect(risk.value).toBe(10);
+    expect(risk.mean).toBe(10);
+    expect(risk.lowerIsBetter).toBe(true);
+  });
+
+  it('keeps the sign ORIENTED: positive is better on every row', () => {
+    // Cohort mean risk 15 (stored -15), athlete 10 (stored -10) → the athlete is
+    // BETTER, so the delta must be POSITIVE even though the raw value is lower.
+    const d = cohortDeltas(SCREENING, { ...STATS_ON_MEAN, riskGood: { mean: -15, sd: 5 } });
+    expect(d.find((x) => x.key === 'riskGood').delta).toBeGreaterThan(0);
+  });
+
+  it('skips components with no cohort stat and returns [] with no stats at all', () => {
+    expect(cohortDeltas(SCREENING, null)).toEqual([]);
+    const d = cohortDeltas(SCREENING, { rom: { mean: 80, sd: 5 } });
+    expect(d.map((x) => x.key)).toEqual(['rom']);
+  });
+});
+
+describe('reasons against assessment', () => {
+  it('names the components better than the group', () => {
+    const r = computeIndicator(SCREENING, { ...STATS_ON_MEAN, stability: { mean: 70, sd: 5 } }, null, {});
+    expect(r.reasonsAgainst.some((x) => /Stability/.test(x))).toBe(true);
+  });
+
+  it('says "better than", never "above" - the two inverted rows make "above" false', () => {
+    // Cohort mean risk 20 (stored -20), athlete 10: the athlete's RAW value is
+    // lower, which is better. "Injury risk is above the group" would be a lie.
+    const r = computeIndicator(SCREENING, { ...STATS_ON_MEAN, riskGood: { mean: -20, sd: 5 } }, null, {});
+    const line = r.reasonsAgainst.find((x) => /Injury risk/.test(x));
+    expect(line).toBeDefined();
+    expect(line).toMatch(/better than the group/);
+    expect(line).not.toMatch(/above the group/);
+  });
+
+  it('states when no exercise-risk indicator is at or over the threshold', () => {
+    // Every risk in SCREENING is 10, well under 25.
+    const r = computeIndicator(SCREENING, STATS_ON_MEAN, null, {});
+    expect(r.reasonsAgainst.some((x) => /No exercise-risk indicator/.test(x))).toBe(true);
+  });
+
+  it('does NOT claim that when an indicator IS over the threshold', () => {
+    const r = computeIndicator({ ...SCREENING, ankleInjuryRisk: 30 }, STATS_ON_MEAN, null, {});
+    expect(r.reasonsAgainst.some((x) => /No exercise-risk indicator/.test(x))).toBe(false);
+  });
+
+  it('is empty rather than undefined when a cohort cannot score the athlete', () => {
+    const r = computeIndicator(SCREENING, null, null, {});
+    expect(r.reasonsAgainst).toEqual([]);
+    expect(r.deltas).toEqual([]);
+  });
+});
+
+describe('cohortLabelFor', () => {
+  it('turns a pipe-delimited cohort id into something a clinician reads', () => {
+    expect(cohortLabelFor('sg|Badminton|Male')).toBe('Badminton · Male');
+    expect(cohortLabelFor('spg|Badminton|PODIUM|Male')).toBe('Badminton · PODIUM · Male');
+    expect(cohortLabelFor('spgd|Athletics|PODIUM|Female|100m')).toBe('Athletics · PODIUM · Female · 100m');
+    expect(cohortLabelFor('s|Hockey')).toBe('Hockey');
+    expect(cohortLabelFor('all')).toBe('All athletes');
+    expect(cohortLabelFor(null)).toBeNull();
   });
 });

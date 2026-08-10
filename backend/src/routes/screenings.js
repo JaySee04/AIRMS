@@ -8,6 +8,7 @@ const requirePermission = require('../middleware/permission');
 const { notifyOverrideToCoach } = require('../utils/notifications');
 const { queuePostImport } = require('../utils/postImport');
 const { effectiveBand } = require('../utils/bands');
+const { toIndicator } = require('../utils/indicatorPayload');
 
 const router = express.Router();
 
@@ -84,20 +85,7 @@ router.get('/:id/full', auth, requirePermission('viewRecords'), async (req, res)
       },
       myodynamia: Array.isArray(flags.myodynamia) ? flags.myodynamia.map(({ muscle, side }) => ({ muscle, side })) : [],
       tension: Array.isArray(flags.tension) ? flags.tension.map(({ muscle, side }) => ({ muscle, side })) : [],
-      screening: {
-        screeningId: s.id,
-        assessedAt: s.assessedAt,
-        overallIndicator: s.overallIndicator,
-        overallBand: s.overallBand,
-        escalations: s.escalations,
-        factors: Array.isArray(s.factors) ? s.factors : [],
-        subitems: s.subitems || null,
-        overrideBand: s.overrideBand,
-        overrideNote: s.overrideNote,
-        overrideBy: s.overrideBy,
-        overrideAt: s.overrideAt,
-        effectiveBand: effectiveBand(s),
-      },
+      screening: toIndicator(s),
     });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });

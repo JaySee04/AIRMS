@@ -7,6 +7,7 @@ const { recomputeIndicators } = require('../utils/overallIndicator');
 const { notifyInjuryToCoach } = require('../utils/notifications');
 const { screeningPeriods, GRAINS } = require('../utils/screeningPeriods');
 const { effectiveBand } = require('../utils/bands');
+const { INDICATOR_ATTRS, toIndicator } = require('../utils/indicatorPayload');
 const {
   focusBreakdown, isShownIndicator, SHOWN_INDICATORS, tally, bandOf,
 } = require('../utils/cohortFocus');
@@ -22,33 +23,6 @@ const isScreened = (r) => SCREENED_SCORES.some((k) => r[k] !== null && r[k] !== 
 async function allScreenedRows() {
   const rows = await Athlete.findAll({ where: { isActive: true }, raw: true });
   return rows.filter(isScreened);
-}
-
-// Only the columns the indicator payload needs — keeps the big JSON/TEXT
-// columns (muscle_flags, summary_text) and the 12 raw scores out of the row.
-const INDICATOR_ATTRS = [
-  'id', 'assessedAt', 'overallIndicator', 'overallBand', 'escalations', 'factors',
-  'subitems', 'overrideBand', 'overrideNote', 'overrideBy', 'overrideAt',
-];
-
-// Shape one Screening row into the indicator payload the dashboards read.
-function toIndicator(s) {
-  if (!s) return null;
-  return {
-    screeningId: s.id,
-    assessedAt: s.assessedAt,
-    overallIndicator: s.overallIndicator,
-    overallBand: s.overallBand,
-    escalations: s.escalations,
-    factors: Array.isArray(s.factors) ? s.factors : [],
-    subitems: s.subitems || null,
-    overrideBand: s.overrideBand,
-    overrideNote: s.overrideNote,
-    overrideBy: s.overrideBy,
-    overrideAt: s.overrideAt,
-    // The band clinicians/coaches act on: an override wins until the next import.
-    effectiveBand: effectiveBand(s),
-  };
 }
 
 // Latest screening's overall indicator for ONE athlete, with the clinician
