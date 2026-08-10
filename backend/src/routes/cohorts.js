@@ -200,18 +200,27 @@ router.patch('/members/:athleteId', auth, rbac('admin', 'medical'), canEditNorms
   try {
     const a = await Athlete.findByPk(req.params.athleteId);
     if (!a) return res.status(404).json({ message: 'Athlete not found' });
+    let recomputed = null;
     if (req.body.normExcluded !== undefined) {
       await a.update({ normExcluded: !!req.body.normExcluded });
+      // Changing who COUNTS changes the norm, so recompute now rather than
+      // leaving it to the next import. Awaited, not queued: the admin is looking
+      // at the cohort table and expects the numbers to have moved when the tick
+      // does. Deferring it was the whole bug — the exclusion applied to
+      // eligibility but the published norm still included them.
+      const cohorts = await recomputeCohorts();
+      const indicators = await recomputeIndicators();
+      recomputed = { cohorts, indicators };
       recordAudit(req, {
         action: 'norm.member',
         entity: 'athlete',
         entityId: a.athleteId,
         summary: `${a.normExcluded ? 'Excluded' : 'Re-included'} ${a.name || a.athleteId} `
           + `${a.normExcluded ? 'from' : 'in'} norm calculation`,
-        meta: { normExcluded: a.normExcluded },
+        meta: { normExcluded: a.normExcluded, cohorts, indicators },
       });
     }
-    res.json({ athleteId: a.athleteId, normExcluded: a.normExcluded });
+    res.json({ athleteId: a.athleteId, normExcluded: a.normExcluded, recomputed });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 

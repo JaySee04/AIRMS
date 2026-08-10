@@ -39,38 +39,49 @@ const GRAINS: Array<{ key: Grain; label: string }> = [
 // Programme Activity page.
 const SHOWN = 6;
 
-function pct(n: number, total: number): number {
-  return total > 0 ? (n / total) * 100 : 0;
-}
+// Columns are a FIXED width rather than flexing to fill the row. A yearly view
+// of a young dataset is one period, and a single flexing bar stretched the whole
+// card into a tricolour banner that looked like a status flag rather than a
+// chart. One period should look like one column.
+const COL_W = 62;
+const PLOT_H = 78;
 
-// Band mix as one stacked bar. Height carries how many athletes were tested, so
-// a thin bar reads as "few tests" rather than silently weighting equally with a
-// period that tested the whole squad.
-function PeriodBar({ p, max }: { p: Period; max: number }) {
-  const total = p.bands.green + p.bands.amber + p.bands.red;
-  const height = max > 0 ? Math.max(14, (p.athletes / max) * 74) : 14;
-  const title = `${p.label} — ${p.athletes} athlete${p.athletes === 1 ? '' : 's'} tested`
-    + ` · ${p.bands.green} green, ${p.bands.amber} amber, ${p.bands.red} red`;
+const BAND_TOKENS = [
+  { key: 'green' as const, label: 'Green', color: 'var(--risk-low)' },
+  { key: 'amber' as const, label: 'Amber', color: 'var(--risk-moderate)' },
+  { key: 'red' as const, label: 'Red', color: 'var(--risk-high)' },
+];
+
+function PeriodColumn({ p, max }: { p: Period; max: number }) {
+  const banded = p.bands.green + p.bands.amber + p.bands.red;
+  const h = max > 0 ? Math.max(10, Math.round((p.athletes / max) * PLOT_H)) : 10;
+  const parts = BAND_TOKENS
+    .map((b) => ({ ...b, n: p.bands[b.key] }))
+    .filter((b) => b.n > 0);
+
   return (
-    <div style={{ flex: 1, minWidth: 0, textAlign: 'center' }}>
-      <div
-        title={title}
-        style={{
-          height, display: 'flex', flexDirection: 'column-reverse',
-          borderRadius: 3, overflow: 'hidden', marginBottom: 6,
-          background: 'var(--border)',
-        }}
-      >
-        {total > 0 ? (
-          <>
-            <div style={{ height: `${pct(p.bands.green, total)}%`, background: 'var(--risk-low)' }} />
-            <div style={{ height: `${pct(p.bands.amber, total)}%`, background: 'var(--risk-moderate)' }} />
-            <div style={{ height: `${pct(p.bands.red, total)}%`, background: 'var(--risk-high)' }} />
-          </>
-        ) : null}
+    <div style={{ width: COL_W, flex: `0 0 ${COL_W}px`, textAlign: 'center' }}>
+      <div style={{ fontSize: '0.72rem', fontWeight: 700, marginBottom: 3 }}>{p.athletes}</div>
+      {/* Fixed-height plot area so every column's bar grows from the same
+          baseline — otherwise short bars float and the row reads as noise. */}
+      <div style={{ height: PLOT_H, display: 'flex', alignItems: 'flex-end' }}>
+        <div
+          style={{
+            width: '100%', height: h, display: 'flex', flexDirection: 'column-reverse',
+            borderRadius: 3, overflow: 'hidden',
+            background: banded > 0 ? 'transparent' : 'var(--border)',
+          }}
+        >
+          {parts.map((b) => (
+            <div
+              key={b.key}
+              title={`${p.label} — ${b.label}: ${b.n} of ${banded}`}
+              style={{ height: `${(b.n / banded) * 100}%`, background: b.color }}
+            />
+          ))}
+        </div>
       </div>
-      <div style={{ fontSize: '0.68rem', fontWeight: 600 }}>{p.athletes}</div>
-      <div className="text-muted" style={{ fontSize: '0.62rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+      <div className="text-muted" style={{ fontSize: '0.64rem', marginTop: 5, whiteSpace: 'nowrap' }}>
         {p.label}
       </div>
     </div>
@@ -95,13 +106,14 @@ export default function TrendStrip({ query }: { query: string }) {
 
   const periods = (data?.periods ?? []).slice(-SHOWN);
   const max = Math.max(1, ...periods.map((p) => p.athletes));
+  const latest = periods.length ? periods[periods.length - 1] : null;
 
   // Direction on the headline score, latest period against the one before it.
-  const a = periods.length >= 2 ? periods[periods.length - 2].avg : null;
-  const b = periods.length >= 2 ? periods[periods.length - 1].avg : null;
-  const key = 'totalScore';
-  const delta = a && b && typeof a[key] === 'number' && typeof b[key] === 'number'
-    ? Math.round(((b[key] as number) - (a[key] as number)) * 10) / 10
+  const prev = periods.length >= 2 ? periods[periods.length - 2] : null;
+  const a = prev?.avg.totalScore;
+  const b = latest?.avg.totalScore;
+  const delta = typeof a === 'number' && typeof b === 'number'
+    ? Math.round((b - a) * 10) / 10
     : null;
 
   return (
@@ -140,29 +152,50 @@ export default function TrendStrip({ query }: { query: string }) {
 
       {periods.length > 0 && (
         <>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginBottom: 10 }}>
-            {periods.map((p) => (<PeriodBar key={p.key} p={p} max={max} />))}
+          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', marginBottom: 6 }}>
+            {periods.map((p) => (<PeriodColumn key={p.key} p={p} max={max} />))}
           </div>
 
-          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'center', fontSize: '0.78rem' }}>
-            {delta !== null && (
-              <span>
+          {/* Counts, not just colour: the stack shows proportion, these say how
+              many — and they keep the panel readable without relying on hue. */}
+          {latest && (
+            <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'baseline', fontSize: '0.78rem', marginTop: 10 }}>
+              <span className="text-muted">{latest.label}:</span>
+              {BAND_TOKENS.map((t) => (
+                <span key={t.key}>
+                  <i style={{
+                    display: 'inline-block', width: 9, height: 9, borderRadius: 2,
+                    background: t.color, marginRight: 5,
+                  }} />
+                  {t.label} <strong>{latest.bands[t.key]}</strong>
+                </span>
+              ))}
+              <Link href="/admin/activity" style={{ marginLeft: 'auto' }}>
+                Full programme activity →
+              </Link>
+            </div>
+          )}
+
+          <div style={{ fontSize: '0.78rem', marginTop: 10 }}>
+            {delta !== null && prev ? (
+              <>
                 Average Total Score{' '}
                 <strong style={{ color: delta >= 0 ? 'var(--risk-low)' : 'var(--risk-high)' }}>
                   {delta > 0 ? '+' : ''}{delta}
                 </strong>{' '}
-                <span className="text-muted">vs the previous period</span>
+                <span className="text-muted">vs {prev.label}</span>
+              </>
+            ) : (
+              // A single period has no direction. Saying so is better than
+              // showing a "trend" panel that is really just one bar.
+              <span className="text-muted">
+                Only one {grain === 'year' ? 'year' : grain === 'quarter' ? 'quarter' : 'month'} of
+                screening falls in this selection, so there is no change to report yet —
+                {grain === 'year' ? ' try Quarterly' : ' try Monthly'} for a finer breakdown.
               </span>
             )}
-            <span className="text-muted" style={{ display: 'inline-flex', gap: 10, alignItems: 'center' }}>
-              <span><i style={{ display: 'inline-block', width: 9, height: 9, borderRadius: 2, background: 'var(--risk-low)', marginRight: 4 }} />Green</span>
-              <span><i style={{ display: 'inline-block', width: 9, height: 9, borderRadius: 2, background: 'var(--risk-moderate)', marginRight: 4 }} />Amber</span>
-              <span><i style={{ display: 'inline-block', width: 9, height: 9, borderRadius: 2, background: 'var(--risk-high)', marginRight: 4 }} />Red</span>
-            </span>
-            <Link href="/admin/activity" style={{ marginLeft: 'auto', fontSize: '0.78rem' }}>
-              Full programme activity →
-            </Link>
           </div>
+
           <p className="text-muted" style={{ fontSize: '0.7rem', marginTop: 8, marginBottom: 0 }}>
             Bar height = athletes tested that period. Counted from screening history,
             so an athlete tested twice counts once per period they were tested in.

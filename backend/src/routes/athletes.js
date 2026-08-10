@@ -2,7 +2,8 @@ const express = require('express');
 const { recordAudit } = require('../utils/audit');
 const { Op } = require('sequelize');
 const { Athlete, MuscleFlag, Screening, AthleteDiscipline } = require('../models');
-const { screeningMovement } = require('../utils/cohorts');
+const { screeningMovement, recomputeCohorts } = require('../utils/cohorts');
+const { recomputeIndicators } = require('../utils/overallIndicator');
 const { screeningPeriods, GRAINS } = require('../utils/screeningPeriods');
 const {
   focusBreakdown, isShownIndicator, SHOWN_INDICATORS, tally, bandOf,
@@ -589,8 +590,8 @@ router.delete('/:id', auth, rbac('admin'), async (req, res) => {
 
 // PATCH /api/athletes/:id/injury — medical/admin set an athlete's injury status
 // (B4). SEPARATE from the risk band; an injured athlete is auto-excluded from
-// cohort-norm CALCULATION (applied on the next recompute) but still scored
-// against the norm. Note is optional; clearing injury clears the metadata.
+// cohort-norm CALCULATION — rebuilt immediately here, not deferred — but is
+// still SCORED against the resulting norm. Note is optional; clearing injury clears the metadata.
 router.patch('/:id/injury', auth, rbac('medical', 'admin'), requirePermission('viewRecords'), async (req, res) => {
   try {
     const a = await Athlete.findByPk(req.params.id);
@@ -602,15 +603,25 @@ router.patch('/:id/injury', auth, rbac('medical', 'admin'), requirePermission('v
       injuryBy: injured ? (req.user?.name || null) : null,
       injuryAt: injured ? new Date() : null,
     });
+    // An injured athlete is excluded from norm CALCULATION, so the norm has to
+    // be rebuilt now. This used to be deferred to "the next recompute", which
+    // meant the exclusion was real in the eligibility rules but invisible in the
+    // published norm until somebody happened to import a report.
+    const cohorts = await recomputeCohorts();
+    const indicators = await recomputeIndicators();
     recordAudit(req, {
       action: 'athlete.injury',
       entity: 'athlete',
       entityId: a.athleteId,
       summary: `Marked ${a.name || a.athleteId} ${injured ? 'INJURED' : 'not injured'}`
         + (injured ? ' — excluded from norm calculation' : ''),
-      meta: { isInjured: injured, note: a.injuryNote },
+      meta: { isInjured: injured, note: a.injuryNote, cohorts, indicators },
     });
-    res.json({ athleteId: a.athleteId, isInjured: a.isInjured, injuryNote: a.injuryNote, injuryBy: a.injuryBy, injuryAt: a.injuryAt });
+    res.json({
+      athleteId: a.athleteId, isInjured: a.isInjured, injuryNote: a.injuryNote,
+      injuryBy: a.injuryBy, injuryAt: a.injuryAt,
+      recomputed: { cohorts, indicators },
+    });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
