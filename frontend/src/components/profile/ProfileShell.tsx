@@ -234,7 +234,10 @@ export default function ProfileShell({ stats: initialStats, onLoadStats, roleBlu
             </span>
           </div></div>
           {prefsError && <div className="alert alert-error" style={{ marginBottom: 12 }}>{prefsError}</div>}
-          <div className="stat-grid">
+          {/* auto-FILL with a capped track, not the global .stat-grid's
+              auto-fit/1fr: medical and admin have a single toggle each, and
+              auto-fit stretched that one checkbox across the full 1078px card. */}
+          <div className="stat-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 340px))' }}>
             {prefs.map((p) => (
               <div key={p.key} className="stat-tile">
                 <div className="stat-tile-label">{p.label}</div>
