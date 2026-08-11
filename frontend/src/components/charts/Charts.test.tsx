@@ -10,7 +10,7 @@
 // works because every component here is pure: props in, markup out, no hooks.
 
 import { renderToStaticMarkup as render } from 'react-dom/server';
-import { DotPlot, PeriodChart, RankedBars, Ring } from './Charts';
+import { DotPlot, Heatmap, PeriodChart, RankedBars, Ring } from './Charts';
 
 const period = (key: string, label: string, value: number, line?: number) => ({
   key,
@@ -132,5 +132,38 @@ describe('Ring', () => {
   it('does not divide by zero on an empty roster', () => {
     const html = render(<Ring value={0} total={0} label="Screened" />);
     expect(html).toContain('of 0');
+  });
+});
+
+describe('Heatmap — the matrix the subitem table actually is', () => {
+  const rows = [
+    { key: 'neck', label: 'Neck', cells: [{ key: 'romL', label: 'ROM L', value: 88 }, { key: 'romR', label: 'ROM R', value: 68.3 }] },
+    { key: 'pelvis', label: 'Pelvis', cells: [{ key: 'romL', label: 'ROM L', value: 68 }, { key: 'romR', label: 'ROM R', value: null }] },
+  ];
+  const colorFor = (v: number) => (v >= 75 ? 'green' : 'red');
+
+  it('keeps both axes — a row per region, a column per measure', () => {
+    const html = render(<Heatmap rows={rows} colorFor={colorFor} />);
+    expect(html).toContain('Neck');
+    expect(html).toContain('Pelvis');
+    expect(html).toContain('ROM L');
+    expect(html).toContain('ROM R');
+  });
+
+  it('prints the VALUE in every cell, so meaning is never colour-alone', () => {
+    const html = render(<Heatmap rows={rows} colorFor={colorFor} />);
+    expect(html).toContain('88');
+    expect(html).toContain('68.3');
+  });
+
+  it('leaves an unread cell blank rather than colouring it as a score', () => {
+    // A missing reading painted green would say "good" about something never
+    // measured.
+    const html = render(<Heatmap rows={rows} colorFor={colorFor} />);
+    expect(html).toContain('heatmap-empty');
+  });
+
+  it('says so when there is nothing to show', () => {
+    expect(render(<Heatmap rows={[]} colorFor={colorFor} />)).toContain('No subitem scores');
   });
 });

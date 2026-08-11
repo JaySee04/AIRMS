@@ -6,6 +6,7 @@ const { screeningMovement, recomputeCohorts } = require('../utils/cohorts');
 const { recomputeIndicators } = require('../utils/overallIndicator');
 const { notifyInjuryToCoach } = require('../utils/notifications');
 const { programmeActivityData } = require('../utils/programmeActivity');
+const { aggregateSubitems } = require('../utils/subitemAggregate');
 const { effectiveBand } = require('../utils/bands');
 const { INDICATOR_ATTRS, toIndicator } = require('../utils/indicatorPayload');
 const {
@@ -245,22 +246,30 @@ router.get('/analytics/screening', auth, rbac('admin', 'executive'), async (req,
     // Overall traffic-light band distribution across the cohort's latest
     // screenings (override wins). 'none' = scored but no band (small cohort).
     const bandDistribution = { green: 0, amber: 0, red: 0, none: 0 };
+    let subitems = aggregateSubitems([]);
     const ids = rows.map((r) => r.athleteId);
     if (ids.length) {
       const scr = await Screening.findAll({
         where: { athleteId: { [Op.in]: ids } },
-        attributes: ['athleteId', 'assessedAt', 'id', 'totalScore', 'rom', 'stability', 'symmetry', 'exerciseRisks', 'overallIndicator', 'overallBand', 'overrideBand'],
+        attributes: ['athleteId', 'assessedAt', 'id', 'totalScore', 'rom', 'stability', 'symmetry', 'exerciseRisks', 'overallIndicator', 'overallBand', 'overrideBand', 'subitems'],
         order: [['assessedAt', 'DESC'], ['id', 'DESC']],
         raw: true,
       });
       ({ trend } = screeningMovement(scr));
       const seenBand = new Set();
+      const latestPerAthlete = [];
       for (const s of scr) {
         if (seenBand.has(s.athleteId)) continue;
         seenBand.add(s.athleteId);
+        latestPerAthlete.push(s);
         const b = effectiveBand(s) || 'none';
         if (bandDistribution[b] !== undefined) bandDistribution[b]++; else bandDistribution.none++;
       }
+      // The 25-cell subitem table, aggregated — the densest measurement the
+      // instrument produces, and the only place it carries LEFT vs RIGHT. Built
+      // from each athlete's LATEST screening, matching every other snapshot on
+      // this page. See utils/subitemAggregate.js.
+      subitems = aggregateSubitems(latestPerAthlete);
     }
 
     res.json({
@@ -273,6 +282,7 @@ router.get('/analytics/screening', auth, rbac('admin', 'executive'), async (req,
       topTension: topMuscles('tension'),
       trend,
       bandDistribution,
+      subitems,
       // REGION FOCUS — a lens, not a population filter. It does not remove any
       // athlete; it re-expresses the SAME cohort through one indicator, split
       // by every other dimension, so "which group carries this problem" is

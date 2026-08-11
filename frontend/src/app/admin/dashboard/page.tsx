@@ -22,7 +22,8 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import CohortFilters, { useCohortFilters } from '@/components/admin/CohortFilters';
 import TrendStrip from '@/components/admin/TrendStrip';
 import DistributionBar from '@/components/admin/DistributionBar';
-import { DotPlot, RankedBars, Ring } from '@/components/charts/Charts';
+import { DotPlot, Heatmap, RankedBars, Ring } from '@/components/charts/Charts';
+import { TIER_COLOR, TIER_LABEL, TIER_ORDER, TIER_RANGE, tierOf } from '@/lib/holomotionTiers';
 import { BAND_COLOR, bandSegments } from '@/lib/bands';
 import { api } from '@/lib/api';
 
@@ -35,6 +36,22 @@ interface ScreeningCohort {
   topMyodynamia: Array<{ muscle: string; count: number }>;
   topTension: Array<{ muscle: string; count: number }>;
   bandDistribution: { green: number; amber: number; red: number; none: number };
+  // The 25-cell subitem table, aggregated. See backend/utils/subitemAggregate.js.
+  subitems: {
+    n: number;
+    matrix: Array<{ key: string; label: string; cells: Array<{ key: string; label: string; value: number | null; n: number }> }>;
+    asymmetry: Array<{
+      key: string; label: string;
+      metrics: Array<{
+        metric: 'rom' | 'stab'; n: number;
+        meanGap: number | null; meanSigned: number | null; weakerSide: 'left' | 'right' | null;
+        notable: number; meanLeft: number | null; meanRight: number | null;
+      }>;
+    }>;
+    worstCell: { region: string; label: string; value: number } | null;
+    worstAsymmetry: { region: string; metric: string; meanGap: number; notable: number } | null;
+    notableGap: number;
+  };
   trend: {
     comparable: number;
     improving: number; declining: number; steady: number;
@@ -447,6 +464,102 @@ export default function AdminDashboard() {
           )}
         </div>
       </div>
+
+      {/* ── What the report actually measures, at squad grain ─────────────────
+          The 25-cell Physical Fitness Subitem table is the densest thing
+          HoloMotion produces — Total Score is literally its mean — and until now
+          the admin dashboard aggregated none of it. A matrix is the only shape
+          that preserves both of its axes, and it is the report's own layout. */}
+      <div className="card" style={{ marginTop: 20 }}>
+        <div className="card-header"><div>
+          <h2 className="card-title" style={{ marginBottom: 0 }}>Movement Quality by Region</h2>
+          <span className="card-sub">
+            Cohort average for each cell of the HoloMotion subitem table · 0–100, higher is better
+            {cohort?.subitems ? ` · ${cohort.subitems.n} athlete${cohort.subitems.n === 1 ? '' : 's'} with subitem scores` : ''}
+          </span>
+        </div></div>
+        {!cohort ? <p className="text-muted">Loading…</p> : (
+          <>
+            <Heatmap
+              rows={cohort.subitems.matrix}
+              colorFor={(v) => TIER_COLOR[tierOf(v)]}
+              legend={TIER_ORDER.map((t) => (
+                <span key={t} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ width: 12, height: 12, borderRadius: 3, background: TIER_COLOR[t] }} />
+                  {TIER_LABEL[t]} <span className="text-muted">{TIER_RANGE[t]}</span>
+                </span>
+              ))}
+            />
+            {cohort.subitems.worstCell && (
+              <p className="chart-note">
+                Weakest cell: <strong>{cohort.subitems.worstCell.region} · {cohort.subitems.worstCell.label}</strong> at{' '}
+                {cohort.subitems.worstCell.value}. Bands are HoloMotion&apos;s own 60 / 75 / 85 boundaries — the same ones
+                the gauges, threshold strips and body map use.
+              </p>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* ── Left vs right ────────────────────────────────────────────────────
+          The only bilateral data the report carries, and it was invisible: the
+          body map paints a region by the WORSE of L/R, the cohort composite
+          averages every gap into one number, and the subitem table prints L and R
+          and leaves the subtraction to the reader.
+
+          Counts, not mean gaps. The means are flat at 3–4 points across every
+          region and carry almost nothing; the number of athletes with a real gap
+          runs 0–9 and separates ROM from stability cleanly. */}
+      <div className="card" style={{ marginTop: 20 }}>
+        <div className="card-header"><div>
+          <h2 className="card-title" style={{ marginBottom: 0 }}>Left–Right Asymmetry</h2>
+          <span className="card-sub">
+            Athletes whose two sides differ by {cohort?.subitems?.notableGap ?? 10} points or more — one full
+            HoloMotion band, so the two sides would not be described by the same word
+          </span>
+        </div></div>
+        {!cohort ? <p className="text-muted">Loading…</p> : (() => {
+          const rows = cohort.subitems.asymmetry
+            .flatMap((r) => r.metrics.map((m) => ({ region: r.label, ...m })))
+            .filter((m) => m.n > 0)
+            .sort((a, b) => b.notable - a.notable || (b.meanGap ?? 0) - (a.meanGap ?? 0));
+          if (!rows.length) {
+            return <div className="text-muted" style={{ fontSize: '0.85rem' }}>No bilateral subitem readings for this selection.</div>;
+          }
+          return (
+            <>
+              <RankedBars
+                rows={rows.map((m) => ({
+                  label: `${m.region} · ${m.metric === 'rom' ? 'ROM' : 'Stability'}`,
+                  segments: [{ label: 'athletes', value: m.notable, color: S.s1 }],
+                  note: (
+                    <span title={`Cohort means — left ${m.meanLeft}, right ${m.meanRight}`}>
+                      <strong>{m.notable}</strong>{' '}
+                      <span className="text-muted">
+                        of {m.n} · L {m.meanLeft} / R {m.meanRight}
+                        {m.weakerSide ? ` · weaker ${m.weakerSide}` : ''}
+                      </span>
+                    </span>
+                  ),
+                }))}
+              />
+              <p className="chart-note">
+                {cohort.subitems.worstAsymmetry && (
+                  <>
+                    Most asymmetric: <strong>{cohort.subitems.worstAsymmetry.region}{' '}
+                    {cohort.subitems.worstAsymmetry.metric === 'rom' ? 'ROM' : 'Stability'}</strong>{' '}
+                    (mean gap {cohort.subitems.worstAsymmetry.meanGap} points).{' '}
+                  </>
+                )}
+                A weaker side is only named when the squad tips the same way on average — a mix of
+                left- and right-dominant athletes produces a large gap with no shared side, which is a
+                different finding and not a squad-wide weakness.
+              </p>
+            </>
+          );
+        })()}
+      </div>
+
     </DashboardLayout>
   );
 }

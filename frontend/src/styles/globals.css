@@ -2210,3 +2210,57 @@ textarea:focus-visible,
   .periodrow-value { width: 64px; }
   .periodrow-unit { display: none; }
 }
+
+/* ── Heatmap: a matrix where both axes carry meaning ───────────────────────────
+   For the HoloMotion subitem table (5 regions × 5 measures) — the report's own
+   shape, which every list-style chart flattens. Cell colour comes from the shared
+   HoloMotion tier tokens (lib/holomotionTiers.ts), so a 74 here is the same amber
+   as on every gauge, strip and body map in the app. */
+.heatmap-wrap { overflow-x: auto; }
+.heatmap {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 3px;
+  font-size: 0.85rem;
+  min-width: 520px;
+}
+.heatmap thead th {
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  font-weight: 700;
+  padding: 2px 6px;
+  border-bottom: none;
+  text-align: center;
+}
+.heatmap thead th:first-child { text-align: left; }
+.heatmap tbody th {
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.82rem;
+  color: var(--text);
+  text-transform: none;
+  letter-spacing: 0;
+  border-bottom: none;
+  padding: 4px 8px 4px 2px;
+  white-space: nowrap;
+}
+.heatmap-cell {
+  text-align: center;
+  padding: 9px 6px;
+  border-radius: 5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  /* Cell backgrounds are saturated status colours, so the text on them is fixed
+     white rather than --text: a theme-following text colour would go dark-on-dark
+     in dark mode over the same green. */
+  color: #fff;
+  background: var(--chart-track);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
+}
+.heatmap-empty { color: var(--text-muted); font-weight: 400; text-shadow: none; }
+.heatmap-legend {
+  display: flex; gap: 14px; flex-wrap: wrap;
+  margin-top: 12px; font-size: 0.78rem;
+}

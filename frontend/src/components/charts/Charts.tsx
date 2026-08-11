@@ -378,6 +378,63 @@ function PeriodRows({
 }
 
 // ══════════════════════════════════════════════════════════════════════════
+// Heatmap — a matrix where BOTH axes are meaningful.
+//
+// For the HoloMotion subitem table, which is natively 5 regions × 5 measures.
+// Every other chart here reduces that to a list; a matrix is the only shape that
+// preserves it, and the report's own layout is a matrix, so this is the faithful
+// rendering rather than a re-interpretation.
+//
+// Cells carry their VALUE as text as well as their colour — the colour is the
+// scan, the number is the answer, and a colour-blind reader loses nothing.
+// ══════════════════════════════════════════════════════════════════════════
+export interface HeatCell { key: string; label: string; value: number | null }
+export interface HeatRow { key: string; label: string; cells: HeatCell[] }
+
+export function Heatmap({
+  rows, colorFor, legend, rowHeader = 'Region',
+}: {
+  rows: HeatRow[];
+  /** Cell background for a value — pass the shared tier colours, not a new ramp. */
+  colorFor: (v: number) => string;
+  legend?: ReactNode;
+  rowHeader?: string;
+}) {
+  if (!rows.length) return <p className="text-muted" style={{ fontSize: '0.85rem' }}>No subitem scores for this selection.</p>;
+  const cols = rows[0].cells;
+  return (
+    <div className="heatmap-wrap">
+      <table className="heatmap">
+        <thead>
+          <tr>
+            <th scope="col">{rowHeader}</th>
+            {cols.map((c) => <th key={c.key} scope="col" className="num">{c.label}</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.key}>
+              <th scope="row">{r.label}</th>
+              {r.cells.map((c) => (
+                <td
+                  key={c.key}
+                  className="heatmap-cell"
+                  style={c.value === null ? undefined : { background: colorFor(c.value) }}
+                  title={`${r.label} · ${c.label}: ${c.value === null ? 'no reading' : c.value}`}
+                >
+                  {c.value === null ? <span className="heatmap-empty">—</span> : fmt(c.value)}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {legend && <div className="heatmap-legend">{legend}</div>}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════
 // Ring — one proportion, big. For coverage ("58 of 62 screened"), where a bar
 // buys nothing and a number alone buys no glance-value.
 // ══════════════════════════════════════════════════════════════════════════

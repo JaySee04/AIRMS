@@ -1084,8 +1084,100 @@ representation of "no value" anyway: `getSettings` falls back to `DEFAULTS`, so 
 deleted row and a never-set row behave identically. Found by exercising the
 feature end to end, not by review — the code read fine.
 
+
+## 23. Charting what the instrument actually measures (2026-08-11)
+
+JC, after two rounds of visual work: *"I am still not satisfied with the graphics
+and charts used for the dashboard. Think what they really need to extract from the
+Holomotion PDF, then build it."*
+
+The previous passes fixed how things were DRAWN. This one asks what should be
+drawn at all, from the source document rather than from what happened to be in
+the API already.
+
+### 23a. What the report contains, against what AIRMS used
+
+| HoloMotion produces | AIRMS did with it |
+|---|---|
+| Total Score, ROM / Stability / Symmetry gauges | shown everywhere |
+| 7 exercise-risk indicators | radar, threshold strips, admin ranked bars |
+| Muscle imbalance lists | body map, admin bars |
+| **25-cell subitem table** (5 regions × ROM L/R, Stability L/R, Symmetry) | printed as raw numbers on an individual; **the admin dashboard aggregated none of it** |
+| **Left vs right, in every region** | **no dashboard visual at all** |
+
+The subitem table is the densest thing the instrument produces — Total Score is
+literally its mean (verified against three real reports, residual ≤ 1.2) — and the
+squad-level view ignored it entirely while aggregating the seven summary
+indicators derived from it.
+
+### 23b. Left–right asymmetry was the real omission
+
+It is the only bilateral data the report carries, it is what a movement screen
+exists to find, and AIRMS collapsed it three separate ways: the body map paints a
+region by the WORSE of L/R, the cohort composite averages every gap into one
+`balance` number, and the subitem table prints L and R side by side and leaves the
+subtraction to the reader.
+
+The magnitudes in the verified reports are not marginal:
+
+| athlete | region | ROM L / R | gap |
+|---|---|---|---|
+| Thung | Neck | 95 / 62 | **33** |
+| Elffie | Neck | 86 / 71 | 15 |
+| Elffie | Pelvis | 53 / 66 | 13 |
+| Nazwan | Neck | 83 / 72 | 11 |
+
+**Decided:** a matrix heatmap for the 5 × 5 table, and an asymmetry panel, both on
+Screening Analytics, fed by a new `utils/subitemAggregate.js`.
+
+**Decided: the asymmetry panel counts ATHLETES, it does not average gaps.** Looking
+at the aggregate decided this. The mean gap is flat at 3–4 points across every
+region and metric — it carries almost nothing. The number of athletes with a gap of
+10+ runs from 0 to 9 and separates ROM from stability cleanly. A panel built on the
+mean would have looked precise and said nothing.
+
+**Decided:** the threshold is 10 points — one full HoloMotion band, since the
+instrument's own boundaries are 60/75/85. Below that, screening noise and ordinary
+handedness are not separable, and flagging them would bury the Thung-sized
+findings.
+
+**Decided:** report the mean ABSOLUTE gap and the mean SIGNED gap, and only name a
+weaker side when the squad tips the same way. A squad split between left- and
+right-dominant athletes has a large absolute gap and a signed mean near zero —
+that is a technique or screening story, not a shared weakness, and reporting one
+number without the other would hide the difference.
+
+### 23c. A field name that was the wrong way round
+
+The "which side" field was first called `leans`, and it returned `"right"` for a
+squad scoring 95/62 in favour of the LEFT. Both readings of the name are
+defensible — "leans left" means either "left is stronger" or "the deficit is on the
+left" — which is exactly why it was wrong to use. Renamed `weakerSide`, which is
+the thing a clinician acts on and has only one meaning.
+
+Caught by a test written against the real reports rather than invented fixtures.
+The same test run corrected two of my own wrong expectations about which cell is
+weakest, which is the argument for using real data as fixtures.
+
+### 23d. No charting library, despite being offered one
+
+JC explicitly permitted libraries. A heatmap and a shared-axis count chart are
+about forty lines of CSS each; Chart.js has no native heatmap at all and would
+need a plugin, it would add roughly 70 KB to a page that currently ships 117 KB,
+and it would reverse the E1 decision that removed it from this page on 2026-08-04.
+The honest answer was that these two shapes do not need one — the reach for a
+library would be for something like interactive zoom over a long time series,
+which nothing here asks for.
+
+**Caveat, stated because the seeded demo hides it:** the seeder draws subitem
+cells uniformly at random, so the matrix reads flat at 75–76 and no weaker side is
+ever named. The real reports vary hugely. The asymmetry COUNTS carry signal even on
+seeded data (9 athletes at the pelvis, 0 for stability anywhere); the heatmap will
+not look like much until real HoloMotion PDFs are imported.
+
 ---
 
 
 
-*Last updated: 2026-08-11 (later still) — **§22** added: cohort norms can now be PINNED, not merely saved — a pinned version is held against imports, reports its own drift from what the data would say, and cannot be deleted or restored over while in force; a NOT NULL settings column that would have made release impossible was found and fixed by live verification. Previous: 2026-08-11 (later same day) — **§21** added: the hero now shows HoloMotion's printed Total Score with a signed per-component cohort comparison and a two-sided reason list, the derived 0-100 indicator having been the thing nobody could explain; the below-mean escalation became a -0.5 SD cutoff rather than a sign test; one shared indicator payload. Previous: 2026-08-11 — **§20j** added: the shared dashboard components now take `historical` (so the history views stop speaking in the present tense) and the risk hero takes `audience` — the latter fixing a live bug in which the medical and coach dashboards addressed the clinician as the at-risk athlete. Previous: 2026-08-10 (later same day) — **§20g–i** added: the digest attaches the holistic report by sharing its code rather than rebuilding it (fetch/draw extracted, verified byte-identical), per-user email opt-out under the institution switch, and seasonality that declines to name a season below two years of data. **§20f** revised — the 14 remaining inline band-precedence reads were migrated after all. Earlier same day: **§20** added: accountability (audit trail that copies the actor, fire-and-forget writes), immediate norm eligibility with one-time disclosure, deep muscles marked rather than drawn, alerts grouped per recipient, the monthly digest's marker-not-cron design, and one band vocabulary in `utils/bands.js`. Previous: 2026-08-06 (later same day) — **§19** added: one status palette across CSS, inline styles, Chart.js and the PDF reports. An audit found the PDF had a second band palette (and disagreed with its own tier colours), the radar's threshold red was a non-theme-aware literal, the 60/75/85 tier was defined five times with two different words for its lowest band, and eight CSS-variable fallbacks still carried the retired PDF palette. Earlier same day: **§4a** added: the body map's Muscle Flags mode now draws HoloMotion's 22 individual muscles by re-slicing the same MIT-licensed geometry (16 recovered from existing sub-paths, 6 deep ones as measured insets, selection by geometry not index, test-guarded); supersedes the aggregation half of §4 while leaving the asset and its attribution locked. Previous: 2026-08-03 — §18 on-device name redaction before vision extraction (Tesseract-located, page-1-only, fail-closed; verified against both HoloMotion layouts). Previous: 2026-07-20 — Activity Tracking (the FYP I Module 1) fully removed at JC's request; §1, §2, §3, §10 and §16 annotated to mark their decisions as locked-but-dormant (no live caller) rather than actively running. The six-module set was restructured the same day to fill the gap this left — see `MASTER_CLARIFICATIONS.md §4` for the current numbering. Previous: 2026-07-19 (§16 gains the per-indicator escalation — threshold + peer-outlier, z ≥ 1.5, admin toggle, persisted factors), 2026-07-18 (§17 coach one-sport + athlete detail view + event disciplines), 2026-07-13 (§16 FYP II cohort-normed overall indicator + ACWR demotion), 2026-07-06 (§15 dashboard-embedded screening), 2026-06-28 (§13–14).*
+
+*Last updated: 2026-08-11 (later again) — **§23** added: the admin dashboard now charts the 25-cell subitem table as a matrix and, for the first time anywhere in AIRMS, surfaces LEFT–RIGHT asymmetry — the only bilateral data the report carries, previously collapsed three different ways. Counts rather than mean gaps, because the means are flat and the counts are not. Previous: 2026-08-11 (later still) — **§22** added: cohort norms can now be PINNED, not merely saved — a pinned version is held against imports, reports its own drift from what the data would say, and cannot be deleted or restored over while in force; a NOT NULL settings column that would have made release impossible was found and fixed by live verification. Previous: 2026-08-11 (later same day) — **§21** added: the hero now shows HoloMotion's printed Total Score with a signed per-component cohort comparison and a two-sided reason list, the derived 0-100 indicator having been the thing nobody could explain; the below-mean escalation became a -0.5 SD cutoff rather than a sign test; one shared indicator payload. Previous: 2026-08-11 — **§20j** added: the shared dashboard components now take `historical` (so the history views stop speaking in the present tense) and the risk hero takes `audience` — the latter fixing a live bug in which the medical and coach dashboards addressed the clinician as the at-risk athlete. Previous: 2026-08-10 (later same day) — **§20g–i** added: the digest attaches the holistic report by sharing its code rather than rebuilding it (fetch/draw extracted, verified byte-identical), per-user email opt-out under the institution switch, and seasonality that declines to name a season below two years of data. **§20f** revised — the 14 remaining inline band-precedence reads were migrated after all. Earlier same day: **§20** added: accountability (audit trail that copies the actor, fire-and-forget writes), immediate norm eligibility with one-time disclosure, deep muscles marked rather than drawn, alerts grouped per recipient, the monthly digest's marker-not-cron design, and one band vocabulary in `utils/bands.js`. Previous: 2026-08-06 (later same day) — **§19** added: one status palette across CSS, inline styles, Chart.js and the PDF reports. An audit found the PDF had a second band palette (and disagreed with its own tier colours), the radar's threshold red was a non-theme-aware literal, the 60/75/85 tier was defined five times with two different words for its lowest band, and eight CSS-variable fallbacks still carried the retired PDF palette. Earlier same day: **§4a** added: the body map's Muscle Flags mode now draws HoloMotion's 22 individual muscles by re-slicing the same MIT-licensed geometry (16 recovered from existing sub-paths, 6 deep ones as measured insets, selection by geometry not index, test-guarded); supersedes the aggregation half of §4 while leaving the asset and its attribution locked. Previous: 2026-08-03 — §18 on-device name redaction before vision extraction (Tesseract-located, page-1-only, fail-closed; verified against both HoloMotion layouts). Previous: 2026-07-20 — Activity Tracking (the FYP I Module 1) fully removed at JC's request; §1, §2, §3, §10 and §16 annotated to mark their decisions as locked-but-dormant (no live caller) rather than actively running. The six-module set was restructured the same day to fill the gap this left — see `MASTER_CLARIFICATIONS.md §4` for the current numbering. Previous: 2026-07-19 (§16 gains the per-indicator escalation — threshold + peer-outlier, z ≥ 1.5, admin toggle, persisted factors), 2026-07-18 (§17 coach one-sport + athlete detail view + event disciplines), 2026-07-13 (§16 FYP II cohort-normed overall indicator + ACWR demotion), 2026-07-06 (§15 dashboard-embedded screening), 2026-06-28 (§13–14).*
