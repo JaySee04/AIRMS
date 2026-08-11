@@ -2264,3 +2264,51 @@ textarea:focus-visible,
   display: flex; gap: 14px; flex-wrap: wrap;
   margin-top: 12px; font-size: 0.78rem;
 }
+
+/* ── One period: not a trend ──────────────────────────────────────────────────
+   A yearly view of four months of screening is a single point. Drawing it as a
+   lone column under a "direction of travel" heading says nothing; this states the
+   figures and says outright that there is nothing to compare them with. */
+.single-period {
+  padding: 16px 18px;
+  border-radius: var(--radius);
+  background: var(--chart-track);
+}
+.single-period-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; flex-wrap: wrap; }
+.single-period-label {
+  font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--text-muted); font-weight: 700;
+}
+.single-period-value { font-size: 2.2rem; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.single-period-unit { font-size: 0.85rem; font-weight: 400; color: var(--text-muted); }
+.single-period-line { text-align: right; }
+.single-period-line-val { font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.single-period-line-lbl { font-size: 0.72rem; color: var(--text-muted); }
+.single-period-bar {
+  display: flex; height: 26px; margin-top: 14px;
+  border-radius: 5px; overflow: hidden; background: var(--border);
+}
+.single-period-bar > span { display: block; }
+
+/* An empty period on a continuous axis — present and labelled, not skipped. */
+.periodrow--empty .periodrow-label { color: var(--text-muted); font-weight: 500; }
+.periodrow--empty .periodrow-value,
+.periodrow--empty .periodrow-line { color: var(--text-muted); font-weight: 400; }
+.periodrow-track { position: relative; }
+.periodrow-none {
+  position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+  font-size: 0.74rem; color: var(--text-muted); font-style: italic;
+  pointer-events: none;
+}
+
+/* Grain switcher: each option carries how many periods it would draw, so the
+   user can see that "Yearly" is one point before clicking it. */
+.seg-btn-count {
+  display: block;
+  font-size: 0.62rem;
+  font-weight: 500;
+  opacity: 0.75;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.seg-btn:disabled { opacity: 0.45; cursor: not-allowed; }

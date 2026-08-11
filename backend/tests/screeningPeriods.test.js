@@ -128,13 +128,55 @@ describe('screeningPeriods — direction of travel', () => {
     expect(d.direction).toBe('improving'); // risk went DOWN, which is better
   });
 
-  it('compares against the previous period present, skipping empty calendar gaps', () => {
+  // CHANGED 2026-08-11. This used to assert that empty calendar periods were
+  // SKIPPED and that Q4 compared straight back to Q1. The axis is now continuous:
+  // an unscreened quarter is a period with zero tests, not an absence.
+  //
+  // For a screening programme that is the more useful reading — "we tested nobody
+  // in Q2 or Q3" is the finding, and a discrete axis drew Q1 and Q4 side by side
+  // as though they were consecutive quarters.
+  it('keeps empty calendar periods on the axis instead of skipping them', () => {
     const { periods } = screeningPeriods([
       s('A', '2026-01-01T00:00:00Z', { overallIndicator: 40 }),
-      s('A', '2026-10-01T00:00:00Z', { overallIndicator: 50 }), // Q4, Q2/Q3 absent
+      s('A', '2026-10-01T00:00:00Z', { overallIndicator: 50 }), // Q4; nothing in Q2/Q3
     ], { grain: 'quarter' });
-    expect(periods.map((p) => p.key)).toEqual(['2026-Q1', '2026-Q4']);
-    expect(periods[1].deltas.overallIndicator.delta).toBe(10);
+    expect(periods.map((p) => p.key)).toEqual(['2026-Q1', '2026-Q2', '2026-Q3', '2026-Q4']);
+    expect(periods[1].tests).toBe(0);
+    expect(periods[1].athletes).toBe(0);
+  });
+
+  it('does not compare a period against an EMPTY one across a gap', () => {
+    // Q4's previous period is now the empty Q3, whose averages are null — so it
+    // reports no change rather than quietly measuring against Q1 three quarters
+    // earlier and presenting that as a quarter-on-quarter move.
+    const { periods } = screeningPeriods([
+      s('A', '2026-01-01T00:00:00Z', { overallIndicator: 40 }),
+      s('A', '2026-10-01T00:00:00Z', { overallIndicator: 50 }),
+    ], { grain: 'quarter' });
+    expect(periods[3].deltas.overallIndicator.delta).toBeNull();
+  });
+
+  it('nothing is invented before the first screening or after the last', () => {
+    // A gap means "we ran the programme and tested nobody". Padding earlier would
+    // assert periods before the programme existed.
+    const { periods } = screeningPeriods([
+      s('A', '2026-04-01T00:00:00Z', { overallIndicator: 40 }),
+      s('A', '2026-06-01T00:00:00Z', { overallIndicator: 50 }),
+    ], { grain: 'month' });
+    expect(periods.map((p) => p.key)).toEqual(['2026-04', '2026-05', '2026-06']);
+  });
+
+  it('grainCounts says how many periods each grain would draw', () => {
+    // Drives the grain switcher: a grain that yields one period is not a trend,
+    // and the UI should say so before the user picks it.
+    const rows = [
+      s('A', '2026-04-23T00:00:00Z', { overallIndicator: 40 }),
+      s('B', '2026-08-03T00:00:00Z', { overallIndicator: 50 }),
+    ];
+    expect(screeningPeriods(rows, { grain: 'month' }).grainCounts)
+      .toEqual({ month: 5, quarter: 2, year: 1 });
+    expect(screeningPeriods([], { grain: 'month' }).grainCounts)
+      .toEqual({ month: 0, quarter: 0, year: 0 });
   });
 
   it('reports a null delta when a score is missing on either side', () => {

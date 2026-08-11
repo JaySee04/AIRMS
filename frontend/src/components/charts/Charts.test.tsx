@@ -43,10 +43,29 @@ describe('PeriodChart — layout follows the number of periods', () => {
     expect(html).not.toContain('periodchart-svg');
   });
 
-  it('a single period still renders as a row, not an empty plot', () => {
+  // CHANGED 2026-08-11: one period used to render as a single row. It is not a
+  // trend at all, and no layout makes one point look like one, so it now gets a
+  // summary that says outright there is nothing to compare against.
+  it('a single period is a SUMMARY, not a trend', () => {
     const html = render(<PeriodChart points={[period('y', '2026', 58, 73)]} />);
-    expect(html).toContain('periodrow-track');
+    expect(html).toContain('single-period');
+    expect(html).not.toContain('periodrow-track');
+    expect(html).not.toContain('periodchart-svg');
     expect(html).toContain('2026');
+    expect(html).toContain('58');
+    // And it says why, rather than leaving a lone bar to be interpreted.
+    expect(html).toMatch(/no change to report yet/);
+  });
+
+  it('draws an EMPTY period rather than skipping it', () => {
+    // Continuous axis: "nobody was screened that month" is the finding for a
+    // screening programme, and a discrete axis hid it by omitting the bucket.
+    const html = render(<PeriodChart points={[
+      period('m1', 'Apr', 17), { key: 'm2', label: 'May', value: 0, segments: [], line: null }, period('m3', 'Jun', 21),
+    ]} />);
+    expect(html).toContain('periodrow--empty');
+    expect(html).toContain('no screening');
+    expect(html).toContain('May');
   });
 
   it('row length is the count on a SHARED scale, so 22 reads as half of 43', () => {

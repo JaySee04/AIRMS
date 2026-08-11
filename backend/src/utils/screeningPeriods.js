@@ -74,6 +74,46 @@ function directionOf(delta, higherBetter, noise) {
   return 'steady';
 }
 
+// Every calendar bucket between two keys, inclusive — so the axis can be
+// CONTINUOUS.
+//
+// Standard time-series practice, and the reason matters here more than most: on a
+// discrete axis (only the buckets that have data) a quarter in which nobody was
+// screened simply disappears, and the two quarters either side of it sit next to
+// each other as though they were consecutive. For a screening PROGRAMME, a period
+// with no screening is not absence of data — it is the finding.
+//
+// Nothing is invented before the first screening or after the last: a gap means
+// "we ran the programme and tested nobody", which is information, whereas padding
+// earlier would assert a period before the programme existed.
+function keysBetween(first, last, grain) {
+  const out = [];
+  if (grain === 'year') {
+    for (let y = Number(first.slice(0, 4)); y <= Number(last.slice(0, 4)); y += 1) {
+      out.push({ key: String(y), label: String(y) });
+    }
+    return out;
+  }
+  if (grain === 'quarter') {
+    let [y, q] = [Number(first.slice(0, 4)), Number(first.slice(6))];
+    const [ly, lq] = [Number(last.slice(0, 4)), Number(last.slice(6))];
+    while (y < ly || (y === ly && q <= lq)) {
+      out.push({ key: `${y}-Q${q}`, label: `Q${q} ${y}` });
+      q += 1;
+      if (q > 4) { q = 1; y += 1; }
+    }
+    return out;
+  }
+  let [y, m] = [Number(first.slice(0, 4)), Number(first.slice(5, 7))];
+  const [ly, lm] = [Number(last.slice(0, 4)), Number(last.slice(5, 7))];
+  while (y < ly || (y === ly && m <= lm)) {
+    out.push({ key: `${y}-${String(m).padStart(2, '0')}`, label: `${MONTHS[m - 1]} ${y}` });
+    m += 1;
+    if (m > 12) { m = 1; y += 1; }
+  }
+  return out;
+}
+
 // Calendar buckets. Each period carries its throughput (tests, distinct
 // athletes, how many of them were retests) and its population averages, plus
 // the change against the PREVIOUS period present in the series.
@@ -84,6 +124,15 @@ function bucketByPeriod(screenings, grain, noise) {
     if (!p) continue;
     if (!buckets.has(p.key)) buckets.set(p.key, { key: p.key, label: p.label, rows: [] });
     buckets.get(p.key).rows.push(s);
+  }
+
+  // Fill the calendar between the first and last bucket that HAS data, so the
+  // axis is continuous and an unscreened period is drawn rather than skipped.
+  const present = [...buckets.keys()].sort();
+  if (present.length) {
+    for (const k of keysBetween(present[0], present[present.length - 1], grain)) {
+      if (!buckets.has(k.key)) buckets.set(k.key, { key: k.key, label: k.label, rows: [] });
+    }
   }
 
   const periods = [...buckets.values()]
@@ -113,9 +162,11 @@ function bucketByPeriod(screenings, grain, noise) {
       };
     });
 
-  // Deltas are against the previous period IN THE SERIES, not the previous
-  // calendar bucket: a quarter with no screening at all is simply absent, and
-  // comparing across a gap is still the honest comparison to make.
+  // Deltas are against the previous period in the series, which is now also the
+  // previous CALENDAR period — the axis is continuous, so an unscreened period is
+  // present with zero tests rather than skipped. Its averages are null, so the
+  // period after a gap reports no change rather than silently comparing across
+  // the gap as if the two were consecutive.
   periods.forEach((p, i) => {
     if (i === 0) { p.deltas = null; p.direction = null; return; }
     const prev = periods[i - 1];
@@ -292,6 +343,22 @@ function seasonality(screenings, { grain = 'quarter', noise = 2 } = {}) {
   };
 }
 
+// Distinct calendar buckets per grain, counting the CONTINUOUS axis (gaps
+// included) so the number matches what the chart will draw.
+function grainCounts(rows) {
+  const out = {};
+  for (const g of GRAINS) {
+    const keys = new Set();
+    for (const s of rows) {
+      const p = periodKeyOf(s.assessedAt, g);
+      if (p) keys.add(p.key);
+    }
+    const present = [...keys].sort();
+    out[g] = present.length ? keysBetween(present[0], present[present.length - 1], g).length : 0;
+  }
+  return out;
+}
+
 // `screenings`: flat rows carrying at least { athleteId, assessedAt, id } plus
 // any of the PERIOD_SCORES columns and overallBand / overrideBand.
 function screeningPeriods(screenings, { grain = 'quarter', noise = 2 } = {}) {
@@ -300,6 +367,14 @@ function screeningPeriods(screenings, { grain = 'quarter', noise = 2 } = {}) {
   return {
     grain: g,
     periods: bucketByPeriod(rows, g, noise),
+    // How many periods EACH grain would produce, so the UI can say which views
+    // the data can support before the user clicks one.
+    //
+    // A grain that yields one period is not a trend, and no chart makes a single
+    // point look like one — with ~4 months of screening on record, "Yearly" is a
+    // button that can only ever disappoint. Offering it silently and then
+    // rendering an apology underneath is worse than labelling it up front.
+    grainCounts: grainCounts(rows),
     betweenTests: bucketBetweenTests(rows, noise),
     // Seasonality reads at quarter grain regardless of the caller's `grain`: a
     // month-of-year split over ISN's data is a dozen buckets of two or three
@@ -309,5 +384,5 @@ function screeningPeriods(screenings, { grain = 'quarter', noise = 2 } = {}) {
 }
 
 module.exports = {
-  screeningPeriods, seasonality, periodKeyOf, PERIOD_SCORES, GRAINS,
+  screeningPeriods, seasonality, periodKeyOf, grainCounts, PERIOD_SCORES, GRAINS,
 };

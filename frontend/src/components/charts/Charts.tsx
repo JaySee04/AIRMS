@@ -216,6 +216,14 @@ export function PeriodChart({
 }) {
   if (!points.length) return null;
 
+  // ONE period is not a trend, and no chart makes a single point look like one.
+  // Drawing a lone column with a "direction of travel" heading over it is the
+  // chart equivalent of a shrug — this states the period's numbers and says
+  // plainly that there is nothing to compare against yet.
+  if (points.length === 1) {
+    return <SinglePeriod point={points[0]} lineLabel={lineLabel} valueLabel={valueLabel} />;
+  }
+
   if (points.length < COLUMN_MIN_POINTS) {
     return <PeriodRows points={points} lineLabel={lineLabel} valueLabel={valueLabel} />;
   }
@@ -319,6 +327,45 @@ export function PeriodChart({
   );
 }
 
+// The one-period layout: the period's figures, and an explicit statement that
+// there is nothing to compare them against.
+function SinglePeriod({
+  point, lineLabel, valueLabel,
+}: { point: PeriodPoint; lineLabel?: string; valueLabel?: string }) {
+  const segs = (point.segments ?? []).filter((s) => s.value > 0);
+  const total = segs.reduce((s, x) => s + x.value, 0) || 1;
+  return (
+    <div className="single-period">
+      <div className="single-period-head">
+        <div>
+          <div className="single-period-label">{point.label}</div>
+          <div className="single-period-value">
+            {point.value}
+            <span className="single-period-unit">{valueLabel ? ` ${valueLabel.toLowerCase()}` : ''}</span>
+          </div>
+        </div>
+        {point.line != null && (
+          <div className="single-period-line">
+            <div className="single-period-line-val">{fmt(point.line)}</div>
+            <div className="single-period-line-lbl">{lineLabel}</div>
+          </div>
+        )}
+      </div>
+      {segs.length > 0 && (
+        <div className="single-period-bar">
+          {segs.map((s) => (
+            <span key={s.label} style={{ flex: `${s.value} 0 0`, background: s.color }} title={`${s.label}: ${s.value} of ${total}`} />
+          ))}
+        </div>
+      )}
+      <p className="chart-note" style={{ marginBottom: 0 }}>
+        Only one period of screening falls in this selection, so there is no change to report yet —
+        choose a finer grain above for a breakdown.
+      </p>
+    </div>
+  );
+}
+
 // The few-periods layout: one full-width row per period.
 //
 // Bar length is the count on a SHARED axis, so 22 against 43 is visibly half —
@@ -342,9 +389,12 @@ function PeriodRows({
         const segs = (p.segments ?? []).filter((s) => s.value > 0);
         const segTotal = segs.reduce((s, x) => s + x.value, 0) || 1;
         return (
-          <div className="periodrow" key={p.key}>
+          <div className={`periodrow${p.value === 0 ? ' periodrow--empty' : ''}`} key={p.key}>
             <div className="periodrow-label">{p.label}</div>
             <div className="periodrow-track">
+              {/* An empty period is drawn, not skipped — "nobody was screened this
+                  month" is the finding, and a discrete axis hid it. */}
+              {p.value === 0 && <span className="periodrow-none">no screening</span>}
               <div className="periodrow-bar" style={{ width: `${(p.value / maxV) * 100}%` }}>
                 {segs.length ? segs.map((s) => (
                   <span

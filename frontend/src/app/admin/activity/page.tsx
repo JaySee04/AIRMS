@@ -39,6 +39,7 @@ interface Period {
 }
 interface PeriodsPayload {
   grain: Grain;
+  grainCounts?: Record<Grain, number>;
   periods: Period[];
   coverage: { rostered: number; tested: number; untested: number; tests: number };
   betweenTests: {
@@ -169,19 +170,34 @@ export default function AdminActivity() {
             {dlBusy ? 'Preparing…' : 'Download KPI report (PDF)'}
           </button>
           <div style={{ display: 'flex', gap: 4, background: 'var(--bg)', padding: 3, borderRadius: 8, flexShrink: 0 }} role="group" aria-label="Period grain">
-            {GRAINS.map((g) => (
-              <button
-                key={g.key}
-                type="button"
-                onClick={() => setGrain(g.key)}
-                aria-pressed={grain === g.key}
-                style={{
-                  border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: '0.82rem', fontWeight: 600,
-                  background: grain === g.key ? 'var(--brand-navy)' : 'transparent',
-                  color: grain === g.key ? '#fff' : 'var(--text-muted)',
-                }}
-              >{g.label}</button>
-            ))}
+            {GRAINS.map((g) => {
+              const count = data?.grainCounts?.[g.key];
+              return (
+                <button
+                  key={g.key}
+                  type="button"
+                  onClick={() => setGrain(g.key)}
+                  aria-pressed={grain === g.key}
+                  disabled={count === 0}
+                  title={count === undefined ? undefined
+                    : count === 0 ? 'No screening periods in this selection'
+                      : `${count} period${count === 1 ? '' : 's'} of screening in this selection`}
+                  style={{
+                    border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: '0.82rem', fontWeight: 600,
+                    background: grain === g.key ? 'var(--brand-navy)' : 'transparent',
+                    color: grain === g.key ? '#fff' : 'var(--text-muted)',
+                    opacity: count === 0 ? 0.45 : 1,
+                    cursor: count === 0 ? 'not-allowed' : 'pointer',
+                    lineHeight: 1.2,
+                  }}
+                >
+                  {g.label}
+                  {count !== undefined && (
+                    <span className="seg-btn-count">{count === 1 ? '1 period' : `${count} periods`}</span>
+                  )}
+                </button>
+              );
+            })}
           </div>
           </div>
         </div>

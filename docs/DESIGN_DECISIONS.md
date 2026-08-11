@@ -1175,9 +1175,75 @@ ever named. The real reports vary hugely. The asymmetry COUNTS carry signal even
 seeded data (9 athletes at the pelvis, 0 for stability anywhere); the heatmap will
 not look like much until real HoloMotion PDFs are imported.
 
+
+## 24. The period chart: a continuous axis, and admitting when a grain is useless (2026-08-11)
+
+JC: *"The monthly quarterly yearly one still needs work. Go research how other
+websites do it."*
+
+Researched, and the answer was not a better-looking bar. The data explains the
+complaint entirely: monthly gives 5 periods (4 / 17 / 34 / 21 / 1), quarterly
+gives 2, yearly gives 1. **No chart makes a single data point impressive.**
+
+### 24a. A continuous axis
+
+Standard practice, stated plainly by the sources: *"On a continuous date axis each
+period is accounted for whether data exists for that period or not, which clearly
+shows periods missing a transaction, whereas discrete date axes hide missing
+values."*
+
+AIRMS bucketed only the periods that HAD screenings. A quarter in which nobody was
+screened vanished, and the quarters either side sat adjacent as though
+consecutive. For a screening PROGRAMME that is backwards — an unscreened period is
+not absent data, it is the finding.
+
+`bucketByPeriod` now fills the calendar between the first and last period that has
+data. Nothing is invented before the first screening or after the last: a gap means
+"we ran the programme and tested nobody", whereas padding earlier would assert a
+period before the programme existed.
+
+**Consequence, deliberately accepted:** a period following a gap no longer reports
+a delta. Its predecessor is now the empty period, whose averages are null. That is
+more honest than the old behaviour, which compared Q4 against Q1 and presented the
+difference as a quarter-on-quarter move. The test that asserted the old skipping
+behaviour was rewritten rather than deleted, and says why.
+
+### 24b. One period is not a trend
+
+**Decided:** a single period renders as a SUMMARY — the figures, the band split,
+and an explicit sentence that there is nothing to compare against — not as a lone
+column under a "Direction of travel" heading.
+
+**Why:** the previous version drew one bar and printed an apology underneath. The
+apology was the honest part; the bar was decoration pretending to be a chart.
+
+### 24c. Say which grains are worth clicking, before they are clicked
+
+**Decided:** `grainCounts` travels with every periods response, and each grain
+button carries how many periods it would draw ("5 periods" / "2 periods" /
+"1 period"). A grain with none is disabled.
+
+**Why:** this is the actual fix for the complaint. Quarterly and yearly look
+disappointing because they ARE disappointing for four months of data — that is a
+property of the dataset, not of the rendering. The guidance is to align
+granularity with what is being reviewed; the interface can simply say so, and then
+the user picks Monthly knowing why rather than clicking through three views to
+find out.
+
+### 24d. What was researched and NOT adopted
+
+- **Padding to a fixed window** (last 12 months / 8 quarters), which several
+  dashboards do to keep a constant footprint. Rejected: it would draw quarters
+  before ISN's programme began as though they were unscreened, which is a
+  different and false claim.
+- **Switching to a line chart past ~20 periods.** Sound advice, and not yet
+  reachable — the trend strip caps at 6 periods and the activity page has 5. Noted
+  for when a second year of data exists rather than built speculatively.
+
 ---
 
 
 
 
-*Last updated: 2026-08-11 (later again) — **§23** added: the admin dashboard now charts the 25-cell subitem table as a matrix and, for the first time anywhere in AIRMS, surfaces LEFT–RIGHT asymmetry — the only bilateral data the report carries, previously collapsed three different ways. Counts rather than mean gaps, because the means are flat and the counts are not. Previous: 2026-08-11 (later still) — **§22** added: cohort norms can now be PINNED, not merely saved — a pinned version is held against imports, reports its own drift from what the data would say, and cannot be deleted or restored over while in force; a NOT NULL settings column that would have made release impossible was found and fixed by live verification. Previous: 2026-08-11 (later same day) — **§21** added: the hero now shows HoloMotion's printed Total Score with a signed per-component cohort comparison and a two-sided reason list, the derived 0-100 indicator having been the thing nobody could explain; the below-mean escalation became a -0.5 SD cutoff rather than a sign test; one shared indicator payload. Previous: 2026-08-11 — **§20j** added: the shared dashboard components now take `historical` (so the history views stop speaking in the present tense) and the risk hero takes `audience` — the latter fixing a live bug in which the medical and coach dashboards addressed the clinician as the at-risk athlete. Previous: 2026-08-10 (later same day) — **§20g–i** added: the digest attaches the holistic report by sharing its code rather than rebuilding it (fetch/draw extracted, verified byte-identical), per-user email opt-out under the institution switch, and seasonality that declines to name a season below two years of data. **§20f** revised — the 14 remaining inline band-precedence reads were migrated after all. Earlier same day: **§20** added: accountability (audit trail that copies the actor, fire-and-forget writes), immediate norm eligibility with one-time disclosure, deep muscles marked rather than drawn, alerts grouped per recipient, the monthly digest's marker-not-cron design, and one band vocabulary in `utils/bands.js`. Previous: 2026-08-06 (later same day) — **§19** added: one status palette across CSS, inline styles, Chart.js and the PDF reports. An audit found the PDF had a second band palette (and disagreed with its own tier colours), the radar's threshold red was a non-theme-aware literal, the 60/75/85 tier was defined five times with two different words for its lowest band, and eight CSS-variable fallbacks still carried the retired PDF palette. Earlier same day: **§4a** added: the body map's Muscle Flags mode now draws HoloMotion's 22 individual muscles by re-slicing the same MIT-licensed geometry (16 recovered from existing sub-paths, 6 deep ones as measured insets, selection by geometry not index, test-guarded); supersedes the aggregation half of §4 while leaving the asset and its attribution locked. Previous: 2026-08-03 — §18 on-device name redaction before vision extraction (Tesseract-located, page-1-only, fail-closed; verified against both HoloMotion layouts). Previous: 2026-07-20 — Activity Tracking (the FYP I Module 1) fully removed at JC's request; §1, §2, §3, §10 and §16 annotated to mark their decisions as locked-but-dormant (no live caller) rather than actively running. The six-module set was restructured the same day to fill the gap this left — see `MASTER_CLARIFICATIONS.md §4` for the current numbering. Previous: 2026-07-19 (§16 gains the per-indicator escalation — threshold + peer-outlier, z ≥ 1.5, admin toggle, persisted factors), 2026-07-18 (§17 coach one-sport + athlete detail view + event disciplines), 2026-07-13 (§16 FYP II cohort-normed overall indicator + ACWR demotion), 2026-07-06 (§15 dashboard-embedded screening), 2026-06-28 (§13–14).*
+
+*Last updated: 2026-08-11 (last of the day) — **§24** added: the period chart now draws a CONTINUOUS calendar axis (an unscreened period is the finding, not an absence), renders a single period as a summary rather than a lone bar, and labels each grain with how many periods it would draw so quarterly/yearly announce their own thinness before being clicked. Previous: 2026-08-11 (later again) — **§23** added: the admin dashboard now charts the 25-cell subitem table as a matrix and, for the first time anywhere in AIRMS, surfaces LEFT–RIGHT asymmetry — the only bilateral data the report carries, previously collapsed three different ways. Counts rather than mean gaps, because the means are flat and the counts are not. Previous: 2026-08-11 (later still) — **§22** added: cohort norms can now be PINNED, not merely saved — a pinned version is held against imports, reports its own drift from what the data would say, and cannot be deleted or restored over while in force; a NOT NULL settings column that would have made release impossible was found and fixed by live verification. Previous: 2026-08-11 (later same day) — **§21** added: the hero now shows HoloMotion's printed Total Score with a signed per-component cohort comparison and a two-sided reason list, the derived 0-100 indicator having been the thing nobody could explain; the below-mean escalation became a -0.5 SD cutoff rather than a sign test; one shared indicator payload. Previous: 2026-08-11 — **§20j** added: the shared dashboard components now take `historical` (so the history views stop speaking in the present tense) and the risk hero takes `audience` — the latter fixing a live bug in which the medical and coach dashboards addressed the clinician as the at-risk athlete. Previous: 2026-08-10 (later same day) — **§20g–i** added: the digest attaches the holistic report by sharing its code rather than rebuilding it (fetch/draw extracted, verified byte-identical), per-user email opt-out under the institution switch, and seasonality that declines to name a season below two years of data. **§20f** revised — the 14 remaining inline band-precedence reads were migrated after all. Earlier same day: **§20** added: accountability (audit trail that copies the actor, fire-and-forget writes), immediate norm eligibility with one-time disclosure, deep muscles marked rather than drawn, alerts grouped per recipient, the monthly digest's marker-not-cron design, and one band vocabulary in `utils/bands.js`. Previous: 2026-08-06 (later same day) — **§19** added: one status palette across CSS, inline styles, Chart.js and the PDF reports. An audit found the PDF had a second band palette (and disagreed with its own tier colours), the radar's threshold red was a non-theme-aware literal, the 60/75/85 tier was defined five times with two different words for its lowest band, and eight CSS-variable fallbacks still carried the retired PDF palette. Earlier same day: **§4a** added: the body map's Muscle Flags mode now draws HoloMotion's 22 individual muscles by re-slicing the same MIT-licensed geometry (16 recovered from existing sub-paths, 6 deep ones as measured insets, selection by geometry not index, test-guarded); supersedes the aggregation half of §4 while leaving the asset and its attribution locked. Previous: 2026-08-03 — §18 on-device name redaction before vision extraction (Tesseract-located, page-1-only, fail-closed; verified against both HoloMotion layouts). Previous: 2026-07-20 — Activity Tracking (the FYP I Module 1) fully removed at JC's request; §1, §2, §3, §10 and §16 annotated to mark their decisions as locked-but-dormant (no live caller) rather than actively running. The six-module set was restructured the same day to fill the gap this left — see `MASTER_CLARIFICATIONS.md §4` for the current numbering. Previous: 2026-07-19 (§16 gains the per-indicator escalation — threshold + peer-outlier, z ≥ 1.5, admin toggle, persisted factors), 2026-07-18 (§17 coach one-sport + athlete detail view + event disciplines), 2026-07-13 (§16 FYP II cohort-normed overall indicator + ACWR demotion), 2026-07-06 (§15 dashboard-embedded screening), 2026-06-28 (§13–14).*

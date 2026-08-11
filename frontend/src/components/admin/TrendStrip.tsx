@@ -44,7 +44,7 @@ interface Period {
   deltas?: Record<string, Delta | undefined>;
   direction?: string;
 }
-interface PeriodsResponse { grain: Grain; periods: Period[] }
+interface PeriodsResponse { grain: Grain; periods: Period[]; grainCounts?: Record<Grain, number> }
 
 
 
@@ -98,18 +98,33 @@ export default function TrendStrip({ query }: { query: string }) {
             Athletes tested and their band mix over recent periods, for the current filters.
           </span>
         </div>
+        {/* Each grain carries how many periods it would draw. The quarterly and
+            yearly views of a young dataset are two points and one — that is a
+            property of the data, not of the chart, and saying so up front beats
+            rendering an apology after the click. A grain with no periods at all
+            is disabled rather than offered. */}
         <div className="seg-group" role="tablist" aria-label="Trend period">
-          {GRAINS.map((g) => (
-            <button
-              key={g.key}
-              type="button"
-              className={`seg-btn${grain === g.key ? ' active' : ''}`}
-              aria-pressed={grain === g.key}
-              onClick={() => setGrain(g.key)}
-            >
-              {g.label}
-            </button>
-          ))}
+          {GRAINS.map((g) => {
+            const count = data?.grainCounts?.[g.key];
+            return (
+              <button
+                key={g.key}
+                type="button"
+                className={`seg-btn${grain === g.key ? ' active' : ''}`}
+                aria-pressed={grain === g.key}
+                disabled={count === 0}
+                title={count === undefined ? undefined
+                  : count === 0 ? 'No screening periods in this selection'
+                    : `${count} ${g.label.replace('ly', '').toLowerCase()}${count === 1 ? '' : 's'} of screening in this selection`}
+                onClick={() => setGrain(g.key)}
+              >
+                {g.label}
+                {count !== undefined && (
+                  <span className="seg-btn-count">{count === 1 ? '1 period' : `${count} periods`}</span>
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
 
