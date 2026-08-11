@@ -216,8 +216,8 @@ export function PeriodChart({
   /** The selection one grain finer — shown when there is only one period. */
   composition?: PeriodPoint[];
   compositionGrain?: string;
-  /** Metric slopes — the right chart for exactly two periods. */
-  slope?: SlopeMetric[];
+  /** Per-metric changes — the right chart for exactly two periods. */
+  slope?: MetricDelta[];
 }) {
   if (!points.length) return null;
 
@@ -242,7 +242,7 @@ export function PeriodChart({
   if (points.length === 2 && slope && slope.length) {
     return (
       <>
-        <Slopegraph
+        <MetricDeltas
           metrics={slope}
           fromLabel={points[0].label}
           toLabel={points[1].label}
@@ -358,105 +358,107 @@ export function PeriodChart({
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-// Slopegraph — the right chart for exactly TWO periods.
+// MetricDeltas — what CHANGED between exactly two periods.
 //
-// A quarterly view of a young dataset is two points. Drawn as two columns it
-// shows one number each (how many athletes) and the comparison the reader
-// actually wants — what changed — is left to them. A slopegraph inverts that:
-// every metric is a line between the two periods, so the SHAPE of the change is
-// the whole picture. On the current data it says at a glance that ROM fell 5.2
-// while stability rose 2.6, which two headcount bars cannot express at all.
+// This replaced a slopegraph, which was the wrong chart and looked it. A
+// slopegraph puts every metric on one vertical scale so the steeper line is the
+// bigger move — but that only holds when the metrics are COMMENSURABLE, and these
+// are not: Total Score, ROM, Stability and Symmetry cluster at 72-78, the overall
+// indicator sits at ~50 by construction, and exercise risks live at ~18 on a
+// scale that runs the other way. Forced onto one axis, the four movement scores
+// collapsed into a few pixels of overlapping lines with unreadable labels. It was
+// the same flattening already documented for the 0-100 score track, reintroduced.
 //
-// Direction and colour come from the API's own verdict, which already knows that
-// exercise risks improve by going DOWN and that small moves are noise. Deriving
-// it from the sign here would be a second opinion to keep in step.
+// The values are incommensurable. The CHANGES are not — every delta here falls
+// between -5.2 and +2.6 points. So plot the changes, on a shared delta axis with
+// zero in the middle, and print the before/after as text where exact levels
+// belong.
+//
+// Bar direction is the ORIENTED gain, so right is always better, on every row,
+// including exercise risks where the raw number moves the other way. The printed
+// delta keeps its true sign — the bar answers "better or worse", the number
+// answers "by how much", and neither has to lie for the other.
 // ══════════════════════════════════════════════════════════════════════════
-export interface SlopeMetric {
+export interface MetricDelta {
   key: string;
   label: string;
   from: number | null;
   to: number | null;
+  /** False when a LOWER value is better (exercise risks). */
+  higherBetter?: boolean;
   direction?: 'improving' | 'steady' | 'declining' | null;
-  /** Shown after the value, e.g. "/100". */
-  suffix?: string;
 }
 
-const SLOPE_TONE: Record<string, string> = {
+const DELTA_TONE: Record<string, string> = {
   improving: 'var(--risk-low)',
   declining: 'var(--risk-high)',
   steady: 'var(--text-muted)',
 };
 
-export function Slopegraph({
-  metrics, fromLabel, toLabel, height = 230,
+export function MetricDeltas({
+  metrics, fromLabel, toLabel,
 }: {
-  metrics: SlopeMetric[];
+  metrics: MetricDelta[];
   fromLabel: string;
   toLabel: string;
-  height?: number;
 }) {
-  const usable = metrics.filter((m) => m.from !== null && m.to !== null);
-  if (!usable.length) return <p className="text-muted" style={{ fontSize: '0.85rem' }}>Not enough data to compare these periods.</p>;
+  const rows = metrics
+    .filter((m) => m.from !== null && m.to !== null)
+    .map((m) => {
+      const delta = +((m.to as number) - (m.from as number)).toFixed(1);
+      // Positive gain = better, whichever way the raw scale runs.
+      const gain = (m.higherBetter ?? true) ? delta : -delta;
+      return { ...m, delta, gain };
+    })
+    // Biggest movers first: the reader wants what changed, not the metric order.
+    .sort((a, b) => Math.abs(b.gain) - Math.abs(a.gain));
 
-  // Every metric shares one vertical scale so the SLOPES are comparable — a
-  // per-metric scale would make a 0.3 move look like a 5-point one.
-  const all = usable.flatMap((m) => [m.from as number, m.to as number]);
-  const lo = Math.min(...all);
-  const hi = Math.max(...all);
-  const pad = Math.max((hi - lo) * 0.18, 2);
-  const y = (v: number) => 100 - ((v - (lo - pad)) / ((hi + pad) - (lo - pad) || 1)) * 100;
+  if (!rows.length) return <p className="text-muted" style={{ fontSize: '0.85rem' }}>Not enough data to compare these periods.</p>;
+
+  const max = Math.max(...rows.map((r) => Math.abs(r.gain)), 1);
 
   return (
-    <div className="slope">
-      <div className="slope-head">
-        <span>{fromLabel}</span>
-        <span>{toLabel}</span>
+    <div className="mdelta">
+      <div className="mdelta-head">
+        <span className="mdelta-head-metric">Measure</span>
+        <span className="mdelta-head-vals">{fromLabel} → {toLabel}</span>
+        <span className="mdelta-head-chart">worse ← change → better</span>
       </div>
-      <div className="slope-plot" style={{ height }}>
-        <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="slope-svg" aria-hidden>
-          {usable.map((m) => (
-            <line
-              key={m.key}
-              x1="0" x2="100"
-              y1={y(m.from as number)} y2={y(m.to as number)}
-              stroke={SLOPE_TONE[m.direction ?? 'steady'] ?? SLOPE_TONE.steady}
-              strokeWidth="2"
-              vectorEffect="non-scaling-stroke"
-            />
-          ))}
-        </svg>
-        {usable.map((m) => {
-          const tone = SLOPE_TONE[m.direction ?? 'steady'] ?? SLOPE_TONE.steady;
-          return (
-            <div key={m.key} className="slope-pair">
-              <span className="slope-end slope-end--l" style={{ top: `${y(m.from as number)}%` }}>
-                <b>{m.label}</b> {fmt(m.from as number)}{m.suffix ?? ''}
-              </span>
-              <span className="slope-end slope-end--r" style={{ top: `${y(m.to as number)}%`, color: tone }}>
-                {fmt(m.to as number)}{m.suffix ?? ''}
-                <i className="slope-delta">
-                  {(m.to as number) > (m.from as number) ? '+' : ''}
-                  {fmt(+((m.to as number) - (m.from as number)).toFixed(1))}
-                </i>
-              </span>
-              <span className="slope-dot" style={{ top: `${y(m.from as number)}%`, left: 0, background: tone }} />
-              <span className="slope-dot" style={{ top: `${y(m.to as number)}%`, right: 0, background: tone }} />
+      {rows.map((r) => {
+        const tone = DELTA_TONE[r.direction ?? 'steady'] ?? DELTA_TONE.steady;
+        const pct = (Math.abs(r.gain) / max) * 50; // half-width each side of zero
+        return (
+          <div className="mdelta-row" key={r.key}>
+            <div className="mdelta-label">{r.label}</div>
+            <div className="mdelta-vals">
+              {fmt(r.from as number)} <span className="mdelta-arrow">→</span> <b>{fmt(r.to as number)}</b>
             </div>
-          );
-        })}
-      </div>
-      <div className="slope-legend">
-        {(['improving', 'steady', 'declining'] as const).map((d) => (
-          <span key={d} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ width: 14, height: 2, background: SLOPE_TONE[d], display: 'inline-block' }} />
-            {d}
-          </span>
-        ))}
-        <span className="text-muted">
-          One shared scale, so the steeper line is the bigger move. Exercise risks improve downwards —
-          the colour follows that, the raw sign does not.
-        </span>
-      </div>
+            <div className="mdelta-track">
+              <span className="mdelta-zero" aria-hidden />
+              <span
+                className="mdelta-bar"
+                style={{
+                  background: tone,
+                  ...(r.gain >= 0
+                    ? { left: '50%', width: `${pct}%` }
+                    : { right: '50%', width: `${pct}%` }),
+                }}
+                title={`${r.label}: ${fmt(r.from as number)} → ${fmt(r.to as number)} (${r.delta > 0 ? '+' : ''}${r.delta}, ${r.direction ?? 'steady'})`}
+              />
+            </div>
+            <div className="mdelta-num" style={{ color: tone }}>
+              {r.delta > 0 ? '+' : ''}{fmt(r.delta)}
+            </div>
+            <div className="mdelta-dir">{r.direction ?? 'steady'}</div>
+          </div>
+        );
+      })}
+      <p className="chart-note">
+        Bars share one scale, so the longest is the biggest move. Direction is
+        <strong> better or worse</strong>, not the sign — exercise risks improve by going down, so a fall
+        there is drawn to the right like every other improvement, while the printed number keeps its
+        true sign. &ldquo;Steady&rdquo; means the move is inside the noise band rather than exactly zero.
+      </p>
     </div>
   );
 }

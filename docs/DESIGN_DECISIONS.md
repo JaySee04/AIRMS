@@ -1311,7 +1311,7 @@ subtraction; a single period still showed one number and an apology.
 The fix is that two periods and one period are different chart problems, and
 neither of them is a time series.
 
-### 26a. Exactly two periods → a slopegraph
+### 26a. Exactly two periods → the CHANGES, not the values
 
 With two points there is no trend to trace; there is a BEFORE and an AFTER, and
 the comparison is the entire content. So the chart inverts: instead of one metric
@@ -1330,13 +1330,39 @@ On the current data that immediately says something the columns could not:
 Range of motion fell while stability rose. Two headcount bars cannot express that
 at all, and it is the only thing on the panel a programme lead could act on.
 
-**Decided:** one shared vertical scale for every metric.
+**First attempt, and why it failed.** This shipped as a SLOPEGRAPH — every metric
+as a line between the two periods on one shared vertical scale, so the steeper
+line would be the bigger move.
 
-**Why:** the steeper line must be the bigger move. Per-metric scales would make
-symmetry's +0.3 look like ROM's −5.2.
+It was unusable, and JC sent a screenshot saying so. A shared scale only works
+when the metrics are COMMENSURABLE, and these are not: Total Score, ROM,
+Stability and Symmetry cluster at 72–78, the overall indicator sits at ~50 by
+construction, and exercise risks live at ~18 on a scale that runs the other way.
+Forced onto one axis the four movement scores collapsed into a few pixels of
+overlapping lines with labels printed on top of each other.
 
-**Decided:** colour comes from the API's `direction`, never from the sign of the
-delta.
+**That is the same mistake already documented in §23** — a 0–100 track flattening
+four values that differ by 2.8 points — reintroduced two sections later by the
+same reasoning ("one scale so magnitudes compare") applied where it does not hold.
+
+**Decided instead:** plot the CHANGES on a shared delta axis with zero in the
+middle, and print before → after as text.
+
+**Why this works where the slopegraph did not:** the values are incommensurable
+but the changes are not — every delta here falls between −5.2 and +2.6 points, the
+same unit and the same order of magnitude. A shared scale is legitimate for the
+deltas precisely because it was illegitimate for the levels.
+
+**Decided:** bar direction is the ORIENTED gain — right is always better, on every
+row — while the printed number keeps its true sign.
+
+**Why:** exercise risks rose 18.2 → 20.5, which is worse. A sign-driven bar would
+draw that to the right alongside the genuine improvements. The bar answers "better
+or worse", the number answers "by how much", and neither has to lie for the
+other.
+
+**Decided:** colour also comes from the API's `direction`, never from the sign of
+the delta.
 
 **Why:** exercise risks improve by going DOWN. A sign-based colour paints that
 decline green and the genuine improvement red — the same trap already documented
@@ -1344,9 +1370,10 @@ for the delta arrows (see the `Move` component's comment on the activity page).
 The API also classifies small moves as "steady", so noise does not get painted as
 a finding.
 
-The throughput rows stay underneath as context: the slopes say what changed, the
-rows say how many athletes it was measured on, and 22 athletes is a materially
-weaker basis than 43.
+Rows are sorted biggest-mover-first, because the reader wants what changed rather
+than the metric list in schema order. The throughput rows stay underneath as
+context: the changes say WHAT moved, the rows say how many athletes it was
+measured on, and 22 athletes is a materially weaker basis than 43.
 
 ### 26b. Exactly one period → what it is made of
 

@@ -2401,44 +2401,8 @@ textarea:focus-visible,
   margin-top: 10px; font-size: 0.76rem;
 }
 
-/* ── Slopegraph: the right chart for exactly two periods ──────────────────────
-   Two columns show one number each and leave the comparison to the reader. A
-   slopegraph makes the comparison the picture: one line per metric, all on a
-   shared scale so the steeper line is the bigger move. */
-.slope-head {
-  display: flex; justify-content: space-between;
-  font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
-  letter-spacing: 0.05em; color: var(--text-muted);
-  margin-bottom: 10px;
-}
-.slope-plot { position: relative; margin: 0 4px; }
-.slope-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-.slope-pair { position: absolute; inset: 0; pointer-events: none; }
-.slope-end {
-  position: absolute;
-  transform: translateY(-50%);
-  font-size: 0.8rem;
-  white-space: nowrap;
-  background: var(--bg-card);
-  padding: 1px 5px;
-  border-radius: 4px;
-  pointer-events: auto;
-}
-.slope-end--l { left: 10px; color: var(--text); }
-.slope-end--r { right: 10px; font-weight: 700; }
-.slope-end b { font-weight: 600; }
-.slope-delta { font-style: normal; font-size: 0.72rem; margin-left: 5px; opacity: 0.85; }
-.slope-dot {
-  position: absolute;
-  width: 9px; height: 9px; border-radius: 50%;
-  transform: translate(-50%, -50%);
-  box-shadow: 0 0 0 2px var(--bg-card);
-}
-.slope-dot[style*="right"] { transform: translate(50%, -50%); }
-.slope-legend {
-  display: flex; gap: 14px; flex-wrap: wrap;
-  margin-top: 14px; font-size: 0.76rem;
-}
+/* The throughput rows kept beneath the change chart for two-period views: the
+   changes say WHAT moved, the rows say how many athletes it was measured on. */
 .slope-throughput { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
 
 /* A single period's internal breakdown — a year has nothing to compare against
@@ -2447,4 +2411,55 @@ textarea:focus-visible,
 .single-period-comp-head {
   font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
   letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 10px;
+}
+
+/* ── MetricDeltas: what changed between two periods ───────────────────────────
+   Replaced a slopegraph that put six metrics on one vertical scale. They are not
+   commensurable — four cluster at 72-78, the indicator sits at ~50, exercise
+   risks at ~18 running the other way — so the four movement scores collapsed
+   into overlapping lines with unreadable labels. The VALUES cannot share a
+   scale; the CHANGES can, and the change is what the panel is for. */
+.mdelta-head,
+.mdelta-row {
+  display: grid;
+  grid-template-columns: 116px 118px 1fr 62px 82px;
+  gap: 12px;
+  align-items: center;
+}
+.mdelta-head {
+  font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--text-muted); font-weight: 700;
+  padding-bottom: 8px; margin-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+.mdelta-head-chart { grid-column: 3; text-align: center; }
+.mdelta-head-vals { text-align: right; }
+.mdelta-row { padding: 7px 0; }
+.mdelta-row + .mdelta-row { border-top: 1px solid var(--chart-grid); }
+.mdelta-label { font-size: 0.85rem; font-weight: 600; }
+.mdelta-vals {
+  font-size: 0.82rem; text-align: right;
+  font-variant-numeric: tabular-nums; color: var(--text-muted);
+  white-space: nowrap;
+}
+.mdelta-vals b { color: var(--text); }
+.mdelta-arrow { opacity: 0.55; margin: 0 1px; }
+.mdelta-track {
+  position: relative; height: 20px; min-width: 120px;
+  background: var(--chart-track); border-radius: 4px;
+}
+.mdelta-zero {
+  position: absolute; left: 50%; top: -2px; bottom: -2px;
+  width: 1px; background: var(--border);
+}
+.mdelta-bar { position: absolute; top: 4px; bottom: 4px; border-radius: 3px; min-width: 2px; }
+.mdelta-num {
+  text-align: right; font-weight: 700; font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}
+.mdelta-dir { font-size: 0.78rem; color: var(--text-muted); }
+
+@media (max-width: 720px) {
+  .mdelta-head, .mdelta-row { grid-template-columns: 92px 104px 1fr 54px; }
+  .mdelta-dir { display: none; }
 }

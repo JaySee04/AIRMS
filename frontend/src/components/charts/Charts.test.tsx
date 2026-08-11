@@ -11,7 +11,7 @@
 
 import { renderToStaticMarkup as render } from 'react-dom/server';
 import {
-  DotPlot, Heatmap, Histogram, PeriodChart, RankedBars, Ring, Scatter, Slopegraph,
+  DotPlot, Heatmap, Histogram, MetricDeltas, PeriodChart, RankedBars, Ring, Scatter,
 } from './Charts';
 
 const period = (key: string, label: string, value: number, line?: number) => ({
@@ -268,60 +268,79 @@ describe('Histogram — the shape an average destroys', () => {
   });
 });
 
-describe('Slopegraph — the right chart for exactly two periods', () => {
-  // The real Q2 -> Q3 movement: ROM falls 5.2 while stability rises 2.6. Two
-  // headcount columns cannot express that at all.
+describe('MetricDeltas — what changed between two periods', () => {
+  // The real Q2 -> Q3 movement. These metrics are NOT commensurable — 72-78 for
+  // the movement scores, ~50 for the indicator, ~18 for risks — which is exactly
+  // why the slopegraph this replaced collapsed them into overlapping lines.
   const metrics = [
-    { key: 'rom', label: 'ROM', from: 77.6, to: 72.4, direction: 'declining' as const },
-    { key: 'stability', label: 'Stability', from: 75.4, to: 78, direction: 'improving' as const },
-    { key: 'symmetry', label: 'Symmetry', from: 74.6, to: 74.9, direction: 'steady' as const },
+    { key: 'rom', label: 'ROM', from: 77.6, to: 72.4, higherBetter: true, direction: 'declining' as const },
+    { key: 'stability', label: 'Stability', from: 75.4, to: 78, higherBetter: true, direction: 'improving' as const },
+    { key: 'symmetry', label: 'Symmetry', from: 74.6, to: 74.9, higherBetter: true, direction: 'steady' as const },
+    { key: 'risk', label: 'Exercise risks', from: 18.2, to: 20.5, higherBetter: false, direction: 'declining' as const },
   ];
 
-  it('draws one line per metric between the two periods', () => {
-    const html = render(<Slopegraph metrics={metrics} fromLabel="Q2 2026" toLabel="Q3 2026" />);
-    expect((html.match(/<line/g) || []).length).toBe(3);
-    expect(html).toContain('Q2 2026');
-    expect(html).toContain('Q3 2026');
-  });
-
-  it('shows both ends and the change for every metric', () => {
-    const html = render(<Slopegraph metrics={metrics} fromLabel="A" toLabel="B" />);
+  it('shows before, after and the signed change for every metric', () => {
+    const html = render(<MetricDeltas metrics={metrics} fromLabel="Q2 2026" toLabel="Q3 2026" />);
     expect(html).toContain('77.6');
     expect(html).toContain('72.4');
     expect(html).toContain('-5.2');
     expect(html).toContain('+2.6');
+    expect(html).toContain('Q2 2026 → Q3 2026');
   });
 
-  it('colours by the API verdict, not the raw sign', () => {
-    // Exercise risks improve by going DOWN. A sign-based colour would paint this
-    // decline green and the improvement red.
-    const html = render(<Slopegraph
-      metrics={[{ key: 'risk', label: 'Exercise risks', from: 20.5, to: 18.2, direction: 'improving' }]}
+  it('orders by the SIZE of the change, not by metric order', () => {
+    const html = render(<MetricDeltas metrics={metrics} fromLabel="A" toLabel="B" />);
+    // ROM moved 5.2, stability 2.6, risks 2.3, symmetry 0.3.
+    expect(html.indexOf('ROM')).toBeLessThan(html.indexOf('Stability'));
+    expect(html.indexOf('Stability')).toBeLessThan(html.indexOf('Symmetry'));
+  });
+
+  it('draws BETTER to the right on every row, including the inverted one', () => {
+    // Exercise risks rose 18.2 -> 20.5, which is worse, so its bar must go LEFT
+    // even though the raw number went up. A sign-based bar would put it right.
+    const html = render(<MetricDeltas
+      metrics={[{ key: 'risk', label: 'Exercise risks', from: 18.2, to: 20.5, higherBetter: false, direction: 'declining' }]}
       fromLabel="A" toLabel="B" />);
-    // Assert the LINE's stroke specifically — the legend lists all three
-    // directions, so searching the whole markup proves nothing.
-    const stroke = html.match(/<line[^>]*stroke="([^"]+)"/);
-    expect(stroke?.[1]).toBe('var(--risk-low)');
-    // The value dropped (20.5 → 18.2) and is still drawn as an improvement.
+    expect(html).toMatch(/right:50%/);
+    expect(html).not.toMatch(/left:50%/);
+    // ...and the printed number still carries its true sign.
+    expect(html).toContain('+2.3');
+  });
+
+  it('draws an improvement to the right even when the raw number falls', () => {
+    const html = render(<MetricDeltas
+      metrics={[{ key: 'risk', label: 'Exercise risks', from: 20.5, to: 18.2, higherBetter: false, direction: 'improving' }]}
+      fromLabel="A" toLabel="B" />);
+    expect(html).toMatch(/left:50%/);
     expect(html).toContain('-2.3');
   });
 
-  it('puts every metric on ONE shared scale so slopes compare', () => {
-    // A per-metric scale would make a 0.3 move look like a 5-point one.
-    const html = render(<Slopegraph metrics={metrics} fromLabel="A" toLabel="B" />);
-    expect(html).toMatch(/One shared scale/);
+  it('shares one bar scale, so the longest bar is the biggest move', () => {
+    const html = render(<MetricDeltas metrics={metrics} fromLabel="A" toLabel="B" />);
+    const widths2 = [...html.matchAll(/width:([\d.]+)%/g)].map((m) => Number(m[1]));
+    // ROM is the largest gain (5.2) so it takes the full half-width; stability
+    // (2.6) takes about half of that.
+    expect(Math.max(...widths2)).toBeCloseTo(50, 0);
+    expect(widths2[1]).toBeCloseTo((2.6 / 5.2) * 50, 0);
   });
 
-  it('skips metrics missing either end rather than drawing a half-line', () => {
-    const html = render(<Slopegraph
+  it('colours by the verdict, not the sign', () => {
+    const html = render(<MetricDeltas
+      metrics={[{ key: 'risk', label: 'Exercise risks', from: 20.5, to: 18.2, higherBetter: false, direction: 'improving' }]}
+      fromLabel="A" toLabel="B" />);
+    const bar = html.match(/class="mdelta-bar"[^>]*style="background:([^;"]+)/);
+    expect(bar?.[1]).toBe('var(--risk-low)');
+  });
+
+  it('skips metrics missing either end', () => {
+    const html = render(<MetricDeltas
       metrics={[...metrics, { key: 'x', label: 'Missing', from: 50, to: null }]}
       fromLabel="A" toLabel="B" />);
-    expect((html.match(/<line/g) || []).length).toBe(3);
     expect(html).not.toContain('Missing');
   });
 
   it('says so when nothing is comparable', () => {
-    const html = render(<Slopegraph metrics={[{ key: 'a', label: 'A', from: null, to: null }]} fromLabel="A" toLabel="B" />);
+    const html = render(<MetricDeltas metrics={[{ key: 'a', label: 'A', from: null, to: null }]} fromLabel="A" toLabel="B" />);
     expect(html).toContain('Not enough data to compare');
   });
 });
@@ -331,18 +350,18 @@ describe('PeriodChart — the sparse-grain layouts', () => {
     key, label, value, segments: [{ label: 'Safe', value, color: 'var(--risk-low)' }], line: null,
   });
 
-  it('TWO periods lead with the slopes, keeping throughput as context', () => {
+  it('TWO periods lead with the changes, keeping throughput as context', () => {
     const html = render(<PeriodChart
       points={[p('q2', 'Q2 2026', 43), p('q3', 'Q3 2026', 22)]}
-      slope={[{ key: 'rom', label: 'ROM', from: 77.6, to: 72.4, direction: 'declining' }]} />);
-    expect(html).toContain('slope-plot');
+      slope={[{ key: 'rom', label: 'ROM', from: 77.6, to: 72.4, higherBetter: true, direction: 'declining' }]} />);
+    expect(html).toContain('mdelta-row');
     expect(html).toContain('slope-throughput');
     expect(html).toContain('periodrow-track');
   });
 
-  it('two periods WITHOUT slope data still fall back to rows', () => {
+  it('two periods WITHOUT metric data still fall back to rows', () => {
     const html = render(<PeriodChart points={[p('a', 'A', 4), p('b', 'B', 9)]} />);
-    expect(html).not.toContain('slope-plot');
+    expect(html).not.toContain('mdelta-row');
     expect(html).toContain('periodrow-track');
   });
 

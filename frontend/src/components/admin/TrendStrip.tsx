@@ -51,15 +51,16 @@ interface PeriodsResponse {
   composition?: { grain: Grain; periods: Period[] } | null;
 }
 
-// The metrics drawn as slopes when a selection has exactly two periods. Order is
-// the reading order: the headline verdict first, then what it is made of.
-const SLOPE_METRICS: Array<[string, string, string]> = [
-  ['overallIndicator', 'Indicator', ''],
-  ['totalScore', 'Total Score', ''],
-  ['rom', 'ROM', ''],
-  ['stability', 'Stability', ''],
-  ['symmetry', 'Symmetry', ''],
-  ['exerciseRisks', 'Exercise risks', ''],
+// The metrics compared when a selection has exactly two periods. The boolean is
+// `higherBetter` — exercise risks is the one that runs the other way, and getting
+// it wrong would draw a rise in injury risk as an improvement.
+const COMPARED_METRICS: Array<[string, string, boolean]> = [
+  ['overallIndicator', 'Indicator', true],
+  ['totalScore', 'Total Score', true],
+  ['rom', 'ROM', true],
+  ['stability', 'Stability', true],
+  ['symmetry', 'Symmetry', true],
+  ['exerciseRisks', 'Exercise risks', false],
 ];
 
 
@@ -183,15 +184,15 @@ export default function TrendStrip({ query }: { query: string }) {
                 line: typeof p.averages?.totalScore === 'number' ? p.averages.totalScore : null,
               }))}
               compositionGrain={data?.composition?.grain}
-              slope={periods.length === 2 ? SLOPE_METRICS.map(([key, label, suffix]) => ({
+              slope={periods.length === 2 ? COMPARED_METRICS.map(([key, label, higherBetter]) => ({
                 key,
                 label,
                 from: typeof periods[0].averages?.[key] === 'number' ? (periods[0].averages[key] as number) : null,
                 to: typeof periods[1].averages?.[key] === 'number' ? (periods[1].averages[key] as number) : null,
+                higherBetter,
                 // The API's own verdict — it already knows exercise risks improve
                 // downwards and that a small move is noise.
                 direction: periods[1].deltas?.[key]?.direction ?? null,
-                suffix,
               })) : undefined}
             />
           </div>
