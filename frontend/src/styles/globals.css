@@ -2312,3 +2312,91 @@ textarea:focus-visible,
   text-transform: none;
 }
 .seg-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* ── Scatter: one dot per athlete, two measures at once ───────────────────────
+   Quadrants split on the cohort MEDIANS, not fixed cut-offs, so "high risk"
+   means high for this group. The reading that matters is top-right: an athlete
+   who moves well and still scores risky, which no averaged panel can surface. */
+.scatter { position: relative; padding-left: 34px; }
+.scatter-plot {
+  position: relative;
+  border-left: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: var(--chart-track);
+  border-radius: 0 4px 0 0;
+  overflow: hidden;
+}
+.scatter-cross { position: absolute; background: var(--chart-grid); }
+.scatter-cross--v { top: 0; bottom: 0; width: 1px; border-left: 1px dashed var(--text-muted); opacity: 0.5; }
+.scatter-cross--h { left: 0; right: 0; height: 1px; border-top: 1px dashed var(--text-muted); opacity: 0.5; }
+.scatter-quad {
+  position: absolute;
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  max-width: 44%;
+  line-height: 1.25;
+  pointer-events: none;
+}
+.scatter-dot {
+  position: absolute;
+  width: 11px; height: 11px;
+  margin: -5.5px 0 0 -5.5px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1.5px var(--bg-card);
+  /* Slight transparency so overlapping athletes read as denser rather than
+     hiding each other — with 58 dots on one plot, collisions are the norm. */
+  opacity: 0.85;
+}
+.scatter-xaxis { position: relative; height: 16px; margin-top: 4px; }
+.scatter-xaxis > span {
+  position: absolute; font-size: 0.68rem; color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.scatter-yaxis { position: absolute; left: 0; top: 0; width: 30px; height: calc(100% - 60px); }
+.scatter-yaxis > span {
+  position: absolute; right: 4px; font-size: 0.68rem; color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.scatter-ylabel {
+  position: absolute; left: -18px; top: 40%;
+  transform: rotate(-90deg);
+  transform-origin: left center;
+  font-size: 0.68rem; color: var(--text-muted); white-space: nowrap;
+}
+.scatter-axislabels {
+  display: flex; justify-content: space-between; gap: 12px;
+  font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;
+}
+
+/* ── Histogram: the shape an average destroys ─────────────────────────────── */
+.histogram-plot { position: relative; }
+.histogram-bars { display: flex; align-items: flex-end; gap: 2px; height: 100%; }
+.histogram-bar {
+  flex: 1 1 0;
+  min-height: 2px;
+  background: var(--series-2);
+  border-radius: 3px 3px 0 0;
+  position: relative;
+  transition: background 120ms;
+}
+.histogram-bar:hover { background: var(--series-1); }
+.histogram-n {
+  position: absolute; top: -14px; left: 0; right: 0;
+  text-align: center; font-size: 0.62rem; font-weight: 700; color: var(--text-muted);
+}
+.histogram-marker {
+  position: absolute; top: -4px; bottom: 0; width: 0;
+  border-left-width: 2px; border-left-style: dashed;
+  z-index: 1;
+}
+.histogram-axis { position: relative; height: 15px; margin-top: 5px; }
+.histogram-axis > span {
+  position: absolute; transform: translateX(-50%);
+  font-size: 0.66rem; color: var(--text-muted); font-variant-numeric: tabular-nums;
+}
+.histogram-legend {
+  display: flex; gap: 14px; flex-wrap: wrap;
+  margin-top: 10px; font-size: 0.76rem;
+}

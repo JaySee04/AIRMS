@@ -10,7 +10,9 @@
 // works because every component here is pure: props in, markup out, no hooks.
 
 import { renderToStaticMarkup as render } from 'react-dom/server';
-import { DotPlot, Heatmap, PeriodChart, RankedBars, Ring } from './Charts';
+import {
+  DotPlot, Heatmap, Histogram, PeriodChart, RankedBars, Ring, Scatter,
+} from './Charts';
 
 const period = (key: string, label: string, value: number, line?: number) => ({
   key,
@@ -184,5 +186,84 @@ describe('Heatmap — the matrix the subitem table actually is', () => {
 
   it('says so when there is nothing to show', () => {
     expect(render(<Heatmap rows={[]} colorFor={colorFor} />)).toContain('No subitem scores');
+  });
+});
+
+describe('Scatter — the athlete an average hides', () => {
+  // Real shape from the seeded cohort: most athletes cluster, and a few move well
+  // AND carry high risk. Those are the ones the page exists to surface.
+  const pts = [
+    { key: 'a', label: 'Nazwan', x: 78, y: 14 },
+    { key: 'b', label: 'Yusof', x: 90, y: 30 },
+    { key: 'c', label: 'Low', x: 60, y: 12 },
+    { key: 'd', label: 'Mid', x: 75, y: 20 },
+  ];
+
+  it('places one dot per athlete', () => {
+    const html = render(<Scatter points={pts} xLabel="Total Score" yLabel="Exercise Risks" />);
+    expect((html.match(/scatter-dot/g) || []).length).toBe(4);
+  });
+
+  it('positions dots by BOTH measures, not just one', () => {
+    const html = render(<Scatter points={pts} xLabel="Total Score" yLabel="Exercise Risks" />);
+    const lefts = [...html.matchAll(/left:\s*([\d.]+)%/g)].map((m) => Number(m[1]));
+    const tops = [...html.matchAll(/top:\s*([\d.]+)%/g)].map((m) => Number(m[1]));
+    expect(new Set(lefts).size).toBeGreaterThan(1);
+    expect(new Set(tops).size).toBeGreaterThan(1);
+  });
+
+  it('splits the quadrants on the cohort MEDIAN, not a fixed cut-off', () => {
+    // "High risk" has to mean high for this group — a fixed line would call a
+    // whole strong squad high-risk, or a whole weak one safe.
+    const html = render(<Scatter points={pts} xLabel="x" yLabel="y" />);
+    expect(html).toContain('scatter-cross');
+    expect(html).toMatch(/median/);
+  });
+
+  it('labels the quadrants when asked', () => {
+    const html = render(<Scatter points={pts} xLabel="x" yLabel="y"
+      quadrants={['High risk · poor mover', 'High risk · good mover', 'Low risk · good mover', 'Low risk · poor mover']} />);
+    expect(html).toContain('High risk · good mover');
+  });
+
+  it('says so when nobody has both measures', () => {
+    expect(render(<Scatter points={[]} xLabel="x" yLabel="y" />)).toContain('No athletes with both measures');
+  });
+});
+
+describe('Histogram — the shape an average destroys', () => {
+  it('bins the values and labels each non-empty bin with its count', () => {
+    const html = render(<Histogram values={[41, 42, 43, 58, 59]} min={40} max={60} binSize={5} />);
+    expect(html).toContain('histogram-bar');
+    expect(html).toContain('3');
+    expect(html).toContain('2');
+  });
+
+  it('distinguishes a tight cluster from a split squad', () => {
+    // Same mean, completely different squads — the case that motivates the panel.
+    const tight = render(<Histogram values={[49, 50, 50, 51]} min={0} max={100} binSize={5} />);
+    const split = render(<Histogram values={[30, 30, 70, 70]} min={0} max={100} binSize={5} />);
+    const bars = (h: string) => (h.match(/histogram-bar/g) || []).length;
+    // Same number of bins, but the counts land in different places, so the two
+    // markups differ — an average would render them identically.
+    expect(bars(tight)).toBe(bars(split));
+    expect(tight).not.toBe(split);
+  });
+
+  it('draws reference markers, e.g. the band boundary', () => {
+    const html = render(<Histogram values={[50]} min={0} max={100} binSize={10}
+      markers={[{ at: 50, label: 'Cohort average (50)', color: 'grey' }]} />);
+    expect(html).toContain('histogram-marker');
+    expect(html).toContain('Cohort average (50)');
+  });
+
+  it('puts an out-of-range value in the nearest bin rather than dropping it', () => {
+    const html = render(<Histogram values={[-5, 150]} min={0} max={100} binSize={50} />);
+    // Both counted: one in the first bin, one in the last.
+    expect((html.match(/histogram-n/g) || []).length).toBe(2);
+  });
+
+  it('says so when there is nothing scored', () => {
+    expect(render(<Histogram values={[]} min={0} max={100} binSize={5} />)).toContain('No scored athletes');
   });
 });

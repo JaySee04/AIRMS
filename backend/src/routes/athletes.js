@@ -247,6 +247,7 @@ router.get('/analytics/screening', auth, rbac('admin', 'executive'), async (req,
     // screenings (override wins). 'none' = scored but no band (small cohort).
     const bandDistribution = { green: 0, amber: 0, red: 0, none: 0 };
     let subitems = aggregateSubitems([]);
+    let points = [];
     const ids = rows.map((r) => r.athleteId);
     if (ids.length) {
       const scr = await Screening.findAll({
@@ -270,6 +271,25 @@ router.get('/analytics/screening', auth, rbac('admin', 'executive'), async (req,
       // from each athlete's LATEST screening, matching every other snapshot on
       // this page. See utils/subitemAggregate.js.
       subitems = aggregateSubitems(latestPerAthlete);
+      // One point per athlete, for the shape-of-the-squad views (scatter,
+      // distribution). Every other panel on this page is an AVERAGE, and an
+      // average cannot show a squad splitting into two groups, or the one good
+      // mover carrying a high risk score. 58 rows — small enough to send whole,
+      // and the alternative (server-side binning) would fix the bucket edges the
+      // client might want to move.
+      const byId = new Map(rows.map((r) => [r.athleteId, r]));
+      points = latestPerAthlete.map((sc) => {
+        const a = byId.get(sc.athleteId) || {};
+        return {
+          athleteId: sc.athleteId,
+          name: a.name || sc.athleteId,
+          sport: a.sport || null,
+          totalScore: sc.totalScore === null || sc.totalScore === undefined ? null : Number(sc.totalScore),
+          exerciseRisks: sc.exerciseRisks === null || sc.exerciseRisks === undefined ? null : Number(sc.exerciseRisks),
+          indicator: sc.overallIndicator === null || sc.overallIndicator === undefined ? null : Number(sc.overallIndicator),
+          band: effectiveBand(sc),
+        };
+      });
     }
 
     res.json({
@@ -283,6 +303,7 @@ router.get('/analytics/screening', auth, rbac('admin', 'executive'), async (req,
       trend,
       bandDistribution,
       subitems,
+      points,
       // REGION FOCUS — a lens, not a population filter. It does not remove any
       // athlete; it re-expresses the SAME cohort through one indicator, split
       // by every other dimension, so "which group carries this problem" is

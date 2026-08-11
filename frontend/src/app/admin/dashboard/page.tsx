@@ -18,14 +18,19 @@
 // scope); Chart.js was retired from this page in the 2026-08-04 viz upgrade.
 
 import { useEffect, useMemo, useState } from 'react';
+import dynamic from 'next/dynamic';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import CohortFilters, { useCohortFilters } from '@/components/admin/CohortFilters';
 import TrendStrip from '@/components/admin/TrendStrip';
 import DistributionBar from '@/components/admin/DistributionBar';
-import { DotPlot, Heatmap, RankedBars, Ring } from '@/components/charts/Charts';
+import { DotPlot, Heatmap, Histogram, RankedBars, Ring, Scatter } from '@/components/charts/Charts';
 import { TIER_COLOR, TIER_LABEL, TIER_ORDER, TIER_RANGE, tierOf } from '@/lib/holomotionTiers';
 import { BAND_COLOR, bandSegments } from '@/lib/bands';
 import { api } from '@/lib/api';
+
+// The licensed anatomical figure, at COHORT level. Heavy + client-only, so it
+// is split out exactly as the per-athlete dashboards do.
+const BodyMap = dynamic(() => import('@/components/dashboard/BodyMap'), { ssr: false, loading: () => <div style={{ minHeight: 320 }} /> });
 
 interface ScreeningCohort {
   totalAthletes: number;
@@ -52,6 +57,11 @@ interface ScreeningCohort {
     worstAsymmetry: { region: string; metric: string; meanGap: number; notable: number } | null;
     notableGap: number;
   };
+  points: Array<{
+    athleteId: string; name: string; sport: string | null;
+    totalScore: number | null; exerciseRisks: number | null; indicator: number | null;
+    band: 'green' | 'amber' | 'red' | null;
+  }>;
   trend: {
     comparable: number;
     improving: number; declining: number; steady: number;
@@ -175,6 +185,43 @@ export default function AdminDashboard() {
   // heavy tension could push every weakness finding off the panel entirely.
   const weakMuscles = useMemo(() => (cohort?.topMyodynamia ?? []).slice(0, 7), [cohort]);
   const tightMuscles = useMemo(() => (cohort?.topTension ?? []).slice(0, 7), [cohort]);
+
+  // The cohort's mean subitem table, reshaped into the per-athlete structure the
+  // body map already reads. Feeding the squad average into the SAME figure the
+  // clinician sees for one athlete is the point: the admin dashboard had no
+  // anatomical view at all, while the whole instrument speaks in body regions.
+  const squadSubitems = useMemo(() => {
+    if (!cohort?.subitems?.matrix?.length) return null;
+    const out: Record<string, Record<string, number | null>> = {};
+    for (const r of cohort.subitems.matrix) {
+      out[r.key] = Object.fromEntries(r.cells.map((c) => [c.key, c.value]));
+    }
+    return out as never;
+  }, [cohort]);
+
+  // Muscle flags, aggregated: a muscle appears on the squad figure if anyone in
+  // the cohort was flagged for it. Side 'B' because a squad has no single side —
+  // the per-muscle counts live in the two ranked lists further down.
+  const squadFlags = useMemo(() => ({
+    myodynamia: (cohort?.topMyodynamia ?? []).map((m) => ({ muscle: m.muscle, side: 'B' as const })),
+    tension: (cohort?.topTension ?? []).map((m) => ({ muscle: m.muscle, side: 'B' as const })),
+  }), [cohort]);
+
+  const scatterPoints = useMemo(() => (cohort?.points ?? [])
+    .filter((p) => p.totalScore !== null && p.exerciseRisks !== null)
+    .map((p) => ({
+      key: p.athleteId,
+      label: p.name,
+      x: p.totalScore as number,
+      y: p.exerciseRisks as number,
+      color: p.band ? C[p.band] : 'var(--text-muted)',
+      hint: `${p.name}${p.sport ? ` · ${p.sport}` : ''} — Total Score ${p.totalScore}, Exercise Risks ${p.exerciseRisks}`,
+    })), [cohort]);
+
+  const indicatorValues = useMemo(
+    () => (cohort?.points ?? []).map((p) => p.indicator).filter((v): v is number => v !== null),
+    [cohort],
+  );
 
   const focus = cohort?.focus ?? null;
   const a = cohort?.averages;
@@ -558,6 +605,95 @@ export default function AdminDashboard() {
             </>
           );
         })()}
+      </div>
+
+
+      {/* ── Squad body map ───────────────────────────────────────────────────
+          The same licensed figure the clinician reads for one athlete, fed the
+          cohort's mean subitem table. Nothing on this page was anatomical, which
+          is odd for a product whose entire vocabulary is body regions. */}
+      <div className="card" style={{ marginTop: 20 }}>
+        <div className="card-header"><div>
+          <h2 className="card-title" style={{ marginBottom: 0 }}>Squad Body Map</h2>
+          <span className="card-sub">
+            The cohort average on the same figure used for an individual · switch between the muscles
+            flagged anywhere in this squad and the region ROM/Stability picture
+          </span>
+        </div></div>
+        {!cohort ? <p className="text-muted">Loading…</p> : (
+          <>
+            <BodyMap myodynamia={squadFlags.myodynamia} tension={squadFlags.tension} subitems={squadSubitems} />
+            <p className="chart-note">
+              Region shading is the cohort mean, banded on HoloMotion&apos;s own 60 / 75 / 85 boundaries.
+              In Muscle Flags mode a muscle is lit if <em>anyone</em> in this cohort was flagged for it — the
+              per-muscle counts are in the two lists above, since a squad has no single left or right.
+            </p>
+          </>
+        )}
+      </div>
+
+      {/* ── Risk vs movement quality ─────────────────────────────────────────
+          One dot per athlete. Every other panel here is an average, and an
+          average cannot show the athlete who moves well and still scores risky —
+          which is exactly the one a screening programme exists to catch. */}
+      <div className="card" style={{ marginTop: 20 }}>
+        <div className="card-header"><div>
+          <h2 className="card-title" style={{ marginBottom: 0 }}>Risk vs Movement Quality</h2>
+          <span className="card-sub">
+            One dot per athlete, coloured by risk band · quadrants split on this cohort&apos;s medians
+          </span>
+        </div></div>
+        {!cohort ? <p className="text-muted">Loading…</p> : (
+          <>
+            <Scatter
+              points={scatterPoints}
+              xLabel="Total Score"
+              yLabel="Exercise Risks"
+              quadrants={[
+                'High risk · poor mover',
+                'High risk · good mover',
+                'Low risk · good mover',
+                'Low risk · poor mover',
+              ]}
+            />
+            <p className="chart-note">
+              Top-right is the reading to look for: an athlete whose movement quality is above the group
+              and whose risk score is too — no single number surfaces them, because the two measure
+              different halves of the report. Quadrant lines are cohort medians, so &ldquo;high&rdquo;
+              means high <em>for this group</em> rather than against a fixed cut-off.
+            </p>
+          </>
+        )}
+      </div>
+
+      {/* ── Distribution of the cohort indicator ─────────────────────────────
+          A mean of 50 is produced equally by everyone sitting on 50 and by half
+          the squad at 30 and half at 70. Different squads, different decisions. */}
+      <div className="card" style={{ marginTop: 20 }}>
+        <div className="card-header"><div>
+          <h2 className="card-title" style={{ marginBottom: 0 }}>Where the Squad Sits</h2>
+          <span className="card-sub">
+            Distribution of the cohort-normed indicator · 50 is this group&apos;s average by construction
+          </span>
+        </div></div>
+        {!cohort ? <p className="text-muted">Loading…</p> : (
+          <>
+            <Histogram
+              values={indicatorValues}
+              min={0}
+              max={100}
+              binSize={5}
+              valueLabel="indicator"
+              markers={[{ at: 50, label: 'Cohort average (50)', color: 'var(--text-muted)' }]}
+            />
+            <p className="chart-note">
+              The indicator is relative by construction, so the centre of this shape sits at 50 whatever
+              the squad&apos;s absolute quality. What it shows is the SPREAD — a tight cluster means an even
+              squad, a long left tail means a handful of athletes carrying the risk, and the averages on
+              this page cannot tell those apart.
+            </p>
+          </>
+        )}
       </div>
 
     </DashboardLayout>

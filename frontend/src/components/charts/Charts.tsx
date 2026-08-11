@@ -485,6 +485,171 @@ export function Heatmap({
 }
 
 // ══════════════════════════════════════════════════════════════════════════
+// Scatter — one dot per athlete, two measures at once.
+//
+// Every other panel on the analytics page is an AVERAGE, and an average cannot
+// show a squad splitting into two groups, or the single good mover who is
+// carrying a high risk score. Quadrants split by the cohort medians turn that
+// into a reading: the dangerous athlete is the one top-RIGHT — moves well, scored
+// risky — because no single-number view will ever surface them.
+// ══════════════════════════════════════════════════════════════════════════
+export interface ScatterPoint {
+  key: string; label: string; x: number; y: number; color?: string; hint?: string;
+}
+
+const median = (xs: number[]) => {
+  if (!xs.length) return null;
+  const s = [...xs].sort((a, b) => a - b);
+  const m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+};
+
+export function Scatter({
+  points, xLabel, yLabel, quadrants, height = 300,
+}: {
+  points: ScatterPoint[];
+  xLabel: string;
+  yLabel: string;
+  /** Labels for the four quadrants, clockwise from top-left. */
+  quadrants?: [string, string, string, string];
+  height?: number;
+}) {
+  if (!points.length) return <p className="text-muted" style={{ fontSize: '0.85rem' }}>No athletes with both measures in this selection.</p>;
+
+  const xs = points.map((p) => p.x);
+  const ys = points.map((p) => p.y);
+  const pad = (lo: number, hi: number) => Math.max((hi - lo) * 0.12, 2);
+  const xLo = Math.min(...xs) - pad(Math.min(...xs), Math.max(...xs));
+  const xHi = Math.max(...xs) + pad(Math.min(...xs), Math.max(...xs));
+  const yLo = Math.min(...ys) - pad(Math.min(...ys), Math.max(...ys));
+  const yHi = Math.max(...ys) + pad(Math.min(...ys), Math.max(...ys));
+  const mx = median(xs) as number;
+  const my = median(ys) as number;
+
+  const px = (v: number) => ((v - xLo) / (xHi - xLo || 1)) * 100;
+  const py = (v: number) => 100 - ((v - yLo) / (yHi - yLo || 1)) * 100;
+
+  const xTicks = [xLo, mx, xHi].map((v) => +v.toFixed(0));
+  const yTicks = [yLo, my, yHi].map((v) => +v.toFixed(0));
+
+  return (
+    <div className="scatter">
+      <div className="scatter-plot" style={{ height }}>
+        {/* Median crosshair — quadrant boundaries that move with the cohort
+            rather than fixed cut-offs, so "high risk" means high FOR THIS GROUP. */}
+        <span className="scatter-cross scatter-cross--v" style={{ left: `${px(mx)}%` }} aria-hidden />
+        <span className="scatter-cross scatter-cross--h" style={{ top: `${py(my)}%` }} aria-hidden />
+        {quadrants && (
+          <>
+            <span className="scatter-quad" style={{ left: 6, top: 6 }}>{quadrants[0]}</span>
+            <span className="scatter-quad" style={{ right: 6, top: 6, textAlign: 'right' }}>{quadrants[1]}</span>
+            <span className="scatter-quad" style={{ right: 6, bottom: 6, textAlign: 'right' }}>{quadrants[2]}</span>
+            <span className="scatter-quad" style={{ left: 6, bottom: 6 }}>{quadrants[3]}</span>
+          </>
+        )}
+        {points.map((p) => (
+          <span
+            key={p.key}
+            className="scatter-dot"
+            style={{ left: `${px(p.x)}%`, top: `${py(p.y)}%`, background: p.color ?? 'var(--series-1)' }}
+            title={p.hint ?? `${p.label} — ${xLabel} ${fmt(p.x)}, ${yLabel} ${fmt(p.y)}`}
+          />
+        ))}
+      </div>
+      <div className="scatter-xaxis">
+        {xTicks.map((t, i) => (
+          <span key={t} style={{ left: `${px(t)}%`, transform: i === 0 ? 'none' : i === 2 ? 'translateX(-100%)' : 'translateX(-50%)' }}>{t}</span>
+        ))}
+      </div>
+      <div className="scatter-axislabels">
+        <span>{xLabel} →</span>
+        <span className="text-muted">
+          median {fmt(mx)} / {fmt(my)} · {points.length} athletes
+        </span>
+      </div>
+      <div className="scatter-yaxis" aria-hidden>
+        {yTicks.map((t, i) => (
+          <span key={t} style={{ top: `${py(t)}%`, transform: i === 2 ? 'none' : i === 0 ? 'translateY(-100%)' : 'translateY(-50%)' }}>{t}</span>
+        ))}
+      </div>
+      <div className="scatter-ylabel">{yLabel} ↑</div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// Histogram — the SHAPE of a distribution, which every average destroys.
+//
+// A cohort mean of 50 is produced equally by everyone sitting on 50 and by half
+// the squad at 30 and half at 70. Those are completely different squads and
+// completely different decisions.
+// ══════════════════════════════════════════════════════════════════════════
+export function Histogram({
+  values, min, max, binSize, markers = [], valueLabel, height = 170,
+}: {
+  values: number[];
+  min: number;
+  max: number;
+  binSize: number;
+  /** Vertical reference lines, e.g. band boundaries. */
+  markers?: Array<{ at: number; label: string; color: string }>;
+  valueLabel?: string;
+  height?: number;
+}) {
+  if (!values.length) return <p className="text-muted" style={{ fontSize: '0.85rem' }}>No scored athletes in this selection.</p>;
+
+  const binCount = Math.max(1, Math.ceil((max - min) / binSize));
+  const bins = Array.from({ length: binCount }, (_, i) => ({
+    lo: min + i * binSize,
+    hi: min + (i + 1) * binSize,
+    n: 0,
+  }));
+  for (const v of values) {
+    const i = Math.min(binCount - 1, Math.max(0, Math.floor((v - min) / binSize)));
+    bins[i].n += 1;
+  }
+  const peak = Math.max(1, ...bins.map((b) => b.n));
+  const med = median(values) as number;
+  const pos = (v: number) => ((v - min) / (max - min || 1)) * 100;
+
+  return (
+    <div className="histogram">
+      <div className="histogram-plot" style={{ height }}>
+        {markers.map((m) => (
+          <span key={m.label} className="histogram-marker" style={{ left: `${pos(m.at)}%`, borderColor: m.color }} title={`${m.label} (${m.at})`} />
+        ))}
+        <div className="histogram-bars">
+          {bins.map((b) => (
+            <div
+              key={b.lo}
+              className="histogram-bar"
+              style={{ height: `${(b.n / peak) * 100}%` }}
+              title={`${b.lo}–${b.hi}${valueLabel ? ` ${valueLabel}` : ''}: ${b.n} athlete${b.n === 1 ? '' : 's'}`}
+            >
+              {b.n > 0 && <span className="histogram-n">{b.n}</span>}
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="histogram-axis">
+        {bins.filter((_, i) => i % 2 === 0).map((b) => (
+          <span key={b.lo} style={{ left: `${pos(b.lo)}%` }}>{b.lo}</span>
+        ))}
+      </div>
+      <div className="histogram-legend">
+        {markers.map((m) => (
+          <span key={m.label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ width: 2, height: 12, background: m.color, display: 'inline-block' }} />
+            {m.label}
+          </span>
+        ))}
+        <span className="text-muted">median {fmt(med)} · {values.length} athletes · bin {binSize}</span>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════
 // Ring — one proportion, big. For coverage ("58 of 62 screened"), where a bar
 // buys nothing and a number alone buys no glance-value.
 // ══════════════════════════════════════════════════════════════════════════
