@@ -387,6 +387,17 @@ export interface MetricDelta {
   /** False when a LOWER value is better (exercise risks). */
   higherBetter?: boolean;
   direction?: 'improving' | 'steady' | 'declining' | null;
+  /**
+   * A change that was averaged rather than measured between two readings — the
+   * within-athlete case, where there is no single "from" and "to" to print
+   * because every pair has its own. Supplying this instead of from/to gets the
+   * same shared-scale bar without inventing endpoints that do not exist.
+   */
+  delta?: number | null;
+  /** Replaces the "from → to" cell when the row has no endpoints to show. */
+  vals?: string;
+  /** Shown in place of the direction word — for stating WHY a row is flat. */
+  note?: string;
 }
 
 const DELTA_TONE: Record<string, string> = {
@@ -396,16 +407,20 @@ const DELTA_TONE: Record<string, string> = {
 };
 
 export function MetricDeltas({
-  metrics, fromLabel, toLabel,
+  metrics, fromLabel, toLabel, valsHead, note,
 }: {
   metrics: MetricDelta[];
-  fromLabel: string;
-  toLabel: string;
+  fromLabel?: string;
+  toLabel?: string;
+  /** Heading for the middle column when the rows carry no from → to pair. */
+  valsHead?: string;
+  /** Replaces the standard explanation under the bars. */
+  note?: React.ReactNode;
 }) {
   const rows = metrics
-    .filter((m) => m.from !== null && m.to !== null)
+    .filter((m) => (m.from !== null && m.to !== null) || m.delta !== null && m.delta !== undefined)
     .map((m) => {
-      const delta = +((m.to as number) - (m.from as number)).toFixed(1);
+      const delta = m.delta ?? +(((m.to as number) - (m.from as number)).toFixed(1));
       // Positive gain = better, whichever way the raw scale runs.
       const gain = (m.higherBetter ?? true) ? delta : -delta;
       return { ...m, delta, gain };
@@ -421,17 +436,25 @@ export function MetricDeltas({
     <div className="mdelta">
       <div className="mdelta-head">
         <span className="mdelta-head-metric">Measure</span>
-        <span className="mdelta-head-vals">{fromLabel} → {toLabel}</span>
+        <span className="mdelta-head-vals">{valsHead ?? `${fromLabel} → ${toLabel}`}</span>
         <span className="mdelta-head-chart">worse ← change → better</span>
       </div>
       {rows.map((r) => {
         const tone = DELTA_TONE[r.direction ?? 'steady'] ?? DELTA_TONE.steady;
         const pct = (Math.abs(r.gain) / max) * 50; // half-width each side of zero
+        // Endpoints only exist for the two-period case. Resolved once so the
+        // tooltip cannot format a null that the cell above it correctly skipped.
+        const hasEnds = r.from !== null && r.from !== undefined && r.to !== null && r.to !== undefined;
+        const valsText = r.vals ?? (hasEnds ? `${fmt(r.from as number)} → ${fmt(r.to as number)}` : '');
         return (
           <div className="mdelta-row" key={r.key}>
             <div className="mdelta-label">{r.label}</div>
             <div className="mdelta-vals">
-              {fmt(r.from as number)} <span className="mdelta-arrow">→</span> <b>{fmt(r.to as number)}</b>
+              {r.vals !== undefined || !hasEnds ? (
+                <span className="text-muted">{valsText}</span>
+              ) : (
+                <>{fmt(r.from as number)} <span className="mdelta-arrow">→</span> <b>{fmt(r.to as number)}</b></>
+              )}
             </div>
             <div className="mdelta-track">
               <span className="mdelta-zero" aria-hidden />
@@ -443,22 +466,24 @@ export function MetricDeltas({
                     ? { left: '50%', width: `${pct}%` }
                     : { right: '50%', width: `${pct}%` }),
                 }}
-                title={`${r.label}: ${fmt(r.from as number)} → ${fmt(r.to as number)} (${r.delta > 0 ? '+' : ''}${r.delta}, ${r.direction ?? 'steady'})`}
+                title={`${r.label}${valsText ? `: ${valsText}` : ''} (${r.delta > 0 ? '+' : ''}${r.delta}, ${r.note ?? r.direction ?? 'steady'})`}
               />
             </div>
             <div className="mdelta-num" style={{ color: tone }}>
               {r.delta > 0 ? '+' : ''}{fmt(r.delta)}
             </div>
-            <div className="mdelta-dir">{r.direction ?? 'steady'}</div>
+            <div className="mdelta-dir">{r.note ?? r.direction ?? 'steady'}</div>
           </div>
         );
       })}
-      <p className="chart-note">
-        Bars share one scale, so the longest is the biggest move. Direction is
-        <strong> better or worse</strong>, not the sign — exercise risks improve by going down, so a fall
-        there is drawn to the right like every other improvement, while the printed number keeps its
-        true sign. &ldquo;Steady&rdquo; means the move is inside the noise band rather than exactly zero.
-      </p>
+      {note ?? (
+        <p className="chart-note">
+          Bars share one scale, so the longest is the biggest move. Direction is
+          <strong> better or worse</strong>, not the sign — exercise risks improve by going down, so a fall
+          there is drawn to the right like every other improvement, while the printed number keeps its
+          true sign. &ldquo;Steady&rdquo; means the move is inside the noise band rather than exactly zero.
+        </p>
+      )}
     </div>
   );
 }

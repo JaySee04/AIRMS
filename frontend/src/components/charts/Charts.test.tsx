@@ -339,6 +339,35 @@ describe('MetricDeltas — what changed between two periods', () => {
     expect(html).not.toContain('Missing');
   });
 
+  // The within-athlete case: change is AVERAGED across pairs, so there is no
+  // single before and after to print. Without this the panel had to fall back to
+  // flat tiles that gave a real move and a dead zero the same visual weight.
+  it('accepts a pre-computed delta when there are no two endpoints', () => {
+    const html = render(<MetricDeltas
+      valsHead="pairs that moved"
+      metrics={[
+        { key: 'ind', label: 'Overall indicator', from: null, to: null, delta: -1.7, higherBetter: true, direction: 'declining', vals: '19 of 19' },
+        { key: 'rom', label: 'ROM', from: null, to: null, delta: 0, higherBetter: true, direction: 'steady', vals: 'none of them', note: 'no change recorded' },
+      ]} />);
+    expect(html).toContain('pairs that moved');
+    expect(html).toContain('-1.7');
+    expect(html).toContain('19 of 19');
+    // The flat row states WHY it is flat instead of showing a bare direction.
+    expect(html).toContain('no change recorded');
+    // No row renders a "from → to" pair, because there is none to render. The
+    // arrow in the axis header is a different thing and stays.
+    expect(html).not.toContain('mdelta-arrow');
+  });
+
+  it('still ranks a supplied delta by size', () => {
+    const html = render(<MetricDeltas
+      metrics={[
+        { key: 'small', label: 'Small mover', from: null, to: null, delta: 0.2, direction: 'steady' },
+        { key: 'big', label: 'Big mover', from: null, to: null, delta: -4.4, direction: 'declining' },
+      ]} />);
+    expect(html.indexOf('Big mover')).toBeLessThan(html.indexOf('Small mover'));
+  });
+
   it('says so when nothing is comparable', () => {
     const html = render(<MetricDeltas metrics={[{ key: 'a', label: 'A', from: null, to: null }]} fromLabel="A" toLabel="B" />);
     expect(html).toContain('Not enough data to compare');

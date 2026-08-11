@@ -205,7 +205,14 @@ function bucketBetweenTests(screenings, noise) {
     deltas: [],
   };
   const intervals = [];
-  const sums = new Map(PERIOD_SCORES.map(([k]) => [k, { sum: 0, n: 0 }]));
+  // `moved` counts the pairs in which the score actually CHANGED, and it is not
+  // redundant with the average. An average of zero has two completely different
+  // causes — nobody moved, or gains and losses cancelled — and a panel that
+  // renders both as "→ 0" tells the reader the same thing about a stable squad
+  // and a churning one. Worse, an all-zero column usually means the retest never
+  // re-measured that score, which is a data-quality finding rather than a
+  // clinical one, and the reader can only see it if we count it.
+  const sums = new Map(PERIOD_SCORES.map(([k]) => [k, { sum: 0, n: 0, moved: 0 }]));
 
   for (const [, rows] of byAthlete) {
     const sorted = rows
@@ -220,7 +227,11 @@ function bucketBetweenTests(screenings, noise) {
       if (Number.isFinite(days) && days >= 0) intervals.push(days);
       for (const [k] of PERIOD_SCORES) {
         const a = num(prev[k]); const b = num(cur[k]);
-        if (a !== null && b !== null) { const acc = sums.get(k); acc.sum += b - a; acc.n += 1; }
+        if (a !== null && b !== null) {
+          const acc = sums.get(k);
+          acc.sum += b - a; acc.n += 1;
+          if (b !== a) acc.moved += 1;
+        }
       }
       const di = num(cur.overallIndicator) !== null && num(prev.overallIndicator) !== null
         ? num(cur.overallIndicator) - num(prev.overallIndicator) : null;
@@ -246,7 +257,15 @@ function bucketBetweenTests(screenings, noise) {
   out.deltas = PERIOD_SCORES.map(([k, label, higherBetter]) => {
     const acc = sums.get(k);
     const avgDelta = acc.n ? +(acc.sum / acc.n).toFixed(1) : null;
-    return { key: k, label, higherBetter, avgDelta, direction: directionOf(avgDelta, higherBetter, noise) };
+    return {
+      key: k,
+      label,
+      higherBetter,
+      avgDelta,
+      comparedPairs: acc.n,
+      movedPairs: acc.moved,
+      direction: directionOf(avgDelta, higherBetter, noise),
+    };
   });
   return out;
 }

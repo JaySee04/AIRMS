@@ -263,6 +263,38 @@ describe('screeningPeriods — between tests', () => {
     expect(rom).toMatchObject({ avgDelta: 10, higherBetter: true, direction: 'improving' });
     expect(risk).toMatchObject({ avgDelta: -6, higherBetter: false, direction: 'improving' });
   });
+
+  // An average of zero has two causes that mean opposite things, and the panel
+  // used to render both as "→ 0". These two cases pin the difference.
+  it('separates a score nobody moved from one whose moves cancelled out', () => {
+    const { betweenTests } = screeningPeriods([
+      // rom never changes; stability moves +10 and -10, averaging to zero.
+      s('A', '2026-01-01T00:00:00Z', { rom: 70, stability: 60 }),
+      s('A', '2026-02-01T00:00:00Z', { rom: 70, stability: 70 }),
+      s('B', '2026-01-01T00:00:00Z', { rom: 70, stability: 70 }),
+      s('B', '2026-02-01T00:00:00Z', { rom: 70, stability: 60 }),
+    ], { grain: 'month' });
+
+    const rom = betweenTests.deltas.find((d) => d.key === 'rom');
+    const stability = betweenTests.deltas.find((d) => d.key === 'stability');
+
+    // Identical averages...
+    expect(rom.avgDelta).toBe(0);
+    expect(stability.avgDelta).toBe(0);
+    // ...telling completely different stories.
+    expect(rom).toMatchObject({ movedPairs: 0, comparedPairs: 2 });
+    expect(stability).toMatchObject({ movedPairs: 2, comparedPairs: 2 });
+  });
+
+  it('does not count a pair as compared when either reading is missing', () => {
+    const { betweenTests } = screeningPeriods([
+      s('A', '2026-01-01T00:00:00Z', { rom: null }),
+      s('A', '2026-02-01T00:00:00Z', { rom: 80 }),
+    ], { grain: 'month' });
+    const rom = betweenTests.deltas.find((d) => d.key === 'rom');
+    // No baseline to measure against — not a pair that "did not move".
+    expect(rom).toMatchObject({ comparedPairs: 0, movedPairs: 0, avgDelta: null });
+  });
 });
 
 describe('seasonality — which quarter carries the risk', () => {

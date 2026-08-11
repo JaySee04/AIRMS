@@ -20,7 +20,7 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import CohortFilters, { useCohortFilters } from '@/components/admin/CohortFilters';
 import DistributionBar from '@/components/admin/DistributionBar';
 import StaffActivity from '@/components/admin/StaffActivity';
-import { DivergingBar, PeriodChart, Ring } from '@/components/charts/Charts';
+import { DivergingBar, MetricDeltas, PeriodChart, Ring } from '@/components/charts/Charts';
 import { BAND_COLOR } from '@/lib/bands';
 import { api } from '@/lib/api';
 import { GRAINS, type Grain } from '@/lib/periods';
@@ -48,7 +48,12 @@ interface PeriodsPayload {
     intervalDays: { median: number | null; min: number | null; max: number | null };
     improved: number; declined: number; steady: number;
     bandMoves: { better: number; worse: number; same: number };
-    deltas: Array<{ key: string; label: string; higherBetter: boolean; avgDelta: number | null; direction: string | null }>;
+    deltas: Array<{
+      key: string; label: string; higherBetter: boolean; avgDelta: number | null;
+      direction: 'improving' | 'steady' | 'declining' | null;
+      /** Pairs where the score actually changed, vs pairs where both readings existed. */
+      movedPairs: number; comparedPairs: number;
+    }>;
   } | null;
 }
 
@@ -142,6 +147,12 @@ export default function AdminActivity() {
   }, [f.query, grain]);
 
   const bt = data?.betweenTests;
+  // Scores that were byte-identical across every retest pair. Called out by name
+  // because an all-zero column is far more often an ingestion gap than a squad
+  // that genuinely did not budge on a single measurement.
+  const flatScores = (bt?.deltas ?? [])
+    .filter((d) => d.comparedPairs > 0 && d.movedPairs === 0)
+    .map((d) => d.label);
 
   return (
     <DashboardLayout allowedRoles={['admin', 'executive']} title="Programme Activity">
@@ -329,10 +340,15 @@ export default function AdminActivity() {
               stat tiles ("10" and "9" in separate boxes) the eye never actually
               compared them, which is the single thing this panel exists to
               show. */}
+          {/* Declined LEFT, improved RIGHT — matching the change chart on the
+              dashboard, where the axis runs "worse ← change → better". Two
+              panels in the same product that put improvement on opposite sides
+              force the reader to re-learn the direction at each card, and the
+              one who does not re-learn it reads the squad exactly backwards. */}
           <div style={{ marginBottom: 20 }}>
             <DivergingBar
-              left={{ label: `${bt.improved} improved`, value: bt.improved, color: C.green }}
-              right={{ label: `${bt.declined} declined`, value: bt.declined, color: C.red }}
+              left={{ label: `${bt.declined} declined`, value: bt.declined, color: C.red }}
+              right={{ label: `${bt.improved} improved`, value: bt.improved, color: C.green }}
               middle={{ label: 'unchanged', value: bt.steady }}
             />
           </div>
@@ -343,10 +359,16 @@ export default function AdminActivity() {
                 {bt.intervalDays.median === null ? '—' : bt.intervalDays.median}
                 <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 500 }}> days</span>
               </span>
+              {/* "range 35–35 days" is a range in form only. When every pair
+                  shares one gap that IS the finding — a fixed recall schedule
+                  rather than a spread — and it should be said, not dressed as a
+                  range the reader has to notice is degenerate. */}
               <span className="verdict-stat-hint">
-                {bt.intervalDays.min !== null && bt.intervalDays.max !== null
-                  ? `range ${bt.intervalDays.min}–${bt.intervalDays.max} days`
-                  : 'how often athletes come back'}
+                {bt.intervalDays.min === null || bt.intervalDays.max === null
+                  ? 'how often athletes come back'
+                  : bt.intervalDays.min === bt.intervalDays.max
+                    ? 'every pair the same gap'
+                    : `range ${bt.intervalDays.min}–${bt.intervalDays.max} days`}
               </span>
             </div>
             <div>
@@ -363,15 +385,47 @@ export default function AdminActivity() {
               { label: 'Band worsened', value: bt.bandMoves.worse, color: C.red },
             ]} />
           </div>
+          {/* Same shared-delta chart as the dashboard rather than six loose
+              tiles: the tiles gave a −1.7 and a 0 identical visual weight, so
+              the one score that moved did not stand out from the four that did
+              not. `movedPairs` separates the two ways an average lands on zero —
+              nothing changed, or changes cancelled — which the tiles rendered
+              identically as "→ 0". */}
           <div style={{ fontSize: '0.8rem', fontWeight: 600, marginBottom: 8 }}>Average change per score, test to test</div>
-          <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
-            {bt.deltas.map((d) => (
-              <div key={d.key} style={{ textAlign: 'center', minWidth: 78 }}>
-                <div className="stat-tile-label" style={{ fontSize: '0.68rem' }}>{d.label}</div>
-                <div><Move delta={d.avgDelta} higherBetter={d.higherBetter} /></div>
-              </div>
-            ))}
-          </div>
+          <MetricDeltas
+            valsHead="pairs that moved"
+            metrics={bt.deltas.map((d) => {
+              const flat = d.movedPairs === 0 && (d.comparedPairs ?? 0) > 0;
+              return {
+                key: d.key,
+                label: d.label,
+                from: null,
+                to: null,
+                delta: d.avgDelta,
+                higherBetter: d.higherBetter,
+                direction: d.direction,
+                vals: flat ? 'none of them' : `${d.movedPairs} of ${d.comparedPairs}`,
+                note: flat ? 'no change recorded' : undefined,
+              };
+            })}
+            note={(
+              <p className="chart-note">
+                Averaged across all {bt.pairs} pair{bt.pairs === 1 ? '' : 's'}, so a bar is the typical
+                move an athlete made between two of their own tests. Bars share one scale and point
+                <strong> right for better</strong> — exercise risks improve by falling, so a drop there
+                is drawn right like any other gain while the printed number keeps its true sign.
+                {flatScores.length > 0 && (
+                  <>
+                    {' '}<strong>{flatScores.join(', ')}</strong>{' '}
+                    {flatScores.length === 1 ? 'was' : 'were'} identical in every pair — that is a
+                    retest not re-measuring {flatScores.length === 1 ? 'it' : 'them'} rather than a
+                    squad holding steady, and is worth checking at source.
+                  </>
+                )}
+              </p>
+            )}
+          />
+
         </div>
       )}
 
