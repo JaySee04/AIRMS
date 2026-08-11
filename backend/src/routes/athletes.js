@@ -5,7 +5,7 @@ const { Athlete, MuscleFlag, Screening, AthleteDiscipline } = require('../models
 const { screeningMovement, recomputeCohorts } = require('../utils/cohorts');
 const { recomputeIndicators } = require('../utils/overallIndicator');
 const { notifyInjuryToCoach } = require('../utils/notifications');
-const { screeningPeriods, GRAINS } = require('../utils/screeningPeriods');
+const { programmeActivityData } = require('../utils/programmeActivity');
 const { effectiveBand } = require('../utils/bands');
 const { INDICATOR_ATTRS, toIndicator } = require('../utils/indicatorPayload');
 const {
@@ -302,72 +302,11 @@ router.get('/analytics/screening', auth, rbac('admin', 'executive'), async (req,
 // has ever had counts, not just their latest.
 router.get('/analytics/periods', auth, rbac('admin', 'executive'), async (req, res) => {
   try {
-    const {
-      grain = 'quarter', sport, program, gender, discipline, ageMin, ageMax, from, to,
-    } = req.query;
-    if (!GRAINS.includes(String(grain))) {
-      return res.status(400).json({ message: `grain must be one of: ${GRAINS.join(', ')}` });
-    }
-
-    const where = { isActive: true };
-    if (sport) where.sport = sport;
-    if (program) where.program = program;
-    if (gender) where.gender = gender;
-    if (ageMin || ageMax) {
-      where.age = {};
-      if (ageMin) where.age[Op.gte] = Number(ageMin);
-      if (ageMax) where.age[Op.lte] = Number(ageMax);
-    }
-
-    // Discipline is a separate table, so narrow the roster by a subquery on the
-    // athletes who compete in it rather than joining every screening row.
-    if (discipline) {
-      const inDiscipline = await AthleteDiscipline.findAll({
-        where: { discipline }, attributes: ['athleteId'], raw: true,
-      });
-      where.athleteId = { [Op.in]: inDiscipline.map((d) => d.athleteId) };
-    }
-
-    const roster = await Athlete.findAll({ where, attributes: ['athleteId'], raw: true });
-    const ids = roster.map((r) => r.athleteId);
-
-    const empty = {
-      grain, periods: [], betweenTests: null,
-      coverage: { rostered: roster.length, tested: 0, untested: roster.length, tests: 0 },
-    };
-    if (!ids.length) return res.json(empty);
-
-    const scrWhere = { athleteId: { [Op.in]: ids } };
-    if (from || to) {
-      scrWhere.assessedAt = {};
-      if (from) scrWhere.assessedAt[Op.gte] = new Date(from);
-      if (to) scrWhere.assessedAt[Op.lte] = new Date(to);
-    }
-    const rows = await Screening.findAll({
-      where: scrWhere,
-      attributes: [
-        'id', 'athleteId', 'assessedAt', 'totalScore', 'rom', 'stability', 'symmetry',
-        'exerciseRisks', 'overallIndicator', 'overallBand', 'overrideBand',
-      ],
-      order: [['assessedAt', 'ASC'], ['id', 'ASC']],
-      raw: true,
-    });
-
-    const result = screeningPeriods(rows, { grain });
-    const tested = new Set(rows.map((r) => r.athleteId)).size;
-    return res.json({
-      ...result,
-      // Coverage is the roster measured against the WINDOW, so a narrow
-      // from/to correctly shows athletes as untested in that window.
-      coverage: {
-        rostered: roster.length,
-        tested,
-        untested: Math.max(0, roster.length - tested),
-        tests: rows.length,
-      },
-    });
+    // Gathered by utils/programmeActivity.js, which the downloadable PDF also
+    // uses — the page and the document must not be able to quote different KPIs.
+    return res.json(await programmeActivityData(req.query));
   } catch (err) {
-    return res.status(500).json({ message: err.message });
+    return res.status(err.status || 500).json({ message: err.message });
   }
 });
 

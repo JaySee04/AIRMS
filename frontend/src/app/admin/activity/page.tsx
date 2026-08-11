@@ -100,6 +100,24 @@ export default function AdminActivity() {
   const [data, setData] = useState<PeriodsPayload | null>(null);
   const [sports, setSports] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [dlBusy, setDlBusy] = useState(false);
+
+  // The KPIs as a document. Sends the SAME query the page is showing (filters +
+  // grain), because a report that silently covered a different scope than the
+  // screen it was downloaded from is worse than no report.
+  async function downloadKpiReport() {
+    setDlBusy(true); setError(null);
+    try {
+      const qs = new URLSearchParams(f.query);
+      qs.set('grain', grain);
+      await api.downloadGet(
+        `/screening-reports/programme-activity.pdf?${qs.toString()}`,
+        `AIRMS-programme-activity-${grain}.pdf`,
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Download failed');
+    } finally { setDlBusy(false); }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -143,6 +161,16 @@ export default function AdminActivity() {
             <h2 className="card-title" style={{ marginBottom: 0 }}>Screening Throughput</h2>
             <span className="card-sub">How many athletes were tested per period, and which way population scores are moving.</span>
           </div>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexShrink: 0, flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className="btn btn-outline btn-sm"
+            onClick={downloadKpiReport}
+            disabled={dlBusy || !data}
+            title="Download these KPIs as a PDF, using the filters and period grain currently shown"
+          >
+            {dlBusy ? 'Preparing…' : 'Download KPI report (PDF)'}
+          </button>
           <div style={{ display: 'flex', gap: 4, background: 'var(--bg)', padding: 3, borderRadius: 8, flexShrink: 0 }} role="group" aria-label="Period grain">
             {GRAINS.map((g) => (
               <button
@@ -157,6 +185,7 @@ export default function AdminActivity() {
                 }}
               >{g.label}</button>
             ))}
+          </div>
           </div>
         </div>
 

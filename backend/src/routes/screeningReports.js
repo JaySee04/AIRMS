@@ -22,15 +22,18 @@ const { resolveCohortStats, orientedComponents, computeStats } = require('../uti
 const { getSettings } = require('../utils/settings');
 const { effectiveBand } = require('../utils/bands');
 const { holisticData, drawHolistic } = require('../utils/holisticReport');
+const { programmeActivityData } = require('../utils/programmeActivity');
 const {
   BAND, ELEVATED_THRESHOLD, GOLD, GRID, MUTED, NAVY, RISKS, SCORE_ROWS, TEXT, bandColor, bandLabel,
-  bandPill, bar, bullets, cover, ensure, fileSlug, finish, fmtDate,
+  bandPill, bar, betweenTestsBlock, bullets, cover, ensure, fileSlug, finish, fmtDate, periodTable, seasonTable,
   auditTable, staffTable, interpret, keyFindings, keyFindingsBox, muscleFigure, num, radar,
   riskLegend, sectionTitle, squadMuscleHotspots, squadSubitemHeatmap, squadSymmetrySection, startDoc,
   subitemPriorities, subitemTable, symmetrySection, todayStamp, zoneGauge,
 } = require('../utils/pdfDraw');
 
 const router = express.Router();
+
+const KIND_ACTIVITY = 'Programme Activity Report';
 
 // ── 1. Holistic (admin) ─────────────────────────────────────────────────────
 router.get('/holistic.pdf', auth, rbac('admin', 'executive'), async (req, res) => {
@@ -323,6 +326,109 @@ router.get('/team.pdf', auth, rbac('medical', 'admin', 'coach', 'executive'), re
 
     finish(doc, 'Team Screening Report');
   } catch (err) { if (!res.headersSent) res.status(500).json({ message: err.message }); }
+});
+
+
+// GET /api/screening-reports/programme-activity.pdf — the Programme Activity KPIs
+// as a document.
+//
+// The page answers "how is the screening programme running?" for someone sitting
+// at AIRMS. This is the same answer in a form that can be printed, filed, or put
+// in front of a director — which is what an administrator is actually asked for
+// when they have to account for the programme's performance.
+//
+// Deliberately the SAME data function the page uses (utils/programmeActivity.js).
+// A report that quoted different KPIs from the screen it mirrors would be worse
+// than no report.
+//
+// Admin and executive, matching the page: the executive role exists for exactly
+// this kind of oversight-without-write.
+router.get('/programme-activity.pdf', auth, rbac('admin', 'executive'), async (req, res) => {
+  try {
+    const data = await programmeActivityData(req.query);
+    const { coverage: cov, periods, betweenTests: bt, scope, grain } = data;
+    const grainWord = { month: 'Monthly', quarter: 'Quarterly', year: 'Yearly' }[grain] || 'Quarterly';
+
+    const nameBits = ['AIRMS_Programme_Activity'];
+    if (req.query.sport) nameBits.push(fileSlug(String(req.query.sport)));
+    const doc = startDoc(res, `${nameBits.join('_')}_${todayStamp()}.pdf`);
+    cover(doc, 'Programme Activity Report', `${scope} · ${grainWord} · ${todayStamp()}`);
+
+    // ── Headline KPIs ────────────────────────────────────────────────────────
+    // Coverage first: everything after it is about the athletes who WERE tested,
+    // so how much of the roster that represents has to be established before any
+    // of it can be read.
+    sectionTitle(doc, 'Programme KPIs');
+    const pct = cov.rostered ? Math.round((cov.tested / cov.rostered) * 100) : 0;
+    const perAthlete = cov.tested ? (cov.tests / cov.tested).toFixed(1) : '—';
+    bar(doc, 'Roster covered', cov.tested, Math.max(1, cov.rostered), BAND.green, { valueText: `${cov.tested} of ${cov.rostered} (${pct}%)` });
+    doc.moveDown(0.2);
+    const kpis = [
+      ['Athletes tested', `${cov.tested} of ${cov.rostered} on the roster`],
+      ['Never tested', `${cov.untested}`],
+      ['Tests performed', `${cov.tests}`],
+      ['Tests per tested athlete', `${perAthlete}`],
+      [`${grainWord} periods with activity`, `${periods.length}`],
+      ['Athletes retested at least once', bt ? `${bt.athletesWithRetest}` : '0'],
+      ['Median gap between retests', bt && bt.intervalDays.median !== null ? `${bt.intervalDays.median} days` : '—'],
+    ];
+    for (const [label, value] of kpis) {
+      ensure(doc, 14);
+      const y = doc.y;
+      doc.fontSize(9.5).font('Helvetica').fillColor(TEXT).text(label, 50, y, { lineBreak: false });
+      doc.font('Helvetica-Bold').text(value, 300, y, { width: 240, align: 'right', lineBreak: false });
+      doc.y = y + 14;
+    }
+    doc.moveDown(0.5);
+    doc.fontSize(7.5).fillColor(MUTED).font('Helvetica').text(
+      'Coverage is measured against the filtered roster for the selected window, so a narrow date range '
+      + 'correctly counts an athlete as untested in that window. Tests per athlete is retest DEPTH — reach '
+      + 'without depth means a roster screened once and never followed up.',
+      50, doc.y, { width: doc.page.width - 100 },
+    );
+    doc.moveDown(0.6);
+
+    if (!periods.length) {
+      sectionTitle(doc, 'No screening activity');
+      doc.fontSize(10).fillColor(MUTED).text('No screenings fall in this selection, so there is no activity to report.', 50);
+      finish(doc, KIND_ACTIVITY);
+      return;
+    }
+
+    // ── Throughput ───────────────────────────────────────────────────────────
+    sectionTitle(doc, `Screening Throughput (${grainWord})`, 120);
+    periodTable(doc, periods);
+
+    // ── Within-athlete change ────────────────────────────────────────────────
+    sectionTitle(doc, 'Change Between Successive Tests', 120);
+    betweenTestsBlock(doc, bt);
+
+    // ── Seasonality ──────────────────────────────────────────────────────────
+    if (data.seasonality) {
+      sectionTitle(doc, 'Seasonality — Which Quarter Carries the Risk', 150);
+      seasonTable(doc, data.seasonality);
+    }
+
+    // ── Who did the work ─────────────────────────────────────────────────────
+    // A programme report without the staff in it measures only the athletes.
+    // Same window as the audit page's rollup, and the same helper, so the two
+    // cannot disagree about who did what.
+    const staff = await staffActivity({ from: req.query.from, to: req.query.to });
+    if (staff.length) {
+      sectionTitle(doc, 'Activity by account', 120);
+      staffTable(doc, staff, AUDIT_LABELS);
+      doc.moveDown(0.3);
+      doc.fontSize(7.5).fillColor(MUTED).font('Helvetica').text(
+        'Two sources, not blended: logged actions are complete only from the day activity logging was added, '
+        + 'while screenings imported is counted from the screenings themselves and covers every import ever made.',
+        50, doc.y, { width: doc.page.width - 100 },
+      );
+    }
+
+    finish(doc, KIND_ACTIVITY);
+  } catch (err) {
+    if (!res.headersSent) res.status(err.status || 500).json({ message: err.message });
+  }
 });
 
 // GET /api/screening-reports/activity-log.pdf — the Activity Log as a document.
