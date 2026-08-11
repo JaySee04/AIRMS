@@ -15,6 +15,7 @@ import { useNormChangeNotice } from '@/components/admin/NormChangeNotice';
 import { api } from '@/lib/api';
 import { tierMeta } from '@/lib/holomotionTiers';
 import { getSession } from '@/lib/auth';
+import { BAND_COLOR } from '@/lib/bands';
 
 interface Stat { mean: number; sd: number; n?: number; }
 interface Cohort {
@@ -56,7 +57,7 @@ interface Member {
   importedBy?: string | null;
 }
 
-const BAND_DOT: Record<string, string> = { green: 'var(--risk-low)', amber: 'var(--risk-moderate)', red: 'var(--risk-high)' };
+const BAND_DOT: Record<string, string> = BAND_COLOR;
 const REASON_LABEL: Record<string, string> = {
   injured: 'Injured', excluded: 'Excluded (manual)', 'below-total': 'Below Total', 'below-rom': 'Below ROM', 'below-stability': 'Below Stability',
 };

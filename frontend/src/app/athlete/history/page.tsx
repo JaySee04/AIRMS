@@ -15,6 +15,7 @@ import ScreeningAlertBanner from '@/components/dashboard/ScreeningAlertBanner';
 import ScreeningPanel from '@/components/dashboard/ScreeningPanel';
 import OverallRiskBadge, { ScreeningIndicator } from '@/components/dashboard/OverallRiskBadge';
 import { api } from '@/lib/api';
+import { fmtScreeningDate } from '@/lib/periods';
 import { getSession } from '@/lib/auth';
 import type { AthleteRisks } from '@/lib/screeningAlerts';
 import { RADAR_LABELS, highThresholdsFor, riskRadarSeries } from '@/lib/screeningAlerts';
@@ -30,9 +31,7 @@ interface FullScreening {
 }
 interface HistoryRow { id: number; assessedAt: string | null; overallBand?: string | null; overrideBand?: string | null; }
 
-const fmtDate = (d: string | null) => (d
-  ? new Date(d).toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-  : 'Undated');
+const fmtDate = fmtScreeningDate;
 
 export default function AthleteHistoryPage() {
   const [athleteId, setAthleteId] = useState<string | null>(null);

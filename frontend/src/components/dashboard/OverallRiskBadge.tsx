@@ -5,6 +5,10 @@
 // assessment. Shows the 0–100 indicator, the escalation count, and any
 // clinician override. Shared by the athlete, medical, and coach views.
 
+import {
+  BANDS, BAND_BG, BAND_COLOR, BAND_LABEL, type Band,
+} from '@/lib/bands';
+
 // Physical Fitness Subitem Score — 5 body regions × {romL,romR,stabL,stabR,sym}
 // (0–100, higher better). Extracted from the HoloMotion report, stored on the
 // Screening row; not duplicated onto the Athlete row (display-only, unlike the
@@ -75,11 +79,12 @@ function whyAssess(screening: ScreeningIndicator): string[] {
   return out;
 }
 
-const BAND_META = {
-  green: { label: 'Safe', color: 'var(--risk-low)', bg: 'var(--risk-low-bg)' },
-  amber: { label: 'Needs attention', color: 'var(--risk-moderate)', bg: 'var(--risk-moderate-bg)' },
-  red: { label: 'Immediate assessment', color: 'var(--risk-high)', bg: 'var(--risk-high-bg)' },
-} as const;
+// Names, colours and tints come from lib/bands.ts — the hero shows the FULL
+// clinical wording, legends elsewhere show the compact form, and neither can
+// drift from the other any more.
+const BAND_META = Object.fromEntries(
+  BANDS.map((b) => [b, { label: BAND_LABEL[b], color: BAND_COLOR[b], bg: BAND_BG[b] }]),
+) as Record<Band, { label: string; color: string; bg: string }>;
 
 // Hero mode reuses the .risk-hero band classes so the primary signal carries
 // the same visual weight the (now removed) ACWR hero used to occupy.

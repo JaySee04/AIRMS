@@ -23,6 +23,7 @@ import CohortFilters, { useCohortFilters } from '@/components/admin/CohortFilter
 import TrendStrip from '@/components/admin/TrendStrip';
 import DistributionBar from '@/components/admin/DistributionBar';
 import { DotPlot, RankedBars, Ring } from '@/components/charts/Charts';
+import { BAND_COLOR, bandSegments } from '@/lib/bands';
 import { api } from '@/lib/api';
 
 interface ScreeningCohort {
@@ -59,7 +60,7 @@ export interface FocusBreakdown {
 // physical-quality bars and the weak/tight muscle split, so a healthy 76/100 was
 // drawn in the same amber the app uses for "needs attention". Quantities now use
 // the --series-* tokens.
-const C = { green: 'var(--risk-low)', amber: 'var(--risk-moderate)', red: 'var(--risk-high)' };
+const C = BAND_COLOR;
 const S = { s1: 'var(--series-1)', s2: 'var(--series-2)', s3: 'var(--series-3)' };
 
 // One slice dimension as rows: n, the Low/Watch/Elevated split, the share
@@ -315,13 +316,10 @@ export default function AdminDashboard() {
               sublabel={cohort.unscreened > 0 ? `${cohort.unscreened} awaiting a report` : 'Everyone has a report'}
             />
             <div className="verdict-main">
-              {bd && (
-                <DistributionBar segments={[
-                  { label: 'Safe', value: bd.green, color: C.green },
-                  { label: 'Needs attention', value: bd.amber, color: C.amber },
-                  { label: 'Immediate', value: bd.red, color: C.red },
-                ]} />
-              )}
+              {/* Segments from lib/bands.ts — this list was hand-written and
+                  called the red band "Immediate" while the risk hero called it
+                  "Immediate assessment". */}
+              {bd && <DistributionBar segments={bandSegments(bd, { short: true })} />}
               <div className="verdict-stats">
                 <div>
                   <span className="verdict-stat-label">Avg Total Score</span>

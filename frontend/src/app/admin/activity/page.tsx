@@ -21,9 +21,10 @@ import CohortFilters, { useCohortFilters } from '@/components/admin/CohortFilter
 import DistributionBar from '@/components/admin/DistributionBar';
 import StaffActivity from '@/components/admin/StaffActivity';
 import { DivergingBar, PeriodChart, Ring } from '@/components/charts/Charts';
+import { BAND_COLOR } from '@/lib/bands';
 import { api } from '@/lib/api';
+import { GRAINS, type Grain } from '@/lib/periods';
 
-type Grain = 'month' | 'quarter' | 'year';
 interface PeriodDelta { delta: number | null; higherBetter: boolean; direction: string | null }
 interface Period {
   key: string;
@@ -50,13 +51,9 @@ interface PeriodsPayload {
   } | null;
 }
 
-const GRAINS: Array<{ key: Grain; label: string }> = [
-  { key: 'month', label: 'Monthly' },
-  { key: 'quarter', label: 'Quarterly' },
-  { key: 'year', label: 'Yearly' },
-];
 
-const C = { green: 'var(--risk-low)', amber: 'var(--risk-moderate)', red: 'var(--risk-high)', neutral: 'var(--text-muted)', blue: 'var(--risk-undertrained)' };
+
+const C = { ...BAND_COLOR, neutral: 'var(--text-muted)', blue: 'var(--risk-undertrained)' };
 
 // A delta, showing BOTH which way the number moved and whether that is good.
 // The arrow tracks the sign; the colour tracks the score's orientation, since

@@ -9,6 +9,7 @@
 
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { fmtScreeningDate } from '@/lib/periods';
 import type { MuscleEntry } from '@/components/dashboard/BodyMap';
 import type { ScreeningIndicator } from '@/components/dashboard/OverallRiskBadge';
 import type { AthleteRisks } from '@/lib/screeningAlerts';
@@ -23,9 +24,7 @@ export interface FullScreening {
 
 interface Row { id: number; assessedAt: string | null; }
 
-const fmtDate = (d: string | null) => (d
-  ? new Date(d).toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-  : 'Undated');
+const fmtDate = fmtScreeningDate;
 
 export default function ScreeningDatePicker({ athleteId, onPick }: { athleteId: string; onPick: (full: FullScreening | null) => void }) {
   const [rows, setRows] = useState<Row[]>([]);

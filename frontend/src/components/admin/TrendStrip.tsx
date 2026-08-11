@@ -16,9 +16,10 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
+import { GRAINS, type Grain } from '@/lib/periods';
 import { PeriodChart } from '@/components/charts/Charts';
+import { BANDS, BAND_COLOR, BAND_SHORT } from '@/lib/bands';
 
-type Grain = 'month' | 'quarter' | 'year';
 
 // Mirrors GET /athletes/analytics/periods. Everything past `bands` is marked
 // optional because it genuinely can be absent — and because the previous
@@ -45,21 +46,16 @@ interface Period {
 }
 interface PeriodsResponse { grain: Grain; periods: Period[] }
 
-const GRAINS: Array<{ key: Grain; label: string }> = [
-  { key: 'month', label: 'Monthly' },
-  { key: 'quarter', label: 'Quarterly' },
-  { key: 'year', label: 'Yearly' },
-];
+
 
 // How many periods fit before this stops being a summary and starts being the
 // Programme Activity page.
 const SHOWN = 6;
 
-const BAND_TOKENS = [
-  { key: 'green' as const, label: 'Safe', color: 'var(--risk-low)' },
-  { key: 'amber' as const, label: 'Needs attention', color: 'var(--risk-moderate)' },
-  { key: 'red' as const, label: 'Immediate', color: 'var(--risk-high)' },
-];
+// Band names + colours come from lib/bands.ts. This file used to declare its own
+// and called the red band "Immediate" while the risk hero called it "Immediate
+// assessment" — one clinical state, two names, on screens seen side by side.
+const BAND_TOKENS = BANDS.map((key) => ({ key, label: BAND_SHORT[key], color: BAND_COLOR[key] }));
 
 export default function TrendStrip({ query }: { query: string }) {
   const [grain, setGrain] = useState<Grain>('quarter');

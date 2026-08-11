@@ -47,8 +47,8 @@ cd frontend; npm run build
 cd backend; npx jest      # 14 suites: cohorts, overallIndicator, permissions, rbac, pdfDraw,
                           # screeningPeriods, cohortFocus, visionUsage, alerts, scheduler,
                           # bands, mailPrefs, holisticReport, programmeActivity
-cd frontend; npx jest     # 4 suites: lib/risk.ts, lib/screeningUploadStore.ts, bodymap-data/muscles.ts,
-                          # components/charts (rendered via react-dom/server — no jsdom needed)
+cd frontend; npx jest     # 5 suites: lib/risk.ts, lib/screeningUploadStore.ts, bodymap-data/muscles.ts,
+                          # components/charts (rendered via react-dom/server — no jsdom needed), lib/bands.ts
 ```
 
 Jest covers the pure logic: scoring/permissions (`backend/tests/`), the PDF
@@ -138,7 +138,7 @@ Three-tier monorepo orchestrated by `concurrently` from the root `package.json`.
   normalises OpenAI-compatible `prompt/completion` and Anthropic `input/output`)
   and shown on the Activity Log row. A HoloMotion report costs ~11,400 tokens
   (~9,288 image + ~700 prompt + ~1,400 reply) at the default 6 pages
-- **Risk band vocabulary has one definition** — `utils/bands.js` (`BAND_RANK`,
+- **Risk band vocabulary has one definition PER PACKAGE** — `utils/bands.js` on the backend and `frontend/src/lib/bands.ts` on the frontend (added 2026-08-11; six frontend files had their own map and the red band was "Immediate assessment" in the risk hero but "Immediate" in the trend legend and admin distribution bar). The frontend module exports BOTH a full `BAND_LABEL` and a compact `BAND_SHORT` deliberately — a legend has no room for the long form — and `lib/bands.test.ts` pins the full labels to the backend's wording, since there is no shared types package to enforce it. Grain labels and the screening-date format live in `lib/periods.ts` for the same reason. Backend: (`BAND_RANK`,
   `BAND_LABEL`, `effectiveBand`, `atLeastAsBad`). `BAND_RANK` had stood in three
   files and `BAND_LABEL` in two; new code should call `effectiveBand(screening)`
   rather than inline `overrideBand || overallBand`, which is the one expression
