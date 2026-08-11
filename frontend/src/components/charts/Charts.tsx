@@ -196,6 +196,16 @@ export interface PeriodPoint {
   line?: number | null;
 }
 
+// Below this many periods, columns are the wrong idiom.
+//
+// A quarterly or yearly view of a young dataset is one or two periods. Drawn as
+// columns that is two fat blocks with a canyon between them and a line crossing
+// empty space — it reads as a chart that failed to load, which is exactly how the
+// quarterly view looked while the monthly one (five or six periods) looked fine.
+// Few periods become full-width ROWS instead: the same band mix and the same
+// shared count axis, but the width is spent on the data rather than on gaps.
+const COLUMN_MIN_POINTS = 4;
+
 export function PeriodChart({
   points, lineLabel, valueLabel, height = 150,
 }: {
@@ -205,6 +215,10 @@ export function PeriodChart({
   height?: number;
 }) {
   if (!points.length) return null;
+
+  if (points.length < COLUMN_MIN_POINTS) {
+    return <PeriodRows points={points} lineLabel={lineLabel} valueLabel={valueLabel} />;
+  }
   const maxV = Math.max(1, ...points.map((p) => p.value));
   const lineVals = points.map((p) => p.line).filter((v): v is number => v != null);
   const hasLine = lineVals.length >= 2;
@@ -301,6 +315,64 @@ export function PeriodChart({
       <div className="periodchart-axis">
         {points.map((p) => (<span key={p.key}>{p.label}</span>))}
       </div>
+    </div>
+  );
+}
+
+// The few-periods layout: one full-width row per period.
+//
+// Bar length is the count on a SHARED axis, so 22 against 43 is visibly half —
+// the comparison a two-column chart made you squint at. Segments are the band mix,
+// so proportion and magnitude are both readable at width instead of competing for
+// a 190px column.
+//
+// Deliberately no delta arrow: the callers already state the period-on-period
+// change beneath the chart, using the API's own noise-banded verdict. A second,
+// raw-sign delta here could disagree with it, which is the competing-verdicts
+// problem that got ACWR pulled off the dashboards.
+function PeriodRows({
+  points, lineLabel, valueLabel,
+}: { points: PeriodPoint[]; lineLabel?: string; valueLabel?: string }) {
+  const maxV = Math.max(1, ...points.map((p) => p.value));
+  const anyLine = points.some((p) => p.line != null);
+  // Newest last, matching the left-to-right reading of the column layout.
+  return (
+    <div className="periodrows">
+      {points.map((p) => {
+        const segs = (p.segments ?? []).filter((s) => s.value > 0);
+        const segTotal = segs.reduce((s, x) => s + x.value, 0) || 1;
+        return (
+          <div className="periodrow" key={p.key}>
+            <div className="periodrow-label">{p.label}</div>
+            <div className="periodrow-track">
+              <div className="periodrow-bar" style={{ width: `${(p.value / maxV) * 100}%` }}>
+                {segs.length ? segs.map((s) => (
+                  <span
+                    key={s.label}
+                    style={{ flex: `${s.value} 0 0`, background: s.color }}
+                    title={`${p.label} — ${s.label}: ${s.value} of ${segTotal}`}
+                  />
+                )) : <span style={{ flex: 1, background: 'var(--series-2)' }} title={`${p.label}: ${p.value}`} />}
+              </div>
+            </div>
+            <div className="periodrow-value">
+              <strong>{p.value}</strong>
+              <span className="periodrow-unit">{valueLabel ? ` ${valueLabel.toLowerCase()}` : ''}</span>
+            </div>
+            {anyLine && (
+              <div className="periodrow-line" title={lineLabel}>
+                {p.line == null ? <span className="text-muted">—</span> : fmt(p.line)}
+              </div>
+            )}
+          </div>
+        );
+      })}
+      {anyLine && lineLabel && (
+        <p className="chart-note" style={{ marginTop: 6 }}>
+          Bar length = {valueLabel ? valueLabel.toLowerCase() : 'value'} on a shared scale, split by band.
+          Right-hand column is {lineLabel.toLowerCase()}.
+        </p>
+      )}
     </div>
   );
 }

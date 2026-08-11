@@ -47,7 +47,8 @@ cd frontend; npm run build
 cd backend; npx jest      # 14 suites: cohorts, overallIndicator, permissions, rbac, pdfDraw,
                           # screeningPeriods, cohortFocus, visionUsage, alerts, scheduler,
                           # bands, mailPrefs, holisticReport, programmeActivity
-cd frontend; npx jest     # 3 suites: lib/risk.ts, lib/screeningUploadStore.ts, bodymap-data/muscles.ts
+cd frontend; npx jest     # 4 suites: lib/risk.ts, lib/screeningUploadStore.ts, bodymap-data/muscles.ts,
+                          # components/charts (rendered via react-dom/server — no jsdom needed)
 ```
 
 Jest covers the pure logic: scoring/permissions (`backend/tests/`), the PDF

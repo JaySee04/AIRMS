@@ -2178,3 +2178,35 @@ textarea:focus-visible,
 }
 .verdict-stat-value { font-size: 1.7rem; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .verdict-stat-hint { font-size: 0.72rem; color: var(--text-muted); }
+
+/* ── PeriodChart, few-periods layout: one full-width row per period ────────────
+   A quarterly view of a young dataset is one or two periods, and as columns that
+   was two fat blocks with a canyon between them. Rows spend the width on data. */
+.periodrows { display: flex; flex-direction: column; gap: 10px; }
+.periodrow { display: flex; align-items: center; gap: 14px; }
+.periodrow-label {
+  width: 96px; flex-shrink: 0;
+  font-size: 0.85rem; font-weight: 600; white-space: nowrap;
+}
+.periodrow-track {
+  flex: 1; min-width: 120px; height: 30px;
+  border-radius: 5px; background: var(--chart-track);
+  overflow: hidden;
+}
+.periodrow-bar { display: flex; height: 100%; border-radius: 5px; overflow: hidden; min-width: 3px; }
+.periodrow-bar > span { display: block; }
+.periodrow-value {
+  width: 116px; flex-shrink: 0; text-align: right;
+  font-size: 0.95rem; font-variant-numeric: tabular-nums;
+}
+.periodrow-unit { font-size: 0.76rem; color: var(--text-muted); font-weight: 400; }
+.periodrow-line {
+  width: 62px; flex-shrink: 0; text-align: right;
+  font-size: 0.95rem; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 640px) {
+  .periodrow-label { width: 70px; font-size: 0.78rem; }
+  .periodrow-value { width: 64px; }
+  .periodrow-unit { display: none; }
+}
