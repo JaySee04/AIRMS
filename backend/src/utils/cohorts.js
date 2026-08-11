@@ -238,6 +238,12 @@ function screeningMovement(screenings, { noise = 2 } = {}) {
 async function recomputeCohorts() {
   const settings = await getSettings();
   const autoOverwrite = settings.norm_auto_overwrite === true;
+  // A PINNED norm version is in force: the live stats are held and this pass
+  // records what the data would produce instead of overwriting them. Without this
+  // guard "pinned" would be a label on an archive rather than a rule about the
+  // norms — the next import would move the very numbers the pin claims to hold.
+  const pinnedId = settings.pinned_norm_version_id ?? null;
+  const pinned = pinnedId !== null && pinnedId !== '' && Number.isFinite(Number(pinnedId));
   const rows = await latestScreeningsByAthlete();
   // Only athletes eligible for norm calculation shape the reference distribution
   // (injured / manually excluded / below an admin threshold are dropped here —
@@ -265,22 +271,72 @@ async function recomputeCohorts() {
     const { n, stats } = computeStats(screenings);
     const existing = existingByKey.get(cohortKeyOf(keyObj));
     if (existing) {
-      const patch = { n, stats, computedAt: new Date() };
-      // Auto-overwrite ON → drop any manual edit so the computed norm governs.
-      if (autoOverwrite && existing.overrides) patch.overrides = null;
-      updates.push(existing.update(patch));
+      if (pinned) {
+        // HELD. The freshly computed values are parked for comparison; `stats`,
+        // `n` and any manual override are left exactly as the pin set them.
+        updates.push(existing.update({ freshStats: stats, freshN: n, freshAt: new Date() }));
+      } else {
+        const patch = {
+          n, stats, computedAt: new Date(),
+          // Nothing is pinned, so `stats` IS current and a drift comparison
+          // against it would always read zero. Clear it rather than leave a stale
+          // number the UI would keep drawing.
+          freshStats: null, freshN: null, freshAt: null, addedSincePin: false,
+        };
+        // Auto-overwrite ON → drop any manual edit so the computed norm governs.
+        if (autoOverwrite && existing.overrides) patch.overrides = null;
+        updates.push(existing.update(patch));
+      }
     } else {
       // New cohort → store the auto-generated norm LIVE (approved), stamped as
       // an automatic origin so the UI can distinguish it from a human approval.
+      //
+      // Created even while pinned: a cohort that did not exist when the pin was
+      // taken cannot be in its snapshot, and refusing to create it would leave
+      // its athletes with no norm and therefore no score at all. Flagged so the
+      // UI does not imply the pin covers it.
       toCreate.push({
         sport: keyObj.sport, programme: keyObj.programme, gender: keyObj.gender, discipline: keyObj.discipline || null, tier: keyObj.tier,
         n, stats, status: 'approved', computedAt: new Date(), approvedAt: new Date(), approvedBy: 'auto (import)',
+        addedSincePin: pinned,
       });
     }
   }
   await Promise.all(updates);
   if (toCreate.length) await CohortThreshold.bulkCreate(toCreate);
-  return { cohorts: groups.size, created: toCreate.length, updated: updates.length };
+  return {
+    cohorts: groups.size, created: toCreate.length, updated: updates.length, pinnedHeld: pinned,
+  };
+}
+
+// Per-component drift between the norm IN FORCE and what today's data would
+// produce — the honesty half of pinning. `cohortReview` above answers the same
+// question for a manual override; this one answers it for a held snapshot, and
+// they are deliberately separate because an admin can be doing both at once and
+// needs to know which mechanism is holding which number.
+function pinDrift(row) {
+  const held = (row.overrides && typeof row.overrides === 'object' && Object.keys(row.overrides).length)
+    ? { ...row.stats, ...row.overrides }
+    : (row.stats && typeof row.stats === 'object' ? row.stats : {});
+  const fresh = (row.freshStats && typeof row.freshStats === 'object') ? row.freshStats : null;
+  if (!fresh) return { held: false, items: [], worst: null, nDelta: null };
+  const items = [];
+  for (const k of Object.keys(fresh)) {
+    const now = fresh[k] && typeof fresh[k].mean === 'number' ? fresh[k].mean : null;
+    const inForce = held[k] && typeof held[k].mean === 'number' ? held[k].mean : null;
+    if (now === null || inForce === null) continue;
+    const delta = +(now - inForce).toFixed(3);
+    if (Math.abs(delta) > DRIFT_EPSILON) items.push({ component: k, inForce, now, delta });
+  }
+  items.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+  return {
+    held: true,
+    items,
+    worst: items.length ? items[0] : null,
+    // Cohort size moves independently of the means and is the plainest signal
+    // that a pin is getting old: "held at n=9, the group is now 14".
+    nDelta: typeof row.freshN === 'number' && typeof row.n === 'number' ? row.freshN - row.n : null,
+  };
 }
 
 // Build an in-memory lookup of the approved cohort rows, keyed by tier+keys,
@@ -316,5 +372,5 @@ module.exports = {
   orientedComponents, meanSd, computeStats,
   tierKeysFor, latestScreeningsByAthlete,
   recomputeCohorts, resolveCohortStats, resolveFromMap, buildApprovedCohortMap,
-  cohortReview, screeningMovement, isEligibleForNorms, cohortKeyOf,
+  cohortReview, pinDrift, screeningMovement, isEligibleForNorms, cohortKeyOf,
 };

@@ -23,6 +23,22 @@ const CohortThreshold = sequelize.define('CohortThreshold', {
   stats: { type: DataTypes.JSON, allowNull: false },
   // Admin edits layered over the computed stats (same shape); null = use computed.
   overrides: { type: DataTypes.JSON, allowNull: true },
+  // What the CURRENT data would produce, recorded while a norm version is PINNED.
+  //
+  // A pin freezes `stats` so athlete scores stay on one institutional baseline for
+  // a season. That is the point of it, and also its danger: a held norm silently
+  // goes stale as new screenings land. So recompute keeps calculating and parks
+  // the answer here instead of overwriting `stats` — the admin can see exactly how
+  // far the pin has drifted from reality and decide when to release it. Null when
+  // nothing is pinned (there is nothing to compare against; `stats` IS current).
+  freshStats: { type: DataTypes.JSON, allowNull: true, field: 'fresh_stats' },
+  freshN: { type: DataTypes.INTEGER, allowNull: true, field: 'fresh_n' },
+  freshAt: { type: DataTypes.DATE, allowNull: true, field: 'fresh_at' },
+  // A cohort that first appeared AFTER the pin was set. It cannot be in the
+  // pinned snapshot, so it is stored live — otherwise its athletes would have no
+  // norm at all and could not be scored. Flagged so the UI never implies the pin
+  // covers it.
+  addedSincePin: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false, field: 'added_since_pin' },
   status: { type: DataTypes.ENUM('pending', 'approved'), allowNull: false, defaultValue: 'pending' },
   computedAt: { type: DataTypes.DATE, allowNull: true, field: 'computed_at' },
   approvedAt: { type: DataTypes.DATE, allowNull: true, field: 'approved_at' },

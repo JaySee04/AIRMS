@@ -6,7 +6,7 @@ jest.mock('../src/models', () => ({ Screening: {}, Athlete: {}, CohortThreshold:
 
 const {
   meanSd, orientedComponents, resolveFromMap, buildApprovedCohortMap,
-  cohortReview, screeningMovement,
+  cohortReview, pinDrift, screeningMovement,
 } = require('../src/utils/cohorts');
 
 describe('meanSd', () => {
@@ -144,5 +144,70 @@ describe('screeningMovement (previous vs latest + injury floor)', () => {
 
   test('empty input is safe', () => {
     expect(screeningMovement([]).trend.comparable).toBe(0);
+  });
+});
+
+// ── pinDrift: how far a HELD norm has moved from what the data now says ──────
+//
+// The honesty half of pinning. A pin freezes the norm every athlete is scored
+// against, which is the point (one baseline for a season) and the danger (it goes
+// stale silently). These tests pin the behaviour that makes the staleness
+// visible, and in particular that drift is measured against the norm ACTUALLY IN
+// FORCE — a manual override on top of a pinned snapshot is what governs, so
+// comparing against the raw snapshot would report the wrong gap.
+describe('pinDrift', () => {
+  it('reports nothing when no fresh computation is parked (nothing pinned)', () => {
+    const d = pinDrift({ stats: { totalScore: { mean: 74 } }, freshStats: null });
+    expect(d).toEqual({ held: false, items: [], worst: null, nDelta: null });
+  });
+
+  it('compares the held stats against what the data would now produce', () => {
+    const d = pinDrift({
+      n: 9,
+      stats: { totalScore: { mean: 74 }, rom: { mean: 70 } },
+      freshStats: { totalScore: { mean: 77.5 }, rom: { mean: 70.2 } },
+      freshN: 14,
+    });
+    expect(d.held).toBe(true);
+    // rom moved 0.2, inside DRIFT_EPSILON, so only totalScore is reported.
+    expect(d.items).toEqual([{ component: 'totalScore', inForce: 74, now: 77.5, delta: 3.5 }]);
+    expect(d.worst.component).toBe('totalScore');
+    expect(d.nDelta).toBe(5);
+  });
+
+  it('measures against a manual OVERRIDE when one is layered on the pin', () => {
+    // The override is what governs, so the gap the admin needs is 80 → 77.5,
+    // not the snapshot's 74 → 77.5.
+    const d = pinDrift({
+      n: 9,
+      stats: { totalScore: { mean: 74 } },
+      overrides: { totalScore: { mean: 80 } },
+      freshStats: { totalScore: { mean: 77.5 } },
+      freshN: 9,
+    });
+    expect(d.items[0]).toEqual({ component: 'totalScore', inForce: 80, now: 77.5, delta: -2.5 });
+  });
+
+  it('orders worst-first by magnitude, in either direction', () => {
+    const d = pinDrift({
+      stats: { a: { mean: 50 }, b: { mean: 50 }, c: { mean: 50 } },
+      freshStats: { a: { mean: 52 }, b: { mean: 41 }, c: { mean: 55 } },
+    });
+    expect(d.items.map((i) => i.component)).toEqual(['b', 'c', 'a']);
+    expect(d.worst.delta).toBe(-9);
+  });
+
+  it('ignores components the fresh computation could not produce', () => {
+    const d = pinDrift({
+      stats: { totalScore: { mean: 74 }, balance: { mean: -4 } },
+      freshStats: { totalScore: { mean: 74.1 } },
+    });
+    expect(d.items).toEqual([]);
+    expect(d.worst).toBeNull();
+  });
+
+  it('reports no n movement when the fresh count is unknown', () => {
+    const d = pinDrift({ n: 9, stats: { x: { mean: 1 } }, freshStats: { x: { mean: 1 } } });
+    expect(d.nDelta).toBeNull();
   });
 });

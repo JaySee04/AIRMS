@@ -107,6 +107,7 @@ Three-tier monorepo orchestrated by `concurrently` from the root `package.json`.
   on the records themselves (`Screening.importedBy`, `Screening.overrideBy`,
   `Athlete.injuryBy`) is now displayed in Screening History and the cohort
   members panel
+- **Cohort norms can be PINNED (2026-08-11).** Saving a norm version was an archive; a **pin** makes one saved set the norms *in force*, and `recomputeCohorts` then HOLDS `stats`/`n` instead of overwriting them, so an import can no longer move the norm every athlete is scored against. `pinned_norm_version_id` in settings is the switch the engine reads; pinning reuses the restore installer so the live `cohort_thresholds` rows genuinely ARE the snapshot and the scorer still reads one table. While pinned, recompute parks what the data *would* say in `fresh_stats`/`fresh_n` and `pinDrift()` surfaces the gap — a frozen norm with no staleness signal would be worse than none. Restoring another version over a pin, and deleting the pinned version, both 409; a cohort first seen after the pin is still created live (`added_since_pin`) because the pin must never leave an athlete unscoreable. `norm.pin` / `norm.unpin` are audited. See `docs/DESIGN_DECISIONS.md §22`
 - **Norm eligibility is immediate.** Declaring an athlete injured
   (`PATCH /api/athletes/:id/injury`) or clearing their tick
   (`PATCH /api/cohorts/members/:athleteId`) rebuilds the cohort norms and rescores
@@ -291,6 +292,7 @@ NEXT_PUBLIC_API_URL=http://localhost:5000/api
 2. **MySQL password with special characters** (`#`, `$`, `%`, `^`) must be wrapped in single quotes in `backend/.env` so `dotenv` doesn't interpret them.
 3. **Seeder enum errors** — the classic offender (`Injury` enums) went with the model. The live enums to check seed data against are:
    - `User.role` — `athlete` | `medical` | `admin` | `coach` | `executive` (adding a value needs an `ALTER TABLE users MODIFY COLUMN role ENUM(...)` on an existing dev DB; a fresh clone gets it from `npm run seed`)
+   - `cohort_thresholds` gained `fresh_stats` (JSON), `fresh_n` (INT), `fresh_at` (DATETIME) and `added_since_pin` (TINYINT default 0) for norm pinning on 2026-08-11 — `ALTER TABLE` them on an existing dev DB, same `SQL_SYNC=1` caveat
    - `users.notify_prefs` (JSON, per-user email opt-out, added 2026-08-10) likewise needs `ALTER TABLE users ADD COLUMN notify_prefs JSON NULL AFTER permissions` on an existing dev DB — boot-time `sequelize.sync()` only runs when `SQL_SYNC=1`. `NULL` is the correct default and means "every notification on"
    - `Athlete.gender` — `Male` | `Female`; `Athlete.sex` — `M` | `F` (two separate columns)
    - `Athlete.program` — `PODIUM` | `PELAPIS` | `OTHERS`

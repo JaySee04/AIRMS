@@ -19,6 +19,8 @@ const ACTION_LABELS = {
   'screening.reinstate': 'Screening reinstated',
   'athlete.injury': 'Injury status changed',
   'norm.restore': 'Norm set restored',
+  'norm.pin': 'Norm set pinned',
+  'norm.unpin': 'Norm pin released',
   'norm.member': 'Norm membership changed',
   'settings.update': 'Norm settings changed',
 };

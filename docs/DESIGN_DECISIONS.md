@@ -1009,7 +1009,83 @@ message where the override card had promised them the clinician's note. Nothing
 errored; the coach just got worse information. Adding six fields to three copies
 was the moment to extract `utils/indicatorPayload.js`. §19 again.
 
+
+## 22. A pinned norm set, not just a saved one (2026-08-11)
+
+JC: *"I believe I asked for a like pinned or saved cohort norm no? Do that
+properly."* He had, and what shipped in B1 (2026-08-03) was half of it.
+
+**What existed:** save the current norms under a name, list, rename, **restore**,
+delete. That is an *archive* — a manual undo.
+
+**What was missing, and what makes it a pin:** nothing marked a saved set as the
+one **in force**. `recomputeCohorts` overwrote `stats` on every import, so the
+norm every athlete is scored against moved whenever a report landed. AIRMS claims
+norms are "institution-governed (approved, versioned, auditable)"; without a pin
+that was only true *between* imports.
+
+### 22a. Pinning is a rule about recompute, not a label on a row
+
+**Decided:** `pinned_norm_version_id` in settings, and `recomputeCohorts` holds
+`stats`/`n` while it is set.
+
+**Why not a flag on the version row:** the flag would have been decoration. The
+behaviour that matters is the *recompute skipping the write*, so the pin lives
+where the engine reads it.
+
+**Decided:** pinning REUSES the restore installer (`applySnapshot`). "In force"
+means the live `cohort_thresholds` rows genuinely are the snapshot.
+
+**Why:** the scorer keeps reading one table. The alternative — teaching the scorer
+to consult a pinned snapshot — would have created a second place that decides
+which numbers apply, which is §19 with clinical consequences.
+
+### 22b. A held norm must say how stale it is
+
+**Decided:** while pinned, recompute still calculates and parks the answer in
+`freshStats`/`freshN`/`freshAt`; `pinDrift()` reports the gap per component,
+worst-first, plus the change in cohort size.
+
+**Why:** a pin freezes the baseline, which is the point (one reference for a
+season) and the danger (it silently ages). A frozen number with no way to see how
+far reality has moved would be worse than no pin at all. Drift is measured against
+the norm **actually in force**, so a manual override layered on a pinned snapshot
+is what gets compared — comparing against the raw snapshot would report a gap
+nobody is scored against. Test-pinned in `cohorts.test.js`.
+
+**Decided:** `freshStats` is CLEARED when nothing is pinned.
+
+**Why:** unpinned, `stats` *is* current, so the comparison is always zero. A stale
+non-null value would leave the UI drawing a drift badge for a norm that has none.
+
+### 22c. Three refusals, each protecting a specific lie
+
+- **Restoring a different version while pinned → 409.** It would install one set of
+  numbers and leave the pin naming another, so the page would claim norms are held
+  to a version the athletes are not scored against.
+- **Deleting the pinned version → 409.** The live rows would stay frozen with
+  nothing to say what they are frozen *to*.
+- **A cohort that appears after the pin is still created live**, flagged
+  `addedSincePin`. It cannot be in the snapshot, and refusing to create it would
+  leave its athletes with no norm and therefore no score at all — the pin must not
+  be able to make an athlete unscoreable.
+
+The banner sits at the TOP of the Cohort Norms page rather than in the versions
+card, because a pin changes what every number below it *means*.
+
+### 22d. A NOT NULL column that made "release" impossible
+
+Verifying against the live database turned up a real bug: `Setting.value` is
+`allowNull: false`, so `setSetting('pinned_norm_version_id', null)` threw — the
+unpin endpoint would have 500'd every time.
+
+**Fixed by making a null write DELETE the row.** Absence is the more honest
+representation of "no value" anyway: `getSettings` falls back to `DEFAULTS`, so a
+deleted row and a never-set row behave identically. Found by exercising the
+feature end to end, not by review — the code read fine.
+
 ---
 
 
-*Last updated: 2026-08-11 (later same day) — **§21** added: the hero now shows HoloMotion's printed Total Score with a signed per-component cohort comparison and a two-sided reason list, the derived 0-100 indicator having been the thing nobody could explain; the below-mean escalation became a -0.5 SD cutoff rather than a sign test; one shared indicator payload. Previous: 2026-08-11 — **§20j** added: the shared dashboard components now take `historical` (so the history views stop speaking in the present tense) and the risk hero takes `audience` — the latter fixing a live bug in which the medical and coach dashboards addressed the clinician as the at-risk athlete. Previous: 2026-08-10 (later same day) — **§20g–i** added: the digest attaches the holistic report by sharing its code rather than rebuilding it (fetch/draw extracted, verified byte-identical), per-user email opt-out under the institution switch, and seasonality that declines to name a season below two years of data. **§20f** revised — the 14 remaining inline band-precedence reads were migrated after all. Earlier same day: **§20** added: accountability (audit trail that copies the actor, fire-and-forget writes), immediate norm eligibility with one-time disclosure, deep muscles marked rather than drawn, alerts grouped per recipient, the monthly digest's marker-not-cron design, and one band vocabulary in `utils/bands.js`. Previous: 2026-08-06 (later same day) — **§19** added: one status palette across CSS, inline styles, Chart.js and the PDF reports. An audit found the PDF had a second band palette (and disagreed with its own tier colours), the radar's threshold red was a non-theme-aware literal, the 60/75/85 tier was defined five times with two different words for its lowest band, and eight CSS-variable fallbacks still carried the retired PDF palette. Earlier same day: **§4a** added: the body map's Muscle Flags mode now draws HoloMotion's 22 individual muscles by re-slicing the same MIT-licensed geometry (16 recovered from existing sub-paths, 6 deep ones as measured insets, selection by geometry not index, test-guarded); supersedes the aggregation half of §4 while leaving the asset and its attribution locked. Previous: 2026-08-03 — §18 on-device name redaction before vision extraction (Tesseract-located, page-1-only, fail-closed; verified against both HoloMotion layouts). Previous: 2026-07-20 — Activity Tracking (the FYP I Module 1) fully removed at JC's request; §1, §2, §3, §10 and §16 annotated to mark their decisions as locked-but-dormant (no live caller) rather than actively running. The six-module set was restructured the same day to fill the gap this left — see `MASTER_CLARIFICATIONS.md §4` for the current numbering. Previous: 2026-07-19 (§16 gains the per-indicator escalation — threshold + peer-outlier, z ≥ 1.5, admin toggle, persisted factors), 2026-07-18 (§17 coach one-sport + athlete detail view + event disciplines), 2026-07-13 (§16 FYP II cohort-normed overall indicator + ACWR demotion), 2026-07-06 (§15 dashboard-embedded screening), 2026-06-28 (§13–14).*
+
+*Last updated: 2026-08-11 (later still) — **§22** added: cohort norms can now be PINNED, not merely saved — a pinned version is held against imports, reports its own drift from what the data would say, and cannot be deleted or restored over while in force; a NOT NULL settings column that would have made release impossible was found and fixed by live verification. Previous: 2026-08-11 (later same day) — **§21** added: the hero now shows HoloMotion's printed Total Score with a signed per-component cohort comparison and a two-sided reason list, the derived 0-100 indicator having been the thing nobody could explain; the below-mean escalation became a -0.5 SD cutoff rather than a sign test; one shared indicator payload. Previous: 2026-08-11 — **§20j** added: the shared dashboard components now take `historical` (so the history views stop speaking in the present tense) and the risk hero takes `audience` — the latter fixing a live bug in which the medical and coach dashboards addressed the clinician as the at-risk athlete. Previous: 2026-08-10 (later same day) — **§20g–i** added: the digest attaches the holistic report by sharing its code rather than rebuilding it (fetch/draw extracted, verified byte-identical), per-user email opt-out under the institution switch, and seasonality that declines to name a season below two years of data. **§20f** revised — the 14 remaining inline band-precedence reads were migrated after all. Earlier same day: **§20** added: accountability (audit trail that copies the actor, fire-and-forget writes), immediate norm eligibility with one-time disclosure, deep muscles marked rather than drawn, alerts grouped per recipient, the monthly digest's marker-not-cron design, and one band vocabulary in `utils/bands.js`. Previous: 2026-08-06 (later same day) — **§19** added: one status palette across CSS, inline styles, Chart.js and the PDF reports. An audit found the PDF had a second band palette (and disagreed with its own tier colours), the radar's threshold red was a non-theme-aware literal, the 60/75/85 tier was defined five times with two different words for its lowest band, and eight CSS-variable fallbacks still carried the retired PDF palette. Earlier same day: **§4a** added: the body map's Muscle Flags mode now draws HoloMotion's 22 individual muscles by re-slicing the same MIT-licensed geometry (16 recovered from existing sub-paths, 6 deep ones as measured insets, selection by geometry not index, test-guarded); supersedes the aggregation half of §4 while leaving the asset and its attribution locked. Previous: 2026-08-03 — §18 on-device name redaction before vision extraction (Tesseract-located, page-1-only, fail-closed; verified against both HoloMotion layouts). Previous: 2026-07-20 — Activity Tracking (the FYP I Module 1) fully removed at JC's request; §1, §2, §3, §10 and §16 annotated to mark their decisions as locked-but-dormant (no live caller) rather than actively running. The six-module set was restructured the same day to fill the gap this left — see `MASTER_CLARIFICATIONS.md §4` for the current numbering. Previous: 2026-07-19 (§16 gains the per-indicator escalation — threshold + peer-outlier, z ≥ 1.5, admin toggle, persisted factors), 2026-07-18 (§17 coach one-sport + athlete detail view + event disciplines), 2026-07-13 (§16 FYP II cohort-normed overall indicator + ACWR demotion), 2026-07-06 (§15 dashboard-embedded screening), 2026-06-28 (§13–14).*

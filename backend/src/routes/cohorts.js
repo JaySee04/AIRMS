@@ -8,7 +8,7 @@ const { CohortThreshold, Athlete, CohortNormVersion } = require('../models');
 const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
 const {
-  recomputeCohorts, cohortReview,
+  recomputeCohorts, cohortReview, pinDrift,
   latestScreeningsByAthlete, tierKeysFor, isEligibleForNorms, cohortKeyOf,
 } = require('../utils/cohorts');
 const { recomputeIndicators } = require('../utils/overallIndicator');
@@ -29,10 +29,26 @@ const canEditNorms = (req, res, next) => {
 // (manual norm vs freshly computed data). Admin + norm-editing medical staff.
 router.get('/', auth, rbac('admin', 'medical'), canEditNorms, async (_req, res) => {
   try {
-    const rows = await CohortThreshold.findAll({
-      order: [['tier', 'ASC'], ['sport', 'ASC'], ['programme', 'ASC'], ['gender', 'ASC']],
+    const [rows, settings] = await Promise.all([
+      CohortThreshold.findAll({
+        order: [['tier', 'ASC'], ['sport', 'ASC'], ['programme', 'ASC'], ['gender', 'ASC']],
+      }),
+      getSettings(),
+    ]);
+    const pinnedId = settings.pinned_norm_version_id ?? null;
+    const pinnedVersion = pinnedId === null ? null
+      : await CohortNormVersion.findByPk(pinnedId, { attributes: ['id', 'label', 'createdBy', 'createdAt'], raw: true });
+    res.json({
+      // The pin belongs in the SAME payload as the rows: a client that had to ask
+      // separately could render the numbers before it knew they were held, which
+      // is the one state this feature must never present silently.
+      pin: pinnedVersion ? { ...pinnedVersion, active: true } : null,
+      cohorts: rows.map((r) => ({
+        ...r.get({ plain: true }),
+        review: cohortReview(r),
+        drift: pinDrift(r),
+      })),
     });
-    res.json(rows.map((r) => ({ ...r.get({ plain: true }), review: cohortReview(r) })));
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
@@ -69,11 +85,22 @@ router.post('/versions', auth, rbac('admin', 'medical'), canEditNorms, async (re
 // GET /api/cohorts/versions — saved versions (metadata only, no snapshot payload).
 router.get('/versions', auth, rbac('admin', 'medical'), canEditNorms, async (_req, res) => {
   try {
-    const rows = await CohortNormVersion.findAll({ order: [['createdAt', 'DESC']] });
-    res.json(rows.map((r) => {
-      const s = r.get({ plain: true });
-      return { id: s.id, label: s.label, note: s.note, createdBy: s.createdBy, createdAt: s.createdAt, cohorts: Array.isArray(s.snapshot) ? s.snapshot.length : 0 };
-    }));
+    const [rows, settings] = await Promise.all([
+      CohortNormVersion.findAll({ order: [['createdAt', 'DESC']] }),
+      getSettings(),
+    ]);
+    const pinnedId = settings.pinned_norm_version_id ?? null;
+    res.json({
+      pinnedId: pinnedId === null ? null : Number(pinnedId),
+      versions: rows.map((r) => {
+        const s = r.get({ plain: true });
+        return {
+          id: s.id, label: s.label, note: s.note, createdBy: s.createdBy, createdAt: s.createdAt,
+          cohorts: Array.isArray(s.snapshot) ? s.snapshot.length : 0,
+          pinned: String(pinnedId ?? '') === String(s.id),
+        };
+      }),
+    });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
@@ -97,31 +124,113 @@ router.post('/versions/:id/restore', auth, rbac('admin'), async (req, res) => {
   try {
     const v = await CohortNormVersion.findByPk(req.params.id, { raw: true });
     if (!v) return res.status(404).json({ message: 'Version not found' });
-    const snap = Array.isArray(v.snapshot) ? v.snapshot : [];
-    const existing = await CohortThreshold.findAll();
-    const byKey = new Map(existing.map((r) => [cohortKeyOf(r), r]));
-    const ops = snap.map((s) => {
-      const patch = { n: s.n, stats: s.stats, overrides: s.overrides, status: s.status };
-      const cur = byKey.get(cohortKeyOf(s));
-      return cur
-        ? cur.update(patch)
-        : CohortThreshold.create({ tier: s.tier, sport: s.sport, programme: s.programme, gender: s.gender, discipline: s.discipline || null, ...patch, computedAt: new Date() });
-    });
-    await Promise.all(ops);
+    // Restoring while another version is pinned would install one set of numbers
+    // and leave the pin naming a different one — the page would then claim norms
+    // are held to a version that is not what the athletes are scored against.
+    // Refusing is the honest option, and it is also exactly what a pin is for.
+    const st = await getSettings();
+    if ((st.pinned_norm_version_id ?? null) !== null && String(st.pinned_norm_version_id) !== String(v.id)) {
+      return res.status(409).json({ message: 'A norm version is pinned. Release the pin, or pin this version instead, to change the norms in force.' });
+    }
+    // Same installer the pin uses — restore and pin differ only in whether the
+    // norms are then HELD, so they must not have two ideas of what installing is.
+    const snap = await applySnapshot(v);
     const indicators = await recomputeIndicators();
     recordAudit(req, {
       action: 'norm.restore',
       entity: 'normVersion',
       entityId: req.params.id,
-      summary: `Restored saved norm set "${v.label}" over the live norms (${snap.length} cohorts)`,
-      meta: { cohorts: snap.length, rescored: indicators },
+      summary: `Restored saved norm set "${v.label}" over the live norms (${snap} cohorts)`,
+      meta: { cohorts: snap, rescored: indicators },
     });
-    res.json({ message: 'Restored', restored: snap.length, indicators });
+    res.json({ message: 'Restored', restored: snap, indicators });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+// ── Pinning: which saved version is IN FORCE ────────────────────────────────
+//
+// Saving and restoring a version made an ARCHIVE. Pinning makes it governance:
+// while a version is pinned, `recomputeCohorts` holds its numbers instead of
+// overwriting them, so an import can no longer quietly move the norm every
+// athlete is scored against. That is the whole difference, and without it
+// "institution-governed norms" was only true between imports.
+//
+// Pinning deliberately REUSES restore: "in force" has to mean the live rows
+// actually are the snapshot, so scoring keeps reading cohort_thresholds and there
+// is no second place that decides which numbers apply.
+async function applySnapshot(version) {
+  const snap = Array.isArray(version.snapshot) ? version.snapshot : [];
+  const existing = await CohortThreshold.findAll();
+  const byKey = new Map(existing.map((r) => [cohortKeyOf(r), r]));
+  await Promise.all(snap.map((s) => {
+    const patch = {
+      n: s.n, stats: s.stats, overrides: s.overrides, status: s.status,
+      // A freshly applied snapshot has not drifted yet.
+      freshStats: null, freshN: null, freshAt: null, addedSincePin: false,
+    };
+    const cur = byKey.get(cohortKeyOf(s));
+    return cur
+      ? cur.update(patch)
+      : CohortThreshold.create({
+        tier: s.tier, sport: s.sport, programme: s.programme, gender: s.gender, discipline: s.discipline || null, ...patch, computedAt: new Date(),
+      });
+  }));
+  return snap.length;
+}
+
+// POST /api/cohorts/versions/:id/pin — put a saved version in force.
+router.post('/versions/:id/pin', auth, rbac('admin'), async (req, res) => {
+  try {
+    const v = await CohortNormVersion.findByPk(req.params.id, { raw: true });
+    if (!v) return res.status(404).json({ message: 'Version not found' });
+    const cohorts = await applySnapshot(v);
+    // Set the pin AFTER applying, so a failure mid-apply cannot leave a pin
+    // pointing at norms that were never installed.
+    await setSetting('pinned_norm_version_id', v.id);
+    const indicators = await recomputeIndicators();
+    recordAudit(req, {
+      action: 'norm.pin',
+      entity: 'normVersion',
+      entityId: String(v.id),
+      summary: `Pinned norm set "${v.label}" — imports will no longer change the norms (${cohorts} cohorts)`,
+      meta: { cohorts, rescored: indicators },
+    });
+    res.json({ message: 'Pinned', pinnedId: v.id, cohorts, indicators });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+// POST /api/cohorts/versions/unpin — release the pin and let the norms track the
+// data again. Recomputes immediately rather than waiting for the next import,
+// because "released" should be visible now, not whenever a report happens to land.
+router.post('/versions/unpin', auth, rbac('admin'), async (req, res) => {
+  try {
+    const settings = await getSettings();
+    const wasId = settings.pinned_norm_version_id ?? null;
+    if (wasId === null) return res.status(400).json({ message: 'No norm version is pinned.' });
+    const prev = await CohortNormVersion.findByPk(wasId, { raw: true });
+    await setSetting('pinned_norm_version_id', null);
+    const cohorts = await recomputeCohorts();
+    const indicators = await recomputeIndicators();
+    recordAudit(req, {
+      action: 'norm.unpin',
+      entity: 'normVersion',
+      entityId: String(wasId),
+      summary: `Released the pinned norm set${prev ? ` "${prev.label}"` : ''} — the norms now follow the data again`,
+      meta: { cohorts, rescored: indicators },
+    });
+    res.json({ message: 'Released', cohorts, indicators });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
 router.delete('/versions/:id', auth, rbac('admin'), async (req, res) => {
   try {
+    // Deleting the version in force would leave the norms held by a pin that
+    // points at nothing — the live rows would stay frozen with no way to see what
+    // they are frozen to. Release it first, deliberately.
+    const settings = await getSettings();
+    if (String(settings.pinned_norm_version_id ?? '') === String(req.params.id)) {
+      return res.status(409).json({ message: 'This version is pinned. Release the pin before deleting it.' });
+    }
     const n = await CohortNormVersion.destroy({ where: { id: req.params.id } });
     if (!n) return res.status(404).json({ message: 'Version not found' });
     res.json({ message: 'Deleted' });

@@ -30,6 +30,17 @@ interface Cohort {
   status: 'pending' | 'approved';
   approvedBy?: string | null;
   review?: { needed: boolean; items: Array<{ component: string; manual: number; computed: number; delta: number }> };
+  addedSincePin?: boolean;
+  freshN?: number | null;
+  freshAt?: string | null;
+  // How far the HELD norm has drifted from what today's data would produce.
+  // Only populated while a version is pinned — otherwise `stats` IS current.
+  drift?: {
+    held: boolean;
+    items: Array<{ component: string; inForce: number; now: number; delta: number }>;
+    worst: { component: string; inForce: number; now: number; delta: number } | null;
+    nDelta: number | null;
+  };
 }
 interface SettingsResp { settings: Record<string, number | boolean | string>; defaults: Record<string, number | boolean | string>; }
 
@@ -103,11 +114,16 @@ function cohortLabel(c: Cohort): string {
   return [c.sport, c.programme, c.gender, c.discipline].filter(Boolean).join(' · ');
 }
 
-interface Version { id: number; label: string; note: string | null; createdBy: string | null; createdAt: string; cohorts: number; }
+interface Version { id: number; label: string; note: string | null; createdBy: string | null; createdAt: string; cohorts: number; pinned: boolean; }
+/** The saved version currently IN FORCE. While set, imports do not move the norms. */
+interface Pin { id: number; label: string; createdBy: string | null; createdAt: string; active: boolean }
+interface CohortsResp { pin: Pin | null; cohorts: Cohort[] }
+interface VersionsResp { pinnedId: number | null; versions: Version[] }
 
 export default function CohortThresholdsPage() {
   const [cohorts, setCohorts] = useState<Cohort[]>([]);
   const [settings, setSettings] = useState<SettingsResp | null>(null);
+  const [pin, setPin] = useState<Pin | null>(null);
   const [expanded, setExpanded] = useState<number | null>(null);
   const [edits, setEdits] = useState<Record<string, string>>({}); // `${id}.${comp}` -> mean
   // Membership panel (B3/B4/B5): which cohort's members are open, and their rows.
@@ -133,13 +149,14 @@ export default function CohortThresholdsPage() {
   const load = useCallback(async () => {
     try {
       const [c, s, v] = await Promise.all([
-        api.get<Cohort[]>('/cohorts'),
+        api.get<CohortsResp>('/cohorts'),
         api.get<SettingsResp>('/cohorts/settings/all'),
-        api.get<Version[]>('/cohorts/versions'),
+        api.get<VersionsResp>('/cohorts/versions'),
       ]);
-      setCohorts(c);
+      setCohorts(c.cohorts);
+      setPin(c.pin);
       setSettings(s);
-      setVersions(v);
+      setVersions(v.versions);
     } catch (e) { setError(e instanceof Error ? e.message : 'Failed to load'); }
   }, []);
   useEffect(() => { load(); }, [load]);
@@ -276,6 +293,26 @@ export default function CohortThresholdsPage() {
     try { await api.patch(`/cohorts/versions/${v.id}`, { label }); await load(); }
     catch (e) { setError(e instanceof Error ? e.message : 'Rename failed'); } finally { setBusy(false); }
   }
+  async function pinVersion(v: Version) {
+    if (!window.confirm(
+      `Pin “${v.label}” as the norms in force?\n\n`
+      + `Its values are installed over the current norms for ${v.cohorts} cohorts and every athlete is re-scored. `
+      + 'From then on, imports will NOT change the norms — AIRMS keeps computing what the data would say and shows you the drift, '
+      + 'so you can release the pin when you choose.',
+    )) return;
+    setBusy(true); setError(null); setMsg(null);
+    try { await api.post(`/cohorts/versions/${v.id}/pin`, {}); setMsg(`“${v.label}” is now the norm set in force.`); await load(); }
+    catch (e) { setError(e instanceof Error ? e.message : 'Pin failed'); } finally { setBusy(false); }
+  }
+  async function unpinVersion() {
+    if (!window.confirm(
+      'Release the pin?\n\nThe norms will be recomputed from the current data straight away and every athlete re-scored, '
+      + 'so scores may move.',
+    )) return;
+    setBusy(true); setError(null); setMsg(null);
+    try { await api.post('/cohorts/versions/unpin', {}); setMsg('Pin released — the norms follow the data again.'); await load(); }
+    catch (e) { setError(e instanceof Error ? e.message : 'Release failed'); } finally { setBusy(false); }
+  }
   async function deleteVersion(v: Version) {
     if (!window.confirm(`Delete the saved version “${v.label}”? The current live norms are unaffected.`)) return;
     setBusy(true); setError(null);
@@ -294,6 +331,31 @@ export default function CohortThresholdsPage() {
   return (
     <DashboardLayout allowedRoles={['admin', 'medical']} requiredPermission="editCohortNorms" title="Cohort Norms">
       {notice}
+      {/* A pin changes what every number on this page MEANS — they are held,
+          not current — so it is announced before any of them, not in the
+          versions card at the bottom. */}
+      {pin && (
+        <div className="card" style={{ marginBottom: 20, borderLeft: '4px solid var(--brand-gold)' }}>
+          <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+            <div style={{ flex: '1 1 380px', minWidth: 260 }}>
+              <div style={{ fontWeight: 700, marginBottom: 4 }}>
+                📌 Norms are pinned to “{pin.label}”
+              </div>
+              <div className="text-muted" style={{ fontSize: '0.85rem', lineHeight: 1.5 }}>
+                Every athlete is scored against this saved set, and <strong>imports will not change it</strong>.
+                AIRMS keeps computing what the current data would produce and shows the difference per cohort
+                below, so you can see how far the held norm has drifted before releasing it.
+                {pin.createdBy && <> Pinned set saved by {pin.createdBy}.</>}
+              </div>
+            </div>
+            {isAdmin && (
+              <button type="button" className="btn btn-outline btn-sm" onClick={unpinVersion} disabled={busy}>
+                Release pin
+              </button>
+            )}
+          </div>
+        </div>
+      )}
       {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
       {msg && <div className="alert alert-success" style={{ marginBottom: 16 }}>{msg}</div>}
 
@@ -369,6 +431,29 @@ export default function CohortThresholdsPage() {
                           : <span className={live ? 'badge-low' : 'badge-moderate'}>{live ? 'Live' : 'Held'}</span>}
                         {edited && <span className="badge-moderate" title="A human has edited this norm">edited</span>}
                         {needsReview && <span className="badge-high" title="New data has drifted from the edited norm">review · new data</span>}
+                        {/* Drift against the PIN — the honesty half of holding a
+                            norm. Without it a pin is just a frozen number with no
+                            way to tell whether it has gone stale. */}
+                        {c.addedSincePin && (
+                          <span className="badge-moderate" title="This cohort did not exist when the pin was taken, so the pinned set does not cover it — its norm is computed from current data">
+                            not in pin
+                          </span>
+                        )}
+                        {c.drift?.worst && (
+                          <span
+                            className="badge-high"
+                            title={`Held at ${c.drift.worst.inForce}; current data says ${c.drift.worst.now}. `
+                              + c.drift.items.map((i) => `${i.component} ${i.delta > 0 ? '+' : ''}${i.delta}`).join(' · ')}
+                          >
+                            drifted {c.drift.worst.delta > 0 ? '+' : ''}{c.drift.worst.delta.toFixed(1)}
+                          </span>
+                        )}
+                        {typeof c.drift?.nDelta === 'number' && c.drift.nDelta !== 0 && (
+                          <span className="text-muted" style={{ fontSize: '0.76rem' }}
+                            title={`Pinned when this cohort had ${c.n} athletes; it now has ${c.freshN}`}>
+                            n {c.n} → {c.freshN}
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
@@ -514,7 +599,7 @@ export default function CohortThresholdsPage() {
       <div className="card" style={{ marginTop: 20 }}>
         <div className="card-header"><div>
           <h2 className="card-title" style={{ marginBottom: 0 }}>Saved norm versions</h2>
-          <span className="card-sub">Snapshot the current norms under a name, then restore that exact set later if imports or edits move them.{!isAdmin && ' Restoring/deleting is admin-only.'}</span>
+          <span className="card-sub">Snapshot the current norms under a name. <strong>Restore</strong> puts a set back once; <strong>Pin</strong> makes it the set in force, so imports stop moving the norms until you release it.{!isAdmin && ' Pinning, restoring and deleting are admin-only.'}</span>
         </div></div>
         <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
           <input value={versionName} onChange={(e) => setVersionName(e.target.value)} placeholder="Name this norm set (e.g. Pre-season 2026)" style={{ minWidth: 260 }} />
@@ -525,19 +610,29 @@ export default function CohortThresholdsPage() {
         ) : (
           <div className="table-wrap">
             <table>
-              <thead><tr><th>Name</th><th>Saved</th><th style={{ textAlign: 'center' }}>Cohorts</th><th></th></tr></thead>
+              <thead><tr><th>Name</th><th>Saved</th><th style={{ textAlign: 'center' }}>Cohorts</th><th style={{ textAlign: 'center' }}>In force</th><th></th></tr></thead>
               <tbody>
                 {versions.map((v) => (
                   <tr key={v.id}>
                     <td><strong>{v.label}</strong>{v.note && <div className="text-muted" style={{ fontSize: '0.78rem' }}>{v.note}</div>}</td>
                     <td className="text-muted" style={{ fontSize: '0.8rem' }}>{new Date(v.createdAt).toLocaleDateString()}{v.createdBy ? ` · ${v.createdBy}` : ''}</td>
                     <td style={{ textAlign: 'center' }}>{v.cohorts}</td>
+                    <td style={{ textAlign: 'center' }}>
+                      {v.pinned
+                        ? <span className="badge-low" title="These norms are in force; imports will not change them">📌 Pinned</span>
+                        : <span className="text-muted" style={{ fontSize: '0.8rem' }}>—</span>}
+                    </td>
                     <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                       <button type="button" className="btn btn-outline btn-sm" onClick={() => renameVersion(v)} disabled={busy}>Rename</button>{' '}
                       {isAdmin && (
                         <>
-                          <button type="button" className="btn btn-primary btn-sm" onClick={() => restoreVersion(v)} disabled={busy}>Restore</button>{' '}
-                          <button type="button" className="btn btn-outline btn-sm" onClick={() => deleteVersion(v)} disabled={busy}>Delete</button>
+                          {v.pinned
+                            ? <button type="button" className="btn btn-outline btn-sm" onClick={unpinVersion} disabled={busy}>Release</button>
+                            : <button type="button" className="btn btn-primary btn-sm" onClick={() => pinVersion(v)} disabled={busy}>Pin</button>}{' '}
+                          {/* Restoring while something else is pinned is refused by the
+                              API, so it is hidden rather than offered and then rejected. */}
+                          {!pin && <><button type="button" className="btn btn-outline btn-sm" onClick={() => restoreVersion(v)} disabled={busy}>Restore</button>{' '}</>}
+                          <button type="button" className="btn btn-outline btn-sm" onClick={() => deleteVersion(v)} disabled={busy || v.pinned} title={v.pinned ? 'Release the pin before deleting this version' : undefined}>Delete</button>
                         </>
                       )}
                     </td>

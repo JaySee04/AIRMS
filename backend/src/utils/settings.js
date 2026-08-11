@@ -5,6 +5,11 @@ const { Setting } = require('../models');
 const DEFAULTS = {
   min_cohort_n: 5,              // minimum athletes in a cohort before it norms/ranks
   fallback_enabled: true,      // spg → sg → s → all when a cohort is too small
+  // The saved norm version currently IN FORCE, or null when the live norms simply
+  // track the data. A pin is the difference between "we archived a norm set" and
+  // "this norm set governs, and an import may not move it" — see
+  // routes/cohorts.js and DESIGN_DECISIONS §22.
+  pinned_norm_version_id: null,
   escalation_below_mean: true, // +1 escalation when the athlete is below the cohort mean
   // How far below the mean counts. A plain z < 0 test flags ~half of every
   // cohort BY CONSTRUCTION — measured on the seeded set, 27 of 58 athletes
@@ -64,6 +69,15 @@ async function getSettings() {
 
 async function setSetting(key, value) {
   if (!(key in DEFAULTS)) throw new Error(`Unknown setting "${key}"`);
+  // Clearing a setting DELETES its row rather than storing null: Setting.value is
+  // NOT NULL, so `setSetting(key, null)` used to throw — which meant releasing a
+  // pinned norm version failed with a 500. Absence is also the more honest
+  // representation of "no value": getSettings falls back to the default, so a
+  // deleted row and a never-set row behave identically.
+  if (value === null) {
+    await Setting.destroy({ where: { key } });
+    return null;
+  }
   const [row, created] = await Setting.findOrCreate({ where: { key }, defaults: { value } });
   if (!created) await row.update({ value });
   return row;
