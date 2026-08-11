@@ -18,6 +18,8 @@ interface Staff {
   actor: string;
   role: string | null;
   actions: number;
+  /** Reports and backups pulled — access, counted apart from changes made. */
+  downloads: number;
   previousActions: number;
   change: number;
   byAction: Record<string, number>;
@@ -27,6 +29,8 @@ interface Payload {
   window: { from: string; to: string };
   previousWindow: { from: string; to: string };
   logCompleteFrom: string | null;
+  /** False when the previous window predates logging, making "vs previous" meaningless. */
+  comparable: boolean;
   actionLabels: Record<string, string>;
   staff: Staff[];
 }
@@ -59,10 +63,13 @@ export default function StaffActivity({ from, to }: { from?: string; to?: string
       <div className="card-header">
         <div>
           <h2 className="card-title" style={{ marginBottom: 0 }}>Staff activity</h2>
+          {/* The subtitle must not promise a comparison the table then omits. */}
           <span className="card-sub">
-            {data
-              ? `${day(data.window.from)} – ${day(data.window.to)}, compared with the same length of time before it.`
-              : 'Who is doing the work, and whether it is rising or falling.'}
+            {!data
+              ? 'Who is doing the work, and what is being taken out of the system.'
+              : data.comparable
+                ? `${day(data.window.from)} – ${day(data.window.to)}, compared with the same length of time before it.`
+                : `${day(data.window.from)} – ${day(data.window.to)}. Changes made and reports taken out.`}
           </span>
         </div>
         <button
@@ -90,8 +97,13 @@ export default function StaffActivity({ from, to }: { from?: string; to?: string
             <thead>
               <tr>
                 <th>Account</th>
-                <th style={{ textAlign: 'right' }}>Actions</th>
-                <th style={{ textAlign: 'right' }}>vs previous</th>
+                <th style={{ textAlign: 'right' }} title="Changes made: imports, overrides, norm and account edits">Changes</th>
+                {/* Reads get their own column rather than being added to the
+                    changes count. Coach and executive cannot write anything, so
+                    every trace they leave lands here — folding the two together
+                    would let a role that only reads outrank the clinicians. */}
+                <th style={{ textAlign: 'right' }} title="Reports and backups pulled — access rather than work">Downloads</th>
+                {data?.comparable !== false && <th style={{ textAlign: 'right' }}>vs previous</th>}
                 <th style={{ textAlign: 'right' }} title="From the screenings table, so complete for all time">Screenings imported</th>
               </tr>
             </thead>
@@ -112,17 +124,22 @@ export default function StaffActivity({ from, to }: { from?: string; to?: string
                   </td>
                   <td style={{ textAlign: 'right', fontWeight: 600 }}>{s.actions}</td>
                   <td style={{ textAlign: 'right' }}>
-                    {s.change === 0 ? (
-                      <span className="text-muted">no change</span>
-                    ) : (
-                      // More activity is not automatically "good" — it is more
-                      // work recorded. Neutral emphasis, direction only.
-                      <span style={{ fontWeight: 600 }}>
-                        {s.change > 0 ? '+' : ''}{s.change}
-                        <span className="text-muted" style={{ fontWeight: 400 }}> (was {s.previousActions})</span>
-                      </span>
-                    )}
+                    {s.downloads > 0 ? s.downloads : <span className="text-muted">—</span>}
                   </td>
+                  {data?.comparable !== false && (
+                    <td style={{ textAlign: 'right' }}>
+                      {s.change === 0 ? (
+                        <span className="text-muted">no change</span>
+                      ) : (
+                        // More activity is not automatically "good" — it is more
+                        // work recorded. Neutral emphasis, direction only.
+                        <span style={{ fontWeight: 600 }}>
+                          {s.change > 0 ? '+' : ''}{s.change}
+                          <span className="text-muted" style={{ fontWeight: 400 }}> (was {s.previousActions})</span>
+                        </span>
+                      )}
+                    </td>
+                  )}
                   <td style={{ textAlign: 'right' }}>{s.screeningsImported}</td>
                 </tr>
               ))}
@@ -133,9 +150,19 @@ export default function StaffActivity({ from, to }: { from?: string; to?: string
 
       {data && (
         <p className="text-muted" style={{ fontSize: '0.7rem', marginTop: 10, marginBottom: 0 }}>
-          Actions are counted from the activity log, which is complete from {day(data.logCompleteFrom)}.
+          Changes and downloads are counted from the activity log, which is complete from {day(data.logCompleteFrom)}.
           Screenings are counted from the screenings themselves, so that column covers all time and
-          will exceed the action count for any import made before logging began.
+          will exceed the change count for any import made before logging began.
+          {data.comparable === false && (
+            // Suppressing the column is not enough on its own — an administrator
+            // who saw "vs previous" last month would assume it had been dropped
+            // for some other reason. Say which comparison cannot be drawn, and why.
+            <>
+              {' '}No comparison against {day(data.previousWindow.from)} – {day(data.previousWindow.to)} is
+              shown: logging had not started for that window, so every account would read
+              &ldquo;was 0&rdquo; — an idle programme and an unrecorded one are not the same thing.
+            </>
+          )}
         </p>
       )}
     </div>

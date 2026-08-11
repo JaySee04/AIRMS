@@ -15,6 +15,7 @@ const express = require('express');
 const { Op } = require('sequelize');
 const { Screening, Athlete, AuditLog } = require('../models');
 const { ACTION_LABELS: AUDIT_LABELS, staffActivity } = require('./audit');
+const { recordAudit } = require('../utils/audit');
 const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
 const requirePermission = require('../middleware/permission');
@@ -35,6 +36,42 @@ const router = express.Router();
 
 const KIND_ACTIVITY = 'Programme Activity Report';
 
+// Record that a report left the building.
+//
+// WHY DOWNLOADS ARE AUDITED AT ALL. Until now the trail only recorded writes,
+// which meant the two read-only roles — coach and executive — could not appear
+// in it however much athlete data they pulled. That is backwards: for a role
+// that cannot change anything, *reading* is the only act there is to hold it to,
+// and an individual screening PDF carries a named athlete's clinical scores. A
+// transparency log that is blind to exactly the accounts with no other trace is
+// not covering the institution, only the half of it that types.
+//
+// Logged at the point the response is committed to streaming, so a request that
+// 403s on the coach sport check or 404s on an empty group leaves no row — the
+// trail records reports that were actually delivered, not ones that were asked
+// for. `entityId` is the athlete for an individual report and null otherwise;
+// the filter scope goes in `meta` so a squad-wide pull can be told from a
+// single-athlete one.
+function logDownload(req, kind, { summary = null, entityId = null, meta = null } = {}) {
+  recordAudit(req, {
+    action: 'report.download',
+    entity: 'report',
+    entityId,
+    summary: summary ? `${kind} — ${summary}` : kind,
+    meta: { kind, ...(meta || {}) },
+  });
+}
+
+// The query filters worth keeping, minus the noise. Undefined keys are dropped
+// so an unfiltered pull records `{}` rather than a row of nulls.
+function scopeMeta(query = {}) {
+  const out = {};
+  for (const k of ['sport', 'programme', 'gender', 'grain', 'from', 'to', 'action']) {
+    if (query[k]) out[k] = String(query[k]);
+  }
+  return out;
+}
+
 // ── 1. Holistic (admin) ─────────────────────────────────────────────────────
 router.get('/holistic.pdf', auth, rbac('admin', 'executive'), async (req, res) => {
   try {
@@ -43,6 +80,7 @@ router.get('/holistic.pdf', auth, rbac('admin', 'executive'), async (req, res) =
     const stamp = todayStamp();
     const data = await holisticData(req.query);
     const doc = startDoc(res, `${data.nameBits.join('_')}_${stamp}.pdf`);
+    logDownload(req, 'Holistic Screening Report', { meta: scopeMeta(req.query) });
     drawHolistic(doc, data, stamp);
   } catch (err) { if (!res.headersSent) res.status(500).json({ message: err.message }); }
 });
@@ -69,6 +107,13 @@ router.get('/individual/:id.pdf', auth, rbac('medical', 'admin', 'coach', 'execu
     const cohort = await resolveCohortStats(athlete, { minN: settings.min_cohort_n, fallbackEnabled: settings.fallback_enabled });
 
     const doc = startDoc(res, `AIRMS_Individual_${fileSlug(athlete.name)}_${athlete.athleteId}_${fmtDate(latest.assessedAt)}.pdf`);
+    // The one download that carries a named athlete's clinical record, so the
+    // athlete is the audited entity rather than a filter string.
+    logDownload(req, 'Individual Screening Report', {
+      entityId: athlete.athleteId,
+      summary: `${athlete.name} (${athlete.athleteId})`,
+      meta: { sport: athlete.sport || null, assessedAt: latest.assessedAt || null },
+    });
     cover(doc, 'Individual Screening Report', `${athlete.name} · ${athlete.athleteId}`);
     doc.fontSize(10).fillColor(TEXT).text(
       `${athlete.sport} · ${athlete.program} · ${athlete.gender ?? '—'} · age ${athlete.age ?? '—'}   ·   assessed ${fmtDate(latest.assessedAt)}   ·   imported by ${latest.importedBy ?? '—'}`, 50);
@@ -230,6 +275,10 @@ router.get('/team.pdf', auth, rbac('medical', 'admin', 'coach', 'executive'), re
 
     const groupParts = [sport, programme, gender].filter(Boolean);
     const doc = startDoc(res, `AIRMS_Team_${groupParts.map(fileSlug).join('_')}_${todayStamp()}.pdf`);
+    logDownload(req, 'Team Screening Report', {
+      summary: `${groupParts.join(' · ')} (${members.length} athlete${members.length === 1 ? '' : 's'})`,
+      meta: { ...scopeMeta(req.query), athletes: members.length },
+    });
     cover(doc, 'Team Screening Report', `${groupParts.join(' · ')} · ${todayStamp()}`);
     doc.fontSize(10).fillColor(MUTED).text(
       `${members.length} screened athletes of ${athletes.length} in the group. `
@@ -352,6 +401,7 @@ router.get('/programme-activity.pdf', auth, rbac('admin', 'executive'), async (r
     const nameBits = ['AIRMS_Programme_Activity'];
     if (req.query.sport) nameBits.push(fileSlug(String(req.query.sport)));
     const doc = startDoc(res, `${nameBits.join('_')}_${todayStamp()}.pdf`);
+    logDownload(req, KIND_ACTIVITY, { summary: `${scope} · ${grainWord}`, meta: scopeMeta(req.query) });
     cover(doc, 'Programme Activity Report', `${scope} · ${grainWord} · ${todayStamp()}`);
 
     // ── Headline KPIs ────────────────────────────────────────────────────────
@@ -416,11 +466,13 @@ router.get('/programme-activity.pdf', auth, rbac('admin', 'executive'), async (r
     const staff = await staffActivity({ from: req.query.from, to: req.query.to });
     if (staff.length) {
       sectionTitle(doc, 'Activity by account', 120);
-      staffTable(doc, staff, AUDIT_LABELS);
+      staffTable(doc, staff, AUDIT_LABELS, { comparable: staff.meta.comparable });
       doc.moveDown(0.3);
       doc.fontSize(7.5).fillColor(MUTED).font('Helvetica').text(
-        'Two sources, not blended: logged actions are complete only from the day activity logging was added, '
-        + 'while screenings imported is counted from the screenings themselves and covers every import ever made.',
+        'Changes are edits made; downloads are reports and backups taken out, counted apart so that reading '
+        + 'data is not scored as doing work. Two sources, not blended: both are complete only from the day '
+        + 'activity logging was added, while screenings imported is counted from the screenings themselves '
+        + 'and covers every import ever made.',
         50, doc.y, { width: doc.page.width - 100 },
       );
     }
@@ -467,6 +519,10 @@ router.get('/activity-log.pdf', auth, rbac('admin', 'executive'), async (req, re
     ].filter(Boolean).join(' · ') || 'All recorded activity';
 
     const doc = startDoc(res, `AIRMS-activity-log-${todayStamp()}.pdf`);
+    // Exporting the log is itself an audited act. The row is written after the
+    // rows above were read, so the export never contains its own entry — it
+    // shows up in the next one, which is the honest ordering.
+    logDownload(req, 'Activity Log', { summary: scope, meta: scopeMeta(req.query) });
     cover(doc, 'Activity Log', scope);
 
     doc.fontSize(10).fillColor(MUTED).text(
@@ -489,7 +545,7 @@ router.get('/activity-log.pdf', auth, rbac('admin', 'executive'), async (req, re
     const staff = await staffActivity({ from: req.query.from, to: req.query.to });
     if (staff.length) {
       sectionTitle(doc, 'Activity by account');
-      staffTable(doc, staff, AUDIT_LABELS);
+      staffTable(doc, staff, AUDIT_LABELS, { comparable: staff.meta.comparable });
       doc.moveDown(0.4);
     }
 

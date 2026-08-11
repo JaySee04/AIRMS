@@ -100,9 +100,20 @@ Three-tier monorepo orchestrated by `concurrently` from the root `package.json`.
 - **Sparse grains get their own chart type** (2026-08-11). Two periods draw a **change chart** — one diverging bar per metric on a shared DELTA axis, so "ROM fell 5.2 while stability rose 2.6" is visible where two headcount columns showed only headcount. This started as a slopegraph and was unusable: a shared VALUE scale needs commensurable metrics, and these cluster at 72–78 (movement), ~50 (indicator) and ~18 inverted (risks), so four lines collapsed into overlapping pixels — the §23 flattening mistake, reintroduced. The values cannot share a scale; the changes can. Bar direction is the ORIENTED gain (right is always better) while the printed number keeps its true sign. Line colour comes from the API's `direction`, never the sign of the delta, because exercise risks improve by going DOWN. One period shows its **composition** (the same rows one grain finer: year → quarters, quarter → months) rather than a number and an apology. See `docs/DESIGN_DECISIONS.md §26`
 - **The period axis is CONTINUOUS** (`utils/screeningPeriods.js`, 2026-08-11). Buckets are filled between the first and last period that has data, so a quarter with no screening is drawn with zero tests instead of vanishing — for a screening programme that gap IS the finding. Nothing is padded before the first screening. A period after a gap reports NO delta (its predecessor is empty), which replaced comparing across the gap as though the two were consecutive. `grainCounts` ships with every response so the grain buttons can show what each view would draw; one period renders as a summary, not a chart. See `docs/DESIGN_DECISIONS.md §24`
 - **Seasonality** (`seasonality()` in `utils/screeningPeriods.js`, a section in the holistic report) answers Dr Thung's "*which quarter* is the risky one" by pooling every screening by quarter of the year with the year discarded. It **declines to name a season below two years of data** (`yearsCovered` / `sufficient`) and the report draws that caveat *before* the table — with one year, "Q3 is worst" is indistinguishable from "Q3 is when the weaker squads were screened", and this is the one output whose plausible failure is a confidently wrong institutional decision. Ranks by the *share* of flagged screenings, not the count, because throughput differs by quarter
-- **Accountability & transparency (2026-08-10).** Six actions write an append-only
+- **Accountability & transparency (2026-08-10).** These actions write an append-only
   `AuditLog` row: `screening.import`, `screening.override`, `screening.reinstate`,
-  `athlete.injury`, `norm.restore`, `norm.member`, `settings.update`. Surfaced at
+  `athlete.injury`, `norm.restore`, `norm.pin`, `norm.unpin`, `norm.member`,
+  `settings.update`, `user.create`, `user.update`, `report.download`,
+  `export.backup`. The last three were added **2026-08-11**: the trail recorded
+  only writes, so `coach` and `executive` — who cannot write anything — could
+  never appear in it however much athlete data they pulled. For a read-only role
+  *reading is the only auditable act*, and an individual screening PDF carries a
+  named athlete's clinical scores, so all five report endpoints and the backup
+  export now log (`entityId` = the athlete on an individual report). Downloads are
+  counted **apart from** changes in Staff activity (`ACCESS_ACTIONS` in
+  `routes/audit.js`) — summing them would let an account that only reads outrank
+  the clinicians. Rows are written at the point the response commits to
+  streaming, so a 403 or 404 logs nothing. Surfaced at
   **Admin → Activity Log** (`/admin/audit`, admin + executive; 403 for medical and
   coach) with action/date filters, a **Staff activity** rollup, and a PDF export
   (`GET /api/screening-reports/activity-log.pdf`). Audit writes are

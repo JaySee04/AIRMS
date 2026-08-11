@@ -7,11 +7,12 @@ const XLSX = require('xlsx');
 const { Athlete, MuscleFlag } = require('../models');
 const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
+const { recordAudit } = require('../utils/audit');
 
 const router = express.Router();
 
 // GET /api/export/backup.xlsx — athlete + muscle-flag snapshot (HoloMotion data).
-router.get('/backup.xlsx', auth, rbac('admin'), async (_req, res) => {
+router.get('/backup.xlsx', auth, rbac('admin'), async (req, res) => {
   try {
     const [athletes, flags] = await Promise.all([
       Athlete.findAll({ order: [['athleteId', 'ASC']], raw: true }),
@@ -27,6 +28,14 @@ router.get('/backup.xlsx', auth, rbac('admin'), async (_req, res) => {
     const stamp = new Date().toISOString().slice(0, 10);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="airms-backup-${stamp}.xlsx"`);
+    // The single largest data egress in the system — every athlete row and every
+    // muscle flag, in one file. If any read is worth a trail, this one is.
+    recordAudit(req, {
+      action: 'export.backup',
+      entity: 'backup',
+      summary: `Full backup exported — ${athletes.length} athletes, ${flags.length} muscle flags`,
+      meta: { athletes: athletes.length, muscleFlags: flags.length },
+    });
     res.send(buffer);
   } catch (err) {
     res.status(500).json({ message: err.message });

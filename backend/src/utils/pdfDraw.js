@@ -1048,16 +1048,41 @@ function auditTable(doc, rows, labels = {}) {
   }
 }
 
-// Per-account activity table for the Activity Log export. Four numeric columns,
-// no wrapping, so rows are a fixed height.
-function staffTable(doc, staff, labels = {}) {
-  const X = { actor: 50, actions: 300, change: 380, screenings: 470 };
+// Trim a single-line string to fit `max` points at `size`, ellipsising if it
+// has to cut. Measured with the real font metrics rather than a character
+// estimate, because the labels vary in width far more than in length.
+function fitWidth(doc, text, size, max) {
+  const s = String(text || '');
+  if (!s) return '';
+  const prev = doc._fontSize;
+  doc.fontSize(size);
+  let out = s;
+  if (doc.widthOfString(out) > max) {
+    while (out.length > 1 && doc.widthOfString(`${out}…`) > max) out = out.slice(0, -1);
+    out = `${out.trimEnd()}…`;
+  }
+  doc.fontSize(prev);
+  return out;
+}
+
+// Per-account activity table for the Activity Log export. Numeric columns, no
+// wrapping, so rows are a fixed height.
+//
+// Mirrors the on-screen table deliberately: changes and downloads are separate
+// columns, and "vs prev" is omitted entirely when the preceding window predates
+// the log (`comparable === false`), because printing "+43 (was 0)" on paper —
+// where it outlives the caveat that explained it — is worse than on screen.
+function staffTable(doc, staff, labels = {}, { comparable = true } = {}) {
+  const X = comparable
+    ? { actor: 50, actions: 280, downloads: 345, change: 405, screenings: 480 }
+    : { actor: 50, actions: 320, downloads: 395, screenings: 470 };
   const head = () => {
     const y = doc.y;
     doc.fontSize(8.5).font('Helvetica-Bold').fillColor(MUTED);
     doc.text('Account', X.actor, y, { lineBreak: false });
-    doc.text('Actions', X.actions, y, { width: 60, align: 'right', lineBreak: false });
-    doc.text('vs prev', X.change, y, { width: 70, align: 'right', lineBreak: false });
+    doc.text('Changes', X.actions, y, { width: 60, align: 'right', lineBreak: false });
+    doc.text('Downloads', X.downloads, y, { width: 65, align: 'right', lineBreak: false });
+    if (comparable) doc.text('vs prev', X.change, y, { width: 70, align: 'right', lineBreak: false });
     doc.text('Screenings', X.screenings, y, { width: 75, align: 'right', lineBreak: false });
     doc.y = y + 13;
     doc.moveTo(50, doc.y - 3).lineTo(doc.page.width - 50, doc.y - 3).strokeColor(GRID).stroke();
@@ -1066,18 +1091,29 @@ function staffTable(doc, staff, labels = {}) {
   head();
   for (const s of staff || []) {
     // Two lines when a breakdown exists, so height is computed not assumed.
-    const parts = Object.entries(s.byAction || {})
-      .sort((a, b) => b[1] - a[1])
-      .map(([k, n]) => `${labels[k] || k}: ${n}`)
-      .join('  ');
+    // pdfkit's lineBreak:false does not clip — it overruns. With the two new
+    // access actions an admin's breakdown is long enough to run under the
+    // numeric columns, so it is measured and cut to the label column's width.
+    const parts = fitWidth(
+      doc,
+      Object.entries(s.byAction || {})
+        .sort((a, b) => b[1] - a[1])
+        .map(([k, n]) => `${labels[k] || k}: ${n}`)
+        .join('  '),
+      7.5,
+      212,
+    );
     const h = parts ? 22 : 14;
     if (doc.y + h > doc.page.height - 70) { doc.addPage(); doc.y = 50; head(); }
     const y = doc.y;
     doc.fontSize(8.5).fillColor(TEXT);
-    doc.text(`${s.actor}${s.role ? ` (${s.role})` : ''}`, X.actor, y, { width: 240, lineBreak: false });
+    doc.text(fitWidth(doc, `${s.actor}${s.role ? ` (${s.role})` : ''}`, 8.5, 220), X.actor, y, { width: 220, lineBreak: false });
     doc.text(String(s.actions ?? 0), X.actions, y, { width: 60, align: 'right', lineBreak: false });
-    const ch = Number(s.change) || 0;
-    doc.text(ch === 0 ? '-' : `${ch > 0 ? '+' : ''}${ch}`, X.change, y, { width: 70, align: 'right', lineBreak: false });
+    doc.text(s.downloads ? String(s.downloads) : '-', X.downloads, y, { width: 65, align: 'right', lineBreak: false });
+    if (comparable) {
+      const ch = Number(s.change) || 0;
+      doc.text(ch === 0 ? '-' : `${ch > 0 ? '+' : ''}${ch}`, X.change, y, { width: 70, align: 'right', lineBreak: false });
+    }
     doc.text(String(s.screeningsImported ?? 0), X.screenings, y, { width: 75, align: 'right', lineBreak: false });
     if (parts) {
       doc.fontSize(7.5).fillColor(MUTED).text(parts, X.actor + 8, y + 10, { width: 240, lineBreak: false });

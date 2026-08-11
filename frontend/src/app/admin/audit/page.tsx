@@ -97,7 +97,8 @@ export default function AuditPage() {
           <div>
             <h2 className="card-title" style={{ marginBottom: 0 }}>Activity Log</h2>
             <span className="card-sub">
-              Every import, override, injury flag and norm change — who did it and when.
+              Every import, override, injury flag, norm change and account change, plus every
+              report taken out of the system — who did it and when.
               Records are written automatically and cannot be edited or deleted.
             </span>
           </div>

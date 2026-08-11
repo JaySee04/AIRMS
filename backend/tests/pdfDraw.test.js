@@ -250,4 +250,22 @@ describe('pdfDraw toolkit', () => {
     });
     expect(pdf.slice(0, 5).toString()).toBe('%PDF-');
   });
+
+  // The read-only roles reach the paper trail only through this column, and the
+  // layout shifts when the "vs prev" column is dropped — both variants must draw.
+  it('draws downloads, with and without the comparison column', async () => {
+    const LABELS = { 'report.download': 'Report downloaded', 'export.backup': 'Backup exported' };
+    const staff = [
+      { actor: 'Datuk Executive', role: 'executive', actions: 0, downloads: 12, previousActions: 0, change: 0, byAction: { 'report.download': 12 }, screeningsImported: 0 },
+      { actor: 'Coach Demo 01', role: 'coach', actions: 0, downloads: 3, previousActions: 1, change: -1, byAction: { 'report.download': 3 }, screeningsImported: 0 },
+    ];
+    for (const comparable of [true, false]) {
+      const { pdf } = await render((doc) => {
+        D.sectionTitle(doc, 'Activity by account');
+        D.staffTable(doc, staff, LABELS, { comparable });
+      });
+      expect(pdf.slice(0, 5).toString()).toBe('%PDF-');
+      expect(pdf.length).toBeGreaterThan(1000);
+    }
+  });
 });

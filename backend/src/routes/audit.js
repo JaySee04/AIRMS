@@ -23,7 +23,16 @@ const ACTION_LABELS = {
   'norm.unpin': 'Norm pin released',
   'norm.member': 'Norm membership changed',
   'settings.update': 'Norm settings changed',
+  'user.create': 'Account created',
+  'user.update': 'Account changed',
+  'report.download': 'Report downloaded',
+  'export.backup': 'Backup exported',
 };
+
+// Actions that are ACCESS rather than work: someone read athlete data out of the
+// system, which is auditable for a different reason than a change is. Split out
+// because the two must not be added together — see `staffActivity`.
+const ACCESS_ACTIONS = new Set(['report.download', 'export.backup']);
 
 // GET /api/audit — newest first, with optional action / actor / date filtering.
 //
@@ -108,9 +117,18 @@ async function staffActivity({ from: fromQ, to: toQ } = {}) {
     const by = new Map();
     for (const r of rows) {
       const name = r.actorName || 'Unknown';
-      if (!by.has(name)) by.set(name, { actor: name, role: r.actorRole || null, total: 0, byAction: {} });
+      if (!by.has(name)) {
+        by.set(name, { actor: name, role: r.actorRole || null, total: 0, downloads: 0, byAction: {} });
+      }
       const e = by.get(name);
-      e.total += 1;
+      // Downloads are counted SEPARATELY from changes. Folding them into one
+      // total would let a read-only account that pulled twenty PDFs outrank the
+      // clinician who imported twenty screenings, which inverts the very thing
+      // this table claims to show. They still belong in the trail — reading an
+      // athlete's clinical record out of the system is the auditable act for a
+      // role that cannot write — but as their own quantity.
+      if (ACCESS_ACTIONS.has(r.action)) e.downloads += 1;
+      else e.total += 1;
       e.byAction[r.action] = (e.byAction[r.action] || 0) + 1;
     }
     return by;
@@ -138,21 +156,33 @@ async function staffActivity({ from: fromQ, to: toQ } = {}) {
       const p = prev.get(name);
       return {
         actor: name,
-        role: c?.role ?? null,
+        role: c?.role ?? p?.role ?? null,
         actions: c?.total ?? 0,
+        downloads: c?.downloads ?? 0,
         previousActions: p?.total ?? 0,
         change: (c?.total ?? 0) - (p?.total ?? 0),
         byAction: c?.byAction ?? {},
         screeningsImported: imports[name] ?? 0,
       };
     })
-    .sort((a, b) => (b.actions + b.screeningsImported) - (a.actions + a.screeningsImported));
+    .sort((a, b) => (b.actions + b.screeningsImported) - (a.actions + a.screeningsImported)
+      || b.downloads - a.downloads);
+
+  // Is the previous window a fair comparison at all? If logging did not exist for
+  // any of it, every account reads "+n (was 0)" — which looks like a programme
+  // that went from idle to busy when in fact the recorder was switched on
+  // mid-story. The number is arithmetically right and the meaning it conveys is
+  // false, so the caller is told not to draw it rather than left to infer this
+  // from `logCompleteFrom` on its own.
+  const logCompleteFrom = first ? first.createdAt : null;
+  const comparable = !!logCompleteFrom && new Date(logCompleteFrom).getTime() <= prevFrom.getTime();
 
   return Object.assign(staff, {
     meta: {
       window: { from, to },
       previousWindow: { from: prevFrom, to: prevTo },
-      logCompleteFrom: first ? first.createdAt : null,
+      logCompleteFrom,
+      comparable,
     },
   });
 }
@@ -176,4 +206,5 @@ module.exports = router;
 // says 'Screening imported' on screen and something else on paper is worse
 // than either alone.
 module.exports.ACTION_LABELS = ACTION_LABELS;
+module.exports.ACCESS_ACTIONS = ACCESS_ACTIONS;
 module.exports.staffActivity = staffActivity;

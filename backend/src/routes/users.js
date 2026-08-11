@@ -7,6 +7,7 @@ const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
 const { PERMISSION_KEYS, PERMISSION_LABELS, sanitizePermissions } = require('../utils/permissions');
 const { validatePassword } = require('../utils/passwordPolicy');
+const { recordAudit } = require('../utils/audit');
 
 const router = express.Router();
 
@@ -70,6 +71,17 @@ router.post('/', async (req, res) => {
       // everything granted under the opt-out model in utils/permissions).
       coachSport: wantRole === 'coach' ? String(coachSport).trim() : null,
     });
+    // Who was given access to the system, and by whom. Creating an account is
+    // the act that makes every later action by that account possible, so a trail
+    // that records the actions but not the granting has a hole at the start of
+    // it. The password is not touched here and never reaches the log.
+    recordAudit(req, {
+      action: 'user.create',
+      entity: 'user',
+      entityId: user.id,
+      summary: `Created ${wantRole} account for ${user.name} (${user.email})`,
+      meta: { role: wantRole, email: user.email, coachSport: user.coachSport || null },
+    });
     res.status(201).json(publicUser(user));
   } catch (err) {
     if (err.name === 'SequelizeUniqueConstraintError') {
@@ -86,6 +98,11 @@ router.patch('/:id', async (req, res) => {
     const user = await User.findByPk(req.params.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
+    // Snapshot before the mutation so the log can say what actually changed
+    // rather than only what the final state is. "Account changed" with no
+    // subject is an entry nobody can act on.
+    const before = { permissions: user.permissions, coachSport: user.coachSport, isActive: user.isActive };
+
     if (user.role === 'medical') {
       if (req.body.permissions !== undefined) user.permissions = sanitizePermissions(req.body.permissions);
     } else if (user.role === 'coach') {
@@ -95,6 +112,22 @@ router.patch('/:id', async (req, res) => {
     }
     if (typeof req.body.isActive === 'boolean') user.isActive = req.body.isActive;
     await user.save();
+
+    const changes = [];
+    if (before.isActive !== user.isActive) changes.push(user.isActive ? 'reactivated' : 'deactivated');
+    if (before.coachSport !== user.coachSport) changes.push(`sport ${before.coachSport || 'none'} → ${user.coachSport || 'none'}`);
+    if (JSON.stringify(before.permissions) !== JSON.stringify(user.permissions)) changes.push('permissions updated');
+    // A PATCH that changed nothing is not an event. Logging it would pad the
+    // trail — and the staff activity counts drawn from it — with no-ops.
+    if (changes.length) {
+      recordAudit(req, {
+        action: 'user.update',
+        entity: 'user',
+        entityId: user.id,
+        summary: `${user.name} (${user.role}): ${changes.join('; ')}`,
+        meta: { role: user.role, changes, isActive: user.isActive },
+      });
+    }
 
     res.json(publicUser(user));
   } catch (err) {
