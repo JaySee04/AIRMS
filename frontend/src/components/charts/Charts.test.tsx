@@ -11,7 +11,7 @@
 
 import { renderToStaticMarkup as render } from 'react-dom/server';
 import {
-  DotPlot, Heatmap, Histogram, PeriodChart, RankedBars, Ring, Scatter,
+  DotPlot, Heatmap, Histogram, PeriodChart, RankedBars, Ring, Scatter, Slopegraph,
 } from './Charts';
 
 const period = (key: string, label: string, value: number, line?: number) => ({
@@ -265,5 +265,103 @@ describe('Histogram — the shape an average destroys', () => {
 
   it('says so when there is nothing scored', () => {
     expect(render(<Histogram values={[]} min={0} max={100} binSize={5} />)).toContain('No scored athletes');
+  });
+});
+
+describe('Slopegraph — the right chart for exactly two periods', () => {
+  // The real Q2 -> Q3 movement: ROM falls 5.2 while stability rises 2.6. Two
+  // headcount columns cannot express that at all.
+  const metrics = [
+    { key: 'rom', label: 'ROM', from: 77.6, to: 72.4, direction: 'declining' as const },
+    { key: 'stability', label: 'Stability', from: 75.4, to: 78, direction: 'improving' as const },
+    { key: 'symmetry', label: 'Symmetry', from: 74.6, to: 74.9, direction: 'steady' as const },
+  ];
+
+  it('draws one line per metric between the two periods', () => {
+    const html = render(<Slopegraph metrics={metrics} fromLabel="Q2 2026" toLabel="Q3 2026" />);
+    expect((html.match(/<line/g) || []).length).toBe(3);
+    expect(html).toContain('Q2 2026');
+    expect(html).toContain('Q3 2026');
+  });
+
+  it('shows both ends and the change for every metric', () => {
+    const html = render(<Slopegraph metrics={metrics} fromLabel="A" toLabel="B" />);
+    expect(html).toContain('77.6');
+    expect(html).toContain('72.4');
+    expect(html).toContain('-5.2');
+    expect(html).toContain('+2.6');
+  });
+
+  it('colours by the API verdict, not the raw sign', () => {
+    // Exercise risks improve by going DOWN. A sign-based colour would paint this
+    // decline green and the improvement red.
+    const html = render(<Slopegraph
+      metrics={[{ key: 'risk', label: 'Exercise risks', from: 20.5, to: 18.2, direction: 'improving' }]}
+      fromLabel="A" toLabel="B" />);
+    // Assert the LINE's stroke specifically — the legend lists all three
+    // directions, so searching the whole markup proves nothing.
+    const stroke = html.match(/<line[^>]*stroke="([^"]+)"/);
+    expect(stroke?.[1]).toBe('var(--risk-low)');
+    // The value dropped (20.5 → 18.2) and is still drawn as an improvement.
+    expect(html).toContain('-2.3');
+  });
+
+  it('puts every metric on ONE shared scale so slopes compare', () => {
+    // A per-metric scale would make a 0.3 move look like a 5-point one.
+    const html = render(<Slopegraph metrics={metrics} fromLabel="A" toLabel="B" />);
+    expect(html).toMatch(/One shared scale/);
+  });
+
+  it('skips metrics missing either end rather than drawing a half-line', () => {
+    const html = render(<Slopegraph
+      metrics={[...metrics, { key: 'x', label: 'Missing', from: 50, to: null }]}
+      fromLabel="A" toLabel="B" />);
+    expect((html.match(/<line/g) || []).length).toBe(3);
+    expect(html).not.toContain('Missing');
+  });
+
+  it('says so when nothing is comparable', () => {
+    const html = render(<Slopegraph metrics={[{ key: 'a', label: 'A', from: null, to: null }]} fromLabel="A" toLabel="B" />);
+    expect(html).toContain('Not enough data to compare');
+  });
+});
+
+describe('PeriodChart — the sparse-grain layouts', () => {
+  const p = (key: string, label: string, value: number) => ({
+    key, label, value, segments: [{ label: 'Safe', value, color: 'var(--risk-low)' }], line: null,
+  });
+
+  it('TWO periods lead with the slopes, keeping throughput as context', () => {
+    const html = render(<PeriodChart
+      points={[p('q2', 'Q2 2026', 43), p('q3', 'Q3 2026', 22)]}
+      slope={[{ key: 'rom', label: 'ROM', from: 77.6, to: 72.4, direction: 'declining' }]} />);
+    expect(html).toContain('slope-plot');
+    expect(html).toContain('slope-throughput');
+    expect(html).toContain('periodrow-track');
+  });
+
+  it('two periods WITHOUT slope data still fall back to rows', () => {
+    const html = render(<PeriodChart points={[p('a', 'A', 4), p('b', 'B', 9)]} />);
+    expect(html).not.toContain('slope-plot');
+    expect(html).toContain('periodrow-track');
+  });
+
+  it('ONE period shows what it is made of, instead of a dead panel', () => {
+    const html = render(<PeriodChart
+      points={[p('y', '2026', 58)]}
+      composition={[p('q2', 'Q2 2026', 43), p('q3', 'Q3 2026', 22)]}
+      compositionGrain="quarter" />);
+    expect(html).toContain('single-period');
+    expect(html).toContain('What this year is made of');
+    expect(html).toContain('Q2 2026');
+    expect(html).toContain('Q3 2026');
+  });
+
+  it('one period with a single-bucket composition does not show an empty breakdown', () => {
+    const html = render(<PeriodChart
+      points={[p('y', '2026', 58)]}
+      composition={[p('q2', 'Q2 2026', 58)]}
+      compositionGrain="quarter" />);
+    expect(html).not.toContain('is made of');
   });
 });

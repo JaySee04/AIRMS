@@ -44,7 +44,23 @@ interface Period {
   deltas?: Record<string, Delta | undefined>;
   direction?: string;
 }
-interface PeriodsResponse { grain: Grain; periods: Period[]; grainCounts?: Record<Grain, number> }
+interface PeriodsResponse {
+  grain: Grain;
+  periods: Period[];
+  grainCounts?: Record<Grain, number>;
+  composition?: { grain: Grain; periods: Period[] } | null;
+}
+
+// The metrics drawn as slopes when a selection has exactly two periods. Order is
+// the reading order: the headline verdict first, then what it is made of.
+const SLOPE_METRICS: Array<[string, string, string]> = [
+  ['overallIndicator', 'Indicator', ''],
+  ['totalScore', 'Total Score', ''],
+  ['rom', 'ROM', ''],
+  ['stability', 'Stability', ''],
+  ['symmetry', 'Symmetry', ''],
+  ['exerciseRisks', 'Exercise risks', ''],
+];
 
 
 
@@ -156,6 +172,27 @@ export default function TrendStrip({ query }: { query: string }) {
               valueLabel="Athletes tested"
               lineLabel="Average Total Score"
               height={158}
+              // A single period gets the finer buckets it is made of; two periods
+              // get metric slopes, because with two the comparison IS the content
+              // and a pair of columns leaves the reader to do the subtraction.
+              composition={data?.composition?.periods.map((p) => ({
+                key: p.key,
+                label: p.label,
+                value: p.athletes,
+                segments: BAND_TOKENS.map((b) => ({ label: b.label, value: p.bands[b.key], color: b.color })),
+                line: typeof p.averages?.totalScore === 'number' ? p.averages.totalScore : null,
+              }))}
+              compositionGrain={data?.composition?.grain}
+              slope={periods.length === 2 ? SLOPE_METRICS.map(([key, label, suffix]) => ({
+                key,
+                label,
+                from: typeof periods[0].averages?.[key] === 'number' ? (periods[0].averages[key] as number) : null,
+                to: typeof periods[1].averages?.[key] === 'number' ? (periods[1].averages[key] as number) : null,
+                // The API's own verdict — it already knows exercise risks improve
+                // downwards and that a small move is noise.
+                direction: periods[1].deltas?.[key]?.direction ?? null,
+                suffix,
+              })) : undefined}
             />
           </div>
 

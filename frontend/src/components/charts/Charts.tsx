@@ -207,12 +207,17 @@ export interface PeriodPoint {
 const COLUMN_MIN_POINTS = 4;
 
 export function PeriodChart({
-  points, lineLabel, valueLabel, height = 150,
+  points, lineLabel, valueLabel, height = 150, composition, compositionGrain, slope,
 }: {
   points: PeriodPoint[];
   lineLabel?: string;
   valueLabel?: string;
   height?: number;
+  /** The selection one grain finer — shown when there is only one period. */
+  composition?: PeriodPoint[];
+  compositionGrain?: string;
+  /** Metric slopes — the right chart for exactly two periods. */
+  slope?: SlopeMetric[];
 }) {
   if (!points.length) return null;
 
@@ -221,7 +226,32 @@ export function PeriodChart({
   // chart equivalent of a shrug — this states the period's numbers and says
   // plainly that there is nothing to compare against yet.
   if (points.length === 1) {
-    return <SinglePeriod point={points[0]} lineLabel={lineLabel} valueLabel={valueLabel} />;
+    return (
+      <SinglePeriod
+        point={points[0]}
+        lineLabel={lineLabel}
+        valueLabel={valueLabel}
+        composition={composition}
+        compositionGrain={compositionGrain}
+      />
+    );
+  }
+
+  // Exactly two periods: the comparison IS the content, so lead with the metric
+  // slopes and keep the throughput rows underneath as context.
+  if (points.length === 2 && slope && slope.length) {
+    return (
+      <>
+        <Slopegraph
+          metrics={slope}
+          fromLabel={points[0].label}
+          toLabel={points[1].label}
+        />
+        <div className="slope-throughput">
+          <PeriodRows points={points} lineLabel={lineLabel} valueLabel={valueLabel} />
+        </div>
+      </>
+    );
   }
 
   if (points.length < COLUMN_MIN_POINTS) {
@@ -327,11 +357,122 @@ export function PeriodChart({
   );
 }
 
+// ══════════════════════════════════════════════════════════════════════════
+// Slopegraph — the right chart for exactly TWO periods.
+//
+// A quarterly view of a young dataset is two points. Drawn as two columns it
+// shows one number each (how many athletes) and the comparison the reader
+// actually wants — what changed — is left to them. A slopegraph inverts that:
+// every metric is a line between the two periods, so the SHAPE of the change is
+// the whole picture. On the current data it says at a glance that ROM fell 5.2
+// while stability rose 2.6, which two headcount bars cannot express at all.
+//
+// Direction and colour come from the API's own verdict, which already knows that
+// exercise risks improve by going DOWN and that small moves are noise. Deriving
+// it from the sign here would be a second opinion to keep in step.
+// ══════════════════════════════════════════════════════════════════════════
+export interface SlopeMetric {
+  key: string;
+  label: string;
+  from: number | null;
+  to: number | null;
+  direction?: 'improving' | 'steady' | 'declining' | null;
+  /** Shown after the value, e.g. "/100". */
+  suffix?: string;
+}
+
+const SLOPE_TONE: Record<string, string> = {
+  improving: 'var(--risk-low)',
+  declining: 'var(--risk-high)',
+  steady: 'var(--text-muted)',
+};
+
+export function Slopegraph({
+  metrics, fromLabel, toLabel, height = 230,
+}: {
+  metrics: SlopeMetric[];
+  fromLabel: string;
+  toLabel: string;
+  height?: number;
+}) {
+  const usable = metrics.filter((m) => m.from !== null && m.to !== null);
+  if (!usable.length) return <p className="text-muted" style={{ fontSize: '0.85rem' }}>Not enough data to compare these periods.</p>;
+
+  // Every metric shares one vertical scale so the SLOPES are comparable — a
+  // per-metric scale would make a 0.3 move look like a 5-point one.
+  const all = usable.flatMap((m) => [m.from as number, m.to as number]);
+  const lo = Math.min(...all);
+  const hi = Math.max(...all);
+  const pad = Math.max((hi - lo) * 0.18, 2);
+  const y = (v: number) => 100 - ((v - (lo - pad)) / ((hi + pad) - (lo - pad) || 1)) * 100;
+
+  return (
+    <div className="slope">
+      <div className="slope-head">
+        <span>{fromLabel}</span>
+        <span>{toLabel}</span>
+      </div>
+      <div className="slope-plot" style={{ height }}>
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="slope-svg" aria-hidden>
+          {usable.map((m) => (
+            <line
+              key={m.key}
+              x1="0" x2="100"
+              y1={y(m.from as number)} y2={y(m.to as number)}
+              stroke={SLOPE_TONE[m.direction ?? 'steady'] ?? SLOPE_TONE.steady}
+              strokeWidth="2"
+              vectorEffect="non-scaling-stroke"
+            />
+          ))}
+        </svg>
+        {usable.map((m) => {
+          const tone = SLOPE_TONE[m.direction ?? 'steady'] ?? SLOPE_TONE.steady;
+          return (
+            <div key={m.key} className="slope-pair">
+              <span className="slope-end slope-end--l" style={{ top: `${y(m.from as number)}%` }}>
+                <b>{m.label}</b> {fmt(m.from as number)}{m.suffix ?? ''}
+              </span>
+              <span className="slope-end slope-end--r" style={{ top: `${y(m.to as number)}%`, color: tone }}>
+                {fmt(m.to as number)}{m.suffix ?? ''}
+                <i className="slope-delta">
+                  {(m.to as number) > (m.from as number) ? '+' : ''}
+                  {fmt(+((m.to as number) - (m.from as number)).toFixed(1))}
+                </i>
+              </span>
+              <span className="slope-dot" style={{ top: `${y(m.from as number)}%`, left: 0, background: tone }} />
+              <span className="slope-dot" style={{ top: `${y(m.to as number)}%`, right: 0, background: tone }} />
+            </div>
+          );
+        })}
+      </div>
+      <div className="slope-legend">
+        {(['improving', 'steady', 'declining'] as const).map((d) => (
+          <span key={d} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ width: 14, height: 2, background: SLOPE_TONE[d], display: 'inline-block' }} />
+            {d}
+          </span>
+        ))}
+        <span className="text-muted">
+          One shared scale, so the steeper line is the bigger move. Exercise risks improve downwards —
+          the colour follows that, the raw sign does not.
+        </span>
+      </div>
+    </div>
+  );
+}
+
 // The one-period layout: the period's figures, and an explicit statement that
 // there is nothing to compare them against.
 function SinglePeriod({
-  point, lineLabel, valueLabel,
-}: { point: PeriodPoint; lineLabel?: string; valueLabel?: string }) {
+  point, lineLabel, valueLabel, composition, compositionGrain,
+}: {
+  point: PeriodPoint;
+  lineLabel?: string;
+  valueLabel?: string;
+  /** The same period broken down one grain finer. */
+  composition?: PeriodPoint[];
+  compositionGrain?: string;
+}) {
   const segs = (point.segments ?? []).filter((s) => s.value > 0);
   const total = segs.reduce((s, x) => s + x.value, 0) || 1;
   return (
@@ -358,9 +499,21 @@ function SinglePeriod({
           ))}
         </div>
       )}
+      {/* A single period has nothing to compare against, but it is MADE OF
+          something. Showing the finer buckets inside it turns a dead panel into
+          the breakdown the reader was about to go looking for anyway. */}
+      {composition && composition.length > 1 && (
+        <div className="single-period-comp">
+          <div className="single-period-comp-head">
+            What this {compositionGrain === 'quarter' ? 'year' : 'period'} is made of
+          </div>
+          <PeriodRows points={composition} valueLabel={valueLabel} lineLabel={lineLabel} />
+        </div>
+      )}
       <p className="chart-note" style={{ marginBottom: 0 }}>
-        Only one period of screening falls in this selection, so there is no change to report yet —
-        choose a finer grain above for a breakdown.
+        {composition && composition.length > 1
+          ? `Only one ${compositionGrain === 'quarter' ? 'year' : 'period'} of screening falls in this selection, so there is no period-on-period change to report — the breakdown above is the same data one grain finer.`
+          : 'Only one period of screening falls in this selection, so there is no change to report yet — choose a finer grain above for a breakdown.'}
       </p>
     </div>
   );

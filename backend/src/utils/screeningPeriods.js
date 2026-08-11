@@ -37,6 +37,8 @@ const PERIOD_SCORES = [
 
 const { BAND_RANK, effectiveBand } = require('./bands');
 const GRAINS = ['month', 'quarter', 'year'];
+// One step finer, for the composition breakdown a coarse view falls back on.
+const FINER = { year: 'quarter', quarter: 'month', month: null };
 
 const num = (v) => (v === null || v === undefined || v === '' || Number.isNaN(Number(v)) ? null : Number(v));
 
@@ -375,6 +377,15 @@ function screeningPeriods(screenings, { grain = 'quarter', noise = 2 } = {}) {
     // button that can only ever disappoint. Offering it silently and then
     // rendering an apology underneath is worse than labelling it up front.
     grainCounts: grainCounts(rows),
+    // The same rows bucketed one grain FINER, so a coarse view that has nothing
+    // to compare against still has something to show.
+    //
+    // A yearly view of four months of screening is a single number, and no
+    // presentation rescues a single number — but that year is made of quarters,
+    // and those quarters are real content the reader can act on. Rather than
+    // telling them to go and change the grain, the year shows what it is made of.
+    // Null at month grain, which has no finer bucket here.
+    composition: FINER[g] ? { grain: FINER[g], periods: bucketByPeriod(rows, FINER[g], noise) } : null,
     betweenTests: bucketBetweenTests(rows, noise),
     // Seasonality reads at quarter grain regardless of the caller's `grain`: a
     // month-of-year split over ISN's data is a dozen buckets of two or three

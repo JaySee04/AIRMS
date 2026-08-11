@@ -2400,3 +2400,51 @@ textarea:focus-visible,
   display: flex; gap: 14px; flex-wrap: wrap;
   margin-top: 10px; font-size: 0.76rem;
 }
+
+/* ── Slopegraph: the right chart for exactly two periods ──────────────────────
+   Two columns show one number each and leave the comparison to the reader. A
+   slopegraph makes the comparison the picture: one line per metric, all on a
+   shared scale so the steeper line is the bigger move. */
+.slope-head {
+  display: flex; justify-content: space-between;
+  font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.05em; color: var(--text-muted);
+  margin-bottom: 10px;
+}
+.slope-plot { position: relative; margin: 0 4px; }
+.slope-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.slope-pair { position: absolute; inset: 0; pointer-events: none; }
+.slope-end {
+  position: absolute;
+  transform: translateY(-50%);
+  font-size: 0.8rem;
+  white-space: nowrap;
+  background: var(--bg-card);
+  padding: 1px 5px;
+  border-radius: 4px;
+  pointer-events: auto;
+}
+.slope-end--l { left: 10px; color: var(--text); }
+.slope-end--r { right: 10px; font-weight: 700; }
+.slope-end b { font-weight: 600; }
+.slope-delta { font-style: normal; font-size: 0.72rem; margin-left: 5px; opacity: 0.85; }
+.slope-dot {
+  position: absolute;
+  width: 9px; height: 9px; border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 0 2px var(--bg-card);
+}
+.slope-dot[style*="right"] { transform: translate(50%, -50%); }
+.slope-legend {
+  display: flex; gap: 14px; flex-wrap: wrap;
+  margin-top: 14px; font-size: 0.76rem;
+}
+.slope-throughput { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
+
+/* A single period's internal breakdown — a year has nothing to compare against
+   but is still MADE of quarters. */
+.single-period-comp { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
+.single-period-comp-head {
+  font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 10px;
+}
