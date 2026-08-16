@@ -14,7 +14,7 @@
 const express = require('express');
 const { Op } = require('sequelize');
 const { Screening, Athlete, AuditLog } = require('../models');
-const { ACTION_LABELS: AUDIT_LABELS, staffActivity } = require('./audit');
+const { ACTION_LABELS: AUDIT_LABELS, staffActivity, auditWhere } = require('./audit');
 const { recordAudit } = require('../utils/audit');
 const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
@@ -66,7 +66,7 @@ function logDownload(req, kind, { summary = null, entityId = null, meta = null }
 // so an unfiltered pull records `{}` rather than a row of nulls.
 function scopeMeta(query = {}) {
   const out = {};
-  for (const k of ['sport', 'programme', 'gender', 'grain', 'from', 'to', 'action']) {
+  for (const k of ['sport', 'programme', 'gender', 'grain', 'from', 'to', 'action', 'actorName', 'entityId']) {
     if (query[k]) out[k] = String(query[k]);
   }
   return out;
@@ -395,7 +395,7 @@ router.get('/team.pdf', auth, rbac('medical', 'admin', 'coach', 'executive'), re
 router.get('/programme-activity.pdf', auth, rbac('admin', 'executive'), async (req, res) => {
   try {
     const data = await programmeActivityData(req.query);
-    const { coverage: cov, periods, betweenTests: bt, scope, grain } = data;
+    const { coverage: cov, periods, betweenTests: bt, scope, grain, recall } = data;
     const grainWord = { month: 'Monthly', quarter: 'Quarterly', year: 'Yearly' }[grain] || 'Quarterly';
 
     const nameBits = ['AIRMS_Programme_Activity'];
@@ -422,6 +422,17 @@ router.get('/programme-activity.pdf', auth, rbac('admin', 'executive'), async (r
       ['Athletes retested at least once', bt ? `${bt.athletesWithRetest}` : '0'],
       ['Median gap between retests', bt && bt.intervalDays.median !== null ? `${bt.intervalDays.median} days` : '—'],
     ];
+    // Recall: how current the programme's knowledge is, as opposed to how much
+    // of the roster it has ever touched. A fully covered roster can be entirely
+    // out of date, and only these rows would say so.
+    if (recall) {
+      kpis.push(
+        ['Screening considered current for', `${recall.dueDays} days`],
+        ['Overdue a rescreen', `${recall.overdue}`],
+        ['Never screened', `${recall.never}`],
+        ['Median age of latest screening', recall.medianAgeDays === null ? '—' : `${recall.medianAgeDays} days`],
+      );
+    }
     for (const [label, value] of kpis) {
       ensure(doc, 14);
       const y = doc.y;
@@ -433,7 +444,10 @@ router.get('/programme-activity.pdf', auth, rbac('admin', 'executive'), async (r
     doc.fontSize(7.5).fillColor(MUTED).font('Helvetica').text(
       'Coverage is measured against the filtered roster for the selected window, so a narrow date range '
       + 'correctly counts an athlete as untested in that window. Tests per athlete is retest DEPTH — reach '
-      + 'without depth means a roster screened once and never followed up.',
+      + 'without depth means a roster screened once and never followed up. Recall figures are read '
+      + 'across ALL time rather than the selected window, because when an athlete was last seen is a '
+      + 'fact about the athlete; "never screened" is counted apart from "overdue" because it calls for '
+      + 'a first assessment, not a call-back.',
       50, doc.y, { width: doc.page.width - 100 },
     );
     doc.moveDown(0.6);
@@ -451,7 +465,7 @@ router.get('/programme-activity.pdf', auth, rbac('admin', 'executive'), async (r
 
     // ── Within-athlete change ────────────────────────────────────────────────
     sectionTitle(doc, 'Change Between Successive Tests', 120);
-    betweenTestsBlock(doc, bt);
+    betweenTestsBlock(doc, bt, data.reliability);
 
     // ── Seasonality ──────────────────────────────────────────────────────────
     if (data.seasonality) {
@@ -494,17 +508,8 @@ router.get('/programme-activity.pdf', auth, rbac('admin', 'executive'), async (r
 // is the whole point of the executive role.
 router.get('/activity-log.pdf', auth, rbac('admin', 'executive'), async (req, res) => {
   try {
-    const where = {};
-    if (req.query.action) where.action = String(req.query.action);
-    if (req.query.from || req.query.to) {
-      where.createdAt = {};
-      if (req.query.from) where.createdAt[Op.gte] = new Date(String(req.query.from));
-      if (req.query.to) {
-        const end = new Date(String(req.query.to));
-        end.setHours(23, 59, 59, 999);
-        where.createdAt[Op.lte] = end;
-      }
-    }
+    // The page's filter clause, not a second copy of it — see auditWhere.
+    const where = auditWhere(req.query);
     // Capped: a log export is a review document, not a database dump. The page
     // paginates for anything longer.
     const LIMIT = 400;
@@ -512,8 +517,13 @@ router.get('/activity-log.pdf', auth, rbac('admin', 'executive'), async (req, re
       where, order: [['createdAt', 'DESC']], limit: LIMIT, raw: true,
     });
 
+    // Every filter that narrowed the export has to be printed on it. A reader
+    // holding a one-athlete extract must not be able to mistake it for the
+    // whole log.
     const scope = [
-      req.query.action ? `Action: ${req.query.action}` : null,
+      req.query.action ? `Action: ${AUDIT_LABELS[req.query.action] || req.query.action}` : null,
+      req.query.actorName ? `Account: ${String(req.query.actorName)}` : null,
+      req.query.entityId ? `Subject: ${String(req.query.entityId)}` : null,
       req.query.from ? `From ${String(req.query.from)}` : null,
       req.query.to ? `To ${String(req.query.to)}` : null,
     ].filter(Boolean).join(' · ') || 'All recorded activity';

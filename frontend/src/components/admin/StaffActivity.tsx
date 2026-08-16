@@ -37,7 +37,20 @@ interface Payload {
 
 const day = (s: string | null | undefined) => (s ? new Date(s).toLocaleDateString() : '—');
 
-export default function StaffActivity({ from, to }: { from?: string; to?: string }) {
+export default function StaffActivity({
+  from, to, onPickActor, selectedActor,
+}: {
+  from?: string;
+  to?: string;
+  /**
+   * Given by a page that can filter its own log by account. The table names the
+   * people; being able to go straight from "this account did 45 things" to
+   * WHICH 45 is the whole reason to look at it. Omitted on pages with nothing
+   * to filter, and the rows stay plain text there rather than pretending.
+   */
+  onPickActor?: (actor: string) => void;
+  selectedActor?: string;
+}) {
   const [data, setData] = useState<Payload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
@@ -109,9 +122,21 @@ export default function StaffActivity({ from, to }: { from?: string; to?: string
             </thead>
             <tbody>
               {staff.map((s) => (
-                <tr key={s.actor}>
+                <tr key={s.actor} className={selectedActor === s.actor ? 'is-selected-actor' : undefined}>
                   <td>
-                    <strong>{s.actor}</strong>
+                    {onPickActor ? (
+                      <button
+                        type="button"
+                        className="staff-actor-link"
+                        aria-pressed={selectedActor === s.actor}
+                        onClick={() => onPickActor(selectedActor === s.actor ? '' : s.actor)}
+                        title={selectedActor === s.actor ? 'Show all accounts again' : `Show only what ${s.actor} did`}
+                      >
+                        {s.actor}
+                      </button>
+                    ) : (
+                      <strong>{s.actor}</strong>
+                    )}
                     {s.role && <div className="text-muted" style={{ fontSize: '0.72rem' }}>{s.role}</div>}
                     {open && Object.keys(s.byAction).length > 0 && (
                       <div className="text-muted" style={{ fontSize: '0.7rem', marginTop: 4 }}>

@@ -10,6 +10,7 @@ import { useCallback, useEffect, useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { api } from '@/lib/api';
 import StaffActivity from '@/components/admin/StaffActivity';
+import AthleteSearchSelect, { PickableAthlete } from '@/components/ui/AthleteSearchSelect';
 
 interface Entry {
   _id: string;
@@ -33,13 +34,27 @@ const PAGE = 100;
 
 // Colour by what the action touches, so a long list is scannable: clinical
 // judgement, norm governance, and data intake read differently at a glance.
+//
+// Reads are NEUTRAL, not green. Every unlisted action used to fall through to
+// badge-low, so a full-database backup export — the largest egress in the
+// system — was painted the same reassuring green as a routine import. A badge
+// that says "low risk" about an act nobody has assessed is worse than no badge.
 const ACTION_TONE: Record<string, string> = {
   'screening.import': 'badge-low',
   'screening.override': 'badge-high',
+  'screening.reinstate': 'badge-moderate',
   'athlete.injury': 'badge-high',
   'norm.restore': 'badge-moderate',
+  'norm.pin': 'badge-moderate',
+  'norm.unpin': 'badge-moderate',
   'norm.member': 'badge-moderate',
   'settings.update': 'badge-moderate',
+  // Granting or changing who can use the system at all.
+  'user.create': 'badge-moderate',
+  'user.update': 'badge-moderate',
+  // Access, not change: routine, and marked as neither good nor bad.
+  'report.download': 'badge-neutral',
+  'export.backup': 'badge-moderate',
 };
 
 function fmt(at: string): string {
@@ -61,27 +76,59 @@ export default function AuditPage() {
   const [action, setAction] = useState('');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
+  // The two subject filters: whose actions, and about whom.
+  const [actorName, setActorName] = useState('');
+  const [athleteId, setAthleteId] = useState('');
   const [offset, setOffset] = useState(0);
   const [open, setOpen] = useState<string | null>(null);
   const [dl, setDl] = useState(false);
+  const [roster, setRoster] = useState<PickableAthlete[]>([]);
+  // AthleteSearchSelect keeps its own typed text, so clearing the filter from
+  // outside has to remount it — otherwise "Clear" empties the query but leaves
+  // the athlete's name sitting in the box, which reads as a filter still on.
+  const [pickerKey, setPickerKey] = useState(0);
+
+  function clearAll() {
+    setAction(''); setFrom(''); setTo(''); setActorName(''); setAthleteId('');
+    setPickerKey((k) => k + 1);
+  }
+
+  // The roster is only needed to name the athlete filter; a failure to load it
+  // must not take the log down with it.
+  useEffect(() => {
+    api.get<PickableAthlete[]>('/athletes').then(setRoster).catch(() => setRoster([]));
+  }, []);
+
+  // Every filter that narrows the view, in one place — so the query, the export
+  // link and the "clear" affordances cannot fall out of step.
+  const filterParams = useCallback(() => {
+    const q = new URLSearchParams();
+    if (action) q.set('action', action);
+    if (actorName) q.set('actorName', actorName);
+    if (athleteId) q.set('entityId', athleteId);
+    if (from) q.set('from', from);
+    if (to) q.set('to', to);
+    return q;
+  }, [action, actorName, athleteId, from, to]);
 
   const load = useCallback(async () => {
     setError(null);
-    const q = new URLSearchParams({ limit: String(PAGE), offset: String(offset) });
-    if (action) q.set('action', action);
-    if (from) q.set('from', from);
-    if (to) q.set('to', to);
+    const q = filterParams();
+    q.set('limit', String(PAGE));
+    q.set('offset', String(offset));
     try {
       setData(await api.get<Payload>(`/audit?${q.toString()}`));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load the activity log');
     }
-  }, [action, from, to, offset]);
+  }, [filterParams, offset]);
 
   useEffect(() => { load(); }, [load]);
   // Any filter change restarts paging — otherwise you can land on page 3 of a
   // result set that now has one page.
-  useEffect(() => { setOffset(0); }, [action, from, to]);
+  useEffect(() => { setOffset(0); }, [action, actorName, athleteId, from, to]);
+
+  const athleteName = roster.find((a) => a.athleteId === athleteId)?.name ?? athleteId;
 
   const entries = data?.entries ?? [];
   const total = data?.total ?? 0;
@@ -90,7 +137,7 @@ export default function AuditPage() {
     <DashboardLayout allowedRoles={['admin', 'executive']} title="Activity Log">
       {/* Who is doing the work, before the chronological detail of what they did.
           Follows the same date filters as the log below. */}
-      <StaffActivity from={from} to={to} />
+      <StaffActivity from={from} to={to} onPickActor={setActorName} selectedActor={actorName} />
 
       <div className="card">
         <div className="card-header">
@@ -114,6 +161,19 @@ export default function AuditPage() {
               ))}
             </select>
           </label>
+          {/* Everything recorded ABOUT one athlete — downloads of their report,
+              their injury flag, their band overrides. The trail has always
+              stored the subject; until now there was no way to ask it. */}
+          <label style={{ fontSize: '0.8rem', minWidth: 220 }}>
+            <div className="text-muted" style={{ marginBottom: 4 }}>Athlete</div>
+            <AthleteSearchSelect
+              key={pickerKey}
+              athletes={roster}
+              onSelect={setAthleteId}
+              placeholder="Any athlete…"
+              ariaLabel="Filter by athlete"
+            />
+          </label>
           <label style={{ fontSize: '0.8rem' }}>
             <div className="text-muted" style={{ marginBottom: 4 }}>From</div>
             <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
@@ -122,8 +182,36 @@ export default function AuditPage() {
             <div className="text-muted" style={{ marginBottom: 4 }}>To</div>
             <input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
           </label>
-          {(action || from || to) && (
-            <button type="button" className="btn btn-outline btn-sm" onClick={() => { setAction(''); setFrom(''); setTo(''); }}>
+          {/* The actor filter is set by clicking a row in Staff activity above,
+              so it has no control of its own. Without a chip it would be an
+              invisible filter — the log would narrow with nothing on screen
+              explaining why. */}
+          {actorName && (
+            <button
+              type="button"
+              className="audit-chip"
+              onClick={() => setActorName('')}
+              title="Stop filtering by this account"
+            >
+              Account: <strong>{actorName}</strong> ×
+            </button>
+          )}
+          {athleteId && (
+            <button
+              type="button"
+              className="audit-chip"
+              onClick={() => { setAthleteId(''); setPickerKey((k) => k + 1); }}
+              title="Stop filtering by this athlete"
+            >
+              Athlete: <strong>{athleteName}</strong> ×
+            </button>
+          )}
+          {(action || from || to || actorName || athleteId) && (
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              onClick={clearAll}
+            >
               Clear
             </button>
           )}
@@ -139,10 +227,9 @@ export default function AuditPage() {
               className="btn btn-outline btn-sm"
               disabled={dl || total === 0}
               onClick={async () => {
-                const q = new URLSearchParams();
-                if (action) q.set('action', action);
-                if (from) q.set('from', from);
-                if (to) q.set('to', to);
+                // The SAME params the list is showing — the promise above only
+                // holds if the export cannot build its own narrower set.
+                const q = filterParams();
                 setDl(true); setError(null);
                 try {
                   await api.downloadGet(
@@ -191,7 +278,7 @@ export default function AuditPage() {
                       <strong>{e.actor}</strong>
                       {e.actorRole && <div className="text-muted" style={{ fontSize: '0.72rem' }}>{e.actorRole}</div>}
                     </td>
-                    <td><span className={ACTION_TONE[e.action] ?? 'badge-low'}>{e.actionLabel}</span></td>
+                    <td><span className={ACTION_TONE[e.action] ?? 'badge-neutral'}>{e.actionLabel}</span></td>
                     <td style={{ fontSize: '0.82rem' }}>
                       {e.summary || <span className="text-muted">—</span>}
                       {tokensOf(e.meta) && (

@@ -40,22 +40,46 @@ const ACCESS_ACTIONS = new Set(['report.download', 'export.backup']);
 // run without being able to change it, which is precisely this page. It stays
 // closed to medical and coach, who see their own athletes rather than everyone's
 // administrative activity.
+// The log's filters, in ONE place.
+//
+// The page and the PDF export must select the same rows — the export button
+// says it hands over "exactly what the filters above select", and it had
+// already drifted: this route honoured `actorId` and the PDF quietly did not,
+// so an actor-filtered view exported as the whole log. Building the clause once
+// is the only version of that promise a reader can rely on.
+function auditWhere(query = {}) {
+  const where = {};
+  if (query.action && ACTION_LABELS[query.action]) where.action = query.action;
+  if (query.actorId) where.actorId = Number(query.actorId) || 0;
+  // Actor by NAME, because that is how Staff activity groups accounts: the row
+  // copies actorName rather than joining users, so a trail survives a rename or
+  // a deletion. Filtering by the same string keeps a click on that table and
+  // the rows it opens describing one identical set of actions.
+  if (query.actorName) where.actorName = String(query.actorName);
+  // The subject of the action — an athlete's IC on an individual report
+  // download, an injury flag or a band override. Without it the log could
+  // record who read a named athlete's clinical record and still not answer
+  // "who has read THIS athlete's record", which is the question the download
+  // auditing exists for.
+  if (query.entityId) where.entityId = String(query.entityId);
+  if (query.entity) where.entity = String(query.entity);
+  if (query.from || query.to) {
+    where.createdAt = {};
+    if (query.from) where.createdAt[Op.gte] = new Date(String(query.from));
+    // `to` is a calendar day, so include everything up to its final moment
+    // rather than midnight — otherwise "to: today" silently drops today.
+    if (query.to) {
+      const end = new Date(String(query.to));
+      end.setHours(23, 59, 59, 999);
+      where.createdAt[Op.lte] = end;
+    }
+  }
+  return where;
+}
+
 router.get('/', auth, rbac('admin', 'executive'), async (req, res) => {
   try {
-    const where = {};
-    if (req.query.action && ACTION_LABELS[req.query.action]) where.action = req.query.action;
-    if (req.query.actorId) where.actorId = Number(req.query.actorId) || 0;
-    if (req.query.from || req.query.to) {
-      where.createdAt = {};
-      if (req.query.from) where.createdAt[Op.gte] = new Date(String(req.query.from));
-      // `to` is a calendar day, so include everything up to its final moment
-      // rather than midnight — otherwise "to: today" silently drops today.
-      if (req.query.to) {
-        const end = new Date(String(req.query.to));
-        end.setHours(23, 59, 59, 999);
-        where.createdAt[Op.lte] = end;
-      }
-    }
+    const where = auditWhere(req.query);
 
     const limit = Math.min(Math.max(Number(req.query.limit) || 100, 1), 500);
     const { rows, count } = await AuditLog.findAndCountAll({
@@ -208,3 +232,6 @@ module.exports = router;
 module.exports.ACTION_LABELS = ACTION_LABELS;
 module.exports.ACCESS_ACTIONS = ACCESS_ACTIONS;
 module.exports.staffActivity = staffActivity;
+// Shared with the PDF export so the document and the page cannot select
+// different rows from the same filters.
+module.exports.auditWhere = auditWhere;
