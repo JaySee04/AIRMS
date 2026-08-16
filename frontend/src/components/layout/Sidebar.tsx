@@ -93,7 +93,10 @@ export default function Sidebar({ user }: { user: SessionUser }) {
   return (
     <aside className="sidebar">
       <div className="sidebar-brand">
-        <Image src="/images/logo1.png" alt="ISN" width={50} height={56} quality={100} />
+        {/* Above the fold on every authenticated page and usually the largest
+            element painted, so it is preloaded rather than lazy-loaded — Next
+            warns about exactly this on each route otherwise. */}
+        <Image src="/images/logo1.png" alt="ISN" width={50} height={56} quality={100} priority />
         <div>
           <div className="sidebar-brand-title">AIRMS</div>
           <div className="sidebar-brand-sub">SPORTS HEALTH</div>

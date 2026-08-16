@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
 import { api } from '@/lib/api';
@@ -22,8 +22,14 @@ interface DashboardLayoutProps {
 
 export default function DashboardLayout({ children, allowedRoles, title, requiredPermission }: DashboardLayoutProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const [user, setUser] = useState<SessionUser | null>(null);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  // Off-canvas navigation below the desktop breakpoint. The sidebar is a fixed
+  // 256px column that the main area is margin-offset by, with no breakpoint —
+  // so on a tablet the content started 256px off-screen and every page scrolled
+  // sideways. Desktop is unchanged; this only governs the narrow layout.
+  const [navOpen, setNavOpen] = useState(false);
 
   useEffect(() => {
     const session = getSession();
@@ -61,6 +67,19 @@ export default function DashboardLayout({ children, allowedRoles, title, require
     if (user && blocked) router.replace(firstPermittedPath(user));
   }, [user, blocked, router]);
 
+  // Navigating closes the drawer — otherwise it stays over the page the user
+  // just asked for.
+  useEffect(() => { setNavOpen(false); }, [pathname]);
+
+  // Escape closes it, which is what a keyboard user expects of anything that
+  // covers the page.
+  useEffect(() => {
+    if (!navOpen) return undefined;
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') setNavOpen(false); }
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [navOpen]);
+
   function handleLogout() {
     clearSession();
     router.push('/');
@@ -69,13 +88,25 @@ export default function DashboardLayout({ children, allowedRoles, title, require
   if (!user) return null;
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell${navOpen ? ' nav-open' : ''}`}>
       <Sidebar user={user} />
+      {/* Tapping away from an open drawer closes it. Rendered only while open so
+          it can never intercept clicks on the desktop layout. */}
+      {navOpen && (
+        <button
+          type="button"
+          className="nav-scrim"
+          aria-label="Close navigation"
+          onClick={() => setNavOpen(false)}
+        />
+      )}
       <div className="main-area">
         <Topbar
           user={user}
           title={title}
           theme={theme}
+          navOpen={navOpen}
+          onToggleNav={() => setNavOpen((o) => !o)}
           onToggleTheme={() => setTheme((t) => (t === 'light' ? 'dark' : 'light'))}
           onLogout={handleLogout}
         />

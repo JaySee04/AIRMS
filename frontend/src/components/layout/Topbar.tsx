@@ -9,6 +9,9 @@ interface TopbarProps {
   user: SessionUser;
   title: string;
   theme: 'light' | 'dark';
+  /** Drawer state, for the narrow-layout menu button. Ignored on desktop. */
+  navOpen?: boolean;
+  onToggleNav?: () => void;
   onToggleTheme: () => void;
   onLogout: () => void;
 }
@@ -27,6 +30,11 @@ const PROFILE_ROUTES: Record<string, string> = {
   coach: '/coach/profile',
 };
 
+const IconMenu = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+    <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
+  </svg>
+);
 const IconMoon = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
@@ -58,7 +66,9 @@ const IconChevron = () => (
   </svg>
 );
 
-export default function Topbar({ user, title, theme, onToggleTheme, onLogout }: TopbarProps) {
+export default function Topbar({
+  user, title, theme, navOpen, onToggleNav, onToggleTheme, onLogout,
+}: TopbarProps) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -75,6 +85,19 @@ export default function Topbar({ user, title, theme, onToggleTheme, onLogout }: 
   return (
     <header className="topbar">
       <div className="topbar-left">
+        {/* Only rendered by the narrow layout (CSS hides it on desktop, where
+            the sidebar is always visible and a menu button would be a lie). */}
+        {onToggleNav && (
+          <button
+            type="button"
+            className="topbar-menu-btn"
+            aria-label={navOpen ? 'Close navigation menu' : 'Open navigation menu'}
+            aria-expanded={!!navOpen}
+            onClick={onToggleNav}
+          >
+            <IconMenu />
+          </button>
+        )}
         <h1 className="topbar-title">{title}</h1>
       </div>
       <div className="topbar-right">
