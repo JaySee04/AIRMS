@@ -3,6 +3,18 @@
 const { Setting } = require('../models');
 
 const DEFAULTS = {
+  // How long a screening stays current before the athlete is due again.
+  //
+  // A screening programme runs on RECALL: the coverage KPI could say "58 of 62
+  // tested" for a window and still hide that a third of those 58 were last seen
+  // ten months ago. Coverage answers "did we test them"; this answers "is what
+  // we know about them still current", and only the second one tells an
+  // administrator who to call.
+  //
+  // 180 days is a default, not a clinical standard — ISN sets its own cadence
+  // and the seeded programme's own median retest gap is 35 days. It is a
+  // setting precisely so the number is the institution's, not the software's.
+  rescreen_due_days: 180,
   min_cohort_n: 5,              // minimum athletes in a cohort before it norms/ranks
   fallback_enabled: true,      // spg → sg → s → all when a cohort is too small
   // The saved norm version currently IN FORCE, or null when the live norms simply

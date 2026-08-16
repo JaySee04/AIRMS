@@ -413,7 +413,7 @@ function periodTable(doc, periods) {
 // Within-athlete consecutive pairs. The counterpart to periodTable: each
 // athlete is their own control here, which is the only way to claim athletes
 // actually improved rather than the tested population having changed.
-function betweenTestsBlock(doc, bt) {
+function betweenTestsBlock(doc, bt, rel = null) {
   if (!bt || !bt.pairs) {
     doc.fontSize(9).fillColor(MUTED).text(
       'No athlete in this population has been screened twice yet, so there is nothing to compare test-to-test.', 50,
@@ -459,6 +459,28 @@ function betweenTestsBlock(doc, bt) {
       doc.fillColor(TEXT);
       doc.y = y + 13;
     }
+
+    // WHERE THE LINE IS DRAWN, on the document as well as the screen.
+    // A printed report outlives the session that produced it, so the threshold
+    // that decided "improved" versus "unchanged" has to travel with it —
+    // otherwise a reader six months later has a verdict and no way to audit it.
+    const derived = (rel && rel.scores ? rel.scores : []).filter((r) => r.sufficient);
+    ensure(doc, 30);
+    doc.moveDown(0.3);
+    doc.fontSize(7.5).font('Helvetica').fillColor(MUTED).text(
+      derived.length
+        ? 'A change counts as real only past that score\'s minimal detectable change ('
+          + derived.map((r) => `${r.label} ${String.fromCharCode(0xB1)}${r.mdc95}`).join(', ')
+          + '), derived from the variation between athletes\' own repeat screenings. Those repeats are '
+          + 'months apart and contain genuine change as well as measurement error, so it is an upper '
+          + 'bound on the error and under-calls change rather than over-calling it.'
+        : `Changes smaller than ${String.fromCharCode(0xB1)}${(rel && rel.fallback) || 2} are reported as `
+          + 'unchanged. That figure is an assumption, not a measurement: deriving one needs '
+          + `${(rel && rel.minPairs) || 20} repeat screenings per score and the programme does not yet `
+          + 'have them.',
+      50, doc.y, { width: doc.page.width - 100 },
+    );
+    doc.fillColor(TEXT);
   }
 }
 

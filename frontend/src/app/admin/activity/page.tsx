@@ -37,11 +37,38 @@ interface Period {
   deltas: Record<string, PeriodDelta> | null;
   direction: string | null;
 }
+/** What counts as a real change for one score, and where that number came from. */
+interface ReliabilityScore {
+  key: string;
+  label: string;
+  pairs: number;
+  movedPairs: number;
+  /** Typical error and minimal detectable change — null when not derivable. */
+  te: number | null;
+  mdc95: number | null;
+  deadBand: number;
+  sufficient: boolean;
+  reason: string | null;
+}
 interface PeriodsPayload {
   grain: Grain;
   grainCounts?: Record<Grain, number>;
   periods: Period[];
+  reliability?: {
+    derived: boolean;
+    anySufficient: boolean;
+    minPairs: number;
+    fallback: number;
+    scores: ReliabilityScore[];
+  };
   coverage: { rostered: number; tested: number; untested: number; tests: number };
+  /** Whether what the programme holds on each athlete is still current. */
+  recall?: {
+    dueDays: number;
+    current: number; dueSoon: number; overdue: number; never: number;
+    medianAgeDays: number | null;
+    athletes: Array<{ athleteId: string; lastScreened: string | null; ageDays: number | null; status: string }>;
+  };
   betweenTests: {
     athletesWithRetest: number;
     pairs: number;
@@ -53,6 +80,8 @@ interface PeriodsPayload {
       direction: 'improving' | 'steady' | 'declining' | null;
       /** Pairs where the score actually changed, vs pairs where both readings existed. */
       movedPairs: number; comparedPairs: number;
+      /** The threshold this score's direction was judged against. */
+      deadBand?: number;
     }>;
   } | null;
 }
@@ -154,6 +183,12 @@ export default function AdminActivity() {
     .filter((d) => d.comparedPairs > 0 && d.movedPairs === 0)
     .map((d) => d.label);
 
+  // What "steady" means here, and whether that number was earned or assumed.
+  // A dead band nobody can see is a threshold nobody can challenge, and this one
+  // decides which movements get called real.
+  const rel = data?.reliability;
+  const derivedScores = (rel?.scores ?? []).filter((r) => r.sufficient);
+
   return (
     <DashboardLayout allowedRoles={['admin', 'executive']} title="Programme Activity">
       {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
@@ -170,7 +205,9 @@ export default function AdminActivity() {
             <h2 className="card-title" style={{ marginBottom: 0 }}>Screening Throughput</h2>
             <span className="card-sub">How many athletes were tested per period, and which way population scores are moving.</span>
           </div>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexShrink: 0, flexWrap: 'wrap' }}>
+          {/* flexShrink:0 kept this rigid at its content width, so on a phone the
+              header ran past the card. It may wrap; it may not refuse to fit. */}
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', minWidth: 0 }}>
           <button
             type="button"
             className="btn btn-outline btn-sm"
@@ -180,7 +217,7 @@ export default function AdminActivity() {
           >
             {dlBusy ? 'Preparing…' : 'Download KPI report (PDF)'}
           </button>
-          <div style={{ display: 'flex', gap: 4, background: 'var(--bg)', padding: 3, borderRadius: 8, flexShrink: 0 }} role="group" aria-label="Period grain">
+          <div style={{ display: 'flex', gap: 4, background: 'var(--bg)', padding: 3, borderRadius: 8, flexWrap: 'wrap' }} role="group" aria-label="Period grain">
             {GRAINS.map((g) => {
               const count = data?.grainCounts?.[g.key];
               return (
@@ -263,7 +300,38 @@ export default function AdminActivity() {
                     </span>
                     <span className="verdict-stat-hint">retest depth, not just reach</span>
                   </div>
+                  {/* Coverage says who was tested. This says whether what we hold
+                      on them is still current — a roster can be 100% covered and
+                      entirely out of date, and only this number shows it. */}
+                  {data.recall && (
+                    <div>
+                      <span className="verdict-stat-label">Needing a rescreen</span>
+                      <span
+                        className="verdict-stat-value"
+                        style={{ color: data.recall.overdue + data.recall.never > 0 ? 'var(--risk-high)' : undefined }}
+                      >
+                        {data.recall.overdue + data.recall.never}
+                      </span>
+                      <span className="verdict-stat-hint">
+                        {[
+                          data.recall.overdue ? `${data.recall.overdue} overdue` : null,
+                          data.recall.never ? `${data.recall.never} never screened` : null,
+                          data.recall.dueSoon ? `${data.recall.dueSoon} due soon` : null,
+                        ].filter(Boolean).join(' · ')
+                          || `all current · median ${data.recall.medianAgeDays ?? '—'} days old`}
+                      </span>
+                    </div>
+                  )}
                 </div>
+                {data.recall && (
+                  <p className="chart-note" style={{ marginTop: 8 }}>
+                    A screening counts as current for <strong>{data.recall.dueDays} days</strong> (an ISN
+                    setting, not a clinical standard). Last-screened dates are read across{' '}
+                    <strong>all time</strong>, not the selected window, so narrowing the dates above
+                    cannot make an athlete look unscreened. &ldquo;Never screened&rdquo; is counted apart
+                    from &ldquo;overdue&rdquo;: it needs a first assessment, not a recall.
+                  </p>
+                )}
               </div>
             </div>
 
@@ -414,6 +482,24 @@ export default function AdminActivity() {
                 move an athlete made between two of their own tests. Bars share one scale and point
                 <strong> right for better</strong> — exercise risks improve by falling, so a drop there
                 is drawn right like any other gain while the printed number keeps its true sign.
+                {/* Where the improving/steady/declining line is drawn, stated. */}
+                {derivedScores.length > 0 ? (
+                  <>
+                    {' '}A move counts as real only past that score&rsquo;s <strong>minimal detectable
+                    change</strong> — {derivedScores.map((r) => `${r.label} ±${r.mdc95}`).join(', ')} —
+                    computed from how much the score varies between one athlete&rsquo;s own repeat
+                    screenings. Those repeats are months apart and contain genuine change as well as
+                    measurement error, so this is an <em>upper bound</em> on the error: it under-calls
+                    change rather than over-calling it.
+                  </>
+                ) : (
+                  <>
+                    {' '}Anything smaller than <strong>±{rel?.fallback ?? 2}</strong> is called steady.
+                    That figure is an <strong>assumption, not a measurement</strong>: deriving a real
+                    one needs {rel?.minPairs ?? 20} repeat screenings per score, and there
+                    {bt.pairs === 1 ? ' is 1' : ` are ${bt.pairs}`}.
+                  </>
+                )}
                 {flatScores.length > 0 && (
                   <>
                     {' '}<strong>{flatScores.join(', ')}</strong>{' '}

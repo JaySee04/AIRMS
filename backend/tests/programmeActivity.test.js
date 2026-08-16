@@ -13,9 +13,14 @@ jest.mock('../src/models', () => ({
   Screening: { findAll: jest.fn() },
   Athlete: { findAll: jest.fn() },
   AthleteDiscipline: { findAll: jest.fn() },
+  // Read by the rescreen-recall figures, which need the institution's own
+  // "how long does a screening stay current" setting.
+  Setting: { findAll: jest.fn() },
 }));
 
-const { Athlete, Screening, AthleteDiscipline } = require('../src/models');
+const {
+  Athlete, Screening, AthleteDiscipline, Setting,
+} = require('../src/models');
 const { programmeActivityData, scopeLabel } = require('../src/utils/programmeActivity');
 
 beforeEach(() => {
@@ -23,6 +28,7 @@ beforeEach(() => {
   Athlete.findAll.mockResolvedValue([]);
   Screening.findAll.mockResolvedValue([]);
   AthleteDiscipline.findAll.mockResolvedValue([]);
+  Setting.findAll.mockResolvedValue([]); // no overrides — the defaults apply
 });
 
 describe('scopeLabel', () => {
@@ -105,5 +111,81 @@ describe('programmeActivityData', () => {
     expect(d.betweenTests.pairs).toBe(1);
     // Seasonality rides along so the report does not have to recompute it.
     expect(d.seasonality.buckets).toHaveLength(4);
+  });
+
+  describe('rescreen recall', () => {
+    const daysAgo = (n) => new Date(Date.now() - n * 86400000).toISOString();
+
+    it('splits the roster into current, due soon, overdue and never', async () => {
+      Athlete.findAll.mockResolvedValue([
+        { athleteId: 'fresh' }, { athleteId: 'soon' }, { athleteId: 'late' }, { athleteId: 'none' },
+      ]);
+      // Default cadence is 180 days, so "due soon" starts at 144.
+      Screening.findAll.mockResolvedValue([
+        { id: 1, athleteId: 'fresh', assessedAt: daysAgo(10), totalScore: 70 },
+        { id: 2, athleteId: 'soon', assessedAt: daysAgo(150), totalScore: 70 },
+        { id: 3, athleteId: 'late', assessedAt: daysAgo(400), totalScore: 70 },
+      ]);
+      const { recall } = await programmeActivityData({});
+      expect(recall.dueDays).toBe(180);
+      expect(recall).toMatchObject({ current: 1, dueSoon: 1, overdue: 1, never: 1 });
+    });
+
+    // "Never screened" needs a first assessment, not a call-back — a different
+    // action, so it must not be folded into the overdue count.
+    it('keeps never-screened apart from overdue', async () => {
+      Athlete.findAll.mockResolvedValue([{ athleteId: 'none' }]);
+      Screening.findAll.mockResolvedValue([]);
+      const { recall } = await programmeActivityData({});
+      expect(recall.never).toBe(1);
+      expect(recall.overdue).toBe(0);
+      expect(recall.athletes[0]).toMatchObject({ status: 'never', lastScreened: null, ageDays: null });
+    });
+
+    it('measures recency from the LATEST screening, not the first', async () => {
+      Athlete.findAll.mockResolvedValue([{ athleteId: 'a' }]);
+      Screening.findAll.mockResolvedValue([
+        { id: 1, athleteId: 'a', assessedAt: daysAgo(900), totalScore: 70 },
+        { id: 2, athleteId: 'a', assessedAt: daysAgo(5), totalScore: 74 },
+      ]);
+      const { recall } = await programmeActivityData({});
+      expect(recall.overdue).toBe(0);
+      expect(recall.current).toBe(1);
+      expect(recall.athletes[0].ageDays).toBeLessThan(10);
+    });
+
+    // The window narrows COVERAGE, never recall: "when were you last seen" is a
+    // fact about the athlete, and a reader looking at last quarter must not be
+    // told a screened athlete has never been screened.
+    it('reads recall across all time even when the report window is narrow', async () => {
+      Athlete.findAll.mockResolvedValue([{ athleteId: 'a' }]);
+      Screening.findAll
+        .mockResolvedValueOnce([])                       // the windowed query
+        .mockResolvedValueOnce([{ id: 1, athleteId: 'a', assessedAt: daysAgo(3) }]); // recall query
+      const d = await programmeActivityData({ from: '2020-01-01', to: '2020-01-31' });
+      expect(d.coverage.tested).toBe(0);
+      expect(d.recall.never).toBe(0);
+      expect(d.recall.current).toBe(1);
+    });
+
+    it('queues the call-backs worst-first', async () => {
+      Athlete.findAll.mockResolvedValue([{ athleteId: 'a' }, { athleteId: 'b' }, { athleteId: 'c' }]);
+      Screening.findAll.mockResolvedValue([
+        { id: 1, athleteId: 'a', assessedAt: daysAgo(10) },
+        { id: 2, athleteId: 'b', assessedAt: daysAgo(300) },
+      ]);
+      const { recall } = await programmeActivityData({});
+      // Never-screened sorts above everyone, then the oldest screening.
+      expect(recall.athletes.map((x) => x.athleteId)).toEqual(['c', 'b', 'a']);
+    });
+
+    it('honours an institution-set cadence', async () => {
+      Setting.findAll.mockResolvedValue([{ key: 'rescreen_due_days', value: 30 }]);
+      Athlete.findAll.mockResolvedValue([{ athleteId: 'a' }]);
+      Screening.findAll.mockResolvedValue([{ id: 1, athleteId: 'a', assessedAt: daysAgo(45) }]);
+      const { recall } = await programmeActivityData({});
+      expect(recall.dueDays).toBe(30);
+      expect(recall.overdue).toBe(1); // 45 days old against a 30-day cadence
+    });
   });
 });

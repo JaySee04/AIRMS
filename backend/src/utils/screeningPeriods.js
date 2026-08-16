@@ -26,14 +26,10 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 
 // Scores averaged per period. `higherBetter` drives the arrow direction in the
 // UI/PDF, so exerciseRisks (lower = better) is flagged explicitly.
-const PERIOD_SCORES = [
-  ['overallIndicator', 'Overall indicator', true],
-  ['totalScore', 'Total score', true],
-  ['rom', 'ROM', true],
-  ['stability', 'Stability', true],
-  ['symmetry', 'Symmetry', true],
-  ['exerciseRisks', 'Exercise risks', false],
-];
+// Lives in its own module so utils/reliability.js can read it without the two
+// files requiring each other.
+const { PERIOD_SCORES } = require('./periodScores');
+const { reliability, consecutivePairs } = require('./reliability');
 
 const { BAND_RANK, effectiveBand } = require('./bands');
 const GRAINS = ['month', 'quarter', 'year'];
@@ -119,7 +115,9 @@ function keysBetween(first, last, grain) {
 // Calendar buckets. Each period carries its throughput (tests, distinct
 // athletes, how many of them were retests) and its population averages, plus
 // the change against the PREVIOUS period present in the series.
-function bucketByPeriod(screenings, grain, noise) {
+// `deadBands` is named apart from the local band-COUNT tallies below, which
+// are a different thing entirely (green/amber/red headcounts).
+function bucketByPeriod(screenings, grain, deadBands) {
   const buckets = new Map();
   for (const s of screenings) {
     const p = periodKeyOf(s.assessedAt, grain);
@@ -176,7 +174,12 @@ function bucketByPeriod(screenings, grain, noise) {
     for (const [k, , higherBetter] of PERIOD_SCORES) {
       const a = prev.averages[k]; const b = p.averages[k];
       const d = a === null || b === null ? null : +(b - a).toFixed(1);
-      p.deltas[k] = { delta: d, higherBetter, direction: directionOf(d, higherBetter, noise) };
+      p.deltas[k] = {
+        delta: d,
+        higherBetter,
+        direction: directionOf(d, higherBetter, deadBands.deadBandFor(k)),
+        deadBand: deadBands.deadBandFor(k),
+      };
     }
     p.direction = p.deltas.overallIndicator ? p.deltas.overallIndicator.direction : null;
   });
@@ -187,15 +190,12 @@ function bucketByPeriod(screenings, grain, noise) {
 // Within-athlete consecutive pairs across the whole filtered set. Each athlete
 // is their own control here, so this is the only reading that can claim an
 // athlete got better rather than the population mix changing.
-function bucketBetweenTests(screenings, noise) {
-  const byAthlete = new Map();
-  for (const s of screenings) {
-    if (!byAthlete.has(s.athleteId)) byAthlete.set(s.athleteId, []);
-    byAthlete.get(s.athleteId).push(s);
-  }
+function bucketBetweenTests(screenings, deadBands) {
+  // Same pair relation the dead band was derived from — see consecutivePairs.
+  const { pairs, athletesWithRetest } = consecutivePairs(screenings);
 
   const out = {
-    athletesWithRetest: 0,
+    athletesWithRetest,
     pairs: 0,
     intervalDays: { median: null, min: null, max: null },
     improved: 0,
@@ -214,38 +214,33 @@ function bucketBetweenTests(screenings, noise) {
   // clinical one, and the reader can only see it if we count it.
   const sums = new Map(PERIOD_SCORES.map(([k]) => [k, { sum: 0, n: 0, moved: 0 }]));
 
-  for (const [, rows] of byAthlete) {
-    const sorted = rows
-      .filter((r) => !Number.isNaN(new Date(r.assessedAt || 0).getTime()))
-      .sort((a, b) => new Date(a.assessedAt) - new Date(b.assessedAt) || (a.id || 0) - (b.id || 0));
-    if (sorted.length < 2) continue;
-    out.athletesWithRetest += 1;
-    for (let i = 1; i < sorted.length; i += 1) {
-      const prev = sorted[i - 1]; const cur = sorted[i];
-      out.pairs += 1;
-      const days = Math.round((new Date(cur.assessedAt) - new Date(prev.assessedAt)) / 86400000);
-      if (Number.isFinite(days) && days >= 0) intervals.push(days);
-      for (const [k] of PERIOD_SCORES) {
-        const a = num(prev[k]); const b = num(cur[k]);
-        if (a !== null && b !== null) {
-          const acc = sums.get(k);
-          acc.sum += b - a; acc.n += 1;
-          if (b !== a) acc.moved += 1;
-        }
+  const indicatorBand = deadBands.deadBandFor('overallIndicator');
+  for (const [prev, cur] of pairs) {
+    out.pairs += 1;
+    const days = Math.round((new Date(cur.assessedAt) - new Date(prev.assessedAt)) / 86400000);
+    if (Number.isFinite(days) && days >= 0) intervals.push(days);
+    for (const [k] of PERIOD_SCORES) {
+      const a = num(prev[k]); const b = num(cur[k]);
+      if (a !== null && b !== null) {
+        const acc = sums.get(k);
+        acc.sum += b - a; acc.n += 1;
+        if (b !== a) acc.moved += 1;
       }
-      const di = num(cur.overallIndicator) !== null && num(prev.overallIndicator) !== null
-        ? num(cur.overallIndicator) - num(prev.overallIndicator) : null;
-      const dir = directionOf(di, true, noise);
-      if (dir === 'improving') out.improved += 1;
-      else if (dir === 'declining') out.declined += 1;
-      else if (dir === 'steady') out.steady += 1;
-      const pb = BAND_RANK[effectiveBand(prev)];
-      const cb = BAND_RANK[effectiveBand(cur)];
-      if (pb != null && cb != null) {
-        if (cb < pb) out.bandMoves.better += 1;
-        else if (cb > pb) out.bandMoves.worse += 1;
-        else out.bandMoves.same += 1;
-      }
+    }
+    const prevInd = num(prev.overallIndicator);
+    const curInd = num(cur.overallIndicator);
+    const dir = directionOf(
+      prevInd !== null && curInd !== null ? curInd - prevInd : null, true, indicatorBand,
+    );
+    if (dir === 'improving') out.improved += 1;
+    else if (dir === 'declining') out.declined += 1;
+    else if (dir === 'steady') out.steady += 1;
+    const pb = BAND_RANK[effectiveBand(prev)];
+    const cb = BAND_RANK[effectiveBand(cur)];
+    if (pb != null && cb != null) {
+      if (cb < pb) out.bandMoves.better += 1;
+      else if (cb > pb) out.bandMoves.worse += 1;
+      else out.bandMoves.same += 1;
     }
   }
 
@@ -264,7 +259,8 @@ function bucketBetweenTests(screenings, noise) {
       avgDelta,
       comparedPairs: acc.n,
       movedPairs: acc.moved,
-      direction: directionOf(avgDelta, higherBetter, noise),
+      direction: directionOf(avgDelta, higherBetter, deadBands.deadBandFor(k)),
+      deadBand: deadBands.deadBandFor(k),
     };
   });
   return out;
@@ -382,12 +378,38 @@ function grainCounts(rows) {
 
 // `screenings`: flat rows carrying at least { athleteId, assessedAt, id } plus
 // any of the PERIOD_SCORES columns and overallBand / overrideBand.
-function screeningPeriods(screenings, { grain = 'quarter', noise = 2 } = {}) {
+// `noise` may be a number (one dead band for every score, the old behaviour) or
+// omitted, in which case the band is DERIVED per score from the repeat
+// screenings in `screenings` — see utils/reliability.js. Passing a number
+// remains supported so a caller with its own justified threshold, and the
+// existing tests, are unaffected.
+function screeningPeriods(screenings, { grain = 'quarter', noise } = {}) {
   const g = GRAINS.includes(grain) ? grain : 'quarter';
   const rows = (screenings || []).filter((s) => s && s.assessedAt);
+  // One reliability pass for the whole call, so every section below judges
+  // "did this change" by the same threshold. Two sections of one report
+  // disagreeing about whether a move counts is the failure this replaces.
+  const rel = reliability(rows);
+  // Only `deadBandFor` and `derived` are ever read downstream; the reported
+  // scores come from `rel` either way, so an explicit override does not need to
+  // carry an empty copy of them.
+  const deadBands = typeof noise === 'number'
+    ? { deadBandFor: () => noise, derived: false }
+    : { deadBandFor: rel.deadBandFor, derived: true };
+
   return {
     grain: g,
-    periods: bucketByPeriod(rows, g, noise),
+    // What counts as a change, and where that number came from. Travels with
+    // the data because a threshold the reader cannot see is a threshold they
+    // cannot challenge.
+    reliability: {
+      derived: deadBands.derived,
+      anySufficient: rel.anySufficient,
+      minPairs: rel.minPairs,
+      fallback: rel.fallback,
+      scores: rel.scores,
+    },
+    periods: bucketByPeriod(rows, g, deadBands),
     // How many periods EACH grain would produce, so the UI can say which views
     // the data can support before the user clicks one.
     //
@@ -404,15 +426,15 @@ function screeningPeriods(screenings, { grain = 'quarter', noise = 2 } = {}) {
     // and those quarters are real content the reader can act on. Rather than
     // telling them to go and change the grain, the year shows what it is made of.
     // Null at month grain, which has no finer bucket here.
-    composition: FINER[g] ? { grain: FINER[g], periods: bucketByPeriod(rows, FINER[g], noise) } : null,
-    betweenTests: bucketBetweenTests(rows, noise),
+    composition: FINER[g] ? { grain: FINER[g], periods: bucketByPeriod(rows, FINER[g], deadBands) } : null,
+    betweenTests: bucketBetweenTests(rows, deadBands),
     // Seasonality reads at quarter grain regardless of the caller's `grain`: a
     // month-of-year split over ISN's data is a dozen buckets of two or three
     // tests, which looks like a pattern and is not one.
-    seasonality: seasonality(rows, { grain: 'quarter', noise }),
+    seasonality: seasonality(rows, { grain: 'quarter', noise: deadBands.deadBandFor('overallIndicator') }),
   };
 }
 
 module.exports = {
-  screeningPeriods, seasonality, periodKeyOf, grainCounts, PERIOD_SCORES, GRAINS,
+  screeningPeriods, seasonality, periodKeyOf, grainCounts, median, PERIOD_SCORES, GRAINS,
 };

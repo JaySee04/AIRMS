@@ -100,6 +100,40 @@ Three-tier monorepo orchestrated by `concurrently` from the root `package.json`.
 - **Sparse grains get their own chart type** (2026-08-11). Two periods draw a **change chart** — one diverging bar per metric on a shared DELTA axis, so "ROM fell 5.2 while stability rose 2.6" is visible where two headcount columns showed only headcount. This started as a slopegraph and was unusable: a shared VALUE scale needs commensurable metrics, and these cluster at 72–78 (movement), ~50 (indicator) and ~18 inverted (risks), so four lines collapsed into overlapping pixels — the §23 flattening mistake, reintroduced. The values cannot share a scale; the changes can. Bar direction is the ORIENTED gain (right is always better) while the printed number keeps its true sign. Line colour comes from the API's `direction`, never the sign of the delta, because exercise risks improve by going DOWN. One period shows its **composition** (the same rows one grain finer: year → quarters, quarter → months) rather than a number and an apology. See `docs/DESIGN_DECISIONS.md §26`
 - **The period axis is CONTINUOUS** (`utils/screeningPeriods.js`, 2026-08-11). Buckets are filled between the first and last period that has data, so a quarter with no screening is drawn with zero tests instead of vanishing — for a screening programme that gap IS the finding. Nothing is padded before the first screening. A period after a gap reports NO delta (its predecessor is empty), which replaced comparing across the gap as though the two were consecutive. `grainCounts` ships with every response so the grain buttons can show what each view would draw; one period renders as a summary, not a chart. See `docs/DESIGN_DECISIONS.md §24`
 - **Seasonality** (`seasonality()` in `utils/screeningPeriods.js`, a section in the holistic report) answers Dr Thung's "*which quarter* is the risky one" by pooling every screening by quarter of the year with the year discarded. It **declines to name a season below two years of data** (`yearsCovered` / `sufficient`) and the report draws that caveat *before* the table — with one year, "Q3 is worst" is indistinguishable from "Q3 is when the weaker squads were screened", and this is the one output whose plausible failure is a confidently wrong institutional decision. Ranks by the *share* of flagged screenings, not the count, because throughput differs by quarter
+- **"Is this change real?" has an answer now** (`utils/reliability.js`, 2026-08-12).
+  Every direction-of-travel verdict in AIRMS — the change chart, the
+  between-tests panel, seasonality, the coach's arrows — used one hardcoded
+  `noise = 2`. Nothing derived it, which is the single most-cited weakness of
+  traffic-light systems generally (Robertson et al., *IJSPP* 2017, list
+  "evidence-based guidelines … for the boundaries used for categories" as open
+  work). It now computes the **typical error** (SD of within-athlete differences
+  / √2) and **MDC95** (2.77 × TE) per score from repeat screenings, and uses
+  MDC95 as the dead band. Two honesty properties, both deliberate: the repeats
+  are months apart so they contain real change as well as measurement error,
+  making this an **upper bound** that under-calls change rather than over-calls
+  it; and it **declines** below `MIN_PAIRS` (20) or when a score never moved,
+  falling back to the documented 2 and saying so on screen and in the PDF. On
+  the seeded data it correctly declines — 19 pairs, and four scores identical in
+  every pair. `PERIOD_SCORES` moved to `utils/periodScores.js` to break the
+  require cycle. **Do not "fix" the decline by lowering the floor** — the whole
+  point is that the threshold is earned or labelled as an assumption
+- **Rescreen recall** (`rescreenRecall` in `utils/programmeActivity.js`,
+  2026-08-12). Coverage says whether an athlete was ever tested; recall says
+  whether what we hold on them is still current, which is the question a
+  screening programme actually runs on. `rescreen_due_days` (setting, default
+  180) drives current / due-soon (last 20% of the interval) / overdue / **never**
+  — and `never` is counted apart from `overdue` because it calls for a first
+  assessment, not a call-back. Read across **all time**, never the report's
+  from/to window: when someone was last seen is a fact about the athlete, and
+  windowing it would report a screened athlete as never screened
+- **Per-athlete trend + percentile framing (2026-08-12).** `ScreeningHistory`
+  leads with **small-multiple sparklines** (one panel per score, each scaled to
+  its own range) — the same non-commensurable-axis rule as §23/§26, which is why
+  it is six panels and not one chart. It deliberately asserts no
+  improving/declining verdict, because the detectable-change threshold is
+  computed cohort-wide and is not on the athlete-scoped payload. The hero now
+  reads the cohort standing as a **percentile** (`lib/rank.ts`, mid-rank
+  `(r-0.5)/n`) beside the raw rank
 - **Accountability & transparency (2026-08-10).** These actions write an append-only
   `AuditLog` row: `screening.import`, `screening.override`, `screening.reinstate`,
   `athlete.injury`, `norm.restore`, `norm.pin`, `norm.unpin`, `norm.member`,

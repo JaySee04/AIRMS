@@ -8,6 +8,7 @@
 import {
   BANDS, BAND_BG, BAND_COLOR, BAND_LABEL, type Band,
 } from '@/lib/bands';
+import { ordinal, percentileFromRank } from '@/lib/rank';
 
 // Physical Fitness Subitem Score — 5 body regions × {romL,romR,stabL,stabR,sym}
 // (0–100, higher better). Extracted from the HoloMotion report, stored on the
@@ -219,6 +220,9 @@ export default function OverallRiskBadge({
   const rank = screening.cohortRank;
   const size = screening.cohortSize;
   const who = audience === 'self' ? 'you' : 'this athlete';
+  // Percentile is derived from the rank the backend already sends, so the two
+  // can never disagree about where the athlete stands.
+  const pct = percentileFromRank(rank, size);
 
   return (
     <div className={`risk-hero risk-hero--${HERO_CLS[band]}`}>
@@ -283,8 +287,9 @@ export default function OverallRiskBadge({
             </table>
             <div className="cohort-profile-note">
               A positive difference is better than the group on every row.
-              {rank != null && size != null && size > 1 && (
-                <> Ranked <strong>{rank} of {size}</strong> in this group (1 = lowest).</>
+              {pct != null && (
+                <> {audience === 'self' ? 'You sit' : 'They sit'} at the <strong>{ordinal(pct)} percentile</strong>{' '}
+                  of this group &mdash; ranked {rank} of {size}, where 1 is the lowest.</>
               )}
             </div>
           </div>
@@ -336,8 +341,8 @@ export default function OverallRiskBadge({
         <div className="risk-hero-stat-label">Total Score</div>
         <div className="risk-hero-stat-sub">
           as printed by HoloMotion
-          {rank != null && size != null && size > 1 && (
-            <><br /><strong>{rank} of {size}</strong> in group</>
+          {pct != null && (
+            <><br /><strong>{ordinal(pct)} pct</strong> of group ({rank}/{size})</>
           )}
         </div>
       </div>

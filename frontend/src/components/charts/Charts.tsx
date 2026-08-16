@@ -830,6 +830,76 @@ export function Histogram({
 }
 
 // ══════════════════════════════════════════════════════════════════════════
+// Sparkline — one score's trajectory across an athlete's own screenings.
+//
+// SMALL MULTIPLES, NOT ONE CHART. Six scores on a shared 0-100 axis is the
+// mistake this codebase has now made twice (DESIGN_DECISIONS §23 and §26): the
+// movement scores cluster at 72-78, the indicator sits near 50 and exercise
+// risks near 18 inverted, so overlaying them collapses four lines into a band
+// of pixels and hides the very changes the chart exists to show. Each score
+// gets its own panel and its own y-range instead, which is the standard
+// treatment for non-commensurable series.
+//
+// Each panel is scaled to ITS OWN range, so the shape shows the athlete's
+// movement at readable amplitude. That makes vertical position meaningless
+// ACROSS panels, which is why every panel prints its own first and last value
+// rather than relying on the reader to infer them from height.
+// ══════════════════════════════════════════════════════════════════════════
+export function Sparkline({
+  points, higherBetter = true, width = 132, height = 34,
+}: {
+  /** Chronological, oldest first. Nulls are gaps, not zeroes. */
+  points: Array<number | null>;
+  higherBetter?: boolean;
+  width?: number;
+  height?: number;
+}) {
+  const real = points.filter((p): p is number => p !== null);
+  if (real.length < 2) {
+    return <span className="text-muted" style={{ fontSize: '0.72rem' }}>needs 2+ screenings</span>;
+  }
+
+  const min = Math.min(...real);
+  const max = Math.max(...real);
+  // A flat series has no range to scale by; draw it down the middle rather than
+  // dividing by zero and sending every point to infinity.
+  const span = max - min || 1;
+  const pad = 4;
+  const stepX = (width - pad * 2) / (points.length - 1);
+  const yOf = (v: number) => pad + (1 - (v - min) / span) * (height - pad * 2);
+
+  // Segments, so a missing screening leaves a gap instead of a straight line
+  // implying a measurement that was never taken.
+  const segs: string[] = [];
+  let cur: string[] = [];
+  points.forEach((p, i) => {
+    if (p === null) { if (cur.length > 1) segs.push(cur.join(' ')); cur = []; return; }
+    cur.push(`${pad + i * stepX},${yOf(p)}`);
+  });
+  if (cur.length > 1) segs.push(cur.join(' '));
+
+  const first = real[0];
+  const last = real[real.length - 1];
+  const gain = higherBetter ? last - first : first - last;
+  // Colour states the ORIENTED outcome, never the raw sign — exercise risks
+  // improve by falling.
+  const tone = gain > 0 ? 'var(--risk-low)' : gain < 0 ? 'var(--risk-high)' : 'var(--text-muted)';
+  const lastIdx = points.length - 1 - [...points].reverse().findIndex((p) => p !== null);
+
+  return (
+    <svg width={width} height={height} className="sparkline" role="img"
+      aria-label={`${real.length} screenings, ${fmt(first)} to ${fmt(last)}`}>
+      {segs.map((pts, i) => (
+        // eslint-disable-next-line react/no-array-index-key
+        <polyline key={i} points={pts} fill="none" stroke={tone} strokeWidth="1.6"
+          strokeLinecap="round" strokeLinejoin="round" />
+      ))}
+      <circle cx={pad + lastIdx * stepX} cy={yOf(last)} r="2.6" fill={tone} />
+    </svg>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════
 // Ring — one proportion, big. For coverage ("58 of 62 screened"), where a bar
 // buys nothing and a number alone buys no glance-value.
 // ══════════════════════════════════════════════════════════════════════════

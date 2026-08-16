@@ -11,7 +11,8 @@
 
 const { Op } = require('sequelize');
 const { Screening, Athlete, AthleteDiscipline } = require('../models');
-const { screeningPeriods, GRAINS } = require('./screeningPeriods');
+const { screeningPeriods, median, GRAINS } = require('./screeningPeriods');
+const { getSettings } = require('./settings');
 
 // The scope filters, as a sentence — for the PDF cover and the page's own note,
 // so a printed copy says who it is about.
@@ -24,6 +25,80 @@ function scopeLabel(query = {}) {
   if (query.ageMin || query.ageMax) parts.push(`age ${query.ageMin || '0'}-${query.ageMax || '+'}`);
   if (query.from || query.to) parts.push(`${query.from ? `from ${query.from}` : ''}${query.to ? ` to ${query.to}` : ''}`.trim());
   return parts.length ? parts.join(' · ') : 'Whole institute, all time';
+}
+
+// Who is due to be screened again.
+//
+// Deliberately measured against EVERY screening an athlete has, not the ones
+// inside the report's from/to window: "when were you last seen" is a fact about
+// the athlete, and narrowing it to a window would report someone as never
+// screened because the reader happened to be looking at last quarter.
+//
+// Three states, and `never` is kept apart from `overdue` on purpose. An athlete
+// who has never been screened is a gap in the roster, not a lapsed recall — the
+// action is to book a first assessment, and they have no baseline to compare
+// anything against either.
+async function rescreenRecall(roster, allRows = null) {
+  const { rescreen_due_days: dueDays } = await getSettings();
+  const ids = roster.map((r) => r.athleteId);
+  if (!ids.length) {
+    return { dueDays, current: 0, dueSoon: 0, overdue: 0, never: 0, medianAgeDays: null, athletes: [] };
+  }
+
+  // The caller already holds every screening for this roster whenever the report
+  // is unwindowed, which is the common case — reuse it rather than paying for a
+  // second full scan of the same rows. A windowed caller passes nothing, because
+  // its rows are a subset and recall must see all of them.
+  const all = allRows || await Screening.findAll({
+    where: { athleteId: { [Op.in]: ids } },
+    attributes: ['athleteId', 'assessedAt'],
+    raw: true,
+  });
+  const latest = new Map();
+  for (const s of all) {
+    const t = new Date(s.assessedAt).getTime();
+    if (!Number.isFinite(t)) continue;
+    if (!latest.has(s.athleteId) || t > latest.get(s.athleteId)) latest.set(s.athleteId, t);
+  }
+
+  const now = Date.now();
+  // "Due soon" is the last fifth of the interval — enough warning to schedule,
+  // short enough that it is not permanently amber.
+  const soonFrom = dueDays * 0.8;
+  const athletes = [];
+  let current = 0; let dueSoon = 0; let overdue = 0; let never = 0;
+  const ages = [];
+
+  for (const r of roster) {
+    const t = latest.get(r.athleteId);
+    if (t === undefined) {
+      never += 1;
+      athletes.push({ athleteId: r.athleteId, lastScreened: null, ageDays: null, status: 'never' });
+      continue;
+    }
+    const ageDays = Math.floor((now - t) / 86400000);
+    ages.push(ageDays);
+    const status = ageDays >= dueDays ? 'overdue' : ageDays >= soonFrom ? 'due-soon' : 'current';
+    if (status === 'overdue') overdue += 1;
+    else if (status === 'due-soon') dueSoon += 1;
+    else current += 1;
+    athletes.push({
+      athleteId: r.athleteId, lastScreened: new Date(t).toISOString(), ageDays, status,
+    });
+  }
+
+  const medianAgeDays = median(ages);
+
+  return {
+    dueDays,
+    current,
+    dueSoon,
+    overdue,
+    never,
+    medianAgeDays,
+    // Worst first: the point of the list is the call-back queue.
+    athletes: athletes.sort((a, b) => (b.ageDays ?? Infinity) - (a.ageDays ?? Infinity)),
+  };
 }
 
 async function programmeActivityData(query = {}) {
@@ -68,6 +143,7 @@ async function programmeActivityData(query = {}) {
       coverage: {
         rostered: roster.length, tested: 0, untested: roster.length, tests: 0,
       },
+      recall: await rescreenRecall(roster),
       scope,
     };
   }
@@ -90,6 +166,9 @@ async function programmeActivityData(query = {}) {
 
   const result = screeningPeriods(rows, { grain });
   const tested = new Set(rows.map((r) => r.athleteId)).size;
+  // Without a date filter `rows` IS every screening for this roster, so recall
+  // can read it directly instead of re-querying the same table.
+  const recall = await rescreenRecall(roster, from || to ? null : rows);
   return {
     ...result,
     // Coverage is the roster measured against the WINDOW, so a narrow from/to
@@ -100,6 +179,9 @@ async function programmeActivityData(query = {}) {
       untested: Math.max(0, roster.length - tested),
       tests: rows.length,
     },
+    // Coverage says whether we tested them; recall says whether what we know is
+    // still current. An administrator needs both to know who to call.
+    recall,
     scope,
   };
 }

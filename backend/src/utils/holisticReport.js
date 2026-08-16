@@ -139,7 +139,7 @@ function drawHolistic(doc, data, stamp = todayStamp()) {
   periodTable(doc, activity.periods);
 
   sectionTitle(doc, 'Change Between Successive Tests', 120);
-  betweenTestsBlock(doc, activity.betweenTests);
+  betweenTestsBlock(doc, activity.betweenTests, activity.reliability);
 
   // Seasonality sits with the other programme-level readings, and always at
   // quarter grain regardless of the report's `grain` — see utils/screeningPeriods.js.

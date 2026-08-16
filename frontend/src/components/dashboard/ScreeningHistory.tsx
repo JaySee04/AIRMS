@@ -10,6 +10,7 @@
 
 import { ReactNode, useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { Sparkline } from '@/components/charts/Charts';
 
 interface ScreeningRow {
   id: number;
@@ -37,6 +38,17 @@ const COLS: Array<{ key: ScoreKey; label: string }> = [
   { key: 'exerciseRisks', label: 'Ex. Risks' },
 ];
 
+// The trend strip covers the same scores as the table plus the indicator, since
+// the indicator is what the band and the ranking are actually built from.
+const TREND_COLS: Array<{ key: ScoreKey | 'overallIndicator'; label: string; higherBetter: boolean }> = [
+  { key: 'overallIndicator', label: 'Indicator', higherBetter: true },
+  { key: 'totalScore', label: 'Total', higherBetter: true },
+  { key: 'rom', label: 'ROM', higherBetter: true },
+  { key: 'stability', label: 'Stability', higherBetter: true },
+  { key: 'symmetry', label: 'Symmetry', higherBetter: true },
+  { key: 'exerciseRisks', label: 'Ex. Risks', higherBetter: false },
+];
+
 const BAND_BADGE = { green: 'badge-low', amber: 'badge-moderate', red: 'badge-high' } as const;
 const BAND_LABEL = { green: 'Green', amber: 'Amber', red: 'Red' } as const;
 
@@ -49,6 +61,13 @@ function num(v: number | string | null | undefined): number | null {
 
 function fmtDate(iso: string | null | undefined): string {
   return iso ? new Date(iso).toISOString().slice(0, 10) : '—';
+}
+
+// Whole numbers stay whole; a decimal keeps one place. Screening scores are
+// mostly integers, and printing "74.0" beside "74" reads as more precision than
+// the instrument has.
+function fmtNum(n: number): string {
+  return Number.isInteger(n) ? String(n) : n.toFixed(1);
 }
 
 export default function ScreeningHistory({ athleteId, headerAction, canReinstate = false }: {
@@ -118,6 +137,51 @@ export default function ScreeningHistory({ athleteId, headerAction, canReinstate
         </div>
         {headerAction}
       </div>
+      {/* The athlete's own trajectory, which the table below has always held but
+          never shown as a shape. A row-by-row table answers "what were the
+          numbers"; the eye cannot get "is this person trending down" out of it,
+          and that is the question a screening programme exists to answer.
+          Every product in this category leads with this view. */}
+      {rows.length >= 2 && (
+        <div className="trend-strip">
+          {TREND_COLS.map((c) => {
+            // Oldest → newest: the table renders newest-first, a chart must not.
+            const series = [...rows].reverse().map((r) => num(r[c.key]));
+            const real = series.filter((v): v is number => v !== null);
+            if (real.length < 2) return null;
+            const from = real[0];
+            const to = real[real.length - 1];
+            const delta = +(to - from).toFixed(1);
+            const gain = c.higherBetter ? delta : -delta;
+            return (
+              <div className="trend-cell" key={c.key}>
+                <div className="trend-cell-label">{c.label}</div>
+                <Sparkline points={series} higherBetter={c.higherBetter} />
+                <div className="trend-cell-foot">
+                  <span className="trend-cell-vals">{fmtNum(from)} → <b>{fmtNum(to)}</b></span>
+                  <span
+                    className="trend-cell-delta"
+                    style={{ color: gain > 0 ? 'var(--risk-low)' : gain < 0 ? 'var(--risk-high)' : 'var(--text-muted)' }}
+                  >
+                    {delta > 0 ? '+' : ''}{delta}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+          {/* Deliberately no improving/declining verdict per score here. That
+              needs the programme's detectable-change threshold, which is
+              computed cohort-wide (Programme Activity) and is not on this
+              athlete-scoped payload. Showing the movement without naming it is
+              honest; naming it from an unavailable threshold would not be. */}
+          <p className="chart-note" style={{ gridColumn: '1 / -1', marginTop: 2 }}>
+            Each panel is scaled to its own range, so heights are not comparable between
+            panels — read the shape and the printed values, not the position. Colour follows
+            better-or-worse, so a fall in exercise risks is green.
+          </p>
+        </div>
+      )}
+
       <div className="table-wrap">
         <table>
           <thead>
