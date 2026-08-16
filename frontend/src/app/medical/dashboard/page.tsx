@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import type { MuscleEntry } from '@/components/dashboard/BodyMap';
 import OverallRiskBadge, { ScreeningIndicator } from '@/components/dashboard/OverallRiskBadge';
@@ -21,6 +21,8 @@ import SportContext from '@/components/dashboard/SportContext';
 import ScreeningDatePicker, { FullScreening } from '@/components/dashboard/ScreeningDatePicker';
 import InjuryStatusControl from '@/components/dashboard/InjuryStatusControl';
 import { api } from '@/lib/api';
+import { searchAthletes } from '@/lib/athleteSearch';
+import MarkedText from '@/components/ui/MarkedText';
 import { disciplinesForSport } from '@/lib/disciplines';
 import { getInitials } from '@/lib/name';
 import TagCombobox from '@/components/ui/TagCombobox';
@@ -191,10 +193,11 @@ export default function MedicalDashboard() {
     };
   }, [selectedId]);
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return athletes.filter((a) => {
-      if (q && !(a.name.toLowerCase().includes(q) || a.athleteId.toLowerCase().includes(q))) return false;
+  // Dropdowns narrow the POPULATION; the search box then ranks what is left.
+  // In that order, so relevance is judged against the athletes actually on
+  // offer and "ambiguous" reflects the rows a clinician can really mis-pick.
+  const hits = useMemo(() => {
+    const pool = athletes.filter((a) => {
       if (filterSport && a.sport !== filterSport) return false;
       const prog = a.programme ?? a.program;
       if (filterProgramme && prog !== filterProgramme) return false;
@@ -202,7 +205,65 @@ export default function MedicalDashboard() {
       if (filterDiscipline && !(a.disciplines ?? []).includes(filterDiscipline)) return false;
       return true;
     });
+    return searchAthletes(pool, search);
   }, [athletes, search, filterSport, filterProgramme, filterGender, filterDiscipline]);
+
+  const activeFilters = [filterSport, filterProgramme, filterGender, filterDiscipline].filter(Boolean).length;
+  function clearFilters() {
+    setFilterSport(''); setFilterProgramme(''); setFilterGender(''); setFilterDiscipline('');
+  }
+
+  // Keyboard cursor into the result list. A clinician typing an IC should not
+  // have to leave the keyboard to open the athlete they just identified.
+  const [cursor, setCursor] = useState(0);
+  const searchRef = useRef<HTMLInputElement | null>(null);
+  const listRef = useRef<HTMLDivElement | null>(null);
+
+  // Any change to the result set invalidates the cursor's position in it.
+  useEffect(() => { setCursor(0); }, [search, filterSport, filterProgramme, filterGender, filterDiscipline]);
+
+  // Keep the highlighted row in view when arrowing past the fold.
+  useEffect(() => {
+    const el = listRef.current?.querySelector<HTMLElement>(`[data-idx="${cursor}"]`);
+    el?.scrollIntoView({ block: 'nearest' });
+  }, [cursor]);
+
+  // "/" focuses the search from anywhere on the page — the convention users
+  // already know from GitHub, Slack and Gmail — but never while they are typing
+  // into something else.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) return;
+      const t = e.target as HTMLElement | null;
+      if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;
+      if (t?.isContentEditable) return;
+      e.preventDefault();
+      searchRef.current?.focus();
+      searchRef.current?.select();
+    }
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, []);
+
+  function onSearchKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setCursor((c) => Math.min(c + 1, hits.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setCursor((c) => Math.max(c - 1, 0));
+    } else if (e.key === 'Enter') {
+      // Enter opens the highlighted athlete. With one hit that is simply "the
+      // one you found"; with several it is the top-ranked one, which is why
+      // ranking had to be right before this shortcut could exist.
+      const hit = hits[cursor];
+      if (hit) { e.preventDefault(); setSelectedId(hit.athlete.athleteId); }
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      if (search) setSearch('');
+      else searchRef.current?.blur();
+    }
+  }
 
   // Distinct programmes available in the roster (for the filter dropdown)
   const programmes = useMemo(() => {
@@ -260,15 +321,43 @@ export default function MedicalDashboard() {
         {/* ── Left rail ───────────────────────────────────────────────────── */}
         <aside className="medical-rail">
           <div className="medical-rail-search">
-            <input
-              id="med-search"
-              type="text"
-              placeholder="Search name or IC number…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              autoComplete="off"
-              className="medical-rail-search-input"
-            />
+            <div className="rail-search-box">
+              <input
+                id="med-search"
+                ref={searchRef}
+                type="search"
+                placeholder="Search name or IC…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={onSearchKeyDown}
+                autoComplete="off"
+                className="medical-rail-search-input"
+                aria-label="Search athletes by name or IC number"
+                aria-describedby="med-search-help"
+                role="combobox"
+                aria-expanded={hits.length > 0}
+                aria-controls="med-rail-list"
+                aria-activedescendant={hits[cursor] ? `athlete-opt-${hits[cursor].athlete.athleteId}` : undefined}
+              />
+              {search ? (
+                <button
+                  type="button"
+                  className="rail-search-clear"
+                  aria-label="Clear search"
+                  onClick={() => { setSearch(''); searchRef.current?.focus(); }}
+                >
+                  ×
+                </button>
+              ) : (
+                // The shortcut is only advertised while it is the thing to do;
+                // once there is text in the box the clear button takes the slot.
+                <kbd className="rail-search-kbd" aria-hidden>/</kbd>
+              )}
+            </div>
+            <p id="med-search-help" className="sr-only">
+              Type a name in any order, or an IC number with or without dashes.
+              Use the up and down arrows to move through results and Enter to open one.
+            </p>
             <div className="medical-rail-filters">
               <select
                 value={filterSport}
@@ -308,36 +397,86 @@ export default function MedicalDashboard() {
               )}
             </div>
             <div className="medical-rail-count">
-              {loadingList ? 'Loading…' : `${filtered.length} athlete${filtered.length === 1 ? '' : 's'}`}
+              <span>
+                {loadingList
+                  ? 'Loading…'
+                  : `${hits.length} athlete${hits.length === 1 ? '' : 's'}${search ? ' matched' : ''}`}
+              </span>
+              {/* The dropdowns sit above and read "All Sports" whether or not
+                  they are doing anything, so an empty rail looks like an empty
+                  roster. This says how many filters are actually narrowing it
+                  and undoes them in one click. */}
+              {activeFilters > 0 && (
+                <button type="button" className="rail-filter-chip" onClick={clearFilters}>
+                  {activeFilters} filter{activeFilters === 1 ? '' : 's'} · clear
+                </button>
+              )}
             </div>
           </div>
 
-          <div className="medical-rail-list" role="listbox" aria-label="Athletes">
+          <div className="medical-rail-list" id="med-rail-list" ref={listRef} role="listbox" aria-label="Athletes">
             {loadingList ? (
               <p className="text-muted" style={{ padding: 12 }}>Loading roster…</p>
             ) : listError ? (
               <div className="alert alert-error">{listError}</div>
-            ) : filtered.length === 0 ? (
-              <p className="text-muted" style={{ padding: 12 }}>No athletes match your filters.</p>
+            ) : hits.length === 0 ? (
+              // Say which of the two things emptied the list, because the fix
+              // differs: retype the name, or drop a filter.
+              <div className="rail-empty">
+                <p className="text-muted" style={{ margin: 0 }}>
+                  {search ? <>No athlete matches <strong>{search}</strong>.</> : 'No athletes match your filters.'}
+                </p>
+                {search && activeFilters > 0 && (
+                  <p className="text-muted" style={{ margin: '6px 0 0', fontSize: '0.78rem' }}>
+                    {activeFilters} filter{activeFilters === 1 ? ' is' : 's are'} also narrowing the roster.
+                  </p>
+                )}
+                <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+                  {search && (
+                    <button type="button" className="btn btn-outline btn-sm" onClick={() => { setSearch(''); searchRef.current?.focus(); }}>
+                      Clear search
+                    </button>
+                  )}
+                  {activeFilters > 0 && (
+                    <button type="button" className="btn btn-outline btn-sm" onClick={clearFilters}>Clear filters</button>
+                  )}
+                </div>
+              </div>
             ) : (
-              filtered.map((a) => (
-                <button
-                  key={a.athleteId}
-                  type="button"
-                  className={`athlete-row${selectedId === a.athleteId ? ' active' : ''}`}
-                  onClick={() => setSelectedId(a.athleteId)}
-                  role="option"
-                  aria-selected={selectedId === a.athleteId}
-                >
-                  <span className="athlete-row-avatar">{getInitials(a.name)}</span>
-                  <span className="athlete-row-info">
-                    <span className="athlete-row-name">{a.name}</span>
-                    <span className="athlete-row-meta">
-                      {a.sport ?? '—'} · {a.athleteId}
+              hits.map((h, i) => {
+                const a = h.athlete;
+                return (
+                  <button
+                    key={a.athleteId}
+                    id={`athlete-opt-${a.athleteId}`}
+                    data-idx={i}
+                    type="button"
+                    className={`athlete-row${selectedId === a.athleteId ? ' active' : ''}${i === cursor && search ? ' cursor' : ''}`}
+                    onClick={() => setSelectedId(a.athleteId)}
+                    onMouseEnter={() => setCursor(i)}
+                    role="option"
+                    aria-selected={selectedId === a.athleteId}
+                  >
+                    <span className="athlete-row-avatar">{getInitials(a.name)}</span>
+                    <span className="athlete-row-info">
+                      <span className="athlete-row-name">
+                        <MarkedText segments={h.nameSegments} fallback={a.name} />
+                        {/* Two athletes on this roster can share a name and not a
+                            record. Marking the row is the only thing standing
+                            between the clinician and the wrong person's scores. */}
+                        {h.ambiguous && (
+                          <span className="athlete-row-dupe" title="Another athlete in these results has the same name — check the IC">
+                            shared name
+                          </span>
+                        )}
+                      </span>
+                      <span className="athlete-row-meta">
+                        {a.sport ?? '—'} · <MarkedText segments={h.idSegments} fallback={a.athleteId} />
+                      </span>
                     </span>
-                  </span>
-                </button>
-              ))
+                  </button>
+                );
+              })
             )}
           </div>
         </aside>
@@ -416,7 +555,7 @@ export default function MedicalDashboard() {
                             placeholder="Choose an existing event or type a new one"
                             ariaLabel="Events"
                           />
-                          <div style={{ display: 'flex', gap: 8 }}>
+                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                             <button type="button" className="btn btn-gold btn-sm" onClick={saveEvents} disabled={eventsSaving}>
                               {eventsSaving ? 'Saving…' : 'Save events'}
                             </button>
@@ -426,7 +565,10 @@ export default function MedicalDashboard() {
                       )}
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                  {/* flexShrink:0 alongside flexWrap is self-contradictory — it may wrap but
+                      refuses to shrink, so the row held its content width and pushed
+                      past the card on a phone. */}
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end', minWidth: 0 }}>
                     {selectedAthlete.screening && (
                       <button
                         type="button"

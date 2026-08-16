@@ -9,6 +9,8 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { resolveAthleteId } from '@/lib/name';
+import { searchAthletes } from '@/lib/athleteSearch';
+import MarkedText from '@/components/ui/MarkedText';
 
 export interface PickableAthlete { athleteId: string; name: string; sport?: string; }
 
@@ -35,14 +37,10 @@ export default function AthleteSearchSelect({ athletes, onSelect, placeholder = 
     return () => document.removeEventListener('mousedown', onDoc);
   }, []);
 
-  // Filter by name or ATH id; show the whole roster when the box is empty.
-  const filtered = useMemo(() => {
-    const q = input.trim().toLowerCase();
-    const list = q
-      ? athletes.filter((a) => a.name.toLowerCase().includes(q) || a.athleteId.toLowerCase().includes(q))
-      : athletes;
-    return list.slice(0, 60);
-  }, [athletes, input]);
+  // Ranked by the shared matcher, so this box and the medical rail agree about
+  // what a query means: word order is free, an IC can carry its dashes, and an
+  // exact IC sorts to the top. Capped at 60 rows for the popup's sake.
+  const hits = useMemo(() => searchAthletes(athletes, input).slice(0, 60), [athletes, input]);
 
   function choose(a: PickableAthlete) {
     setPicked(a);
@@ -60,11 +58,11 @@ export default function AthleteSearchSelect({ athletes, onSelect, placeholder = 
   }
 
   function onKeyDown(e: React.KeyboardEvent) {
-    if (e.key === 'ArrowDown') { e.preventDefault(); setOpen(true); setActive((a) => Math.min(a + 1, Math.max(0, filtered.length - 1))); }
+    if (e.key === 'ArrowDown') { e.preventDefault(); setOpen(true); setActive((a) => Math.min(a + 1, Math.max(0, hits.length - 1))); }
     else if (e.key === 'ArrowUp') { e.preventDefault(); setActive((a) => Math.max(a - 1, 0)); }
     else if (e.key === 'Enter') {
       e.preventDefault();
-      if (open && filtered[active]) { choose(filtered[active]); return; }
+      if (open && hits[active]) { choose(hits[active].athlete); return; }
       // No highlighted row: accept a typed exact-name / IC-number match.
       const id = resolveAthleteId(input, athletes);
       const hit = athletes.find((a) => a.athleteId === id);
@@ -103,20 +101,29 @@ export default function AthleteSearchSelect({ athletes, onSelect, placeholder = 
       </div>
       {open && (
         <div className="combobox-menu" role="listbox">
-          {filtered.length === 0 ? (
+          {hits.length === 0 ? (
             <div className="combobox-empty">No athlete matches “{input.trim()}”.</div>
           ) : (
-            filtered.map((a, i) => (
+            hits.map((h, i) => (
               <div
-                key={a.athleteId}
+                key={h.athlete.athleteId}
                 role="option"
                 aria-selected={i === active}
                 className={`combobox-option combobox-option--stacked${i === active ? ' is-active' : ''}`}
                 onMouseEnter={() => setActive(i)}
-                onMouseDown={(e) => { e.preventDefault(); choose(a); }}
+                onMouseDown={(e) => { e.preventDefault(); choose(h.athlete); }}
               >
-                <span className="combobox-opt-name">{a.name}</span>
-                <span className="combobox-opt-sub">{a.athleteId}{a.sport ? ` · ${a.sport}` : ''}</span>
+                <span className="combobox-opt-name">
+                  <MarkedText segments={h.nameSegments} fallback={h.athlete.name} />
+                  {/* Picking the wrong one of two same-named athletes here
+                      attaches a screening to another person's record, so the
+                      warning belongs on the row being clicked. */}
+                  {h.ambiguous && <span className="athlete-row-dupe">shared name</span>}
+                </span>
+                <span className="combobox-opt-sub">
+                  <MarkedText segments={h.idSegments} fallback={h.athlete.athleteId} />
+                  {h.athlete.sport ? ` · ${h.athlete.sport}` : ''}
+                </span>
               </div>
             ))
           )}
