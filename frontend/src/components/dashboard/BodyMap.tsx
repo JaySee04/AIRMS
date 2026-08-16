@@ -417,7 +417,10 @@ export default function BodyMap({
         </div>
       )}
 
-      <div className="bm-shell">
+      {/* The rule under the shell separates it from the subitem table. In flags
+          mode nothing follows, so it would be a line drawn under the last thing
+          on the card. */}
+      <div className={`bm-shell${activeMode === 'flags' ? ' bm-shell--flush' : ''}`}>
         <div className="bm-figures">
           <div className="bm-fig">
             <div className="bm-fig-title">Front</div>
@@ -435,25 +438,76 @@ export default function BodyMap({
           </div>
         </div>
 
-        <div className="bm-strip">
+        {/* The findings sit BESIDE the figures, the way the HoloMotion report
+            lays out its Muscle Imbalance section. They used to run underneath a
+            tall figure block, which put roughly a screen between a muscle's
+            name and the body part it names — and this pair is the one thing
+            here that has to be read together, since hovering a name lights the
+            muscle. */}
+        <aside className="bm-aside">
           {activeMode === 'flags' ? (
             <>
-              <div className="bm-summary">
-                <div className="bm-summary-num">{total}</div>
-                <div className="bm-summary-label">Muscle {total === 1 ? 'flag' : 'flags'}</div>
+              <div className="bm-aside-head">
+                <span className="bm-aside-count">{total}</span>
+                <span className="bm-aside-label">muscle {total === 1 ? 'flag' : 'flags'}</span>
+                <span className="bm-aside-key">L left · R right · B both</span>
               </div>
-              <div className="bm-legend">
-                <span><i className="weak" /><span>Weakness <em>(Myodynamia)</em></span></span>
-                <span><i className="tight" /><span>Tension <em>(Over-activation)</em></span></span>
-                <span><i className="both" /><span>Both <em>(Compensation pattern)</em></span></span>
-                <span className="bm-legend-note">L · Left  ·  R · Right  ·  B · Both sides</span>
-              </div>
+              {total === 0 ? (
+                <div className="bm-aside-empty">
+                  {historical ? 'No muscle flags at this screening.' : 'No muscle flags from the latest assessment.'}
+                </div>
+              ) : (
+                <>
+                  <FlagCard
+                    title="Weakness"
+                    subtitle="Myodynamia deficiency"
+                    accent="var(--flag-weak)"
+                    items={myoEntries.map(([k, c]) => (
+                      <FlagItem key={k} name={k} side={c} activeKeys={activeKeys} onActive={setActiveKeys}>
+                        <span className="lat-code">{c}</span>
+                      </FlagItem>
+                    ))}
+                    count={myoEntries.length}
+                  />
+                  <FlagCard
+                    title="Tension"
+                    subtitle="Muscle over-activation"
+                    accent="var(--flag-tight)"
+                    items={tenEntries.map(([k, c]) => (
+                      <FlagItem key={k} name={k} side={c} activeKeys={activeKeys} onActive={setActiveKeys}>
+                        <span className="lat-code">{c}</span>
+                      </FlagItem>
+                    ))}
+                    count={tenEntries.length}
+                  />
+                  {/* Only when it has content. HoloMotion has no such category —
+                      it is AIRMS reading both lists together — and an empty card
+                      announcing "None flagged" took a full column to say nothing. */}
+                  {compEntries.length > 0 && (
+                    <FlagCard
+                      title="Compensation Pattern"
+                      subtitle="Weak + tight in same muscle"
+                      accent="var(--flag-both)"
+                      items={compEntries.map((c) => (
+                        <FlagItem key={c.name} name={c.name} side="B" activeKeys={activeKeys} onActive={setActiveKeys}>
+                          <span>
+                            <span className="lat-code">W:{c.weak}</span>{' '}
+                            <span className="lat-code">T:{c.tight}</span>
+                          </span>
+                        </FlagItem>
+                      ))}
+                      count={compEntries.length}
+                      hint="One side compensating for the other — clinically the most significant finding here."
+                    />
+                  )}
+                </>
+              )}
             </>
           ) : (
             <>
-              <div className="bm-summary">
-                <div className="bm-summary-num">{belowCount}</div>
-                <div className="bm-summary-label">Region{belowCount === 1 ? '' : 's'} below average</div>
+              <div className="bm-aside-head">
+                <span className="bm-aside-count">{belowCount}</span>
+                <span className="bm-aside-label">region{belowCount === 1 ? '' : 's'} below average</span>
               </div>
               <div className="bm-legend">
                 {TIER_ORDER.map((t) => (
@@ -463,60 +517,10 @@ export default function BodyMap({
               </div>
             </>
           )}
-        </div>
+        </aside>
       </div>
 
-      {activeMode === 'flags' ? (
-        total === 0 ? (
-          <div className="empty-state" style={{ padding: 20 }}>
-            {historical ? 'No muscle flags at this screening.' : 'No muscle flags from the latest assessment.'}
-          </div>
-        ) : (
-          <div className="bm-cards">
-            <FlagCard
-              title="Weakness"
-              subtitle="Myodynamia deficiency"
-              accent="var(--flag-weak)"
-              items={myoEntries.map(([k, c]) => (
-                <FlagItem key={k} name={k} side={c} activeKeys={activeKeys} onActive={setActiveKeys}>
-                  <span className="lat-code">{c} · {sideText(c)}</span>
-                </FlagItem>
-              ))}
-              count={myoEntries.length}
-            />
-            <FlagCard
-              title="Tension"
-              subtitle="Muscle over-activation"
-              accent="var(--flag-tight)"
-              items={tenEntries.map(([k, c]) => (
-                <FlagItem key={k} name={k} side={c} activeKeys={activeKeys} onActive={setActiveKeys}>
-                  <span className="lat-code">{c} · {sideText(c)}</span>
-                </FlagItem>
-              ))}
-              count={tenEntries.length}
-            />
-            <FlagCard
-              title="Compensation Pattern"
-              subtitle="Weak + tight in same muscle"
-              accent="var(--flag-both)"
-              items={compEntries.map((c) => (
-                <FlagItem key={c.name} name={c.name} side="B" activeKeys={activeKeys} onActive={setActiveKeys}>
-                  <span>
-                    <span className="lat-code">W:{c.weak}</span>{' '}
-                    <span className="lat-code">T:{c.tight}</span>
-                  </span>
-                </FlagItem>
-              ))}
-              count={compEntries.length}
-              hint={
-                compEntries.length > 0
-                  ? 'These muscles likely indicate one side compensating for the other — clinically the most significant findings.'
-                  : undefined
-              }
-            />
-          </div>
-        )
-      ) : (
+      {activeMode === 'subitems' && (
         <div style={{ marginTop: 4 }}>
           <SubitemTable subitems={subitems} />
         </div>
@@ -573,7 +577,9 @@ function FlagCard({
   hint?: string;
 }) {
   return (
-    <div className="bm-card">
+    // The accent drives both the left rail and the dot from one value, so a
+    // category cannot end up keyed two different colours.
+    <div className="bm-card" style={{ '--bm-accent': accent } as React.CSSProperties}>
       <div className="bm-card-head">
         <span className="bm-card-dot" style={{ background: accent }} />
         <div>
