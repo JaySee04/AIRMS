@@ -1393,10 +1393,134 @@ of one row is the same dead panel with an extra heading.
 
 ---
 
+## 27. A detectable-change threshold, or an admission that there isn't one (2026-08-12)
+
+Every direction-of-travel verdict in AIRMS ran off one constant. `directionOf()`
+took `noise = 2`: a score that moved 2 points or more had changed, less than 2
+was "steady". The change chart, the between-tests panel, seasonality's
+worst-quarter ranking and the coach's arrows all consumed it. Nothing derived
+it. On a 0-100 scale, 2 was a guess - and it silently decided which athletes a
+clinician is asked to look at.
+
+**This is the standing criticism of the entire category, not a local oversight.**
+Robertson, Bartlett & Gastin (*IJSPP* 12(s2), 2017), reviewing traffic-light
+decision-support systems in team sport, put "establishment of evidence-based
+guidelines related to the determination of benchmarks and baselines and the
+subsequent boundaries used for categories" on their future-work list. A viva
+question of the form "where did that threshold come from?" was unanswerable.
+
+### What replaced it
+
+`utils/reliability.js` computes, per score, from the repeat screenings already
+in the database:
+
+```
+typical error   TE    = SD of the within-athlete differences / sqrt(2)
+minimal detectable change
+                MDC95 = 1.96 x sqrt(2) x TE   ( = 2.77 x TE )
+```
+
+MDC95 becomes the dead band. A change smaller than it cannot be told apart from
+measurement noise at 95% confidence, which is the standard construction in the
+musculoskeletal reliability literature (published MSK examples land around
+4.8-6.1 points on comparable scales - i.e. potentially double the old guess).
+
+### Two properties that are deliberate, not limitations
+
+**It is an upper bound and says so.** A true test-retest needs two measurements
+close enough together that nothing real changed. AIRMS only has screenings
+months apart, which contain genuine change *on top of* measurement error. That
+inflates the SD, so the resulting MDC95 over-estimates the instrument's error.
+That errs toward calling real changes "steady" - under-claiming, not
+over-claiming - which is the right direction for a threshold that decides
+whether someone gets assessed. Every surface that shows it prints the caveat
+rather than presenting a bound as a measurement.
+
+**It declines.** Below `MIN_PAIRS` (20), or when a score never moved across any
+pair, it reports `sufficient: false`, falls back to the documented 2, and labels
+it *"an assumption, not a measurement"* on screen and in the PDF. Same
+discipline as `seasonality()` refusing to name a quarter under two years of data
+(section 20i): a confidently wrong threshold here quietly changes who gets seen.
+
+On the seeded data it **correctly declines** - 19 repeat pairs against a floor of
+20, and four of the six scores identical in every pair. The floor is not to be
+lowered to make a demo produce a number; that would be the original sin with
+extra steps.
+
+An SD of zero is refused rather than believed, because a dead band of 0 would
+make every rounding wobble a "change". A score identical in every repeat is not
+a perfectly reliable instrument - it is an instrument that was not re-measured,
+which is the ingestion gap section 26's panel already reports.
+
+### Rejected
+
+- **Lowering `MIN_PAIRS` to 15** so the seeded data derives a threshold. The
+  decline *is* the honest output; manufacturing a number from 19 pairs to make a
+  demo look better is exactly the failure mode being fixed.
+- **Per-athlete direction verdicts on the trend sparklines.** The threshold is
+  computed cohort-wide and is not on the athlete-scoped payload, so the
+  sparklines show movement and deliberately name no direction. Showing movement
+  without labelling it is honest; labelling it from a threshold that is not
+  there would not be.
+
+### Smaller decisions in the same pass
+
+- **Rescreen recall** (`rescreenRecall`). Coverage answers "did we test them";
+  recall answers "is what we hold still current", which is the question a
+  screening programme runs on. Read across **all time**, never the report's
+  window - when an athlete was last seen is a fact about the athlete, and
+  windowing it would report a screened athlete as never screened. `never` is
+  counted apart from `overdue` because it calls for a first assessment, not a
+  call-back.
+- **Percentile beside rank.** Derived from the rank already computed, so the two
+  cannot disagree. Mid-rank `(r - 0.5)/n`, so the best and worst members of a
+  group never read as a meaningless 100th or 0th percentile.
+
+---
+
+## 28. The app had no narrow layout, and one line was most of it (2026-08-12)
+
+Driving every route as every role at 360-1280px found the same defect nearly
+everywhere: the page scrolled sideways, 245-692px on a phone and up to 277px on
+a tablet. ISN's clinicians and coaches are exactly the people who would open
+this on a tablet.
+
+Two causes, one structural and one subtle:
+
+1. **No breakpoint for the shell.** `.sidebar` is a fixed 256px column and
+   `.main-area` is offset by exactly that margin. The fourteen media queries in
+   `globals.css` all governed inner grids; none touched the shell. A 390px phone
+   gave the content 134px of usable width.
+2. **`min-width: auto` on a flex item.** `.main-area` is a flex child, and the
+   CSS default means "never shrink below my content's intrinsic width". It
+   measured **671px inside a 390px viewport**. This produced most of the
+   overflow - the first round of `flex-wrap` and control-width fixes barely
+   moved the numbers, because they were treating symptoms of it.
+
+`min-width: 0` on that column is the fix; below 900px the sidebar becomes a
+drawer (menu button, scrim, Escape, closes on navigate) and the margin goes
+away. **Desktop is untouched** - the Figma-derived layout is a locked decision
+(`MASTER_CLARIFICATIONS section 12`), and this adds a narrow behaviour rather
+than changing the wide one. Same reasoning for the login card, which stacks
+below 700px instead of shrinking its two panels to ~143px and clipping the
+product name mid-word.
+
+Also found: only controls wrapped in `.form-group` were ever styled, so bare
+`<select>`s on Reports and Settings rendered at the browser default of 19px next
+to styled inputs - visually inconsistent and under the 24px touch-target
+guidance. There is an element-level baseline now, which component classes still
+override.
+
+**A note on method, because it is the transferable part.** The first three
+fixes were guesses at which page was at fault and achieved almost nothing. What
+worked was walking the DOM from the widest element up through its ancestors,
+printing each one's width and computed `min-width` - the cause was visible
+immediately and was two levels above anything the symptom list named. The same
+technique found the remaining 9px: a row declaring `flexWrap: 'wrap'` *and*
+`flexShrink: 0`, which is self-contradictory.
 
 
+---
 
 
-
-
-*Last updated: 2026-08-11 (really final) — **§26** added: two periods now draw a SLOPEGRAPH (every metric as a line between them — which is how "ROM fell 5.2 while stability rose 2.6" became visible at all) and one period shows the finer buckets it is composed of instead of a number and an apology. Previous: 2026-08-11 (final) — **§25** added: three new graphics on Screening Analytics — a cohort-level squad body map reusing the licensed figure, a risk-vs-movement scatter with median-split quadrants (which finds 13 athletes who move well AND score risky, invisible to every averaged panel), and an indicator distribution histogram. Previous: 2026-08-11 (last of the day) — **§24** added: the period chart now draws a CONTINUOUS calendar axis (an unscreened period is the finding, not an absence), renders a single period as a summary rather than a lone bar, and labels each grain with how many periods it would draw so quarterly/yearly announce their own thinness before being clicked. Previous: 2026-08-11 (later again) — **§23** added: the admin dashboard now charts the 25-cell subitem table as a matrix and, for the first time anywhere in AIRMS, surfaces LEFT–RIGHT asymmetry — the only bilateral data the report carries, previously collapsed three different ways. Counts rather than mean gaps, because the means are flat and the counts are not. Previous: 2026-08-11 (later still) — **§22** added: cohort norms can now be PINNED, not merely saved — a pinned version is held against imports, reports its own drift from what the data would say, and cannot be deleted or restored over while in force; a NOT NULL settings column that would have made release impossible was found and fixed by live verification. Previous: 2026-08-11 (later same day) — **§21** added: the hero now shows HoloMotion's printed Total Score with a signed per-component cohort comparison and a two-sided reason list, the derived 0-100 indicator having been the thing nobody could explain; the below-mean escalation became a -0.5 SD cutoff rather than a sign test; one shared indicator payload. Previous: 2026-08-11 — **§20j** added: the shared dashboard components now take `historical` (so the history views stop speaking in the present tense) and the risk hero takes `audience` — the latter fixing a live bug in which the medical and coach dashboards addressed the clinician as the at-risk athlete. Previous: 2026-08-10 (later same day) — **§20g–i** added: the digest attaches the holistic report by sharing its code rather than rebuilding it (fetch/draw extracted, verified byte-identical), per-user email opt-out under the institution switch, and seasonality that declines to name a season below two years of data. **§20f** revised — the 14 remaining inline band-precedence reads were migrated after all. Earlier same day: **§20** added: accountability (audit trail that copies the actor, fire-and-forget writes), immediate norm eligibility with one-time disclosure, deep muscles marked rather than drawn, alerts grouped per recipient, the monthly digest's marker-not-cron design, and one band vocabulary in `utils/bands.js`. Previous: 2026-08-06 (later same day) — **§19** added: one status palette across CSS, inline styles, Chart.js and the PDF reports. An audit found the PDF had a second band palette (and disagreed with its own tier colours), the radar's threshold red was a non-theme-aware literal, the 60/75/85 tier was defined five times with two different words for its lowest band, and eight CSS-variable fallbacks still carried the retired PDF palette. Earlier same day: **§4a** added: the body map's Muscle Flags mode now draws HoloMotion's 22 individual muscles by re-slicing the same MIT-licensed geometry (16 recovered from existing sub-paths, 6 deep ones as measured insets, selection by geometry not index, test-guarded); supersedes the aggregation half of §4 while leaving the asset and its attribution locked. Previous: 2026-08-03 — §18 on-device name redaction before vision extraction (Tesseract-located, page-1-only, fail-closed; verified against both HoloMotion layouts). Previous: 2026-07-20 — Activity Tracking (the FYP I Module 1) fully removed at JC's request; §1, §2, §3, §10 and §16 annotated to mark their decisions as locked-but-dormant (no live caller) rather than actively running. The six-module set was restructured the same day to fill the gap this left — see `MASTER_CLARIFICATIONS.md §4` for the current numbering. Previous: 2026-07-19 (§16 gains the per-indicator escalation — threshold + peer-outlier, z ≥ 1.5, admin toggle, persisted factors), 2026-07-18 (§17 coach one-sport + athlete detail view + event disciplines), 2026-07-13 (§16 FYP II cohort-normed overall indicator + ACWR demotion), 2026-07-06 (§15 dashboard-embedded screening), 2026-06-28 (§13–14).*
+*Last updated: 2026-08-12 - **27** and **28** added: the improving/steady/declining dead band is now a DERIVED minimal detectable change (typical error from repeat screenings) that declines and says so when the data cannot support one, plus rescreen recall, per-athlete trend sparklines and percentile framing; and the app gained a narrow layout at all, the bulk of the sideways scroll tracing to `min-width:auto` on one flex column. Previous: 2026-08-11 (really final) — **§26** added: two periods draw a CHANGE CHART, one diverging bar per metric on a shared DELTA axis (this shipped first as a slopegraph and was scrapped the same day: a shared VALUE scale across non-commensurable metrics collapsed the lines into overlapping pixels) — which is how "ROM fell 5.2 while stability rose 2.6" became visible at all) and one period shows the finer buckets it is composed of instead of a number and an apology. Previous: 2026-08-11 (final) — **§25** added: three new graphics on Screening Analytics — a cohort-level squad body map reusing the licensed figure, a risk-vs-movement scatter with median-split quadrants (which finds 13 athletes who move well AND score risky, invisible to every averaged panel), and an indicator distribution histogram. Previous: 2026-08-11 (last of the day) — **§24** added: the period chart now draws a CONTINUOUS calendar axis (an unscreened period is the finding, not an absence), renders a single period as a summary rather than a lone bar, and labels each grain with how many periods it would draw so quarterly/yearly announce their own thinness before being clicked. Previous: 2026-08-11 (later again) — **§23** added: the admin dashboard now charts the 25-cell subitem table as a matrix and, for the first time anywhere in AIRMS, surfaces LEFT–RIGHT asymmetry — the only bilateral data the report carries, previously collapsed three different ways. Counts rather than mean gaps, because the means are flat and the counts are not. Previous: 2026-08-11 (later still) — **§22** added: cohort norms can now be PINNED, not merely saved — a pinned version is held against imports, reports its own drift from what the data would say, and cannot be deleted or restored over while in force; a NOT NULL settings column that would have made release impossible was found and fixed by live verification. Previous: 2026-08-11 (later same day) — **§21** added: the hero now shows HoloMotion's printed Total Score with a signed per-component cohort comparison and a two-sided reason list, the derived 0-100 indicator having been the thing nobody could explain; the below-mean escalation became a -0.5 SD cutoff rather than a sign test; one shared indicator payload. Previous: 2026-08-11 — **§20j** added: the shared dashboard components now take `historical` (so the history views stop speaking in the present tense) and the risk hero takes `audience` — the latter fixing a live bug in which the medical and coach dashboards addressed the clinician as the at-risk athlete. Previous: 2026-08-10 (later same day) — **§20g–i** added: the digest attaches the holistic report by sharing its code rather than rebuilding it (fetch/draw extracted, verified byte-identical), per-user email opt-out under the institution switch, and seasonality that declines to name a season below two years of data. **§20f** revised — the 14 remaining inline band-precedence reads were migrated after all. Earlier same day: **§20** added: accountability (audit trail that copies the actor, fire-and-forget writes), immediate norm eligibility with one-time disclosure, deep muscles marked rather than drawn, alerts grouped per recipient, the monthly digest's marker-not-cron design, and one band vocabulary in `utils/bands.js`. Previous: 2026-08-06 (later same day) — **§19** added: one status palette across CSS, inline styles, Chart.js and the PDF reports. An audit found the PDF had a second band palette (and disagreed with its own tier colours), the radar's threshold red was a non-theme-aware literal, the 60/75/85 tier was defined five times with two different words for its lowest band, and eight CSS-variable fallbacks still carried the retired PDF palette. Earlier same day: **§4a** added: the body map's Muscle Flags mode now draws HoloMotion's 22 individual muscles by re-slicing the same MIT-licensed geometry (16 recovered from existing sub-paths, 6 deep ones as measured insets, selection by geometry not index, test-guarded); supersedes the aggregation half of §4 while leaving the asset and its attribution locked. Previous: 2026-08-03 — §18 on-device name redaction before vision extraction (Tesseract-located, page-1-only, fail-closed; verified against both HoloMotion layouts). Previous: 2026-07-20 — Activity Tracking (the FYP I Module 1) fully removed at JC's request; §1, §2, §3, §10 and §16 annotated to mark their decisions as locked-but-dormant (no live caller) rather than actively running. The six-module set was restructured the same day to fill the gap this left — see `MASTER_CLARIFICATIONS.md §4` for the current numbering. Previous: 2026-07-19 (§16 gains the per-indicator escalation — threshold + peer-outlier, z ≥ 1.5, admin toggle, persisted factors), 2026-07-18 (§17 coach one-sport + athlete detail view + event disciplines), 2026-07-13 (§16 FYP II cohort-normed overall indicator + ACWR demotion), 2026-07-06 (§15 dashboard-embedded screening), 2026-06-28 (§13–14).*
