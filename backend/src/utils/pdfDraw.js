@@ -628,6 +628,149 @@ function subitemPriorities(doc, subitems, { count = 5 } = {}) {
 // that athlete's WEAKEST reading (min of ROM/Stability/Symmetry) in the region.
 // Replaces the repeated per-athlete disc grids — scan a column to spot a region
 // that's weak across the squad. The per-metric detail lives in individual reports.
+// ── Throughput chart ────────────────────────────────────────────────────────
+// Tests per period as columns, with the distinct-athlete share drawn inside each
+// one, and the population's average indicator as a line across the top. The
+// report had only the table underneath, which lists the same numbers but cannot
+// show the SHAPE — that a quarter halved, or that throughput rose while the
+// average fell. Matches PeriodChart on Programme Activity.
+//
+// Two quantities on one frame, deliberately: columns are a count and the line is
+// a 0-100 score, so they get separate scales and the line is labelled at its
+// ends rather than sharing the column axis. Anything else would be the
+// non-commensurable-axis mistake this codebase keeps writing up.
+function throughputChart(doc, periods, opts = {}) {
+  const rows = (periods || []).filter(Boolean);
+  if (rows.length < 2) return; // one period is not a trend; the table says it
+  const W = doc.page.width - 100;
+  const H = opts.height || 150;
+  const padL = 26; const padB = 18; const padT = 10;
+  ensure(doc, H + 26);
+  const x0 = 50; const y0 = doc.y;
+  const plotW = W - padL; const plotH = H - padB - padT;
+  const maxTests = Math.max(...rows.map((p) => p.tests || 0), 1);
+  const slot = plotW / rows.length;
+  const bw = Math.min(slot * 0.62, 46);
+
+  // Columns: total tests, with distinct athletes as the darker inner portion.
+  rows.forEach((p, i) => {
+    const cx = x0 + padL + i * slot + (slot - bw) / 2;
+    const h = ((p.tests || 0) / maxTests) * plotH;
+    const y = y0 + padT + plotH - h;
+    doc.rect(cx, y, bw, h).fill('#7aa7cc');
+    const inner = p.tests ? Math.min(1, (p.athletes || 0) / p.tests) : 0;
+    if (inner > 0) doc.rect(cx, y + h - h * inner, bw, h * inner).fill(NAVY);
+    doc.fontSize(6.5).fillColor(MUTED).font('Helvetica')
+      .text(String(p.tests ?? 0), cx - 4, y - 8, { width: bw + 8, align: 'center', lineBreak: false });
+    doc.text(String(p.label || '').slice(0, 9), x0 + padL + i * slot, y0 + padT + plotH + 4,
+      { width: slot, align: 'center', lineBreak: false });
+  });
+
+  // The average-indicator line, on its own 0-100 scale.
+  const key = opts.lineKey || 'overallIndicator';
+  const pts = rows.map((p, i) => {
+    const v = p.averages ? num(p.averages[key]) : null;
+    return v === null ? null : { x: x0 + padL + i * slot + slot / 2, y: y0 + padT + (1 - v / 100) * plotH, v };
+  });
+  doc.save().lineWidth(1.2).strokeColor(GOLD);
+  let started = false;
+  for (const pt of pts) {
+    if (!pt) { started = false; continue; }
+    if (!started) { doc.moveTo(pt.x, pt.y); started = true; } else doc.lineTo(pt.x, pt.y);
+  }
+  doc.stroke().restore();
+  for (const pt of pts) if (pt) doc.circle(pt.x, pt.y, 1.8).fill(GOLD);
+  // Labelled at the ends only — a number over every point buries the shape.
+  const ends = pts.filter(Boolean);
+  if (ends.length) {
+    doc.fontSize(6.5).fillColor(GOLD).font('Helvetica-Bold');
+    doc.text(String(ends[0].v), ends[0].x - 16, ends[0].y - 9, { width: 32, align: 'center', lineBreak: false });
+    if (ends.length > 1) {
+      const last = ends[ends.length - 1];
+      doc.text(String(last.v), last.x - 16, last.y - 9, { width: 32, align: 'center', lineBreak: false });
+    }
+  }
+
+  doc.lineWidth(0.7).strokeColor(GRID)
+    .moveTo(x0 + padL, y0 + padT + plotH).lineTo(x0 + padL + plotW, y0 + padT + plotH).stroke();
+  doc.fontSize(6.5).fillColor(MUTED).font('Helvetica')
+    .text(String(maxTests), x0, y0 + padT - 2, { width: padL - 4, align: 'right', lineBreak: false })
+    .text('0', x0, y0 + padT + plotH - 6, { width: padL - 4, align: 'right', lineBreak: false });
+  doc.fillColor(TEXT);
+  doc.y = y0 + H + 2;
+  doc.fontSize(7).fillColor(MUTED).text(
+    'Column height is tests performed; the darker portion is distinct athletes, so a period of many '
+    + 'retests looks different from a period of many new ones. The gold line is the average overall '
+    + 'indicator on its own 0-100 scale - it shares the frame, not the axis.',
+    50, doc.y, { width: W },
+  );
+  doc.fillColor(TEXT);
+  doc.moveDown(0.3);
+}
+
+// ── Change bars ─────────────────────────────────────────────────────────────
+// One diverging bar per score on a shared DELTA axis, right for better. The
+// report listed these as signed numbers, which makes "ROM fell 5.2 while
+// stability rose 2.6" something the reader has to assemble. Mirrors MetricDeltas
+// on the dashboard, including the rule that cost a redesign there: bar DIRECTION
+// is the oriented gain (exercise risks improve by falling, so a drop draws right)
+// while the printed number keeps its true sign.
+function changeBars(doc, deltas, opts = {}) {
+  const rows = (deltas || [])
+    .filter((d) => d && d.avgDelta !== null && d.avgDelta !== undefined)
+    .map((d) => ({ ...d, gain: d.higherBetter === false ? -d.avgDelta : d.avgDelta }))
+    .sort((a, b) => Math.abs(b.gain) - Math.abs(a.gain));
+  if (!rows.length) return;
+
+  const W = doc.page.width - 100;
+  const labelW = 96; const numW = 46; const dirW = 62;
+  const trackW = W - labelW - numW - dirW - 16;
+  const rowH = 15;
+  ensure(doc, rowH * rows.length + 26);
+  const x0 = 50;
+  const max = Math.max(...rows.map((r) => Math.abs(r.gain)), 0.1);
+  const mid = x0 + labelW + trackW / 2;
+
+  doc.fontSize(6.5).font('Helvetica-Bold').fillColor(MUTED)
+    .text('worse <- change -> better', x0 + labelW, doc.y, { width: trackW, align: 'center', lineBreak: false });
+  doc.y += 10;
+
+  for (const r of rows) {
+    ensure(doc, rowH);
+    const y = doc.y;
+    doc.fontSize(8.5).font('Helvetica').fillColor(TEXT)
+      .text(r.label, x0, y + 2, { width: labelW - 6, lineBreak: false, ellipsis: true });
+    doc.rect(x0 + labelW, y + 1, trackW, rowH - 5).fill('#f1f4f7');
+    doc.save().lineWidth(0.6).strokeColor('#c3cbd4')
+      .moveTo(mid, y).lineTo(mid, y + rowH - 3).stroke().restore();
+
+    const w = (Math.abs(r.gain) / max) * (trackW / 2);
+    const tone = r.direction === 'improving' ? BAND.green
+      : r.direction === 'declining' ? BAND.red : MUTED;
+    if (w > 0.4) {
+      if (r.gain >= 0) doc.rect(mid, y + 1, w, rowH - 5).fill(tone);
+      else doc.rect(mid - w, y + 1, w, rowH - 5).fill(tone);
+    }
+    doc.fontSize(8.5).font('Helvetica-Bold').fillColor(tone)
+      .text(`${r.avgDelta > 0 ? '+' : ''}${r.avgDelta}`, x0 + labelW + trackW + 6, y + 2,
+        { width: numW, align: 'right', lineBreak: false });
+    doc.fontSize(7.5).font('Helvetica').fillColor(MUTED)
+      .text(r.direction || 'steady', x0 + labelW + trackW + numW + 12, y + 3, { width: dirW, lineBreak: false });
+    doc.y = y + rowH;
+  }
+  doc.fillColor(TEXT);
+  doc.moveDown(0.2);
+  doc.fontSize(7).fillColor(MUTED).text(
+    (opts.note || '')
+    + ' Bars share one scale, so the longest is the biggest move, and they point right for BETTER '
+    + 'rather than for a positive number - exercise risks improve by falling, so a drop there is drawn '
+    + 'right like any other gain while the printed figure keeps its true sign.',
+    50, doc.y, { width: W },
+  );
+  doc.fillColor(TEXT);
+  doc.moveDown(0.3);
+}
+
 // ── Risk vs movement scatter ────────────────────────────────────────────────
 // The §25 finding the printed reports had no way to carry. Total Score and
 // Exercise Risks measure different halves of the HoloMotion report, so an
@@ -1308,8 +1451,9 @@ function staffTable(doc, staff, labels = {}, { comparable = true } = {}) {
 
 module.exports = {
   BAND, ELEVATED_THRESHOLD, GOLD, GRID, MUTED, NAVY, RISKS, SCORE_ROWS, TEXT, auditTable, staffTable, bandColor, bandLabel, bandOnLight,
-  bandPill, bandTable, bar, betweenTestsBlock, bufferDoc, bullets, cover, distributionHistogram, ensure,
-  fileSlug, finish, fmtDate, riskMovementScatter, sparkline,
+  bandPill, bandTable, bar, betweenTestsBlock, bufferDoc, bullets, changeBars, cover,
+  distributionHistogram, ensure, fileSlug, finish, fmtDate, riskMovementScatter, sparkline,
+  throughputChart,
   focusTable, hotspotBar, interpret, keyFindings, keyFindingsBox, muscleFigure, num, periodTable, radar,
   riskLegend, seasonTable, sectionTitle, squadMuscleHotspots, squadSubitemHeatmap, squadSymmetrySection, startDoc,
   subitemPriorities, subitemTable, symmetrySection, todayStamp, zoneGauge,

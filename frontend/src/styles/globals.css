@@ -475,6 +475,35 @@ input[type='radio'] {
   height: 18px;
   accent-color: var(--brand-navy);
 }
+/* THE LABEL IS THE TARGET, not the box.
+   WCAG 2.5.8 asks for 24px. Padding the input does nothing — Chrome's native
+   checkbox ignores padding entirely (measured: computed padding stayed 0px) —
+   and scaling it with a transform shrinks the hit area along with the visual.
+   So the box stays 18px, which is the size a checkbox should look, and its
+   wrapping label carries the 24px target: clicking the word toggles the box
+   because they are associated, the cursor says so, and the row is tall enough
+   to hit on a phone. That satisfies the guidance through the equivalent larger
+   control rather than by drawing an oversized checkbox. */
+/* Permissions-matrix cell: a 24px target around an 18px box, with no text of
+   its own — the column header is the label. */
+.matrix-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  min-height: 24px;
+  cursor: pointer;
+}
+.matrix-check:has(> input:disabled) { cursor: default; }
+
+label:has(> input[type='checkbox']),
+label:has(> input[type='radio']) {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+}
 
 /* ── Form rows ──────────────────────────────────────────────────────────────── */
 .form-row-2 {

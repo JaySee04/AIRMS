@@ -330,13 +330,19 @@ export default function AdminPersonnelPage() {
                     </td>
                     {meta?.keys.map((k) => (
                       <td key={k} style={{ textAlign: 'center' }}>
-                        <input
-                          type="checkbox"
-                          checked={granted(u.permissions, k)}
-                          disabled={savingId === u._id || !u.isActive}
-                          onChange={() => togglePermission(u, k)}
-                          aria-label={`${meta.labels[k]} for ${u.name}`}
-                        />
+                        {/* A bare 18px checkbox is under the 24px touch target, and in a
+                            matrix the column header is the visible label — so the target
+                            is a padded wrapper that forwards the click, rather than
+                            visible text that would wreck the grid. */}
+                        <label className="matrix-check">
+                          <input
+                            type="checkbox"
+                            checked={granted(u.permissions, k)}
+                            disabled={savingId === u._id || !u.isActive}
+                            onChange={() => togglePermission(u, k)}
+                            aria-label={`${meta.labels[k]} for ${u.name}`}
+                          />
+                        </label>
                       </td>
                     ))}
                     <td style={{ textAlign: 'center' }}>{accountBadge(u)}</td>

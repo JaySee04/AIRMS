@@ -27,7 +27,7 @@ const { programmeActivityData } = require('../utils/programmeActivity');
 const {
   BAND, ELEVATED_THRESHOLD, GOLD, GRID, MUTED, NAVY, RISKS, SCORE_ROWS, TEXT, bandColor, bandLabel,
   bandPill, bar, betweenTestsBlock, bullets, cover, ensure, fileSlug, finish, fmtDate, periodTable,
-  seasonTable, sparkline,
+  seasonTable, sparkline, throughputChart, changeBars,
   auditTable, staffTable, interpret, keyFindings, keyFindingsBox, muscleFigure, num, radar,
   riskLegend, sectionTitle, squadMuscleHotspots, squadSubitemHeatmap, squadSymmetrySection, startDoc,
   subitemPriorities, subitemTable, symmetrySection, todayStamp, zoneGauge,
@@ -487,12 +487,23 @@ router.get('/programme-activity.pdf', auth, rbac('admin', 'executive'), async (r
     }
 
     // ── Throughput ───────────────────────────────────────────────────────────
-    sectionTitle(doc, `Screening Throughput (${grainWord})`, 120);
+    // Chart first, then the table. The shape answers "is the programme keeping
+    // up" at a glance; the table is what someone quotes in a meeting. Neither
+    // replaces the other, and the report previously had only the second.
+    sectionTitle(doc, `Screening Throughput (${grainWord})`, 200);
+    throughputChart(doc, periods);
     periodTable(doc, periods);
 
     // ── Within-athlete change ────────────────────────────────────────────────
-    sectionTitle(doc, 'Change Between Successive Tests', 120);
+    sectionTitle(doc, 'Change Between Successive Tests', 200);
     betweenTestsBlock(doc, bt, data.reliability);
+    // The same averages the block above lists as signed numbers, drawn on one
+    // shared delta axis so the relative sizes are visible rather than assembled.
+    if (bt && bt.deltas) {
+      changeBars(doc, bt.deltas, {
+        note: `Averaged across ${bt.pairs} consecutive test pair${bt.pairs === 1 ? '' : 's'}.`,
+      });
+    }
 
     // ── Seasonality ──────────────────────────────────────────────────────────
     if (data.seasonality) {
