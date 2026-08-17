@@ -117,6 +117,20 @@ Three-tier monorepo orchestrated by `concurrently` from the root `package.json`.
   every pair. `PERIOD_SCORES` moved to `utils/periodScores.js` to break the
   require cycle. **Do not "fix" the decline by lowering the floor** — the whole
   point is that the threshold is earned or labelled as an assumption
+- **Rescreen reminders** (`runReminderOnce` in `utils/scheduler.js`, 2026-08-16).
+  A page only tells you something when somebody opens it, which is the wrong
+  shape for a fact that decays on its own — so the recall list is also emailed to
+  **admin + medical** monthly, with `never screened` listed apart from `overdue`
+  because that one needs a first assessment rather than a call-back. Reports
+  against `rescreen_due_days` and **nothing else**: giving the reminder its own
+  threshold is how an email comes to say "overdue" while the dashboard says
+  "current". Same marker-not-cron design as the digest (`rescreen_reminder_last_sent`,
+  day capped at 28, marked only after a successful send, marked even with no
+  recipients so an all-opted-out institute is not retried hourly), its own
+  try-block on the shared tick so a digest failure cannot cost the reminder its
+  month, and a per-user opt-out (`rescreen_reminder` in `NOTIFY_KEYS`). The admin
+  Settings tile offers the interval as 2/3/4/6/9/12 months. `executive` is
+  deliberately NOT a recipient — oversight, not the worklist
 - **Rescreen recall** (`rescreenRecall` in `utils/programmeActivity.js`,
   2026-08-12). Coverage says whether an athlete was ever tested; recall says
   whether what we hold on them is still current, which is the question a

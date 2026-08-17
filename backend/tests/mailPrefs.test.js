@@ -65,9 +65,11 @@ describe('recipientsFor', () => {
 
 describe('keysForRole', () => {
   test('each role is offered only the mail it can receive', () => {
-    expect(keysForRole('medical')).toEqual(['import_alerts']);
+    expect(keysForRole('medical')).toEqual(['import_alerts', 'rescreen_reminder']);
     expect(keysForRole('coach')).toEqual(['import_alerts', 'override', 'injury']);
-    expect(keysForRole('admin')).toEqual(['digest']);
+    expect(keysForRole('admin')).toEqual(['digest', 'rescreen_reminder']);
+    // Executive is oversight, not operations: it gets the monthly summary but
+    // not the recall list, which is a worklist for whoever books the sessions.
     expect(keysForRole('executive')).toEqual(['digest']);
   });
 

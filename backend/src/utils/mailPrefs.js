@@ -45,6 +45,13 @@ const NOTIFY_KEYS = [
     detail: 'The institute-wide monthly screening summary, with the holistic report attached.',
     roles: ['admin', 'executive'],
   },
+  {
+    key: 'rescreen_reminder',
+    label: 'Rescreen reminders',
+    detail: 'A monthly list of athletes whose last screening is older than the institute’s '
+      + 'rescreen interval, plus anyone never screened.',
+    roles: ['admin', 'medical'],
+  },
 ];
 
 const KEY_SET = new Set(NOTIFY_KEYS.map((k) => k.key));

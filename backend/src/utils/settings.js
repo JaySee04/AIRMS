@@ -15,6 +15,15 @@ const DEFAULTS = {
   // and the seeded programme's own median retest gap is 35 days. It is a
   // setting precisely so the number is the institution's, not the software's.
   rescreen_due_days: 180,
+  // Scheduled rescreen reminder (utils/scheduler.js). Deliberately has NO
+  // threshold of its own: it reports against `rescreen_due_days` above, the
+  // same number the Programme Activity KPI and the PDF read. A second setting
+  // would let the email say an athlete is overdue while the dashboard says they
+  // are current, which is worse than not sending the email at all.
+  rescreen_reminder_enabled: true, // email admin + medical the recall list
+  rescreen_reminder_day: 1,        // day of month (capped at 28 so February always fires)
+  rescreen_reminder_hour: 8,       // hour of day, local time, 0-23
+  rescreen_reminder_last_sent: '', // internal marker, set by the scheduler
   min_cohort_n: 5,              // minimum athletes in a cohort before it norms/ranks
   fallback_enabled: true,      // spg → sg → s → all when a cohort is too small
   // The saved norm version currently IN FORCE, or null when the live norms simply

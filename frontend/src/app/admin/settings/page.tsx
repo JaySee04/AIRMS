@@ -199,6 +199,65 @@ export default function AdminSettingsPage() {
               </button>
             )}
           </div>
+
+          {/* A screening programme runs on recall, and a page only tells you
+              something when somebody opens it — the wrong shape for a fact that
+              decays on its own. This is the interval EVERYTHING reads: the
+              Programme Activity KPI, the KPI PDF and this email. Deliberately
+              one number rather than a separate reminder threshold, which is how
+              an email comes to say "overdue" while the dashboard says
+              "current". */}
+          <div className="stat-tile">
+            <div className="stat-tile-label">Rescreen reminders</div>
+            <div><label><input type="checkbox" checked={Boolean(set.rescreen_reminder_enabled)}
+              onChange={(e) => saveSetting('rescreen_reminder_enabled', e.target.checked)} /> enabled</label></div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6, flexWrap: 'wrap' }}>
+              <label style={{ fontSize: 'var(--fs-sm)' }}>a screening stays current for
+                <select
+                  value={String(set.rescreen_due_days ?? 180)}
+                  onChange={(e) => saveSetting('rescreen_due_days', Number(e.target.value))}
+                  style={{ marginLeft: 6, width: 'auto', minHeight: 30 }}
+                >
+                  <option value="60">2 months</option>
+                  <option value="90">3 months</option>
+                  <option value="120">4 months</option>
+                  <option value="180">6 months</option>
+                  <option value="270">9 months</option>
+                  <option value="365">1 year</option>
+                </select>
+              </label>
+            </div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6 }}>
+              <label style={{ fontSize: 'var(--fs-sm)' }}>day
+                <input type="number" min={1} max={28} value={Number(set.rescreen_reminder_day ?? 1)}
+                  onChange={(e) => saveSetting('rescreen_reminder_day', Number(e.target.value))}
+                  style={{ width: 56, marginLeft: 4 }} />
+              </label>
+              <label style={{ fontSize: 'var(--fs-sm)' }}>hour
+                <input type="number" min={0} max={23} value={Number(set.rescreen_reminder_hour ?? 8)}
+                  onChange={(e) => saveSetting('rescreen_reminder_hour', Number(e.target.value))}
+                  style={{ width: 56, marginLeft: 4 }} />
+              </label>
+            </div>
+            <div className="stat-tile-delta">
+              Email admin and medical staff a monthly recall list: who is overdue, and who has never
+              been screened &mdash; counted apart, because that one needs a first assessment rather than
+              a call-back. The interval above is the SAME number Programme Activity and the KPI report
+              use, so the email cannot disagree with the screen. Individual accounts can opt out on
+              their own profile
+              {set.rescreen_reminder_last_sent ? ` — last sent ${String(set.rescreen_reminder_last_sent)}` : ' — not sent yet'}
+            </div>
+            {Boolean(set.rescreen_reminder_last_sent) && (
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                style={{ marginTop: 8 }}
+                onClick={() => saveSetting('rescreen_reminder_last_sent', '')}
+              >
+                Send again at the next hourly check
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </DashboardLayout>

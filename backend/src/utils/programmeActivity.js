@@ -186,4 +186,7 @@ async function programmeActivityData(query = {}) {
   };
 }
 
-module.exports = { programmeActivityData, scopeLabel };
+// rescreenRecall is exported so the scheduled reminder reports against the SAME
+// computation the dashboard and the PDF do. An email that disagreed with the
+// screen about who is overdue would be worse than no email.
+module.exports = { programmeActivityData, scopeLabel, rescreenRecall };

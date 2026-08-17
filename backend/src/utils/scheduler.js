@@ -28,6 +28,7 @@ const { screeningPeriods } = require('./screeningPeriods');
 const { effectiveBand } = require('./bands');
 const { renderHolisticPdf } = require('./holisticReport');
 const { recipientsFor } = require('./mailPrefs');
+const { rescreenRecall } = require('./programmeActivity');
 
 const HOUR = 60 * 60 * 1000;
 const SIGNOFF = '— AIRMS · Institut Sukan Negara';
@@ -176,6 +177,140 @@ async function runDigestOnce(now = new Date()) {
   };
 }
 
+
+// ── Rescreen reminder ───────────────────────────────────────────────────────
+// A screening programme runs on recall. Coverage answers "have we ever tested
+// this athlete"; nobody was answering "and is what we hold on them still
+// current". The Programme Activity page shows it, but a page only tells you
+// something when you happen to open it — which is the wrong shape for a fact
+// that decays quietly on its own.
+//
+// Reports against `rescreen_due_days` and NOTHING ELSE. It would have been easy
+// to give the reminder its own threshold, and that is exactly how an email comes
+// to say an athlete is overdue while the dashboard says they are current. One
+// number, one meaning, three surfaces.
+function isReminderDue(now, settings) {
+  if (!settings.rescreen_reminder_enabled) return false;
+  const day = Math.min(Math.max(Number(settings.rescreen_reminder_day) || 1, 1), 28);
+  const hour = Math.min(Math.max(Number(settings.rescreen_reminder_hour) || 8, 0), 23);
+  const due = new Date(now.getFullYear(), now.getMonth(), day, hour, 0, 0, 0);
+  if (now < due) return false;
+  return String(settings.rescreen_reminder_last_sent || '') !== monthKey(now);
+}
+
+// How many names to spell out before the email becomes a wall of text. The rest
+// are counted, because a truncated list that does not admit it is truncated
+// reads as "these are all of them".
+const REMINDER_LIST_CAP = 40;
+
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
+async function buildReminder(now) {
+  const roster = await Athlete.findAll({
+    where: { isActive: true },
+    attributes: ['athleteId', 'name', 'sport'],
+    raw: true,
+  });
+  const recall = await rescreenRecall(roster);
+  const byId = new Map(roster.map((a) => [a.athleteId, a]));
+
+  const overdue = recall.athletes.filter((a) => a.status === 'overdue');
+  const never = recall.athletes.filter((a) => a.status === 'never');
+  const dueSoon = recall.athletes.filter((a) => a.status === 'due-soon');
+  const needed = overdue.length + never.length;
+
+  // "about 1 months" reads as a bug to the person receiving it.
+  const m = recall.dueDays / 30;
+  const months = `${m.toFixed(recall.dueDays % 30 ? 1 : 0)} ${m === 1 ? 'month' : 'months'}`;
+  const L = [];
+  L.push(`Rescreen status for ${now.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}.`);
+  L.push('');
+  L.push(`A screening counts as current for ${plural(recall.dueDays, 'day', 'days')} (about ${months}), `
+    + 'which is an ISN setting rather than a clinical standard - an administrator can change it in Settings.');
+  L.push('');
+  L.push(`  Overdue a rescreen ....... ${overdue.length}`);
+  L.push(`  Never screened ........... ${never.length}`);
+  L.push(`  Due within the next 20% .. ${dueSoon.length}`);
+  L.push(`  Current .................. ${recall.current}`);
+  L.push(`  On the roster ............ ${roster.length}`);
+  if (recall.medianAgeDays !== null) {
+    L.push('');
+    L.push(`Median age of the latest screening on file: ${plural(recall.medianAgeDays, 'day', 'days')}.`);
+  }
+
+  // Grouped by sport, because a recall list is worked through by whoever runs
+  // that squad's schedule.
+  const section = (title, rows, showAge) => {
+    if (!rows.length) return;
+    L.push('');
+    L.push(`${title} (${rows.length})`);
+    const bySport = new Map();
+    for (const r of rows.slice(0, REMINDER_LIST_CAP)) {
+      const a = byId.get(r.athleteId) || {};
+      const key = a.sport || 'No sport recorded';
+      if (!bySport.has(key)) bySport.set(key, []);
+      bySport.get(key).push({ ...r, name: a.name || r.athleteId });
+    }
+    for (const [sport, list] of [...bySport.entries()].sort()) {
+      L.push(`  ${sport}`);
+      for (const r of list) {
+        L.push(`    - ${r.name} (${r.athleteId})`
+          + (showAge && r.ageDays !== null ? ` - last screened ${plural(r.ageDays, 'day', 'days')} ago` : ''));
+      }
+    }
+    if (rows.length > REMINDER_LIST_CAP) {
+      L.push(`  ... and ${rows.length - REMINDER_LIST_CAP} more not listed here.`);
+    }
+  };
+
+  section('OVERDUE - due a rescreen now', overdue, true);
+  // Kept apart from the overdue list on purpose: the action is a FIRST
+  // assessment, not a call-back, and these athletes have no baseline to compare
+  // anything against either.
+  section('NEVER SCREENED - need a first assessment', never, false);
+
+  if (!needed) {
+    L.push('');
+    L.push('Nothing needs a call-back this month - every athlete on the roster has a current screening.');
+  }
+  L.push('');
+  L.push('Full detail, filterable by squad: Admin > Programme Activity.');
+  L.push('');
+  L.push(SIGNOFF);
+
+  const subject = needed
+    ? `AIRMS rescreen reminder - ${plural(needed, 'athlete', 'athletes')} need attention`
+    : 'AIRMS rescreen reminder - roster fully current';
+  return { subject, text: L.join('\n'), needed, recall };
+}
+
+async function runReminderOnce(now = new Date()) {
+  const settings = await getSettings();
+  if (!isReminderDue(now, settings)) return { sent: false, reason: 'not due' };
+
+  const users = await User.findAll({
+    where: { role: { [Op.in]: ['admin', 'medical'] }, isActive: true },
+    attributes: ['email', 'notifyPrefs'],
+    raw: true,
+  });
+  const to = recipientsFor(users, 'rescreen_reminder').map((u) => u.email).filter(Boolean);
+  // Marked even with no recipients, so an all-opted-out institute is not retried
+  // every hour against a deliberate choice.
+  if (!to.length) {
+    await setSetting('rescreen_reminder_last_sent', monthKey(now));
+    return { sent: false, reason: 'no recipients' };
+  }
+
+  const { subject, text, needed } = await buildReminder(now);
+  await sendMail({ to: to.join(','), subject, text });
+  // Only after a successful send, so a mail failure retries next hour rather
+  // than losing the month.
+  await setSetting('rescreen_reminder_last_sent', monthKey(now));
+  return {
+    sent: true, recipients: to.length, month: monthKey(now), needed,
+  };
+}
+
 let timer = null;
 
 function startScheduler() {
@@ -191,6 +326,17 @@ function startScheduler() {
       // Never let the scheduler take the process down; it retries next hour.
       console.error('[scheduler] monthly digest failed:', e.message);
     }
+    // Separate try: a digest failure must not cost the reminder its month, and
+    // vice versa. They share a tick, not a fate.
+    try {
+      const r = await runReminderOnce();
+      if (r.sent) {
+        console.log(`[scheduler] rescreen reminder sent to ${r.recipients} recipient(s) for ${r.month}`
+          + ` (${r.needed} athlete(s) needing attention)`);
+      }
+    } catch (e) {
+      console.error('[scheduler] rescreen reminder failed:', e.message);
+    }
   };
   // One pass shortly after boot catches a month that came due while down.
   setTimeout(tick, 30 * 1000).unref();
@@ -204,5 +350,6 @@ function stopScheduler() {
 }
 
 module.exports = {
+  isReminderDue, buildReminder, runReminderOnce,
   startScheduler, stopScheduler, runDigestOnce, isDue, buildDigest, digestAttachment, monthKey,
 };
