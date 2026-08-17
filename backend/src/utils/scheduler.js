@@ -205,37 +205,55 @@ const REMINDER_LIST_CAP = 40;
 
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 
-async function buildReminder(now) {
-  const roster = await Athlete.findAll({
+// `sport` narrows the whole email to one squad, for a coach. The recall itself is
+// computed on the FULL roster by the caller and filtered here, so a coach's copy
+// and the institution's copy can never disagree about who is overdue — they are
+// literally the same rows, sliced.
+async function buildReminder(now, { sport = null, recall = null, roster = null } = {}) {
+  const fullRoster = roster || await Athlete.findAll({
     where: { isActive: true },
     attributes: ['athleteId', 'name', 'sport'],
     raw: true,
   });
-  const recall = await rescreenRecall(roster);
-  const byId = new Map(roster.map((a) => [a.athleteId, a]));
+  const fullRecall = recall || await rescreenRecall(fullRoster);
+  const byId = new Map(fullRoster.map((a) => [a.athleteId, a]));
 
-  const overdue = recall.athletes.filter((a) => a.status === 'overdue');
-  const never = recall.athletes.filter((a) => a.status === 'never');
-  const dueSoon = recall.athletes.filter((a) => a.status === 'due-soon');
+  const inScope = (a) => !sport || (byId.get(a.athleteId) || {}).sport === sport;
+  const scoped = fullRecall.athletes.filter(inScope);
+  const overdue = scoped.filter((a) => a.status === 'overdue');
+  const never = scoped.filter((a) => a.status === 'never');
+  const dueSoon = scoped.filter((a) => a.status === 'due-soon');
+  const current = scoped.filter((a) => a.status === 'current').length;
+  const rosterCount = sport ? fullRoster.filter((a) => a.sport === sport).length : fullRoster.length;
   const needed = overdue.length + never.length;
+  // Scoped median: a coach reading the institution's figure would be told
+  // something true about a population they cannot act on.
+  const ages = overdue.concat(scoped.filter((a) => a.status !== 'never'))
+    .map((a) => a.ageDays).filter((v) => v !== null && v !== undefined);
+  const medianAge = ages.length
+    ? [...new Set(ages)].length === 0 ? null
+      : (() => { const q = [...ages].sort((x, y) => x - y); const mid = Math.floor(q.length / 2);
+        return q.length % 2 ? q[mid] : Math.round((q[mid - 1] + q[mid]) / 2); })()
+    : null;
 
   // "about 1 months" reads as a bug to the person receiving it.
-  const m = recall.dueDays / 30;
-  const months = `${m.toFixed(recall.dueDays % 30 ? 1 : 0)} ${m === 1 ? 'month' : 'months'}`;
+  const m = fullRecall.dueDays / 30;
+  const months = `${m.toFixed(fullRecall.dueDays % 30 ? 1 : 0)} ${m === 1 ? 'month' : 'months'}`;
   const L = [];
-  L.push(`Rescreen status for ${now.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}.`);
+  L.push(`Rescreen status for ${sport ? `${sport} - ` : ''}`
+    + `${now.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}.`);
   L.push('');
-  L.push(`A screening counts as current for ${plural(recall.dueDays, 'day', 'days')} (about ${months}), `
+  L.push(`A screening counts as current for ${plural(fullRecall.dueDays, 'day', 'days')} (about ${months}), `
     + 'which is an ISN setting rather than a clinical standard - an administrator can change it in Settings.');
   L.push('');
   L.push(`  Overdue a rescreen ....... ${overdue.length}`);
   L.push(`  Never screened ........... ${never.length}`);
   L.push(`  Due within the next 20% .. ${dueSoon.length}`);
-  L.push(`  Current .................. ${recall.current}`);
-  L.push(`  On the roster ............ ${roster.length}`);
-  if (recall.medianAgeDays !== null) {
+  L.push(`  Current .................. ${current}`);
+  L.push(`  On the roster ............ ${rosterCount}`);
+  if (medianAge !== null) {
     L.push('');
-    L.push(`Median age of the latest screening on file: ${plural(recall.medianAgeDays, 'day', 'days')}.`);
+    L.push(`Median age of the latest screening on file: ${plural(medianAge, 'day', 'days')}.`);
   }
 
   // Grouped by sport, because a recall list is worked through by whoever runs
@@ -244,18 +262,24 @@ async function buildReminder(now) {
     if (!rows.length) return;
     L.push('');
     L.push(`${title} (${rows.length})`);
-    const bySport = new Map();
-    for (const r of rows.slice(0, REMINDER_LIST_CAP)) {
+    const named = rows.slice(0, REMINDER_LIST_CAP).map((r) => {
       const a = byId.get(r.athleteId) || {};
-      const key = a.sport || 'No sport recorded';
-      if (!bySport.has(key)) bySport.set(key, []);
-      bySport.get(key).push({ ...r, name: a.name || r.athleteId });
-    }
-    for (const [sport, list] of [...bySport.entries()].sort()) {
-      L.push(`  ${sport}`);
-      for (const r of list) {
-        L.push(`    - ${r.name} (${r.athleteId})`
-          + (showAge && r.ageDays !== null ? ` - last screened ${plural(r.ageDays, 'day', 'days')} ago` : ''));
+      return { ...r, name: a.name || r.athleteId, sport: a.sport || 'No sport recorded' };
+    });
+    const line = (r, indent) => L.push(`${indent}- ${r.name} (${r.athleteId})`
+      + (showAge && r.ageDays !== null ? ` - last screened ${plural(r.ageDays, 'day', 'days')} ago` : ''));
+    if (sport) {
+      // One squad: the sport heading would repeat on every line.
+      named.forEach((r) => line(r, '  '));
+    } else {
+      const bySport = new Map();
+      for (const r of named) {
+        if (!bySport.has(r.sport)) bySport.set(r.sport, []);
+        bySport.get(r.sport).push(r);
+      }
+      for (const [group, list] of [...bySport.entries()].sort()) {
+        L.push(`  ${group}`);
+        list.forEach((r) => line(r, '    '));
       }
     }
     if (rows.length > REMINDER_LIST_CAP) {
@@ -271,16 +295,21 @@ async function buildReminder(now) {
 
   if (!needed) {
     L.push('');
-    L.push('Nothing needs a call-back this month - every athlete on the roster has a current screening.');
+    L.push(sport
+      ? `Nothing needs a call-back this month - every ${sport} athlete has a current screening.`
+      : 'Nothing needs a call-back this month - every athlete on the roster has a current screening.');
   }
   L.push('');
-  L.push('Full detail, filterable by squad: Admin > Programme Activity.');
+  L.push(sport
+    ? 'Your squad\'s screening detail: Coach > Squad Readiness.'
+    : 'Full detail, filterable by squad: Admin > Programme Activity.');
   L.push('');
   L.push(SIGNOFF);
 
+  const who = sport ? `${sport} ` : '';
   const subject = needed
-    ? `AIRMS rescreen reminder - ${plural(needed, 'athlete', 'athletes')} need attention`
-    : 'AIRMS rescreen reminder - roster fully current';
+    ? `AIRMS rescreen reminder - ${plural(needed, who ? `${who}athlete` : 'athlete', who ? `${who}athletes` : 'athletes')} need attention`
+    : `AIRMS rescreen reminder - ${sport ? `${sport} squad` : 'roster'} fully current`;
   return { subject, text: L.join('\n'), needed, recall };
 }
 
@@ -289,25 +318,61 @@ async function runReminderOnce(now = new Date()) {
   if (!isReminderDue(now, settings)) return { sent: false, reason: 'not due' };
 
   const users = await User.findAll({
-    where: { role: { [Op.in]: ['admin', 'medical'] }, isActive: true },
-    attributes: ['email', 'notifyPrefs'],
+    where: { role: { [Op.in]: ['admin', 'medical', 'coach'] }, isActive: true },
+    attributes: ['email', 'role', 'coachSport', 'notifyPrefs'],
     raw: true,
   });
-  const to = recipientsFor(users, 'rescreen_reminder').map((u) => u.email).filter(Boolean);
+  const willing = recipientsFor(users, 'rescreen_reminder');
+  const wide = willing.filter((u) => u.role !== 'coach').map((u) => u.email).filter(Boolean);
+  const coaches = willing.filter((u) => u.role === 'coach' && u.coachSport && u.email);
+
   // Marked even with no recipients, so an all-opted-out institute is not retried
   // every hour against a deliberate choice.
-  if (!to.length) {
+  if (!wide.length && !coaches.length) {
     await setSetting('rescreen_reminder_last_sent', monthKey(now));
     return { sent: false, reason: 'no recipients' };
   }
 
-  const { subject, text, needed } = await buildReminder(now);
-  await sendMail({ to: to.join(','), subject, text });
-  // Only after a successful send, so a mail failure retries next hour rather
-  // than losing the month.
+  // Computed ONCE on the full roster; every email below is a slice of it, so a
+  // coach's copy cannot disagree with the institution's about who is overdue.
+  const roster = await Athlete.findAll({
+    where: { isActive: true },
+    attributes: ['athleteId', 'name', 'sport'],
+    raw: true,
+  });
+  const recall = await rescreenRecall(roster);
+  const opts = { recall, roster };
+
+  let sends = 0; let needed = 0;
+  if (wide.length) {
+    const m = await buildReminder(now, opts);
+    await sendMail({ to: wide.join(','), subject: m.subject, text: m.text });
+    sends += 1;
+    needed = m.needed;
+  }
+
+  // One email per sport, not per coach, so two coaches on the same squad get one
+  // message between them rather than two identical ones.
+  const bySport = new Map();
+  for (const c of coaches) {
+    if (!bySport.has(c.coachSport)) bySport.set(c.coachSport, []);
+    bySport.get(c.coachSport).push(c.email);
+  }
+  for (const [sport, emails] of bySport) {
+    const m = await buildReminder(now, { ...opts, sport });
+    // A coach with nothing to chase does not need a monthly "nothing to do".
+    // The institution-wide copy still sends when empty, because there "the
+    // roster is current" is itself the assurance an administrator wants.
+    if (!m.needed) continue;
+    await sendMail({ to: emails.join(','), subject: m.subject, text: m.text });
+    sends += 1;
+  }
+
+  // Only after the sends, so a mail failure retries next hour rather than
+  // losing the month.
   await setSetting('rescreen_reminder_last_sent', monthKey(now));
   return {
-    sent: true, recipients: to.length, month: monthKey(now), needed,
+    sent: sends > 0, emails: sends, recipients: wide.length + coaches.length, month: monthKey(now), needed,
   };
 }
 
@@ -331,8 +396,8 @@ function startScheduler() {
     try {
       const r = await runReminderOnce();
       if (r.sent) {
-        console.log(`[scheduler] rescreen reminder sent to ${r.recipients} recipient(s) for ${r.month}`
-          + ` (${r.needed} athlete(s) needing attention)`);
+        console.log(`[scheduler] rescreen reminder: ${r.emails} email(s) to ${r.recipients} recipient(s)`
+          + ` for ${r.month} (${r.needed} athlete(s) needing attention institution-wide)`);
       }
     } catch (e) {
       console.error('[scheduler] rescreen reminder failed:', e.message);

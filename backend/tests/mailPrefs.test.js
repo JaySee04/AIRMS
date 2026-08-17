@@ -66,7 +66,8 @@ describe('recipientsFor', () => {
 describe('keysForRole', () => {
   test('each role is offered only the mail it can receive', () => {
     expect(keysForRole('medical')).toEqual(['import_alerts', 'rescreen_reminder']);
-    expect(keysForRole('coach')).toEqual(['import_alerts', 'override', 'injury']);
+    // Coaches get the recall list too, scoped to their own sport.
+    expect(keysForRole('coach')).toEqual(['import_alerts', 'override', 'injury', 'rescreen_reminder']);
     expect(keysForRole('admin')).toEqual(['digest', 'rescreen_reminder']);
     // Executive is oversight, not operations: it gets the monthly summary but
     // not the recall list, which is a worklist for whoever books the sessions.
@@ -126,8 +127,9 @@ describe('sanitizePrefs', () => {
 describe('prefsForUser', () => {
   test('returns every toggle for the role with its resolved state', () => {
     const prefs = prefsForUser({ role: 'coach', notifyPrefs: { injury: false } });
-    expect(prefs.map((p) => p.key)).toEqual(['import_alerts', 'override', 'injury']);
-    expect(prefs.map((p) => p.enabled)).toEqual([true, true, false]);
+    expect(prefs.map((p) => p.key)).toEqual(['import_alerts', 'override', 'injury', 'rescreen_reminder']);
+    // Only `injury` was opted out; everything else defaults on.
+    expect(prefs.map((p) => p.enabled)).toEqual([true, true, false, true]);
     // The UI renders these directly, so both strings have to be present.
     for (const p of prefs) {
       expect(p.label).toBeTruthy();

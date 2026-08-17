@@ -126,6 +126,68 @@ describe('what the reminder says', () => {
     expect(text).not.toContain('1 months');
   });
 
+  // A coach's copy is a SLICE of the institution's, never a separate
+  // computation — otherwise the two could disagree about who is overdue.
+  describe('scoped to one squad, for a coach', () => {
+    const roster = [
+      { athleteId: 'h1', name: 'Hockey Hal', sport: 'Hockey' },
+      { athleteId: 'h2', name: 'Hockey Hana', sport: 'Hockey' },
+      { athleteId: 's1', name: 'Swim Sam', sport: 'Swimming' },
+    ];
+    const screenings = [
+      { athleteId: 'h1', assessedAt: daysAgo(400) },
+      { athleteId: 's1', assessedAt: daysAgo(500) },
+      // h2 has never been screened.
+    ];
+
+    beforeEach(() => {
+      Athlete.findAll.mockResolvedValue(roster);
+      Screening.findAll.mockResolvedValue(screenings);
+    });
+
+    it('counts and names only that sport', async () => {
+      const m = await buildReminder(at(2026, 8, 1, 8), { sport: 'Hockey' });
+      expect(m.needed).toBe(2);                       // one overdue, one never
+      expect(m.subject).toContain('Hockey');
+      expect(m.text).toContain('Rescreen status for Hockey');
+      expect(m.text).toMatch(/On the roster \.+ 2/);  // the squad, not the institute
+      expect(m.text).toContain('Hockey Hal');
+      expect(m.text).toContain('Hockey Hana');
+      // The other squad must not leak into a coach's email.
+      expect(m.text).not.toContain('Swim Sam');
+      expect(m.text).not.toContain('Swimming');
+    });
+
+    it('agrees with the institution-wide copy about the same athletes', async () => {
+      const wide = await buildReminder(at(2026, 8, 1, 8));
+      const hockey = await buildReminder(at(2026, 8, 1, 8), { sport: 'Hockey' });
+      const swim = await buildReminder(at(2026, 8, 1, 8), { sport: 'Swimming' });
+      // Every athlete needing attention appears in exactly one squad's copy, and
+      // the squads add up to the institution's total.
+      expect(hockey.needed + swim.needed).toBe(wide.needed);
+    });
+
+    it('drops the per-sport headings, which are noise for one squad', async () => {
+      const m = await buildReminder(at(2026, 8, 1, 8), { sport: 'Hockey' });
+      // Named at the top, not repeated as a group heading over every line.
+      expect(m.text.match(/Hockey/g).length).toBeLessThan(4);
+    });
+
+    it('points a coach at their own page, not the admin one', async () => {
+      const m = await buildReminder(at(2026, 8, 1, 8), { sport: 'Hockey' });
+      expect(m.text).toContain('Squad Readiness');
+      expect(m.text).not.toContain('Programme Activity');
+    });
+
+    it('says the squad is current when it is, even if the institute is not', async () => {
+      const m = await buildReminder(at(2026, 8, 1, 8), { sport: 'Swimming' });
+      expect(m.needed).toBe(1); // Swim Sam is overdue
+      const clean = await buildReminder(at(2026, 8, 1, 8), { sport: 'Athletics' });
+      expect(clean.needed).toBe(0);
+      expect(clean.subject).toContain('Athletics squad fully current');
+    });
+  });
+
   it('caps the listed names and admits it is truncated', async () => {
     const many = Array.from({ length: 50 }, (_, i) => ({
       athleteId: `x${i}`, name: `Athlete ${i}`, sport: 'Hockey',

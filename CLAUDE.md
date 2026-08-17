@@ -130,7 +130,14 @@ Three-tier monorepo orchestrated by `concurrently` from the root `package.json`.
   try-block on the shared tick so a digest failure cannot cost the reminder its
   month, and a per-user opt-out (`rescreen_reminder` in `NOTIFY_KEYS`). The admin
   Settings tile offers the interval as 2/3/4/6/9/12 months. `executive` is
-  deliberately NOT a recipient — oversight, not the worklist
+  deliberately NOT a recipient — oversight, not the worklist. **Coaches get
+  their own sport only** (2026-08-16): the recall is computed ONCE on the full
+  roster and each email is a *slice* of it, so a coach's copy cannot disagree
+  with the institution's about who is overdue; one email per SPORT rather than
+  per coach, so two coaches on one squad get one message; and a coach with
+  nothing to chase is skipped, while the institution-wide copy still sends when
+  empty because "the roster is current" is itself the assurance an administrator
+  wants
 - **Rescreen recall** (`rescreenRecall` in `utils/programmeActivity.js`,
   2026-08-12). Coverage says whether an athlete was ever tested; recall says
   whether what we hold on them is still current, which is the question a

@@ -49,8 +49,8 @@ const NOTIFY_KEYS = [
     key: 'rescreen_reminder',
     label: 'Rescreen reminders',
     detail: 'A monthly list of athletes whose last screening is older than the institute’s '
-      + 'rescreen interval, plus anyone never screened.',
-    roles: ['admin', 'medical'],
+      + 'rescreen interval, plus anyone never screened. Coaches receive their own sport only.',
+    roles: ['admin', 'medical', 'coach'],
   },
 ];
 
