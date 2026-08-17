@@ -26,7 +26,8 @@ const { holisticData, drawHolistic } = require('../utils/holisticReport');
 const { programmeActivityData } = require('../utils/programmeActivity');
 const {
   BAND, ELEVATED_THRESHOLD, GOLD, GRID, MUTED, NAVY, RISKS, SCORE_ROWS, TEXT, bandColor, bandLabel,
-  bandPill, bar, betweenTestsBlock, bullets, cover, ensure, fileSlug, finish, fmtDate, periodTable, seasonTable,
+  bandPill, bar, betweenTestsBlock, bullets, cover, ensure, fileSlug, finish, fmtDate, periodTable,
+  seasonTable, sparkline,
   auditTable, staffTable, interpret, keyFindings, keyFindingsBox, muscleFigure, num, radar,
   riskLegend, sectionTitle, squadMuscleHotspots, squadSubitemHeatmap, squadSymmetrySection, startDoc,
   subitemPriorities, subitemTable, symmetrySection, todayStamp, zoneGauge,
@@ -222,7 +223,33 @@ router.get('/individual/:id.pdf', auth, rbac('medical', 'admin', 'coach', 'execu
           .text(txt, cx(i), y, { width: 60, align: 'right', lineBreak: false });
       });
       doc.fillColor(TEXT).font('Helvetica');
-      doc.y = y + 18;
+      y += 20;
+
+      // The same trajectory as a SHAPE. The rows above give the numbers; a
+      // reader still cannot get "is this athlete drifting" out of a column of
+      // them, which is the question a screening programme exists to answer.
+      // Matches the sparkline strip on the dashboard's Screening History.
+      if (trendHistory.length >= 2) {
+        ensure(doc, 44);
+        if (doc.y > y) y = doc.y;
+        doc.fontSize(7.5).font('Helvetica-Bold').fillColor(MUTED)
+          .text('TREND', 50, y + 8, { lineBreak: false });
+        // Oldest to newest; trendHistory is newest-first.
+        const series = trendHistory.slice().reverse();
+        cols.forEach((c, i) => {
+          sparkline(doc, series.map((s) => num(s[c])), cx(i), y + 4, 56, 18, c !== 'exerciseRisks');
+        });
+        y += 30;
+        doc.fontSize(7).font('Helvetica').fillColor(MUTED).text(
+          `${series.length} screenings, oldest to newest. Each line is scaled to its own range, so heights `
+          + 'are not comparable between columns - read the shape. A line is green when the score moved the '
+          + 'good way for that measure, which for exercise risks is downward.',
+          50, y, { width: doc.page.width - 100 },
+        );
+        y = doc.y + 4;
+      }
+      doc.fillColor(TEXT);
+      doc.y = y;
     }
 
     if (latest.summaryText) {

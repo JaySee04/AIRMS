@@ -628,6 +628,167 @@ function subitemPriorities(doc, subitems, { count = 5 } = {}) {
 // that athlete's WEAKEST reading (min of ROM/Stability/Symmetry) in the region.
 // Replaces the repeated per-athlete disc grids — scan a column to spot a region
 // that's weak across the squad. The per-metric detail lives in individual reports.
+// ── Risk vs movement scatter ────────────────────────────────────────────────
+// The §25 finding the printed reports had no way to carry. Total Score and
+// Exercise Risks measure different halves of the HoloMotion report, so an
+// athlete can move well and still score risky — 13 of the seeded squad do, and
+// no averaged panel or ranked table surfaces them, because averaging is exactly
+// what hides a diagonal relationship.
+//
+// Quadrants split on the group's own MEDIANS rather than fixed cut-offs: the
+// question is "who is unusual for this squad", and a fixed line would put an
+// entire strong cohort in one box and say nothing.
+function riskMovementScatter(doc, points, opts = {}) {
+  const pts = (points || [])
+    .map((p) => ({ x: num(p.x), y: num(p.y), band: p.band, name: p.name }))
+    .filter((p) => p.x !== null && p.y !== null);
+  if (pts.length < 3) {
+    doc.fontSize(9).fillColor(MUTED).text('Not enough scored athletes to plot a distribution.', 50);
+    return;
+  }
+
+  const W = doc.page.width - 100;
+  const H = opts.height || 190;
+  const padL = 34; const padB = 24; const padT = 8; const padR = 8;
+  ensure(doc, H + 46);
+  const x0 = 50; const y0 = doc.y;
+  const plotW = W - padL - padR; const plotH = H - padT - padB;
+
+  const xs = pts.map((p) => p.x); const ys = pts.map((p) => p.y);
+  const pad = (lo, hi) => { const s = (hi - lo) || 1; return [lo - s * 0.08, hi + s * 0.08]; };
+  const [xMin, xMax] = pad(Math.min(...xs), Math.max(...xs));
+  const [yMin, yMax] = pad(Math.min(...ys), Math.max(...ys));
+  const med = (v) => { const s = [...v].sort((a, b) => a - b); const m = Math.floor(s.length / 2);
+    return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+  const xMed = med(xs); const yMed = med(ys);
+
+  const px = (v) => x0 + padL + ((v - xMin) / (xMax - xMin)) * plotW;
+  // y is inverted: higher exercise risk sits HIGHER on the page, so "bad" reads up.
+  const py = (v) => y0 + padT + (1 - (v - yMin) / (yMax - yMin)) * plotH;
+
+  doc.rect(x0 + padL, y0 + padT, plotW, plotH).fill('#fbfcfd');
+  // Median split.
+  doc.save().lineWidth(0.7).dash(3, { space: 2 }).strokeColor('#c3cbd4');
+  doc.moveTo(px(xMed), y0 + padT).lineTo(px(xMed), y0 + padT + plotH).stroke();
+  doc.moveTo(x0 + padL, py(yMed)).lineTo(x0 + padL + plotW, py(yMed)).stroke();
+  doc.undash().restore();
+
+  // Quadrant captions, seated in the corners they describe.
+  const labels = opts.quadrants || [];
+  if (labels.length === 4) {
+    doc.fontSize(6.5).font('Helvetica').fillColor('#9aa4b0');
+    doc.text(labels[0], x0 + padL + 4, y0 + padT + 3, { width: plotW / 2 - 8, lineBreak: false });
+    doc.text(labels[1], x0 + padL + plotW / 2 + 4, y0 + padT + 3, { width: plotW / 2 - 8, align: 'right', lineBreak: false });
+    doc.text(labels[3], x0 + padL + 4, y0 + padT + plotH - 10, { width: plotW / 2 - 8, lineBreak: false });
+    doc.text(labels[2], x0 + padL + plotW / 2 + 4, y0 + padT + plotH - 10, { width: plotW / 2 - 8, align: 'right', lineBreak: false });
+  }
+
+  for (const p of pts) {
+    doc.circle(px(p.x), py(p.y), 2.6).fillOpacity(0.8).fill(bandColor(p.band) || NAVY).fillOpacity(1);
+  }
+
+  doc.lineWidth(0.7).strokeColor(GRID);
+  doc.moveTo(x0 + padL, y0 + padT + plotH).lineTo(x0 + padL + plotW, y0 + padT + plotH).stroke();
+  doc.moveTo(x0 + padL, y0 + padT).lineTo(x0 + padL, y0 + padT + plotH).stroke();
+
+  doc.fontSize(7).fillColor(MUTED).font('Helvetica');
+  doc.text(String(Math.round(xMin)), x0 + padL, y0 + padT + plotH + 4, { lineBreak: false });
+  doc.text(String(Math.round(xMax)), x0 + padL + plotW - 20, y0 + padT + plotH + 4, { width: 20, align: 'right', lineBreak: false });
+  doc.text(opts.xLabel || 'Total Score', x0 + padL, y0 + padT + plotH + 13, { width: plotW, align: 'center', lineBreak: false });
+  doc.save().rotate(-90, { origin: [x0 + 10, y0 + padT + plotH / 2] })
+    .text(opts.yLabel || 'Exercise Risks', x0 + 10 - 40, y0 + padT + plotH / 2 - 4, { width: 80, align: 'center', lineBreak: false })
+    .restore();
+
+  doc.fillColor(TEXT);
+  doc.y = y0 + H + 6;
+  doc.fontSize(7.5).fillColor(MUTED).text(
+    `${pts.length} athletes. Dashed lines are this group's medians (Total ${Math.round(xMed)}, `
+    + `Risks ${Math.round(yMed)}), so the quadrants say who is unusual FOR THIS SQUAD rather than against a `
+    + 'fixed cut-off. Dot colour is the athlete\'s risk band.', 50, doc.y, { width: W });
+  doc.fillColor(TEXT);
+  doc.moveDown(0.4);
+}
+
+// ── Distribution histogram ──────────────────────────────────────────────────
+// A mean of 50 is produced equally by everyone sitting at 50 and by half the
+// squad at 30 with the other half at 70, and those are different institutions.
+// The population-average table above cannot tell them apart; this can.
+function distributionHistogram(doc, values, opts = {}) {
+  const vals = (values || []).map(num).filter((v) => v !== null);
+  if (vals.length < 3) {
+    doc.fontSize(9).fillColor(MUTED).text('Not enough scored athletes to plot a distribution.', 50);
+    return;
+  }
+  const lo = opts.min ?? 0; const hi = opts.max ?? 100; const binSize = opts.binSize || 5;
+  const nBins = Math.ceil((hi - lo) / binSize);
+  const bins = new Array(nBins).fill(0);
+  for (const v of vals) {
+    const i = Math.min(nBins - 1, Math.max(0, Math.floor((v - lo) / binSize)));
+    bins[i] += 1;
+  }
+  const peak = Math.max(...bins, 1);
+
+  const W = doc.page.width - 100;
+  const H = opts.height || 130;
+  const padB = 16; const padL = 20;
+  ensure(doc, H + 40);
+  const x0 = 50; const y0 = doc.y;
+  const plotW = W - padL; const plotH = H - padB;
+  const bw = plotW / nBins;
+
+  for (let i = 0; i < nBins; i += 1) {
+    if (!bins[i]) continue;
+    const h = (bins[i] / peak) * plotH;
+    doc.rect(x0 + padL + i * bw + 0.6, y0 + plotH - h, bw - 1.2, h).fill(NAVY);
+  }
+  doc.lineWidth(0.7).strokeColor(GRID)
+    .moveTo(x0 + padL, y0 + plotH).lineTo(x0 + padL + plotW, y0 + plotH).stroke();
+
+  for (const m of (opts.markers || [])) {
+    const mx = x0 + padL + ((m.at - lo) / (hi - lo)) * plotW;
+    doc.save().lineWidth(0.9).dash(3, { space: 2 }).strokeColor(GOLD)
+      .moveTo(mx, y0).lineTo(mx, y0 + plotH).stroke().undash().restore();
+    doc.fontSize(6.5).fillColor(GOLD).text(m.label, mx + 3, y0 + 1, { lineBreak: false });
+  }
+
+  doc.fontSize(7).fillColor(MUTED).font('Helvetica');
+  doc.text(String(lo), x0 + padL, y0 + plotH + 3, { lineBreak: false });
+  doc.text(String(hi), x0 + padL + plotW - 20, y0 + plotH + 3, { width: 20, align: 'right', lineBreak: false });
+  doc.text(String(peak), x0, y0 - 1, { width: padL - 3, align: 'right', lineBreak: false });
+  doc.text('0', x0, y0 + plotH - 7, { width: padL - 3, align: 'right', lineBreak: false });
+  doc.fillColor(TEXT);
+  doc.y = y0 + H + 2;
+}
+
+// ── Sparkline ───────────────────────────────────────────────────────────────
+// One score's trajectory, small enough to sit in a table row. The individual
+// report already prints the numbers; this is the shape they make, which is what
+// answers "is this athlete drifting" at a glance.
+function sparkline(doc, values, x, y, w, h, higherBetter = true) {
+  const vals = (values || []).map(num);
+  const real = vals.filter((v) => v !== null);
+  if (real.length < 2) return;
+  const lo = Math.min(...real); const hi = Math.max(...real);
+  const span = (hi - lo) || 1;
+  const stepX = w / (vals.length - 1);
+  const yOf = (v) => y + h - ((v - lo) / span) * h;
+
+  const gain = higherBetter ? real[real.length - 1] - real[0] : real[0] - real[real.length - 1];
+  const stroke = gain > 0 ? BAND.green : gain < 0 ? BAND.red : MUTED;
+
+  doc.save().lineWidth(1.1).strokeColor(stroke);
+  let started = false;
+  vals.forEach((v, i) => {
+    if (v === null) { started = false; return; }
+    const cx = x + i * stepX;
+    if (!started) { doc.moveTo(cx, yOf(v)); started = true; } else doc.lineTo(cx, yOf(v));
+  });
+  doc.stroke().restore();
+  const lastIdx = vals.length - 1 - [...vals].reverse().findIndex((v) => v !== null);
+  doc.circle(x + lastIdx * stepX, yOf(real[real.length - 1]), 1.7).fill(stroke);
+  doc.fillColor(TEXT);
+}
+
 function squadSubitemHeatmap(doc, members) {
   const rows = members.filter((m) => m.s.subitems && typeof m.s.subitems === 'object');
   if (!rows.length) { doc.fontSize(9).fillColor(MUTED).text('No subitem scores on record for this group.', 50); return; }
@@ -1147,7 +1308,8 @@ function staffTable(doc, staff, labels = {}, { comparable = true } = {}) {
 
 module.exports = {
   BAND, ELEVATED_THRESHOLD, GOLD, GRID, MUTED, NAVY, RISKS, SCORE_ROWS, TEXT, auditTable, staffTable, bandColor, bandLabel, bandOnLight,
-  bandPill, bandTable, bar, betweenTestsBlock, bufferDoc, bullets, cover, ensure, fileSlug, finish, fmtDate,
+  bandPill, bandTable, bar, betweenTestsBlock, bufferDoc, bullets, cover, distributionHistogram, ensure,
+  fileSlug, finish, fmtDate, riskMovementScatter, sparkline,
   focusTable, hotspotBar, interpret, keyFindings, keyFindingsBox, muscleFigure, num, periodTable, radar,
   riskLegend, seasonTable, sectionTitle, squadMuscleHotspots, squadSubitemHeatmap, squadSymmetrySection, startDoc,
   subitemPriorities, subitemTable, symmetrySection, todayStamp, zoneGauge,

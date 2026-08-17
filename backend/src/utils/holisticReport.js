@@ -20,8 +20,9 @@ const {
 } = require('./cohortFocus');
 const {
   BAND, MUTED, NAVY, RISKS, SCORE_ROWS, TEXT, bandColor, bandLabel, bandOnLight, bandTable, bar,
-  betweenTestsBlock, bufferDoc, cover, ensure, fileSlug, finish, focusTable, hotspotBar, num,
-  periodTable, riskLegend, seasonTable, sectionTitle, todayStamp, zoneGauge,
+  betweenTestsBlock, bufferDoc, cover, distributionHistogram, ensure, fileSlug, finish, focusTable,
+  hotspotBar, num, periodTable, riskLegend, riskMovementScatter, seasonTable, sectionTitle, todayStamp,
+  zoneGauge,
 } = require('./pdfDraw');
 
 const KIND = 'Holistic Screening Report';
@@ -154,6 +155,47 @@ function drawHolistic(doc, data, stamp = todayStamp()) {
   bar(doc, 'Needs attention', bands.amber, total, BAND.amber, { valueText: `${bands.amber}` });
   bar(doc, 'Immediate assessment', bands.red, total, BAND.red, { valueText: `${bands.red}` });
   if (bands.none) bar(doc, 'Unscored (small cohort)', bands.none, total, MUTED, { valueText: `${bands.none}` });
+
+  // The two readings an average cannot give you (DESIGN_DECISIONS 25). Both
+  // exist on the Screening Analytics page and neither reached print, so the
+  // document a clinician actually files was the weaker of the two artefacts.
+  sectionTitle(doc, 'Indicator Distribution', 150);
+  distributionHistogram(
+    doc,
+    kept.map(({ screening }) => num(screening.overallIndicator)),
+    { min: 0, max: 100, binSize: 5, markers: [{ at: 50, label: 'cohort average' }] },
+  );
+  doc.fontSize(7.5).fillColor(MUTED).text(
+    'Shape, not just the mean. A population average of 50 is produced equally by everyone sitting at 50 '
+    + 'and by half the squad at 30 with the other half at 70 — the table below cannot tell those apart.',
+    50, doc.y + 2, { width: doc.page.width - 100 },
+  );
+  doc.fillColor(TEXT);
+  doc.moveDown(0.5);
+
+  sectionTitle(doc, 'Movement Quality vs Injury Risk', 230);
+  riskMovementScatter(
+    doc,
+    kept.map(({ athlete, screening }) => ({
+      x: num(screening.totalScore),
+      y: num(screening.exerciseRisks),
+      band: effectiveBand(screening),
+      name: athlete && athlete.name,
+    })),
+    {
+      xLabel: 'Total Score (movement quality)',
+      yLabel: 'Exercise Risks',
+      quadrants: ['High risk - poor mover', 'High risk - GOOD mover', 'Low risk - good mover', 'Low risk - poor mover'],
+    },
+  );
+  doc.fontSize(7.5).fillColor(MUTED).text(
+    'Top-right is the reading to look for: movement quality above the group median AND injury risk above '
+    + 'it too. The HoloMotion Total Score excludes injury risk entirely, so those two facts are '
+    + 'independent and an athlete can be both — which no ranked table or averaged panel here would surface.',
+    50, doc.y + 2, { width: doc.page.width - 100 },
+  );
+  doc.fillColor(TEXT);
+  doc.moveDown(0.5);
 
   sectionTitle(doc, 'Population Average Scores');
   const avg = (key) => {
