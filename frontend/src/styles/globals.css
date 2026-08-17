@@ -1456,6 +1456,74 @@ input[type='radio'] {
 .audit-chip:hover { background: var(--bg); border-color: var(--risk-high); }
 [data-theme='dark'] .audit-chip { border-color: var(--brand-gold, #d8b45a); }
 
+/* A focus is not a population filter — it changes which measure the panels read
+   rather than who is in them — so its chip is visually distinct from the ones
+   that remove athletes. Dashed, because it narrows nothing. */
+.audit-chip--focus {
+  border-style: dashed;
+  border-color: var(--risk-undertrained);
+  color: var(--text-muted);
+}
+.audit-chip--focus strong { color: var(--text); }
+.audit-chip--focus:hover { border-color: var(--risk-undertrained); background: var(--bg); }
+
+/* ── Cohort filters: collapsed by default, state always visible ─────────────
+   The controls were a permanent card above every chart on three pages, and the
+   common view is the whole institute. They collapse now — but the ACTIVE state
+   never does, because every number on these pages is cohort-relative and a
+   forgotten filter would silently rescope the lot. */
+.cohort-filters { padding: 12px 16px; }
+.cohort-filters.is-open { padding: 16px; }
+.cohort-filters-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px 12px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.cohort-filters-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+}
+.cohort-filters-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--brand-navy);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+[data-theme='dark'] .cohort-filters-count { background: var(--brand-gold); color: var(--brand-navy); }
+.cohort-filters-chips {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.cohort-filters-chips .audit-chip { padding: 3px 9px; font-size: 0.75rem; }
+.cohort-filters-clear {
+  border: none;
+  background: none;
+  padding: 2px 4px;
+  font: inherit;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.cohort-filters-clear:hover { color: var(--risk-high); }
+/* Says what the unfiltered state MEANS, so an empty chip row is not ambiguous
+   between "no filters" and "filters I cannot see". */
+.cohort-filters-hint { font-size: 0.75rem; color: var(--text-muted); }
+
 /* Account names in Staff activity, when the page can filter by them. */
 .staff-actor-link {
   border: none;
