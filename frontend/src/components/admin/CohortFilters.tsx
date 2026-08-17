@@ -226,7 +226,7 @@ export default function CohortFilters({ f, sports, disciplines = [], showFocus =
               {FOCUS_REGIONS.map((r) => (<option key={r.key} value={r.key}>{r.label}</option>))}
             </select>
           </div>
-          <div className="text-muted" style={{ fontSize: '0.78rem', paddingBottom: 8, flex: '1 1 320px' }}>
+          <div className="text-muted" style={{ fontSize: 'var(--fs-sm)', paddingBottom: 8, flex: '1 1 320px' }}>
             {f.region
               ? 'Focused: every panel below re-reads this cohort through one indicator, split by sport, gender, age and programme. No athlete is removed — that is what makes the comparison meaningful.'
               : 'Optional. Picking a region answers "which group carries this problem?" — for example, focus Knee and compare across gender.'}
@@ -234,7 +234,7 @@ export default function CohortFilters({ f, sports, disciplines = [], showFocus =
         </div>
       )}
 
-      {note && <div className="text-muted" style={{ fontSize: '0.78rem', marginTop: 10 }}>{note}</div>}
+      {note && <div className="text-muted" style={{ fontSize: 'var(--fs-sm)', marginTop: 10 }}>{note}</div>}
       </div>
     </div>
   );

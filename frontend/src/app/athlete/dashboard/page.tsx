@@ -161,12 +161,12 @@ export default function AthleteDashboard() {
             <RiskRadar labels={RADAR_LABELS} values={riskValues} thresholds={riskThresholds} />
           </div>
           <div style={{ flex: '1 1 260px', minWidth: 240 }}>
-            <p style={{ margin: '0 0 10px', fontSize: '0.9rem', lineHeight: 1.5 }}>
+            <p style={{ margin: '0 0 10px', fontSize: 'var(--fs-md)', lineHeight: 1.5 }}>
               Each spoke is one exercise-risk indicator from your latest HoloMotion
               screening, on a 0–30 scale. <strong>Closer to the centre is better</strong> —
               a small, even shape means low risk across the board.
             </p>
-            <p className="text-muted" style={{ margin: 0, fontSize: '0.82rem', lineHeight: 1.5 }}>
+            <p className="text-muted" style={{ margin: 0, fontSize: 'var(--fs-sm)', lineHeight: 1.5 }}>
               The dashed red line is your Elevated threshold for each region —
               tightened for regions critical to your sport. A spoke crossing
               outside it flags that region. The exact values and what to do

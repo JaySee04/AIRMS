@@ -168,12 +168,12 @@ export default function AdminSettingsPage() {
             <div><label><input type="checkbox" checked={Boolean(set.digest_enabled)}
               onChange={(e) => saveSetting('digest_enabled', e.target.checked)} /> enabled</label></div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6 }}>
-              <label style={{ fontSize: '0.78rem' }}>day
+              <label style={{ fontSize: 'var(--fs-sm)' }}>day
                 <input type="number" min={1} max={28} value={Number(set.digest_day ?? 1)}
                   onChange={(e) => saveSetting('digest_day', Number(e.target.value))}
                   style={{ width: 56, marginLeft: 4 }} />
               </label>
-              <label style={{ fontSize: '0.78rem' }}>hour
+              <label style={{ fontSize: 'var(--fs-sm)' }}>hour
                 <input type="number" min={0} max={23} value={Number(set.digest_hour ?? 7)}
                   onChange={(e) => saveSetting('digest_hour', Number(e.target.value))}
                   style={{ width: 56, marginLeft: 4 }} />

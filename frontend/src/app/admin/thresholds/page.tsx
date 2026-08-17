@@ -92,7 +92,7 @@ function ScoreRing({ v, label }: { v: number | null; label: string }) {
           {has ? v : '–'}
         </text>
       </svg>
-      <span className="text-muted" style={{ fontSize: '0.62rem', textTransform: 'uppercase', letterSpacing: '0.03em' }}>{label}</span>
+      <span className="text-muted" style={{ fontSize: 'var(--fs-2xs)', textTransform: 'uppercase', letterSpacing: '0.03em' }}>{label}</span>
     </div>
   );
 }
@@ -342,7 +342,7 @@ export default function CohortThresholdsPage() {
               <div style={{ fontWeight: 700, marginBottom: 4 }}>
                 📌 Norms are pinned to “{pin.label}”
               </div>
-              <div className="text-muted" style={{ fontSize: '0.85rem', lineHeight: 1.5 }}>
+              <div className="text-muted" style={{ fontSize: 'var(--fs-md)', lineHeight: 1.5 }}>
                 Every athlete is scored against this saved set, and <strong>imports will not change it</strong>.
                 AIRMS keeps computing what the current data would produce and shows the difference per cohort
                 below, so you can see how far the held norm has drifted before releasing it.
@@ -423,12 +423,12 @@ export default function CohortThresholdsPage() {
                         <strong>{cohortLabel(c)}</strong>
                       </div>
                     </td>
-                    <td className="text-muted" style={{ fontSize: '0.8rem' }}>{TIER_LABEL[c.tier]}</td>
+                    <td className="text-muted" style={{ fontSize: 'var(--fs-sm)' }}>{TIER_LABEL[c.tier]}</td>
                     <td style={{ textAlign: 'center', color: c.n >= Number(set.min_cohort_n ?? 5) ? 'inherit' : 'var(--risk-high)' }}>{c.n}</td>
                     <td>
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
                         {c.n < Number(set.min_cohort_n ?? 5)
-                          ? <span className="text-muted" style={{ fontSize: '0.8rem' }}>insufficient data</span>
+                          ? <span className="text-muted" style={{ fontSize: 'var(--fs-sm)' }}>insufficient data</span>
                           : <span className={live ? 'badge-low' : 'badge-moderate'}>{live ? 'Live' : 'Held'}</span>}
                         {edited && <span className="badge-moderate" title="A human has edited this norm">edited</span>}
                         {needsReview && <span className="badge-high" title="New data has drifted from the edited norm">review · new data</span>}
@@ -450,7 +450,7 @@ export default function CohortThresholdsPage() {
                           </span>
                         )}
                         {typeof c.drift?.nDelta === 'number' && c.drift.nDelta !== 0 && (
-                          <span className="text-muted" style={{ fontSize: '0.76rem' }}
+                          <span className="text-muted" style={{ fontSize: 'var(--fs-xs)' }}
                             title={`Pinned when this cohort had ${c.n} athletes; it now has ${c.freshN}`}>
                             n {c.n} → {c.freshN}
                           </span>
@@ -473,7 +473,7 @@ export default function CohortThresholdsPage() {
                           {needsReview && (
                             <div className="alert alert-info" style={{ marginBottom: 10 }}>
                               <strong>New data has moved this cohort.</strong> Your edited norm is still live. Review the drift, then keep your edit or reset to the computed norm:
-                              <ul style={{ margin: '6px 0 0', paddingLeft: 18, fontSize: '0.82rem' }}>
+                              <ul style={{ margin: '6px 0 0', paddingLeft: 18, fontSize: 'var(--fs-sm)' }}>
                                 {c.review!.items.map((it) => {
                                   const label = COMPONENTS.find(([k]) => k === it.component)?.[1] ?? it.component;
                                   return (
@@ -497,11 +497,11 @@ export default function CohortThresholdsPage() {
                               const isEdited = Boolean(c.overrides?.[key]);
                               return (
                                 <div key={key} style={{ minWidth: 130 }}>
-                                  <label style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>{label} (μ)</label>
+                                  <label style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-muted)' }}>{label} (μ)</label>
                                   <input type="number" step="0.1"
                                     value={editKey in edits ? edits[editKey] : String(base.mean)}
                                     onChange={(e) => setEdits((p) => ({ ...p, [editKey]: e.target.value }))} />
-                                  <div className="text-muted" style={{ fontSize: '0.72rem' }}>
+                                  <div className="text-muted" style={{ fontSize: 'var(--fs-xs)' }}>
                                     σ {base.sd}{isEdited && computed ? ` · computed μ ${computed.mean}` : ''}
                                   </div>
                                 </div>
@@ -520,7 +520,7 @@ export default function CohortThresholdsPage() {
                     <tr>
                       <td colSpan={5} style={{ background: 'var(--bg)' }}>
                         <div style={{ padding: '8px 4px' }}>
-                          <div className="text-muted" style={{ fontSize: '0.8rem', marginBottom: 8 }}>
+                          <div className="text-muted" style={{ fontSize: 'var(--fs-sm)', marginBottom: 8 }}>
                             Athletes in this cohort. Untick to keep one out of the norm, or mark them injured — either excludes them from the calculation (they&apos;re still scored against it). <strong>The norm rebuilds immediately.</strong>
                           </div>
                           {membersBusy ? (
@@ -547,18 +547,18 @@ export default function CohortThresholdsPage() {
                                       </td>
                                       <td>
                                         <strong>{m.name}</strong>{' '}
-                                        <span className="text-muted" style={{ fontSize: '0.76rem' }}>{m.program ?? ''}{m.gender ? ` · ${m.gender}` : ''}</span>
+                                        <span className="text-muted" style={{ fontSize: 'var(--fs-xs)' }}>{m.program ?? ''}{m.gender ? ` · ${m.gender}` : ''}</span>
                                         {/* Whose judgement took this athlete out of the
                                             norm, and who put their reading in. */}
                                         {m.isInjured && m.injuryBy && (
-                                          <div className="text-muted" style={{ fontSize: '0.7rem' }}>
+                                          <div className="text-muted" style={{ fontSize: 'var(--fs-xs)' }}>
                                             injured by {m.injuryBy}
                                             {m.injuryAt ? ` · ${new Date(m.injuryAt).toLocaleDateString()}` : ''}
                                             {m.injuryNote ? ` · ${m.injuryNote}` : ''}
                                           </div>
                                         )}
                                         {m.importedBy && (
-                                          <div className="text-muted" style={{ fontSize: '0.7rem' }}>
+                                          <div className="text-muted" style={{ fontSize: 'var(--fs-xs)' }}>
                                             screened by {m.importedBy}
                                           </div>
                                         )}
@@ -566,7 +566,7 @@ export default function CohortThresholdsPage() {
                                       <td style={{ textAlign: 'center' }}><ScoreRing v={m.totalScore} label="Total" /></td>
                                       <td style={{ textAlign: 'center' }}><ScoreRing v={m.rom} label="ROM" /></td>
                                       <td style={{ textAlign: 'center' }}><ScoreRing v={m.stability} label="Stab" /></td>
-                                      <td style={{ textAlign: 'center', fontSize: '0.8rem' }}>{m.symmetry ?? '—'}</td>
+                                      <td style={{ textAlign: 'center', fontSize: 'var(--fs-sm)' }}>{m.symmetry ?? '—'}</td>
                                       <td style={{ textAlign: 'center' }}>
                                         <span title={m.overallBand ?? 'unscored'} style={{ display: 'inline-block', width: 12, height: 12, borderRadius: '50%', background: m.overallBand ? BAND_DOT[m.overallBand] : 'var(--border)' }} />
                                       </td>
@@ -615,13 +615,13 @@ export default function CohortThresholdsPage() {
               <tbody>
                 {versions.map((v) => (
                   <tr key={v.id}>
-                    <td><strong>{v.label}</strong>{v.note && <div className="text-muted" style={{ fontSize: '0.78rem' }}>{v.note}</div>}</td>
-                    <td className="text-muted" style={{ fontSize: '0.8rem' }}>{new Date(v.createdAt).toLocaleDateString()}{v.createdBy ? ` · ${v.createdBy}` : ''}</td>
+                    <td><strong>{v.label}</strong>{v.note && <div className="text-muted" style={{ fontSize: 'var(--fs-sm)' }}>{v.note}</div>}</td>
+                    <td className="text-muted" style={{ fontSize: 'var(--fs-sm)' }}>{new Date(v.createdAt).toLocaleDateString()}{v.createdBy ? ` · ${v.createdBy}` : ''}</td>
                     <td style={{ textAlign: 'center' }}>{v.cohorts}</td>
                     <td style={{ textAlign: 'center' }}>
                       {v.pinned
                         ? <span className="badge-low" title="These norms are in force; imports will not change them">📌 Pinned</span>
-                        : <span className="text-muted" style={{ fontSize: '0.8rem' }}>—</span>}
+                        : <span className="text-muted" style={{ fontSize: 'var(--fs-sm)' }}>—</span>}
                     </td>
                     <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                       <button type="button" className="btn btn-outline btn-sm" onClick={() => renameVersion(v)} disabled={busy}>Rename</button>{' '}

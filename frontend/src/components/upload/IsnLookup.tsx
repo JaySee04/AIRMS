@@ -32,7 +32,7 @@ export default function IsnLookup({ onPick }: { onPick: (r: IsnRecord) => void }
 
   return (
     <div style={{ background: 'var(--bg)', padding: 12, borderRadius: 8, marginBottom: 10 }}>
-      <div className="text-muted" style={{ fontSize: '0.78rem', marginBottom: 6 }}>
+      <div className="text-muted" style={{ fontSize: 'var(--fs-sm)', marginBottom: 6 }}>
         Not on the roster? Look the athlete up in the <strong>ISN directory</strong> to import their details.
       </div>
       <div style={{ display: 'flex', gap: 8 }}>
@@ -47,15 +47,15 @@ export default function IsnLookup({ onPick }: { onPick: (r: IsnRecord) => void }
       </div>
       {err && <div className="alert alert-error" style={{ marginTop: 8 }}>{err}</div>}
       {searched && !busy && results.length === 0 && !err && (
-        <div className="text-muted" style={{ fontSize: '0.78rem', marginTop: 8 }}>No ISN athlete matches “{q.trim()}”.</div>
+        <div className="text-muted" style={{ fontSize: 'var(--fs-sm)', marginTop: 8 }}>No ISN athlete matches “{q.trim()}”.</div>
       )}
       {results.length > 0 && (
         <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
           {results.map((r) => (
             <div key={r.icNumber} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 6 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <strong style={{ fontSize: '0.85rem' }}>{r.name}</strong>{' '}
-                <span className="text-muted" style={{ fontSize: '0.75rem' }}>
+                <strong style={{ fontSize: 'var(--fs-md)' }}>{r.name}</strong>{' '}
+                <span className="text-muted" style={{ fontSize: 'var(--fs-xs)' }}>
                   IC {r.icNumber} · {r.sport} · {r.programme} · {r.gender}{r.age != null ? ` · ${r.age}y` : ''}
                 </span>
               </div>

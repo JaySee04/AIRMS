@@ -100,7 +100,7 @@ export default function TagCombobox({ values, suggestions, onChange, placeholder
             >
               {row.type === 'add'
                 ? <span>Add &ldquo;{row.value}&rdquo;</span>
-                : <><span>{row.value}</span><span className="text-muted" style={{ fontSize: '0.72rem' }}>existing</span></>}
+                : <><span>{row.value}</span><span className="text-muted" style={{ fontSize: 'var(--fs-xs)' }}>existing</span></>}
             </div>
           ))}
         </div>

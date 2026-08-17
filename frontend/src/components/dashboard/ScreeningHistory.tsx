@@ -204,12 +204,12 @@ export default function ScreeningHistory({ athleteId, headerAction, canReinstate
                         typed on this row, just never shown — so "who screened
                         this athlete?" had no answer on screen. */}
                     {r.importedBy && (
-                      <div className="text-muted" style={{ fontSize: '0.7rem' }}>
+                      <div className="text-muted" style={{ fontSize: 'var(--fs-xs)' }}>
                         by {r.importedBy}
                       </div>
                     )}
                     {r.overrideBand && r.overrideBy && (
-                      <div className="text-muted" style={{ fontSize: '0.7rem' }}>
+                      <div className="text-muted" style={{ fontSize: 'var(--fs-xs)' }}>
                         band set by {r.overrideBy}
                       </div>
                     )}
@@ -223,7 +223,7 @@ export default function ScreeningHistory({ athleteId, headerAction, canReinstate
                         {BAND_LABEL[band]}{r.overrideBand ? ' *' : ''}
                       </span>
                     ) : (
-                      <span className="text-muted" style={{ fontSize: '0.78rem' }}>—</span>
+                      <span className="text-muted" style={{ fontSize: 'var(--fs-sm)' }}>—</span>
                     )}
                   </td>
                   <td style={{ textAlign: 'right' }}>{num(r.overallIndicator) ?? '—'}</td>
@@ -270,7 +270,7 @@ export default function ScreeningHistory({ athleteId, headerAction, canReinstate
         </table>
       </div>
       {note && <div className="alert" style={{ marginTop: 12 }}>{note}</div>}
-      <p className="text-muted" style={{ fontSize: '0.78rem', marginTop: 12, marginBottom: 0 }}>
+      <p className="text-muted" style={{ fontSize: 'var(--fs-sm)', marginTop: 12, marginBottom: 0 }}>
         {rows.length < 2
           ? 'Only one screening on record — progress deltas appear once a newer report is imported.'
           : '* = clinician override. Higher is better except Ex. Risks (lower is better).'}

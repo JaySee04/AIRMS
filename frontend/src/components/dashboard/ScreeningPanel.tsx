@@ -112,8 +112,8 @@ function ScoreGauge({ value, max, label, band, ticks }: {
         </text>
         <text x="46" y="60" textAnchor="middle" fontSize="9" fill="var(--text-muted, #6b7280)">/ {max}</text>
       </svg>
-      <div style={{ fontSize: '0.82rem', fontWeight: 600, textAlign: 'center' }}>{label}</div>
-      <div style={{ fontSize: '0.72rem', color: has ? band.color : 'var(--text-muted)', fontWeight: 600 }}>
+      <div style={{ fontSize: 'var(--fs-sm)', fontWeight: 600, textAlign: 'center' }}>{label}</div>
+      <div style={{ fontSize: 'var(--fs-xs)', color: has ? band.color : 'var(--text-muted)', fontWeight: 600 }}>
         {has ? band.label : 'No data'}
       </div>
     </div>
@@ -303,7 +303,7 @@ function TrainingFocus({ athlete, historical = false }: { athlete: ScreeningData
               </div>
             ))}
           </div>
-          <p className="text-muted" style={{ fontSize: '0.76rem', marginTop: 12, marginBottom: 0 }}>
+          <p className="text-muted" style={{ fontSize: 'var(--fs-xs)', marginTop: 12, marginBottom: 0 }}>
             Derived from the flagged screening indicators using the HoloMotion prescription exercise vocabulary.
             {historical
               ? ' This reflects the screening selected above, not current guidance — work from the latest screening before changing anything.'

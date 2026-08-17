@@ -49,9 +49,9 @@ export default function InjuryStatusControl({ athleteId, isInjured, injuryNote, 
       {err && <div className="alert alert-error" style={{ marginBottom: 10 }}>{err}</div>}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <span className={isInjured ? 'badge-high' : 'badge-low'}>{isInjured ? 'Injured' : 'Not injured'}</span>
-        {isInjured && injuryNote && <span style={{ fontSize: '0.85rem' }}>{injuryNote}</span>}
+        {isInjured && injuryNote && <span style={{ fontSize: 'var(--fs-md)' }}>{injuryNote}</span>}
         {isInjured && injuryBy && (
-          <span className="text-muted" style={{ fontSize: '0.78rem' }}>· {injuryBy}{injuryAt ? ` · ${new Date(injuryAt).toLocaleDateString()}` : ''}</span>
+          <span className="text-muted" style={{ fontSize: 'var(--fs-sm)' }}>· {injuryBy}{injuryAt ? ` · ${new Date(injuryAt).toLocaleDateString()}` : ''}</span>
         )}
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {isInjured ? (

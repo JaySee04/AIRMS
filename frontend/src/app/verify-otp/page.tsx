@@ -102,7 +102,7 @@ function VerifyOtpContent() {
                   pattern="\d{6}"
                   required
                   autoFocus
-                  style={{ fontSize: '1.25rem', letterSpacing: '0.35em', textAlign: 'center' }}
+                  style={{ fontSize: 'var(--fs-xl)', letterSpacing: '0.35em', textAlign: 'center' }}
                 />
               </div>
               <button type="submit" className="btn btn-primary btn-full" disabled={loading || code.length !== 6}>
@@ -110,7 +110,7 @@ function VerifyOtpContent() {
               </button>
             </form>
 
-            <div style={{ marginTop: 12, fontSize: '0.82rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+            <div style={{ marginTop: 12, fontSize: 'var(--fs-sm)', textAlign: 'center', color: 'var(--text-muted)' }}>
               Didn&apos;t receive the code?{' '}
               <button
                 type="button"

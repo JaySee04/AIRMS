@@ -158,7 +158,7 @@ export default function OverallRiskBadge({
 
   // No score yet (no screening, or cohort too small to score against).
   if (!screening || !screening.effectiveBand) {
-    if (compact) return <span className="text-muted" style={{ fontSize: '0.8rem' }}>No cohort score</span>;
+    if (compact) return <span className="text-muted" style={{ fontSize: 'var(--fs-sm)' }}>No cohort score</span>;
     return (
       <div className="risk-hero">
         <div style={{ flex: 1 }}>
@@ -193,11 +193,11 @@ export default function OverallRiskBadge({
         title={overridden
           ? `Clinician override → ${meta.label}${screening.overrideNote ? `: ${screening.overrideNote}` : ''}`
           : `${meta.label}${screening.factors?.length ? ` · ${screening.factors.join(' · ')}` : ''}`}
-        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: '0.78rem', color: meta.color }}
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: 'var(--fs-sm)', color: meta.color }}
       >
         <span style={{ width: 10, height: 10, borderRadius: '50%', background: meta.color }} />
         {screening.overallIndicator ?? '—'}
-        {overridden && <span style={{ fontSize: '0.66rem' }}>✎</span>}
+        {overridden && <span style={{ fontSize: 'var(--fs-2xs)' }}>✎</span>}
       </span>
     );
   }

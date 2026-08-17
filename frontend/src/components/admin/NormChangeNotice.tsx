@@ -55,20 +55,20 @@ export function useNormChangeNotice() {
         style={{ maxWidth: 500 }}
       >
         <div className="modal-header">
-          <h2 id="norm-change-title" style={{ margin: 0, fontSize: '1.05rem' }}>This changes the norm</h2>
+          <h2 id="norm-change-title" style={{ margin: 0, fontSize: 'var(--fs-lg)' }}>This changes the norm</h2>
           <button type="button" className="modal-close" onClick={close} aria-label="Cancel">×</button>
         </div>
         <div className="modal-body">
-          <p style={{ marginTop: 0, fontSize: '0.9rem' }}>
+          <p style={{ marginTop: 0, fontSize: 'var(--fs-md)' }}>
             Including or excluding an athlete — whether by the tick box or by declaring them
             injured — <strong>rebuilds the cohort norm immediately</strong>.
           </p>
-          <p style={{ fontSize: '0.9rem' }}>
+          <p style={{ fontSize: 'var(--fs-md)' }}>
             The norm is the baseline every athlete in that cohort is scored against, so their
             risk bands can move as a result. Excluded athletes are still scored; they just stop
             contributing to the average.
           </p>
-          <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: '0.85rem', marginTop: 14 }}>
+          <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 'var(--fs-md)', marginTop: 14 }}>
             <input
               type="checkbox"
               checked={dontShow}

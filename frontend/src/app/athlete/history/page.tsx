@@ -112,7 +112,7 @@ export default function AthleteHistoryPage() {
               ))}
             </select>
             {viewingPast && (
-              <p className="text-muted" style={{ fontSize: '0.8rem', margin: '6px 0 0' }}>
+              <p className="text-muted" style={{ fontSize: 'var(--fs-sm)', margin: '6px 0 0' }}>
                 Showing a past screening — everything below is as it stood on that date, not where
                 you are now. Choose the latest, or open My Dashboard, for that.
               </p>
@@ -140,7 +140,7 @@ export default function AthleteHistoryPage() {
                 <RiskRadar labels={RADAR_LABELS} values={riskValues} thresholds={riskThresholds} />
               </div>
               <div style={{ flex: '1 1 260px', minWidth: 240 }}>
-                <p style={{ margin: '0 0 10px', fontSize: '0.9rem', lineHeight: 1.5 }}>
+                <p style={{ margin: '0 0 10px', fontSize: 'var(--fs-md)', lineHeight: 1.5 }}>
                   Each spoke is one exercise-risk indicator from this screening, on a 0–30 scale. The dashed
                   red line is your Elevated threshold for each region — a spoke crossing it flags that region.
                 </p>

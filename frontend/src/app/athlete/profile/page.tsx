@@ -123,7 +123,7 @@ export default function AthleteProfilePage() {
                 <div><span>Stability</span><strong>{fmtScore(athlete?.stability)}</strong></div>
                 <div><span>Symmetry</span><strong>{fmtScore(athlete?.symmetry)}</strong></div>
               </div>
-              <p className="text-muted" style={{ fontSize: '0.8rem', marginTop: 14, marginBottom: 0 }}>
+              <p className="text-muted" style={{ fontSize: 'var(--fs-sm)', marginTop: 14, marginBottom: 0 }}>
                 Screenings are scheduled on-site at ISN. Speak to your physio to confirm your next session.
               </p>
             </div>

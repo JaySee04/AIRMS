@@ -147,7 +147,7 @@ export default function TrendStrip({ query }: { query: string }) {
 
       {error && <div className="alert alert-error">{error}</div>}
 
-      {!error && data === null && <p className="text-muted" style={{ fontSize: '0.85rem' }}>Loading…</p>}
+      {!error && data === null && <p className="text-muted" style={{ fontSize: 'var(--fs-md)' }}>Loading…</p>}
 
       {!error && data !== null && periods.length === 0 && (
         <div className="empty-state" style={{ padding: 18 }}>
@@ -200,7 +200,7 @@ export default function TrendStrip({ query }: { query: string }) {
           {/* Counts, not just colour: the stack shows proportion, these say how
               many — and they keep the panel readable without relying on hue. */}
           {latest && (
-            <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'baseline', fontSize: '0.78rem', marginTop: 10 }}>
+            <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'baseline', fontSize: 'var(--fs-sm)', marginTop: 10 }}>
               <span className="text-muted">{latest.label}:</span>
               {BAND_TOKENS.map((t) => (
                 <span key={t.key}>
@@ -217,7 +217,7 @@ export default function TrendStrip({ query }: { query: string }) {
             </div>
           )}
 
-          <div style={{ fontSize: '0.78rem', marginTop: 10 }}>
+          <div style={{ fontSize: 'var(--fs-sm)', marginTop: 10 }}>
             {delta !== null && prev ? (
               <>
                 Average Total Score{' '}

@@ -260,8 +260,8 @@ export default function AdminPersonnelPage() {
                   <tr key={c._id} style={{ opacity: c.isActive ? 1 : 0.55 }}>
                     <td>
                       <strong>{c.name}</strong>
-                      <div className="text-muted" style={{ fontSize: '0.8rem' }}>{c.email}</div>
-                      <div className="text-muted" style={{ fontSize: '0.72rem' }}>
+                      <div className="text-muted" style={{ fontSize: 'var(--fs-sm)' }}>{c.email}</div>
+                      <div className="text-muted" style={{ fontSize: 'var(--fs-xs)' }}>
                         {c.lastLoginAt ? `Last login ${new Date(c.lastLoginAt).toLocaleDateString()}` : 'Never signed in'}
                       </div>
                     </td>
@@ -313,7 +313,7 @@ export default function AdminPersonnelPage() {
                 <tr>
                   <th>Staff</th>
                   {meta?.keys.map((k) => (
-                    <th key={k} style={{ textAlign: 'center', fontSize: '0.78rem' }}>{meta.labels[k]}</th>
+                    <th key={k} style={{ textAlign: 'center', fontSize: 'var(--fs-sm)' }}>{meta.labels[k]}</th>
                   ))}
                   <th style={{ textAlign: 'center' }}>Account</th>
                 </tr>
@@ -323,8 +323,8 @@ export default function AdminPersonnelPage() {
                   <tr key={u._id} style={{ opacity: u.isActive ? 1 : 0.55 }}>
                     <td>
                       <strong>{u.name}</strong>
-                      <div className="text-muted" style={{ fontSize: '0.8rem' }}>{u.email}</div>
-                      <div className="text-muted" style={{ fontSize: '0.72rem' }}>
+                      <div className="text-muted" style={{ fontSize: 'var(--fs-sm)' }}>{u.email}</div>
+                      <div className="text-muted" style={{ fontSize: 'var(--fs-xs)' }}>
                         {u.lastLoginAt ? `Last login ${new Date(u.lastLoginAt).toLocaleDateString()}` : 'Never signed in'}
                       </div>
                     </td>

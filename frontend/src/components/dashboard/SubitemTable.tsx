@@ -26,7 +26,7 @@ const tier = tierMeta;
 
 export default function SubitemTable({ subitems }: { subitems: Subitems | null | undefined }) {
   if (!subitems || typeof subitems !== 'object') {
-    return <div className="text-muted" style={{ fontSize: '0.8rem' }}>No subitem scores were read from this report (older / compact layout).</div>;
+    return <div className="text-muted" style={{ fontSize: 'var(--fs-sm)' }}>No subitem scores were read from this report (older / compact layout).</div>;
   }
   return (
     <>
@@ -52,7 +52,7 @@ export default function SubitemTable({ subitems }: { subitems: Subitems | null |
                       <td key={ckey}>
                         <span style={{
                           display: 'inline-block', minWidth: 26, padding: '2px 6px', borderRadius: 6,
-                          fontSize: '0.74rem', fontWeight: 700, color: '#fff', background: t.color,
+                          fontSize: 'var(--fs-xs)', fontWeight: 700, color: '#fff', background: t.color,
                         }}>{v}</span>
                       </td>
                     );
@@ -65,7 +65,7 @@ export default function SubitemTable({ subitems }: { subitems: Subitems | null |
       </div>
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 8 }}>
         {TIER_ORDER.map((t) => (
-          <span key={t} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+          <span key={t} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 'var(--fs-xs)', color: 'var(--text-muted)' }}>
             <span style={{ width: 9, height: 9, borderRadius: 2, background: TIER_COLOR[t] }} />{TIER_LABEL[t]} {TIER_RANGE[t]}
           </span>
         ))}

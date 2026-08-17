@@ -19,7 +19,7 @@ export default function DistributionBar({ segments }: { segments: Seg[] }) {
       </div>
       <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', marginTop: 14 }}>
         {segments.map((s) => (
-          <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: '0.85rem' }}>
+          <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 'var(--fs-md)' }}>
             <span style={{ width: 12, height: 12, borderRadius: 3, background: s.color, flexShrink: 0 }} />
             <span>{s.label}</span><strong>{s.value}</strong>
             <span className="text-muted">({Math.round((s.value / total) * 100)}%)</span>

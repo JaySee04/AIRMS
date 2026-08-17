@@ -72,25 +72,25 @@ export default function AdminReportsPage() {
         {err && <div className="alert alert-error">{err}</div>}
         <div className="grid-3" style={{ gap: 16 }}>
           <div>
-            <strong style={{ fontSize: '0.85rem' }}>Holistic {hf.active ? '(filtered)' : '(all athletes)'}</strong>
-            <p className="text-muted" style={{ fontSize: '0.8rem', margin: '4px 0 8px' }}>
+            <strong style={{ fontSize: 'var(--fs-md)' }}>Holistic {hf.active ? '(filtered)' : '(all athletes)'}</strong>
+            <p className="text-muted" style={{ fontSize: 'var(--fs-sm)', margin: '4px 0 8px' }}>
               Risk distribution, averages, programme activity and flagged athletes
               {hf.active ? ' — for the group selected above.' : ' — for every athlete. Use the filters above to narrow it.'}
             </p>
             <button type="button" className="btn btn-primary btn-sm" disabled={busy !== ''} onClick={() => dl('h', `/screening-reports/holistic.pdf${hf.query ? `?${hf.query}` : ''}`, 'AIRMS-holistic.pdf')}>{busy === 'h' ? '…' : 'Download'}</button>
           </div>
           <div>
-            <strong style={{ fontSize: '0.85rem' }}>Individual</strong>
+            <strong style={{ fontSize: 'var(--fs-md)' }}>Individual</strong>
             <div className="form-group" style={{ margin: '4px 0' }}>
               <AthleteSearchSelect athletes={roster} onSelect={setSelectedId} />
-              <div className="text-muted" style={{ fontSize: '0.72rem', marginTop: 2, minHeight: 14 }}>
+              <div className="text-muted" style={{ fontSize: 'var(--fs-xs)', marginTop: 2, minHeight: 14 }}>
                 {selectedId ? `Selected · ${selectedId}` : 'Search and pick an athlete'}
               </div>
             </div>
             <button type="button" className="btn btn-primary btn-sm" disabled={busy !== '' || !selectedId} onClick={() => dl('i', `/screening-reports/individual/${selectedId}.pdf`, `AIRMS-${selectedId}.pdf`)}>{busy === 'i' ? '…' : 'Download'}</button>
           </div>
           <div>
-            <strong style={{ fontSize: '0.85rem' }}>Team / group</strong>
+            <strong style={{ fontSize: 'var(--fs-md)' }}>Team / group</strong>
             <div style={{ margin: '4px 0' }}>
               <SportSelect sports={sports} value={sport} onChange={setSport} placeholder="Search sports…" />
             </div>

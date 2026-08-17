@@ -51,7 +51,7 @@ export default function DataBackupCard() {
   return (
     <div className="card">
       <h2 className="card-title">Data Backup</h2>
-      <p className="text-muted" style={{ fontSize: '0.9rem', marginTop: 0 }}>
+      <p className="text-muted" style={{ fontSize: 'var(--fs-md)', marginTop: 0 }}>
         Export all current athlete and muscle-flag data to a single Excel workbook —
         an offline snapshot for records, review, or handover.
       </p>

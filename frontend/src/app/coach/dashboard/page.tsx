@@ -349,12 +349,12 @@ export default function CoachDashboard() {
 
         <div className="card" style={{ marginBottom: 20 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
-            <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--brand-navy)', color: 'white', display: 'grid', placeItems: 'center', fontSize: '1.3rem', fontWeight: 600 }}>
+            <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--brand-navy)', color: 'white', display: 'grid', placeItems: 'center', fontSize: 'var(--fs-xl)', fontWeight: 600 }}>
               {getInitials(selected.name)}
             </div>
             <div style={{ flex: 1, minWidth: 200 }}>
               <h2 style={{ margin: 0 }}>{selected.name}</h2>
-              <div className="text-muted" style={{ fontSize: '0.9rem' }}>
+              <div className="text-muted" style={{ fontSize: 'var(--fs-md)' }}>
                 {selected.athleteId} · {selected.sport} · {selected.program ?? '—'} · {selected.age ? `${selected.age}y` : '—'} · {selected.gender ?? '—'}
               </div>
               {selected.disciplines.length > 0 && (
@@ -402,11 +402,11 @@ export default function CoachDashboard() {
               />
             </div>
             <div style={{ flex: '1 1 220px', minWidth: 200 }}>
-              <p style={{ margin: '0 0 10px', fontSize: '0.9rem', lineHeight: 1.5 }}>
+              <p style={{ margin: '0 0 10px', fontSize: 'var(--fs-md)', lineHeight: 1.5 }}>
                 Each spoke is one exercise-risk indicator from {selected.name.split(' ')[0]}&apos;s HoloMotion
                 screening, on a 0–30 scale.
               </p>
-              <p className="text-muted" style={{ margin: 0, fontSize: '0.82rem', lineHeight: 1.5 }}>
+              <p className="text-muted" style={{ margin: 0, fontSize: 'var(--fs-sm)', lineHeight: 1.5 }}>
                 The dashed red line is {selected.name.split(' ')[0]}&apos;s Elevated threshold per
                 region. Read-only — clinical decisions and band overrides remain with medical staff.
               </p>
@@ -570,7 +570,7 @@ export default function CoachDashboard() {
               </li>
             ))}
           </ul>
-          <p className="text-muted" style={{ fontSize: '0.76rem', marginTop: 12, marginBottom: 0 }}>
+          <p className="text-muted" style={{ fontSize: 'var(--fs-xs)', marginTop: 12, marginBottom: 0 }}>
             Ranked by how many athletes are flagged in each region this round — a frequency heuristic, not the
             cohort risk model, and general strength-and-conditioning principles rather than individualised
             prescription. Confirm programming with your medical / S&amp;C lead.
@@ -624,9 +624,9 @@ export default function CoachDashboard() {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 20 }}>
             <div>
-              <strong style={{ fontSize: '0.82rem' }}>Muscle hotspots</strong>
+              <strong style={{ fontSize: 'var(--fs-sm)' }}>Muscle hotspots</strong>
               {muscleHotspots.length === 0 ? (
-                <div className="text-muted" style={{ fontSize: '0.8rem', marginTop: 6 }}>No muscle flags on record.</div>
+                <div className="text-muted" style={{ fontSize: 'var(--fs-sm)', marginTop: 6 }}>No muscle flags on record.</div>
               ) : (
                 <ul className="insight-list" style={{ marginTop: 8 }}>
                   {muscleHotspots.map((m) => (
@@ -641,7 +641,7 @@ export default function CoachDashboard() {
             </div>
             {squadHasEvents && (
               <div>
-                <strong style={{ fontSize: '0.82rem' }}>Readiness by event</strong>
+                <strong style={{ fontSize: 'var(--fs-sm)' }}>Readiness by event</strong>
                 <ul className="insight-list" style={{ marginTop: 8 }}>
                   {readinessByEvent.map((e) => {
                     const parts = [
@@ -653,7 +653,7 @@ export default function CoachDashboard() {
                     return (
                       <li key={e.discipline}>
                         <strong>{e.discipline}</strong>{' '}
-                        <span style={{ fontSize: '0.78rem' }}>
+                        <span style={{ fontSize: 'var(--fs-sm)' }}>
                           {parts.map((p, i) => (<span key={i}>{i > 0 ? ' · ' : ''}{p}</span>))}
                         </span>
                       </li>
@@ -696,10 +696,10 @@ export default function CoachDashboard() {
                   >
                     <td>
                       <strong>{row.name}</strong>
-                      <div className="text-muted" style={{ fontSize: '0.78rem' }}>{row.athleteId} · {row.program ?? '—'} · {row.gender ?? '—'}</div>
+                      <div className="text-muted" style={{ fontSize: 'var(--fs-sm)' }}>{row.athleteId} · {row.program ?? '—'} · {row.gender ?? '—'}</div>
                     </td>
                     {squadHasEvents && (
-                      <td style={{ fontSize: '0.8rem' }}>
+                      <td style={{ fontSize: 'var(--fs-sm)' }}>
                         {row.disciplines.length ? row.disciplines.join(', ') : <span className="text-muted">—</span>}
                       </td>
                     )}
@@ -709,16 +709,16 @@ export default function CoachDashboard() {
                     <td style={{ textAlign: 'center' }} title={row.screening?.prevAssessedAt ? `vs ${new Date(row.screening.prevAssessedAt).toISOString().slice(0, 10)}` : 'No earlier screening to compare'}>
                       {(() => {
                         const d = trendDelta(row);
-                        if (d === null) return <span className="text-muted" style={{ fontSize: '0.78rem' }}>—</span>;
+                        if (d === null) return <span className="text-muted" style={{ fontSize: 'var(--fs-sm)' }}>—</span>;
                         if (d >= 2) return <span style={{ color: 'var(--risk-low)', fontWeight: 600 }}>↑ +{d}</span>;
                         if (d <= -2) return <span style={{ color: 'var(--risk-high)', fontWeight: 600 }}>↓ {d}</span>;
-                        return <span className="text-muted" style={{ fontSize: '0.78rem' }}>steady</span>;
+                        return <span className="text-muted" style={{ fontSize: 'var(--fs-sm)' }}>steady</span>;
                       })()}
                     </td>
                     <td style={{ textAlign: 'center' }}>
                       {band
                         ? <span className={BAND_META[band].badge}>{BAND_META[band].label}</span>
-                        : <span className="text-muted" style={{ fontSize: '0.78rem' }}>Not scored</span>}
+                        : <span className="text-muted" style={{ fontSize: 'var(--fs-sm)' }}>Not scored</span>}
                     </td>
                     <td style={{ textAlign: 'center' }}>
                       {!screening.hasData ? (
@@ -745,7 +745,7 @@ export default function CoachDashboard() {
             <div><dt>Readiness</dt><dd>Full-Go = cleared · Observation = modified load · Restricted = clinical priority</dd></div>
             <div><dt>Worst region</dt><dd>the athlete&apos;s highest exercise-risk reading this screening</dd></div>
           </dl>
-          <p className="text-muted" style={{ fontSize: '0.78rem', marginTop: 8, marginBottom: 0 }}>
+          <p className="text-muted" style={{ fontSize: 'var(--fs-sm)', marginTop: 8, marginBottom: 0 }}>
             Readiness is informational. Clinical decisions and overrides remain with medical staff.
           </p>
         </div>

@@ -152,7 +152,7 @@ export default function AuditPage() {
         </div>
 
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: 14 }}>
-          <label style={{ fontSize: '0.8rem' }}>
+          <label style={{ fontSize: 'var(--fs-sm)' }}>
             <div className="text-muted" style={{ marginBottom: 4 }}>Action</div>
             <select value={action} onChange={(e) => setAction(e.target.value)}>
               <option value="">All actions</option>
@@ -164,7 +164,7 @@ export default function AuditPage() {
           {/* Everything recorded ABOUT one athlete — downloads of their report,
               their injury flag, their band overrides. The trail has always
               stored the subject; until now there was no way to ask it. */}
-          <label style={{ fontSize: '0.8rem', minWidth: 220 }}>
+          <label style={{ fontSize: 'var(--fs-sm)', minWidth: 220 }}>
             <div className="text-muted" style={{ marginBottom: 4 }}>Athlete</div>
             <AthleteSearchSelect
               key={pickerKey}
@@ -174,11 +174,11 @@ export default function AuditPage() {
               ariaLabel="Filter by athlete"
             />
           </label>
-          <label style={{ fontSize: '0.8rem' }}>
+          <label style={{ fontSize: 'var(--fs-sm)' }}>
             <div className="text-muted" style={{ marginBottom: 4 }}>From</div>
             <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
           </label>
-          <label style={{ fontSize: '0.8rem' }}>
+          <label style={{ fontSize: 'var(--fs-sm)' }}>
             <div className="text-muted" style={{ marginBottom: 4 }}>To</div>
             <input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
           </label>
@@ -216,7 +216,7 @@ export default function AuditPage() {
             </button>
           )}
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginLeft: 'auto' }}>
-            <span className="text-muted" style={{ fontSize: '0.8rem' }}>
+            <span className="text-muted" style={{ fontSize: 'var(--fs-sm)' }}>
               {total} record{total === 1 ? '' : 's'}
             </span>
             {/* A transparency record usually has to leave the system to be of
@@ -273,16 +273,16 @@ export default function AuditPage() {
               <tbody>
                 {entries.map((e) => (
                   <tr key={e._id}>
-                    <td style={{ whiteSpace: 'nowrap', fontSize: '0.8rem' }}>{fmt(e.at)}</td>
-                    <td style={{ fontSize: '0.82rem' }}>
+                    <td style={{ whiteSpace: 'nowrap', fontSize: 'var(--fs-sm)' }}>{fmt(e.at)}</td>
+                    <td style={{ fontSize: 'var(--fs-sm)' }}>
                       <strong>{e.actor}</strong>
-                      {e.actorRole && <div className="text-muted" style={{ fontSize: '0.72rem' }}>{e.actorRole}</div>}
+                      {e.actorRole && <div className="text-muted" style={{ fontSize: 'var(--fs-xs)' }}>{e.actorRole}</div>}
                     </td>
                     <td><span className={ACTION_TONE[e.action] ?? 'badge-neutral'}>{e.actionLabel}</span></td>
-                    <td style={{ fontSize: '0.82rem' }}>
+                    <td style={{ fontSize: 'var(--fs-sm)' }}>
                       {e.summary || <span className="text-muted">—</span>}
                       {tokensOf(e.meta) && (
-                        <span className="text-muted" style={{ marginLeft: 8, fontSize: '0.72rem' }}>
+                        <span className="text-muted" style={{ marginLeft: 8, fontSize: 'var(--fs-xs)' }}>
                           · {tokensOf(e.meta)}
                         </span>
                       )}
@@ -290,7 +290,7 @@ export default function AuditPage() {
                         <button
                           type="button"
                           className="btn btn-outline btn-sm"
-                          style={{ marginLeft: 8, fontSize: '0.72rem' }}
+                          style={{ marginLeft: 8, fontSize: 'var(--fs-xs)' }}
                           aria-expanded={open === e._id}
                           onClick={() => setOpen(open === e._id ? null : e._id)}
                         >
@@ -299,7 +299,7 @@ export default function AuditPage() {
                       )}
                       {open === e._id && e.meta && (
                         <pre style={{
-                          marginTop: 8, fontSize: '0.7rem', whiteSpace: 'pre-wrap',
+                          marginTop: 8, fontSize: 'var(--fs-xs)', whiteSpace: 'pre-wrap',
                           background: 'var(--bg-secondary)', padding: 8, borderRadius: 4,
                         }}>
                           {JSON.stringify(e.meta, null, 2)}
@@ -322,7 +322,7 @@ export default function AuditPage() {
             >
               Newer
             </button>
-            <span className="text-muted" style={{ fontSize: '0.8rem', alignSelf: 'center' }}>
+            <span className="text-muted" style={{ fontSize: 'var(--fs-sm)', alignSelf: 'center' }}>
               {offset + 1}–{Math.min(offset + PAGE, total)} of {total}
             </span>
             <button

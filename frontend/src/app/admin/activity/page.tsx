@@ -231,7 +231,7 @@ export default function AdminActivity() {
                     : count === 0 ? 'No screening periods in this selection'
                       : `${count} period${count === 1 ? '' : 's'} of screening in this selection`}
                   style={{
-                    border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: '0.82rem', fontWeight: 600,
+                    border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 'var(--fs-sm)', fontWeight: 600,
                     background: grain === g.key ? 'var(--brand-navy)' : 'transparent',
                     color: grain === g.key ? '#fff' : 'var(--text-muted)',
                     opacity: count === 0 ? 0.45 : 1,
@@ -251,7 +251,7 @@ export default function AdminActivity() {
         </div>
 
         {!data ? <p className="text-muted">Loading…</p> : data.periods.length === 0 ? (
-          <div className="text-muted" style={{ fontSize: '0.85rem' }}>
+          <div className="text-muted" style={{ fontSize: 'var(--fs-md)' }}>
             No screenings on record for this cohort, so there is no activity to report.
           </div>
         ) : (
@@ -360,12 +360,12 @@ export default function AdminActivity() {
                         <td style={{ textAlign: 'right' }}>
                           {p.athletes}
                           {p.retestedWithin > 0 && (
-                            <span className="text-muted" style={{ fontSize: '0.72rem' }} title={`${p.retestedWithin} athlete(s) tested more than once in this period`}> ({p.retestedWithin} re)</span>
+                            <span className="text-muted" style={{ fontSize: 'var(--fs-xs)' }} title={`${p.retestedWithin} athlete(s) tested more than once in this period`}> ({p.retestedWithin} re)</span>
                           )}
                         </td>
                         <td style={{ textAlign: 'right', fontWeight: 600 }}>{p.averages.overallIndicator ?? '—'}</td>
                         <td style={{ textAlign: 'right' }}>
-                          {p.deltas ? <Move delta={p.deltas.overallIndicator.delta} higherBetter /> : <span className="text-muted" style={{ fontSize: '0.8rem' }}>baseline</span>}
+                          {p.deltas ? <Move delta={p.deltas.overallIndicator.delta} higherBetter /> : <span className="text-muted" style={{ fontSize: 'var(--fs-sm)' }}>baseline</span>}
                         </td>
                         <td style={{ textAlign: 'right' }}>
                           {p.averages.exerciseRisks ?? '—'}
@@ -379,7 +379,7 @@ export default function AdminActivity() {
                 </tbody>
               </table>
             </div>
-            <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', marginTop: 12, fontSize: '0.78rem' }}>
+            <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', marginTop: 12, fontSize: 'var(--fs-sm)' }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span style={{ width: 12, height: 12, borderRadius: 3, background: 'var(--brand-navy)' }} />distinct athletes
               </span>
@@ -425,7 +425,7 @@ export default function AdminActivity() {
               <span className="verdict-stat-label">Median retest gap</span>
               <span className="verdict-stat-value">
                 {bt.intervalDays.median === null ? '—' : bt.intervalDays.median}
-                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 500 }}> days</span>
+                <span style={{ fontSize: 'var(--fs-md)', color: 'var(--text-muted)', fontWeight: 500 }}> days</span>
               </span>
               {/* "range 35–35 days" is a range in form only. When every pair
                   shares one gap that IS the finding — a fixed recall schedule
@@ -445,7 +445,7 @@ export default function AdminActivity() {
               <span className="verdict-stat-hint">{bt.pairs} comparable pair{bt.pairs === 1 ? '' : 's'}</span>
             </div>
           </div>
-          <div style={{ fontSize: '0.8rem', fontWeight: 600, marginBottom: 8 }}>Band movement, test to test</div>
+          <div style={{ fontSize: 'var(--fs-sm)', fontWeight: 600, marginBottom: 8 }}>Band movement, test to test</div>
           <div style={{ marginBottom: 16 }}>
             <DistributionBar segments={[
               { label: 'Band improved', value: bt.bandMoves.better, color: C.green },
@@ -459,7 +459,7 @@ export default function AdminActivity() {
               not. `movedPairs` separates the two ways an average lands on zero —
               nothing changed, or changes cancelled — which the tiles rendered
               identically as "→ 0". */}
-          <div style={{ fontSize: '0.8rem', fontWeight: 600, marginBottom: 8 }}>Average change per score, test to test</div>
+          <div style={{ fontSize: 'var(--fs-sm)', fontWeight: 600, marginBottom: 8 }}>Average change per score, test to test</div>
           <MetricDeltas
             valsHead="pairs that moved"
             metrics={bt.deltas.map((d) => {
@@ -521,7 +521,7 @@ export default function AdminActivity() {
             <h2 className="card-title" style={{ marginBottom: 0 }}>Between Successive Tests</h2>
             <span className="card-sub">Change measured within each athlete, across their own successive screenings.</span>
           </div></div>
-          <div className="text-muted" style={{ fontSize: '0.85rem' }}>
+          <div className="text-muted" style={{ fontSize: 'var(--fs-md)' }}>
             No athlete in this cohort has been screened twice yet, so there is nothing to compare test to test.
           </div>
         </div>

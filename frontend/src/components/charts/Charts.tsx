@@ -60,7 +60,7 @@ export function DotPlot({
   referenceLabel?: string;
 }) {
   const vals = rows.map((r) => r.value).filter((v): v is number => v !== null);
-  if (!vals.length) return <p className="text-muted" style={{ fontSize: '0.85rem' }}>No data for this selection.</p>;
+  if (!vals.length) return <p className="text-muted" style={{ fontSize: 'var(--fs-md)' }}>No data for this selection.</p>;
 
   const lo = Math.min(...vals, ...(reference != null ? [reference] : []));
   const hi = Math.max(...vals, ...(reference != null ? [reference] : []));
@@ -428,7 +428,7 @@ export function MetricDeltas({
     // Biggest movers first: the reader wants what changed, not the metric order.
     .sort((a, b) => Math.abs(b.gain) - Math.abs(a.gain));
 
-  if (!rows.length) return <p className="text-muted" style={{ fontSize: '0.85rem' }}>Not enough data to compare these periods.</p>;
+  if (!rows.length) return <p className="text-muted" style={{ fontSize: 'var(--fs-md)' }}>Not enough data to compare these periods.</p>;
 
   const max = Math.max(...rows.map((r) => Math.abs(r.gain)), 1);
 
@@ -630,7 +630,7 @@ export function Heatmap({
   legend?: ReactNode;
   rowHeader?: string;
 }) {
-  if (!rows.length) return <p className="text-muted" style={{ fontSize: '0.85rem' }}>No subitem scores for this selection.</p>;
+  if (!rows.length) return <p className="text-muted" style={{ fontSize: 'var(--fs-md)' }}>No subitem scores for this selection.</p>;
   const cols = rows[0].cells;
   return (
     <div className="heatmap-wrap">
@@ -694,7 +694,7 @@ export function Scatter({
   quadrants?: [string, string, string, string];
   height?: number;
 }) {
-  if (!points.length) return <p className="text-muted" style={{ fontSize: '0.85rem' }}>No athletes with both measures in this selection.</p>;
+  if (!points.length) return <p className="text-muted" style={{ fontSize: 'var(--fs-md)' }}>No athletes with both measures in this selection.</p>;
 
   const xs = points.map((p) => p.x);
   const ys = points.map((p) => p.y);
@@ -776,7 +776,7 @@ export function Histogram({
   valueLabel?: string;
   height?: number;
 }) {
-  if (!values.length) return <p className="text-muted" style={{ fontSize: '0.85rem' }}>No scored athletes in this selection.</p>;
+  if (!values.length) return <p className="text-muted" style={{ fontSize: 'var(--fs-md)' }}>No scored athletes in this selection.</p>;
 
   const binCount = Math.max(1, Math.ceil((max - min) / binSize));
   const bins = Array.from({ length: binCount }, (_, i) => ({
@@ -856,7 +856,7 @@ export function Sparkline({
 }) {
   const real = points.filter((p): p is number => p !== null);
   if (real.length < 2) {
-    return <span className="text-muted" style={{ fontSize: '0.72rem' }}>needs 2+ screenings</span>;
+    return <span className="text-muted" style={{ fontSize: 'var(--fs-xs)' }}>needs 2+ screenings</span>;
   }
 
   const min = Math.min(...real);

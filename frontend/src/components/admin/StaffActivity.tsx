@@ -96,7 +96,7 @@ export default function StaffActivity({
       </div>
 
       {error && <div className="alert alert-error">{error}</div>}
-      {!error && data === null && <p className="text-muted" style={{ fontSize: '0.85rem' }}>Loading…</p>}
+      {!error && data === null && <p className="text-muted" style={{ fontSize: 'var(--fs-md)' }}>Loading…</p>}
 
       {data && staff.length === 0 && (
         <div className="empty-state" style={{ padding: 18 }}>
@@ -137,9 +137,9 @@ export default function StaffActivity({
                     ) : (
                       <strong>{s.actor}</strong>
                     )}
-                    {s.role && <div className="text-muted" style={{ fontSize: '0.72rem' }}>{s.role}</div>}
+                    {s.role && <div className="text-muted" style={{ fontSize: 'var(--fs-xs)' }}>{s.role}</div>}
                     {open && Object.keys(s.byAction).length > 0 && (
-                      <div className="text-muted" style={{ fontSize: '0.7rem', marginTop: 4 }}>
+                      <div className="text-muted" style={{ fontSize: 'var(--fs-xs)', marginTop: 4 }}>
                         {Object.entries(s.byAction)
                           .sort((a, b) => b[1] - a[1])
                           .map(([k, n]) => `${labels[k] ?? k}: ${n}`)
@@ -174,7 +174,7 @@ export default function StaffActivity({
       )}
 
       {data && (
-        <p className="text-muted" style={{ fontSize: '0.7rem', marginTop: 10, marginBottom: 0 }}>
+        <p className="text-muted" style={{ fontSize: 'var(--fs-xs)', marginTop: 10, marginBottom: 0 }}>
           Changes and downloads are counted from the activity log, which is complete from {day(data.logCompleteFrom)}.
           Screenings are counted from the screenings themselves, so that column covers all time and
           will exceed the change count for any import made before logging began.

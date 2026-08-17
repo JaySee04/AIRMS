@@ -54,7 +54,7 @@ export default function SportContext({ athleteId }: { athleteId: string }) {
         <div className="card-header"><div>
           <h2 className="card-title" style={{ marginBottom: 0 }}>Sport context</h2>
         </div></div>
-        <div className="text-muted" style={{ fontSize: '0.85rem' }}>
+        <div className="text-muted" style={{ fontSize: 'var(--fs-md)' }}>
           {data.sport
             ? `No other screened athlete in ${data.sport} yet, so there is nothing to compare against.`
             : 'This athlete has no sport recorded, so there is no squad to compare against.'}
@@ -81,7 +81,7 @@ export default function SportContext({ athleteId }: { athleteId: string }) {
       </div></div>
 
       {(prominent || worstVs) && (
-        <div style={{ fontSize: '0.85rem', marginBottom: 14, lineHeight: 1.6 }}>
+        <div style={{ fontSize: 'var(--fs-md)', marginBottom: 14, lineHeight: 1.6 }}>
           {prominent && (
             <>
               <strong>{data.sport}</strong> carries <strong>{prominent.label}</strong> most:{' '}
@@ -147,7 +147,7 @@ export default function SportContext({ athleteId }: { athleteId: string }) {
           </tbody>
         </table>
       </div>
-      <div className="text-muted" style={{ fontSize: '0.72rem', marginTop: 10 }}>
+      <div className="text-muted" style={{ fontSize: 'var(--fs-xs)', marginTop: 10 }}>
         Readings are lower-is-better, so a positive &ldquo;vs squad&rdquo; is worse than the squad average.
         Elevated is &gt;25 on the standard bands.
       </div>

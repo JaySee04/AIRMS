@@ -77,7 +77,7 @@ export default function ScreeningDatePicker({ athleteId, onPick }: { athleteId: 
         ))}
       </select>
       {viewingPast && (
-        <p className="text-muted" style={{ fontSize: '0.8rem', margin: '6px 0 0' }}>
+        <p className="text-muted" style={{ fontSize: 'var(--fs-sm)', margin: '6px 0 0' }}>
           Showing a past screening — everything below is as it stood on that date, not the
           athlete&apos;s current status. Choose the latest to return.
         </p>

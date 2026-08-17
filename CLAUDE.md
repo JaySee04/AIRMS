@@ -200,6 +200,7 @@ Three-tier monorepo orchestrated by `concurrently` from the root `package.json`.
 - Auth state is JWT in `localStorage`, managed via `lib/auth.ts` (`saveSession` / `getSession` / `clearSession`). API calls go through `lib/api.ts` which auto-attaches the bearer token
 - Modules 1 and 6 (Athlete Dashboard & Overall Risk Indicator, Clinical & Squad Monitoring) share the same dashboard components (`BodyMap`, `WorkloadChart`, `RiskRadar`, `ScreeningPanel` — the embedded HoloMotion report with threshold strips; there are no standalone screening pages) and the same `classifyCompositeRisk()` from `lib/risk.ts` — the medical view is "the athlete dashboard with a clinician's affordances added"
 - Styling: a single `frontend/src/styles/globals.css` with CSS custom properties. Dark mode via `[data-theme="dark"]` on `<html>`. **Do not introduce CSS-in-JS, Tailwind, or component libraries.**
+- **There is a design scale — use it (2026-08-16, `DESIGN_DECISIONS.md §29`).** Type `--fs-2xs|xs|sm|md|lg|xl|2xl`, radius `--r-xs|sm|md|lg` (+ `999px` for pills), spacing `--sp-xs|sm|md|lg|xl`. Named for ROLE, not size. The file previously held 31 distinct font-size literals and the markup another 160 inline ones that bypassed the stylesheet entirely — **do not add a new literal**; pick the nearest step, or change what the step means. `--radius` is an alias of `--r-md`, kept because it was already in use.
 
 **The FYP differentiator — `frontend/src/lib/risk.ts`:**
 

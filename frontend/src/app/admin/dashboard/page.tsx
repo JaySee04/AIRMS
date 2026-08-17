@@ -101,7 +101,7 @@ function SliceTable({ title, rows, note }: { title: string; rows: FocusSlice[]; 
   const maxAvg = Math.max(1, ...rows.map((r) => r.avg ?? 0));
   return (
     <div>
-      <div style={{ fontSize: '0.82rem', fontWeight: 700, marginBottom: 8 }}>{title}</div>
+      <div style={{ fontSize: 'var(--fs-sm)', fontWeight: 700, marginBottom: 8 }}>{title}</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {rows.map((r) => {
           const share = r.n ? Math.round((r.high / r.n) * 100) : 0;
@@ -112,7 +112,7 @@ function SliceTable({ title, rows, note }: { title: string; rows: FocusSlice[]; 
           ].filter((x) => x.value > 0);
           return (
             <div key={r.label} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ width: 132, fontSize: '0.8rem', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.label}>
+              <div style={{ width: 132, fontSize: 'var(--fs-sm)', flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.label}>
                 {r.label} <span className="text-muted">({r.n})</span>
               </div>
               <div style={{ flex: 1, display: 'flex', height: 16, borderRadius: 4, overflow: 'hidden', background: 'var(--border)' }}
@@ -121,18 +121,18 @@ function SliceTable({ title, rows, note }: { title: string; rows: FocusSlice[]; 
                   <div key={x.label} style={{ width: `${(x.value / r.n) * 100}%`, background: x.color, borderRight: i < segs.length - 1 ? '2px solid var(--bg)' : undefined }} />
                 ))}
               </div>
-              <div style={{ width: 74, textAlign: 'right', fontSize: '0.78rem', flexShrink: 0 }}>
+              <div style={{ width: 74, textAlign: 'right', fontSize: 'var(--fs-sm)', flexShrink: 0 }}>
                 {r.high > 0
                   ? <span style={{ color: C.red, fontWeight: 700 }}>{r.high} ({share}%)</span>
                   : <span className="text-muted">0 elev.</span>}
               </div>
-              <div style={{ width: 42, textAlign: 'right', fontWeight: 700, fontSize: '0.8rem', flexShrink: 0 }}
+              <div style={{ width: 42, textAlign: 'right', fontWeight: 700, fontSize: 'var(--fs-sm)', flexShrink: 0 }}
                 title={`Average reading — lower is better (worst here ${maxAvg})`}>{r.avg ?? '—'}</div>
             </div>
           );
         })}
       </div>
-      {note && <div className="text-muted" style={{ fontSize: '0.72rem', marginTop: 8 }}>{note}</div>}
+      {note && <div className="text-muted" style={{ fontSize: 'var(--fs-xs)', marginTop: 8 }}>{note}</div>}
     </div>
   );
 }
@@ -264,7 +264,7 @@ export default function AdminDashboard() {
               <div className="stat-tile">
                 <div className="stat-tile-label">Elevated on {focus.label}</div>
                 <div className="stat-tile-value" style={{ color: focus.high > 0 ? C.red : undefined }}>
-                  {focus.high}<span style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: 500 }}> / {focus.n}</span>
+                  {focus.high}<span style={{ fontSize: 'var(--fs-md)', color: 'var(--text-muted)', fontWeight: 500 }}> / {focus.n}</span>
                 </div>
                 <div className="stat-tile-delta">{focus.n ? Math.round((focus.high / focus.n) * 100) : 0}% of this cohort</div>
               </div>
@@ -317,7 +317,7 @@ export default function AdminDashboard() {
               <SliceTable title="By age group" rows={focus.bySlice.ageGroup} />
               <SliceTable title="By programme" rows={focus.bySlice.programme} />
             </div>
-            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginTop: 16, fontSize: '0.78rem' }}>
+            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginTop: 16, fontSize: 'var(--fs-sm)' }}>
               {([['Low ≤15', C.green], ['Watch 16–25', C.amber], ['Elevated >25', C.red]] as const).map(([l, c]) => (
                 <span key={l} style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 12, height: 12, borderRadius: 3, background: c }} />{l}</span>
               ))}
@@ -343,7 +343,7 @@ export default function AdminDashboard() {
                     {focus.worst.map((w) => (
                       <tr key={w.athleteId}>
                         <td style={{ fontWeight: 600 }}>{w.name}</td>
-                        <td className="text-muted" style={{ fontSize: '0.8rem' }}>{w.athleteId}</td>
+                        <td className="text-muted" style={{ fontSize: 'var(--fs-sm)' }}>{w.athleteId}</td>
                         <td>{w.sport}</td>
                         <td style={{ textAlign: 'right', fontWeight: 700 }}>{w.value}</td>
                         <td style={{ textAlign: 'right' }}>
@@ -455,7 +455,7 @@ export default function AdminDashboard() {
                       : <span className="text-muted">{r.watch} watch</span>,
                   }))}
               />
-              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginTop: 10, fontSize: '0.78rem' }}>
+              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginTop: 10, fontSize: 'var(--fs-sm)' }}>
                 {([['Elevated >25', C.red], ['Watch 16–25', C.amber]] as const).map(([l, c]) => (
                   <span key={l} style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 12, height: 12, borderRadius: 3, background: c }} />{l}</span>
                 ))}
@@ -484,7 +484,7 @@ export default function AdminDashboard() {
             <span className="card-sub">Myodynamia deficiency · athletes flagged</span>
           </div></div>
           {weakMuscles.length === 0 ? (
-            <div className="text-muted" style={{ fontSize: '0.85rem' }}>No weakness flags on record for this cohort.</div>
+            <div className="text-muted" style={{ fontSize: 'var(--fs-md)' }}>No weakness flags on record for this cohort.</div>
           ) : (
             <RankedBars
               rows={weakMuscles.map((m) => ({
@@ -500,7 +500,7 @@ export default function AdminDashboard() {
             <span className="card-sub">Muscle tension · athletes flagged</span>
           </div></div>
           {tightMuscles.length === 0 ? (
-            <div className="text-muted" style={{ fontSize: '0.85rem' }}>No tension flags on record for this cohort.</div>
+            <div className="text-muted" style={{ fontSize: 'var(--fs-md)' }}>No tension flags on record for this cohort.</div>
           ) : (
             <RankedBars
               rows={tightMuscles.map((m) => ({
@@ -571,7 +571,7 @@ export default function AdminDashboard() {
             .filter((m) => m.n > 0)
             .sort((a, b) => b.notable - a.notable || (b.meanGap ?? 0) - (a.meanGap ?? 0));
           if (!rows.length) {
-            return <div className="text-muted" style={{ fontSize: '0.85rem' }}>No bilateral subitem readings for this selection.</div>;
+            return <div className="text-muted" style={{ fontSize: 'var(--fs-md)' }}>No bilateral subitem readings for this selection.</div>;
           }
           return (
             <>

@@ -174,7 +174,7 @@ export default function ProfileShell({ stats: initialStats, onLoadStats, roleBlu
             <span className="role-chip">
               {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
             </span>
-            <span className="text-muted" style={{ fontSize: '0.85rem' }}>{roleBlurb}</span>
+            <span className="text-muted" style={{ fontSize: 'var(--fs-md)' }}>{roleBlurb}</span>
           </div>
         </div>
       </div>
@@ -204,12 +204,12 @@ export default function ProfileShell({ stats: initialStats, onLoadStats, roleBlu
             <div><span>Email</span><strong>{user.email}</strong></div>
             <div><span>Role</span><strong>{user.role}</strong></div>
             {user.athleteId && (<div><span>IC Number</span><strong>{user.athleteId}</strong></div>)}
-            <div><span>User ID</span><strong style={{ fontSize: '0.78rem' }}>{user.id}</strong></div>
+            <div><span>User ID</span><strong style={{ fontSize: 'var(--fs-sm)' }}>{user.id}</strong></div>
           </div>
         </div>
         <div className="card">
           <h2 className="card-title">Account actions</h2>
-          <p className="text-muted" style={{ fontSize: '0.88rem' }}>
+          <p className="text-muted" style={{ fontSize: 'var(--fs-md)' }}>
             Change your password, or sign out of this device.
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 10 }}>
@@ -257,7 +257,7 @@ export default function ProfileShell({ stats: initialStats, onLoadStats, roleBlu
               </div>
             ))}
           </div>
-          <p className="text-muted" style={{ fontSize: '0.82rem', marginTop: 10, marginBottom: 0 }}>
+          <p className="text-muted" style={{ fontSize: 'var(--fs-sm)', marginTop: 10, marginBottom: 0 }}>
             An administrator can switch any of these off institution-wide, which overrides your
             choice here. Everything still appears in AIRMS whether or not it is emailed.
           </p>
@@ -268,7 +268,7 @@ export default function ProfileShell({ stats: initialStats, onLoadStats, roleBlu
         <div className="modal-backdrop" onClick={() => setPwModalOpen(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480 }}>
             <div className="modal-header">
-              <h2 style={{ margin: 0, fontSize: '1.05rem' }}>Change password</h2>
+              <h2 style={{ margin: 0, fontSize: 'var(--fs-lg)' }}>Change password</h2>
               <button type="button" className="modal-close" onClick={() => setPwModalOpen(false)}>×</button>
             </div>
             <form onSubmit={handlePasswordSubmit}>

@@ -99,7 +99,7 @@ export default function CoachReportsPage() {
             <div className="form-group">
               <label>Athlete</label>
               <AthleteSearchSelect athletes={squad} onSelect={setSelectedId} placeholder={`Search your ${squad.length}-athlete squad…`} />
-              <div className="text-muted" style={{ fontSize: '0.72rem', marginTop: 2, minHeight: 14 }}>
+              <div className="text-muted" style={{ fontSize: 'var(--fs-xs)', marginTop: 2, minHeight: 14 }}>
                 {selectedId ? `Selected · ${selectedId}` : 'Search and pick an athlete'}
               </div>
             </div>
@@ -119,7 +119,7 @@ export default function CoachReportsPage() {
               <h2 className="card-title" style={{ marginBottom: 0 }}>Team report</h2>
               <span className="card-sub">Your whole {sport} squad — ranking, attention table, squad heatmap</span>
             </div></div>
-            <p className="text-muted" style={{ fontSize: '0.85rem' }}>
+            <p className="text-muted" style={{ fontSize: 'var(--fs-md)' }}>
               Cohort-normed group report for <strong>{sport}</strong>, using the reporting window above.
             </p>
             <button

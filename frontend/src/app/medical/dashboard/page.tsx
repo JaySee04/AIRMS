@@ -427,7 +427,7 @@ export default function MedicalDashboard() {
                   {search ? <>No athlete matches <strong>{search}</strong>.</> : 'No athletes match your filters.'}
                 </p>
                 {search && activeFilters > 0 && (
-                  <p className="text-muted" style={{ margin: '6px 0 0', fontSize: '0.78rem' }}>
+                  <p className="text-muted" style={{ margin: '6px 0 0', fontSize: 'var(--fs-sm)' }}>
                     {activeFilters} filter{activeFilters === 1 ? ' is' : 's are'} also narrowing the roster.
                   </p>
                 )}
@@ -519,13 +519,13 @@ export default function MedicalDashboard() {
                     width: 64, height: 64, borderRadius: '50%',
                     background: 'var(--brand-navy)', color: 'white',
                     display: 'grid', placeItems: 'center',
-                    fontSize: '1.3rem', fontWeight: 600,
+                    fontSize: 'var(--fs-xl)', fontWeight: 600,
                   }}>
                     {getInitials(selectedAthlete.name)}
                   </div>
                   <div style={{ flex: 1 }}>
                     <h2 style={{ margin: 0 }}>{selectedAthlete.name}</h2>
-                    <div className="text-muted" style={{ fontSize: '0.9rem' }}>
+                    <div className="text-muted" style={{ fontSize: 'var(--fs-md)' }}>
                       {selectedAthlete.athleteId} · {selectedAthlete.sport} ·{' '}
                       {selectedAthlete.programme ?? selectedAthlete.program} ·{' '}
                       {selectedAthlete.age ? `${selectedAthlete.age}y` : '—'}{' '}·{' '}
@@ -536,7 +536,7 @@ export default function MedicalDashboard() {
                         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
                           {(selectedAthlete.disciplines ?? []).map((d) => (<span key={d} className="badge-low">{d}</span>))}
                           {(selectedAthlete.disciplines?.length ?? 0) === 0 && (
-                            <span className="text-muted" style={{ fontSize: '0.8rem' }}>No events</span>
+                            <span className="text-muted" style={{ fontSize: 'var(--fs-sm)' }}>No events</span>
                           )}
                           <button
                             type="button"
@@ -667,12 +667,12 @@ export default function MedicalDashboard() {
                     />
                   </div>
                   <div style={{ flex: '1 1 260px', minWidth: 240 }}>
-                    <p style={{ margin: '0 0 10px', fontSize: '0.9rem', lineHeight: 1.5 }}>
+                    <p style={{ margin: '0 0 10px', fontSize: 'var(--fs-md)', lineHeight: 1.5 }}>
                       Each spoke is one exercise-risk indicator from the athlete&apos;s
                       HoloMotion screening, on a 0–30 scale. <strong>Closer to the centre
                       is better.</strong>
                     </p>
-                    <p className="text-muted" style={{ margin: 0, fontSize: '0.82rem', lineHeight: 1.5 }}>
+                    <p className="text-muted" style={{ margin: 0, fontSize: 'var(--fs-sm)', lineHeight: 1.5 }}>
                       The dashed red line is the athlete&apos;s Elevated threshold per
                       region, tightened where the region is sport-critical. Exact
                       values are on the screening panel below

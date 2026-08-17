@@ -72,7 +72,7 @@ export default function AthleteSquadPage() {
                   {data.teammates.map((t) => (
                     <tr key={t.athleteId} style={t.isSelf ? { background: 'var(--bg)' } : undefined}>
                       <td><strong>{t.name}</strong>{t.isSelf && <span className="badge-low" style={{ marginLeft: 8 }}>You</span>}</td>
-                      <td className="text-muted" style={{ fontSize: '0.85rem' }}>{t.program ?? '—'}</td>
+                      <td className="text-muted" style={{ fontSize: 'var(--fs-md)' }}>{t.program ?? '—'}</td>
                       <td style={{ textAlign: 'center' }}>
                         {t.effectiveBand ? (
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -87,7 +87,7 @@ export default function AthleteSquadPage() {
                 </tbody>
               </table>
             </div>
-            <p className="text-muted" style={{ fontSize: '0.78rem', marginTop: 10, marginBottom: 0 }}>
+            <p className="text-muted" style={{ fontSize: 'var(--fs-sm)', marginTop: 10, marginBottom: 0 }}>
               Indicator is the cohort-normed score (0–100, 50 = group average). Only squad readiness is shared here — detailed screening reports aren&apos;t visible between athletes.
             </p>
           </>

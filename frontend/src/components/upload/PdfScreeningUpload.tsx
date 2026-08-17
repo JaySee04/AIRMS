@@ -205,7 +205,7 @@ export default function PdfScreeningUpload() {
           <polyline points="14 2 14 8 20 8" />
         </svg>
         <h3 style={{ margin: '0 0 4px' }}>Drop HoloMotion PDFs here</h3>
-        <p className="text-muted" style={{ fontSize: '0.85rem', margin: 0 }}>
+        <p className="text-muted" style={{ fontSize: 'var(--fs-md)', margin: 0 }}>
           or click to browse · one or many .pdf files
         </p>
         <input
@@ -228,7 +228,7 @@ export default function PdfScreeningUpload() {
               Retry failed ({errorCount})
             </button>
           )}
-          <span className="text-muted" style={{ fontSize: '0.78rem' }}>
+          <span className="text-muted" style={{ fontSize: 'var(--fs-sm)' }}>
             {busy ? 'Reading…' : 'PDFs are read automatically when added'}
           </span>
         </div>
@@ -240,8 +240,8 @@ export default function PdfScreeningUpload() {
           <div key={it.id} className="pdf-queue-item">
             <div className="pdf-queue-head">
               <div style={{ minWidth: 0 }}>
-                <strong style={{ fontSize: '0.88rem', overflowWrap: 'anywhere' }}>{it.file.name}</strong>
-                <span className="text-muted" style={{ fontSize: '0.76rem', marginLeft: 8 }}>
+                <strong style={{ fontSize: 'var(--fs-md)', overflowWrap: 'anywhere' }}>{it.file.name}</strong>
+                <span className="text-muted" style={{ fontSize: 'var(--fs-xs)', marginLeft: 8 }}>
                   {(it.file.size / 1024).toFixed(0)} KB
                 </span>
               </div>
@@ -278,7 +278,7 @@ export default function PdfScreeningUpload() {
                       Attached to <strong>{it.matched.name} ({it.matched.athleteId})</strong> — identity, sport, and programme filled from the roster. Edit below if anything is wrong.
                     </div>
                   ) : (
-                    <div className="text-muted" style={{ fontSize: '0.8rem', marginBottom: 10 }}>
+                    <div className="text-muted" style={{ fontSize: 'var(--fs-sm)', marginBottom: 10 }}>
                       Search the roster below to attach this report to an athlete, or enter a new athlete&apos;s details.
                     </div>
                   )}
@@ -311,7 +311,7 @@ export default function PdfScreeningUpload() {
 
                   {/* Correction path. Open by default only when nothing resolved. */}
                   <details open={it.matchSource === null} style={{ marginBottom: 12 }}>
-                    <summary style={{ cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600 }}>
+                    <summary style={{ cursor: 'pointer', fontSize: 'var(--fs-sm)', fontWeight: 600 }}>
                       {it.matchSource === null ? 'Find this athlete' : 'Wrong athlete? Search instead'}
                     </summary>
                     <div className="form-group" style={{ marginTop: 10 }}>
@@ -371,7 +371,7 @@ export default function PdfScreeningUpload() {
                       inputMode="numeric"
                     />
                     {it.athleteId.trim() && !/^\d{12}$/.test(it.athleteId.trim()) && (
-                      <div className="text-muted" style={{ fontSize: '0.72rem', marginTop: 2, color: 'var(--risk-moderate)' }}>
+                      <div className="text-muted" style={{ fontSize: 'var(--fs-xs)', marginTop: 2, color: 'var(--risk-moderate)' }}>
                         An IC number is 12 digits.
                       </div>
                     )}
@@ -461,7 +461,7 @@ export default function PdfScreeningUpload() {
               the cohort thresholds should be recomputed{role === 'admin' ? ' and re-approved' : ' by an administrator'}.
             </p>
             {committed.length > 0 && (
-              <ul style={{ margin: '0 0 12px 16px', padding: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+              <ul style={{ margin: '0 0 12px 16px', padding: 0, fontSize: 'var(--fs-md)', color: 'var(--text-muted)' }}>
                 {committed.map((c) => (
                   <li key={c.athleteId}>{c.name} ({c.athleteId}) · {c.sport} · {c.action === 'updated' ? 'updated' : 'created'}</li>
                 ))}
