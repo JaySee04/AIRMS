@@ -1657,6 +1657,30 @@ The caveat is drawn with it, because a group mean is not a group: a region can
 read amber because a few athletes score badly, so the caption sends the reader
 to the attention table rather than letting the figure stand as a squad verdict.
 
+### 30d. The flagship report was the least drawn one
+
+Asked afterwards whether the reports were "optimised", the honest answer needed
+a measurement rather than a memory — so each report was audited for which of the
+17 drawing primitives it actually calls.
+
+The **holistic** report used four. It is the institution-wide document, the one
+an executive opens and the one the monthly digest **attaches** — and it printed
+the period series as a table where the Programme Activity report draws a
+throughput chart, and the between-tests averages as a list of signed numbers
+where that report draws the change chart. Same data, same toolkit, two
+presentations, and the weaker one on the more widely-read document.
+
+Both are now drawn there, chart-then-table, in the pairing the sibling report
+already justified in a comment: the chart answers "is this going up" at a
+glance, the table is what someone quotes in a meeting, and neither replaces the
+other.
+
+The general lesson is the §19 one wearing different clothes. Two report
+generators drawing the same data will drift, and the drift is invisible from
+inside either one — it shows up only when something compares them. Here that
+something was a per-report inventory of toolkit calls, which is cheap and worth
+repeating whenever a drawing primitive is added.
+
 **What this says about testing here.** All three defects lived in code with
 passing tests, and none was a wrong number - a collision, a scale and an absence.
 `pdfDraw.test.js` renders headlessly and asserts bytes, which catches crashes and

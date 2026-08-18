@@ -22,6 +22,7 @@ const {
   BAND, MUTED, NAVY, RISKS, SCORE_ROWS, TEXT, bandColor, bandLabel, bandOnLight, bandTable, bar,
   betweenTestsBlock, bufferDoc, cover, distributionHistogram, ensure, fileSlug, finish, focusTable,
   hotspotBar, num, periodTable, riskLegend, riskMovementScatter, seasonTable, sectionTitle, todayStamp,
+  throughputChart, changeBars,
   zoneGauge,
 } = require('./pdfDraw');
 
@@ -147,11 +148,28 @@ function drawHolistic(doc, data, stamp = todayStamp()) {
   // population moving" is their question. Everything after it is the current
   // snapshot.
   const grainWord = { month: 'Monthly', quarter: 'Quarterly', year: 'Yearly' }[grain];
-  sectionTitle(doc, `Screening Programme Activity (${grainWord})`);
+  // Chart THEN table, the same pairing (and the same reason) as the Programme
+  // Activity report: the chart answers "is this going up" at a glance, the table
+  // is what someone quotes in a meeting, and neither replaces the other. This
+  // report had only the table — so the institution's flagship document, and the
+  // one the monthly digest attaches, presented as numbers what its sibling drew
+  // as a picture, off the identical data.
+  sectionTitle(doc, `Screening Programme Activity (${grainWord})`, 200);
+  throughputChart(doc, activity.periods);
   periodTable(doc, activity.periods);
 
-  sectionTitle(doc, 'Change Between Successive Tests', 120);
+  sectionTitle(doc, 'Change Between Successive Tests', 200);
   betweenTestsBlock(doc, activity.betweenTests, activity.reliability);
+  // The same averages the block above lists as signed numbers, drawn on one
+  // shared DELTA axis so the relative sizes are visible rather than assembled by
+  // the reader. Bars point right for BETTER, and anything inside the dead band
+  // is outlined rather than filled — see DESIGN_DECISIONS section 30a.
+  if (activity.betweenTests && activity.betweenTests.deltas) {
+    const bt = activity.betweenTests;
+    changeBars(doc, bt.deltas, {
+      note: `Averaged across ${bt.pairs} consecutive test pair${bt.pairs === 1 ? '' : 's'}.`,
+    });
+  }
 
   // Seasonality sits with the other programme-level readings, and always at
   // quarter grain regardless of the report's `grain` — see utils/screeningPeriods.js.
