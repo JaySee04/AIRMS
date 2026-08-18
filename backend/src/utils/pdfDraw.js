@@ -1504,7 +1504,13 @@ function staffTable(doc, staff, labels = {}, { comparable = true } = {}) {
     doc.fontSize(8.5).fillColor(TEXT);
     doc.text(fitWidth(doc, `${s.actor}${s.role ? ` (${s.role})` : ''}`, 8.5, 220), X.actor, y, { width: 220, lineBreak: false });
     doc.text(String(s.actions ?? 0), X.actions, y, { width: 60, align: 'right', lineBreak: false });
-    doc.text(s.downloads ? String(s.downloads) : '-', X.downloads, y, { width: 65, align: 'right', lineBreak: false });
+    // A count of zero is zero. This rendered '-' because 0 is falsy, so one row
+    // showed three treatments of the same value — actions 0, downloads '-',
+    // screenings 0. On an accountability document that is not cosmetic: '-'
+    // reads as "not tracked", and "we hold no record" is a different claim
+    // from "we hold a record of none". (The `vs prev` column keeps its dash:
+    // there a zero genuinely means no change, not a count.)
+    doc.text(String(s.downloads ?? 0), X.downloads, y, { width: 65, align: 'right', lineBreak: false });
     if (comparable) {
       const ch = Number(s.change) || 0;
       doc.text(ch === 0 ? '-' : `${ch > 0 ? '+' : ''}${ch}`, X.change, y, { width: 70, align: 'right', lineBreak: false });

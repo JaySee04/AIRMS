@@ -216,10 +216,20 @@ router.get('/individual/:id.pdf', auth, rbac('medical', 'admin', 'coach', 'execu
       cols.forEach((c, i) => {
         const a = num(first[c]); const b = num(last[c]);
         const d = a !== null && b !== null ? b - a : null;
-        const txt = d === null ? '—' : (d >= 0 ? `+${d}` : `${d}`);
+        // Zero is not a gain. This printed "+0" in green, because 0 passes both
+        // `d >= 0` and `d <= 0` — so a score that did not move was reported as an
+        // improvement, on the most clinically-read document AIRMS produces. It is
+        // the same defect the change chart had (section 30a): a non-change
+        // asserting a direction. Zero now reads as "0" and is drawn neutral.
+        // Note this table compares first vs last DIRECTLY and applies no
+        // detectable-change threshold: the dead band is cohort-derived and is not
+        // on an athlete-scoped payload, the same reason the trend sparklines
+        // below assert no verdict.
+        const moved = d !== null && d !== 0;
+        const txt = d === null ? '—' : (d === 0 ? '0' : (d > 0 ? `+${d}` : `${d}`));
         // exerciseRisks: lower is better — colour improvement accordingly.
-        const good = c === 'exerciseRisks' ? d !== null && d <= 0 : d !== null && d >= 0;
-        doc.fillColor(d === null ? MUTED : good ? BAND.green : BAND.red)
+        const good = c === 'exerciseRisks' ? d < 0 : d > 0;
+        doc.fillColor(!moved ? MUTED : good ? BAND.green : BAND.red)
           .text(txt, cx(i), y, { width: 60, align: 'right', lineBreak: false });
       });
       doc.fillColor(TEXT).font('Helvetica');

@@ -342,4 +342,26 @@ describe('pdfDraw toolkit', () => {
     ], { note: 'x' }));
     expect(pdf.slice(0, 5).toString()).toBe('%PDF-');
   });
+
+  // Found by printing the Activity Log and reading it: one row showed three
+  // treatments of the same value — actions 0, downloads '-', screenings 0 —
+  // because 0 is falsy. On an accountability document '-' reads as "not
+  // tracked", and "we hold no record" is a different claim from "we hold a
+  // record of none".
+  it('prints a zero download count as 0, not a dash', async () => {
+    const staff = [
+      { actor: 'Medical Demo 01', role: 'medical', actions: 8, downloads: 0, previousActions: 0, change: 0, byAction: {}, screeningsImported: 0 },
+    ];
+    let captured = '';
+    const { pdf } = await render((doc) => {
+      const realText = doc.text.bind(doc);
+      doc.text = (str, ...rest) => { captured += ' ' + String(str); return realText(str, ...rest); };
+      D.staffTable(doc, staff, {}, { comparable: false });
+      doc.text = realText;
+    });
+    expect(pdf.slice(0, 5).toString()).toBe('%PDF-');
+    // the downloads cell must have rendered the string "0"
+    expect(captured.split(/\s+/)).toContain('0');
+    expect(captured).not.toMatch(/Medical Demo 01[^]*?\s-\s/);
+  });
 });

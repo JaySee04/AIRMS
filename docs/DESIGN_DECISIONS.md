@@ -1681,6 +1681,37 @@ inside either one — it shows up only when something compares them. Here that
 something was a per-report inventory of toolkit calls, which is cheap and worth
 repeating whenever a drawing primitive is added.
 
+### 30e. Two more, found only by opening the files in a real viewer
+
+The five reports were finally read as rendered documents rather than through a
+headless harness (which cannot rasterise fonts, so it had never shown a composed
+page). Both fixes above held. Two further defects appeared, and both are the
+same shape as 30a — **a non-event presented as an event**:
+
+**Zero reported as an improvement.** The individual report's *Progress Between
+Reports* row printed `+3 +0 +0 +0 +0`, with every `+0` coloured green. The cause
+is that `0` satisfies both `d >= 0` and `d <= 0`, so a score that did not move
+passed the "improved" test in either orientation. On the most clinically-read
+document AIRMS produces, four of the five columns were claiming an improvement
+that did not happen. Zero now prints as `0` and is drawn neutral. This table
+deliberately still applies **no** detectable-change threshold: the dead band is
+cohort-derived and is not on an athlete-scoped payload — the same reason the
+trend sparklines printed directly beneath it assert no verdict.
+
+**A count of zero rendered as a dash.** In the Activity Log's *Activity by
+account* table, one row showed three different treatments of the same value —
+`actions 0`, `downloads -`, `screenings 0` — because `0` is falsy and the
+downloads cell tested truthiness. On an accountability document that is not
+cosmetic: `-` reads as *not tracked*, and "we hold no record" is a different
+claim from "we hold a record of none", particularly for `coach` and `executive`
+whose downloads are the only auditable thing they do. The `vs prev` column keeps
+its dash, where a zero genuinely means *no change* rather than a count.
+
+**The pattern across 30a, 30e and the dashboard work is now explicit enough to
+state as a rule:** anywhere AIRMS renders a delta, the code must distinguish
+*moved down*, *moved up* and *did not move* as three cases, not two. Every defect
+in this section came from collapsing the third into one of the first two.
+
 **What this says about testing here.** All three defects lived in code with
 passing tests, and none was a wrong number - a collision, a scale and an absence.
 `pdfDraw.test.js` renders headlessly and asserts bytes, which catches crashes and
