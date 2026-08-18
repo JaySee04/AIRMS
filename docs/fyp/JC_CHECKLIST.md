@@ -48,8 +48,27 @@ in the stage section linked.
   - [ ] Name **seasonality** (§6 — "which quarter is the risky one") as future
     work: it needs years of history, and AIRMS has months.
 - [ ] **Dr Thung sign-off** — the deployment gate you're keeping in view (kiv).
-- [ ] **Rename the pushed branch** if you still want `feat/mysql-migration` off the
-  working name (has an upstream — your call; see 2026-07-17 decisions).
+- [x] ~~**Rename the pushed branch**~~ — **decided 2026-08-18: leave it.** The name
+  is inaccurate (it was about MySQL for three commits and has been all of FYP II
+  for 238), and a rename is technically cheap: history survives, commit hashes are
+  unaffected, it is reversible. It still loses. The branch has an upstream on a
+  public remote, so a rename is delete-and-recreate and dangles anyone's clone;
+  and **five docs name it in prose**, one of them
+  [`CHANGES_SINCE_2026-06-10.md`](CHANGES_SINCE_2026-06-10.md), which is source
+  material for the FYP II logbook and the report's System Development chapter and
+  states "22 commits on `feat/mysql-migration`". Renaming would make graded-report
+  source material wrong to buy cosmetic accuracy, days before viva.
+
+  **Do not merge this branch into `main` either.** `main` is frozen at 2026-06-05
+  and the branch point is `chore: pre-viva polish` — `main` **is** the FYP I
+  submission state. That boundary is the FYP I → FYP II comparison an examiner
+  asks for, and `CHANGES_SINCE_2026-06-10.md` depends on it. "`main` is FYP I,
+  this branch is FYP II" is a one-sentence answer at viva; a 238-commit merge
+  destroys it to make the default branch look tidier.
+
+  If the stale default branch on GitHub ever bothers you, the zero-risk fix is
+  the repo's **default-branch setting** (a UI toggle, reversible, breaks no
+  clones) — not a rename and not a merge.
 
 **Done this session (2026-08-01), no action needed:**
 - ✅ Submission repo committed + pushed (`07d2c42..5446118`, clean scrub, OneDrive
