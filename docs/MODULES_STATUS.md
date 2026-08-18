@@ -54,6 +54,65 @@
 > test); the four dashboards' duplicated radar axis/label/clamp copies replaced
 > by `RADAR_AXES` / `riskRadarSeries()` in `lib/screeningAlerts.ts`; and
 > `/athletes/teammates` de-N+1'd via a batched `latestIndicatorsFor()`.
+>
+> **Since 2026-08-06 — what shipped, by module.** This file had not been
+> updated since that consolidation pass; the work below landed between
+> 2026-08-08 and 2026-08-18 and is recorded here so the module sections are not
+> read as current on their own.
+>
+> - **General / RBAC.** A fifth role, **`executive`** (2026-08-08, on JC's
+>   instruction): read-only institutional oversight — admin analytics and the
+>   three PDF reports, and **no write access anywhere**. Deliberately NOT a
+>   "super admin": it has strictly fewer powers than `admin`, and naming it that
+>   would misdescribe it.
+> - **Module 4 (Cohort Norms & Governance).** Norms can now be **PINNED**, not
+>   merely saved (§22): a pinned version is the norm *in force*, recompute HOLDS
+>   `stats`/`n` instead of overwriting them, and what the data *would* say is
+>   parked in `fresh_stats` so `pinDrift()` can surface the gap — a frozen norm
+>   with no staleness signal would be worse than none. Restoring over a pin or
+>   deleting the pinned version both 409; a cohort first seen after the pin is
+>   still created live, because the pin must never leave an athlete unscoreable.
+>   Norm **eligibility is now immediate** — declaring an athlete injured or
+>   clearing their membership tick rebuilds the norms and rescores every
+>   indicator *in the same request*, with a one-time `NormChangeNotice`
+>   disclosing that the published norm moves.
+> - **Module 5 (Analytics & Reporting).** The largest area of change.
+>   **Accountability**: the audit trail now logs **reads** as well as writes
+>   (all five report endpoints + the backup export), because `coach` and
+>   `executive` cannot write anything and so could never appear in it however
+>   much athlete data they pulled; downloads are counted *apart from* changes,
+>   since summing them would let an account that only reads outrank the
+>   clinicians. Surfaced at **Admin → Activity Log** (admin + executive) with a
+>   PDF export. **Screening Analytics** gained three graphics that show what an
+>   average cannot (§25) — squad body map, risk-vs-movement scatter on median
+>   splits, indicator distribution histogram — plus the 25-cell subitem table
+>   charted at squad level with **left–right asymmetry**, the only bilateral
+>   data the instrument carries (§23). The period axis became **continuous**
+>   (§24: an unscreened quarter is the finding, not an absence), sparse grains
+>   got their own chart types (§26), **seasonality** answers "which quarter is
+>   risky" but **declines to name one below two years of data**, and the
+>   **Programme Activity KPI report** (2026-08-11) draws from the same
+>   `utils/programmeActivity.js` the page reads so screen and document cannot
+>   quote different KPIs. "Is this change real?" now has a derived answer
+>   (§27: typical error → MDC95), which **declines and says so** on the seeded
+>   data rather than inventing a threshold. Reports were then **printed and
+>   read as documents** (§30), which found three defects no unit test could
+>   see — including the team report's new **squad body map**, added because the
+>   group had been described anatomically twice in words and drawn never.
+> - **Module 6 (Clinical & Squad Monitoring).** **Rescreen reminders**
+>   (2026-08-16): the recall list is emailed monthly to admin + medical, with
+>   `never screened` listed apart from `overdue` because that one needs a first
+>   assessment rather than a call-back. **Coaches get their own sport only** —
+>   the recall is computed ONCE on the full roster and each email is a *slice*
+>   of it, so a coach's copy cannot disagree with the institution's about who is
+>   overdue; one email per SPORT, not per coach. `executive` is deliberately not
+>   a recipient: oversight, not the worklist.
+> - **Cross-cutting.** The interface was put on one **type / radius / spacing
+>   scale** (§29), the app gained a **narrow layout** at all (§28 — most of the
+>   sideways scroll traced to `min-width:auto` on one flex column), and the
+>   seven shown risk indicators plus **the LDH exclusion** were consolidated
+>   from eight hand-maintained copies to one definition per package (§31),
+>   pinned by tests that assert the exclusion rather than assuming it.
 
 ---
 

@@ -71,8 +71,8 @@ the clinician, the coach and the administrator."**
 | Training-load logging (sRPE sessions) and ACWR displays — §6's formula stays locked and citable, but nothing computes it | 2026-07-20 |
 | Posture Evaluation | 2026-08-01 |
 | Excel screening **import** (the backup **export** remains) | 2026-07-12 |
-| Displaying Lumbar Disc Herniation anywhere — extracted and stored, never shown, because ISN's facilities cannot support the assessment | Dr Thung |
-| Responsive/mobile layouts | 2026-07-16, one future-work line |
+| Displaying Lumbar Disc Herniation anywhere — extracted and stored, never shown, because ISN's facilities cannot support the assessment. **Enforced since 2026-08-18 in one place per package** — `backend/src/utils/riskIndicators.js` and the `INDICATORS` list in `frontend/src/lib/screeningAlerts.ts` — where `EXCLUDED_RISK_KEYS` names the exclusion as a *value*, so it is asserted by tests across every derived view rather than left as an absence nobody checks. It had previously been re-declared by hand in eight files (`DESIGN_DECISIONS §31`) | Dr Thung |
+| ~~Responsive/mobile layouts~~ — **superseded 2026-08-12.** The app had genuinely none, and every route scrolled sideways (245-692px on a phone). Since `DESIGN_DECISIONS §28` the shell has a breakpoint and the layout holds from 360px up, verified across five roles and six widths. It is a **usable narrow layout, not a mobile app** — no native shell, no offline mode, and the dense analytics tables still scroll inside their own containers by design | 2026-07-16, rebuilt 2026-08-12 |
 | Any feature outside the six-module FDD | Standing |
 
 ---

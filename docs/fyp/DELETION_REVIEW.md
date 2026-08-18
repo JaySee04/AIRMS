@@ -52,7 +52,7 @@
 |---|---|---|
 | `GET /api/coach/me` ([coach.js](../../backend/src/routes/coach.js)) | ~~No caller~~ **Already deleted 2026-07-17** (noted in the route file's header) — the coach page reads its sport from the `/coach/readiness` response | Done |
 | `GET /api/screenings/athlete/:id` ([screenings.js](../../backend/src/routes/screenings.js)) | ~~No caller~~ **Now called (2026-07-23)** by `ScreeningHistory.tsx` — the on-screen history/trend table this row anticipated, on the athlete/medical/coach views. Endpoint slimmed to summary columns + coach access sport-scoped when the caller was added | **Keep** |
-| `GET /api/activities/athlete/:id/acwr` ([activities.js](../../backend/src/routes/activities.js)) | No caller — both dashboards compute ACWR client-side for the recovery baseline | ⚠ Part of the **ACWR retention set** (§B1). Deleting narrows the rebuild insurance; decide it as a package, not in isolation |
+| `GET /api/activities/athlete/:id/acwr` (`activities.js` *(deleted 2026-07-20)*) | No caller — both dashboards compute ACWR client-side for the recovery baseline | ⚠ Part of the **ACWR retention set** (§B1). Deleting narrows the rebuild insurance; decide it as a package, not in isolation |
 
 ### A2. Unused npm dependencies
 

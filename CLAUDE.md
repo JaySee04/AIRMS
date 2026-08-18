@@ -44,11 +44,14 @@ cd frontend; npm run lint  # next lint
 cd frontend; npm run build
 
 # Unit tests (jest, in both packages — no linter configured for the backend)
-cd backend; npx jest      # 15 suites: cohorts, overallIndicator, permissions, rbac, pdfDraw,
+cd backend; npx jest      # 18 suites: cohorts, overallIndicator, permissions, rbac, pdfDraw,
                           # screeningPeriods, cohortFocus, visionUsage, alerts, scheduler,
-                          # bands, mailPrefs, holisticReport, programmeActivity, subitemAggregate
-cd frontend; npx jest     # 5 suites: lib/risk.ts, lib/screeningUploadStore.ts, bodymap-data/muscles.ts,
-                          # components/charts (rendered via react-dom/server — no jsdom needed), lib/bands.ts
+                          # bands, mailPrefs, holisticReport, programmeActivity, subitemAggregate,
+                          # reliability, rescreenReminder, riskIndicators
+cd frontend; npx jest     # 8 suites: lib/risk.ts, lib/screeningUploadStore.ts, bodymap-data/muscles.ts,
+                          # components/charts (rendered via react-dom/server — no jsdom needed),
+                          # lib/bands.ts, lib/athleteSearch.ts, lib/rank.ts,
+                          # lib/screeningAlerts.indicators.ts
 ```
 
 Jest covers the pure logic: scoring/permissions (`backend/tests/`), the PDF
@@ -60,6 +63,16 @@ guard failure modes that are *silent*: a band comparison that disagrees between
 two call sites, or a preference that reads as consent), the composite risk model
 (`frontend/src/lib/risk.test.ts`) and the body-map muscle partition
 (`frontend/src/components/dashboard/bodymap-data/muscles.test.ts`).
+
+**The silent-failure suites are the point.** Three more were added for the same
+reason — a wrong answer that looks like a right one: `reliability.test.js`
+(the derived detectable-change threshold, which must *decline* rather than
+invent one below `MIN_PAIRS`), `rescreenReminder.test.js` (a coach's recall
+slice must never disagree with the institution's about who is overdue), and
+`riskIndicators.test.js` + `frontend/src/lib/screeningAlerts.indicators.test.ts`,
+which pin the two packages' indicator lists to each other and **assert the LDH
+exclusion across every derived view** — a leaked indicator would render as an
+ordinary row, so the constraint is asserted rather than left as an absence.
 
 There are still no page or end-to-end tests, and **route handlers are only tested
 where their logic has been extracted into a util** (`holisticReport`). Anything

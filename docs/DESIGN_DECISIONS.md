@@ -355,7 +355,7 @@ Minor calls that didn't get a full section but are worth recording:
 
 **Decision:** Layer a per-user permission gate on top of coarse RBAC, letting an admin revoke individual capabilities (`viewRecords`, `uploadData`, `reviewReports`, `injuryReports`) from a specific medical staffer, or deactivate the account. **Opt-out model:** a capability is granted unless explicitly set `false`.
 
-**Implementation:** [`utils/permissions.js`](../backend/src/utils/permissions.js) (catalogue + helpers) + [`middleware/permission.js`](../backend/src/middleware/permission.js) (`requirePermission`) on the protected routes; admin UI at [`/admin/staff`](../frontend/src/app/admin/staff/page.tsx); mirrored client-side in [`lib/auth.ts`](../frontend/src/lib/auth.ts) so revoked features vanish from the sidebar.
+**Implementation:** [`utils/permissions.js`](../backend/src/utils/permissions.js) (catalogue + helpers) + [`middleware/permission.js`](../backend/src/middleware/permission.js) (`requirePermission`) on the protected routes; admin UI at `/admin/staff` *(since merged into `/admin/personnel`)*; mirrored client-side in [`lib/auth.ts`](../frontend/src/lib/auth.ts) so revoked features vanish from the sidebar.
 
 **Why:**
 - RBAC answers "what role are you"; ISN also needs "which features may *this* staffer use" — e.g. a junior physio who can view records but not upload screening data
@@ -482,7 +482,7 @@ roles). Built incrementally through 2026-07-18/19 on JC's direction.
 (scalar string). A coach's jurisdiction is exactly one squad; enforced in
 [`routes/coach.js`](../backend/src/routes/coach.js) and the team-report scope
 check in [`routes/screeningReports.js`](../backend/src/routes/screeningReports.js).
-Coaches are managed from [`/admin/coaches`](../frontend/src/app/admin/coaches/page.tsx)
+Coaches are managed from `/admin/coaches` *(since merged into `/admin/personnel`)*
 (create, reassign the sport, activate/deactivate) via `POST` / `PATCH /api/users` —
 no reseed needed, unlike the original seed-only setup.
 

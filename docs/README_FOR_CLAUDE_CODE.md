@@ -21,7 +21,7 @@ Three parts, all load-bearing:
 
 1. **Ingest what ISN already produces.** ISN screens athletes on a HoloMotion rig, which emits a per-athlete PDF. That PDF is the **single source of truth** for the whole system (directive of 2026-08-01/02). AIRMS does not ask anyone to key in data by hand, does not ask athletes to self-log, and does not invent a second measurement stream.
 2. **Score each athlete against their own peers, not a textbook.** A raw HoloMotion number means little on its own. AIRMS builds **cohort norms** — mean/SD per (sport, programme, gender, discipline) — and expresses an athlete as a z-score-derived **0–100 Total Score of Athleticism**, banded green/amber/red with explicit **escalation rules**. The band is always accompanied by *why* it fired.
-3. **Deliver the same truth in four shapes.** One computation, four audiences: the athlete's own dashboard, the clinician's assessment surface (with an override they must justify), the coach's sport-scoped readiness board, and the admin's cohort governance + PDF reports. Nobody sees a number the others can't reconcile.
+3. **Deliver the same truth in four shapes.** One computation, four audiences: the athlete's own dashboard, the clinician's assessment surface (with an override they must justify), the coach's sport-scoped readiness board, and the admin's cohort governance + PDF reports. (A fifth *role*, `executive`, was added 2026-08-08, but it is a read-only lens over the admin shape rather than a fifth audience with its own view.) Nobody sees a number the others can't reconcile.
 
 **The one-sentence version, for viva:** *"AIRMS reads the screening reports ISN already generates, norms every athlete against their real peer group instead of a published threshold, and surfaces one explainable risk verdict to the athlete, the clinician, the coach and the administrator."*
 
@@ -65,16 +65,17 @@ Do not propose these. Each was considered and settled:
 
 ---
 
-## What AIRMS currently is (as of 2026-08-06)
+## What AIRMS currently is (as of 2026-08-18)
 
-Four roles, one shared computation:
+**Five** roles, one shared computation:
 
 | Role | Sees | Does not see |
 |---|---|---|
 | **Athlete** | Own cohort-normed risk hero, 7-axis risk radar, 22-muscle body map, embedded HoloMotion screening panel, screening **history**, same-sport **squad** readiness summary, own PDF | Any teammate's clinical detail |
 | **Medical** | The athlete dashboard *plus* clinician affordances — band override with note, injured flag, screening date picker, HoloMotion PDF import, cohort norms (if granted `editCohortNorms`) | Admin governance pages |
 | **Coach** | Read-only squad readiness for their **one** assigned sport — worst-first ordering, needs-attention list, squad focus, per-athlete trend, team + individual PDFs | Anything outside their sport; any clinical affordance |
-| **Admin** | Screening cohort analytics, cohort-norm approval + versioning + membership, tunable settings, personnel management, PDF reports, Excel backup | — |
+| **Admin** | Screening cohort analytics, programme activity over time, the Activity Log, cohort-norm approval + versioning + **pinning** + membership, tunable settings, personnel management, PDF reports, Excel backup | — |
+| **Executive** *(added 2026-08-08)* | Read-only institutional oversight — the admin analytics and the three PDF reports | **Anything that writes**: no import, no norm edits, no roster or personnel changes, no settings, no backup export. It is deliberately **not** a super-admin — it has strictly fewer powers than `admin`, and naming it that would misdescribe it |
 
 ### The end-to-end data path (learn this one thing)
 
@@ -230,4 +231,4 @@ Demo login: `athlete@isn.gov.my` / `athlete123` (John Doe). The athlete key is t
 
 ---
 
-*Last updated: 2026-08-06 — rewritten around an explicit Mission / Vision / Non-goals statement after the HoloMotion-only cut (2026-08-02) and the 2026-08 roadmap batch made the previous framing (injury logging, sRPE, aggregated body regions, 3 roles) inaccurate. Added the end-to-end data path, the continuation guide, and Golden rule #5 (one source of truth per decision).*
+*Last updated: 2026-08-18 — role table corrected to **five** roles (`executive`, added 2026-08-08, was missing entirely) and the admin row extended with programme activity, the Activity Log and norm pinning. Previous: 2026-08-06 — rewritten around an explicit Mission / Vision / Non-goals statement after the HoloMotion-only cut (2026-08-02) and the 2026-08 roadmap batch made the previous framing (injury logging, sRPE, aggregated body regions, 3 roles) inaccurate. Added the end-to-end data path, the continuation guide, and Golden rule #5 (one source of truth per decision).*
