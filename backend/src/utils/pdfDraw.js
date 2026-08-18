@@ -19,6 +19,7 @@ const { effectiveBand } = require('./bands');
 const {
   bodyFront, bodyBack, frontOutline, backOutline, SCOPED_SLUGS: BODYMAP_SCOPED_SLUGS, worstValueBySlug,
 } = require('../utils/bodymap');
+const { aggregateSubitems } = require('./subitemAggregate');
 
 // ── palette (AIRMS identity + HoloMotion band semantics) ────────────────────
 const NAVY = '#0f2c4a';
@@ -194,8 +195,18 @@ function sectionTitle(doc, t, keep = 60) {
 // Horizontal bar with an optional reference marker (e.g. cohort mean).
 function bar(doc, label, value, max, color, opts = {}) {
   ensure(doc, 18);
-  const x = 50; const w = doc.page.width - 100; const barW = w - 190;
+  const x = 50; const w = doc.page.width - 100;
   const y = doc.y;
+  // The value slot was a fixed 50pt. "58 of 62 (94%)" needs about 70 at 9pt
+  // bold, so on the Programme Activity cover it wrapped and the second line
+  // landed on top of the row beneath it. Measure the text and give the bar
+  // whatever is left, so a long value shortens the bar instead of colliding.
+  const valueText = opts.valueText ?? String(value ?? '—');
+  const prevSize = doc._fontSize;
+  doc.fontSize(9).font('Helvetica-Bold');
+  const valueW = Math.max(50, Math.ceil(doc.widthOfString(valueText)) + 4);
+  doc.fontSize(prevSize).font('Helvetica');
+  const barW = w - 140 - valueW;
   doc.fillColor(TEXT).fontSize(9).font('Helvetica').text(label, x, y + 1, { width: 126, lineBreak: false });
   const bx = x + 130;
   doc.roundedRect(bx, y, barW, 11, 2).fill('#eef1f4');
@@ -206,7 +217,7 @@ function bar(doc, label, value, max, color, opts = {}) {
     doc.moveTo(rx, y - 2).lineTo(rx, y + 13).strokeColor(NAVY).lineWidth(1.4).stroke().lineWidth(1);
   }
   doc.fillColor(TEXT).fontSize(9).font('Helvetica-Bold').text(
-    opts.valueText ?? String(value ?? '—'), bx + barW + 8, y + 1, { width: 50, lineBreak: false });
+    valueText, bx + barW + 8, y + 1, { width: valueW, lineBreak: false });
   doc.y = y + 16;
 }
 
@@ -728,7 +739,12 @@ function changeBars(doc, deltas, opts = {}) {
   const rowH = 15;
   ensure(doc, rowH * rows.length + 26);
   const x0 = 50;
-  const max = Math.max(...rows.map((r) => Math.abs(r.gain)), 0.1);
+  // The scale must include the DEAD BAND, not just the biggest move. Scaled to
+  // the largest delta alone, a -1.8 against a +-2 threshold drew the longest bar
+  // on the figure and labelled it "steady" — the chart shouting significance at
+  // a change section 27 says is indistinguishable from noise.
+  const bands = rows.map((r) => Number(r.deadBand) || 0);
+  const max = Math.max(...rows.map((r) => Math.abs(r.gain)), ...bands, 0.1);
   const mid = x0 + labelW + trackW / 2;
 
   doc.fontSize(6.5).font('Helvetica-Bold').fillColor(MUTED)
@@ -741,6 +757,10 @@ function changeBars(doc, deltas, opts = {}) {
     doc.fontSize(8.5).font('Helvetica').fillColor(TEXT)
       .text(r.label, x0, y + 2, { width: labelW - 6, lineBreak: false, ellipsis: true });
     doc.rect(x0 + labelW, y + 1, trackW, rowH - 5).fill('#f1f4f7');
+    // The zone in which a change cannot be told from measurement error, drawn
+    // so a bar that sits inside it is SEEN to sit inside it.
+    const bw = ((Number(r.deadBand) || 0) / max) * (trackW / 2);
+    if (bw > 0.4) doc.rect(mid - bw, y + 1, bw * 2, rowH - 5).fill('#e4e9ee');
     doc.save().lineWidth(0.6).strokeColor('#c3cbd4')
       .moveTo(mid, y).lineTo(mid, y + rowH - 3).stroke().restore();
 
@@ -748,8 +768,16 @@ function changeBars(doc, deltas, opts = {}) {
     const tone = r.direction === 'improving' ? BAND.green
       : r.direction === 'declining' ? BAND.red : MUTED;
     if (w > 0.4) {
-      if (r.gain >= 0) doc.rect(mid, y + 1, w, rowH - 5).fill(tone);
-      else doc.rect(mid - w, y + 1, w, rowH - 5).fill(tone);
+      // A bar inside the dead band is drawn as an outline: present, measured,
+      // and visibly not claiming to be a real move.
+      const inside = Math.abs(r.gain) < (Number(r.deadBand) || 0);
+      const bx2 = r.gain >= 0 ? mid : mid - w;
+      if (inside) {
+        doc.save().lineWidth(0.7).strokeColor(MUTED)
+          .rect(bx2, y + 1, w, rowH - 5).stroke().restore();
+      } else {
+        doc.rect(bx2, y + 1, w, rowH - 5).fill(tone);
+      }
     }
     doc.fontSize(8.5).font('Helvetica-Bold').fillColor(tone)
       .text(`${r.avgDelta > 0 ? '+' : ''}${r.avgDelta}`, x0 + labelW + trackW + 6, y + 2,
@@ -762,9 +790,11 @@ function changeBars(doc, deltas, opts = {}) {
   doc.moveDown(0.2);
   doc.fontSize(7).fillColor(MUTED).text(
     (opts.note || '')
-    + ' Bars share one scale, so the longest is the biggest move, and they point right for BETTER '
-    + 'rather than for a positive number - exercise risks improve by falling, so a drop there is drawn '
-    + 'right like any other gain while the printed figure keeps its true sign.',
+    + ' The shaded band either side of centre is the change too small to be told from measurement '
+    + 'error; a bar drawn as an outline sits inside it and is reported as steady. Bars share one scale '
+    + 'and point right for BETTER rather than for a positive number - exercise risks improve by '
+    + 'falling, so a drop there is drawn right like any other gain while the printed figure keeps its '
+    + 'true sign.',
     50, doc.y, { width: W },
   );
   doc.fillColor(TEXT);
@@ -971,7 +1001,13 @@ function squadSubitemHeatmap(doc, members) {
     y += rowH;
   }
   doc.y = y + 4;
-  // tier legend (squares, matching the cells)
+  tierLegend(doc);
+}
+
+// The subitem tier key. Extracted from the heatmap so the squad body map can
+// print the SAME key rather than a second one that could drift from it.
+function tierLegend(doc) {
+  ensure(doc, 18);
   let lx = 50; const ly = doc.y;
   for (const t of TIERS) {
     doc.roundedRect(lx, ly, 8, 8, 2).fill(t.color);
@@ -1040,6 +1076,39 @@ function muscleFigure(doc, subitems, { width = 170, gap = 14 } = {}) {
   doc.fillColor(TEXT);
   doc.y = top + figH + 30;
   doc.x = 50;
+}
+
+// The squad's body, drawn — the same licensed figure the individual report uses,
+// fed the group's MEAN subitem readings instead of one athlete's.
+//
+// The team report described the squad's body only in words and numbers: a
+// hotspot bullet list and a 5-column heatmap. In a product whose entire
+// vocabulary is body regions, the squad had no anatomical view at all — the one
+// graphic that answers "where is this squad weak" without reading a table. The
+// means come from aggregateSubitems, the same function behind the heatmap and
+// the Screening Analytics page, so the figure cannot quote a different average
+// from the grid printed beside it.
+function squadMuscleFigure(doc, members, opts = {}) {
+  const rows = members
+    .map((m) => (m && m.s ? m.s : m))
+    .filter((x) => x && x.subitems && typeof x.subitems === 'object');
+  if (!rows.length) {
+    doc.fontSize(9).fillColor(MUTED).text('No subitem scores on record for this group.', 50);
+    return false;
+  }
+  const { matrix } = aggregateSubitems(rows);
+  const subitems = {};
+  for (const region of matrix) {
+    const cells = {};
+    for (const c of region.cells) if (c.value !== null) cells[c.key] = c.value;
+    if (Object.keys(cells).length) subitems[region.key] = cells;
+  }
+  if (!Object.keys(subitems).length) {
+    doc.fontSize(9).fillColor(MUTED).text('No subitem scores on record for this group.', 50);
+    return false;
+  }
+  muscleFigure(doc, subitems, opts);
+  return true;
 }
 
 // Lateral symmetry per HoloMotion region, from the subitems we already extract:
@@ -1462,6 +1531,6 @@ module.exports = {
   distributionHistogram, ensure, fileSlug, finish, fmtDate, riskMovementScatter, sparkline,
   throughputChart,
   focusTable, hotspotBar, interpret, keyFindings, keyFindingsBox, muscleFigure, num, periodTable, radar,
-  riskLegend, seasonTable, sectionTitle, squadMuscleHotspots, squadSubitemHeatmap, squadSymmetrySection, startDoc,
+  riskLegend, seasonTable, sectionTitle, squadMuscleHotspots, squadMuscleFigure, tierLegend, squadSubitemHeatmap, squadSymmetrySection, startDoc,
   subitemPriorities, subitemTable, symmetrySection, todayStamp, zoneGauge,
 };

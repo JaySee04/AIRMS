@@ -29,7 +29,7 @@ const {
   bandPill, bar, betweenTestsBlock, bullets, cover, ensure, fileSlug, finish, fmtDate, periodTable,
   seasonTable, sparkline, throughputChart, changeBars,
   auditTable, staffTable, interpret, keyFindings, keyFindingsBox, muscleFigure, num, radar,
-  riskLegend, sectionTitle, squadMuscleHotspots, squadSubitemHeatmap, squadSymmetrySection, startDoc,
+  riskLegend, sectionTitle, squadMuscleHotspots, squadMuscleFigure, squadSubitemHeatmap, tierLegend, squadSymmetrySection, startDoc,
   subitemPriorities, subitemTable, symmetrySection, todayStamp, zoneGauge,
 } = require('../utils/pdfDraw');
 
@@ -329,6 +329,19 @@ router.get('/team.pdf', auth, rbac('medical', 'admin', 'coach', 'executive'), re
     // across the group (TMG group-report "Team" pages, adapted to our data).
     sectionTitle(doc, 'Squad Lateral Symmetry (average)');
     squadSymmetrySection(doc, members);
+
+    // Where the squad is weak, anatomically. The group had a hotspot list and a
+    // numeric grid but no body — the figure a reader actually orients on.
+    sectionTitle(doc, 'Squad Body Map (group average)', 380);
+    doc.fontSize(8).fillColor(MUTED).text(
+      'Each region is coloured by the group’s AVERAGE subitem reading, taking the worse of ROM and '
+      + 'Stability per side — the same rule and the same averages as the heatmap and the Screening '
+      + 'Analytics page. A group average hides individuals: a region can read amber here because a '
+      + 'few athletes score badly, so read it with the attention table.',
+      50, doc.y, { width: doc.page.width - 100 });
+    doc.moveDown(0.4);
+    squadMuscleFigure(doc, members);
+    tierLegend(doc);
 
     // Squad muscle-flag hotspots — the most-flagged muscles across the group.
     const hotspots = squadMuscleHotspots(members);

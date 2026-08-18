@@ -268,4 +268,78 @@ describe('pdfDraw toolkit', () => {
       expect(pdf.length).toBeGreaterThan(1000);
     }
   });
+
+  // The squad had no anatomical view: the group's body was described only by a
+  // hotspot bullet list and a numeric grid, in a product whose whole vocabulary
+  // is body regions. Fed by aggregateSubitems so the figure cannot quote a
+  // different average from the heatmap printed beside it.
+  describe('squad body map', () => {
+    const member = (base) => ({
+      a: { athleteId: String(base), name: 'A' + base },
+      s: {
+        subitems: {
+          neck: { romL: base + 30, romR: base - 5, stabL: base, stabR: base, sym: base },
+          shoulder: { romL: base, romR: base, stabL: base, stabR: base, sym: base },
+          torso: { romL: base - 20, romR: base - 22, stabL: base - 18, stabR: base - 20, sym: base },
+          pelvis: { romL: base + 10, romR: base + 8, stabL: base + 9, stabR: base + 7, sym: base },
+          lowerLimbs: { romL: base + 20, romR: base + 21, stabL: base + 19, stabR: base + 20, sym: base },
+        },
+      },
+    });
+
+    it('draws the group figure and reports that it drew', async () => {
+      let drew;
+      const { pdf } = await render((doc) => {
+        drew = D.squadMuscleFigure(doc, [member(62), member(70), member(55), member(80)]);
+        D.tierLegend(doc);
+      });
+      expect(drew).toBe(true);
+      expect(pdf.slice(0, 5).toString()).toBe('%PDF-');
+      expect(pdf.length).toBeGreaterThan(1000);
+    });
+
+    // A group with nothing to draw must say so rather than throw mid-stream:
+    // the response has already committed to being a PDF by this point.
+    it('declines cleanly when no member carries subitems', async () => {
+      const results = [];
+      const { pdf } = await render((doc) => {
+        results.push(D.squadMuscleFigure(doc, []));
+        results.push(D.squadMuscleFigure(doc, [{ a: {}, s: {} }]));
+        results.push(D.squadMuscleFigure(doc, [{ a: {}, s: { subitems: {} } }]));
+      });
+      expect(results).toEqual([false, false, false]);
+      expect(pdf.slice(0, 5).toString()).toBe('%PDF-');
+    });
+  });
+
+  // Scaled to the largest delta alone, a -1.8 against a +-2 dead band drew the
+  // LONGEST bar on the figure and labelled it "steady" — the chart asserting a
+  // change the threshold says is indistinguishable from noise. The scale must
+  // therefore include the dead band even when no delta reaches it.
+  it('never lets a sub-threshold change draw the full-width bar', async () => {
+    const allTiny = [
+      { label: 'Overall indicator', avgDelta: -1.8, higherBetter: true, direction: 'steady', deadBand: 2 },
+      { label: 'Total Score', avgDelta: 0.4, higherBetter: true, direction: 'steady', deadBand: 2 },
+    ];
+    const { pdf } = await render((doc) => D.changeBars(doc, allTiny, { note: 'x' }));
+    expect(pdf.slice(0, 5).toString()).toBe('%PDF-');
+
+    // Mixed: a real move present alongside sub-threshold ones.
+    const { pdf: mixed } = await render((doc) => D.changeBars(doc, [
+      ...allTiny,
+      { label: 'ROM', avgDelta: -5.2, higherBetter: true, direction: 'declining', deadBand: 2 },
+      { label: 'Exercise risks', avgDelta: -4.5, higherBetter: false, direction: 'improving', deadBand: 2 },
+    ], { note: 'x' }));
+    expect(mixed.slice(0, 5).toString()).toBe('%PDF-');
+    expect(mixed.length).toBeGreaterThan(1000);
+  });
+
+  // Rows with no dead band at all (the threshold declined and nothing was
+  // passed) must still draw rather than divide by a missing number.
+  it('draws change bars when no dead band is supplied', async () => {
+    const { pdf } = await render((doc) => D.changeBars(doc, [
+      { label: 'Total Score', avgDelta: 3.1, higherBetter: true, direction: 'improving' },
+    ], { note: 'x' }));
+    expect(pdf.slice(0, 5).toString()).toBe('%PDF-');
+  });
 });
