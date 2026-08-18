@@ -395,7 +395,9 @@ The athlete's latest HoloMotion screening lives directly on the **athlete dashbo
 
 Lets an admin control exactly what each **medical** staff member can do, beyond their role.
 
-- A table lists every medical user with a checkbox per capability: **View athlete records**, **Upload screening data**, **Review reports**, **Injury reports**. (Two of these were named for the self-report and injury-log features removed on 2026-08-02 — the permission keys survive in `utils/permissions.js` and still gate the surfaces that remain.)
+- A table lists every medical user with a checkbox per capability. There are **three**: **View athlete records** (`viewRecords`), **Upload screening data** (`uploadData`) and **Edit cohort norms** (`editCohortNorms`)
+- Earlier builds had two further capabilities — "Review/approve self-reports" and "Log & view injuries" — which were **removed along with the features they gated** in the 2026-08-02 HoloMotion-only cut. Nothing stale remains in the catalogue
+- The checkbox list is not written in the page. It is fetched from `GET /api/users/permission-meta`, which serves `PERMISSION_KEYS` + `PERMISSION_LABELS` straight from `backend/src/utils/permissions.js` — so the admin screen cannot drift from what the backend actually enforces, and adding a capability is a one-file change
 - **Opt-out model** — every capability is on by default; unchecking one revokes it for that staffer. The change saves immediately
 - A revoked feature simply ceases to exist for that user: it disappears from the sidebar, and navigating to its URL directly redirects to their first still-permitted page (no dead-end error screen). The backend blocks the underlying API calls regardless. Revocations take effect on the staffer's next page navigation — the app refreshes its session from the server on every dashboard load, no re-login needed
 - An **Active / Inactive** toggle deactivates an account entirely (blocks sign-in)
@@ -545,7 +547,7 @@ trail. There is no edit or delete path anywhere.
 
 Institution-wide switches: minimum cohort size and tier fallback, the two
 escalation rules, alert on/off and the band that triggers one, the monthly
-digest, and the **rescreen interval** (2 / 3 / 4 / 6 / 9 / 12 months).
+digest, and the **rescreen interval** (2 / 3 / 4 / 6 / 9 months or 1 year).
 
 ### 21.4 Cohort Norms — `/medical/cohort-norms` (medical, with `editCohortNorms`)
 

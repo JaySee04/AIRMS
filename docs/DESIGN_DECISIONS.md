@@ -353,7 +353,7 @@ Minor calls that didn't get a full section but are worth recording:
 
 ## 14. Per-user feature permissions for medical staff (opt-out)
 
-**Decision:** Layer a per-user permission gate on top of coarse RBAC, letting an admin revoke individual capabilities (`viewRecords`, `uploadData`, `reviewReports`, `injuryReports`) from a specific medical staffer, or deactivate the account. **Opt-out model:** a capability is granted unless explicitly set `false`.
+**Decision:** Layer a per-user permission gate on top of coarse RBAC, letting an admin revoke individual capabilities (`viewRecords`, `uploadData`, `reviewReports`, `injuryReports` — the last two were **removed on 2026-08-02** with the self-report and injury-log features they gated, and `editCohortNorms` was added; the live catalogue is `viewRecords` / `uploadData` / `editCohortNorms`) from a specific medical staffer, or deactivate the account. **Opt-out model:** a capability is granted unless explicitly set `false`.
 
 **Implementation:** [`utils/permissions.js`](../backend/src/utils/permissions.js) (catalogue + helpers) + [`middleware/permission.js`](../backend/src/middleware/permission.js) (`requirePermission`) on the protected routes; admin UI at `/admin/staff` *(since merged into `/admin/personnel`)*; mirrored client-side in [`lib/auth.ts`](../frontend/src/lib/auth.ts) so revoked features vanish from the sidebar.
 
