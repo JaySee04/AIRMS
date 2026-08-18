@@ -69,16 +69,9 @@ const RISK_ZONES = [
 ];
 const riskZone = (v) => RISK_ZONES[v > 25 ? 2 : v > 15 ? 1 : 0];
 const ELEVATED_THRESHOLD = RISK_ZONES[1].max; // 25 — the radar guide polygon is drawn at this boundary
-// LDH (spinalDiscHerniation) deliberately absent.
-const RISKS = [
-  ['neckInjuryRisk', 'Neck Pain'],
-  ['shoulderInjuryRisk', 'Shoulder Pain'],
-  ['scoliosis', 'Scoliosis'],
-  ['lumbarPelvisInjury', 'Anterior Pelvic Tilt'],
-  ['jointPain', 'Joint Pain'],
-  ['kneeInjuryRisk', 'Ligament Strain'],
-  ['ankleInjuryRisk', 'Ankle Sprain'],
-];
+// The report's own HoloMotion wording for the seven shown indicators (LDH
+// deliberately absent) — one definition, in utils/riskIndicators.js.
+const { REPORT_RISKS: RISKS } = require('./riskIndicators');
 
 // Physical Fitness Subitem Score — HoloMotion's 60/75/85 tiers. Colours mirror
 // the website's ROM & Stability language exactly (BodyMap: --risk-low /

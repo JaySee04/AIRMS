@@ -26,12 +26,9 @@ const cohortKeyOf = (o) => `${o.tier}|${o.sport}|${o.programme}|${o.gender}|${o.
 // on 0–100-ish scales, so 0.5 filters float noise but catches real change).
 const DRIFT_EPSILON = 0.5;
 
-// The 7 exercise-risk indicators shown in AIRMS. spinalDiscHerniation (Lumbar
-// Disc Herniation) is deliberately excluded — stored, never scored/displayed.
-const SHOWN_RISK_KEYS = [
-  'neckInjuryRisk', 'shoulderInjuryRisk', 'scoliosis',
-  'lumbarPelvisInjury', 'jointPain', 'kneeInjuryRisk', 'ankleInjuryRisk',
-];
+// The 7 exercise-risk indicators shown in AIRMS, and the LDH exclusion that
+// comes with them, now defined once in utils/riskIndicators.js.
+const { SHOWN_RISK_KEYS } = require('./riskIndicators');
 
 const num = (v) => (v === null || v === undefined || v === '' || Number.isNaN(Number(v)) ? null : Number(v));
 

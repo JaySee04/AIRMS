@@ -10,6 +10,7 @@
 // between the two rather than duplicating either here.
 
 import { tierMeta } from '@/lib/holomotionTiers';
+import { REPORT_RISKS } from '@/lib/screeningAlerts';
 
 interface Props {
   athlete: Record<string, unknown>; // flat extracted scores (values read via num())
@@ -24,16 +25,9 @@ const HEADLINE: Array<[string, string, boolean]> = [
   ['injuryRiskIndex', 'Exercise Risks', false],
 ];
 
-// The seven shown exercise-risk indicators (LDH shown separately, muted).
-const RISKS: Array<[string, string]> = [
-  ['neckInjuryRisk', 'Neck Pain'],
-  ['shoulderInjuryRisk', 'Shoulder Pain'],
-  ['scoliosis', 'Scoliosis'],
-  ['lumbarPelvisInjury', 'Anterior Pelvic Tilt'],
-  ['jointPain', 'Joint Pain'],
-  ['kneeInjuryRisk', 'Ligament Strain'],
-  ['ankleInjuryRisk', 'Ankle Sprain'],
-];
+// The seven shown exercise-risk indicators (LDH shown separately, muted),
+// from the one list in lib/screeningAlerts.ts.
+const RISKS = REPORT_RISKS;
 
 const RISK_AXIS = 40; // display axis — matches the dashboard strips
 

@@ -3,9 +3,9 @@
 import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import Image from 'next/image';
 import { api } from '@/lib/api';
 import { saveSession } from '@/lib/auth';
+import LoginBrand from '@/components/auth/LoginBrand';
 
 const ROLE_REDIRECTS: Record<string, string> = {
   athlete: '/athlete/dashboard',
@@ -41,19 +41,7 @@ export default function LoginPage() {
   return (
     <div className="login-split">
       <div className="login-card">
-      <div className="login-left">
-        <div className="login-logos">
-          <Image src="/images/logofull.png" alt="ISN" width={210} height={72} priority quality={100} />
-        </div>
-        <div className="login-left-body">
-          <h2 className="login-tagline">Athlete Injury Risk<br />Management System</h2>
-          <p className="login-org">INSTITUT SUKAN NEGARA</p>
-          <p className="login-address">
-            Kompleks Sukan Negara<br />
-            57000 Bukit Jalil, Kuala Lumpur
-          </p>
-        </div>
-      </div>
+      <LoginBrand />
 
       <div className="login-right">
         <div className="login-form-wrap">

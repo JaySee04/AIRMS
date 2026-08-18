@@ -18,21 +18,9 @@
 // admin can think in — sport, gender, age group, programme — plus the athletes
 // worst on it. Pure: no DB, no Sequelize. Tested in tests/cohortFocus.test.js.
 
-// The seven indicators AIRMS shows. spinalDiscHerniation (Lumbar Disc
-// Herniation) is deliberately absent: extracted and stored, never displayed,
-// because ISN cannot perform that assessment (Dr Thung). Mirrors
-// SHOWN_RISK_KEYS in cohorts.js and INDICATORS in lib/screeningAlerts.ts.
-const SHOWN_INDICATORS = [
-  { key: 'neckInjuryRisk', label: 'Neck' },
-  { key: 'shoulderInjuryRisk', label: 'Shoulder' },
-  { key: 'scoliosis', label: 'Scoliosis' },
-  { key: 'lumbarPelvisInjury', label: 'Lumbar/Pelvis' },
-  { key: 'jointPain', label: 'Joint Pain' },
-  { key: 'kneeInjuryRisk', label: 'Knee' },
-  { key: 'ankleInjuryRisk', label: 'Ankle' },
-];
-const INDICATOR_LABEL = Object.fromEntries(SHOWN_INDICATORS.map((i) => [i.key, i.label]));
-const isShownIndicator = (k) => Object.prototype.hasOwnProperty.call(INDICATOR_LABEL, k);
+// The seven indicators AIRMS shows, and the LDH exclusion, from the one
+// definition in utils/riskIndicators.js.
+const { SHOWN_INDICATORS, INDICATOR_LABEL, isShownIndicator } = require('./riskIndicators');
 
 // Band boundaries. Must agree with lib/screeningAlerts.ts (display) and
 // pdfDraw.js RISK_ZONES (print): Low <=15 · Watch 16-25 · Elevated >25.

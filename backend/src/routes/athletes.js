@@ -176,19 +176,6 @@ router.get('/analytics/screening', auth, rbac('admin', 'executive'), async (req,
   try {
     const WATCH = 15;
     const HIGH = 25;
-    // spinalDiscHerniation (Lumbar Disc Herniation) is deliberately ABSENT:
-    // stored on import but excluded from every risk display per Dr Thung — ISN
-    // cannot perform that assessment. Mirrors SHOWN_RISK_KEYS in
-    // utils/cohorts.js (scoring) and the dashboards' RISK_KEYS (display).
-    const INDICATORS = [
-      { key: 'neckInjuryRisk', label: 'Neck' },
-      { key: 'shoulderInjuryRisk', label: 'Shoulder' },
-      { key: 'scoliosis', label: 'Scoliosis' },
-      { key: 'lumbarPelvisInjury', label: 'Lumbar/Pelvis' },
-      { key: 'jointPain', label: 'Joint Pain' },
-      { key: 'kneeInjuryRisk', label: 'Knee' },
-      { key: 'ankleInjuryRisk', label: 'Ankle' },
-    ];
     const SCORES = ['overallActivityScore', 'injuryRiskIndex', 'mobility', 'stability', 'symmetry'];
 
     // POPULATION filters — who is in the picture.
@@ -209,7 +196,7 @@ router.get('/analytics/screening', auth, rbac('admin', 'executive'), async (req,
     const rows = await Athlete.findAll({ where, raw: true });
     const screenedRows = rows.filter((r) => SCORES.some((k) => r[k] !== null && r[k] !== undefined));
 
-    const indicators = INDICATORS.map(({ key, label }) => {
+    const indicators = SHOWN_INDICATORS.map(({ key, label }) => {
       let ok = 0, watch = 0, high = 0;
       screenedRows.forEach((r) => {
         const v = Number(r[key] ?? 0);

@@ -30,10 +30,7 @@ const BANDS = ['green', 'amber', 'red'];
 const num = (v) => (v === null || v === undefined || v === '' || Number.isNaN(Number(v)) ? null : Number(v));
 
 // Display labels for the per-indicator escalation factor text.
-const INDICATOR_LABELS = {
-  neckInjuryRisk: 'Neck', shoulderInjuryRisk: 'Shoulder', scoliosis: 'Scoliosis',
-  lumbarPelvisInjury: 'Lumbar/Pelvis', jointPain: 'Joint Pain', kneeInjuryRisk: 'Knee', ankleInjuryRisk: 'Ankle',
-};
+const { INDICATOR_LABEL: INDICATOR_LABELS } = require('./riskIndicators');
 
 // Composite z of a screening against cohort stats ({component:{mean,sd}}).
 // Averages the available component z-scores (TSA). Returns null if none usable.

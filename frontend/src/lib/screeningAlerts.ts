@@ -33,29 +33,36 @@ export type BodyRegion = 'Neck' | 'Shoulder' | 'Spine' | 'Lumbar/Pelvis' | 'Join
 // sport-critical alerts per Dr Thung — ISN's facilities don't support that
 // assessment, so AIRMS must never raise a finding against it. The scoring
 // counterpart is SHOWN_RISK_KEYS in backend/src/utils/cohorts.js.
-export const INDICATORS: Array<{ key: keyof AthleteRisks; region: BodyRegion; label: string }> = [
-  { key: 'neckInjuryRisk', region: 'Neck', label: 'Neck' },
-  { key: 'shoulderInjuryRisk', region: 'Shoulder', label: 'Shoulder' },
-  { key: 'scoliosis', region: 'Spine', label: 'Scoliosis' },
-  { key: 'lumbarPelvisInjury', region: 'Lumbar/Pelvis', label: 'Lumbar / pelvis' },
-  { key: 'jointPain', region: 'Joint', label: 'Joint pain' },
-  { key: 'kneeInjuryRisk', region: 'Knee', label: 'Knee' },
-  { key: 'ankleInjuryRisk', region: 'Ankle', label: 'Ankle' },
+// Each entry now also carries the two OTHER wordings this list was being
+// copied out for: `axisLabel` (terser Title Case, for a chart axis) and
+// `reportLabel` (HoloMotion's own printed wording, so a clinician can check a
+// line against the PDF in their hand). They are not synonyms to unify — but
+// they are not reasons to re-declare the KEYS either, which is what they had
+// become. Mirrors backend/src/utils/riskIndicators.js.
+export const INDICATORS: Array<{
+  key: keyof AthleteRisks; region: BodyRegion; label: string; axisLabel: string; reportLabel: string;
+}> = [
+  { key: 'neckInjuryRisk', region: 'Neck', label: 'Neck', axisLabel: 'Neck', reportLabel: 'Neck Pain' },
+  { key: 'shoulderInjuryRisk', region: 'Shoulder', label: 'Shoulder', axisLabel: 'Shoulder', reportLabel: 'Shoulder Pain' },
+  { key: 'scoliosis', region: 'Spine', label: 'Scoliosis', axisLabel: 'Scoliosis', reportLabel: 'Scoliosis' },
+  { key: 'lumbarPelvisInjury', region: 'Lumbar/Pelvis', label: 'Lumbar / pelvis', axisLabel: 'Lumbar/Pelvis', reportLabel: 'Anterior Pelvic Tilt' },
+  { key: 'jointPain', region: 'Joint', label: 'Joint pain', axisLabel: 'Joint Pain', reportLabel: 'Joint Pain' },
+  { key: 'kneeInjuryRisk', region: 'Knee', label: 'Knee', axisLabel: 'Knee', reportLabel: 'Ligament Strain' },
+  { key: 'ankleInjuryRisk', region: 'Ankle', label: 'Ankle', axisLabel: 'Ankle', reportLabel: 'Ankle Sprain' },
 ];
 
-// Radar-axis view of the shown indicators. Separate from INDICATORS.label only
-// because a chart axis needs terser Title Case than the prose alert layer; the
-// keys and their order are identical, and the LDH exclusion is inherited — so
-// INDICATORS remains the one place deciding WHICH indicators are shown.
-export const RADAR_AXES: Array<{ key: keyof AthleteRisks; label: string }> = [
-  { key: 'neckInjuryRisk', label: 'Neck' },
-  { key: 'shoulderInjuryRisk', label: 'Shoulder' },
-  { key: 'scoliosis', label: 'Scoliosis' },
-  { key: 'lumbarPelvisInjury', label: 'Lumbar/Pelvis' },
-  { key: 'jointPain', label: 'Joint Pain' },
-  { key: 'kneeInjuryRisk', label: 'Knee' },
-  { key: 'ankleInjuryRisk', label: 'Ankle' },
-];
+// Radar-axis view of the shown indicators. This used to re-list all seven keys
+// under a comment asserting that "INDICATORS remains the one place deciding
+// WHICH indicators are shown" — which it was not, precisely because this list
+// existed. Derived now, so the claim is true and adding an eighth indicator (or
+// letting LDH slip in) is impossible from here.
+export const RADAR_AXES: Array<{ key: keyof AthleteRisks; label: string }> = INDICATORS
+  .map(({ key, axisLabel }) => ({ key, label: axisLabel }));
+
+// HoloMotion's printed wording, for the import preview that sits beside the
+// source PDF. Same derivation, same reason.
+export const REPORT_RISKS: Array<[string, string]> = INDICATORS
+  .map(({ key, reportLabel }) => [key, reportLabel]);
 
 export const RADAR_LABELS: string[] = RADAR_AXES.map((a) => a.label);
 
