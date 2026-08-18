@@ -91,12 +91,23 @@ async function holisticData(query = {}) {
   if (parts.length) nameBits.push(fileSlug(parts.join('_')));
   if (focused) nameBits.push(fileSlug(INDICATOR_LABEL[focused]));
 
+  // The activity sections must read the SAME population as everything else.
+  // They were fed the unfiltered history, so a report headed "Badminton - 18 of
+  // 62 athletes" went on to report the institute's throughput, its 19 retest
+  // pairs and its seasonality underneath — 19 retested athletes inside an
+  // 18-athlete population, contradicting its own cover on the same page. Caught
+  // by reading the printed report rather than by any test.
+  const keptIds = new Set(kept.map(({ athlete }) => athlete.athleteId));
+  const scopedHistory = kept.length === rows.length
+    ? history
+    : history.filter((h) => keptIds.has(h.athleteId));
+
   return {
     grain,
     allRows: rows,
     kept,
     totalActive,
-    activity: screeningPeriods(history, { grain }),
+    activity: screeningPeriods(scopedHistory, { grain }),
     parts,
     scope: parts.length ? parts.join(' · ') : 'All athletes',
     focused,
@@ -163,7 +174,10 @@ function drawHolistic(doc, data, stamp = todayStamp()) {
   distributionHistogram(
     doc,
     kept.map(({ screening }) => num(screening.overallIndicator)),
-    { min: 0, max: 100, binSize: 5, markers: [{ at: 50, label: 'cohort average' }] },
+    {
+      min: 0, max: 100, binSize: 5, xLabel: 'Overall indicator (0-100)',
+      markers: [{ at: 50, label: 'cohort average' }],
+    },
   );
   doc.fontSize(7.5).fillColor(MUTED).text(
     'Shape, not just the mean. A population average of 50 is produced equally by everyone sitting at 50 '

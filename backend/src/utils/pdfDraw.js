@@ -837,6 +837,10 @@ function riskMovementScatter(doc, points, opts = {}) {
   doc.fontSize(7).fillColor(MUTED).font('Helvetica');
   doc.text(String(Math.round(xMin)), x0 + padL, y0 + padT + plotH + 4, { lineBreak: false });
   doc.text(String(Math.round(xMax)), x0 + padL + plotW - 20, y0 + padT + plotH + 4, { width: 20, align: 'right', lineBreak: false });
+  // y needs numbers too. Without them the axis says which way is worse but not
+  // by how much, so a dot near the top could be 22 or 60.
+  doc.text(String(Math.round(yMax)), x0, y0 + padT - 2, { width: padL - 4, align: 'right', lineBreak: false });
+  doc.text(String(Math.round(yMin)), x0, y0 + padT + plotH - 7, { width: padL - 4, align: 'right', lineBreak: false });
   doc.text(opts.xLabel || 'Total Score', x0 + padL, y0 + padT + plotH + 13, { width: plotW, align: 'center', lineBreak: false });
   doc.save().rotate(-90, { origin: [x0 + 10, y0 + padT + plotH / 2] })
     .text(opts.yLabel || 'Exercise Risks', x0 + 10 - 40, y0 + padT + plotH / 2 - 4, { width: 80, align: 'center', lineBreak: false })
@@ -897,6 +901,9 @@ function distributionHistogram(doc, values, opts = {}) {
   doc.fontSize(7).fillColor(MUTED).font('Helvetica');
   doc.text(String(lo), x0 + padL, y0 + plotH + 3, { lineBreak: false });
   doc.text(String(hi), x0 + padL + plotW - 20, y0 + plotH + 3, { width: 20, align: 'right', lineBreak: false });
+  if (opts.xLabel) {
+    doc.text(opts.xLabel, x0 + padL, y0 + plotH + 3, { width: plotW, align: 'center', lineBreak: false });
+  }
   doc.text(String(peak), x0, y0 - 1, { width: padL - 3, align: 'right', lineBreak: false });
   doc.text('0', x0, y0 + plotH - 7, { width: padL - 3, align: 'right', lineBreak: false });
   doc.fillColor(TEXT);
