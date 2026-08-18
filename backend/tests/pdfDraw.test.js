@@ -10,6 +10,9 @@
 // routes/screeningReports.js (see utils/pdfDraw.js header).
 const { Writable } = require('stream');
 const D = require('../src/utils/pdfDraw');
+const {
+  capturePdfText, capturePaintOps, unrenderableIn, MUST_SURVIVE, chr,
+} = require('./helpers/capturePdfText');
 
 // Minimal stand-in for an Express response: collects the PDF bytes.
 function fakeRes() {
@@ -349,22 +352,26 @@ describe('pdfDraw toolkit', () => {
   // tracked", and "we hold no record" is a different claim from "we hold a
   // record of none".
   it('prints a zero download count as 0, not a dash', async () => {
-    const staff = [
-      { actor: 'Medical Demo 01', role: 'medical', actions: 8, downloads: 0, previousActions: 0, change: 0, byAction: {}, screeningsImported: 0 },
-    ];
-    let captured = '';
-    const { pdf } = await render((doc) => {
-      const realText = doc.text.bind(doc);
-      doc.text = (str, ...rest) => { captured += ' ' + String(str); return realText(str, ...rest); };
-      D.staffTable(doc, staff, {}, { comparable: false });
-      doc.text = realText;
+    // Asserted on the DRAWN text rather than on a spy above the guard, for the
+    // same reason as the WinAnsi tests below: what matters is what reached the
+    // page. A count of zero rendering as '-' made one row show three treatments
+    // of the same value, and on an accountability document '-' reads as "not
+    // tracked" rather than "none".
+    const { strings } = await capturePdfText(async () => {
+      const res = fakeRes();
+      const doc = D.startDoc(res, 'staff.pdf');
+      D.staffTable(doc, [{
+        actor: 'Medical Demo 01', role: 'medical', actions: 8, downloads: 0,
+        previousActions: 0, change: 0, byAction: {}, screeningsImported: 0,
+      }], {}, { comparable: false });
+      D.finish(doc, 'Test Report');
+      await new Promise((r) => res.on('finish', r));
     });
-    expect(pdf.slice(0, 5).toString()).toBe('%PDF-');
-    // the downloads cell must have rendered the string "0"
-    expect(captured.split(/\s+/)).toContain('0');
-    expect(captured).not.toMatch(/Medical Demo 01[^]*?\s-\s/);
+    // Three cells: actions 8, downloads 0, screenings 0 — and no bare dash.
+    expect(strings).toContain('8');
+    expect(strings.filter((x) => x === '0')).toHaveLength(2);
+    expect(strings).not.toContain('-');
   });
-
   // pdfkit's Helvetica is WinAnsi. A character outside that set does not warn,
   // does not throw and does not draw — it measures ZERO WIDTH and prints as
   // mojibake. The escalation factors stored on `screenings.factors` contain a
@@ -399,21 +406,234 @@ describe('pdfDraw toolkit', () => {
       expect(D.winAnsiSafe('')).toBe('');
     });
 
-    // The guard is installed on the document, so text written by ANY drawing
-    // helper is covered — including code added later that never hears about it.
-    it('is installed on documents, so drawn text is sanitised at source', async () => {
-      let captured = '';
-      const { pdf } = await render((doc) => {
-        const real = doc.text.bind(doc);
-        doc.text = (str, ...rest) => { captured += ' ' + String(str); return real(str, ...rest); };
-        doc.text('over threshold (≥ 25)', 50, 100);
-        doc.text = real;
+    // THE TEST THAT WAS MISSING.
+    //
+    // The first version of this asserted `winAnsiSafe(input) === expected` and a
+    // spy attached to the document after construction. Both passed while
+    // `guardText` was never called: a pure function is correct whether or not
+    // anybody invokes it, and an instance-level spy sits ABOVE the guard, so it
+    // records the raw string either way. The bug shipped and was caught only by
+    // re-rendering the report by hand.
+    //
+    // Patching the PROTOTYPE before construction puts the spy underneath the
+    // guard, so what it records is what pdfkit was actually asked to draw. Revert
+    // the `guardText(doc)` call in startDoc or bufferDoc and this fails.
+    it('installs the guard on startDoc, so pdfkit never receives a bad glyph', async () => {
+      const { joined } = await capturePdfText(async () => {
+        const res = fakeRes();
+        const doc = D.startDoc(res, 'guard.pdf');
+        doc.text(`over threshold (${chr(0x2265)} 25)`, 50, 100);
+        doc.text(`sport Badminton ${chr(0x2192)} Hockey`, 50, 130);
+        D.finish(doc, 'Test Report');
+        await new Promise((r) => res.on('finish', r));
       });
-      expect(pdf.slice(0, 5).toString()).toBe('%PDF-');
-      // our spy sits ABOVE the guard, so it sees the raw string; the guard below
-      // is what reaches the page. Assert the guard is present and functional.
-      expect(captured).toContain('≥');
-      expect(D.winAnsiSafe(captured)).not.toContain('≥');
+      expect(unrenderableIn(joined)).toEqual([]);
+      expect(joined).toContain('over threshold (>= 25)');
+      expect(joined).toContain('sport Badminton -> Hockey');
+    });
+
+    // bufferDoc is the path the monthly DIGEST uses to attach the holistic PDF.
+    // It was wired by the same failed edit, so it needs its own assertion — one
+    // covering the other would have hidden this.
+    it('installs the guard on bufferDoc, the path the emailed report uses', async () => {
+      const { joined } = await capturePdfText(async () => {
+        const { doc, done } = D.bufferDoc();
+        doc.text(`z ${chr(0x2264)} 1.5 and a ${chr(0x2260)} b`, 50, 100);
+        D.finish(doc, 'Test Report');
+        await done;
+      });
+      expect(unrenderableIn(joined)).toEqual([]);
+      expect(joined).toContain('z <= 1.5 and a != b');
+    });
+
+    // A sanitiser that over-reached would quietly wreck "Badminton | PODIUM" and
+    // every "sport x programme x gender" caption. Assert survival as firmly as
+    // assert removal.
+    it('leaves the glyphs the reports depend on intact, end to end', async () => {
+      const keep = MUST_SURVIVE.map(chr).join(' ');
+      const { joined } = await capturePdfText(async () => {
+        const res = fakeRes();
+        const doc = D.startDoc(res, 'keep.pdf');
+        doc.text(keep, 50, 100);
+        D.finish(doc, 'Test Report');
+        await new Promise((r) => res.on('finish', r));
+      });
+      for (const cp of MUST_SURVIVE) expect(joined).toContain(chr(cp));
+    });
+
+    // The net over everything else. Every helper is driven with hostile input at
+    // once, so a NEW drawing function that bypasses the guard — or a future
+    // producer that starts emitting a fresh bad glyph — trips here rather than in
+    // a printed report.
+    it('no toolkit helper can put an unrenderable glyph on the page', async () => {
+      const bad = `${chr(0x2265)}25 ${chr(0x2192)} ${chr(0x2264)} ${chr(0x2212)}3 ${chr(0x2500)}`;
+      const { joined } = await capturePdfText(async () => {
+        const res = fakeRes();
+        const doc = D.startDoc(res, 'sweep.pdf');
+        D.cover(doc, `Report ${bad}`, `subtitle ${bad}`);
+        D.sectionTitle(doc, `Section ${bad}`);
+        D.bar(doc, `Label ${bad}`, 42, 100, '#0f2c4a', { valueText: `42 ${bad}` });
+        D.zoneGauge(doc, `Gauge ${bad}`, 18);
+        D.keyFindingsBox(doc, [`finding ${bad}`]);
+        D.staffTable(doc, [{
+          actor: `Actor ${bad}`, role: 'admin', actions: 3, downloads: 0,
+          previousActions: 0, change: 0, byAction: { 'report.download': 3 }, screeningsImported: 0,
+        }], { 'report.download': `Downloaded ${bad}` }, { comparable: false });
+        D.auditTable(doc, [{
+          createdAt: '2026-08-18', actorName: `Who ${bad}`, action: 'report.download',
+          summary: `Detail ${bad}`,
+        }], { 'report.download': 'Report downloaded' });
+        D.changeBars(doc, [
+          { label: `ROM ${bad}`, avgDelta: -5.2, higherBetter: true, direction: 'declining', deadBand: 2 },
+        ], { note: `note ${bad}` });
+        D.finish(doc, 'Test Report');
+        await new Promise((r) => res.on('finish', r));
+      });
+      expect(unrenderableIn(joined)).toEqual([]);
+    });
+ });
+
+  // Section 30a, asserted on the PAINT rather than on the page text.
+  //
+  // The defect was a chart whose longest bar was a sub-threshold move labelled
+  // "steady": scaled to the largest delta alone, a -1.8 against a +-2 dead band
+  // filled half the track. The fix draws such a bar as an OUTLINE. Nothing in the
+  // text records that, so the existing "it produces a PDF" test could not see it,
+  // and neither could a string assertion — a future simplification back to a
+  // solid fill would pass both.
+  describe('change bars: the dead band is drawn, not just documented', () => {
+    const row = (label, avgDelta, direction) => ({
+      label, avgDelta, higherBetter: true, direction, deadBand: 2,
+    });
+
+    // Baseline: a real move fills. Without this the outline assertion below
+    // could pass simply because nothing was ever filled.
+    it('fills a bar that clears the threshold', async () => {
+      const { count } = await capturePaintOps(async () => {
+        const res = fakeRes();
+        const doc = D.startDoc(res, 'cb.pdf');
+        D.changeBars(doc, [row('ROM', -5.2, 'declining')], { note: 'x' });
+        D.finish(doc, 'Test Report');
+        await new Promise((r) => res.on('finish', r));
+      });
+      expect(count('fill')).toBeGreaterThan(0);
+    });
+
+    // The regression guard, asserted on the fill COLOUR rather than on counts.
+    //
+    // Counting fills alone proved useless and the first version of this test
+    // failed on it: the dead-band zone is itself a filled rect, so a chart that
+    // outlines two bars and shades two zones performs exactly as many fills (4)
+    // as one that fills two bars and shades nothing. The counts coincide while
+    // the meaning is opposite.
+    //
+    // `fill(tone)` carries the colour, so the precise question is answerable: does
+    // any fill use the BAR tone? Drawing the identical magnitudes with the dead
+    // band removed produces that tone and pins it, so the colour is derived from
+    // the toolkit rather than hardcoded here.
+    it('outlines rather than fills a bar smaller than its own dead band', async () => {
+      const rows = [row('Overall indicator', -1.8, 'steady'), row('Total score', 0.4, 'steady')];
+      const paint = (rs) => capturePaintOps(async () => {
+        const res = fakeRes();
+        const doc = D.startDoc(res, 'cb.pdf');
+        D.changeBars(doc, rs, { note: 'x' });
+        D.finish(doc, 'Test Report');
+        await new Promise((r) => res.on('finish', r));
+      });
+
+      const noBand = await paint(rows.map((r) => ({ ...r, deadBand: 0 })));
+      const withBand = await paint(rows);
+
+      const fillColours = (p) => p.ops.filter((o) => o.op === 'fill').map((o) => o.args[0]);
+      // With no dead band these are real moves, so a tone appears that the track
+      // and zone greys never use. That tone is what a filled bar looks like.
+      const barTone = fillColours(noBand).find((c) => !fillColours(withBand).includes(c));
+      expect(barTone).toBeTruthy();
+
+      // ...and with the dead band in force, nothing on the page is painted in it.
+      expect(fillColours(withBand)).not.toContain(barTone);
+      // The outlines replace those fills, so strokes go up as fills-in-tone go to
+      // zero — the two halves of the same change.
+      expect(withBand.count('stroke')).toBeGreaterThan(noBand.count('stroke'));
+    });
+
+    // A zero delta is neither a gain nor a loss and must not paint a bar at all.
+    it('paints no bar for a delta of zero', async () => {
+      const zero = await capturePaintOps(async () => {
+        const res = fakeRes();
+        const doc = D.startDoc(res, 'cb4.pdf');
+        D.changeBars(doc, [row('ROM', 0, 'steady')], { note: 'x' });
+        D.finish(doc, 'Test Report');
+        await new Promise((r) => res.on('finish', r));
+      });
+      const moved = await capturePaintOps(async () => {
+        const res = fakeRes();
+        const doc = D.startDoc(res, 'cb5.pdf');
+        D.changeBars(doc, [row('ROM', 6, 'improving')], { note: 'x' });
+        D.finish(doc, 'Test Report');
+        await new Promise((r) => res.on('finish', r));
+      });
+      expect(moved.count('fill')).toBeGreaterThan(zero.count('fill'));
+    });
+  });
+
+  // The individual report's "Progress Between Reports" row. This rule shipped
+  // wrong: it printed "+0" in green, because 0 satisfies both `d >= 0` and
+  // `d <= 0`. Four of five columns claimed an improvement that had not happened,
+  // on the report a clinician actually reads.
+  describe('changeCell: three cases, never two', () => {
+    const MUTED = '#6b7280';
+
+    it('reports a delta of zero as neutral, not as a gain', () => {
+      const c = D.changeCell(0, true);
+      expect(c.text).toBe('0');          // not "+0"
+      expect(c.moved).toBe(false);
+      expect(c.color).toBe(MUTED);       // not green
+      // ...and in the inverted orientation too, where 0 also passed `d <= 0`.
+      const r = D.changeCell(0, false);
+      expect(r.text).toBe('0');
+      expect(r.moved).toBe(false);
+      expect(r.color).toBe(MUTED);
+    });
+
+    it('signs and colours a real move by its orientation', () => {
+      expect(D.changeCell(3, true)).toMatchObject({ text: '+3', moved: true });
+      expect(D.changeCell(3, true).color).not.toBe(MUTED);
+      // Exercise risks improve by FALLING, so -4 is the good direction and +4 the
+      // bad one — the same colour, opposite signs, which is the rule that makes
+      // this worth having in one place.
+      const better = D.changeCell(-4, false);
+      const worse = D.changeCell(4, false);
+      expect(better.text).toBe('-4');
+      expect(worse.text).toBe('+4');
+      expect(better.color).not.toBe(worse.color);
+      expect(better.color).toBe(D.changeCell(4, true).color);
+    });
+
+    it('distinguishes "no data" from "no change"', () => {
+      // An em-dash, and never a zero: a score we never measured and a score that
+      // did not move are different claims.
+      for (const empty of [null, undefined, '', NaN]) {
+        const c = D.changeCell(empty, true);
+        expect(c.moved).toBe(false);
+        expect(c.color).toBe(MUTED);
+        expect(c.text).not.toBe('0');
+      }
+      expect(D.changeCell(0, true).text).toBe('0');
+    });
+
+    // Output-level: the em-dash it emits must survive the WinAnsi guard, since a
+    // sanitiser that over-reached would turn "no data" into a hyphen.
+    it('emits a dash that actually renders', async () => {
+      const { joined } = await capturePdfText(async () => {
+        const res = fakeRes();
+        const doc = D.startDoc(res, 'cell.pdf');
+        doc.text(D.changeCell(null, true).text, 50, 100);
+        D.finish(doc, 'Test Report');
+        await new Promise((r) => res.on('finish', r));
+      });
+      expect(unrenderableIn(joined)).toEqual([]);
+      expect(joined).toContain(chr(0x2014));
     });
   });
 });

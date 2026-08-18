@@ -26,6 +26,7 @@ jest.mock('../src/utils/cohorts', () => {
 const { Athlete, Screening, AthleteDiscipline } = require('../src/models');
 const { holisticData, drawHolistic, renderHolisticPdf } = require('../src/utils/holisticReport');
 const { bufferDoc } = require('../src/utils/pdfDraw');
+const { capturePdfText, unrenderableIn } = require('./helpers/capturePdfText');
 
 // Two athletes per sport/gender/programme combination that the filters slice on,
 // so a predicate that ignores its argument cannot pass by luck.
@@ -53,6 +54,17 @@ const rows = () => ROSTER.map(([athleteId, name, sport, program, gender, age, ba
     overallIndicator: band === 'red' ? 31 : 64,
     overallBand: band,
     overrideBand: null,
+    // Real escalation factors, as `overallIndicator.js` writes them. The third
+    // string carries a genuine U+2265 — the character that printed as mojibake
+    // in the flagged list until the drawing boundary started sanitising. Written
+    // as an escape so this fixture cannot itself be mangled by an editor.
+    factors: band === 'red'
+      ? [
+        'below cohort average \u2014 Symmetry 11.7 worse than the group',
+        'bottom 1 of 9 in cohort',
+        'Shoulder 27 \u2014 over threshold (\u226525) and worse than cohort (z=1.62)',
+      ]
+      : band === 'amber' ? ['bottom 1 of 5 in cohort'] : null,
   },
 }));
 
@@ -195,5 +207,69 @@ describe('renderHolisticPdf', () => {
     expect(isPdf(buffer)).toBe(true);
     expect(buffer.length).toBeGreaterThan(1000);
     expect(filename).toBe('AIRMS_Holistic_2026-08.pdf');
+  });
+});
+
+// The flagged list is where both of this session's report defects actually
+// surfaced: a verdict with no reason, and a stored character the PDF could not
+// draw. Asserting on the DRAWN text closes the loop that unit-testing
+// `winAnsiSafe` in isolation left open.
+describe('drawHolistic — the flagged list says why, and says it in printable characters', () => {
+  const draw = async (query = {}) => {
+    const data = await holisticData(query);
+    return capturePdfText(async () => {
+      const { doc, done } = bufferDoc();
+      // drawHolistic calls finish(), which ends the stream — no doc.end() here.
+      drawHolistic(doc, data, '2026-08-18');
+      await done;
+    });
+  };
+
+  test('prints the escalation that set each flagged athlete\'s band', async () => {
+    const { joined } = await draw();
+    // The red athlete's three factors must all reach the page: showing only the
+    // first was considered and rejected, because the per-indicator outlier is
+    // usually the actionable one.
+    expect(joined).toContain('below cohort average');
+    expect(joined).toContain('bottom 1 of 9 in cohort');
+    expect(joined).toContain('over threshold');
+    // ...and the caveat that makes an above-average flagged athlete legible.
+    expect(joined).toMatch(/band follows how MANY rules fired/i);
+  });
+
+  // THE REGRESSION. This is the assertion whose absence let the mojibake ship:
+  // the factor text is stored with a real U+2265, and only the rendered output
+  // can show whether the reader ever sees a usable character.
+  test('renders the stored >= as printable text, not mojibake', async () => {
+    const { joined } = await draw();
+    expect(unrenderableIn(joined)).toEqual([]);
+    expect(joined).toContain('over threshold (>=25)');
+  });
+
+  test('says so rather than falling silent when an athlete has no factors', async () => {
+    mockLatest.mockResolvedValue(rows().map((r) => (
+      r.screening.overallBand === 'amber'
+        ? { ...r, screening: { ...r.screening, factors: null } }
+        : r)));
+    const { joined } = await draw();
+    expect(joined).toContain('no escalation recorded');
+  });
+
+  test('attributes a clinician override rather than blaming a missing rule', async () => {
+    mockLatest.mockResolvedValue(rows().map((r) => (
+      r.screening.overallBand === 'amber'
+        ? { ...r, screening: { ...r.screening, factors: null, overrideBand: 'red' } }
+        : r)));
+    const { joined } = await draw();
+    expect(joined).toContain('clinician override');
+  });
+
+  // A whole-report sweep, not just the flagged list: every caption, table and
+  // note this report draws has to be printable too.
+  test('no section of the report emits a glyph the PDF cannot draw', async () => {
+    for (const query of [{}, { sport: 'Badminton' }, { region: 'kneeInjuryRisk' }, { grain: 'month' }]) {
+      const { joined } = await draw(query);
+      expect(unrenderableIn(joined)).toEqual([]);
+    }
   });
 });

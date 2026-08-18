@@ -119,6 +119,33 @@ const fileSlug = (s) => String(s ?? '').trim().replace(/[^\w.-]+/g, '_').replace
 const todayStamp = () => new Date().toISOString().slice(0, 10);
 
 // ── document plumbing ────────────────────────────────────────────────────────
+// How a single first-vs-last change reads: its text and its colour.
+//
+// Extracted from the individual report's route handler, which is why it lives
+// here: the rule had already been written WRONG there. It printed "+0" in green,
+// because 0 satisfies both `d >= 0` and `d <= 0` and so passed the "improved"
+// test in either orientation — four of the five columns on the most
+// clinically-read document AIRMS produces were claiming an improvement that had
+// not happened.
+//
+// THREE cases, never two. "moved down", "moved up" and "did not move" are
+// distinct, and every defect in DESIGN_DECISIONS section 30 came from collapsing
+// the third into one of the first two. `higherBetter` is false for exercise
+// risks, which improve by falling.
+//
+// This comparison deliberately applies NO detectable-change threshold: the dead
+// band is cohort-derived and is not on an athlete-scoped payload, the same reason
+// the trend sparklines drawn beneath it assert no verdict.
+function changeCell(delta, higherBetter = true) {
+  if (delta === null || delta === undefined || delta === '' || Number.isNaN(Number(delta))) {
+    return { text: '\u2014', color: MUTED, moved: false };
+  }
+  const d = Number(delta);
+  if (d === 0) return { text: '0', color: MUTED, moved: false };
+  const good = higherBetter ? d > 0 : d < 0;
+  return { text: d > 0 ? `+${d}` : `${d}`, color: good ? BAND.green : BAND.red, moved: true };
+}
+
 // ── WinAnsi safety ─────────────────────────────────────────────────────────
 // pdfkit's built-in Helvetica is WinAnsi-encoded. A character outside that set
 // does not warn, does not throw and does not render — it measures ZERO WIDTH and
@@ -1564,7 +1591,7 @@ function staffTable(doc, staff, labels = {}, { comparable = true } = {}) {
 }
 
 module.exports = {
-  winAnsiSafe,
+  winAnsiSafe, changeCell,
   BAND, ELEVATED_THRESHOLD, GOLD, GRID, MUTED, NAVY, RISKS, SCORE_ROWS, TEXT, auditTable, staffTable, bandColor, bandLabel, bandOnLight,
   bandPill, bandTable, bar, betweenTestsBlock, bufferDoc, bullets, changeBars, cover,
   distributionHistogram, ensure, fileSlug, finish, fmtDate, riskMovementScatter, sparkline,

@@ -74,6 +74,21 @@ which pin the two packages' indicator lists to each other and **assert the LDH
 exclusion across every derived view** — a leaked indicator would render as an
 ordinary row, so the constraint is asserted rather than left as an absence.
 
+**PDF tests assert on the OUTPUT, and are proven by mutation.** `winAnsiSafe`
+once shipped defined, exported, unit-tested and **never called** — the wiring
+edit silently matched nothing, and every test passed, because a pure function is
+correct whether or not anybody calls it. `tests/helpers/capturePdfText.js` now
+patches `PDFDocument.prototype.text` *before* construction, which puts the
+recorder **underneath** the instance-level guard, so an unwired guard fails;
+`capturePaintOps` does the same for `fill`/`stroke`, since the dead-band outline
+(§30a) leaves no trace in page text. Every such assertion was checked by
+**breaking the code and watching it fail** — un-wiring `guardText`, refilling the
+outlined bar, deleting the reason sub-line, removing `changeCell`'s zero case.
+**When adding a PDF test, mutate the thing it guards and confirm it fails**; a
+test nobody has seen fail is a guess about what it covers. Note also that
+counting paint ops is a trap — the dead-band *zone* is itself a fill, so fill
+counts coincide between opposite renderings; assert on the fill **colour**.
+
 There are still no page or end-to-end tests, and **route handlers are only tested
 where their logic has been extracted into a util** (`holisticReport`). Anything
 touching a route body, a page or the import flow is verified manually: run

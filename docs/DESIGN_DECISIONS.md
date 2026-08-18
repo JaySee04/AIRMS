@@ -1774,6 +1774,67 @@ installation. It was caught only by rendering the report again and seeing the
 same mojibake. Assert every edit, and verify at the output rather than at the
 unit.
 
+### 30g. Testing the installation, not the function
+
+The `guardText` near-miss in 30f was a test-suite failure as much as a wiring
+failure, so the suite was rebuilt around the property it had been missing: **a
+test must fail when the thing it describes is not connected.**
+
+**Why the original tests could not fail.** `winAnsiSafe(input) === expected`
+asserts a pure function, and a pure function is correct whether or not anybody
+calls it. The one test that looked like an integration test attached a spy to the
+document *after* construction — but `guardText` replaces `text` on the
+**instance**, so a spy added afterwards sits *above* the guard and records the raw
+string either way. It asserted that the raw string was still raw, which is true in
+both the working and the broken build.
+
+**What replaced them.** `tests/helpers/capturePdfText.js` patches
+`PDFDocument.prototype.text` *before* the document is constructed, which puts the
+recorder **underneath** any instance guard. What it captures is what pdfkit was
+actually asked to draw. A second helper, `capturePaintOps`, does the same for
+`fill` / `stroke` / `fillAndStroke`, because some decisions here are geometric and
+leave no trace in the page text at all.
+
+**Every new assertion was verified by breaking the code.** This is the part that
+matters, and it is cheap:
+
+| Mutation applied | Tests that failed |
+|---|---|
+| `guardText` removed from `startDoc` and `bufferDoc` | 3 in `pdfDraw`, 2 in `holisticReport` |
+| the sub-threshold outline changed back to a fill | 1 (`outlines rather than fills`) |
+| the flagged list's reason sub-line deleted | 3 in `holisticReport` |
+| `changeCell`'s zero case removed | 1 (`zero as neutral`) |
+
+The old tests passed under every one of those mutations. A test nobody has seen
+fail is a guess about what it covers.
+
+**Counting paint operations was itself a trap.** The first version of the
+dead-band assertion compared how many `fill` calls each variant performed and
+failed immediately: the dead-band **zone** is a filled rect, so a chart that
+outlines two bars and shades two zones performs exactly as many fills (4) as one
+that fills two bars and shades nothing. The counts coincide while the meaning is
+opposite. `fill(tone)` carries the colour, so the honest question — *is any fill
+painted in the bar tone?* — is answerable, and the tone is **derived** by drawing
+the same magnitudes with the dead band removed rather than hardcoded in the test.
+
+**`changeCell` was extracted so it could be tested at all.** The zero-as-a-gain
+defect lived in a route handler, and this repo only tests route logic once it has
+been lifted into a util. The rule now sits in `pdfDraw.js` beside the other
+tone decisions, the route calls it, and the extraction was confirmed
+behaviour-preserving by re-rendering the report over HTTP (`Change +3 0 0 0 0`).
+
+**One honest gap.** The route's *use* of `changeCell` is still not covered by
+jest — only the function and the drawn output are. That installation is verified
+by rendering the report over HTTP, which is exactly the manual step 30f says to
+prefer over a unit assertion. It is recorded here rather than papered over.
+
+**And a note on the tooling that caused it.** The failed wiring edit came from a
+script whose replacement strings used LF against a working-tree file that
+checks out CRLF. `.gitattributes` declares `* text=auto eol=lf`, so the
+repository stores LF and the mismatch is invisible in a diff — it only breaks
+in-place edits. Scripts that patch source here should normalise to LF in memory,
+edit, and write LF; and they should assert **every** replacement, not the first.
+
 **What this says about testing here.** All three defects lived in code with
 passing tests, and none was a wrong number - a collision, a scale and an absence.
 `pdfDraw.test.js` renders headlessly and asserts bytes, which catches crashes and
