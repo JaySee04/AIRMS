@@ -320,12 +320,49 @@ function drawHolistic(doc, data, stamp = todayStamp()) {
     .filter(({ screening }) => ['amber', 'red'].includes(effectiveBand(screening)))
     .sort((a, b) => (a.screening.overallIndicator ?? 100) - (b.screening.overallIndicator ?? 100));
   if (!flagged.length) doc.fontSize(10).fillColor(MUTED).text('No athletes currently flagged.', 50);
-  flagged.slice(0, 25).forEach(({ athlete, screening }) => {
-    ensure(doc, 14);
+  if (flagged.length) {
+    // WHY each athlete is flagged, not just that they are. The band comes from
+    // the escalation COUNT, not from the indicator value, so an athlete can sit
+    // above the cohort average and still be flagged — on the seeded data the
+    // highest-scoring name on this list reads 58 against an average of 50. A
+    // reader who cannot see the reason has to take that on trust, and it is the
+    // first question anyone asks of the list.
+    doc.fontSize(8).fillColor(MUTED).text(
+      'Ordered worst indicator first. The reason line beneath each athlete is the escalation that set '
+      + 'their band — the band follows how MANY rules fired, not the indicator value, so an athlete '
+      + 'above the cohort average can still appear here.',
+      50, doc.y, { width: doc.page.width - 100 });
+    doc.moveDown(0.4);
+  }
+  const SHOWN = 25;
+  flagged.slice(0, SHOWN).forEach(({ athlete, screening }) => {
     const b = effectiveBand(screening);
+    const head = `${athlete.name} (${athlete.athleteId}) · ${athlete.sport} · indicator ${screening.overallIndicator ?? '—'} · ${bandLabel(b)}`;
+    const factors = Array.isArray(screening.factors) ? screening.factors.filter(Boolean) : [];
+    const reason = factors.length
+      ? factors.join(' · ')
+      : (screening.overrideBand ? 'clinician override' : 'no escalation recorded');
+    // Measure the wrapped reason so the page break accounts for it, rather than
+    // reserving a fixed height and letting a three-factor athlete overrun.
+    const W = doc.page.width - 116;
+    doc.fontSize(7.5).font('Helvetica');
+    const rh = doc.heightOfString(reason, { width: W });
+    ensure(doc, 14 + rh);
     doc.fontSize(9).fillColor(bandColor(b)).font('Helvetica-Bold').text('•  ', 50, doc.y, { continued: true })
-      .fillColor(TEXT).font('Helvetica').text(`${athlete.name} (${athlete.athleteId}) · ${athlete.sport} · indicator ${screening.overallIndicator ?? '—'} · ${bandLabel(b)}`);
+      .fillColor(TEXT).font('Helvetica').text(head);
+    doc.fontSize(7.5).fillColor(MUTED).text(reason, 66, doc.y, { width: W });
+    doc.moveDown(0.25);
   });
+  // A list headed "Athletes Flagged for Assessment" that silently drops names is
+  // worse than a shorter one that says so.
+  if (flagged.length > SHOWN) {
+    doc.moveDown(0.2);
+    doc.fontSize(8).fillColor(MUTED).text(
+      `Showing the ${SHOWN} lowest indicators of ${flagged.length} flagged athletes. `
+      + 'The remainder are in the Screening Analytics page and the team reports.',
+      50, doc.y, { width: doc.page.width - 100 });
+  }
+  doc.fillColor(TEXT);
 
   finish(doc, KIND);
 }

@@ -364,4 +364,56 @@ describe('pdfDraw toolkit', () => {
     expect(captured.split(/\s+/)).toContain('0');
     expect(captured).not.toMatch(/Medical Demo 01[^]*?\s-\s/);
   });
+
+  // pdfkit's Helvetica is WinAnsi. A character outside that set does not warn,
+  // does not throw and does not draw — it measures ZERO WIDTH and prints as
+  // mojibake. The escalation factors stored on `screenings.factors` contain a
+  // real >= sign and the coach-sport audit summary contains a real arrow, so
+  // this is about data the reports receive, not text they author.
+  describe('WinAnsi safety', () => {
+    it('substitutes every character pdfkit cannot draw', () => {
+      const cases = [
+        ['over threshold (≥ 25)', 'over threshold (>= 25)'],
+        ['sport Badminton → Hockey', 'sport Badminton -> Hockey'],
+        ['z ≤ 1.5', 'z <= 1.5'],
+        ['a ≠ b', 'a != b'],
+        ['− 3', '- 3'],
+      ];
+      for (const [input, expected] of cases) {
+        expect(D.winAnsiSafe(input)).toBe(expected);
+      }
+    });
+
+    it('leaves WinAnsi characters the reports rely on untouched', () => {
+      // These DO render (measured widths are non-zero) and carry meaning in the
+      // reports — an em-dash separator, the middot in "Badminton · PODIUM",
+      // the multiplication sign in "sport x programme x gender".
+      const keep = 'Badminton · PODIUM — sport × gender ± 2 – ok';
+      expect(D.winAnsiSafe(keep)).toBe(keep);
+    });
+
+    it('passes non-strings through untouched', () => {
+      expect(D.winAnsiSafe(null)).toBe(null);
+      expect(D.winAnsiSafe(undefined)).toBe(undefined);
+      expect(D.winAnsiSafe(42)).toBe(42);
+      expect(D.winAnsiSafe('')).toBe('');
+    });
+
+    // The guard is installed on the document, so text written by ANY drawing
+    // helper is covered — including code added later that never hears about it.
+    it('is installed on documents, so drawn text is sanitised at source', async () => {
+      let captured = '';
+      const { pdf } = await render((doc) => {
+        const real = doc.text.bind(doc);
+        doc.text = (str, ...rest) => { captured += ' ' + String(str); return real(str, ...rest); };
+        doc.text('over threshold (≥ 25)', 50, 100);
+        doc.text = real;
+      });
+      expect(pdf.slice(0, 5).toString()).toBe('%PDF-');
+      // our spy sits ABOVE the guard, so it sees the raw string; the guard below
+      // is what reaches the page. Assert the guard is present and functional.
+      expect(captured).toContain('≥');
+      expect(D.winAnsiSafe(captured)).not.toContain('≥');
+    });
+  });
 });

@@ -119,12 +119,51 @@ const fileSlug = (s) => String(s ?? '').trim().replace(/[^\w.-]+/g, '_').replace
 const todayStamp = () => new Date().toISOString().slice(0, 10);
 
 // ── document plumbing ────────────────────────────────────────────────────────
+// ── WinAnsi safety ─────────────────────────────────────────────────────────
+// pdfkit's built-in Helvetica is WinAnsi-encoded. A character outside that set
+// does not warn, does not throw and does not render — it measures ZERO WIDTH and
+// comes out as mojibake on the page. The toolkit already knew this for arrow
+// glyphs (see the note in periodTable) and avoided them in code it wrote.
+//
+// What that note could not protect is text arriving from the DATABASE. The
+// escalation factors persisted on `screenings.factors` contain a real "greater
+// than or equal" sign, generated in overallIndicator.js, and the audit summary
+// written when a coach's sport changes contains a real arrow. Both are correct
+// on the web, where they render properly; both are unreadable the moment a
+// report prints them. The holistic report's flagged list printed the first of
+// these as `("e25)`.
+//
+// So the fix belongs at the boundary where the constraint actually lives —
+// drawing — not in the data, which is shared with surfaces that render it fine.
+// Doing it here also repairs rows ALREADY stored, which editing the producers
+// could not. `doc.text` is wrapped once at document creation, so every draw is
+// covered, including code written later that never hears about this.
+const WIN_ANSI_SUBS = [
+  [/≥/g, '>='], [/≤/g, '<='], [/≠/g, '!='], [/≈/g, '~'],
+  [/→/g, '->'], [/←/g, '<-'], [/↔/g, '<->'],
+  [/−/g, '-'], [/─/g, '-'], [/ /g, ' '], [/﻿/g, ''],
+];
+function winAnsiSafe(v) {
+  if (typeof v !== 'string' || !v) return v;
+  let out = v;
+  for (const [re, rep] of WIN_ANSI_SUBS) out = out.replace(re, rep);
+  return out;
+}
+
+// Wrap `doc.text` so no unrenderable character can reach the page, whatever
+// wrote it. Returns the same doc.
+function guardText(doc) {
+  const original = doc.text.bind(doc);
+  doc.text = (str, ...rest) => original(winAnsiSafe(str), ...rest);
+  return doc;
+}
+
 function startDoc(res, filename) {
   const doc = new PDFDocument({ size: 'A4', margin: 50, bufferPages: true });
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
   doc.pipe(res);
-  return doc;
+  return guardText(doc);
 }
 
 // Same document, collected into memory instead of piped at a response — for the
@@ -138,7 +177,7 @@ function bufferDoc() {
     doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
   });
-  return { doc, done };
+  return { doc: guardText(doc), done };
 }
 
 // Stamp "page i of n" footers on every buffered page, then end the stream.
@@ -1525,6 +1564,7 @@ function staffTable(doc, staff, labels = {}, { comparable = true } = {}) {
 }
 
 module.exports = {
+  winAnsiSafe,
   BAND, ELEVATED_THRESHOLD, GOLD, GRID, MUTED, NAVY, RISKS, SCORE_ROWS, TEXT, auditTable, staffTable, bandColor, bandLabel, bandOnLight,
   bandPill, bandTable, bar, betweenTestsBlock, bufferDoc, bullets, changeBars, cover,
   distributionHistogram, ensure, fileSlug, finish, fmtDate, riskMovementScatter, sparkline,

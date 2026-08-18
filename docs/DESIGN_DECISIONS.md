@@ -1712,6 +1712,68 @@ state as a rule:** anywhere AIRMS renders a delta, the code must distinguish
 *moved down*, *moved up* and *did not move* as three cases, not two. Every defect
 in this section came from collapsing the third into one of the first two.
 
+### 30f. Why each athlete is flagged, and the glyph that could not be printed
+
+**The flagged list gave a verdict and no reason.** The holistic report's
+*Athletes Flagged for Assessment* named each athlete, their indicator and their
+band - and stopped. But the band comes from the escalation COUNT, not from the
+indicator value, so an athlete above the cohort average can still be flagged: on
+the seeded data the highest-scoring name on that list reads **58 against an
+average of 50**. A reader had to take that on trust, and "why is your
+best-scoring flagged athlete flagged?" is the first question anyone asks of it.
+
+Each entry now carries a muted second line with the escalations that set the
+band, drawn from the `factors` already persisted on the screening - the same
+strings the dashboards show, so the page and the report cannot give different
+reasons. Three presentations were considered: appending to the primary line
+(rejected - it is already ~70 characters and the factors contain their own
+em-dashes, which would collide with any separator), showing only the first
+factor (rejected - red athletes carry three, and the third, the per-indicator
+outlier, is usually the actionable one), and a muted indented sub-line, which is
+the pattern `staffTable` already uses in this same toolkit. The sub-line is
+measured with `heightOfString` before the page-break check, so a three-factor
+athlete cannot overrun. The list also now says so when it truncates: one headed
+"Athletes Flagged for Assessment" that silently drops names is worse than a
+shorter one that admits it.
+
+This incidentally fixed the near-empty final page noted earlier - the longer
+entries fill it rather than leaving five bullets in white space.
+
+**A character that does not render, does not warn, and does not throw.**
+Printing the reasons immediately exposed `over threshold ("e25)`. pdfkit's
+built-in Helvetica is **WinAnsi**-encoded, and a character outside that set
+measures **zero width** and prints as mojibake - silently. The toolkit already
+knew this: `periodTable` carries a comment explaining why it uses a signed
+number rather than an arrow glyph. What that note could not protect is text
+arriving from the **database**. `screenings.factors` contains a real U+2265, and
+the audit summary written when a coach's sport changes contains a real U+2192 -
+both correct on the web, both unreadable the moment a report prints them. The
+second is still latent: it appears the first time anyone changes a coach's sport.
+
+A scan of every non-comment line in the backend, measuring each non-ASCII
+character with `widthOfString`, separated the genuinely dangerous from the
+harmless: em-dash, middot, multiplication sign, plus-minus and en-dash all render
+(non-zero widths) and carry meaning in these reports; U+2265, the arrows,
+true-minus and the box-drawing characters do not.
+
+The fix is a substitution applied at **drawing** time, not at the producers.
+Three reasons it belongs there: the constraint is a property of pdfkit's
+encoding, not of the data; the same strings render correctly on the dashboards,
+so editing them would degrade a working surface to repair a broken one; and
+sanitising at the boundary repairs rows **already stored**, which editing the
+producers could not do without a full rescore. `doc.text` is wrapped once in
+`startDoc` and `bufferDoc`, so every draw is covered - including code written
+later that never hears about any of this.
+
+**A note on how this nearly shipped broken.** The wiring was applied by a script
+that asserted its first edit and not its other two. The file is CRLF; the
+replacement strings were LF; the two multi-line edits silently matched nothing.
+`guardText` was defined, exported, unit-tested and **never called**, and the
+tests still passed because they tested the function rather than its
+installation. It was caught only by rendering the report again and seeing the
+same mojibake. Assert every edit, and verify at the output rather than at the
+unit.
+
 **What this says about testing here.** All three defects lived in code with
 passing tests, and none was a wrong number - a collision, a scale and an absence.
 `pdfDraw.test.js` renders headlessly and asserts bytes, which catches crashes and
