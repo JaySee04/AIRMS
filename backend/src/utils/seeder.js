@@ -154,6 +154,10 @@ function buildAthletes() {
     const tensionFlags = screened
       ? buildFlags(MUSCLES_TENSION_CORE, MUSCLES_TENSION_TAIL, flagKeys(defFlags))
       : [];
+    // Drawn first so Total Score can be derived from them below.
+    const mobility = screened ? range(55, 95) : null;
+    const stability = screened ? range(55, 95) : null;
+    const symmetry = screened ? range(55, 95) : null;
     athletes.push({
       athleteId: icFor(i, age),
       name: `${pick(FIRST_NAMES)} ${pick(LAST_NAMES)}`,
@@ -161,11 +165,22 @@ function buildAthletes() {
       gender,
       sport,
       program: pickProgram(age),
-      overallActivityScore: screened ? range(55, 95) : null,
+      // Total Score is DERIVED, not drawn. On a real HoloMotion report it is the
+      // mean of the 25-cell subitem table (verified against three reports,
+      // residual <= 1.2), and `genSubitems` builds those cells around mobility,
+      // stability and symmetry — 10 ROM cells, 10 stability, 5 symmetry — so
+      // their mean is 0.4*mob + 0.4*stab + 0.2*sym. Drawing it independently
+      // instead left the four movement components statistically UNRELATED in the
+      // seeded data (measured mean residual 9.9, against <= 1.2 on real reports;
+      // only 11 of 58 athletes obeyed the instrument's own arithmetic). That hid
+      // the composite's real behaviour: on true data those components correlate
+      // and the composite weights movement quality above injury burden, which is
+      // invisible while they are independent. See docs/DESIGN_DECISIONS.md §34.
+      overallActivityScore: screened ? Math.round(0.4 * mobility + 0.4 * stability + 0.2 * symmetry) : null,
       injuryRiskIndex: screened ? range(3, 30) : null,
-      mobility: screened ? range(55, 95) : null,
-      stability: screened ? range(55, 95) : null,
-      symmetry: screened ? range(55, 95) : null,
+      mobility,
+      stability,
+      symmetry,
       // Kept uniform over the report's observed range: the two ground-truth
       // HoloMotion reports (Thung 15/18/14/24/9/26/27, Nazwan 14/8/12/16/15/
       // 21/26) sit at a median of ~15 with about half of all regions above 15,
