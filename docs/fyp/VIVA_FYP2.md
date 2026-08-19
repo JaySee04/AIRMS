@@ -64,10 +64,10 @@ node -e "require('dotenv').config();const{sequelize,Athlete,Screening,CohortThre
 | Cohort an athlete is scored against | min 5, **median 7**, max 10 | **all 56 are below 11 peers** (§4 W2) |
 | Repeat pairs available | 18 | below the 20 needed for MDC95 (§5 L2) |
 | Audit rows | 22 | 5 action types, 4 roles |
-| Users | 8 | across 5 roles |
+| Users | 10 | across 5 roles — 4 reach a deliverable inbox (§5 L7) |
 | Muscle flags | 336 | |
 | Commits, FYP I → FYP II | **249** | 231 files, +54,777 / −7,678 lines |
-| Tests | 305 backend (19 suites) + 119 frontend (8) | |
+| Tests | 311 backend (20 suites) + 119 frontend (8) | |
 
 **The settings that decide bands** (`backend/src/utils/settings.js`, live values):
 
@@ -306,7 +306,7 @@ softer if you get there first.
 - **W4 · The seeded band split is not calibration evidence.** 38/9/9 shows the
   pipeline runs end to end. It does not show the model is calibrated, because the
   data is synthetic. Do not offer it as validation. *(§33f, §34b)*
-- **W5 · Route handlers are largely untested.** The 305 backend tests cover pure
+- **W5 · Route handlers are largely untested.** The 311 backend tests cover pure
   logic — scoring, permissions, PDF drawing, bands, reliability. Anything inside a
   route body, a page, or the import flow is verified by hand, and there are no
   end-to-end tests. Say "the logic is tested, the wiring is verified manually"
@@ -322,12 +322,21 @@ softer if you get there first.
 
 Things that will look like bugs and are not. Know what you will say.
 
-- **L1 · The monthly digest will not send during your demo.**
-  `digest_last_sent` and `rescreen_reminder_last_sent` are both `2026-08` — this
-  month is already marked delivered, and that marker is what makes the scheduler
-  idempotent. To send live, clear the marker first (§6). To *show* the email
-  without sending, run with `MAILER_DRY_RUN=true` and it prints to the terminal,
-  attachment included.
+- **L1 · The monthly digest sends on demand now.** Admin → Settings → Email
+  Notifications has a **Send now** button on both the monthly summary and the
+  rescreen reminder, and each tile shows the outcome of the last attempt — in
+  red if it failed. That is the control to demo. (`digest_last_sent` is still
+  `2026-08`, so the *scheduled* path will not fire again this month; "Send at the
+  next hourly check" clears that marker, and Send now bypasses it outright.) To
+  show the email without sending anything, run the backend with
+  `MAILER_DRY_RUN=true` and it prints the body and the attachment to the
+  terminal.
+
+  **If asked why a button exists at all:** `force` skips the *due* check only. It
+  deliberately does not override the institution's on/off switch — that would be
+  a second gate contradicting the first. It is audited as `mail.send`, separately
+  from settings changes, because it is the one control on that page that puts
+  athlete-derived content into somebody's inbox.
 - **L2 · "Is this change real?" will say it cannot tell.** 18 repeat pairs, 20
   needed. This is designed behaviour and the best answer in the dossier — lead
   with it rather than being caught by it (Q5).
@@ -347,7 +356,16 @@ Things that will look like bugs and are not. Know what you will say.
   three commits and has been all of FYP II for 246. Renaming was considered and
   rejected: it has a public upstream, and five docs name it in prose — including
   the logbook source material. `main` is FYP I; this branch is FYP II.
-- **L7 · Two demo accounts reach real inboxes; five bounce.** See §6.
+- **L7 · Four demo accounts reach a real inbox; five bounce.** `@isn.gov.my`
+  addresses are fictional and bounce to the SMTP account — expected, not a
+  fault. The deliverable ones are `poseidonapollo11@gmail.com` (admin),
+  `23005005@siswa.um.edu.my` (medical), and — added 2026-08-19 —
+  `poseidonapollo11+coach@gmail.com` and `poseidonapollo11+exec@gmail.com`, which
+  plus-address into the same mailbox. Without those last two, the digest's
+  **executive** copy and the coach's **sport-scoped** recall slice could never be
+  shown arriving. Coach Demo 02 shares Badminton with Coach Demo 01 on purpose:
+  the reminder sends one email per *sport*, not per coach, so the pair
+  demonstrates that rule.
 
 ---
 
@@ -358,11 +376,11 @@ Things that will look like bugs and are not. Know what you will say.
       surface first in the viva.
 - [ ] **Re-print the five PDFs and look at them.** They have changed since you
       last did — dead-band shading, the squad body map, the band relabel.
-- [ ] **Decide whether you want a live email demo.** If yes, clear the marker in
-      MySQL — set `digest_last_sent` to an empty string in the `settings` table —
-      and restart the backend; the scheduler's boot pass fires 30 seconds later.
-      The send lands at `poseidonapollo11@gmail.com` (admin); the `@isn.gov.my`
-      addresses bounce.
+- [ ] **Try the live email demo once before the day.** Admin → Settings →
+      **Send now**, on either mail tile. It sends immediately and writes the
+      outcome back onto the tile. Delivery lands in one Gmail mailbox across four
+      plus-addressed accounts; `@isn.gov.my` recipients bounce, which is expected.
+      Nothing needs a database edit or a restart.
 - [ ] **Rehearse Q1, Q2 and Q4 aloud.** Those are the three where a hesitant
       answer reads as a gap rather than a decision.
 
@@ -385,3 +403,12 @@ Things that will look like bugs and are not. Know what you will say.
 docs were already stale when this was written (`DESIGN_DECISIONS.md` §32 and
 §33c, and `JC_CHECKLIST.md`), which is the argument for re-measuring rather than
 trusting any of it — this file included.*
+
+*Revised the same day — and the revision proves the point. The first version of
+§6 told you to clear the digest marker with raw SQL. A button for that already
+existed on the admin Settings page, and I had written the instruction without
+opening the page: the same "assert from the value, not the consumer" error this
+dossier warns about in §3 Q4's retraction. §6 and L1 now describe the **Send
+now** control added afterwards (`DESIGN_DECISIONS.md` §35), and L7 the two
+deliverable inboxes that let the executive digest and the coach's recall slice be
+seen arriving at all.*

@@ -429,6 +429,25 @@ function buildUsers() {
     // Executive — read-only oversight. Sees the admin analytics and can download
     // the reports; cannot import, edit norms, touch the roster or personnel.
     { name: 'Datuk Executive', email: 'executive@isn.gov.my', password: 'executive123', role: 'executive' },
+    // Deliverable-inbox counterparts (2026-08-19), following the same pattern as
+    // Medical Demo 02 above: the canonical @isn.gov.my logins are LEFT ALONE —
+    // they are documented, and swapping them would churn credentials days before
+    // assessment — and a second account with a real inbox is added beside them.
+    //
+    // Without these, two email paths could never be shown ARRIVING: the digest's
+    // executive copy, and the coach's sport-scoped slice of the rescreen recall.
+    // Both are slices of mails that other recipients do receive, so the code was
+    // exercised; nobody could see the result.
+    //
+    // Plus-addressing (`+coach`, `+exec`) delivers to the same Gmail mailbox
+    // while remaining distinct addresses — so one inbox can verify every role,
+    // and each message still shows which role it was addressed to.
+    //
+    // Coach Demo 02 shares Badminton with Coach Demo 01 ON PURPOSE: the reminder
+    // sends one email per SPORT, not per coach, so this pair demonstrates that
+    // rule — two coaches, one message, delivered to the checkable inbox.
+    { name: 'Coach Demo 02', email: 'poseidonapollo11+coach@gmail.com', password: 'coach123', role: 'coach', coachSport: 'Badminton' },
+    { name: 'Executive Demo 02', email: 'poseidonapollo11+exec@gmail.com', password: 'executive123', role: 'executive' },
   ];
 }
 
@@ -572,6 +591,8 @@ async function seed() {
   console.log(`  Athlete: athlete@isn.gov.my            / athlete123   (John Doe, IC ${IC_JOHN})`);
   console.log(`  Athlete: thung@isn.gov.my              / thung123     (Thung Jin Seng, IC ${IC_THUNG} — 1:1 with the sample HoloMotion PDF)`);
   console.log('  Coach:   coach@isn.gov.my              / coach123');
+  console.log('  Coach:   poseidonapollo11+coach@gmail.com / coach123     (deliverable inbox, same sport)');
+  console.log('  Executive: poseidonapollo11+exec@gmail.com / executive123 (deliverable inbox)');
 
   await sequelize.close();
   console.log('\nSeeding complete.');

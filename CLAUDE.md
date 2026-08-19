@@ -116,6 +116,8 @@ messages for what that looked like.
 | admin | `admin@isn.gov.my` | `admin123` |
 | admin (SMTP demo) | `poseidonapollo11@gmail.com` | `admin123` (real-Gmail account so the email-reset flow demos against an inbox you can check) |
 | executive | `executive@isn.gov.my` | `executive123` (Datuk Executive — **read-only oversight**: admin analytics + PDF reports, and nothing that writes) |
+| coach (deliverable inbox) | `poseidonapollo11+coach@gmail.com` | `coach123` (Coach Demo 02 — same Badminton squad as Coach Demo 01 **on purpose**: the rescreen reminder sends one email per SPORT, not per coach, so the pair demonstrates that rule into a checkable inbox) |
+| executive (deliverable inbox) | `poseidonapollo11+exec@gmail.com` | `executive123` (Executive Demo 02 — so the digest's executive copy can be seen arriving; the `@isn.gov.my` addresses bounce) |
 
 Seeded passwords intentionally do not satisfy the 10-char + complexity password policy — the policy gates user-driven password setting via `change-password` / `reset-password`, not seeded fixtures.
 
@@ -198,7 +200,7 @@ Three-tier monorepo orchestrated by `concurrently` from the root `package.json`.
   `AuditLog` row: `screening.import`, `screening.override`, `screening.reinstate`,
   `athlete.injury`, `norm.restore`, `norm.pin`, `norm.unpin`, `norm.member`,
   `settings.update`, `user.create`, `user.update`, `report.download`,
-  `export.backup`. The last three were added **2026-08-11**: the trail recorded
+  `export.backup`, `mail.send`. The last three were added **2026-08-11**: the trail recorded
   only writes, so `coach` and `executive` — who cannot write anything — could
   never appear in it however much athlete data they pulled. For a read-only role
   *reading is the only auditable act*, and an individual screening PDF carries a
@@ -238,6 +240,7 @@ Three-tier monorepo orchestrated by `concurrently` from the root `package.json`.
   **attaches the holistic PDF** — fetch and draw live in `utils/holisticReport.js`
   so the email sends the same bytes the download does; a render failure downgrades
   to summary-only and the copy follows what actually got attached
+- **Scheduled mail is observable and can be forced** (2026-08-19, `DESIGN_DECISIONS.md §35`). Every scheduled email worked; none could be seen working. A failed send reached only `console.error` — on a host designed to run unattended — so the outcome of the last attempt is now persisted (`digest_last_result`, `rescreen_reminder_last_result`) and rendered on the admin Settings tile, red when it failed: a month that quietly stopped arriving is otherwise indistinguishable from a month with nothing to say. **Send now** (`POST /api/cohorts/settings/mail/:kind/send-now`, admin) forces a run, because the existing control waits up to an hour; `force` skips the DUE check and **never** the institution's `*_enabled` switch, which would be a second gate contradicting the first. Audited as **`mail.send`**, not `settings.update` — it changes no setting and is the one control there that puts athlete-derived content in an inbox. Verified against a real send, a real SMTP failure (marker correctly NOT consumed), and by mutation-testing three guards.
 - **Per-user email opt-out** (`utils/mailPrefs.js`, `users.notify_prefs`, on every
   profile page). **Two gates, in order:** the institution setting decides whether
   AIRMS sends this kind of mail at all, then the user decides if they still want

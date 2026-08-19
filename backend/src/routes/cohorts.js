@@ -15,6 +15,7 @@ const { recomputeIndicators } = require('../utils/overallIndicator');
 const { getSettings, setSetting, DEFAULTS } = require('../utils/settings');
 const { hasPermission } = require('../utils/permissions');
 const { effectiveBand } = require('../utils/bands');
+const { runDigestOnce, runReminderOnce } = require('../utils/scheduler');
 
 const router = express.Router();
 
@@ -338,6 +339,49 @@ router.patch('/members/:athleteId', auth, rbac('admin', 'medical'), canEditNorms
       });
     }
     res.json({ athleteId: a.athleteId, normExcluded: a.normExcluded, recomputed });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
+// POST /api/cohorts/settings/mail/:kind/send-now — run a scheduled email NOW.
+//
+// The page already offered "send again at the next hourly check", which clears
+// the month marker and waits. That is the right control for correcting a missed
+// month and the wrong one for the two cases that actually come up: showing the
+// feature works, and an administrator who wants this month's report today. An
+// hour is not a wait, it is a reason not to use it.
+//
+// `force` skips only the DUE check. `digest_enabled` / `rescreen_reminder_enabled`
+// still gate — the institution switch decides whether AIRMS sends this kind of
+// mail at all, and a button that overrode it would be a second, contradictory
+// gate on the same question (the same two-gates-in-order rule the per-user
+// opt-out follows).
+//
+// Audited as `mail.send`, and deliberately NOT as `settings.update`: it changes
+// no setting, and it is the one action here that puts athlete-derived content
+// into somebody's inbox. Recording that under a settings label would misdescribe
+// the most consequential thing on this page.
+router.post('/settings/mail/:kind/send-now', auth, rbac('admin'), async (req, res) => {
+  const { kind } = req.params;
+  if (kind !== 'digest' && kind !== 'reminder') {
+    return res.status(400).json({ message: 'Unknown mail kind.' });
+  }
+  try {
+    const result = kind === 'digest'
+      ? await runDigestOnce(new Date(), { force: true })
+      : await runReminderOnce(new Date(), { force: true });
+
+    // Logged whatever the outcome, including "disabled" and "no recipients" —
+    // an administrator pressing send and nothing arriving is exactly the event
+    // somebody later needs explained.
+    recordAudit(req, {
+      action: 'mail.send',
+      entity: 'settings',
+      summary: kind === 'digest'
+        ? `Sent the monthly summary now: ${result.sent ? `${result.recipients} recipient(s)` : result.reason}`
+        : `Sent the rescreen reminder now: ${result.sent ? `${result.emails} email(s)` : result.reason}`,
+      meta: { kind, ...result },
+    });
+    res.json({ kind, ...result, settings: await getSettings() });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 

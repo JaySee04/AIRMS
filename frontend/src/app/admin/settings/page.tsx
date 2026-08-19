@@ -11,6 +11,42 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import { api } from '@/lib/api';
 
 interface SettingsResp { settings: Record<string, number | boolean | string>; defaults: Record<string, number | boolean | string>; }
+interface SendResult {
+  sent: boolean; reason?: string; recipients?: number; emails?: number;
+  attached?: boolean; sentTo?: string[];
+}
+interface MailOutcome { at: string; ok: boolean; detail: string }
+
+// The stored outcome of the last attempt, success or failure. Parsed
+// defensively: this is the one panel whose job is to report that something went
+// wrong, so a malformed value must not blank it out.
+function lastAttempt(raw: unknown): MailOutcome | null {
+  if (typeof raw !== 'string' || !raw) return null;
+  try {
+    const o = JSON.parse(raw) as MailOutcome;
+    return o && typeof o.at === 'string' ? o : null;
+  } catch { return null; }
+}
+
+function AttemptLine({ raw }: { raw: unknown }) {
+  const o = lastAttempt(raw);
+  if (!o) return null;
+  const when = new Date(o.at);
+  return (
+    <div
+      style={{
+        marginTop: 6, fontSize: 'var(--fs-xs)',
+        color: o.ok ? 'var(--text-muted)' : 'var(--risk-high)',
+      }}
+    >
+      <strong>{o.ok ? 'Last attempt' : 'Last attempt FAILED'}</strong>
+      {' \u00b7 '}
+      {Number.isNaN(when.getTime()) ? o.at : when.toLocaleString('en-GB')}
+      {' \u2014 '}
+      {o.detail}
+    </div>
+  );
+}
 
 export default function AdminSettingsPage() {
   const [settings, setSettings] = useState<SettingsResp | null>(null);
@@ -28,6 +64,31 @@ export default function AdminSettingsPage() {
     setBusy(true); setError(null);
     try { await api.patch('/cohorts/settings/all', { [key]: value }); await load(); }
     catch (e) { setError(e instanceof Error ? e.message : 'Save failed'); } finally { setBusy(false); }
+  }
+
+  // Run one of the scheduled emails immediately. The existing control clears the
+  // month marker and waits up to an hour, which is right for correcting a missed
+  // month and useless for the two cases that actually come up — demonstrating the
+  // feature, and an administrator who wants this month's report today.
+  async function sendNow(kind: 'digest' | 'reminder', label: string) {
+    setBusy(true); setMsg(null); setError(null);
+    try {
+      const r = await api.post<SendResult>(`/cohorts/settings/mail/${kind}/send-now`, {});
+      if (r.sent) {
+        setMsg(`${label} sent — ${kind === 'digest'
+          ? `${r.recipients} recipient(s)${r.attached ? ', holistic report attached' : ' (summary only)'}`
+          : `${r.emails} email(s): ${(r.sentTo || []).join('; ')}`}`);
+      } else {
+        // "Nothing was sent" needs the reason on screen. Silent success is how a
+        // disabled switch or an all-opted-out roster reads as a working feature.
+        setError(`${label} was not sent — ${r.reason === 'disabled'
+          ? 'this notification is switched off above'
+          : r.reason === 'no recipients'
+            ? 'every eligible account has opted out of it'
+            : r.reason}`);
+      }
+      await load();
+    } catch (e) { setError(e instanceof Error ? e.message : 'Send failed'); } finally { setBusy(false); }
   }
 
   async function recompute() {
@@ -188,16 +249,26 @@ export default function AdminSettingsPage() {
             {/* Clearing the marker is the only way to see this fire without
                 waiting for next month, so it is offered rather than left to a
                 database edit. */}
-            {Boolean(set.digest_last_sent) && (
+            <AttemptLine raw={set.digest_last_result} />
+            <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
               <button
                 type="button"
-                className="btn btn-outline btn-sm"
-                style={{ marginTop: 8 }}
-                onClick={() => saveSetting('digest_last_sent', '')}
+                className="btn btn-gold btn-sm"
+                disabled={busy || !set.digest_enabled}
+                onClick={() => sendNow('digest', 'Monthly summary')}
               >
-                Send again at the next hourly check
+                {busy ? 'Working\u2026' : 'Send now'}
               </button>
-            )}
+              {Boolean(set.digest_last_sent) && (
+                <button
+                  type="button"
+                  className="btn btn-outline btn-sm"
+                  onClick={() => saveSetting('digest_last_sent', '')}
+                >
+                  Send at the next hourly check
+                </button>
+              )}
+            </div>
           </div>
 
           {/* A screening programme runs on recall, and a page only tells you
@@ -247,16 +318,26 @@ export default function AdminSettingsPage() {
               their own profile
               {set.rescreen_reminder_last_sent ? ` — last sent ${String(set.rescreen_reminder_last_sent)}` : ' — not sent yet'}
             </div>
-            {Boolean(set.rescreen_reminder_last_sent) && (
+            <AttemptLine raw={set.rescreen_reminder_last_result} />
+            <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
               <button
                 type="button"
-                className="btn btn-outline btn-sm"
-                style={{ marginTop: 8 }}
-                onClick={() => saveSetting('rescreen_reminder_last_sent', '')}
+                className="btn btn-gold btn-sm"
+                disabled={busy || !set.rescreen_reminder_enabled}
+                onClick={() => sendNow('reminder', 'Rescreen reminder')}
               >
-                Send again at the next hourly check
+                {busy ? 'Working\u2026' : 'Send now'}
               </button>
-            )}
+              {Boolean(set.rescreen_reminder_last_sent) && (
+                <button
+                  type="button"
+                  className="btn btn-outline btn-sm"
+                  onClick={() => saveSetting('rescreen_reminder_last_sent', '')}
+                >
+                  Send at the next hourly check
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>

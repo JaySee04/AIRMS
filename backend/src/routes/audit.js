@@ -23,6 +23,7 @@ const ACTION_LABELS = {
   'norm.unpin': 'Norm pin released',
   'norm.member': 'Norm membership changed',
   'settings.update': 'Norm settings changed',
+  'mail.send': 'Scheduled email sent manually',
   'user.create': 'Account created',
   'user.update': 'Account changed',
   'report.download': 'Report downloaded',

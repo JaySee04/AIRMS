@@ -78,6 +78,13 @@ const DEFAULTS = {
   digest_day: 1,               // day of month to send (capped at 28 so February always fires)
   digest_hour: 7,              // hour of day, local time, 0-23
   digest_last_sent: '',        // internal marker, set by the scheduler
+  // What happened on the last attempt of each scheduled email, success or
+  // failure. NOT a preference — it is the only place a failed send is visible.
+  // Both the hourly tick and a manual send write these; a failure that only
+  // reached console.error on an unattended host is a mail nobody knows did not
+  // arrive. Shape: { at, ok, detail } as JSON.
+  digest_last_result: '',
+  rescreen_reminder_last_result: '',
 };
 
 // Merge stored overrides over defaults. Unknown/legacy keys are ignored.

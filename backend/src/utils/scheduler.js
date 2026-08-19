@@ -33,6 +33,23 @@ const { rescreenRecall } = require('./programmeActivity');
 const HOUR = 60 * 60 * 1000;
 const SIGNOFF = '— AIRMS · Institut Sukan Negara';
 
+// Record the outcome of an attempt — including a failed one.
+//
+// The error handling below was already correct: a failed send does NOT mark the
+// month, so it retries next hour rather than losing it. What was missing is that
+// nobody is TOLD. The failure reached `console.error` on a host that, by this
+// module's own argument, is expected to run unattended. So the outcome is
+// persisted where the admin page can render it — a month that quietly stopped
+// arriving is otherwise indistinguishable from a month with nothing to say.
+//
+// Fire-and-forget in the same sense as the audit writes: recording the outcome
+// must never be the reason a send is reported as failed.
+async function recordOutcome(key, ok, detail) {
+  try {
+    await setSetting(key, JSON.stringify({ at: new Date().toISOString(), ok, detail: String(detail) }));
+  } catch (e) { /* bookkeeping must not fail the thing it describes */ }
+}
+
 const monthKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 
 // Is this month's digest due and unsent?
@@ -144,9 +161,14 @@ async function digestAttachment(now) {
   }
 }
 
-async function runDigestOnce(now = new Date()) {
+// `force` skips the DUE check only — an admin pressing "Send now" has decided
+// the timing. It deliberately does NOT skip `digest_enabled`: that switch is the
+// institution's answer to whether AIRMS sends this kind of mail at all, and a
+// button that overrode it would be a second, contradictory gate.
+async function runDigestOnce(now = new Date(), { force = false } = {}) {
   const settings = await getSettings();
-  if (!isDue(now, settings)) return { sent: false, reason: 'not due' };
+  if (force && !settings.digest_enabled) return { sent: false, reason: 'disabled' };
+  if (!force && !isDue(now, settings)) return { sent: false, reason: 'not due' };
 
   const users = await User.findAll({
     where: { role: { [Op.in]: ['admin', 'executive'] }, isActive: true },
@@ -166,14 +188,21 @@ async function runDigestOnce(now = new Date()) {
 
   const attachments = await digestAttachment(now);
   const { subject, text } = await buildDigest(now, { attached: !!attachments });
-  await sendMail({
-    to: to.join(','), subject, text, attachments: attachments || undefined,
-  });
+  try {
+    await sendMail({
+      to: to.join(','), subject, text, attachments: attachments || undefined,
+    });
+  } catch (e) {
+    await recordOutcome('digest_last_result', false, e.message);
+    throw e;
+  }
   // Marked only AFTER a successful send, so a mail failure retries next hour
   // instead of losing the month.
   await setSetting('digest_last_sent', monthKey(now));
+  await recordOutcome('digest_last_result', true,
+    `sent to ${to.length} recipient(s)${attachments ? ' with the holistic report attached' : ' (summary only — report render failed)'}`);
   return {
-    sent: true, recipients: to.length, month: monthKey(now), attached: !!attachments,
+    sent: true, recipients: to.length, to, month: monthKey(now), attached: !!attachments,
   };
 }
 
@@ -313,9 +342,10 @@ async function buildReminder(now, { sport = null, recall = null, roster = null }
   return { subject, text: L.join('\n'), needed, recall };
 }
 
-async function runReminderOnce(now = new Date()) {
+async function runReminderOnce(now = new Date(), { force = false } = {}) {
   const settings = await getSettings();
-  if (!isReminderDue(now, settings)) return { sent: false, reason: 'not due' };
+  if (force && !settings.rescreen_reminder_enabled) return { sent: false, reason: 'disabled' };
+  if (!force && !isReminderDue(now, settings)) return { sent: false, reason: 'not due' };
 
   const users = await User.findAll({
     where: { role: { [Op.in]: ['admin', 'medical', 'coach'] }, isActive: true },
@@ -344,12 +374,15 @@ async function runReminderOnce(now = new Date()) {
   const opts = { recall, roster };
 
   let sends = 0; let needed = 0;
-  if (wide.length) {
-    const m = await buildReminder(now, opts);
-    await sendMail({ to: wide.join(','), subject: m.subject, text: m.text });
-    sends += 1;
-    needed = m.needed;
-  }
+  const sentTo = [];
+  try {
+    if (wide.length) {
+      const m = await buildReminder(now, opts);
+      await sendMail({ to: wide.join(','), subject: m.subject, text: m.text });
+      sends += 1;
+      needed = m.needed;
+      sentTo.push(`institution-wide → ${wide.length} recipient(s)`);
+    }
 
   // One email per sport, not per coach, so two coaches on the same squad get one
   // message between them rather than two identical ones.
@@ -358,21 +391,28 @@ async function runReminderOnce(now = new Date()) {
     if (!bySport.has(c.coachSport)) bySport.set(c.coachSport, []);
     bySport.get(c.coachSport).push(c.email);
   }
-  for (const [sport, emails] of bySport) {
-    const m = await buildReminder(now, { ...opts, sport });
-    // A coach with nothing to chase does not need a monthly "nothing to do".
-    // The institution-wide copy still sends when empty, because there "the
-    // roster is current" is itself the assurance an administrator wants.
-    if (!m.needed) continue;
-    await sendMail({ to: emails.join(','), subject: m.subject, text: m.text });
-    sends += 1;
+    for (const [sport, emails] of bySport) {
+      const m = await buildReminder(now, { ...opts, sport });
+      // A coach with nothing to chase does not need a monthly "nothing to do".
+      // The institution-wide copy still sends when empty, because there "the
+      // roster is current" is itself the assurance an administrator wants.
+      if (!m.needed) continue;
+      await sendMail({ to: emails.join(','), subject: m.subject, text: m.text });
+      sends += 1;
+      sentTo.push(`${sport} → ${emails.length} coach inbox(es)`);
+    }
+  } catch (e) {
+    await recordOutcome('rescreen_reminder_last_result', false, e.message);
+    throw e;
   }
 
   // Only after the sends, so a mail failure retries next hour rather than
   // losing the month.
   await setSetting('rescreen_reminder_last_sent', monthKey(now));
+  await recordOutcome('rescreen_reminder_last_result', true,
+    `${sends} email(s) — ${sentTo.join('; ') || 'none needed'} — ${needed} athlete(s) needing attention`);
   return {
-    sent: sends > 0, emails: sends, recipients: wide.length + coaches.length, month: monthKey(now), needed,
+    sent: sends > 0, emails: sends, sentTo, recipients: wide.length + coaches.length, month: monthKey(now), needed,
   };
 }
 
@@ -390,6 +430,7 @@ function startScheduler() {
     } catch (e) {
       // Never let the scheduler take the process down; it retries next hour.
       console.error('[scheduler] monthly digest failed:', e.message);
+      await recordOutcome('digest_last_result', false, e.message);
     }
     // Separate try: a digest failure must not cost the reminder its month, and
     // vice versa. They share a tick, not a fate.
@@ -401,6 +442,7 @@ function startScheduler() {
       }
     } catch (e) {
       console.error('[scheduler] rescreen reminder failed:', e.message);
+      await recordOutcome('rescreen_reminder_last_result', false, e.message);
     }
   };
   // One pass shortly after boot catches a month that came due while down.
@@ -415,6 +457,6 @@ function stopScheduler() {
 }
 
 module.exports = {
-  isReminderDue, buildReminder, runReminderOnce,
+  isReminderDue, buildReminder, runReminderOnce, recordOutcome,
   startScheduler, stopScheduler, runDigestOnce, isDue, buildDigest, digestAttachment, monthKey,
 };
