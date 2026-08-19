@@ -36,7 +36,6 @@ const UNRENDERABLE = [
   0xfeff, // BOM
   0x2261, // identical to
   0x221a, // sqrt
-  0x2026, // NOTE: ellipsis DOES render (width 12) - see rendersFine below
 ];
 
 // Deliberately excluded from the list above because they DO render and carry
@@ -69,7 +68,6 @@ async function capturePdfText(draw) {
 /** Codepoints from UNRENDERABLE that appear anywhere in the captured text. */
 function unrenderableIn(joined) {
   return UNRENDERABLE
-    .filter((cp) => cp !== 0x2026) // ellipsis renders; kept in the list as a note
     .filter((cp) => joined.includes(String.fromCodePoint(cp)))
     .map((cp) => 'U+' + cp.toString(16).toUpperCase().padStart(4, '0'));
 }
@@ -92,17 +90,27 @@ const chr = (cp) => String.fromCodePoint(cp);
  */
 async function capturePaintOps(draw) {
   const PD = PDFDocument.prototype;
-  const originals = { fill: PD.fill, stroke: PD.stroke, fillAndStroke: PD.fillAndStroke };
+  const NAMES = ['fill', 'stroke', 'fillAndStroke', 'rect', 'roundedRect', 'path'];
+  const originals = {};
+  for (const n of NAMES) originals[n] = PD[n];
   const ops = [];
-  PD.fill = function patchedFill(...a) { ops.push({ op: 'fill', args: a }); return originals.fill.apply(this, a); };
-  PD.stroke = function patchedStroke(...a) { ops.push({ op: 'stroke', args: a }); return originals.stroke.apply(this, a); };
-  PD.fillAndStroke = function patchedBoth(...a) { ops.push({ op: 'fillAndStroke', args: a }); return originals.fillAndStroke.apply(this, a); };
+  for (const n of NAMES) {
+    PD[n] = function patched(...a) { ops.push({ op: n, args: a }); return originals[n].apply(this, a); };
+  }
   try {
     await draw({ PDFDocument });
   } finally {
     Object.assign(PD, originals);
   }
-  return { ops, count: (op) => ops.filter((o) => o.op === op).length };
+  return {
+    ops,
+    count: (op) => ops.filter((o) => o.op === op).length,
+    // Geometry of every rect drawn, as { x, y, w, h } — how `bar()`'s value
+    // column is checked for the overflow described in section 30b.
+    rects: () => ops
+      .filter((o) => o.op === 'rect' || o.op === 'roundedRect')
+      .map((o) => ({ x: o.args[0], y: o.args[1], w: o.args[2], h: o.args[3] })),
+  };
 }
 
 module.exports = {

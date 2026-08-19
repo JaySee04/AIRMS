@@ -9,6 +9,7 @@
 // Added 2026-08-06 alongside the extraction of these helpers out of
 // routes/screeningReports.js (see utils/pdfDraw.js header).
 const { Writable } = require('stream');
+const PDFDocument = require('pdfkit');
 const D = require('../src/utils/pdfDraw');
 const {
   capturePdfText, capturePaintOps, unrenderableIn, MUST_SURVIVE, chr,
@@ -35,6 +36,20 @@ function render(draw) {
     D.finish(doc, 'Test Report');
   });
 }
+
+// One document lifecycle, two ways of watching it. `startDoc` is used rather
+// than a bare PDFDocument on purpose: the guards under test are installed THERE,
+// so a helper that skipped it would recreate the hole these tests exist to close.
+const lifecycle = (capture) => (draw) => capture(async () => {
+  const res = fakeRes();
+  const doc = D.startDoc(res, 'test.pdf');
+  await draw(doc);
+  D.finish(doc, 'Test Report');
+  await new Promise((r) => res.on('finish', r));
+});
+
+const paintOf = lifecycle(capturePaintOps);
+const textOf = lifecycle(capturePdfText);
 
 const SUBITEMS = {
   neck: { romL: 83, romR: 72, stabL: 76, stabR: 76, sym: 83 },
@@ -357,15 +372,11 @@ describe('pdfDraw toolkit', () => {
     // page. A count of zero rendering as '-' made one row show three treatments
     // of the same value, and on an accountability document '-' reads as "not
     // tracked" rather than "none".
-    const { strings } = await capturePdfText(async () => {
-      const res = fakeRes();
-      const doc = D.startDoc(res, 'staff.pdf');
+    const { strings } = await textOf(async (doc) => {
       D.staffTable(doc, [{
         actor: 'Medical Demo 01', role: 'medical', actions: 8, downloads: 0,
         previousActions: 0, change: 0, byAction: {}, screeningsImported: 0,
       }], {}, { comparable: false });
-      D.finish(doc, 'Test Report');
-      await new Promise((r) => res.on('finish', r));
     });
     // Three cells: actions 8, downloads 0, screenings 0 — and no bare dash.
     expect(strings).toContain('8');
@@ -419,13 +430,9 @@ describe('pdfDraw toolkit', () => {
     // guard, so what it records is what pdfkit was actually asked to draw. Revert
     // the `guardText(doc)` call in startDoc or bufferDoc and this fails.
     it('installs the guard on startDoc, so pdfkit never receives a bad glyph', async () => {
-      const { joined } = await capturePdfText(async () => {
-        const res = fakeRes();
-        const doc = D.startDoc(res, 'guard.pdf');
+      const { joined } = await textOf(async (doc) => {
         doc.text(`over threshold (${chr(0x2265)} 25)`, 50, 100);
         doc.text(`sport Badminton ${chr(0x2192)} Hockey`, 50, 130);
-        D.finish(doc, 'Test Report');
-        await new Promise((r) => res.on('finish', r));
       });
       expect(unrenderableIn(joined)).toEqual([]);
       expect(joined).toContain('over threshold (>= 25)');
@@ -451,12 +458,8 @@ describe('pdfDraw toolkit', () => {
     // assert removal.
     it('leaves the glyphs the reports depend on intact, end to end', async () => {
       const keep = MUST_SURVIVE.map(chr).join(' ');
-      const { joined } = await capturePdfText(async () => {
-        const res = fakeRes();
-        const doc = D.startDoc(res, 'keep.pdf');
+      const { joined } = await textOf(async (doc) => {
         doc.text(keep, 50, 100);
-        D.finish(doc, 'Test Report');
-        await new Promise((r) => res.on('finish', r));
       });
       for (const cp of MUST_SURVIVE) expect(joined).toContain(chr(cp));
     });
@@ -467,9 +470,7 @@ describe('pdfDraw toolkit', () => {
     // a printed report.
     it('no toolkit helper can put an unrenderable glyph on the page', async () => {
       const bad = `${chr(0x2265)}25 ${chr(0x2192)} ${chr(0x2264)} ${chr(0x2212)}3 ${chr(0x2500)}`;
-      const { joined } = await capturePdfText(async () => {
-        const res = fakeRes();
-        const doc = D.startDoc(res, 'sweep.pdf');
+      const { joined } = await textOf(async (doc) => {
         D.cover(doc, `Report ${bad}`, `subtitle ${bad}`);
         D.sectionTitle(doc, `Section ${bad}`);
         D.bar(doc, `Label ${bad}`, 42, 100, '#0f2c4a', { valueText: `42 ${bad}` });
@@ -486,8 +487,6 @@ describe('pdfDraw toolkit', () => {
         D.changeBars(doc, [
           { label: `ROM ${bad}`, avgDelta: -5.2, higherBetter: true, direction: 'declining', deadBand: 2 },
         ], { note: `note ${bad}` });
-        D.finish(doc, 'Test Report');
-        await new Promise((r) => res.on('finish', r));
       });
       expect(unrenderableIn(joined)).toEqual([]);
     });
@@ -509,12 +508,8 @@ describe('pdfDraw toolkit', () => {
     // Baseline: a real move fills. Without this the outline assertion below
     // could pass simply because nothing was ever filled.
     it('fills a bar that clears the threshold', async () => {
-      const { count } = await capturePaintOps(async () => {
-        const res = fakeRes();
-        const doc = D.startDoc(res, 'cb.pdf');
+      const { count } = await paintOf(async (doc) => {
         D.changeBars(doc, [row('ROM', -5.2, 'declining')], { note: 'x' });
-        D.finish(doc, 'Test Report');
-        await new Promise((r) => res.on('finish', r));
       });
       expect(count('fill')).toBeGreaterThan(0);
     });
@@ -533,12 +528,8 @@ describe('pdfDraw toolkit', () => {
     // the toolkit rather than hardcoded here.
     it('outlines rather than fills a bar smaller than its own dead band', async () => {
       const rows = [row('Overall indicator', -1.8, 'steady'), row('Total score', 0.4, 'steady')];
-      const paint = (rs) => capturePaintOps(async () => {
-        const res = fakeRes();
-        const doc = D.startDoc(res, 'cb.pdf');
+      const paint = (rs) => paintOf(async (doc) => {
         D.changeBars(doc, rs, { note: 'x' });
-        D.finish(doc, 'Test Report');
-        await new Promise((r) => res.on('finish', r));
       });
 
       const noBand = await paint(rows.map((r) => ({ ...r, deadBand: 0 })));
@@ -559,19 +550,11 @@ describe('pdfDraw toolkit', () => {
 
     // A zero delta is neither a gain nor a loss and must not paint a bar at all.
     it('paints no bar for a delta of zero', async () => {
-      const zero = await capturePaintOps(async () => {
-        const res = fakeRes();
-        const doc = D.startDoc(res, 'cb4.pdf');
+      const zero = await paintOf(async (doc) => {
         D.changeBars(doc, [row('ROM', 0, 'steady')], { note: 'x' });
-        D.finish(doc, 'Test Report');
-        await new Promise((r) => res.on('finish', r));
       });
-      const moved = await capturePaintOps(async () => {
-        const res = fakeRes();
-        const doc = D.startDoc(res, 'cb5.pdf');
+      const moved = await paintOf(async (doc) => {
         D.changeBars(doc, [row('ROM', 6, 'improving')], { note: 'x' });
-        D.finish(doc, 'Test Report');
-        await new Promise((r) => res.on('finish', r));
       });
       expect(moved.count('fill')).toBeGreaterThan(zero.count('fill'));
     });
@@ -625,15 +608,84 @@ describe('pdfDraw toolkit', () => {
     // Output-level: the em-dash it emits must survive the WinAnsi guard, since a
     // sanitiser that over-reached would turn "no data" into a hyphen.
     it('emits a dash that actually renders', async () => {
-      const { joined } = await capturePdfText(async () => {
-        const res = fakeRes();
-        const doc = D.startDoc(res, 'cell.pdf');
+      const { joined } = await textOf(async (doc) => {
         doc.text(D.changeCell(null, true).text, 50, 100);
-        D.finish(doc, 'Test Report');
-        await new Promise((r) => res.on('finish', r));
       });
       expect(unrenderableIn(joined)).toEqual([]);
       expect(joined).toContain(chr(0x2014));
+    });
+  });
+
+  // Section 30b. `bar()` reserved a fixed 50pt for its value, so
+  // "58 of 62 (94%)" (about 70pt at 9pt bold) ran past its slot and the second
+  // line landed on the row beneath. The fix measures the text and gives the bar
+  // whatever is left. Nothing in the page TEXT records that, so this asserts the
+  // geometry: whatever the value says, it still has to fit on the page.
+  describe('bar: a long value shortens the bar instead of colliding', () => {
+    const drawBar = (valueText) => paintOf(async (doc) => {
+      D.bar(doc, 'Roster covered', 58, 62, '#3d7c47', { valueText });
+    });
+
+    // Width of the value as it is actually drawn: 9pt Helvetica-Bold.
+    const valueWidth = (text) => {
+      const probe = new PDFDocument();
+      probe.font('Helvetica-Bold').fontSize(9);
+      return probe.widthOfString(text);
+    };
+
+    it('keeps the value inside the page however long it is', async () => {
+      const PAGE_W = 595.28; // A4 portrait, the size startDoc uses
+      const RIGHT_MARGIN = 50;
+      for (const text of ['1.3', '58 of 62 (94%)', '58 of 62 on the roster', '1234 of 5678 (99.9%) recorded']) {
+        const paint = await drawBar(text);
+        // The widest rect on the row is the bar track; its right edge is where
+        // the value column begins (plus an 8pt gap in the drawing code).
+        const track = paint.rects().reduce((a, b) => (b.w > a.w ? b : a));
+        const valueRight = track.x + track.w + 8 + valueWidth(text);
+        expect(valueRight).toBeLessThanOrEqual(PAGE_W - RIGHT_MARGIN + 1);
+      }
+    });
+
+    it('shortens the bar as the value grows, rather than overlapping it', async () => {
+      const short = await drawBar('1.3');
+      const long = await drawBar('1234 of 5678 (99.9%) recorded');
+      const widest = (p) => p.rects().reduce((a, b) => (b.w > a.w ? b : a)).w;
+      expect(widest(long)).toBeLessThan(widest(short));
+    });
+  });
+
+  // Section 30c. The squad body map was smoke-tested only — "returns true and
+  // produces a PDF" passes just as well if the figure never draws a single
+  // muscle. muscleFigure paints each path with fillAndStroke, so counting those
+  // distinguishes a drawn figure from an empty frame.
+  describe('squad body map actually draws a body', () => {
+    const member = (base) => ({
+      a: { athleteId: String(base), name: 'A' + base },
+      s: {
+        subitems: {
+          neck: { romL: base, romR: base - 5, stabL: base, stabR: base, sym: base },
+          shoulder: { romL: base, romR: base, stabL: base, stabR: base, sym: base },
+          torso: { romL: base - 20, romR: base - 22, stabL: base - 18, stabR: base - 20, sym: base },
+          pelvis: { romL: base + 10, romR: base + 8, stabL: base + 9, stabR: base + 7, sym: base },
+          lowerLimbs: { romL: base + 20, romR: base + 21, stabL: base + 19, stabR: base + 20, sym: base },
+        },
+      },
+    });
+    const paintFigure = (members) => paintOf(async (doc) => {
+      D.squadMuscleFigure(doc, members);
+    });
+
+    it('paints the licensed geometry, front and back', async () => {
+      const paint = await paintFigure([member(62), member(70), member(55), member(80)]);
+      // Two views of a couple of dozen regions each: a real figure is dozens of
+      // painted paths, not a handful.
+      expect(paint.count('path')).toBeGreaterThan(30);
+      expect(paint.count('fillAndStroke')).toBeGreaterThan(30);
+    });
+
+    it('paints nothing when the group has no subitems to colour', async () => {
+      const paint = await paintFigure([{ a: {}, s: {} }]);
+      expect(paint.count('fillAndStroke')).toBe(0);
     });
   });
 });

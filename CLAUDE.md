@@ -85,7 +85,11 @@ recorder **underneath** the instance-level guard, so an unwired guard fails;
 **breaking the code and watching it fail** — un-wiring `guardText`, refilling the
 outlined bar, deleting the reason sub-line, removing `changeCell`'s zero case.
 **When adding a PDF test, mutate the thing it guards and confirm it fails**; a
-test nobody has seen fail is a guess about what it covers. Note also that
+test nobody has seen fail is a guess about what it covers — and re-confirm
+after any refactor of the test file, since a refactor can quietly neuter an
+assertion. Write new cases through the `paintOf` / `textOf` lifecycle helpers
+(both route through `startDoc`, deliberately: a bare `PDFDocument` would skip
+the guard installation the tests exist to verify). Note also that
 counting paint ops is a trap — the dead-band *zone* is itself a fill, so fill
 counts coincide between opposite renderings; assert on the fill **colour**.
 

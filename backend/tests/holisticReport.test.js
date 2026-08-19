@@ -273,3 +273,67 @@ describe('drawHolistic — the flagged list says why, and says it in printable c
     }
   });
 });
+
+// Section 30d. The holistic report is the flagship admin document and the one the
+// monthly digest ATTACHES, and it used 4 of the toolkit's 17 drawing primitives:
+// it tabulated the period series that Programme Activity draws as a throughput
+// chart, and listed as signed numbers the changes that report draws as a chart.
+// Both were added — but "the report still renders" would pass with both removed
+// again, so each is pinned by the caption its own helper writes.
+describe('drawHolistic — draws its programme activity, rather than tabulating it', () => {
+  // Both charts need history the default fixture does not have: a throughput
+  // chart needs more than one period (a lone period draws as a summary, by
+  // design — section 24), and a change chart needs within-athlete PAIRS. Giving
+  // every athlete an earlier screening in a previous quarter supplies both.
+  beforeEach(() => {
+    const history = [];
+    for (const { screening } of rows()) {
+      history.push({ ...screening, assessedAt: '2026-04-10', totalScore: screening.totalScore - 4, overallIndicator: (screening.overallIndicator ?? 50) - 3 });
+      history.push({ ...screening, assessedAt: '2026-07-15' });
+    }
+    Screening.findAll.mockResolvedValue(history);
+  });
+
+  const draw = async (query = {}) => {
+    const data = await holisticData(query);
+    return capturePdfText(async () => {
+      const { doc, done } = bufferDoc();
+      drawHolistic(doc, data, '2026-08-18');
+      await done;
+    });
+  };
+
+  test('draws the throughput chart AND keeps the table beside it', async () => {
+    const { joined } = await draw();
+    // The caption throughputChart writes — present only if the chart drew.
+    expect(joined).toContain('Column height is tests performed');
+    // ...and the table is still there. The pairing is the point: the chart
+    // answers "is this going up" at a glance, the table is what gets quoted.
+    expect(joined).toContain('Avg indicator');
+    expect(joined).toMatch(/Screening Programme Activity/);
+  });
+
+  test('draws the change chart, with its dead-band explanation', async () => {
+    const { joined } = await draw();
+    expect(joined).toContain('worse <- change -> better');
+    // The caveat has to travel with the chart, or an outlined bar is unexplained.
+    expect(joined).toMatch(/shaded band either side of centre/i);
+  });
+
+  // The digest attaches these bytes, so the emailed copy must contain the charts
+  // too — a regression that only affected bufferDoc would be invisible on screen.
+  test('the buffered copy the digest attaches carries the same charts', async () => {
+    const { renderHolisticPdf } = require('../src/utils/holisticReport');
+    const { buffer, filename } = await renderHolisticPdf({}, '2026-08-18');
+    expect(buffer.slice(0, 5).toString()).toBe('%PDF-');
+    expect(buffer.length).toBeGreaterThan(5000);
+    expect(filename).toMatch(/\.pdf$/);
+  });
+});
+
+// Section 30d. The holistic report is the flagship admin document and the one the
+// monthly digest ATTACHES, and it used 4 of the toolkit's 17 drawing primitives:
+// it tabulated the period series that Programme Activity draws as a throughput
+// chart, and listed as signed numbers the changes that report draws as a chart.
+// Both were added — but "the report still renders" would pass with both removed
+// again, so each is pinned by the caption its own helper writes.

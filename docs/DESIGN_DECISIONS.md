@@ -1828,6 +1828,50 @@ jest — only the function and the drawn output are. That installation is verifi
 by rendering the report over HTTP, which is exactly the manual step 30f says to
 prefer over a unit assertion. It is recorded here rather than papered over.
 
+**Finishing the job: the three fixes that were still only smoke-tested.** 30g
+rebuilt the method; applying it to the rest of section 30 found three fixes with
+no assertion behind them at all.
+
+- **30b, the measured value column.** `bar()` reserved a fixed 50pt, so
+  "58 of 62 (94%)" overran its slot. Nothing in the page text records the
+  geometry, so `capturePaintOps` now also records `rect` / `roundedRect`
+  coordinates, and the test asserts the property the fix actually establishes:
+  whatever the value says, its right edge stays inside the page margin — checked
+  across four value lengths, and separately that a longer value *shortens the
+  bar* rather than overlapping it.
+- **30c, the squad body map.** "Returns true and produces a PDF" passes equally
+  well if the figure never draws a single muscle. `muscleFigure` paints each
+  region with `fillAndStroke`, so counting those separates a drawn figure (dozens
+  of paths, both views) from an empty frame (zero).
+- **30d, the holistic report's two charts.** Each is pinned by the caption its
+  own helper writes — "Column height is tests performed" and
+  "worse <- change -> better" — so deleting either call fails a test rather than
+  silently returning the report to tables. Writing these exposed a thin fixture:
+  the mocked history had one date and no repeat screenings, so neither chart
+  *could* draw. A throughput chart needs more than one period and a change chart
+  needs within-athlete pairs; the fixture now supplies both, which is a more
+  honest model of the data anyway.
+
+All four were confirmed by mutation, then confirmed *again* after the test file
+was refactored — a refactor that quietly neuters an assertion is exactly the
+failure this section is about.
+
+**The harness was the root cause, so it was fixed too.** The document lifecycle
+(`fakeRes` -> `startDoc` -> draw -> `finish` -> await) stood in **twelve** copies.
+That is why the original test was written badly: the correct thing was tedious to
+write and the wrong thing was easy. It is now one `lifecycle()` factory with two
+capture modes, `paintOf` and `textOf`, both routed through `startDoc` **on
+purpose** — a helper that constructed a bare `PDFDocument` would skip the very
+guard installation these tests exist to verify, recreating the hole from the
+inside.
+
+The collapse itself misfired first, and instructively: the substitution was run
+over the whole file *after* the new helper was inserted, so the pattern matched
+**the helper's own body** and produced `const paintOf = (draw) => paintOf(...)`
+— infinite recursion, caught immediately by the suite. Same family as the CRLF
+mismatch in 30f: a mechanical edit applied without asking what else it might
+match. Insert-then-substitute is the wrong order; substitute first.
+
 **And a note on the tooling that caused it.** The failed wiring edit came from a
 script whose replacement strings used LF against a working-tree file that
 checks out CRLF. `.gitattributes` declares `* text=auto eol=lf`, so the
