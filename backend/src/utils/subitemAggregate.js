@@ -41,14 +41,39 @@ const CELLS = [
   ['sym', 'Symmetry'],
 ];
 
-// A left/right gap at or above this many points is called out.
+// A left/right difference at or above this PERCENT is called out.
 //
-// 10 points is one full HoloMotion tier band (the instrument's own boundaries are
-// 60/75/85, so 10 is wider than the narrowest band) — a gap that large means the
-// two sides would not be described by the same word. Below that, screening noise
-// and genuine handedness are not separable, and flagging them would bury the
-// Thung-sized findings under everything else.
-const NOTABLE_GAP = 10;
+// This was 10 raw score POINTS, which made two clinically different situations
+// count identically: 80 vs 70 is a 12.5% deficit in a strong limb, while 40 vs 30
+// is 25% in a weak one. The inter-limb asymmetry literature expresses the measure
+// as a percentage, and return-to-sport criteria are stated as a limb symmetry
+// index of 85-90% — so a percentage is both more honest and directly comparable
+// to a criterion a clinician already knows.
+//
+// 10% is retained as the figure because it is the value most commonly cited, and
+// it lands close to the old points threshold across the range HoloMotion actually
+// produces. It is not a hard clinical boundary: asymmetry above 10% is common in
+// uninjured athletes and the threshold itself is debated in the literature. What
+// changed is how the quantity is EXPRESSED, not a claim that 10 is the right cut.
+//
+// NOT applied to the composite indicator's `balance` term in utils/cohorts.js,
+// deliberately: that term is z-scored against the athlete's cohort, and z-scoring
+// already removes the scale, so normalising it would move nobody's band while
+// making the code harder to follow. The threshold here is an ABSOLUTE cut-off,
+// which is exactly where the un-normalised form did damage.
+// See docs/DESIGN_DECISIONS.md §33.
+const NOTABLE_GAP_PCT = 10;
+
+/**
+ * Inter-limb difference as a percentage of the better side, the way the
+ * literature states it. Null when either side is missing or both are zero.
+ */
+function asymmetryPct(l, r) {
+  if (l === null || r === null) return null;
+  const better = Math.max(l, r);
+  if (!better) return null;
+  return (Math.abs(l - r) / better) * 100;
+}
 
 const num = (v) => (v === null || v === undefined || v === '' || Number.isNaN(Number(v)) ? null : Number(v));
 const mean = (a) => (a.length ? +(a.reduce((x, y) => x + y, 0) / a.length).toFixed(1) : null);
@@ -85,6 +110,7 @@ function aggregateSubitems(screenings) {
   const asymmetry = REGIONS.map(([key, label]) => {
     const pairs = [['rom', 'romL', 'romR'], ['stab', 'stabL', 'stabR']].map(([metric, lKey, rKey]) => {
       const gaps = [];
+      const pcts = [];
       const signed = [];
       let notable = 0;
       for (const s of rows) {
@@ -95,13 +121,21 @@ function aggregateSubitems(screenings) {
         if (l === null || r === null) continue;
         signed.push(l - r);
         gaps.push(Math.abs(l - r));
-        if (Math.abs(l - r) >= NOTABLE_GAP) notable += 1;
+        const pct = asymmetryPct(l, r);
+        if (pct !== null) {
+          pcts.push(pct);
+          if (pct >= NOTABLE_GAP_PCT) notable += 1;
+        }
       }
       const meanSigned = mean(signed);
       return {
         metric,
         n: gaps.length,
+        // Kept: the raw point gap is what the printed HoloMotion table shows, so a
+        // clinician can still reconcile it against the report in their hand.
         meanGap: mean(gaps),
+        // Added: the same difference as the literature states it.
+        meanGapPct: mean(pcts),
         // Mean of (left − right). Positive = the left side SCORES HIGHER, and
         // since every subitem is "higher is better", that means the RIGHT side is
         // the weaker one.
@@ -140,10 +174,11 @@ function aggregateSubitems(screenings) {
     : null;
 
   return {
-    n: rows.length, matrix, asymmetry, worstCell, worstAsymmetry, notableGap: NOTABLE_GAP,
+    n: rows.length, matrix, asymmetry, worstCell, worstAsymmetry,
+    notableGapPct: NOTABLE_GAP_PCT,
   };
 }
 
 module.exports = {
-  aggregateSubitems, REGIONS, CELLS, NOTABLE_GAP,
+  aggregateSubitems, asymmetryPct, REGIONS, CELLS, NOTABLE_GAP_PCT,
 };

@@ -655,6 +655,33 @@ label:has(> input[type='radio']) {
   background: rgba(255, 255, 255, 0.5);
 }
 [data-theme="dark"] .cohort-profile { background: rgba(255, 255, 255, 0.06); }
+/* How old the reading is, stated where the verdict is read. Amber for due-soon,
+   red for overdue — the same status tokens the bands use, because it is the same
+   kind of claim: something needs doing. */
+.risk-hero-stale {
+  margin: var(--sp-sm) 0 0;
+  padding: var(--sp-sm) var(--sp-md);
+  border-radius: var(--r-sm);
+  border-left: 3px solid var(--risk-moderate);
+  background: var(--risk-moderate-bg);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+.risk-hero-stale--overdue {
+  border-left-color: var(--risk-high);
+  background: var(--risk-high-bg);
+}
+
+/* Small comparison groups make the group mean and spread themselves uncertain.
+   Muted, because it qualifies the table rather than competing with it. */
+.cohort-profile-caveat {
+  margin: 0 0 var(--sp-sm);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
 .cohort-profile-head {
   font-size: var(--fs-xs);
   font-weight: 700;

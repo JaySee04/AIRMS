@@ -15,7 +15,7 @@
 const PDFDocument = require('pdfkit');
 const { orientedComponents } = require('../utils/cohorts');
 const { compositeZ } = require('../utils/overallIndicator');
-const { effectiveBand } = require('./bands');
+const { effectiveBand, BAND_LABEL } = require('./bands');
 const {
   bodyFront, bodyBack, frontOutline, backOutline, SCOPED_SLUGS: BODYMAP_SCOPED_SLUGS, worstValueBySlug,
 } = require('../utils/bodymap');
@@ -40,7 +40,9 @@ const bandInk = (b) => BAND_INK[b] || '#ffffff';
 // amber is darkened, the same allowance the 'Average' tier's onLight makes.
 const BAND_ON_LIGHT = { green: BAND.green, amber: '#8a6a16', red: BAND.red };
 const bandOnLight = (b) => BAND_ON_LIGHT[b] || TEXT;
-const bandLabel = (b) => ({ green: 'Safe', amber: 'Needs attention', red: 'Immediate assessment' }[b] || '—');
+// One vocabulary, from utils/bands.js. This was a private copy — the reason a
+// band rename in bands.js would have left the PDFs still saying "Safe".
+const bandLabel = (b) => BAND_LABEL[b] || '\u2014';
 
 // Exercise Risk Evaluation bands. These MUST agree with the dashboards —
 // frontend/src/lib/screeningAlerts.ts is the counterpart definition and carries
@@ -334,7 +336,7 @@ function bandTable(doc, entries) {
   doc.fontSize(9).font('Helvetica-Bold').fillColor(MUTED);
   doc.text('Group', 50, yStart, { lineBreak: false });
   doc.text('Screened', 250, yStart, { width: 60, align: 'right', lineBreak: false });
-  doc.text('Safe', 320, yStart, { width: 50, align: 'right', lineBreak: false });
+  doc.text('None flagged', 300, yStart, { width: 70, align: 'right', lineBreak: false });
   doc.text('Attention', 380, yStart, { width: 60, align: 'right', lineBreak: false });
   doc.text('Immediate', 450, yStart, { width: 65, align: 'right', lineBreak: false });
   doc.y = yStart + 14;

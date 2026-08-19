@@ -16,6 +16,7 @@ const { Athlete, MuscleFlag, Screening, AthleteDiscipline } = require('../models
 const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
 const { INDICATOR_ATTRS, toIndicator } = require('../utils/indicatorPayload');
+const { getSettings } = require('../utils/settings');
 const { effectiveBand } = require('../utils/bands');
 
 const router = express.Router();
@@ -49,6 +50,7 @@ router.get('/readiness', auth, rbac('coach'), async (req, res) => {
     // plus the previous one's indicator so the dashboard can show a trend arrow.
     // Screenings are ordered newest-first, so per athlete the 1st row is latest,
     // the 2nd is previous.
+    const { rescreen_due_days: dueDays } = await getSettings();
     const indicatorByAthlete = new Map();
     const seen = new Map();
     for (const s of screenings) {
@@ -58,7 +60,7 @@ router.get('/readiness', auth, rbac('coach'), async (req, res) => {
         // hand-built here and had already drifted, dropping the clinician
         // override the coach's override card promises them.
         indicatorByAthlete.set(s.athleteId, {
-          ...toIndicator(s),
+          ...toIndicator(s, dueDays),
           prevIndicator: null,
           prevAssessedAt: null,
         });

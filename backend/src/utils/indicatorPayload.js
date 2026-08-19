@@ -11,6 +11,7 @@
 // which is the moment to stop. §19.
 
 const { effectiveBand } = require('./bands');
+const { screeningAgeDays, recallState } = require('./recall');
 
 // The columns the payload needs. Deliberately NOT `*`: it keeps the big JSON/TEXT
 // columns (muscle_flags, summary_text) and the 12 raw scores off the wire for the
@@ -25,8 +26,13 @@ const arr = (v) => (Array.isArray(v) ? v : []);
 const numOrNull = (v) => (v === null || v === undefined ? null : Number(v));
 
 // Shape one Screening row into the indicator payload.
-function toIndicator(s) {
+// `dueDays` is the institution's rescreen interval (settings.rescreen_due_days).
+// Passed in rather than read here so this module stays sync and DB-free; when a
+// caller omits it the age is still reported and the state falls back to null,
+// which the UI renders as "no interval set" rather than inventing one.
+function toIndicator(s, dueDays = null) {
   if (!s) return null;
+  const ageDays = screeningAgeDays(s.assessedAt);
   return {
     screeningId: s.id,
     assessedAt: s.assessedAt,
@@ -52,6 +58,12 @@ function toIndicator(s) {
     overrideNote: s.overrideNote,
     overrideBy: s.overrideBy,
     overrideAt: s.overrideAt,
+    // HOW OLD the reading is, and whether it is still current. The band is
+    // rendered in the present tense, so without this an eight-month-old screening
+    // presents exactly like one taken last week. Classified by the same function
+    // the monthly recall email uses, so the two cannot disagree.
+    screeningAgeDays: ageDays,
+    recallState: dueDays === null ? null : recallState(ageDays, dueDays),
     // The band clinicians/coaches act on: an override wins until the next import.
     effectiveBand: effectiveBand(s),
   };

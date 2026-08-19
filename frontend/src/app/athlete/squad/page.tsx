@@ -8,6 +8,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { api } from '@/lib/api';
+import { BAND_SHORT } from '@/lib/bands';
 
 interface Teammate {
   athleteId: string; name: string; program: string | null; gender: string | null;
@@ -16,9 +17,9 @@ interface Teammate {
 interface Resp { sport: string; teammates: Teammate[]; }
 
 const BAND: Record<'green' | 'amber' | 'red', { label: string; color: string }> = {
-  green: { label: 'Safe', color: 'var(--risk-low)' },
-  amber: { label: 'Needs attention', color: 'var(--risk-moderate)' },
-  red: { label: 'Immediate assessment', color: 'var(--risk-high)' },
+  green: { label: BAND_SHORT.green, color: 'var(--risk-low)' },
+  amber: { label: BAND_SHORT.amber, color: 'var(--risk-med)' },
+  red: { label: BAND_SHORT.red, color: 'var(--risk-high)' },
 };
 
 export default function AthleteSquadPage() {

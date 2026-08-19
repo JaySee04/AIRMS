@@ -55,7 +55,7 @@ interface ScreeningCohort {
     }>;
     worstCell: { region: string; label: string; value: number } | null;
     worstAsymmetry: { region: string; metric: string; meanGap: number; notable: number } | null;
-    notableGap: number;
+    notableGapPct: number;
   };
   points: Array<{
     athleteId: string; name: string; sport: string | null;
@@ -561,7 +561,7 @@ export default function AdminDashboard() {
         <div className="card-header"><div>
           <h2 className="card-title" style={{ marginBottom: 0 }}>Left–Right Asymmetry</h2>
           <span className="card-sub">
-            Athletes whose two sides differ by {cohort?.subitems?.notableGap ?? 10} points or more — one full
+            Athletes whose two sides differ by {cohort?.subitems?.notableGapPct ?? 10}% or more of the better side — about one
             HoloMotion band, so the two sides would not be described by the same word
           </span>
         </div></div>

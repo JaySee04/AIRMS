@@ -2009,7 +2009,141 @@ in place.
 The pin is releasable from the same page, so this constrains nothing permanently
 - it makes the reference explicit instead of incidental.
 
+## 33. What a sports-medicine review of the dashboards changed (2026-08-19)
+
+All five role dashboards were reviewed against the screening literature rather
+than against the FDD. Four changes followed, one review finding was **wrong**, and
+one outcome is a rule about how to present a result rather than a code change.
+
+The framing that survived scrutiny, and is the right viva answer: **AIRMS does not
+claim to predict injury.** Validating a screen for prediction needs a prospective
+association, adequate test properties in the population, and evidence that
+intervening on screen-identified athletes beats intervening on everyone (Bahr,
+*BJSM* 2016) — and no published screening test has cleared all three. The best
+known threshold in the field, an FMS composite of 14 or below, is not
+significantly associated with injury risk once studies are pooled. Scoring against
+a real peer cohort rather than a published cut-off avoids inheriting that failure,
+and the escalation COUNT (requiring two independent rules to agree before red) is
+the standard defence against the false-positive rates that make flagging systems
+unusable in practice.
+
+### 33a. Green is no longer "Safe"
+
+A screen that cannot predict injury cannot certify its absence either, and because
+most athletes are low-risk, the green band is precisely where a false reassurance
+would land — 43 of 58 athletes carried it. The label now describes the FINDING
+(`No indicators flagged`, `None flagged` in legends) rather than the ATHLETE.
+
+Implementing it found something worse than the wording. `BAND_LABEL` in
+`utils/bands.js` — the file whose entire purpose is to be the single band
+vocabulary — **had no green key at all**. `utils/pdfDraw.js` had quietly grown a
+private full map saying "Safe", and `app/athlete/squad/page.tsx` another. So
+renaming green in the "single source" would have left the PDFs and the squad table
+still saying Safe. Three definitions are now one, and the test asserts that
+neither the full nor the compact form can contain "safe".
+
+The clinician override card keeps `Cleared to train as programmed` as its ACTION:
+a clinician examining an athlete is entitled to clear them. That is a human
+judgement, which is a different kind of claim from a screen output.
+
+### 33b. The screening's age is stated where the decision is made
+
+The band renders in the present tense. The system already computed each athlete's
+recall state (`rescreen_due_days` → current / due-soon / overdue / never) and
+emailed it monthly to administrators — but surfaced it **only** as an aggregate on
+the admin Programme Activity page. On the athlete, medical and coach dashboards
+the assessment date appeared only inside the date dropdown, so an athlete last
+screened eight months ago presented exactly like one screened last week.
+
+The hero now states the age and the recall state whenever it is not current. The
+classifier was **extracted, not copied**, into `utils/recall.js`: the hero and the
+recall email read one rule, so they cannot disagree about who is overdue — the
+same argument the reminder itself is built on. `recall.test.js` pins the boundary
+at `>=` rather than `>`, because that off-by-one would silently have moved every
+athlete sitting exactly on the interval.
+
+### 33c. Small cohorts now say they are small
+
+The fallback ladder resolves to the most specific cohort meeting
+`min_cohort_n = 5`, and in practice **49 of 58 athletes are scored against fewer
+than eleven peers**. An SD estimated from five observations is unstable, and the
+below-mean escalation fires at −0.5 SD, which sits inside the sampling error of
+such an estimate. The comparison header now carries `n=`, and below ten peers a
+caveat states that the group mean and spread are themselves uncertain — the same
+"say what the data can support" rule as the detectable-change threshold and
+seasonality.
+
+`min_cohort_n` is deliberately unchanged. Raising it trades an unstable comparison
+for a less specific one, and that is an institutional judgement about whether ISN
+would rather compare an athlete with four closely matched peers or thirty roughly
+matched ones. **Still open for JC.**
+
+### 33d. Asymmetry is expressed as a percentage, where it is a threshold
+
+Left–right difference was a raw point gap, so 80 vs 70 (a 12.5% deficit in a
+strong limb) and 40 vs 30 (25% in a weak one) counted identically. The inter-limb
+asymmetry literature states the measure as a percentage, and return-to-sport
+criteria are given as a limb symmetry index of 85–90%. `NOTABLE_GAP = 10` points
+became `NOTABLE_GAP_PCT = 10` percent of the better side, with the raw points kept
+beside it so a clinician can still reconcile against the printed HoloMotion table.
+
+The 10 figure was retained deliberately: it is the most commonly cited value, and
+it is *not* a hard boundary — asymmetry above 10% is common in uninjured athletes
+and the threshold is itself debated. What changed is how the quantity is
+**expressed**, not a claim about where the cut belongs.
+
+Not applied to the composite's `balance` term, and the reason matters: that value
+is z-scored against the athlete's cohort, and z-scoring already removes the scale,
+so normalising it would move nobody's band while making the code harder to follow.
+The un-normalised form only did damage at the **absolute** cut-off.
+
+### 33e. A finding that was wrong, kept visible
+
+The review claimed the bottom-*k* escalation flagged a fixed count out of a
+variable squad — 60% of an n=5 cohort against 10% of an n=31 one. **It does not.**
+`effectiveK()` caps *k* at `BOTTOM_SHARE = 0.2` of the cohort (minimum 1), so the
+applied share is 10–20% at every size, which is exactly what the review went on to
+recommend. The code comment already described the 60% problem and recorded that it
+once banded 42% of the squad red.
+
+The error was arithmetic on the wrong number: `bottom_k / n` computed from the raw
+setting without reading how the setting is consumed. It is the same mistake as the
+permissions catalogue earlier in the month — asserting from a stored value instead
+of the code path that reads it. **Before reporting a defect derived from a setting,
+read the consumer.** The retraction is left in the published review rather than
+deleted, and it doubles as the answer if a panel raises the small-cohort objection.
+
+### 33f. The seeded distribution is not evidence of calibration
+
+The composite averages six z-scored components, four of which (Total Score, ROM,
+stability, symmetry) are functions of the same 25 subitem cells — Total Score *is*
+their mean. They should therefore be strongly correlated, weighting movement
+quality far above injury burden. Measured across all 58 athletes, every pairwise
+correlation is near zero (|r| ≤ 0.21).
+
+That independence is an artefact of the seeder, which draws `stability` and
+`symmetry` as independent randoms and generates `subitems` separately, so Total
+Score is not the mean of anything. **The collinearity concern is therefore still
+live for real HoloMotion data — it is merely invisible in this database.**
+
+Consequence for how results are presented: 43 / 10 / 5 is evidence the pipeline
+runs end to end, which is a real claim. It is not evidence the model is calibrated,
+and it should not be offered as such.
+
+### 33g. The boundary, stated rather than apologised for
+
+The literature's own recommendation is to start from movement quality and then add
+context — injury history, pain, load. AIRMS has the movement quality and, by
+deliberate decision (the HoloMotion-only cut), none of the context. Prior injury
+is the strongest known single predictor and AIRMS does not hold it.
+
+This is a scope decision and should be volunteered as one. Adding load and history
+would not clear Bahr's three steps either; it would be a larger untested claim.
+The defensible position is the one the interface now takes throughout: report
+indicators, triage them for assessment, name the uncertainty, and leave the
+verdict with a clinician who can override it.
+
 ---
 
 
-*Last updated: 2026-08-19 - **32** added: the norm floors stay off (excluding low scores from a norm computed on those very scores is selection on the dependent variable - it biases the mean up, shrinks the SD and over-flags everyone left in), and the norms in force are now a named, PINNED set, verified by recomputing while pinned with 50 of 50 cohorts holding. Previous: 2026-08-18 (later) - **31** added: an optimisation pass that measured first and found no performance problem to fix (no N+1, indexes present, 62 athletes and 77 screenings), then fixed the real one - a single clinical decision, the seven shown indicators and the LDH exclusion that rides with them, hand-maintained in eight places whose comments pointed at each other; now one definition per package, pinned by tests, verified byte-identical output. Plus the auth branding panel that was four copies of the institute's address, extracted and proven pixel-identical. Previous: 2026-08-18 - **30** added: six reports were printed and read as documents, finding three defects no unit test could see - a change chart whose longest bar was a sub-threshold move labelled "steady" (the dead band is now drawn, and bars inside it are outlined rather than filled), a fixed-width value column that overprinted the row beneath it, and a team report that described the squad's body twice in words and drew it never (the squad body map, fed the same means as the heatmap beside it). Previous: 2026-08-16 - **29** added: the interface was put on one type, radius and spacing scale - 31 font-size literals and 11 radii collapsed to 7 and 4 tokens, and the 160 inline font sizes in the markup that had been bypassing the stylesheet entirely; nine dead rule blocks removed; and a note on the grouped-selector regex that deleted a live responsive rule in the process. Previous: 2026-08-12 - **27** and **28** added: the improving/steady/declining dead band is now a DERIVED minimal detectable change (typical error from repeat screenings) that declines and says so when the data cannot support one, plus rescreen recall, per-athlete trend sparklines and percentile framing; and the app gained a narrow layout at all, the bulk of the sideways scroll tracing to `min-width:auto` on one flex column. Previous: 2026-08-11 (really final) — **§26** added: two periods draw a CHANGE CHART, one diverging bar per metric on a shared DELTA axis (this shipped first as a slopegraph and was scrapped the same day: a shared VALUE scale across non-commensurable metrics collapsed the lines into overlapping pixels) — which is how "ROM fell 5.2 while stability rose 2.6" became visible at all) and one period shows the finer buckets it is composed of instead of a number and an apology. Previous: 2026-08-11 (final) — **§25** added: three new graphics on Screening Analytics — a cohort-level squad body map reusing the licensed figure, a risk-vs-movement scatter with median-split quadrants (which finds 13 athletes who move well AND score risky, invisible to every averaged panel), and an indicator distribution histogram. Previous: 2026-08-11 (last of the day) — **§24** added: the period chart now draws a CONTINUOUS calendar axis (an unscreened period is the finding, not an absence), renders a single period as a summary rather than a lone bar, and labels each grain with how many periods it would draw so quarterly/yearly announce their own thinness before being clicked. Previous: 2026-08-11 (later again) — **§23** added: the admin dashboard now charts the 25-cell subitem table as a matrix and, for the first time anywhere in AIRMS, surfaces LEFT–RIGHT asymmetry — the only bilateral data the report carries, previously collapsed three different ways. Counts rather than mean gaps, because the means are flat and the counts are not. Previous: 2026-08-11 (later still) — **§22** added: cohort norms can now be PINNED, not merely saved — a pinned version is held against imports, reports its own drift from what the data would say, and cannot be deleted or restored over while in force; a NOT NULL settings column that would have made release impossible was found and fixed by live verification. Previous: 2026-08-11 (later same day) — **§21** added: the hero now shows HoloMotion's printed Total Score with a signed per-component cohort comparison and a two-sided reason list, the derived 0-100 indicator having been the thing nobody could explain; the below-mean escalation became a -0.5 SD cutoff rather than a sign test; one shared indicator payload. Previous: 2026-08-11 — **§20j** added: the shared dashboard components now take `historical` (so the history views stop speaking in the present tense) and the risk hero takes `audience` — the latter fixing a live bug in which the medical and coach dashboards addressed the clinician as the at-risk athlete. Previous: 2026-08-10 (later same day) — **§20g–i** added: the digest attaches the holistic report by sharing its code rather than rebuilding it (fetch/draw extracted, verified byte-identical), per-user email opt-out under the institution switch, and seasonality that declines to name a season below two years of data. **§20f** revised — the 14 remaining inline band-precedence reads were migrated after all. Earlier same day: **§20** added: accountability (audit trail that copies the actor, fire-and-forget writes), immediate norm eligibility with one-time disclosure, deep muscles marked rather than drawn, alerts grouped per recipient, the monthly digest's marker-not-cron design, and one band vocabulary in `utils/bands.js`. Previous: 2026-08-06 (later same day) — **§19** added: one status palette across CSS, inline styles, Chart.js and the PDF reports. An audit found the PDF had a second band palette (and disagreed with its own tier colours), the radar's threshold red was a non-theme-aware literal, the 60/75/85 tier was defined five times with two different words for its lowest band, and eight CSS-variable fallbacks still carried the retired PDF palette. Earlier same day: **§4a** added: the body map's Muscle Flags mode now draws HoloMotion's 22 individual muscles by re-slicing the same MIT-licensed geometry (16 recovered from existing sub-paths, 6 deep ones as measured insets, selection by geometry not index, test-guarded); supersedes the aggregation half of §4 while leaving the asset and its attribution locked. Previous: 2026-08-03 — §18 on-device name redaction before vision extraction (Tesseract-located, page-1-only, fail-closed; verified against both HoloMotion layouts). Previous: 2026-07-20 — Activity Tracking (the FYP I Module 1) fully removed at JC's request; §1, §2, §3, §10 and §16 annotated to mark their decisions as locked-but-dormant (no live caller) rather than actively running. The six-module set was restructured the same day to fill the gap this left — see `MASTER_CLARIFICATIONS.md §4` for the current numbering. Previous: 2026-07-19 (§16 gains the per-indicator escalation — threshold + peer-outlier, z ≥ 1.5, admin toggle, persisted factors), 2026-07-18 (§17 coach one-sport + athlete detail view + event disciplines), 2026-07-13 (§16 FYP II cohort-normed overall indicator + ACWR demotion), 2026-07-06 (§15 dashboard-embedded screening), 2026-06-28 (§13–14).*
+*Last updated: 2026-08-19 (later) - **33** added: a sports-medicine review of all five role dashboards. Green stopped being "Safe" (a screen that cannot predict injury cannot certify its absence, and green is where false reassurance lands) - which exposed that green was missing from the single band map entirely, so two files had grown private copies; the screening's AGE and recall state now appear on the hero, classified by one extracted rule the recall email also reads; small cohorts declare themselves (49 of 58 athletes are scored against fewer than 11 peers); asymmetry became a percentage where it is a threshold, deliberately not where it is z-scored; one review finding was WRONG and is kept visible with the correction. Previous: 2026-08-19 - **32** added: the norm floors stay off (excluding low scores from a norm computed on those very scores is selection on the dependent variable - it biases the mean up, shrinks the SD and over-flags everyone left in), and the norms in force are now a named, PINNED set, verified by recomputing while pinned with 50 of 50 cohorts holding. Previous: 2026-08-18 (later) - **31** added: an optimisation pass that measured first and found no performance problem to fix (no N+1, indexes present, 62 athletes and 77 screenings), then fixed the real one - a single clinical decision, the seven shown indicators and the LDH exclusion that rides with them, hand-maintained in eight places whose comments pointed at each other; now one definition per package, pinned by tests, verified byte-identical output. Plus the auth branding panel that was four copies of the institute's address, extracted and proven pixel-identical. Previous: 2026-08-18 - **30** added: six reports were printed and read as documents, finding three defects no unit test could see - a change chart whose longest bar was a sub-threshold move labelled "steady" (the dead band is now drawn, and bars inside it are outlined rather than filled), a fixed-width value column that overprinted the row beneath it, and a team report that described the squad's body twice in words and drew it never (the squad body map, fed the same means as the heatmap beside it). Previous: 2026-08-16 - **29** added: the interface was put on one type, radius and spacing scale - 31 font-size literals and 11 radii collapsed to 7 and 4 tokens, and the 160 inline font sizes in the markup that had been bypassing the stylesheet entirely; nine dead rule blocks removed; and a note on the grouped-selector regex that deleted a live responsive rule in the process. Previous: 2026-08-12 - **27** and **28** added: the improving/steady/declining dead band is now a DERIVED minimal detectable change (typical error from repeat screenings) that declines and says so when the data cannot support one, plus rescreen recall, per-athlete trend sparklines and percentile framing; and the app gained a narrow layout at all, the bulk of the sideways scroll tracing to `min-width:auto` on one flex column. Previous: 2026-08-11 (really final) — **§26** added: two periods draw a CHANGE CHART, one diverging bar per metric on a shared DELTA axis (this shipped first as a slopegraph and was scrapped the same day: a shared VALUE scale across non-commensurable metrics collapsed the lines into overlapping pixels) — which is how "ROM fell 5.2 while stability rose 2.6" became visible at all) and one period shows the finer buckets it is composed of instead of a number and an apology. Previous: 2026-08-11 (final) — **§25** added: three new graphics on Screening Analytics — a cohort-level squad body map reusing the licensed figure, a risk-vs-movement scatter with median-split quadrants (which finds 13 athletes who move well AND score risky, invisible to every averaged panel), and an indicator distribution histogram. Previous: 2026-08-11 (last of the day) — **§24** added: the period chart now draws a CONTINUOUS calendar axis (an unscreened period is the finding, not an absence), renders a single period as a summary rather than a lone bar, and labels each grain with how many periods it would draw so quarterly/yearly announce their own thinness before being clicked. Previous: 2026-08-11 (later again) — **§23** added: the admin dashboard now charts the 25-cell subitem table as a matrix and, for the first time anywhere in AIRMS, surfaces LEFT–RIGHT asymmetry — the only bilateral data the report carries, previously collapsed three different ways. Counts rather than mean gaps, because the means are flat and the counts are not. Previous: 2026-08-11 (later still) — **§22** added: cohort norms can now be PINNED, not merely saved — a pinned version is held against imports, reports its own drift from what the data would say, and cannot be deleted or restored over while in force; a NOT NULL settings column that would have made release impossible was found and fixed by live verification. Previous: 2026-08-11 (later same day) — **§21** added: the hero now shows HoloMotion's printed Total Score with a signed per-component cohort comparison and a two-sided reason list, the derived 0-100 indicator having been the thing nobody could explain; the below-mean escalation became a -0.5 SD cutoff rather than a sign test; one shared indicator payload. Previous: 2026-08-11 — **§20j** added: the shared dashboard components now take `historical` (so the history views stop speaking in the present tense) and the risk hero takes `audience` — the latter fixing a live bug in which the medical and coach dashboards addressed the clinician as the at-risk athlete. Previous: 2026-08-10 (later same day) — **§20g–i** added: the digest attaches the holistic report by sharing its code rather than rebuilding it (fetch/draw extracted, verified byte-identical), per-user email opt-out under the institution switch, and seasonality that declines to name a season below two years of data. **§20f** revised — the 14 remaining inline band-precedence reads were migrated after all. Earlier same day: **§20** added: accountability (audit trail that copies the actor, fire-and-forget writes), immediate norm eligibility with one-time disclosure, deep muscles marked rather than drawn, alerts grouped per recipient, the monthly digest's marker-not-cron design, and one band vocabulary in `utils/bands.js`. Previous: 2026-08-06 (later same day) — **§19** added: one status palette across CSS, inline styles, Chart.js and the PDF reports. An audit found the PDF had a second band palette (and disagreed with its own tier colours), the radar's threshold red was a non-theme-aware literal, the 60/75/85 tier was defined five times with two different words for its lowest band, and eight CSS-variable fallbacks still carried the retired PDF palette. Earlier same day: **§4a** added: the body map's Muscle Flags mode now draws HoloMotion's 22 individual muscles by re-slicing the same MIT-licensed geometry (16 recovered from existing sub-paths, 6 deep ones as measured insets, selection by geometry not index, test-guarded); supersedes the aggregation half of §4 while leaving the asset and its attribution locked. Previous: 2026-08-03 — §18 on-device name redaction before vision extraction (Tesseract-located, page-1-only, fail-closed; verified against both HoloMotion layouts). Previous: 2026-07-20 — Activity Tracking (the FYP I Module 1) fully removed at JC's request; §1, §2, §3, §10 and §16 annotated to mark their decisions as locked-but-dormant (no live caller) rather than actively running. The six-module set was restructured the same day to fill the gap this left — see `MASTER_CLARIFICATIONS.md §4` for the current numbering. Previous: 2026-07-19 (§16 gains the per-indicator escalation — threshold + peer-outlier, z ≥ 1.5, admin toggle, persisted factors), 2026-07-18 (§17 coach one-sport + athlete detail view + event disciplines), 2026-07-13 (§16 FYP II cohort-normed overall indicator + ACWR demotion), 2026-07-06 (§15 dashboard-embedded screening), 2026-06-28 (§13–14).*

@@ -9,6 +9,7 @@ const { programmeActivityData } = require('../utils/programmeActivity');
 const { aggregateSubitems } = require('../utils/subitemAggregate');
 const { effectiveBand } = require('../utils/bands');
 const { INDICATOR_ATTRS, toIndicator } = require('../utils/indicatorPayload');
+const { getSettings } = require('../utils/settings');
 const {
   focusBreakdown, isShownIndicator, SHOWN_INDICATORS, tally, bandOf,
 } = require('../utils/cohortFocus');
@@ -29,13 +30,14 @@ async function allScreenedRows() {
 // Latest screening's overall indicator for ONE athlete, with the clinician
 // override applied as the effective band. Returns null when no screening.
 async function latestIndicator(athleteId) {
+  const { rescreen_due_days: dueDays } = await getSettings();
   const s = await Screening.findOne({
     where: { athleteId },
     attributes: INDICATOR_ATTRS,
     order: [['assessedAt', 'DESC'], ['id', 'DESC']],
     raw: true,
   });
-  return toIndicator(s);
+  return toIndicator(s, dueDays);
 }
 
 // Many athletes in ONE query: one ordered fetch off the (athlete_id,
@@ -44,6 +46,7 @@ async function latestIndicator(athleteId) {
 async function latestIndicatorsFor(athleteIds) {
   const byAthlete = new Map();
   if (!athleteIds.length) return byAthlete;
+  const { rescreen_due_days: dueDays } = await getSettings();
   const rows = await Screening.findAll({
     where: { athleteId: { [Op.in]: athleteIds } },
     attributes: ['athleteId', ...INDICATOR_ATTRS],
@@ -51,7 +54,7 @@ async function latestIndicatorsFor(athleteIds) {
     raw: true,
   });
   for (const s of rows) {
-    if (!byAthlete.has(s.athleteId)) byAthlete.set(s.athleteId, toIndicator(s));
+    if (!byAthlete.has(s.athleteId)) byAthlete.set(s.athleteId, toIndicator(s, dueDays));
   }
   return byAthlete;
 }

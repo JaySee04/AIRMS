@@ -1,6 +1,7 @@
 // Screening history + clinician override (redesign spec §3.4, §5).
 const express = require('express');
 const { recordAudit } = require('../utils/audit');
+const { getSettings } = require('../utils/settings');
 const { sequelize, Screening, Athlete, MuscleFlag } = require('../models');
 const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
@@ -85,7 +86,7 @@ router.get('/:id/full', auth, requirePermission('viewRecords'), async (req, res)
       },
       myodynamia: Array.isArray(flags.myodynamia) ? flags.myodynamia.map(({ muscle, side }) => ({ muscle, side })) : [],
       tension: Array.isArray(flags.tension) ? flags.tension.map(({ muscle, side }) => ({ muscle, side })) : [],
-      screening: toIndicator(s),
+      screening: toIndicator(s, (await getSettings()).rescreen_due_days),
     });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });

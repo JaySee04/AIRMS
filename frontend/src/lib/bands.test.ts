@@ -27,6 +27,11 @@ describe('band vocabulary', () => {
   it('matches the BACKEND wording exactly (utils/bands.js BAND_LABEL)', () => {
     // Change these only by changing the backend at the same time — emails, PDFs
     // and the UI must name a band identically or a clinician sees two verdicts.
+    // Green is deliberately NOT 'Safe' — a screen that cannot predict injury cannot
+    // certify its absence, and green is where a false reassurance would land.
+    expect(BAND_LABEL.green).toBe('No indicators flagged');
+    expect(BAND_LABEL.green).not.toMatch(/safe/i);
+    expect(BAND_SHORT.green).not.toMatch(/safe/i);
     expect(BAND_LABEL.amber).toBe('Needs attention');
     expect(BAND_LABEL.red).toBe('Immediate assessment');
   });
@@ -34,9 +39,12 @@ describe('band vocabulary', () => {
   it('keeps the compact form genuinely shorter, and only where it needs to be', () => {
     expect(BAND_SHORT.red).toBe('Immediate');
     expect(BAND_SHORT.red.length).toBeLessThan(BAND_LABEL.red.length);
-    // Green and amber are already short enough; two spellings there would be
+    // Green needs a compact form too since it stopped being 'Safe': a legend cell
+    // has no room for 'No indicators flagged'. Both forms must still refuse to
+    // call the athlete safe, which is the property that matters.
+    expect(BAND_SHORT.green.length).toBeLessThan(BAND_LABEL.green.length);
+    // Amber is already short enough; a second spelling there would be
     // gratuitous drift.
-    expect(BAND_SHORT.green).toBe(BAND_LABEL.green);
     expect(BAND_SHORT.amber).toBe(BAND_LABEL.amber);
   });
 
@@ -74,13 +82,13 @@ describe('isBand / bandColor', () => {
 describe('bandSegments', () => {
   it('returns all three bands in fixed order, with the full labels by default', () => {
     const segs = bandSegments({ green: 41, amber: 13, red: 4 });
-    expect(segs.map((s) => s.label)).toEqual(['Safe', 'Needs attention', 'Immediate assessment']);
+    expect(segs.map((s) => s.label)).toEqual(['No indicators flagged', 'Needs attention', 'Immediate assessment']);
     expect(segs.map((s) => s.value)).toEqual([41, 13, 4]);
   });
 
   it('uses the compact labels on request', () => {
     expect(bandSegments({ green: 1 }, { short: true }).map((s) => s.label))
-      .toEqual(['Safe', 'Needs attention', 'Immediate']);
+      .toEqual(['None flagged', 'Needs attention', 'Immediate']);
   });
 
   it('treats a missing band as zero rather than dropping the segment', () => {

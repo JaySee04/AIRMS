@@ -41,6 +41,10 @@ export interface ScreeningIndicator {
   cohortZ?: number | null;
   cohortRank?: number | null;
   cohortSize?: number | null;
+  /** Whole days since the screening was taken. */
+  screeningAgeDays?: number | null;
+  /** Against the institution's rescreen interval — same rule as the recall email. */
+  recallState?: 'current' | 'due-soon' | 'overdue' | 'never' | null;
   cohortLabel?: string | null;
   cohortDeltas?: CohortDelta[];
   effectiveBand?: 'green' | 'amber' | 'red' | null;
@@ -224,6 +228,26 @@ export default function OverallRiskBadge({
   // can never disagree about where the athlete stands.
   const pct = percentileFromRank(rank, size);
 
+  // HOW OLD IS THIS READING? The verdict above is written in the present tense,
+  // so a screening taken eight months ago has to say so where the decision is
+  // made — not only in the date dropdown, and not only in the monthly recall
+  // email an administrator receives. Classified server-side by the same rule
+  // that email uses, so the two cannot disagree.
+  const age = screening.screeningAgeDays;
+  const recall = screening.recallState;
+  const staleNotice = (!historical && recall && recall !== 'current' && typeof age === 'number')
+    ? (recall === 'overdue'
+      ? `This screening is ${age} days old and a rescreen is overdue — read the verdict as the last known position, not today's.`
+      : `This screening is ${age} days old and a rescreen is due soon.`)
+    : null;
+
+  // HOW MANY PEERS IS THIS COMPARED AGAINST? A standard deviation estimated from
+  // a handful of athletes is unstable, so a small cohort makes the comparison
+  // indicative rather than firm. Stating it is the same "say what the data can
+  // support" rule the detectable-change threshold and seasonality already follow.
+  const SMALL_COHORT = 10;
+  const smallCohort = typeof size === 'number' && size > 0 && size < SMALL_COHORT;
+
   return (
     <div className={`risk-hero risk-hero--${HERO_CLS[band]}`}>
       <div style={{ flex: 1 }}>
@@ -245,12 +269,24 @@ export default function OverallRiskBadge({
         {/* The comparison behind the band. Replaces the abstract 0-100 as the
             explanation: a signed row per component says WHICH measure drove the
             verdict, which a single composite number cannot. */}
+        {staleNotice && (
+          <p className={`risk-hero-stale risk-hero-stale--${recall}`}>{staleNotice}</p>
+        )}
+
         {deltas.length > 0 && (
           <div className="cohort-profile">
             <div className="cohort-profile-head">
               {historical ? 'Against the group at that screening' : `How ${who} compare${audience === 'self' ? '' : 's'} to the comparison group`}
               {screening.cohortLabel && <span className="cohort-profile-group"> · {screening.cohortLabel}</span>}
+              {typeof size === 'number' && size > 0
+                && <span className="cohort-profile-group"> · n={size}</span>}
             </div>
+            {smallCohort && (
+              <p className="cohort-profile-caveat">
+                Only {size} athletes in this comparison group, so the group average and
+                spread are themselves uncertain — read these differences as indicative.
+              </p>
+            )}
             <table className="cohort-profile-table">
               <thead>
                 <tr>

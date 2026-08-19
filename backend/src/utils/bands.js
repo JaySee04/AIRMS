@@ -18,7 +18,19 @@ const BAND_RANK = { green: 0, amber: 1, red: 2 };
 // 'IMMEDIATE ASSESSMENT' read as shouting, was inconsistent with the
 // dashboards, and is a spam-filter trigger in a subject line. Green has no
 // entry because nothing notifies on a clear.
-const BAND_LABEL = { amber: 'Needs attention', red: 'Immediate assessment' };
+// GREEN IS NOT "SAFE". A screening test does not have the properties needed to
+// predict injury, so it cannot certify the absence of it either — and because
+// most athletes are low-risk, the green band is precisely where a false
+// reassurance would land. The label therefore describes THE FINDING (nothing
+// was flagged by this screening) rather than THE ATHLETE (who is safe).
+// Green was previously absent from this map entirely, which is why
+// utils/pdfDraw.js had grown its own full copy saying 'Safe'.
+// See docs/DESIGN_DECISIONS.md §33.
+const BAND_LABEL = {
+  green: 'No indicators flagged',
+  amber: 'Needs attention',
+  red: 'Immediate assessment',
+};
 
 // The band that actually applies to a screening: a clinician's override wins
 // over the computed band.

@@ -180,7 +180,7 @@ function drawHolistic(doc, data, stamp = todayStamp()) {
   const bands = { green: 0, amber: 0, red: 0, none: 0 };
   kept.forEach(({ screening }) => { bands[effectiveBand(screening) || 'none']++; });
   const total = kept.length || 1;
-  bar(doc, 'Safe (green)', bands.green, total, BAND.green, { valueText: `${bands.green}` });
+  bar(doc, 'No indicators flagged', bands.green, total, BAND.green, { valueText: `${bands.green}` });
   bar(doc, 'Needs attention', bands.amber, total, BAND.amber, { valueText: `${bands.amber}` });
   bar(doc, 'Immediate assessment', bands.red, total, BAND.red, { valueText: `${bands.red}` });
   if (bands.none) bar(doc, 'Unscored (small cohort)', bands.none, total, MUTED, { valueText: `${bands.none}` });

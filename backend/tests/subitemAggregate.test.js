@@ -5,7 +5,7 @@
 // contain — most importantly the left/right gaps that no dashboard was showing:
 // Thung's neck ROM is 95 left against 62 right.
 
-const { aggregateSubitems, NOTABLE_GAP } = require('../src/utils/subitemAggregate');
+const { aggregateSubitems, asymmetryPct, NOTABLE_GAP_PCT } = require('../src/utils/subitemAggregate');
 
 // [romL, romR, stabL, stabR, sym] → the object shape the extractor stores.
 const toSubitems = (r) => Object.fromEntries(Object.entries(r).map(([k, v]) => [
@@ -127,14 +127,39 @@ describe('left–right asymmetry — the bilateral signal nothing else showed', 
     expect(a.worstAsymmetry.metric).toBe('rom');
   });
 
-  it('uses one full HoloMotion band as the threshold', () => {
+  it('flags a difference by its PERCENTAGE, not its raw points', () => {
     // 10 points — wider than the narrowest of the instrument's own 60/75/85
     // bands, so the two sides would not be described by the same word.
-    expect(NOTABLE_GAP).toBe(10);
-    const justUnder = aggregateSubitems([{ subitems: toSubitems({ neck: [80, 71, 0, 0, 0] }) }]);
-    const justOver = aggregateSubitems([{ subitems: toSubitems({ neck: [80, 70, 0, 0, 0] }) }]);
-    expect(gap(justUnder, 'neck', 'rom').notable).toBe(0);
-    expect(gap(justOver, 'neck', 'rom').notable).toBe(1);
+    expect(NOTABLE_GAP_PCT).toBe(10);
+    // Expressed as a PERCENTAGE of the better side, the way the inter-limb
+    // asymmetry literature states it. As raw points, 80-vs-70 (12.5% in a strong
+    // limb) and 40-vs-30 (25% in a weak one) counted identically.
+    expect(asymmetryPct(80, 70)).toBeCloseTo(12.5, 1);
+    expect(asymmetryPct(40, 30)).toBeCloseTo(25.0, 1);
+    expect(asymmetryPct(70, 80)).toBeCloseTo(12.5, 1); // order-independent
+    expect(asymmetryPct(80, 80)).toBe(0);
+    // Refuses to divide by nothing rather than returning a misleading 0 or NaN.
+    expect(asymmetryPct(0, 0)).toBeNull();
+    expect(asymmetryPct(null, 70)).toBeNull();
+    expect(asymmetryPct(70, null)).toBeNull();
+    // The boundary is now 10% OF THE BETTER SIDE, so at 80 it falls at 8 points.
+    const justUnder = aggregateSubitems([{ subitems: toSubitems({ neck: [80, 73, 0, 0, 0] }) }]);
+    const justOver = aggregateSubitems([{ subitems: toSubitems({ neck: [80, 72, 0, 0, 0] }) }]);
+    expect(gap(justUnder, 'neck', 'rom').notable).toBe(0); // 7 pts = 8.75%
+    expect(gap(justOver, 'neck', 'rom').notable).toBe(1);  // 8 pts = 10.0%
+
+    // The whole point of the change, stated as a test: a SMALLER absolute gap in a
+    // weak limb now flags where a LARGER gap in a strong limb does not. Under the
+    // old points rule this was backwards — both of these counted the same way.
+    const weakLimb = aggregateSubitems([{ subitems: toSubitems({ neck: [40, 36, 0, 0, 0] }) }]);
+    const strongLimb = aggregateSubitems([{ subitems: toSubitems({ neck: [95, 88, 0, 0, 0] }) }]);
+    expect(gap(weakLimb, 'neck', 'rom').notable).toBe(1);   // 4 pts, but 10.0%
+    expect(gap(strongLimb, 'neck', 'rom').notable).toBe(0); // 7 pts, only 7.4%
+
+    // And the percentage travels with the payload, beside the raw points the
+    // printed HoloMotion table shows.
+    expect(gap(justOver, 'neck', 'rom').meanGapPct).toBeCloseTo(10.0, 1);
+    expect(gap(justOver, 'neck', 'rom').meanGap).toBeCloseTo(8, 1);
   });
 });
 

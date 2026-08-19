@@ -13,6 +13,7 @@ const { Op } = require('sequelize');
 const { Screening, Athlete, AthleteDiscipline } = require('../models');
 const { screeningPeriods, median, GRAINS } = require('./screeningPeriods');
 const { getSettings } = require('./settings');
+const { recallState } = require('./recall');
 
 // The scope filters, as a sentence — for the PDF cover and the page's own note,
 // so a printed copy says who it is about.
@@ -62,9 +63,6 @@ async function rescreenRecall(roster, allRows = null) {
   }
 
   const now = Date.now();
-  // "Due soon" is the last fifth of the interval — enough warning to schedule,
-  // short enough that it is not permanently amber.
-  const soonFrom = dueDays * 0.8;
   const athletes = [];
   let current = 0; let dueSoon = 0; let overdue = 0; let never = 0;
   const ages = [];
@@ -78,7 +76,7 @@ async function rescreenRecall(roster, allRows = null) {
     }
     const ageDays = Math.floor((now - t) / 86400000);
     ages.push(ageDays);
-    const status = ageDays >= dueDays ? 'overdue' : ageDays >= soonFrom ? 'due-soon' : 'current';
+    const status = recallState(ageDays, dueDays);
     if (status === 'overdue') overdue += 1;
     else if (status === 'due-soon') dueSoon += 1;
     else current += 1;

@@ -24,15 +24,17 @@ export type Band = 'green' | 'amber' | 'red';
 export const BANDS: Band[] = ['green', 'amber', 'red'];
 
 /** Full clinical wording — matches the backend's BAND_LABEL exactly. */
+// GREEN IS NOT "SAFE" — see the note in backend/src/utils/bands.js and
+// docs/DESIGN_DECISIONS.md §33. The label describes the finding, not the athlete.
 export const BAND_LABEL: Record<Band, string> = {
-  green: 'Safe',
+  green: 'No indicators flagged',
   amber: 'Needs attention',
   red: 'Immediate assessment',
 };
 
 /** Compact wording for legends, chips and narrow table cells. */
 export const BAND_SHORT: Record<Band, string> = {
-  green: 'Safe',
+  green: 'None flagged',
   amber: 'Needs attention',
   red: 'Immediate',
 };

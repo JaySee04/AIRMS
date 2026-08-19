@@ -16,7 +16,10 @@ export type Band = 'green' | 'amber' | 'red';
 // call the same band two different things; `action` is what it means for the
 // athlete's week — the decision the clinician is actually making.
 const CHOICES: { band: Band; label: string; action: string; cls: string }[] = [
-  { band: 'green', label: 'Safe', action: 'Cleared to train as programmed', cls: 'low' },
+  // The clinician IS entitled to clear an athlete — that is a human judgement,
+  // not a screen output — so the ACTION still says cleared. The label matches
+  // the band vocabulary, because whatever is chosen here displays everywhere.
+  { band: 'green', label: 'No indicators flagged', action: 'Cleared to train as programmed', cls: 'low' },
   { band: 'amber', label: 'Needs attention', action: 'Train with modification; review the flagged regions', cls: 'mod' },
   { band: 'red', label: 'Immediate assessment', action: 'Hold high-load work until assessed', cls: 'high' },
 ];
