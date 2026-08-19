@@ -31,6 +31,12 @@ All commands run from project root (PowerShell on Windows; backtick is the line-
 npm install                # root deps (concurrently)
 npm run install:all        # installs root + backend + frontend
 npm run seed               # drops + reseeds MySQL with deterministic PRNG (seed=42)
+cd backend; npm run mail:tick        # ONE scheduled-mail pass, then exit (§36). This is what an
+                                     # OS scheduler runs; `npm run dev`'s in-process ticker does the
+                                     # same thing hourly. MAIL_SCHEDULER=off disables the in-process
+                                     # one for a deployment. See docs/DEPLOY.md.
+cd backend/scripts; ./install-mail-task.ps1            # register the hourly Windows task (per-user)
+cd backend/scripts; ./install-mail-task.ps1 -Uninstall # remove it
 #   seeder.js runs ONLY when invoked directly (`if (require.main === module)`), so
 #   `require()` is inert. It used to execute on import and cost a pinned norm plus
 #   an audit trail. To check a file parses, use `node --check`, never `require()`.
@@ -48,10 +54,11 @@ cd frontend; npm run lint  # next lint
 cd frontend; npm run build
 
 # Unit tests (jest, in both packages — no linter configured for the backend)
-cd backend; npx jest      # 18 suites: cohorts, overallIndicator, permissions, rbac, pdfDraw,
+cd backend; npx jest      # 21 suites: cohorts, overallIndicator, permissions, rbac, pdfDraw,
                           # screeningPeriods, cohortFocus, visionUsage, alerts, scheduler,
                           # bands, mailPrefs, holisticReport, programmeActivity, subitemAggregate,
-                          # reliability, rescreenReminder, riskIndicators
+                          # reliability, rescreenReminder, riskIndicators, recall,
+                          # mailSendNow, lock
 cd frontend; npx jest     # 8 suites: lib/risk.ts, lib/screeningUploadStore.ts, bodymap-data/muscles.ts,
                           # components/charts (rendered via react-dom/server — no jsdom needed),
                           # lib/bands.ts, lib/athleteSearch.ts, lib/rank.ts,
@@ -241,6 +248,7 @@ Three-tier monorepo orchestrated by `concurrently` from the root `package.json`.
   so the email sends the same bytes the download does; a render failure downgrades
   to summary-only and the copy follows what actually got attached
 - **Scheduled mail is observable and can be forced** (2026-08-19, `DESIGN_DECISIONS.md §35`). Every scheduled email worked; none could be seen working. A failed send reached only `console.error` — on a host designed to run unattended — so the outcome of the last attempt is now persisted (`digest_last_result`, `rescreen_reminder_last_result`) and rendered on the admin Settings tile, red when it failed: a month that quietly stopped arriving is otherwise indistinguishable from a month with nothing to say. **Send now** (`POST /api/cohorts/settings/mail/:kind/send-now`, admin) forces a run, because the existing control waits up to an hour; `force` skips the DUE check and **never** the institution's `*_enabled` switch, which would be a second gate contradicting the first. Audited as **`mail.send`**, not `settings.update` — it changes no setting and is the one control there that puts athlete-derived content in an inbox. Verified against a real send, a real SMTP failure (marker correctly NOT consumed), and by mutation-testing three guards.
+- **The schedule is not tied to the web process** (2026-08-19, `DESIGN_DECISIONS.md §36`, [`docs/DEPLOY.md`](docs/DEPLOY.md)). A monthly obligation driven by a `setInterval` inside Express sends "late rather than never" — where late means *whenever somebody next opens the project*. `npm run mail:tick` (`src/mailTick.js`) runs one pass and exits, for an OS scheduler to drive; `tick()` was lifted to module level so the CLI and the interval share ONE definition. Making two tickers normal exposed that the scheduler's own "safe to run twice" comment was **false** — the marker is written only after a successful send, so two processes both read it unset and both send. Both sends now run under a compare-and-swap lock (`utils/lock.js`, `lock:*` keys in `settings`, 10-minute expiry so a crashed process cannot deadlock the digest); six simultaneous ticks produce one email. **Do not "simplify" the lock to `where: { value: token }`** — `Setting.value` is a JSON column, that matches nothing, and the lock then leaks silently while every test still passes.
 - **Per-user email opt-out** (`utils/mailPrefs.js`, `users.notify_prefs`, on every
   profile page). **Two gates, in order:** the institution setting decides whether
   AIRMS sends this kind of mail at all, then the user decides if they still want
@@ -396,6 +404,11 @@ VISION_RENDER_SCALE=             # render scale 1-4 (default 2). Does NOT reduce
                                  # real lever — 1,548 tokens per page. Lowering the scale
                                  # only costs gauge legibility.
 ```
+
+`MAIL_SCHEDULER=off` stops the backend's in-process hourly ticker, for a deployment whose OS scheduler runs
+`npm run mail:tick` instead. Default is ON — the failure mode of a default-off switch is silence, which is
+the one failure the scheduled mail exists to prevent. Running both is wasteful but not wrong: the sends take
+a cross-process lock. See [`docs/DEPLOY.md`](docs/DEPLOY.md).
 
 When you change `SMTP_*` values, restart the backend — the mailer transport is built once and cached.
 

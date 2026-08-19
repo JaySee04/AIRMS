@@ -13,10 +13,28 @@
 // against a marker persisted in settings. That makes it
 //   - idempotent: the marker is the month, so a restart cannot double-send;
 //   - self-healing: a process down all Monday sends on Tuesday rather than never;
-//   - safe to run twice: two instances race on the same marker, and the loser's
-//     send is skipped because the month is already recorded.
+//   - safe to run twice.
 // A cron library would have given none of those, which is the whole reason the
 // naive version was worth avoiding.
+//
+// THAT THIRD PROPERTY WAS ASSERTED, NOT TRUE (corrected 2026-08-19). This
+// comment used to explain it as "two instances race on the same marker, and the
+// loser's send is skipped because the month is already recorded". That holds for
+// a RESTART and fails for genuine concurrency: `setSetting` is a read-then-write
+// and the marker is written only AFTER a successful send, so two processes
+// ticking together both read it unset, both send, and both then record the
+// month. It cost nothing while exactly one process ever ticked — and moving the
+// schedule out of the web process (§36) makes two tickers the normal case. Both
+// sends now run under a compare-and-swap lock (`utils/lock.js`), so the property
+// is enforced rather than claimed.
+//
+// WHERE THE TICK COMES FROM
+// `startScheduler()` runs an in-process interval, which is right for `npm run
+// dev` and wrong for a deployment: it ties a monthly obligation to the uptime of
+// a web server. `npm run mail:tick` (src/mailTick.js) runs exactly one tick and
+// exits, for an OS scheduler to drive. Set MAIL_SCHEDULER=off in a deployment
+// that does this, so the two do not both tick — though thanks to the lock, it is
+// now merely wasteful rather than wrong if they do.
 
 const { Op } = require('sequelize');
 const { Athlete, Screening } = require('../models');
@@ -29,6 +47,7 @@ const { effectiveBand } = require('./bands');
 const { renderHolisticPdf } = require('./holisticReport');
 const { recipientsFor } = require('./mailPrefs');
 const { rescreenRecall } = require('./programmeActivity');
+const { withLock } = require('./lock');
 
 const HOUR = 60 * 60 * 1000;
 const SIGNOFF = '— AIRMS · Institut Sukan Negara';
@@ -165,7 +184,16 @@ async function digestAttachment(now) {
 // the timing. It deliberately does NOT skip `digest_enabled`: that switch is the
 // institution's answer to whether AIRMS sends this kind of mail at all, and a
 // button that overrode it would be a second, contradictory gate.
-async function runDigestOnce(now = new Date(), { force = false } = {}) {
+// The lock is taken around the whole send, not just the marker write: the point
+// is that the second process must not BUILD and SEND a duplicate, and by the
+// time it could observe a marker the first one has already delivered.
+async function runDigestOnce(now = new Date(), opts = {}) {
+  return withLock('digest', () => digestPass(now, opts), {
+    onBusy: { sent: false, reason: 'another process is already sending' },
+  });
+}
+
+async function digestPass(now, { force = false } = {}) {
   const settings = await getSettings();
   if (force && !settings.digest_enabled) return { sent: false, reason: 'disabled' };
   if (!force && !isDue(now, settings)) return { sent: false, reason: 'not due' };
@@ -342,7 +370,13 @@ async function buildReminder(now, { sport = null, recall = null, roster = null }
   return { subject, text: L.join('\n'), needed, recall };
 }
 
-async function runReminderOnce(now = new Date(), { force = false } = {}) {
+async function runReminderOnce(now = new Date(), opts = {}) {
+  return withLock('rescreen_reminder', () => reminderPass(now, opts), {
+    onBusy: { sent: false, reason: 'another process is already sending' },
+  });
+}
+
+async function reminderPass(now, { force = false } = {}) {
   const settings = await getSettings();
   if (force && !settings.rescreen_reminder_enabled) return { sent: false, reason: 'disabled' };
   if (!force && !isReminderDue(now, settings)) return { sent: false, reason: 'not due' };
@@ -418,33 +452,57 @@ async function runReminderOnce(now = new Date(), { force = false } = {}) {
 
 let timer = null;
 
+/**
+ * One pass: is either scheduled email owed right now?
+ *
+ * Module-level rather than a closure inside `startScheduler`, because the CLI
+ * (`src/mailTick.js`, driven by an OS scheduler) has to run the IDENTICAL pass.
+ * Two definitions of "what a tick does" is how a deployment comes to send the
+ * digest and silently never send the reminder — the same one-definition rule the
+ * digest already follows for the holistic report it attaches.
+ *
+ * Returns what happened, so the CLI can report it; the interval ignores it.
+ */
+async function tick() {
+  const out = { digest: null, reminder: null };
+  try {
+    out.digest = await runDigestOnce();
+    if (out.digest.sent) {
+      console.log(`[scheduler] monthly digest sent to ${out.digest.recipients} recipient(s) for ${out.digest.month}`
+        + `${out.digest.attached ? ' with the holistic report attached' : ' (summary only — report render failed)'}`);
+    }
+  } catch (e) {
+    // Never let the scheduler take the process down; it retries next hour.
+    console.error('[scheduler] monthly digest failed:', e.message);
+    await recordOutcome('digest_last_result', false, e.message);
+    out.digest = { sent: false, reason: e.message, failed: true };
+  }
+  // Separate try: a digest failure must not cost the reminder its month, and
+  // vice versa. They share a tick, not a fate.
+  try {
+    out.reminder = await runReminderOnce();
+    if (out.reminder.sent) {
+      console.log(`[scheduler] rescreen reminder: ${out.reminder.emails} email(s) to ${out.reminder.recipients} recipient(s)`
+        + ` for ${out.reminder.month} (${out.reminder.needed} athlete(s) needing attention institution-wide)`);
+    }
+  } catch (e) {
+    console.error('[scheduler] rescreen reminder failed:', e.message);
+    await recordOutcome('rescreen_reminder_last_result', false, e.message);
+    out.reminder = { sent: false, reason: e.message, failed: true };
+  }
+  return out;
+}
+
+// MAIL_SCHEDULER=off disables the in-process ticker, for a deployment whose OS
+// scheduler runs `npm run mail:tick` instead. Default is ON, deliberately: the
+// failure mode of a default-off switch is silence, which is the one failure this
+// whole module exists to prevent.
 function startScheduler() {
+  if (String(process.env.MAIL_SCHEDULER || '').toLowerCase() === 'off') {
+    console.log('[scheduler] in-process ticker disabled (MAIL_SCHEDULER=off) — expecting an OS scheduler to run `npm run mail:tick`');
+    return;
+  }
   if (timer) return;
-  const tick = async () => {
-    try {
-      const r = await runDigestOnce();
-      if (r.sent) {
-        console.log(`[scheduler] monthly digest sent to ${r.recipients} recipient(s) for ${r.month}`
-          + `${r.attached ? ' with the holistic report attached' : ' (summary only — report render failed)'}`);
-      }
-    } catch (e) {
-      // Never let the scheduler take the process down; it retries next hour.
-      console.error('[scheduler] monthly digest failed:', e.message);
-      await recordOutcome('digest_last_result', false, e.message);
-    }
-    // Separate try: a digest failure must not cost the reminder its month, and
-    // vice versa. They share a tick, not a fate.
-    try {
-      const r = await runReminderOnce();
-      if (r.sent) {
-        console.log(`[scheduler] rescreen reminder: ${r.emails} email(s) to ${r.recipients} recipient(s)`
-          + ` for ${r.month} (${r.needed} athlete(s) needing attention institution-wide)`);
-      }
-    } catch (e) {
-      console.error('[scheduler] rescreen reminder failed:', e.message);
-      await recordOutcome('rescreen_reminder_last_result', false, e.message);
-    }
-  };
   // One pass shortly after boot catches a month that came due while down.
   setTimeout(tick, 30 * 1000).unref();
   timer = setInterval(tick, HOUR);
@@ -457,6 +515,6 @@ function stopScheduler() {
 }
 
 module.exports = {
-  isReminderDue, buildReminder, runReminderOnce, recordOutcome,
+  isReminderDue, buildReminder, runReminderOnce, recordOutcome, tick,
   startScheduler, stopScheduler, runDigestOnce, isDue, buildDigest, digestAttachment, monthKey,
 };

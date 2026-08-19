@@ -40,6 +40,16 @@ jest.mock('../src/utils/programmeActivity', () => ({
   rescreenRecall: jest.fn(async () => ({ overdue: [], never: [], dueSoon: [], current: [], medianAgeDays: null })),
 }));
 
+// The cross-process lock is exercised for real in lock.test.js, against the SQL
+// it issues. Here it is a passthrough, so these tests stay about WHAT is sent
+// rather than who is allowed to send it - except for `mockLockBusy`, which
+// proves the wrap is actually in place. A passthrough alone would let somebody
+// delete `withLock` from the scheduler and see every test still pass.
+let mockLockBusy = false;
+jest.mock('../src/utils/lock', () => ({
+  withLock: jest.fn(async (name, fn, opts = {}) => (mockLockBusy ? opts.onBusy : fn())),
+}));
+
 const { runDigestOnce } = require('../src/utils/scheduler');
 const { getSettings } = require('../src/utils/settings');
 
@@ -58,6 +68,7 @@ function reset(over = {}) {
   }, over);
   mockSendMail.mockClear();
   mockSendMail.mockImplementation(async () => ({ messageId: 'test' }));
+  mockLockBusy = false;
 }
 
 describe('forced sends', () => {
@@ -74,6 +85,16 @@ describe('forced sends', () => {
     const r = await runDigestOnce(NOW, { force: true });
     expect(r.sent).toBe(true);
     expect(mockSendMail).toHaveBeenCalledTimes(1);
+  });
+
+  // Proves the send actually runs UNDER the lock. Without this, deleting the
+  // withLock wrapper from the scheduler would break nothing any test can see -
+  // and the double-send it prevents only shows up in production, once a month.
+  it('does not send at all while another process holds the lock', async () => {
+    mockLockBusy = true;
+    const r = await runDigestOnce(NOW, { force: true });
+    expect(r).toEqual({ sent: false, reason: 'another process is already sending' });
+    expect(mockSendMail).not.toHaveBeenCalled();
   });
 
   // The gate that must survive the button. `force` overrides the SCHEDULE, never

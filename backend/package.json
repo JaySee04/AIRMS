@@ -8,7 +8,8 @@
     "dev": "nodemon src/server.js",
     "seed": "node src/utils/seeder.js",
     "test": "jest",
-    "verify:vision": "node scripts/verify-holomotion-extract.js"
+    "verify:vision": "node scripts/verify-holomotion-extract.js",
+    "mail:tick": "node src/mailTick.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

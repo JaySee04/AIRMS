@@ -67,7 +67,7 @@ node -e "require('dotenv').config();const{sequelize,Athlete,Screening,CohortThre
 | Users | 10 | across 5 roles — 4 reach a deliverable inbox (§5 L7) |
 | Muscle flags | 336 | |
 | Commits, FYP I → FYP II | **249** | 231 files, +54,777 / −7,678 lines |
-| Tests | 311 backend (20 suites) + 119 frontend (8) | |
+| Tests | 324 backend (21 suites) + 119 frontend (8) | |
 
 **The settings that decide bands** (`backend/src/utils/settings.js`, live values):
 
@@ -281,6 +281,34 @@ fills it, and the governance around it.**
 **If pushed:** the rebuild path is specified in `docs/fyp/ACWR_REBUILD.md`, and
 re-establishing a training-load input is a stated future-work item.
 
+### Q11 · "Could ISN actually run this? What happens when nobody is logged in?"
+
+**The schedule does not depend on the app being open.**
+
+> Two things in AIRMS have to happen without anyone asking: the monthly institute
+> digest and the rescreen recall. They were driven by a timer inside the web
+> server, which ties a monthly obligation to that server's uptime — on a
+> workstation, "monthly" really meant "whenever somebody opened the project". The
+> tick is now a standalone command that runs one pass and exits, driven by the
+> operating system's scheduler: a per-user Windows task for a demo machine, an
+> hourly cron entry for a real deployment. Both call the same code the in-app
+> timer calls, so there is one definition of what a tick does.
+
+**If pushed — what if two of them run at once?** They take a compare-and-swap
+lock, so six simultaneous ticks produce one email. That property used to be
+claimed in a comment and was false: the month marker is written only *after* a
+successful send, so two processes both read it unset and both sent. Making an OS
+scheduler normal is what forced it to become true.
+
+**If pushed — so is it deployed?** No, and deliberately not: where the app runs,
+how MySQL is hosted, TLS and backups are ISN's decisions, and deployment is
+gated on Dr Thung's sign-off. What has been removed is the part that was a
+*defect* rather than a decision — a scheduled feature that only ran while a
+developer had the project open.
+
+*Backing: `docs/DEPLOY.md`; `backend/src/mailTick.js`; `backend/src/utils/lock.js`;
+`docs/DESIGN_DECISIONS.md` §36.*
+
 ---
 
 ## 4. Where the design argues against itself
@@ -306,7 +334,7 @@ softer if you get there first.
 - **W4 · The seeded band split is not calibration evidence.** 38/9/9 shows the
   pipeline runs end to end. It does not show the model is calibrated, because the
   data is synthetic. Do not offer it as validation. *(§33f, §34b)*
-- **W5 · Route handlers are largely untested.** The 311 backend tests cover pure
+- **W5 · Route handlers are largely untested.** The 324 backend tests cover pure
   logic — scoring, permissions, PDF drawing, bands, reliability. Anything inside a
   route body, a page, or the import flow is verified by hand, and there are no
   end-to-end tests. Say "the logic is tested, the wiring is verified manually"
