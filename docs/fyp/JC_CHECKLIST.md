@@ -28,7 +28,10 @@ in the stage section linked.
   the viva** — the band distribution quoted further down this file
   ("screening-only 44/31/25 → with the injury floor...") is from that era and no
   longer describes the system. Current latest-screening distribution is
-  **43 green / 10 amber / 5 red** of 58 screened.
+  **38 green / 9 amber / 9 red** of 56 screened (measured 2026-08-19 after the
+  seeder began deriving Total Score from the subitem table — `DESIGN_DECISIONS.md`
+  §34b; it read 43/10/5 of 58 before that). Quote it as evidence the pipeline
+  runs end to end, **never** as evidence the model is calibrated — §33f.
   Stage "Decisions 2026-07-27" above. *"remind me."*
 - [ ] **Double-check the FDD figure + Table 4.1 render** once pasted into the
   report Word doc (module-column merge, diagram leaf wrapping) — restructure

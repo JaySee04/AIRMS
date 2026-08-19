@@ -2009,6 +2009,12 @@ in place.
 The pin is releasable from the same page, so this constrains nothing permanently
 - it makes the reference explicit instead of incidental.
 
+> **Figures superseded the same day — the argument is not.** The reseed recorded
+> in §34c rebuilt the database, so the version now pinned holds **49** cohorts
+> (49 live rows, 0 `added_since_pin`) and the band split is **38/9/9 of 56**, per
+> §34b. The 50-of-50 verification above describes the pin operation as it ran on
+> the pre-reseed data and is left as the record of that check.
+
 ## 33. What a sports-medicine review of the dashboards changed (2026-08-19)
 
 All five role dashboards were reviewed against the screening literature rather
