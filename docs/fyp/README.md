@@ -7,6 +7,8 @@ Drop the canonical FYP I deliverables here for repo-tracked reference:
 
 > ⚠ **2026-07-03:** `reports/FYP-I-Report.pdf` in the repo is a stale 51-page pre-refresh draft — replace it with the current one. The deliverables shift (HoloMotion PDF ingestion, backup export, screening pages, staff permissions, sport-critical alerts) is **not yet reflected in either artifact**; apply [`REPORT_EDIT_PACK.md`](REPORT_EDIT_PACK.md) (R1–R10, paste-ready text) and see `FYP_RUBRICS.md` §5 "Deliverables-shift items".
 
+**Viva defence (FYP II):** [`VIVA_FYP2.md`](VIVA_FYP2.md) — the thesis, ten hard questions with citations, the weaknesses worth volunteering, the demo landmines, and a numbers table measured against the live database. `VIVA_SCRIPT.md` and `VIVA_ANSWERS.md` are frozen **FYP I** artefacts and describe deleted code — start here instead.
+
 **Progress record:** [`CHANGES_SINCE_2026-06-10.md`](CHANGES_SINCE_2026-06-10.md) — consolidated system + documentation changes for the period (with commit index).
 **Progress pack:** [`PROGRESS_PACK_2026-07.md`](PROGRESS_PACK_2026-07.md) — paste-ready logbook entries, monitoring-session opener script, one-slide summary, and a System Development paragraph for the report.
 

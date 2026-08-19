@@ -529,13 +529,27 @@ async function seed() {
     if (hi % 3 !== 0) continue; // every third athlete gets a prior snapshot
     const delta = DELTAS[hi % DELTAS.length];       // current − prev (positive = improved)
     const nudge = delta > 0 ? -3 : 3;               // move the raw score consistent with the trend
+    // The nudge is applied to the COMPONENTS and Total Score is derived from
+    // them, for the same reason `buildScreenings` derives it (§34b): on a real
+    // HoloMotion report Total Score IS the mean of the subitem table, so a row
+    // whose Total Score moved while ROM, stability and symmetry stayed bit-
+    // identical is arithmetic the instrument cannot produce. Nudging all three
+    // by `nudge` leaves the derived Total Score exactly where nudging it
+    // directly used to — 0.4n + 0.4n + 0.2n = n — so the demonstrated trend is
+    // unchanged, and a retest now differs in the things a retest measures.
+    const bump = (v) => (v == null ? null : clamp100(Number(v) + nudge));
+    const pRom = bump(s.rom);
+    const pStab = bump(s.stability);
+    const pSym = bump(s.symmetry);
     priorRows.push({
       athleteId: s.athleteId,
       assessedAt: new Date(new Date(s.assessedAt).getTime() - 35 * 86400000),
       importedBy: 'Seed (history)',
-      totalScore: s.totalScore != null ? clamp100(Number(s.totalScore) + nudge) : null,
+      totalScore: (pRom == null || pStab == null || pSym == null)
+        ? (s.totalScore != null ? clamp100(Number(s.totalScore) + nudge) : null)
+        : clamp100(0.4 * pRom + 0.4 * pStab + 0.2 * pSym),
       exerciseRisks: s.exerciseRisks,
-      rom: s.rom, stability: s.stability, symmetry: s.symmetry,
+      rom: pRom, stability: pStab, symmetry: pSym,
       neckInjuryRisk: s.neckInjuryRisk, shoulderInjuryRisk: s.shoulderInjuryRisk, scoliosis: s.scoliosis,
       spinalDiscHerniation: s.spinalDiscHerniation, lumbarPelvisInjury: s.lumbarPelvisInjury,
       jointPain: s.jointPain, kneeInjuryRisk: s.kneeInjuryRisk, ankleInjuryRisk: s.ankleInjuryRisk,

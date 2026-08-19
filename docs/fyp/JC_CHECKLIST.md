@@ -36,8 +36,12 @@ in the stage section linked.
 - [ ] **Double-check the FDD figure + Table 4.1 render** once pasted into the
   report Word doc (module-column merge, diagram leaf wrapping) — restructure
   section at the bottom. *"remind me."*
-- [ ] **Report writing + viva rehearsal** — the remaining big rock; `VIVA_SCRIPT.md`
-  / `VIVA_ANSWERS.md` are the starting point (note their FYP I dating). *"remind me."*
+- [ ] **Report writing + viva rehearsal** — the remaining big rock. Start from
+  [`VIVA_FYP2.md`](VIVA_FYP2.md) (written 2026-08-19), **not** `VIVA_SCRIPT.md` /
+  `VIVA_ANSWERS.md`, which are frozen FYP I artefacts describing deleted code. The
+  dossier carries the thesis, ten hard questions with citations, the weaknesses
+  worth volunteering, the demo landmines, and a numbers table measured against the
+  live database — re-measure it before you quote it. *"remind me."*
 - [x] ~~**Judge the injury features' necessity** (2026-08-02)~~ — **moot.** The
   injury log and the injury report builder were deleted on 2026-08-02; the
   decision this item was waiting for has been taken. What remains of the
