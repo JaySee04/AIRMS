@@ -15,8 +15,20 @@ in the stage section linked.
   report has changed substantially since that note: it now opens with programme
   activity and takes cohort filters + a region focus. (The old "ATH0061" here
   was the retired ID scheme — pick any athlete by name.)
-- [ ] **Eyeball the injury-floor band distribution** — confirm you're happy that
-  a significant active injury floors a clean athlete to amber (toggle is ON).
+- [x] ~~**Eyeball the injury-floor band distribution**~~ — **closed 2026-08-19:
+  the feature no longer exists.** There is no injury escalation and no
+  `escalation_injury_floor` setting. `isInjured` is now read in exactly one place,
+  `isEligibleForNorms` in `utils/cohorts.js`, where it excludes an athlete from
+  norm COMPUTATION — everyone is still scored against the resulting norm. The
+  three live escalations are `escalation_below_mean` (at -0.5 SD),
+  `escalation_bottom_k` and `escalation_indicator`; there is no fourth.
+
+  The injury floor depended on injury severity, which went with the `Injury`
+  model in the HoloMotion-only cut (2026-08-02). **Do not assert this feature in
+  the viva** — the band distribution quoted further down this file
+  ("screening-only 44/31/25 → with the injury floor...") is from that era and no
+  longer describes the system. Current latest-screening distribution is
+  **43 green / 10 amber / 5 red** of 58 screened.
   Stage "Decisions 2026-07-27" above. *"remind me."*
 - [ ] **Double-check the FDD figure + Table 4.1 render** once pasted into the
   report Word doc (module-column merge, diagram leaf wrapping) — restructure
