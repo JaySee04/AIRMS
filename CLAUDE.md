@@ -30,8 +30,9 @@ All commands run from project root (PowerShell on Windows; backtick is the line-
 npm install                # root deps (concurrently)
 npm run install:all        # installs root + backend + frontend
 npm run seed               # drops + reseeds MySQL with deterministic PRNG (seed=42)
-#   WARNING: seeder.js EXECUTES ON IMPORT. `node -e "require('./src/utils/seeder')"`
-#   will drop and reseed the database. To check the file parses, use `node --check`.
+#   seeder.js runs ONLY when invoked directly (`if (require.main === module)`), so
+#   `require()` is inert. It used to execute on import and cost a pinned norm plus
+#   an audit trail. To check a file parses, use `node --check`, never `require()`.
 
 # Day-to-day
 npm run dev                # backend :5000 + frontend :3000 via concurrently

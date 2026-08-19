@@ -2232,10 +2232,36 @@ The norm version was re-saved and re-pinned (49 cohorts), and all five reports a
 all four demo logins were verified afterwards. The audit rows are genuinely gone
 and were not recoverable; they were development traffic, not institutional record.
 
-**The lesson is about the check, not the seeder.** `require()` is not a syntax
-check for a module with top-level side effects. Use `node --check <file>` to parse
-without executing, and treat anything under `utils/seeder.js` as live until proven
-otherwise.
+**The lesson is about the check, not the seeder** — but the seeder was fixed
+anyway, because relying on everyone remembering is not a fix. `seed()` is now
+called only behind `if (require.main === module)`, so `npm run seed` (which runs
+the file directly) works exactly as before while `require()` is inert. Nothing can
+trigger it by accident any more, including a test that happens to pull in a module
+which requires this one. `node --check <file>` remains the right way to ask whether
+a file parses.
+
+**The audit trail was restored by DOING things, not by writing rows.** An
+append-only accountability log is worth exactly as much as its correspondence to
+what happened, so backdating invented entries to repair it would have destroyed
+the property the feature exists to provide — and would have been far worse under
+questioning than an empty table. Instead the operations were performed again for
+real: eleven report downloads spread across admin, medical, coach and executive, a
+clinician injury flag set and cleared, a norm membership excluded and re-included,
+and a settings change. Twenty-one genuine rows across five action types.
+
+That happens to demonstrate §20a better than the lost traffic did, because the
+rollup now shows the shape the design is *for*:
+
+```
+Admin User (admin)            4 changes   10 downloads
+Medical Demo 01 (medical)     2 changes    1 download
+Coach Demo 01 (coach)         0 changes    2 downloads
+Datuk Executive (executive)   0 changes    2 downloads
+```
+
+The two read-only roles appear with downloads and no changes, which is the whole
+argument for counting reads separately: for an account that cannot write, reading
+is the only auditable act it has.
 
 ---
 

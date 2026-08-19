@@ -563,8 +563,23 @@ async function seed() {
   console.log('\nSeeding complete.');
 }
 
-seed().catch(async (err) => {
-  console.error(err);
-  try { await sequelize.close(); } catch (_) {}
-  process.exit(1);
-});
+// RUN ONLY WHEN INVOKED AS A SCRIPT.
+//
+// This file used to call seed() unconditionally at import time, so
+// `require('./src/utils/seeder')` — the obvious way to check the module parses —
+// silently dropped the schema and reseeded the database. It cost a pinned norm
+// version and an entire audit trail on 2026-08-19 before anyone noticed what had
+// happened, because the destructive part looks exactly like a successful import.
+//
+// `npm run seed` still works: it runs this file directly, so require.main is this
+// module. Nothing else can trigger it by accident — including a test that pulls in
+// a module which happens to require this one. See docs/DESIGN_DECISIONS.md §34c.
+if (require.main === module) {
+  seed().catch(async (err) => {
+    console.error(err);
+    try { await sequelize.close(); } catch (_) {}
+    process.exit(1);
+  });
+}
+
+module.exports = { seed };
