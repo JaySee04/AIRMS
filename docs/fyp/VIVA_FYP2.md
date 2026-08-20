@@ -63,7 +63,7 @@ node -e "require('dotenv').config();const{sequelize,Athlete,Screening,CohortThre
 | Cohorts computed | 49 | all pinned |
 | Cohort an athlete is scored against | min 5, **median 7**, max 10 | **all 56 are below 11 peers** (§4 W2) |
 | Repeat pairs available | 18 | below the 20 needed for MDC95 (§5 L2) |
-| Audit rows | 22 | 5 action types, 4 roles |
+| Audit rows | 23 | 5 action types, **all 5 roles** — the athlete row appeared 2026-08-20, when self-download began working |
 | Users | 10 | across 5 roles — 4 reach a deliverable inbox (§5 L7) |
 | Muscle flags | 336 | |
 | Commits, FYP I → FYP II | **255** | 238 files, +56,610 / −7,680 lines |

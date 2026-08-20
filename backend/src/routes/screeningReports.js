@@ -19,6 +19,7 @@ const { recordAudit } = require('../utils/audit');
 const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
 const requirePermission = require('../middleware/permission');
+const { isForeignAthleteRequest, canDownloadIndividualReport } = require('../utils/permissions');
 const { resolveCohortStats, orientedComponents, computeStats } = require('../utils/cohorts');
 const { getSettings } = require('../utils/settings');
 const { effectiveBand } = require('../utils/bands');
@@ -88,9 +89,17 @@ router.get('/holistic.pdf', auth, rbac('admin', 'executive'), async (req, res) =
 });
 
 // ── 2. Individual ───────────────────────────────────────────────────────────
-router.get('/individual/:id.pdf', auth, rbac('medical', 'admin', 'coach', 'executive'), requirePermission('viewRecords'), async (req, res) => {
+// `athlete` is in this list because UC-41 says so: its actors are Administrator,
+// Medical Staff, **Athlete (own report only)** and Coach (assigned sport only).
+// The athlete dashboard has offered a Download PDF button since 2026-07-23 and
+// the self-scope check below was written for it, but the role was missing here,
+// so every athlete pressing it got "insufficient role" on their own record and
+// the check was never once reached. requirePermission does not gate athletes
+// (hasPermission returns true for every non-medical role); rbac was the only gate.
+router.get('/individual/:id.pdf', auth, rbac('athlete', 'medical', 'admin', 'coach', 'executive'), requirePermission('viewRecords'), async (req, res) => {
   try {
-    if (req.user.role === 'athlete' && req.user.athleteId !== req.params.id) {
+    // Before the lookup, on purpose — see isForeignAthleteRequest.
+    if (isForeignAthleteRequest(req.user, req.params.id)) {
       return res.status(403).json({ message: 'Access denied' });
     }
     const [athlete, history, settings] = await Promise.all([
@@ -99,10 +108,14 @@ router.get('/individual/:id.pdf', auth, rbac('medical', 'admin', 'coach', 'execu
       getSettings(),
     ]);
     if (!athlete) return res.status(404).json({ message: 'Athlete not found' });
-    // Coaches may pull individual reports, but only for athletes in their one
-    // assigned sport — the same scope check the team report applies.
-    if (req.user.role === 'coach' && req.user.coachSport !== athlete.sport) {
-      return res.status(403).json({ message: 'Coaches can only download reports for athletes in their assigned sport.' });
+    // The full decision, now that the row is loaded. Coaches may pull individual
+    // reports, but only for athletes in their one assigned sport.
+    if (!canDownloadIndividualReport(req.user, athlete)) {
+      return res.status(403).json({
+        message: req.user.role === 'coach'
+          ? 'Coaches can only download reports for athletes in their assigned sport.'
+          : 'Access denied',
+      });
     }
     if (!history.length) return res.status(404).json({ message: 'No screening on record for this athlete' });
     const latest = history[0];
