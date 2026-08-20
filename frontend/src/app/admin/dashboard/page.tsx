@@ -433,8 +433,8 @@ export default function AdminDashboard() {
 
         <div className="card">
           <div className="card-header"><div>
-            <h2 className="card-title" style={{ marginBottom: 0 }}>Where the risk sits</h2>
-            <span className="card-sub">Athletes at Watch or Elevated per indicator, worst first</span>
+            <h2 className="card-title" style={{ marginBottom: 0 }}>Exercise Risk Hotspots</h2>
+            <span className="card-sub">Athletes beyond Low per indicator, worst first &mdash; the same panel the holistic report prints under this name</span>
           </div></div>
           {cohort ? (
             <>
@@ -671,7 +671,7 @@ export default function AdminDashboard() {
           the squad at 30 and half at 70. Different squads, different decisions. */}
       <div className="card" style={{ marginTop: 20 }}>
         <div className="card-header"><div>
-          <h2 className="card-title" style={{ marginBottom: 0 }}>Where the Squad Sits</h2>
+          <h2 className="card-title" style={{ marginBottom: 0 }}>Indicator Distribution</h2>
           <span className="card-sub">
             Distribution of the cohort-normed indicator · 50 is this group&apos;s average by construction
           </span>
