@@ -349,19 +349,44 @@ router.get('/teammates', auth, async (req, res) => {
       raw: true,
     });
     const indicators = await latestIndicatorsFor(mates.map((m) => m.athleteId));
+    // A teammate's row carries NO athleteId. Since A2 (2026-08-04) the athlete key
+    // IS the IC number, so the previous shape shipped every squad member's national
+    // identity number — date of birth, birth state and sex encoded in it — to every
+    // other athlete's browser, for use as a React key. A system that redacts the
+    // athlete's NAME on-device before a screening image may leave the machine
+    // (§18) must not hand out 16 NRICs to draw a table. `gender` goes for the
+    // plainer reason that nothing rendered it.
     const teammates = mates.map((m) => {
       const ind = indicators.get(m.athleteId);
+      const isSelf = m.athleteId === req.user.athleteId;
       return {
-        athleteId: m.athleteId,
+        // Self only: the caller already knows their own IC, and the page marks
+        // the row with it rather than trusting name equality.
+        athleteId: isSelf ? m.athleteId : undefined,
         name: m.name,
         program: m.program,
-        gender: m.gender,
-        isSelf: m.athleteId === req.user.athleteId,
+        isSelf,
         overallIndicator: ind ? ind.overallIndicator : null,
         effectiveBand: ind ? ind.effectiveBand : null,
       };
     });
-    res.json({ sport: me.sport, teammates });
+    // The caller's OWN cohort, which is not this squad and is the single most
+    // misread thing on the page: the table is every athlete in the sport, while
+    // the indicator beside each name is normed against a narrower group (sport +
+    // programme + gender, often a handful of people). Without this an athlete
+    // reads "3rd of 16" off a column that never ranked 16 of anybody. Self-scoped
+    // and already on /athletes/:id — no disclosure this athlete did not have.
+    const mine = indicators.get(req.user.athleteId) || null;
+    res.json({
+      sport: me.sport,
+      you: mine ? {
+        cohortLabel: mine.cohortLabel,
+        cohortSize: mine.cohortSize,
+        cohortRank: mine.cohortRank,
+        overallIndicator: mine.overallIndicator,
+      } : null,
+      teammates,
+    });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 

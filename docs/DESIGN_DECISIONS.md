@@ -2622,6 +2622,50 @@ Left alone deliberately: heading capitalisation across that page is inconsistent
 (`Where the squad stands` beside `Most-Flagged Weak Muscles`). It is cosmetic,
 it is subjective, and it is not worth a thirteen-heading rewrite of a showcase
 page days before assessment.
+
+### 38. The squad page shipped two teammates' worth of somebody else's identity
+
+`/athlete/squad` (C3, 2026-08-04) was built to a decision recorded with a viva
+note: **same-sport readiness only — programme, band, indicator — and no peer
+clinical detail**. The page honours it. Its API did not.
+
+`GET /athletes/teammates` returned an `athleteId` per teammate. When C3 shipped
+that was a roster serial. **Two days earlier, A2 had made the athlete key the IC
+number** — so from 2026-08-04 the endpoint sent every squad member's national
+identity number, which encodes date of birth, birth state and sex, to every other
+athlete's browser. Sixteen of them, in one response, used by the page as a React
+`key`. Neither change was wrong on its own; the defect lives in the seam, which
+is why no review of either caught it.
+
+It is worth being blunt about the shape of this: §18 renders the athlete's **name**
+unreadable on-device before a screening image may leave the machine, and is
+described in the report as the strongest defensible contribution in the system.
+The same system handed out NRICs to draw a table. **A privacy control is a
+property of the whole surface, not of the one place you were thinking about
+privacy.** Teammate rows now carry no id; the caller's own row keeps one, since
+identifying yourself to yourself discloses nothing. `gender` went too — nothing
+rendered it.
+
+**Also fixed: the amber band was drawn with a colour that does not exist.** The
+file declared a private band map — the seventh — whose amber read
+`var(--risk-med)`. The token is `--risk-moderate`. Green and red were right, so
+the map looked correct in review and only the middle band rendered from an
+invalid custom property. Now `BAND_COLOR` from `lib/bands`, which is what that
+module was created for (§19 / §33).
+
+**And the number nobody could read correctly.** The table lists the whole SPORT;
+the Indicator column beside each name is normed against a much narrower cohort
+(sport + programme + gender — five people, for the demo athlete, against a squad
+of sixteen). Nothing said so, so "I am 3rd of 16" is the natural and wrong
+reading of a column that ranked 3 of 5. The page now states its own cohort, its
+size, and the small-group caveat when it is under ten (§33).
+
+**What was deliberately NOT added:** teammates' per-component scores, muscle
+flags or trends. That is the C3 decision, it is recorded with the viva note
+attached, and reversing it is a stakeholder call rather than a UI improvement.
+The norms themselves needed nothing built — the athlete's own dashboard hero has
+carried a `Measure / Score / Group / Difference (SD)` table since §21.
+
 ---
 
 

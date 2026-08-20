@@ -8,18 +8,26 @@
 import { useEffect, useMemo, useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { api } from '@/lib/api';
-import { BAND_SHORT } from '@/lib/bands';
+import { BAND_SHORT, BAND_COLOR, Band } from '@/lib/bands';
 
 interface Teammate {
-  athleteId: string; name: string; program: string | null; gender: string | null;
-  isSelf: boolean; overallIndicator: number | null; effectiveBand: 'green' | 'amber' | 'red' | null;
+  /** Self only — a teammate's row carries no id, because the id is their IC number. */
+  athleteId?: string; name: string; program: string | null;
+  isSelf: boolean; overallIndicator: number | null; effectiveBand: Band | null;
 }
-interface Resp { sport: string; teammates: Teammate[]; }
+/** The caller's own cohort — NOT this squad. See the note on the context line. */
+interface You { cohortLabel: string | null; cohortSize: number | null; cohortRank: number | null; overallIndicator: number | null; }
+interface Resp { sport: string; you: You | null; teammates: Teammate[]; }
 
-const BAND: Record<'green' | 'amber' | 'red', { label: string; color: string }> = {
-  green: { label: BAND_SHORT.green, color: 'var(--risk-low)' },
-  amber: { label: BAND_SHORT.amber, color: 'var(--risk-med)' },
-  red: { label: BAND_SHORT.red, color: 'var(--risk-high)' },
+// Labels and colours both come from lib/bands. This file used to declare its own
+// map and had drifted to `var(--risk-med)`, which is not a token that exists — the
+// amber dot and the amber tile's top border rendered with an invalid custom
+// property while green and red were fine. That is exactly the drift BAND_COLOR
+// exists to prevent, and it was invisible in review because the name looks right.
+const BAND: Record<Band, { label: string; color: string }> = {
+  green: { label: BAND_SHORT.green, color: BAND_COLOR.green },
+  amber: { label: BAND_SHORT.amber, color: BAND_COLOR.amber },
+  red: { label: BAND_SHORT.red, color: BAND_COLOR.red },
 };
 
 export default function AthleteSquadPage() {
@@ -66,12 +74,27 @@ export default function AthleteSquadPage() {
                 </div>
               ))}
             </div>
+            {/* The page's central ambiguity, stated rather than left to the
+                reader: this table is the whole SPORT, the Indicator column is
+                normed against a much narrower cohort, and the two are routinely
+                confused into "I am 3rd of 16". */}
+            {data.you?.cohortLabel && (
+              <p className="text-muted" style={{ fontSize: 'var(--fs-sm)', marginTop: 0, marginBottom: 12 }}>
+                This table is everyone in <strong>{data.sport}</strong> ({data.teammates.length} athletes).
+                Your indicator is not a rank within it — you are scored against{' '}
+                <strong>{data.you.cohortLabel}</strong>
+                {typeof data.you.cohortSize === 'number' && <> ({data.you.cohortSize} athlete{data.you.cohortSize === 1 ? '' : 's'})</>}
+                {typeof data.you.cohortSize === 'number' && data.you.cohortSize < 10 && (
+                  <> — a small group, so your score moves more easily than it would against a large one</>
+                )}. The per-measure group averages behind it are on your dashboard.
+              </p>
+            )}
             <div className="table-wrap">
               <table>
                 <thead><tr><th>Athlete</th><th>Programme</th><th style={{ textAlign: 'center' }}>Readiness</th><th style={{ textAlign: 'center' }}>Indicator</th></tr></thead>
                 <tbody>
-                  {data.teammates.map((t) => (
-                    <tr key={t.athleteId} style={t.isSelf ? { background: 'var(--bg)' } : undefined}>
+                  {data.teammates.map((t, i) => (
+                    <tr key={t.athleteId ?? `mate-${i}`} style={t.isSelf ? { background: 'var(--bg)' } : undefined}>
                       <td><strong>{t.name}</strong>{t.isSelf && <span className="badge-low" style={{ marginLeft: 8 }}>You</span>}</td>
                       <td className="text-muted" style={{ fontSize: 'var(--fs-md)' }}>{t.program ?? '—'}</td>
                       <td style={{ textAlign: 'center' }}>
