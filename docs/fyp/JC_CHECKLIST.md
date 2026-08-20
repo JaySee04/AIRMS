@@ -59,13 +59,28 @@ in the stage section linked.
   that substitution is acceptable or whether a thin injury-reporting layer comes
   back — this should not surface first in the viva. Full analysis, with quotes:
   [`../stakeholder/REQUIREMENTS_TRACEABILITY.md`](../stakeholder/REQUIREMENTS_TRACEABILITY.md) §4.
-  - [ ] Offer him **scheduled monthly reports** (§16) — he asked in those words
-    ("something standard, then you can actually generate every month"); the PDFs
-    and the mailer both exist, only the schedule is missing.
+  - [x] ~~Offer him **scheduled monthly reports** (§16) — only the schedule is
+    missing~~ — **stale, corrected 2026-08-20: the schedule shipped.** He asked in
+    those words ("something standard, then you can actually generate every
+    month"), and it now exists end to end: a **monthly digest** to admin +
+    executive with the holistic PDF **attached** (the same bytes the download
+    produces), driven by a persisted month marker rather than a cron instant so a
+    process that was down when it came due sends late instead of never
+    (`DESIGN_DECISIONS §35`), runnable off the web process entirely via
+    `npm run mail:tick` (§36), with the outcome of the last attempt persisted and
+    shown in red on the admin Settings tile when it failed. There is also a
+    **Send now** button. Do not offer this as future work — **demo it**.
   - [x] ~~Restore the **sport-context** card on the medical view (§11)~~ — **done
     2026-08-09**, rebuilt from screening data.
-  - [ ] Name **seasonality** (§6 — "which quarter is the risky one") as future
-    work: it needs years of history, and AIRMS has months.
+  - [x] ~~Name **seasonality** (§6 — "which quarter is the risky one") as future
+    work~~ — **stale, corrected 2026-08-20: it is built.** `seasonality()` in
+    `utils/screeningPeriods.js` pools every screening by quarter with the year
+    discarded and ranks by the **share** flagged, and the holistic report prints
+    it. What is still true is the data limit — and the feature **states it
+    itself**: below two years of history it **declines to name a season**
+    (`yearsCovered` / `sufficient`), and the report draws that caveat *before* the
+    table. Present it that way. "Refuses to answer on thin data" is a stronger
+    story than "not built yet", and it is the honest one.
 - [ ] **Dr Thung sign-off** — the deployment gate you're keeping in view (kiv).
 - [x] ~~**Rename the pushed branch**~~ — **decided 2026-08-18: leave it.** The name
   is inaccurate (it was about MySQL for three commits and has been all of FYP II

@@ -45,9 +45,9 @@ clinician's time. See §3 Q1.
 
 ---
 
-## 2. Numbers, measured 2026-08-19
+## 2. Numbers, measured 2026-08-20
 
-Re-measure before the viva; these drift with every reseed:
+Re-measure before the viva; these drift with every reseed. Last run **2026-08-20**: every database figure below was unchanged from the 2026-08-19 measurement, and both suites were green (324 / 119). Only the commit row moved.
 
 ```powershell
 cd backend
@@ -66,7 +66,7 @@ node -e "require('dotenv').config();const{sequelize,Athlete,Screening,CohortThre
 | Audit rows | 22 | 5 action types, 4 roles |
 | Users | 10 | across 5 roles — 4 reach a deliverable inbox (§5 L7) |
 | Muscle flags | 336 | |
-| Commits, FYP I → FYP II | **249** | 231 files, +54,777 / −7,678 lines |
+| Commits, FYP I → FYP II | **255** | 238 files, +56,610 / −7,680 lines |
 | Tests | 324 backend (21 suites) + 119 frontend (8) | |
 
 **The settings that decide bands** (`backend/src/utils/settings.js`, live values):
