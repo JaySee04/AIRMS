@@ -259,8 +259,29 @@ drawn dashed and outside the filter count for that reason. Filters are shared
 with `/admin/activity` (one `CohortFilters` component) so a comparison between
 the two pages is meaningful — "Badminton · Female" means the same on both.
 
-**Panels:**
+**Panels, in the order the page draws them.** The three **Focus** panels near the
+top appear *only while a region focus is set*; everything below them is always
+there.
 
+- **Direction of travel** — the only panel on this page that says which *way*
+  things are moving; every other one is a snapshot. Athletes tested and their
+  band mix over recent periods, at a grain you pick — and each grain is labelled
+  with how many periods it would draw, so quarterly and yearly announce their own
+  thinness before you click them. Deliberately a summary: full throughput,
+  coverage and retest analysis lives on **Programme Activity**, which is a
+  separate page on purpose. The movement arrow is coloured by the API’s own
+  verdict, never by the sign of the number — a small move reads as *steady*, and
+  Exercise Risks improve by going **down**.
+- **Focus · ⟨indicator⟩** *(focus set)* — the same cohort read through one
+  indicator, set against the institute baseline so “worse than normal?” is
+  answerable rather than left to intuition. No athlete is filtered out — that is
+  exactly what makes the comparisons below it meaningful.
+- **Where ⟨indicator⟩ concentrates** *(focus set)* — that one indicator split by
+  **sport, gender, age group and programme**. Each slice is ordered worst-first
+  by the **share** elevated, not the headcount, because policy follows
+  proportion: a squad of 4 with 3 elevated outranks one of 60 with 5.
+- **Highest ⟨indicator⟩ readings** *(focus set, when there are any)* — one step
+  from where the problem is to who has it.
 - **Where the squad stands** — band distribution (green / amber / red), every
   slice carrying its count and share, so meaning is never colour-alone.
 - **Physical Quality — which is weakest?** — the four top-level movement averages
@@ -273,8 +294,18 @@ the two pages is meaningful — "Badminton · Female" means the same on both.
   “Ankle 13” and “Neck 6” can be compared by eye. Athletes at Low are not drawn —
   the bar is the problem, not the population. This is the panel the holistic PDF
   prints under the same name (§37d); it is one panel, not two.
+- **Most-Flagged Weak Muscles** / **Most-Flagged Tight Muscles** — myodynamia and
+  tension hotspots, side by side. Two lists rather than one colour-coded list on
+  purpose: weak and tight are **opposite findings**, not two points on a severity
+  scale, so the heading carries the meaning and the colour carries none.
+- **Movement Quality by Region** — the 5 × 5 subitem heatmap, tier-coloured on
+  HoloMotion’s own 60/75/85 bands.
+- **Left–Right Asymmetry** — the only bilateral data the instrument carries, and
+  previously collapsed three different ways. Reports the **count of athletes
+  with a ≥10-point gap** rather than a mean gap, because the means are flat at
+  3–4 everywhere while the counts run 0–9.
 - **Squad Body Map** — the licensed anatomical figure fed the **cohort mean**
-  subitem readings. Added because the product's whole vocabulary is body regions
+  subitem readings. Added because the product’s whole vocabulary is body regions
   and the squad had no anatomical view.
 - **Risk vs Movement Quality** — a scatter with quadrants split on the cohort
   **medians**. Total Score and Exercise Risks measure different halves of the
@@ -283,18 +314,9 @@ the two pages is meaningful — "Badminton · Female" means the same on both.
 - **Indicator Distribution** — histogram of the cohort-normed indicator. A mean
   of 50 is produced equally by everyone scoring 50 and by half scoring 30 and
   half 70.
-- **Movement Quality by Region** — the 5 × 5 subitem heatmap, tier-coloured on
-  HoloMotion's own 60/75/85 bands.
-- **Left–Right Asymmetry** — the only bilateral data the instrument carries, and
-  previously collapsed three different ways. Reports the **count of athletes
-  with a ≥10-point gap** rather than a mean gap, because the means are flat at
-  3–4 everywhere while the counts run 0–9.
-- **Most-Flagged Weak / Tight Muscles** — myodynamia and tension hotspots.
-- **By sport / gender / age group / programme** — each slice ordered worst-first
-  by the **share** elevated, not the headcount, because policy follows
-  proportion.
 
-See `DESIGN_DECISIONS §23` and `§25` for why each of these exists.
+See `DESIGN_DECISIONS §23`, `§24`, `§25` and `§37d` for why each of these exists,
+and why they are named what they are named.
 
 ---
 
