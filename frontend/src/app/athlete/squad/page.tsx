@@ -9,6 +9,7 @@ import { useEffect, useMemo, useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { api } from '@/lib/api';
 import { BAND_SHORT, BAND_COLOR, Band } from '@/lib/bands';
+import { Histogram } from '@/components/charts/Charts';
 
 interface Teammate {
   /** Self only — a teammate's row carries no id, because the id is their IC number. */
@@ -44,6 +45,14 @@ export default function AthleteSquadPage() {
     })();
     return () => { cancelled = true; };
   }, []);
+
+  // Every scored indicator in the squad, self included — the shape the band
+  // tiles cannot show. Three counts are equally produced by a squad clustered at
+  // the middle and by one split between two tails (§25).
+  const values = useMemo(
+    () => (data?.teammates ?? []).map((t) => t.overallIndicator).filter((v): v is number => typeof v === 'number'),
+    [data],
+  );
 
   const counts = useMemo(() => {
     const m = { green: 0, amber: 0, red: 0, none: 0 };
@@ -88,6 +97,36 @@ export default function AthleteSquadPage() {
                   <> — a small group, so your score moves more easily than it would against a large one</>
                 )}. The per-measure group averages behind it are on your dashboard.
               </p>
+            )}
+            {/* Below five scored athletes a histogram is a row of single-athlete
+                spikes that invites reading noise as shape — the same reason §24
+                renders one period as a summary rather than a lone bar. */}
+            {values.length >= 5 && typeof data.you?.overallIndicator === 'number' && (
+              <div style={{ marginBottom: 16 }}>
+                <Histogram
+                  values={values}
+                  min={0}
+                  max={100}
+                  binSize={5}
+                  valueLabel="indicator"
+                  markers={[{
+                    // Neutral, not the athlete's band colour: a coloured vertical
+                    // rule on a chart reads as a THRESHOLD, and this one is a
+                    // position.
+                    at: data.you.overallIndicator,
+                    label: `You (${data.you.overallIndicator})`,
+                    color: 'var(--text)',
+                  }]}
+                />
+                <p className="chart-note">
+                  Where every scored athlete in {data.sport} sits, and where you sit among them.
+                  Unlike the same chart on a single-cohort view, the centre here is <strong>not</strong> fixed
+                  at 50: this squad spans several cohorts and each athlete is normed against their own,
+                  so the shape is the squad&apos;s spread rather than a scale with a guaranteed middle.
+                  A long tail on either side means a few athletes are carrying most of the difference —
+                  which the three counts above cannot tell apart from an even squad.
+                </p>
+              </div>
             )}
             <div className="table-wrap">
               <table>

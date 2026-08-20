@@ -257,6 +257,27 @@ describe('Histogram — the shape an average destroys', () => {
     expect(html).toContain('Cohort average (50)');
   });
 
+  // The athlete squad view marks the READER's own position with a marker, so
+  // where the line lands is the whole message. Asserting only that a marker
+  // renders would pass with every marker pinned to the left edge.
+  it('positions a marker by its value, not just draws one', () => {
+    const at = (v: number) => {
+      const html = render(<Histogram values={[50]} min={0} max={100} binSize={10}
+        markers={[{ at: v, label: `You (${v})`, color: 'black' }]} />);
+      return (html.match(/histogram-marker[^>]*left:\s*([\d.]+)%/) || [])[1];
+    };
+    expect(at(51)).toBe('51');
+    expect(at(20)).toBe('20');
+    expect(at(80)).toBe('80');
+  });
+
+  it('scales a marker to the axis range, not to the raw value', () => {
+    const html = render(<Histogram values={[45]} min={40} max={60} binSize={5}
+      markers={[{ at: 45, label: 'You (45)', color: 'black' }]} />);
+    // 45 on a 40-60 axis is a quarter of the way across, not 45%.
+    expect(html).toMatch(/histogram-marker[^>]*left:\s*25%/);
+  });
+
   it('puts an out-of-range value in the nearest bin rather than dropping it', () => {
     const html = render(<Histogram values={[-5, 150]} min={0} max={100} binSize={50} />);
     // Both counted: one in the first bin, one in the last.

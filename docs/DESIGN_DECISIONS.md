@@ -2660,6 +2660,34 @@ of sixteen). Nothing said so, so "I am 3rd of 16" is the natural and wrong
 reading of a column that ranked 3 of 5. The page now states its own cohort, its
 size, and the small-group caveat when it is under ten (§33).
 
+**What was added instead, once the leak was closed: the squad's SHAPE.** The
+page answered "how many are in each band" with three tiles and "who" with a
+table, and nothing in between — the §25 gap exactly, where three counts are
+produced equally by a squad clustered in the middle and by one split between two
+tails. It now draws the same `Histogram` the admin view uses, over every scored
+indicator in the sport, with a **neutral** marker at the reader's own position
+(a coloured vertical rule on a chart reads as a threshold, and this one is a
+position). Aggregate, and strictly less identifying than the named table beneath
+it.
+
+One thing is deliberately NOT copied from the admin version: its note says the
+centre sits at 50 by construction. **Here it does not.** That page draws a single
+filtered cohort; a squad is a whole sport spanning several cohorts, and each
+athlete is normed against their own — so the middle of this shape is the squad's
+spread, not a guaranteed 50 (measured: median 48.5 across 14 scored Badminton
+athletes, near 50 by overlap rather than by arithmetic). Copying the sentence
+would have reintroduced, one panel later, the same conflation the context line
+above it exists to prevent. Below five scored athletes the chart is skipped, on
+§24's reasoning: a histogram of three is single-athlete spikes inviting noise to
+be read as shape.
+
+The marker's POSITION is now tested (`Charts.test.tsx`), not just its existence.
+The pre-existing test asserted a marker renders and its label appears, which
+passes with every marker pinned to the left edge — verified by pinning it there
+and watching the two new cases fail while the old one stayed green. For a mark
+that tells an athlete where they stand among their squad, where it lands is the
+entire message.
+
 **What was deliberately NOT added:** teammates' per-component scores, muscle
 flags or trends. That is the C3 decision, it is recorded with the viva note
 attached, and reversing it is a stakeholder call rather than a UI improvement.
