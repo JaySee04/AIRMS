@@ -263,6 +263,16 @@ the two pages is meaningful — "Badminton · Female" means the same on both.
 
 - **Where the squad stands** — band distribution (green / amber / red), every
   slice carrying its count and share, so meaning is never colour-alone.
+- **Physical Quality — which is weakest?** — the four top-level movement averages
+  (Total, ROM, Stability, Symmetry) on a **zoomed** axis. They cluster within a
+  few points of each other, so a 0–100 track drew four identical bars and hid the
+  only thing the panel is for; the dot plot states its own zoom, so the
+  exaggeration is declared rather than smuggled.
+- **Exercise Risk Hotspots** — how many athletes sit **beyond Low** on each of the
+  seven shown indicators, worst first, all rows on one shared count axis so
+  “Ankle 13” and “Neck 6” can be compared by eye. Athletes at Low are not drawn —
+  the bar is the problem, not the population. This is the panel the holistic PDF
+  prints under the same name (§37d); it is one panel, not two.
 - **Squad Body Map** — the licensed anatomical figure fed the **cohort mean**
   subitem readings. Added because the product's whole vocabulary is body regions
   and the squad had no anatomical view.
@@ -270,8 +280,9 @@ the two pages is meaningful — "Badminton · Female" means the same on both.
   **medians**. Total Score and Exercise Risks measure different halves of the
   report, so an athlete can move well and still score risky; **13 seeded
   athletes do**, and no averaged panel surfaces them.
-- **Where the Squad Sits** — indicator distribution histogram. A mean of 50 is
-  produced equally by everyone scoring 50 and by half scoring 30 and half 70.
+- **Indicator Distribution** — histogram of the cohort-normed indicator. A mean
+  of 50 is produced equally by everyone scoring 50 and by half scoring 30 and
+  half 70.
 - **Movement Quality by Region** — the 5 × 5 subitem heatmap, tier-coloured on
   HoloMotion's own 60/75/85 bands.
 - **Left–Right Asymmetry** — the only bilateral data the instrument carries, and

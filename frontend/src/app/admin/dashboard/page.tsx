@@ -434,7 +434,7 @@ export default function AdminDashboard() {
         <div className="card">
           <div className="card-header"><div>
             <h2 className="card-title" style={{ marginBottom: 0 }}>Exercise Risk Hotspots</h2>
-            <span className="card-sub">Athletes beyond Low per indicator, worst first &mdash; the same panel the holistic report prints under this name</span>
+            <span className="card-sub">Athletes beyond Low per indicator, worst first</span>
           </div></div>
           {cohort ? (
             <>
