@@ -18,6 +18,7 @@ const rbac = require('../middleware/rbac');
 const { INDICATOR_ATTRS, toIndicator } = require('../utils/indicatorPayload');
 const { getSettings } = require('../utils/settings');
 const { effectiveBand } = require('../utils/bands');
+const { reliability } = require('../utils/reliability');
 
 const router = express.Router();
 
@@ -108,7 +109,31 @@ router.get('/readiness', auth, rbac('coach'), async (req, res) => {
       };
     });
 
-    res.json({ sport, athletes: rows });
+    // The threshold at which the coach's trend arrows call a move real.
+    //
+    // Derived here rather than hardcoded in the page, and derived over the WHOLE
+    // roster rather than this sport, for the reason the rescreen recall is: a
+    // coach's view must be a SLICE of the institution's judgement, never a
+    // second opinion. The dashboard used a literal 2, which agrees with the
+    // institution only by accident — reliability declines below MIN_PAIRS and
+    // falls back to exactly 2. The day ISN records its twentieth repeat pair,
+    // MDC95 becomes a real number, the admin change chart follows it, and a
+    // hardcoded arrow would quietly keep answering "did this change" differently
+    // on the coach's screen. `deadBandFor` is always usable, so the client never
+    // branches; `sufficient` says whether it was earned or assumed, per score
+    // rather than for the pass as a whole — the indicator can decline while
+    // another score qualifies, and it is the indicator the arrows judge.
+    const allIndicators = await Screening.findAll({
+      attributes: ['id', 'athleteId', 'assessedAt', 'overallIndicator'],
+      raw: true,
+    });
+    const rel = reliability(allIndicators);
+    res.json({
+      sport,
+      athletes: rows,
+      deadBand: rel.deadBandFor('overallIndicator'),
+      deadBandDerived: Boolean(rel.byKey.overallIndicator?.sufficient),
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

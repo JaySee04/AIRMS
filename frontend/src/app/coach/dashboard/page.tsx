@@ -18,6 +18,13 @@ import { api } from '@/lib/api';
 import { MuscleEntry } from '@/lib/risk';
 import { computeBodyPartAlerts, AthleteRisks, BodyRegion, RADAR_LABELS, highThresholdsFor, riskRadarSeries } from '@/lib/screeningAlerts';
 import { getInitials } from '@/lib/name';
+// The RISK band vocabulary, kept apart from this file's READINESS bands below
+// (Full-Go / Observation / Restricted), which are a different thing wearing the
+// same three colours.
+import {
+  BANDS as RISK_BANDS, BAND_COLOR as BAND_RISK_COLOR, BAND_GLYPH, BAND_SHORT,
+  type Band as RiskBand,
+} from '@/lib/bands';
 import OverallRiskBadge, { ScreeningIndicator } from '@/components/dashboard/OverallRiskBadge';
 import ScreeningAlertBanner from '@/components/dashboard/ScreeningAlertBanner';
 import ScreeningHistory from '@/components/dashboard/ScreeningHistory';
@@ -50,7 +57,17 @@ interface ReadinessRow {
 interface ReadinessResponse {
   sport: string | null;
   athletes: ReadinessRow[];
+  // The threshold above which a move between screenings counts as real, derived
+  // by the backend over the whole roster (routes/coach.js). Optional so an older
+  // payload still renders; DEFAULT_DEAD_BAND below is the documented fallback.
+  deadBand?: number;
+  deadBandDerived?: boolean;
 }
+
+// Only used when the payload carries no dead band at all. It matches
+// utils/reliability.js's FALLBACK_DEAD_BAND, which is what the server sends
+// while the repeat screenings are too few to earn a real one.
+const DEFAULT_DEAD_BAND = 2;
 
 type Band = 'full' | 'observation' | 'restricted';
 
@@ -212,18 +229,24 @@ export default function CoachDashboard() {
     [classified],
   );
 
-  // Squad momentum — change vs each athlete's previous screening (±2 = noise floor).
+  // The noise floor the arrows judge against. Comes from the server so this view
+  // and the institution's change chart cannot disagree about whether a move is
+  // real — it was a literal 2 here, which matched the backend only because
+  // reliability declines on thin data and falls back to exactly 2.
+  const deadBand = data?.deadBand ?? DEFAULT_DEAD_BAND;
+
+  // Squad momentum — change vs each athlete's previous screening.
   const momentum = useMemo(() => {
     const m = { improving: 0, declining: 0, steady: 0 };
     classified.forEach(({ row }) => {
       const d = trendDelta(row);
       if (d === null) return;
-      if (d >= 2) m.improving++;
-      else if (d <= -2) m.declining++;
+      if (d >= deadBand) m.improving++;
+      else if (d <= -deadBand) m.declining++;
       else m.steady++;
     });
     return m;
-  }, [classified]);
+  }, [classified, deadBand]);
 
   // Squad screening coverage that the suggestion speaks to (athletes with actual
   // screening data — the "of N" denominator below).
@@ -740,8 +763,14 @@ export default function CoachDashboard() {
             </table>
           </div>
           <dl className="table-legend">
-            <div><dt>HoloMotion Risk</dt><dd>cohort indicator 0–100 (50 = group average); dot colour is the risk band — <span style={{ color: 'var(--risk-low)' }}>●</span> safe · <span style={{ color: 'var(--risk-moderate)' }}>●</span> needs attention · <span style={{ color: 'var(--risk-high)' }}>●</span> immediate assessment</dd></div>
-            <div><dt>Trend</dt><dd>change vs the previous screening — <span style={{ color: 'var(--risk-low)' }}>↑</span> improving · <span style={{ color: 'var(--risk-high)' }}>↓</span> declining · steady within ±2</dd></div>
+            <div><dt>HoloMotion Risk</dt><dd>cohort indicator 0–100 (50 = group average); the mark is the risk band — {RISK_BANDS.map((b: RiskBand, i) => (
+              <span key={b}>
+                {i > 0 && ' · '}
+                <span style={{ color: BAND_RISK_COLOR[b] }}>{BAND_GLYPH[b]}</span>
+                {' '}{BAND_SHORT[b].toLowerCase()}
+              </span>
+            ))}</dd></div>
+            <div><dt>Trend</dt><dd>change vs the previous screening — <span style={{ color: 'var(--risk-low)' }}>↑</span> improving · <span style={{ color: 'var(--risk-high)' }}>↓</span> declining · steady within ±{deadBand}{data?.deadBandDerived ? ' (measured from repeat screenings)' : ' (assumed — too few repeat screenings to measure one)'}</dd></div>
             <div><dt>Readiness</dt><dd>Full-Go = cleared · Observation = modified load · Restricted = clinical priority</dd></div>
             <div><dt>Worst region</dt><dd>the athlete&apos;s highest exercise-risk reading this screening</dd></div>
           </dl>
