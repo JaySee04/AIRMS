@@ -52,6 +52,7 @@ somebody opens the project".
 ```powershell
 cd backend\scripts
 ./install-mail-task.ps1              # register, hourly, this user
+./install-mail-task.ps1 -ShowWindow  # ...but with a visible console, for debugging
 ./install-mail-task.ps1 -Uninstall   # remove completely
 ```
 
@@ -59,6 +60,16 @@ Per-user: no elevation, no SYSTEM account, nothing outside this user's own task
 list. `-StartWhenAvailable` is set, so a machine asleep when the digest fell due
 runs the missed tick on wake rather than skipping the month. It runs only while
 that user is logged on — fine for a demo machine, wrong for an institution.
+
+**No window.** A task action runs in the logged-on user's own session, so
+pointing it at `node.exe` opens a console once an hour: a blank terminal that
+appears, works for a second and vanishes — which on a workstation is
+indistinguishable from something having gone wrong, and which people close.
+The action therefore runs `scripts/run-hidden.vbs` (wscript has no console of
+its own) with the window style set to hidden. It still **waits** for node, so
+`-ExecutionTimeLimit` and `-MultipleInstances IgnoreNew` keep working, and it
+exits with node's own code, so the 0 / 1 / 2 below still reach
+`LastTaskResult`. `-ShowWindow` registers the direct, visible form instead.
 
 Check it:
 

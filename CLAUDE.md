@@ -35,7 +35,12 @@ cd backend; npm run mail:tick        # ONE scheduled-mail pass, then exit (§36)
                                      # OS scheduler runs; `npm run dev`'s in-process ticker does the
                                      # same thing hourly. MAIL_SCHEDULER=off disables the in-process
                                      # one for a deployment. See docs/DEPLOY.md.
-cd backend/scripts; ./install-mail-task.ps1            # register the hourly Windows task (per-user)
+cd backend/scripts; ./install-mail-task.ps1            # register the hourly Windows task (per-user).
+                                                       # Runs windowless via run-hidden.vbs — a task action
+                                                       # runs in the logged-on user's session, so pointing it
+                                                       # at node.exe pops a console every hour. wscript still
+                                                       # waits and still propagates the 0/1/2 exit code.
+cd backend/scripts; ./install-mail-task.ps1 -ShowWindow # ...visible console instead, for debugging
 cd backend/scripts; ./install-mail-task.ps1 -Uninstall # remove it
 #   seeder.js runs ONLY when invoked directly (`if (require.main === module)`), so
 #   `require()` is inert. It used to execute on import and cost a pinned norm plus

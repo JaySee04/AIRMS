@@ -23,8 +23,20 @@
   (src/utils/lock.js), so a duplicate tick is wasteful rather than wrong. In a
   real deployment set MAIL_SCHEDULER=off so only one of them ticks at all.
 
+  RUNS WITH NO WINDOW. A task action runs in the logged-on user's own session,
+  so executing node.exe directly pops a console window every hour - a blank
+  terminal that appears, works for a second and vanishes, which is
+  indistinguishable from something having gone wrong. The action therefore goes
+  through scripts/run-hidden.vbs (wscript has no console of its own), which
+  still waits for node and still propagates its exit code to LastTaskResult.
+  Use -ShowWindow to register the visible form instead when debugging.
+
 .PARAMETER Uninstall
   Remove the task instead of creating it.
+
+.PARAMETER ShowWindow
+  Register the task to run node.exe directly, console window and all. Handy
+  when you want to watch a tick happen; the default is windowless.
 
 .PARAMETER TaskName
   Override the task name (default: AIRMS mail tick).
@@ -36,6 +48,7 @@
 [CmdletBinding()]
 param(
   [switch]$Uninstall,
+  [switch]$ShowWindow,
   [string]$TaskName = 'AIRMS mail tick'
 )
 
@@ -45,6 +58,7 @@ $ErrorActionPreference = 'Stop'
 # regardless of where it was invoked from.
 $BackendDir = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $Script     = Join-Path $BackendDir 'src\mailTick.js'
+$Launcher   = Join-Path $PSScriptRoot 'run-hidden.vbs'
 
 if ($Uninstall) {
   $existing = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
@@ -68,7 +82,18 @@ if (-not $node) {
 
 # .env sits in backend/, and mailTick.js calls dotenv.config() relative to the
 # working directory - so the task must start there or it gets no credentials.
-$action = New-ScheduledTaskAction -Execute $node -Argument "`"$Script`"" -WorkingDirectory $BackendDir
+# wscript inherits it, and node inherits it from wscript, so the hidden form
+# starts in the same place as the visible one.
+if ($ShowWindow) {
+  $action = New-ScheduledTaskAction -Execute $node -Argument "`"$Script`"" -WorkingDirectory $BackendDir
+} else {
+  if (-not (Test-Path $Launcher)) {
+    throw "Cannot find $Launcher - it ships beside this script. Re-run with -ShowWindow to register the visible form."
+  }
+  $wscript = Join-Path $env:SystemRoot 'System32\wscript.exe'
+  $action = New-ScheduledTaskAction -Execute $wscript `
+    -Argument "//nologo `"$Launcher`" `"$node`" `"$Script`"" -WorkingDirectory $BackendDir
+}
 
 # Hourly, for ever. The mail's own day/hour settings decide when it actually
 # sends; this only decides how often AIRMS is allowed to notice.
@@ -98,6 +123,11 @@ Write-Host "  runs      : $node `"$Script`""
 Write-Host "  in        : $BackendDir"
 Write-Host '  every     : 1 hour (catches up after sleep/shutdown)'
 Write-Host '  as        : this user, only while logged on'
+if ($ShowWindow) {
+  Write-Host '  window    : VISIBLE (-ShowWindow) - a console appears on every tick'
+} else {
+  Write-Host '  window    : none (via run-hidden.vbs; exit code still reaches LastTaskResult)'
+}
 Write-Host ''
 Write-Host 'Check it:   Get-ScheduledTask -TaskName ''AIRMS mail tick'' | Get-ScheduledTaskInfo'
 Write-Host 'Run it now: Start-ScheduledTask -TaskName ''AIRMS mail tick'''
