@@ -45,9 +45,9 @@ clinician's time. See §3 Q1.
 
 ---
 
-## 2. Numbers, measured 2026-08-20
+## 2. Numbers, measured 2026-08-21
 
-Re-measure before the viva; these drift with every reseed. Last run **2026-08-20**: every database figure below was unchanged from the 2026-08-19 measurement, and both suites were green (324 / 119). Only the commit row moved.
+Re-measure before the viva; these drift with every reseed. Last run **2026-08-21**: every database figure below was unchanged from the 2026-08-19 measurement **except the audit count**, which grows whenever anyone opens a report. The commit and test rows moved; both suites were green (336 / 121).
 
 ```powershell
 cd backend
@@ -63,11 +63,11 @@ node -e "require('dotenv').config();const{sequelize,Athlete,Screening,CohortThre
 | Cohorts computed | 49 | all pinned |
 | Cohort an athlete is scored against | min 5, **median 7**, max 10 | **all 56 are below 11 peers** (§4 W2) |
 | Repeat pairs available | 18 | below the 20 needed for MDC95 (§5 L2) |
-| Audit rows | 23 | 5 action types, **all 5 roles** — the athlete row appeared 2026-08-20, when self-download began working |
+| Audit rows | 26 | 5 action types, **all 5 roles** — the athlete row appeared 2026-08-20, when self-download began working |
 | Users | 10 | across 5 roles — 4 reach a deliverable inbox (§5 L7) |
 | Muscle flags | 336 | |
-| Commits, FYP I → FYP II | **255** | 238 files, +56,610 / −7,680 lines |
-| Tests | 324 backend (21 suites) + 119 frontend (8) | |
+| Commits, FYP I → FYP II | **259** | 238 files, +56,978 / −7,680 lines |
+| Tests | 336 backend (21 suites) + 121 frontend (8) | |
 
 **The settings that decide bands** (`backend/src/utils/settings.js`, live values):
 
@@ -381,7 +381,7 @@ Things that will look like bugs and are not. Know what you will say.
   movement in five scores and flatness in the sixth, that is the seeder, not the
   code.
 - **L6 · The branch is called `feat/mysql-migration`.** It was about MySQL for
-  three commits and has been all of FYP II for 246. Renaming was considered and
+  three commits and has been all of FYP II for 256. Renaming was considered and
   rejected: it has a public upstream, and five docs name it in prose — including
   the logbook source material. `main` is FYP I; this branch is FYP II.
 - **L7 · Four demo accounts reach a real inbox; five bounce.** `@isn.gov.my`
