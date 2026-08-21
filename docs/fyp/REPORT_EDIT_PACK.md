@@ -21,6 +21,20 @@
 
 ---
 
+> **APPLIED 2026-08-21** to `FYP II REPORT (AIRMS) - revised.docx` (from JC's
+> `Downloads/FYP I REPORT.docx`). R1–R9 are in the document, plus edits this pack
+> did not cover: a new §2.5 literature cluster (Bahr 2016, Robertson et al. 2017),
+> Chapters 1 and 7 rewritten, §4.6 UX de-overclaimed, four non-functional
+> requirements added, and Table 4.1 extended to **53** use cases — 47 from
+> `REPORT_TABLE_4-1.md` plus six built after this pack was written (norm pinning,
+> notification preferences, scheduled mail, forced send, activity log, programme
+> activity report). `executive` was added to the roles on the ten read-only use
+> cases; **this pack's "use all four" instruction for UC-2 is stale — it is five.**
+> Not done, because they need a person: R6 (re-screenshot the diagrams), R10 (the
+> slides), §4.6's mockups of deleted pages, and Table 1.1's FYP I schedule.
+
+---
+
 ## R1 · §1.4 Project Scope — the data module sentence
 
 **Remove:** "A dedicated data management module supports the upload and validation of Excel-based screening data from ISN, ensuring the database can be updated efficiently as new assessments are conducted."
