@@ -39,6 +39,31 @@ export const BAND_SHORT: Record<Band, string> = {
   red: 'Immediate',
 };
 
+/**
+ * A SHAPE per band, so the band survives without colour.
+ *
+ * Red/amber/green is the textbook failure of colour-only status: the three hues
+ * collapse into one another for the ~1 in 12 men with a red-green deficiency,
+ * and screen readers announce no colour at all. WCAG 1.4.1 is explicit that
+ * colour may not be the only carrier of meaning. The coach's squad table was
+ * exactly that — a coloured dot beside the indicator number, with the band word
+ * only in a `title` tooltip, which neither assistive technology nor a touch
+ * device ever surfaces.
+ *
+ * Shape rather than a word because the fix has to fit a narrow table cell that
+ * already carries a number; pair it with `BAND_SHORT` wherever there is room,
+ * and always give the element an accessible name from `BAND_LABEL`.
+ *
+ * Web only. These are NOT WinAnsi characters, so they must never reach pdfkit —
+ * see DESIGN_DECISIONS §30f, where an out-of-set glyph measures zero width and
+ * prints as mojibake. The PDFs already print the band as a word.
+ */
+export const BAND_GLYPH: Record<Band, string> = {
+  green: '●', // ● filled circle
+  amber: '▲', // ▲ triangle
+  red: '■',   // ■ square
+};
+
 export const BAND_COLOR: Record<Band, string> = {
   green: 'var(--risk-low)',
   amber: 'var(--risk-moderate)',

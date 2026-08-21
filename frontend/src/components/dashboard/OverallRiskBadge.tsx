@@ -6,7 +6,7 @@
 // clinician override. Shared by the athlete, medical, and coach views.
 
 import {
-  BANDS, BAND_BG, BAND_COLOR, BAND_LABEL, type Band,
+  BANDS, BAND_BG, BAND_COLOR, BAND_GLYPH, BAND_LABEL, type Band,
 } from '@/lib/bands';
 import { ordinal, percentileFromRank } from '@/lib/rank';
 
@@ -88,8 +88,10 @@ function whyAssess(screening: ScreeningIndicator): string[] {
 // clinical wording, legends elsewhere show the compact form, and neither can
 // drift from the other any more.
 const BAND_META = Object.fromEntries(
-  BANDS.map((b) => [b, { label: BAND_LABEL[b], color: BAND_COLOR[b], bg: BAND_BG[b] }]),
-) as Record<Band, { label: string; color: string; bg: string }>;
+  BANDS.map((b) => [b, {
+    label: BAND_LABEL[b], color: BAND_COLOR[b], bg: BAND_BG[b], glyph: BAND_GLYPH[b],
+  }]),
+) as Record<Band, { label: string; color: string; bg: string; glyph: string }>;
 
 // Hero mode reuses the .risk-hero band classes so the primary signal carries
 // the same visual weight the (now removed) ACWR hero used to occupy.
@@ -190,18 +192,28 @@ export default function OverallRiskBadge({
   const meta = BAND_META[band];
   const overridden = Boolean(screening.overrideBand);
 
-  // Compact badge (coach squad table): coloured dot + indicator + override mark.
+  // Compact badge (coach squad table): band SHAPE + indicator + override mark.
+  //
+  // The shape is not decoration. This used to be a coloured circle, identical in
+  // every band, so the row's clinical state was carried by hue alone — the one
+  // encoding red/amber/green is worst at, and the one a `title` tooltip does not
+  // rescue, since neither a screen reader nor a touch device surfaces it. The
+  // glyph differs per band (lib/bands.ts) and the accessible name carries the
+  // full wording, so the column reads correctly in greyscale, under a red-green
+  // deficiency, and aloud.
   if (compact) {
+    const detail = overridden
+      ? `Clinician override → ${meta.label}${screening.overrideNote ? `: ${screening.overrideNote}` : ''}`
+      : `${meta.label}${screening.factors?.length ? ` · ${screening.factors.join(' · ')}` : ''}`;
     return (
       <span
-        title={overridden
-          ? `Clinician override → ${meta.label}${screening.overrideNote ? `: ${screening.overrideNote}` : ''}`
-          : `${meta.label}${screening.factors?.length ? ` · ${screening.factors.join(' · ')}` : ''}`}
+        title={detail}
+        aria-label={`${meta.label}, indicator ${screening.overallIndicator ?? 'not scored'}`}
         style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: 'var(--fs-sm)', color: meta.color }}
       >
-        <span style={{ width: 10, height: 10, borderRadius: '50%', background: meta.color }} />
+        <span aria-hidden="true" style={{ fontSize: 'var(--fs-2xs)', lineHeight: 1 }}>{meta.glyph}</span>
         {screening.overallIndicator ?? '—'}
-        {overridden && <span style={{ fontSize: 'var(--fs-2xs)' }}>✎</span>}
+        {overridden && <span aria-hidden="true" style={{ fontSize: 'var(--fs-2xs)' }}>✎</span>}
       </span>
     );
   }

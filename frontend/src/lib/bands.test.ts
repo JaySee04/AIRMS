@@ -12,8 +12,8 @@
 // design), so it is pinned here where a change will trip a test.
 
 import {
-  BANDS, BAND_BADGE, BAND_BG, BAND_COLOR, BAND_LABEL, BAND_RANK, BAND_SHORT,
-  bandColor, bandSegments, isBand,
+  BANDS, BAND_BADGE, BAND_BG, BAND_COLOR, BAND_GLYPH, BAND_LABEL, BAND_RANK,
+  BAND_SHORT, bandColor, bandSegments, isBand,
 } from './bands';
 
 describe('band vocabulary', () => {
@@ -97,5 +97,30 @@ describe('bandSegments', () => {
     const segs = bandSegments({ green: 5 });
     expect(segs).toHaveLength(3);
     expect(segs[2].value).toBe(0);
+  });
+});
+
+describe('BAND_GLYPH — the non-colour channel', () => {
+  // Red/amber/green is the textbook colour-only failure: the hues collapse for
+  // a red-green deficiency and a screen reader announces none of them. The
+  // glyphs are what carries the band when the colour does not, so the property
+  // that matters is that they are DISTINCT — three identical shapes in three
+  // colours would pass a "has a glyph" check and fix nothing.
+  it('gives every band a glyph', () => {
+    expect(Object.keys(BAND_GLYPH).sort()).toEqual([...BANDS].sort());
+    BANDS.forEach((b) => expect(BAND_GLYPH[b]).toBeTruthy());
+  });
+
+  it('uses a DIFFERENT shape per band, not one shape in three colours', () => {
+    const glyphs = BANDS.map((b) => BAND_GLYPH[b]);
+    expect(new Set(glyphs).size).toBe(BANDS.length);
+  });
+
+  it('stays out of the WinAnsi range pdfkit can print, so it cannot leak into a report', () => {
+    // DESIGN_DECISIONS §30f: a character outside WinAnsi measures zero width in
+    // pdfkit's Helvetica and prints as mojibake, silently. These are web-only by
+    // construction; the assertion is here so a future "let's reuse the glyph in
+    // the PDF" edit fails loudly rather than shipping an unreadable report.
+    BANDS.forEach((b) => expect(BAND_GLYPH[b].codePointAt(0)).toBeGreaterThan(0xFF));
   });
 });
