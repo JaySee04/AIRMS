@@ -12,7 +12,9 @@ const {
   latestScreeningsByAthlete, tierKeysFor, isEligibleForNorms, cohortKeyOf,
 } = require('../utils/cohorts');
 const { recomputeIndicators } = require('../utils/overallIndicator');
-const { getSettings, setSetting, DEFAULTS } = require('../utils/settings');
+const {
+  getSettings, setSetting, DEFAULTS, appliedSettingChanges,
+} = require('../utils/settings');
 const { hasPermission } = require('../utils/permissions');
 const { effectiveBand } = require('../utils/bands');
 const { runDigestOnce, runReminderOnce } = require('../utils/scheduler');
@@ -394,19 +396,30 @@ router.get('/settings/all', auth, rbac('admin', 'medical'), canEditNorms, async 
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
+// A PATCH that changes nothing writes nothing, rescores nothing and logs
+// nothing. `appliedSettingChanges` decides that (utils/settings.js), where it
+// can be tested; the alternative was an audit row asserting "Norm settings
+// changed" for a request that wrote no setting, in the one trail the
+// institution would rely on to prove what moved the norms.
 router.patch('/settings/all', auth, rbac('admin'), async (req, res) => {
   try {
-    for (const [k, v] of Object.entries(req.body || {})) {
-      if (k in DEFAULTS) await setSetting(k, v);
+    const before = await getSettings();
+    const changed = appliedSettingChanges(before, req.body);
+    if (!changed.length) {
+      return res.json({ settings: before, indicators: null, changed: [] });
     }
+    for (const k of changed) await setSetting(k, req.body[k]);
     const indicators = await recomputeIndicators();
     recordAudit(req, {
       action: 'settings.update',
       entity: 'settings',
-      summary: `Changed norm settings: ${Object.keys(req.body || {}).filter((k) => k in DEFAULTS).join(', ') || 'none'}`,
-      meta: { changed: req.body || null, rescored: indicators },
+      summary: `Changed norm settings: ${changed.join(', ')}`,
+      meta: {
+        changed: Object.fromEntries(changed.map((k) => [k, req.body[k]])),
+        rescored: indicators,
+      },
     });
-    res.json({ settings: await getSettings(), indicators });
+    res.json({ settings: await getSettings(), indicators, changed });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 

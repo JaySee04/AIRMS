@@ -111,4 +111,28 @@ async function setSetting(key, value) {
   return row;
 }
 
-module.exports = { DEFAULTS, getSettings, setSetting };
+// Which keys in `patch` would actually CHANGE `before`.
+//
+// A settings PATCH that changes nothing must not claim it did. The audit trail
+// is the one place the institution can prove what moved the norms and when, so
+// a row reading "Norm settings changed" for a request that wrote no setting is
+// worse than no row at all — it is the failure the trail exists to prevent.
+// The route used to log unconditionally (and rescore every athlete) on any
+// PATCH, including one whose body was empty or entirely unrecognised.
+//
+// Unknown keys are dropped rather than rejected, matching setSetting's contract.
+// Comparison is structural, so a value re-sent unchanged is not a change; when
+// the types differ (180 vs "180") it counts AS a change, which is the safe
+// direction — it over-reports rather than hiding a write that did happen.
+function appliedSettingChanges(before, patch) {
+  const out = [];
+  for (const [k, v] of Object.entries(patch || {})) {
+    if (!(k in DEFAULTS)) continue;
+    const current = before && k in before ? before[k] : DEFAULTS[k];
+    if (JSON.stringify(current) === JSON.stringify(v)) continue;
+    out.push(k);
+  }
+  return out;
+}
+
+module.exports = { DEFAULTS, getSettings, setSetting, appliedSettingChanges };
