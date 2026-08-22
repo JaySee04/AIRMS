@@ -155,9 +155,52 @@ On `airms-web`:
 NEXT_PUBLIC_API_URL=https://<your-api-project>.vercel.app/api
 ```
 
-The database must be reachable from the public internet — a managed MySQL
-(Aiven, TiDB Cloud, Railway) rather than `localhost`. Seed it once by pointing a
-local `backend/.env` at the hosted instance and running `npm run seed`.
+### The database
+
+It must be reachable from the public internet, so `localhost` is out. **Aiven's
+free MySQL** is the recommendation, for one reason that outranks the size of the
+free tier: it is *real* MySQL 8 on InnoDB, so engine-level foreign keys, the
+`ENUM` columns and the `JSON` columns all behave exactly as they do locally.
+MySQL-*compatible* engines are where a schema like this one quietly loses its
+referential integrity.
+
+Free tier: 1 GB storage, 1 GB RAM, 1 CPU, `max_connections` 76, backups
+included, no credit card. The seeded database is a few megabytes, so storage is
+not the constraint. Two caveats worth knowing before a stakeholder tries it:
+
+- **Idle shutdown.** A free service with no continuous activity gets powered off
+  after notification. Fine for a demo you drive; awkward for a link someone
+  opens unannounced a fortnight later. If that bites, Railway is about $5/month
+  with no idle policy.
+- **One free service per type per organisation.**
+
+Set up:
+
+```
+MYSQL_HOST=<service>.aivencloud.com
+MYSQL_PORT=<the port Aiven shows — not 3306>
+MYSQL_USER=avnadmin
+MYSQL_PASSWORD=<from the console>
+MYSQL_DATABASE=defaultdb
+MYSQL_SSL=1
+MYSQL_SSL_CA=<the ca.pem contents, newlines written as 
+>
+```
+
+TLS is mandatory on every managed provider and off by default here, so a local
+setup is unaffected. `MYSQL_SSL_CA` takes the certificate as inline PEM because
+that is the only shape a platform environment variable can carry — there is no
+filesystem to put a `.pem` on. Without a CA, verification stays ON against the
+system trust store rather than silently downgrading; `MYSQL_SSL_INSECURE=1`
+exists as an explicit, visible escape hatch.
+
+Seed it once by pointing a local `backend/.env` at the hosted instance and
+running `npm run seed`.
+
+The connection pool caps at **2** under `VERCEL` rather than 5. Each serverless
+instance holds its own pool against a single 76-connection ceiling: at 5 apiece
+fifteen concurrent instances exhaust it, which a live demo can reach.
+`MYSQL_POOL_MAX` overrides.
 
 ### Scheduled mail
 
