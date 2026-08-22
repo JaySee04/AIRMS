@@ -21,7 +21,9 @@
 // for a single proportion. Every one still labels its values directly — meaning
 // is never carried by colour alone.
 
-import { ReactNode } from 'react';
+import { ReactNode, useRef } from 'react';
+import type { MouseEvent as ReactMouseEvent } from 'react';
+import HoverTip, { useHoverTip } from '@/components/ui/HoverTip';
 
 // ── shared helpers ─────────────────────────────────────────────────────────
 const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
@@ -219,6 +221,17 @@ export function PeriodChart({
   /** Per-metric changes — the right chart for exactly two periods. */
   slope?: MetricDelta[];
 }) {
+  // Hooks first: this component has two early returns below, and React requires
+  // the same hook order on every render regardless of which branch is taken.
+  //
+  // Same tooltip the body map uses, for the same reason: <title> is drawn by the
+  // browser in the browser's own styling and follows neither the theme nor the
+  // design scale. Converting only one of the two graphics would have left the
+  // app visibly half-native.
+  const { tip, show, hide } = useHoverTip();
+  const tipHost = useRef<HTMLDivElement>(null);
+  const onTip = (text: string) => (e: ReactMouseEvent) => show([text], tipHost.current, e.clientX, e.clientY);
+
   if (!points.length) return null;
 
   // ONE period is not a trend, and no chart makes a single point look like one.
@@ -287,7 +300,8 @@ export function PeriodChart({
 
   return (
     <div className="periodchart">
-      <div className="periodchart-plot" style={{ height: H }}>
+      <div className="periodchart-plot" style={{ height: H }} ref={tipHost}>
+        <HoverTip tip={tip} />
         <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="periodchart-svg" role="img"
           aria-label={`${valueLabel ?? 'Value'} per period${hasLine && lineLabel ? `, with ${lineLabel}` : ''}`}>
           {[0.25, 0.5, 0.75].map((g) => (
@@ -307,14 +321,16 @@ export function PeriodChart({
                   const sh = (s.value / segTotal) * h;
                   y -= sh;
                   return (
-                    <rect key={s.label} x={cx(i) - barW / 2} y={y} width={barW} height={sh} fill={s.color}>
-                      <title>{`${p.label} — ${s.label}: ${s.value}`}</title>
-                    </rect>
+                    <rect key={s.label} x={cx(i) - barW / 2} y={y} width={barW} height={sh} fill={s.color}
+                      onMouseEnter={onTip(`${p.label} — ${s.label}: ${s.value}`)}
+                      onMouseMove={onTip(`${p.label} — ${s.label}: ${s.value}`)}
+                      onMouseLeave={hide} />
                   );
                 }) : (
-                  <rect x={cx(i) - barW / 2} y={H - h} width={barW} height={h} fill="var(--series-2)">
-                    <title>{`${p.label}: ${p.value}`}</title>
-                  </rect>
+                  <rect x={cx(i) - barW / 2} y={H - h} width={barW} height={h} fill="var(--series-2)"
+                    onMouseEnter={onTip(`${p.label}: ${p.value}`)}
+                    onMouseMove={onTip(`${p.label}: ${p.value}`)}
+                    onMouseLeave={hide} />
                 )}
               </g>
             );
@@ -325,9 +341,10 @@ export function PeriodChart({
                 vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
               {points.map((p, i) => (p.line == null ? null : (
                 <circle key={p.key} cx={cx(i)} cy={ly(p.line)} r="4.5" fill="var(--bg-card)"
-                  stroke="var(--brand-navy)" strokeWidth="2.5" vectorEffect="non-scaling-stroke">
-                  <title>{`${p.label} — ${lineLabel ?? 'value'}: ${fmt(p.line)}`}</title>
-                </circle>
+                  stroke="var(--brand-navy)" strokeWidth="2.5" vectorEffect="non-scaling-stroke"
+                  onMouseEnter={onTip(`${p.label} — ${lineLabel ?? 'value'}: ${fmt(p.line)}`)}
+                  onMouseMove={onTip(`${p.label} — ${lineLabel ?? 'value'}: ${fmt(p.line)}`)}
+                  onMouseLeave={hide} />
               )))}
             </>
           )}

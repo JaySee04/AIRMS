@@ -1013,6 +1013,8 @@ label:has(> input[type='radio']) {
   grid-template-columns: 1fr 1fr;
   gap: 12px;
   width: 100%;
+  /* Anchor for the hover tooltip, which is positioned against this box. */
+  position: relative;
 }
 /* One rounded panel behind both figures rather than a box around each: two
    heavy borders down the middle of an anatomy pair read as a divide the body
@@ -2994,3 +2996,49 @@ textarea:focus-visible,
   .mdelta-head, .mdelta-row { grid-template-columns: 92px 104px 1fr 54px; }
   .mdelta-dir { display: none; }
 }
+
+/* ---------------------------------------------------------------------------
+   Hover tooltip for the data graphics (components/ui/HoverTip.tsx)
+
+   The body map and the charts used SVG <title>, i.e. the browser's own tooltip:
+   drawn by the OS, in the OS's styling, following neither the theme nor the
+   design scale. This is the same information in this product's furniture.
+
+   `pointer-events: none` is load-bearing rather than cosmetic — the tip is
+   positioned under the cursor, and without it the tip would steal the hover
+   that created it and flicker. It also keeps the tip from blocking a click on
+   the muscle underneath.
+
+   The host element must be `position: relative` (see .bm-fig, .chart-hostable).
+   --------------------------------------------------------------------------- */
+.viz-tip {
+  position: absolute;
+  z-index: 40;
+  pointer-events: none;
+  max-width: 260px;
+  padding: var(--sp-xs) var(--sp-sm);
+  background: var(--bg-card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow-md);
+  font-size: var(--fs-xs);
+  line-height: 1.45;
+  /* Sit above the cursor and centred on it; the 10px keeps the pointer clear of
+     the box so the shape underneath stays visible while reading. */
+  transform: translate(-50%, calc(-100% - 10px));
+}
+.viz-tip-line { display: flex; align-items: center; gap: var(--sp-xs); white-space: nowrap; }
+.viz-tip-line + .viz-tip-line { margin-top: 3px; }
+.viz-tip-name { font-weight: 600; }
+.viz-tip-chip {
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 999px;
+  color: #fff;
+  background: var(--text-dim, #6b7a8d);
+}
+.viz-tip-chip--weak  { background: var(--flag-weak); }
+.viz-tip-chip--tight { background: var(--flag-tight); }
+.viz-tip-chip--both  { background: var(--flag-both); }

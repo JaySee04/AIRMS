@@ -1,6 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
+import type { MouseEvent as ReactMouseEvent, FocusEvent as ReactFocusEvent } from 'react';
 import { bodyFront } from './bodymap-data/bodyFront';
 import { bodyBack } from './bodymap-data/bodyBack';
 import { FRONT_OUTLINE, BACK_OUTLINE } from './bodymap-data/outlines';
@@ -13,6 +14,7 @@ import SubitemTable from './SubitemTable';
 import {
   TIER_LABEL, TIER_ORDER, TIER_RANGE, TIER_RANK, tierOf, type TierState,
 } from '@/lib/holomotionTiers';
+import HoverTip, { useHoverTip } from '@/components/ui/HoverTip';
 
 export type MuscleSide = 'L' | 'R' | 'B';
 export interface MuscleEntry {
@@ -242,6 +244,12 @@ function renderParts(
     focusable: boolean;
     activeKeys: string[];
     onActive: (keys: string[]) => void;
+    // Tooltip wiring rides on the SAME hover/focus events that already drive
+    // the side-card cross-highlighting, so pointing at a muscle does not cost a
+    // second listener or a second render.
+    onTip?: (lines: string[], clientX: number, clientY: number) => void;
+    onTipAt?: (lines: string[], el: Element) => void;
+    onTipHide?: () => void;
   },
 ): React.ReactNode[] {
   const out: React.ReactNode[] = [];
@@ -288,10 +296,21 @@ function renderParts(
           tabIndex: 0,
           role: 'img',
           'aria-label': `${title.replace(/\n/g, '; ')} (${sideTag === 'R' ? 'right' : 'left'} side)`,
-          onMouseEnter: () => interaction?.onActive([key]),
-          onMouseLeave: () => interaction?.onActive([]),
-          onFocus: () => interaction?.onActive([key]),
-          onBlur: () => interaction?.onActive([]),
+          onMouseEnter: (e: ReactMouseEvent<SVGGElement>) => {
+            interaction?.onActive([key]);
+            interaction?.onTip?.(title.split('\n'), e.clientX, e.clientY);
+          },
+          // The tip follows the pointer across a muscle, so a wide shape does
+          // not leave the box stranded where the cursor entered it.
+          onMouseMove: (e: ReactMouseEvent<SVGGElement>) => {
+            interaction?.onTip?.(title.split('\n'), e.clientX, e.clientY);
+          },
+          onMouseLeave: () => { interaction?.onActive([]); interaction?.onTipHide?.(); },
+          onFocus: (e: ReactFocusEvent<SVGGElement>) => {
+            interaction?.onActive([key]);
+            interaction?.onTipAt?.(title.split('\n'), e.currentTarget);
+          },
+          onBlur: () => { interaction?.onActive([]); interaction?.onTipHide?.(); },
         }
         : { 'aria-hidden': true as const };
 
@@ -303,7 +322,6 @@ function renderParts(
           data-side={sideTag}
           {...a11y}
         >
-          <title>{title}</title>
           {paths.map((d, i) => (
             <path
               key={i}
@@ -330,6 +348,16 @@ export default function BodyMap({
   // Right" told you the name but not where it was, and the only way to find out
   // was to hover blindly over the drawing. Now each answers the other.
   const [activeKeys, setActiveKeys] = useState<string[]>([]);
+  // One tip, anchored to the element that holds BOTH figures: front and back
+  // share a single `interaction` object, so a per-figure host would have to be
+  // threaded through every renderParts call for no gain.
+  const { tip, show, showAt, hide } = useHoverTip();
+  const tipHost = useRef<HTMLDivElement>(null);
+  const tipWiring = {
+    onTip: (lines: string[], x: number, y: number) => show(lines, tipHost.current, x, y),
+    onTipAt: (lines: string[], el: Element) => showAt(lines, tipHost.current, el),
+    onTipHide: hide,
+  };
   const slugFlags = useMemo(() => aggregateBySlug(myo, ten), [myo, ten]);
   const slugTiers = useMemo(() => aggregateSubitemsBySlug(subitems), [subitems]);
 
@@ -375,7 +403,7 @@ export default function BodyMap({
           markers: MARKER_MUSCLES,
           // Flags mode has at most a handful of findings, so every one of them
           // is worth a tab stop.
-          interaction: { focusable: true, activeKeys, onActive: setActiveKeys },
+          interaction: { focusable: true, activeKeys, onActive: setActiveKeys, ...tipWiring },
         }
       : {
           // Region-level geometry: the Physical Fitness Subitem Score IS five
@@ -391,7 +419,7 @@ export default function BodyMap({
           // Deliberately NOT focusable: the 5 regions are painted across ~17
           // slugs, so tabbing the figure would mean 34 stops repeating 5 scores.
           // SubitemTable below is a real table and carries the same data better.
-          interaction: { focusable: false, activeKeys, onActive: setActiveKeys },
+          interaction: { focusable: false, activeKeys, onActive: setActiveKeys, ...tipWiring },
         };
 
   return (
@@ -421,7 +449,8 @@ export default function BodyMap({
           mode nothing follows, so it would be a line drawn under the last thing
           on the card. */}
       <div className={`bm-shell${activeMode === 'flags' ? ' bm-shell--flush' : ''}`}>
-        <div className="bm-figures">
+        <div className="bm-figures" ref={tipHost}>
+          <HoverTip tip={tip} />
           <div className="bm-fig">
             <div className="bm-fig-title">Front</div>
             <svg viewBox="0 0 724 1448" xmlns="http://www.w3.org/2000/svg" aria-label="Front body view">
