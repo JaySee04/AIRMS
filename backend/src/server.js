@@ -90,7 +90,16 @@ app.use((err, _req, res, _next) => {
 
 const PORT = process.env.PORT || 5000;
 
-(async () => {
+// Serverless (Vercel) imports this module for its Express app and never listens
+// on a port: the platform owns the socket and hands each request to the exported
+// handler. Listening there would bind nothing and start a scheduler interval
+// inside a function that is frozen between invocations.
+//
+// Same shape as utils/seeder.js, which has guarded on require.main since
+// 2026-08-19 for the same reason — importing a module should not start work.
+module.exports = app;
+
+async function start() {
   await connectDB();
   if (process.env.SQL_SYNC === '1') {
     await sequelize.sync();
@@ -138,4 +147,8 @@ const PORT = process.env.PORT || 5000;
   };
   process.on('SIGTERM', () => shutdown('SIGTERM'));
   process.on('SIGINT', () => shutdown('SIGINT'));
-})();
+}
+
+// Only when this file IS the program. `require`d — by the Vercel handler, or by
+// a test — it just hands back the app.
+if (require.main === module) start();

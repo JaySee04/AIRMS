@@ -32,7 +32,15 @@ let workerPromise = null;
 function getWorker() {
   if (!workerPromise) {
     const { createWorker } = require('tesseract.js');
-    const cachePath = require('path').join(__dirname, '../../.tesseract');
+    // Tesseract caches its ~15 MB English model here on first use. The repo
+    // folder is read-only on a serverless deployment, so fall back to the
+    // platform temp directory: it is writable, it survives for the life of a
+    // warm instance, and a cold start simply re-fetches the model. Overridable
+    // for a host that offers real persistent storage.
+    const cachePath = process.env.TESSERACT_CACHE_PATH
+      || (process.env.VERCEL
+        ? require('path').join(require('os').tmpdir(), 'airms-tesseract')
+        : require('path').join(__dirname, '../../.tesseract'));
     workerPromise = createWorker('eng', undefined, { cachePath })
       .catch((err) => { workerPromise = null; throw err; }); // reset so a retry can reload
   }

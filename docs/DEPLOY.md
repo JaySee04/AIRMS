@@ -122,6 +122,82 @@ above the tile; every eligible account has opted out on their own profile page;
 `SMTP_*` is unset, so the mailer is in console-fallback mode and printed the mail
 to the backend terminal instead; the month is already marked as delivered.
 
+## Vercel
+
+Both halves deploy to Vercel as **two projects from one repository**, because
+they build differently and scale differently.
+
+| Project | Root directory | Framework |
+|---|---|---|
+| `airms-web` | `frontend` | Next.js (auto-detected) |
+| `airms-api` | `backend` | Other — `backend/vercel.json` drives it |
+
+The API is not rewritten for serverless. `api/index.js` imports the same Express
+app `npm start` runs and hands it the request; `src/server.js` exports the app
+and only calls `listen()` when it is the program (`require.main === module`), the
+same guard `utils/seeder.js` has carried since 2026-08-19. A route added to the
+app is therefore live in both, and the two cannot describe different APIs.
+
+### Environment
+
+On `airms-api`: every variable from `backend/.env` (`JWT_SECRET`, the `MYSQL_*`
+block, `SMTP_*`, `VISION_*`) plus:
+
+```
+FRONTEND_URL=https://<your-web-project>.vercel.app   # the CORS allowlist
+CRON_SECRET=<a long random string>                   # guards the cron route
+MAIL_SCHEDULER=off                                   # Vercel Cron drives it instead
+```
+
+On `airms-web`:
+
+```
+NEXT_PUBLIC_API_URL=https://<your-api-project>.vercel.app/api
+```
+
+The database must be reachable from the public internet — a managed MySQL
+(Aiven, TiDB Cloud, Railway) rather than `localhost`. Seed it once by pointing a
+local `backend/.env` at the hosted instance and running `npm run seed`.
+
+### Scheduled mail
+
+`setInterval` cannot work here: the function is frozen between invocations, so
+the in-process ticker never fires. `vercel.json` registers an hourly cron
+against `/api/cron/mail-tick`, which runs the **same** `tick()` the CLI and the
+in-process ticker run. The month markers and the cross-process lock are
+unchanged, so a missed run still sends late rather than never, and an
+overlapping invocation still produces one email.
+
+Set `MAIL_SCHEDULER=off` so the app does not also try to tick.
+
+### What is different once it is hosted
+
+Two things change materially, and neither is a bug to fix later.
+
+**Uploads are capped at 4.5 MB.** That is a platform limit on the request body,
+below the 20 MB the app allows. Typical HoloMotion exports are ~1 MB and are
+unaffected — the sample compact report is 1.02 MB — but the expanded 38-page
+layout in `backend/scripts/samples/nazwan.pdf` is **7.58 MB** and will be
+rejected before it reaches the handler. Generated reports are unaffected in the
+other direction: the largest measured is 0.05 MB.
+
+**"On-device redaction" becomes "pre-provider redaction".** The privacy property
+the system is designed around is that the athlete's name never leaves the
+operator's machine (`utils/redactName.js`, `DESIGN_DECISIONS §18`). On a hosted
+deployment the browser uploads the **un-redacted** PDF to the API first, and
+redaction happens there. The name still never reaches the vision provider, which
+is the disclosure the design was chiefly guarding against — but it does now
+traverse and briefly reside on a third-party host. Say it that way in the report
+and the viva; the on-device claim is true of the local deployment ISN would run,
+not of a public test instance.
+
+Other consequences worth knowing: rate limiting is per-instance because
+`express-rate-limit` keeps its counters in memory, so limits are looser than
+they look under load; and Tesseract re-downloads its ~15 MB English model on
+each cold start, into the platform temp directory
+(`TESSERACT_CACHE_PATH` overrides it), which makes the first import after an
+idle period noticeably slower than the rest.
+
 ## Not covered here
 
 Where the app itself runs, how MySQL is hosted, TLS, and backups are ISN's

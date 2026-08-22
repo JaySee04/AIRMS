@@ -54,6 +54,13 @@ const connectDB = async () => {
     console.log(`MySQL connected: ${sequelize.config.host}:${sequelize.config.port}/${sequelize.config.database}`);
   } catch (err) {
     console.error(`MySQL connection error: ${err.message}`);
+    // Exiting is right for a long-running process: fail loudly at boot rather
+    // than serve a broken API. It is wrong on serverless, where the "process"
+    // is one request — killing it turns a transient database blip into an
+    // opaque platform error, and there is no supervisor to restart into a
+    // healthy state. Throwing lets the request 500 and the next invocation try
+    // again with a fresh connection.
+    if (process.env.VERCEL) throw err;
     process.exit(1);
   }
 };
