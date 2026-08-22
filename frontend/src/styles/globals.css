@@ -1099,7 +1099,11 @@ label:has(> input[type='radio']) {
 .bodymap-silhouette {
   fill: var(--bodymap-fill-mid);
   stroke: var(--bodymap-outline);
-  stroke-width: 3;
+  /* Heavier than the muscle line-work (1.2) by enough to read as the body's own
+     edge. At 3 the contour and the internal divisions carried nearly the same
+     weight, so the figure read as a field of shapes rather than as a body with
+     muscles on it. */
+  stroke-width: 4.5;
   stroke-linejoin: round;
   stroke-linecap: round;
   vector-effect: non-scaling-stroke;
@@ -1111,7 +1115,10 @@ label:has(> input[type='radio']) {
 .bodymap-region {
   fill: var(--bodymap-region-fill);
   stroke: var(--bodymap-region-stroke);
-  stroke-width: 1.2;
+  /* Every muscle keeps a visible edge even unflagged, so adjacent flagged
+     muscles separate instead of merging into one mass — the pectorals and the
+     deltoids used to read as a single orange field. */
+  stroke-width: 1.6;
   stroke-linejoin: round;
   vector-effect: non-scaling-stroke;
   /* stroke and stroke-width are in the transition because the active state
@@ -3042,3 +3049,22 @@ textarea:focus-visible,
 .viz-tip-chip--weak  { background: var(--flag-weak); }
 .viz-tip-chip--tight { background: var(--flag-tight); }
 .viz-tip-chip--both  { background: var(--flag-both); }
+
+/* Deep structures (piriformis, iliopsoas, gluteus minimus, internal oblique,
+   rectus capitis anterior).
+
+   The licensed asset is a SURFACE atlas and has no geometry for any of these;
+   their shapes are inferred from known anatomy — real course, real orientation,
+   contained by the muscle they lie under, but inferred. The dashed edge is the
+   anatomical-illustration convention for a structure below the plane being
+   drawn, and it is what keeps the figure honest: it says "this muscle, here,
+   underneath" rather than presenting an inference as an observation.
+
+   Four of the eight muscles HoloMotion emits are in this set, so this is not a
+   rare footnote — it is the commonest thing the figure has to say. */
+.bodymap-deep {
+  stroke-dasharray: 7 5;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+}
+.bodymap-region-group.is-active .bodymap-deep { stroke-width: 3; }

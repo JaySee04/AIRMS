@@ -325,7 +325,11 @@ function renderParts(
           {paths.map((d, i) => (
             <path
               key={i}
-              className={classForState(state)}
+              // Deep structures carry a dashed edge — the standing convention in
+              // anatomical illustration for something lying beneath the plane
+              // being drawn. Without it the figure would silently promote an
+              // inferred shape to a surface observation.
+              className={`${classForState(state)}${markerSlugs.has(part.slug) ? ' bodymap-deep' : ''}`}
               d={d}
             />
           ))}

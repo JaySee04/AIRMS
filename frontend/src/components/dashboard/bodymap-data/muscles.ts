@@ -118,29 +118,53 @@ function circlePath(cx: number, cy: number, r: number, sweep: 0 | 1 = 0): string
   return `M ${cx - r} ${cy} a ${r} ${r} 0 1 ${sweep} ${r * 2} 0 a ${r} ${r} 0 1 ${sweep} ${-r * 2} 0 Z`;
 }
 
-// Deep muscles are drawn as a MARKER — a ring with a centre dot — not as a
-// pseudo-anatomical blob.
+// Deep muscles are drawn as their own ANATOMY — an oriented oval in the place
+// the structure actually occupies — rather than as the ring-and-dot marker used
+// until 2026-08-22.
 //
-// Why: the licensed asset is a surface atlas and simply has no geometry for
-// piriformis, iliopsoas, gluteus minimus, the internal oblique or rectus capitis
-// anterior. The previous convention filled an ellipse inside the parent muscle,
-// which looked like an attempt to draw the muscle and failed at it — and these
-// are not rare edge cases: four of the eight muscles HoloMotion actually emits
-// are in this set, so the instrument's commonest findings were exactly the ones
-// rendered worst.
+// The history matters, because this reverses a deliberate decision twice. The
+// first convention filled a plain ellipse inside the parent, which read as an
+// attempt to draw the muscle and failed at it. It was replaced by a marker on
+// the argument that a marker claims only "this structure, at this location",
+// which the licensed surface atlas can support and a shape cannot: it has no
+// geometry for piriformis, iliopsoas, gluteus minimus, the internal oblique or
+// rectus capitis anterior, because none of them is visible from the surface.
 //
-// A marker makes a different and truthful claim: "this structure, at this
-// location" rather than "this is its shape". Fixed radius, so every deep finding
-// reads at the same weight regardless of how big the parent happens to be.
-const MARKER_R = 18;
+// JC asked (2026-08-22) for a figure that reads as a human body while staying
+// useful to a physiologist. Both halves of that are honoured here rather than
+// only the first:
+//
+//   * SHAPE — each deep muscle gets an oval whose size, position and ANGLE are
+//     taken from its real course, not from a template. Piriformis runs obliquely
+//     from sacrum to greater trochanter; iliopsoas descends near-vertically to
+//     the lesser trochanter; the internal oblique fans up and medially, against
+//     the external oblique's grain. A physiologist reading the figure sees a
+//     structure lying the way that structure lies.
+//
+//   * HONESTY — they are still marked as deep. BodyMap draws these with a dashed
+//     edge (.bodymap-deep), which is the long-standing anatomical-illustration
+//     convention for a structure lying beneath the plane being shown. So the
+//     figure says "this muscle, here, underneath" instead of silently promoting
+//     an inference to a surface observation.
+//
+// Sizes stay fractions of the PARENT's measured box, so a deep muscle is
+// contained by the structure it lies under no matter how the asset is scaled.
+// The old marker's fixed radius is deliberately not carried over: two muscles of
+// genuinely different size should not be drawn identically once the figure is
+// claiming to show shape.
 
-function markerPaths(cx: number, cy: number): string[] {
-  return [
-    // Ring: outer circle + inner circle wound the other way, so the middle
-    // stays hollow. One path, so it takes the flag colour like any other.
-    `${circlePath(cx, cy, MARKER_R, 0)} ${circlePath(cx, cy, MARKER_R * 0.58, 1)}`,
-    circlePath(cx, cy, MARKER_R * 0.26),
-  ];
+// An ellipse as a path, rotated about its centre. Two half-arcs, because SVG's
+// elliptical arc takes the x-axis rotation directly and needs no trigonometry
+// beyond finding the two endpoints of the major axis.
+function ovalPath(cx: number, cy: number, rx: number, ry: number, rotDeg: number): string {
+  const r = (rotDeg * Math.PI) / 180;
+  const dx = rx * Math.cos(r);
+  const dy = rx * Math.sin(r);
+  const x1 = cx - dx, y1 = cy - dy;
+  const x2 = cx + dx, y2 = cy + dy;
+  return `M ${x1.toFixed(2)} ${y1.toFixed(2)} `
+    + `A ${rx.toFixed(2)} ${ry.toFixed(2)} ${rotDeg} 0 1 ${x2.toFixed(2)} ${y2.toFixed(2)} `
+    + `A ${rx.toFixed(2)} ${ry.toFixed(2)} ${rotDeg} 0 1 ${x1.toFixed(2)} ${y1.toFixed(2)} Z`;
 }
 
 // Fractional point inside a parent's measured box.
@@ -151,9 +175,20 @@ function at(parent: Box, fx: number, fy: number): { cx: number; cy: number } {
   };
 }
 
-function marker(parent: Box, fx: number, fy: number): string[] {
+// A deep muscle: an oval placed at (fx, fy) of the parent box, with radii given
+// as fractions of that box and an angle given in degrees clockwise from the
+// horizontal. `rot` is mirrored by the caller for the right side, since a
+// muscle's obliquity reverses across the midline.
+function deep(
+  parent: Box,
+  fx: number, fy: number,
+  rxFrac: number, ryFrac: number,
+  rotDeg: number,
+): string[] {
+  const w = parent.maxX - parent.minX;
+  const h = parent.maxY - parent.minY;
   const { cx, cy } = at(parent, fx, fy);
-  return markerPaths(cx, cy);
+  return [ovalPath(cx, cy, w * rxFrac, h * ryFrac, rotDeg)];
 }
 
 // A strap muscle drawn as the band it is: a thin quad from origin to insertion.
@@ -272,42 +307,58 @@ function put(fig: Figure, muscle: string, side: Side, ds: string[]) {
   // -- External oblique: the superficial flank slips --------------------------
   put('front', 'External Oblique', side, paths('front', 'obliques', side));
 
-  // -- Deep muscles: located by MARKER, not drawn as pseudo-anatomy -----------
-  // See markerPaths above for why. Placement is still derived from the measured
-  // box of the structure each one lies under, so the marker lands inside the
-  // right region rather than being positioned freehand.
+  // -- Deep muscles: drawn as their own anatomy, marked as deep ---------------
+  // See `deep` above. Position, size AND angle come from each muscle's real
+  // course; the containing box is the structure it lies under, so a deep muscle
+  // can never escape its parent however the asset is scaled. `mirror` flips
+  // obliquity across the midline — a muscle that runs down-and-out on the left
+  // runs down-and-out on the right, which is the opposite screen angle.
+  const mirror = side === 'left' ? 1 : -1;
   {
     const glute = paths('back', 'gluteal', side);
     if (glute.length) {
       const gb = unionBox(glute);
-      // Piriformis: deep, upper-medial third of the buttock, under max.
-      put('back', 'Piriformis', side, marker(gb, side === 'left' ? 0.62 : 0.38, 0.30));
-      // Gluteus minimus: deepest of the three, under medius.
-      put('back', 'Gluteus Minimus', side, marker(gb, side === 'left' ? 0.34 : 0.66, 0.20));
+      // Piriformis: a flat band running obliquely from the sacrum (medial,
+      // higher) to the greater trochanter (lateral, lower) — long, thin, and
+      // tilted, which is what distinguishes it on sight from the glutes over it.
+      put('back', 'Piriformis', side,
+        deep(gb, side === 'left' ? 0.60 : 0.40, 0.30, 0.30, 0.055, 20 * mirror));
+      // Gluteus minimus: the deepest of the three and the smallest, fanning from
+      // the ilium down to the trochanter, so it sits higher and more lateral.
+      put('back', 'Gluteus Minimus', side,
+        deep(gb, side === 'left' ? 0.34 : 0.66, 0.22, 0.20, 0.10, -40 * mirror));
     }
   }
   {
     const add = paths('front', 'adductors', side);
     if (add.length) {
       const ab = unionBox(add);
-      // Iliopsoas: deep hip flexor at the groin — not the inner-thigh mass.
-      put('front', 'Iliopsoas', side, marker(ab, side === 'left' ? 0.70 : 0.30, 0.10));
+      // Iliopsoas: descends from the lumbar spine across the pelvic brim to the
+      // lesser trochanter — a long, near-vertical strap at the groin, NOT the
+      // inner-thigh mass its parent box belongs to.
+      put('front', 'Iliopsoas', side,
+        deep(ab, side === 'left' ? 0.68 : 0.32, 0.12, 0.085, 0.13, 15 * mirror));
     }
   }
   {
     const ob = paths('front', 'obliques', side);
     if (ob.length) {
       const bb = unionBox(ob);
-      // Internal oblique: deep to the external, same flank column.
-      put('front', 'Internal Oblique', side, marker(bb, 0.5, 0.62));
+      // Internal oblique: deep to the external and running the OTHER way — up
+      // and medially, where the external runs down and medially. Drawing the two
+      // at opposing angles is the whole reason a reader can tell them apart.
+      put('front', 'Internal Oblique', side,
+        deep(bb, 0.5, 0.58, 0.30, 0.13, -30 * mirror));
     }
   }
   {
     const n = paths('front', 'neck', side);
     if (n.length) {
       const nb = unionBox(n);
-      // Rectus capitis anterior: deep anterior neck flexor, high and medial.
-      put('front', 'Rectus Capitis Anterior', side, marker(nb, side === 'left' ? 0.72 : 0.28, 0.28));
+      // Rectus capitis anterior: a short deep flexor from the atlas to the
+      // occiput — small, near-vertical, high and medial on the anterior neck.
+      put('front', 'Rectus Capitis Anterior', side,
+        deep(nb, side === 'left' ? 0.70 : 0.30, 0.26, 0.10, 0.20, 8 * mirror));
     }
   }
   {
@@ -345,10 +396,17 @@ export const muscleBack: BodyPart[] = build('back');
 // Every muscle slug the figure can render, for scope checks in BodyMap.
 export const RENDERABLE_MUSCLES: Set<string> = new Set([...acc.keys()]);
 
-// Muscles drawn as a marker rather than as their own shape. BodyMap hides these
-// entirely when nothing is flagged: a marker is an attention glyph, so leaving
-// it on the figure unflagged reads as a finding that isn't there. The surface
-// muscles have no such problem — they ARE the body, so they always draw.
+// The DEEP muscles: structures the licensed surface atlas cannot see, drawn
+// from their known anatomy and marked with a dashed edge (.bodymap-deep).
+//
+// BodyMap hides these entirely when nothing is flagged, and that is still right
+// now they have shapes. A surface muscle always draws because it IS the body;
+// a deep one drawn unflagged would assert an interior the figure is otherwise
+// not showing, and would read as a finding that isn't there.
+//
+// The name is kept as MARKER_MUSCLES to avoid a rename touching every caller
+// days before assessment; it means "the deep set", and the 2026-08-22 change
+// replaced how they are drawn, not which they are.
 export const MARKER_MUSCLES: Set<string> = new Set([
   'Piriformis', 'Gluteus Minimus', 'Iliopsoas', 'Internal Oblique', 'Rectus Capitis Anterior',
 ]);

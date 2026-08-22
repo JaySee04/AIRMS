@@ -109,36 +109,85 @@ describe('HoloMotion muscle partition', () => {
     });
   });
 
-  // The asset is a surface atlas with no geometry for these, so they are marked
-  // rather than drawn. Four of the eight muscles HoloMotion actually emits are
-  // in this set, so this is the commonest thing the figure has to show.
+  // The asset is a surface atlas with no geometry for these. Until 2026-08-22
+  // they were drawn as a ring-and-dot marker; they are now drawn as their own
+  // anatomy, with a dashed edge in the UI saying the structure lies beneath the
+  // plane shown. Four of the eight muscles HoloMotion actually emits are in this
+  // set, so this is the commonest thing the figure has to show — and the shapes
+  // are inferred rather than measured, which is exactly why they are pinned.
   const DEEP = ['Piriformis', 'Gluteus Minimus', 'Iliopsoas', 'Internal Oblique', 'Rectus Capitis Anterior'];
 
-  it('draws every deep muscle as a hollow ring plus a centre dot', () => {
+  it('draws every deep muscle as one closed shape', () => {
     DEEP.forEach((slug) => {
       (['left', 'right'] as const).forEach((s) => {
         const ds = by(slug).path[s] ?? [];
-        expect(ds).toHaveLength(2);
-        // The ring is one path holding two circles wound in OPPOSITE directions;
-        // that opposition is what leaves the centre hollow under nonzero fill.
-        // Drawn the same way round, it would fill solid and be a blob again.
-        const sweeps = [...ds[0].matchAll(/a [\d.]+ [\d.]+ 0 1 ([01])/g)].map((m) => m[1]);
-        expect(sweeps).toEqual(['0', '0', '1', '1']);
-        // Centre dot sits concentric with the ring.
-        expect(bbox(ds[1]).cx).toBeCloseTo(bbox(ds[0]).cx, 5);
-        expect(bbox(ds[1]).cy).toBeCloseTo(bbox(ds[0]).cy, 5);
+        // One path, not the two the marker needed. A second path here would
+        // reintroduce the "two separate findings" reading the marker had.
+        expect(ds).toHaveLength(1);
+        expect(ds[0].trim().endsWith('Z')).toBe(true);
       });
     });
   });
 
-  it('gives every deep marker the same size, whatever its parent', () => {
-    const widths = DEEP.flatMap((slug) => (['left', 'right'] as const).map((s) => {
-      const b = bbox((by(slug).path[s] ?? [])[0]);
-      return b.maxX - b.minX;
-    }));
-    // A marker is a fixed-radius glyph, not a fraction of whatever it sits in —
-    // otherwise a hip finding would shout and a neck finding would whisper.
-    expect(new Set(widths.map((w) => w.toFixed(3))).size).toBe(1);
+  it('keeps every deep muscle inside the structure it lies under', () => {
+    // The containment guarantee the marker had, kept now that size varies: a
+    // deep muscle is positioned and scaled from its PARENT's measured box, so it
+    // cannot drift outside the muscle it is supposed to be underneath however
+    // the asset is scaled.
+    const parentOf: Record<string, string> = {
+      Piriformis: 'Gluteus Maximus',
+      'Gluteus Minimus': 'Gluteus Maximus',
+      'Internal Oblique': 'External Oblique',
+    };
+    Object.entries(parentOf).forEach(([slug, parent]) => {
+      (['left', 'right'] as const).forEach((s) => {
+        const d = box(slug, s);
+        const q = box(parent, s);
+        expect(d.minX).toBeGreaterThanOrEqual(q.minX - 1);
+        expect(d.maxX).toBeLessThanOrEqual(q.maxX + 1);
+        expect(d.minY).toBeGreaterThanOrEqual(q.minY - 1);
+        expect(d.maxY).toBeLessThanOrEqual(q.maxY + 1);
+      });
+    });
+  });
+
+  it('sizes a deep muscle as a minority of its parent, never a blob', () => {
+    // The old marker was fixed-radius so a hip finding could not shout over a
+    // neck one. Anatomy legitimately differs in size, so the guard becomes
+    // proportional instead: big enough to see, never big enough to read as the
+    // parent muscle itself.
+    const parentOf: Record<string, string> = {
+      Piriformis: 'Gluteus Maximus',
+      'Gluteus Minimus': 'Gluteus Maximus',
+      'Internal Oblique': 'External Oblique',
+    };
+    Object.entries(parentOf).forEach(([slug, parent]) => {
+      (['left', 'right'] as const).forEach((s) => {
+        const d = box(slug, s);
+        const q = box(parent, s);
+        const share = ((d.maxX - d.minX) * (d.maxY - d.minY))
+          / (((q.maxX - q.minX) * (q.maxY - q.minY)) || 1);
+        expect(share).toBeGreaterThan(0.005);
+        expect(share).toBeLessThan(0.5);
+      });
+    });
+  });
+
+  it('mirrors deep obliquity across the midline', () => {
+    // A muscle that runs down-and-outward on the left runs down-and-outward on
+    // the right, which is the opposite angle on screen. If both sides were built
+    // with the same rotation the figure would show one of them lying the wrong
+    // way — anatomically wrong, and invisible without measuring it.
+    ['Piriformis', 'Gluteus Minimus', 'Internal Oblique'].forEach((slug) => {
+      const l = by(slug).path.left?.[0] ?? '';
+      const r = by(slug).path.right?.[0] ?? '';
+      const rot = (d: string) => {
+        const m = /A [\d.]+ [\d.]+ (-?[\d.]+)/.exec(d);
+        return m ? Number(m[1]) : NaN;
+      };
+      expect(rot(l)).toBeCloseTo(-rot(r), 5);
+      expect(rot(l)).not.toBe(0);
+    });
   });
 
   it('draws sartorius as one continuous strap, not two loose dots', () => {
