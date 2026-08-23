@@ -21,7 +21,31 @@
 // pdfjs's Node build calls require("canvas") internally; package.json aliases
 // "canvas" → @napi-rs/canvas (a prebuilt binary, no node-gyp compile needed).
 
-const { createCanvas } = require('canvas');
+// `canvas` (aliased to the prebuilt @napi-rs/canvas) is a NATIVE binary, and it
+// is loaded lazily rather than at module scope.
+//
+// Requiring it at load time meant the whole API refused to start if that binary
+// could not be loaded — which is exactly what happens on a platform whose
+// runtime differs from the machine the module was installed on. A serverless
+// cold start then fails with FUNCTION_INVOCATION_FAILED before any route runs,
+// so logging in, reading a dashboard or downloading a report all die because of
+// a dependency that only the PDF import path needs.
+//
+// Deferred, the failure is contained: everything else serves normally and only
+// an import reports the problem, with a message that names it.
+function loadCanvas() {
+  try {
+    return require('canvas');
+  } catch (err) {
+    const e = new Error(
+      'PDF rendering is unavailable on this host: the native canvas library '
+      + `failed to load (${err.message}). Screening import needs it; the rest of `
+      + 'the system does not.',
+    );
+    e.cause = err;
+    throw e;
+  }
+}
 const { redactNameOnCanvas } = require('./redactName');
 
 // How many leading pages to send to the model. The data section spans pages
@@ -60,7 +84,7 @@ async function renderPdfPages(buffer, pages = DATA_PAGES, scale = renderScale())
   for (const pageNum of wanted) {
     const page = await doc.getPage(pageNum);
     const viewport = page.getViewport({ scale });
-    const canvas = createCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
+    const canvas = loadCanvas().createCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
     const ctx = canvas.getContext('2d');
     await page.render({ canvasContext: ctx, viewport }).promise;
     out.push({
@@ -89,7 +113,7 @@ async function renderForExtraction(buffer, scale = renderScale()) {
   for (let pageNum = 1; pageNum <= n; pageNum++) {
     const page = await doc.getPage(pageNum);
     const viewport = page.getViewport({ scale });
-    const canvas = createCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
+    const canvas = loadCanvas().createCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
     await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
     // Page 1 is the only page carrying the athlete's name (verified against both
     // HoloMotion layouts). Redact it locally BEFORE the image is serialised, so

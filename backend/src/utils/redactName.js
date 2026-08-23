@@ -16,7 +16,9 @@
 // Fail-closed: any OCR trouble → black out the whole top-left Information region
 // (still clear of the right-hand gauges) rather than send page 1 unredacted.
 
-const { createCanvas } = require('canvas');
+// See pdfRender.js: the native canvas binary is loaded on demand so that a
+// host unable to load it still serves everything except PDF import.
+const loadCanvas = () => require('canvas');
 
 // The name sits in the top-left "Information" block; the score gauges are
 // top-right (from ~0.6·W). OCR only this region — faster, and it keeps the gauge
@@ -81,7 +83,7 @@ async function redactNameOnCanvas(canvas) {
   try {
     // Invert the region to dark-on-light (the report is white-on-dark, which
     // Tesseract reads far better flipped) and OCR it.
-    const pre = createCanvas(cw, ch);
+    const pre = loadCanvas().createCanvas(cw, ch);
     const pctx = pre.getContext('2d');
     pctx.drawImage(canvas, 0, 0, cw, ch, 0, 0, cw, ch);
     const img = pctx.getImageData(0, 0, cw, ch), d = img.data;
