@@ -646,13 +646,17 @@ label:has(> input[type='radio']) {
    which replaced the abstract 0-100 indicator as the hero's explanation. Sits
    on a translucent wash so it reads as a panel inside the band-tinted hero
    without needing its own colour (which would fight the band). */
+/* No card of its own. The peer comparison is AIRMS-derived rather than printed
+   by HoloMotion, and that boundary matters — but it is already carried by the
+   heading, which names the comparison group and its size in words, and by the
+   caveat under it. A panel inside the hero repeating the hero's own shape was
+   marking the same boundary a second time, in a way that only added an edge.
+   A rule above keeps the section legible without nesting a card in a card. */
 .cohort-profile {
   margin-top: 14px;
-  padding: 12px 14px;
-  border-radius: var(--radius);
-  background: rgba(255, 255, 255, 0.5);
+  padding: 12px 0 0;
+  border-top: 1px solid var(--border);
 }
-[data-theme="dark"] .cohort-profile { background: rgba(255, 255, 255, 0.06); }
 /* How old the reading is, stated where the verdict is read. Amber for due-soon,
    red for overdue — the same status tokens the bands use, because it is the same
    kind of claim: something needs doing. */
@@ -756,13 +760,13 @@ label:has(> input[type='radio']) {
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 12px;
 }
+/* Two bordered, filled panels for a for/against pair were the heaviest thing on
+   the card. What encodes the polarity is the COLOUR of the left rule, not the
+   box around it — so the rule stays and the box goes. */
 .reason-col {
-  padding: 10px 12px;
-  border-radius: var(--radius);
-  background: rgba(255, 255, 255, 0.5);
+  padding: 2px 0 2px 12px;
   border-left: 3px solid var(--border);
 }
-[data-theme="dark"] .reason-col { background: rgba(255, 255, 255, 0.06); }
 .reason-col--for     { border-left-color: var(--risk-high); }
 .reason-col--against { border-left-color: var(--risk-low); }
 .reason-col-head {
