@@ -23,6 +23,13 @@ const { isForeignAthleteRequest, canDownloadIndividualReport } = require('../uti
 const { resolveCohortStats, orientedComponents, computeStats } = require('../utils/cohorts');
 const { getSettings } = require('../utils/settings');
 const { effectiveBand } = require('../utils/bands');
+
+// Mirrors SMALL_COHORT in frontend/src/components/dashboard/OverallRiskBadge.tsx.
+// Named on both sides so the screen and the printed report caveat the SAME
+// cohorts: a comparison hedged on one surface and stated flatly on the other is
+// the drift this codebase keeps finding, and the report is the copy that gets
+// filed.
+const SMALL_COHORT = 10;
 const { holisticData, drawHolistic } = require('../utils/holisticReport');
 const { programmeActivityData } = require('../utils/programmeActivity');
 const {
@@ -156,11 +163,22 @@ router.get('/individual/:id.pdf', auth, rbac('athlete', 'medical', 'admin', 'coa
       const ref = cohort && cohort.stats[key] ? cohort.stats[key].mean : null;
       bar(doc, label, num(latest[key]), max, NAVY, { ref });
     }
-    doc.moveDown(0.2).fontSize(8).fillColor(MUTED).text('Navy marker = cohort average.', 50);
+    // A cohort size, printed bare, invites the reader to trust it. The dashboard
+    // qualifies anything under SMALL_COHORT peers (OverallRiskBadge.tsx); the
+    // PDF did not, so the same fact was hedged on screen and stated flatly on
+    // paper — and paper is the copy that gets filed and shown to somebody who
+    // never opens the dashboard. Every scored athlete currently sits below this
+    // floor (§33c: min 5, median 7), so this applies to every individual report.
+    const cohortNote = cohort && cohort.n > 0 && cohort.n < SMALL_COHORT
+      ? `Navy marker = cohort average. This comparison rests on ${cohort.n} peers — a mean and spread from so few are themselves uncertain, so read the standing as indicative rather than precise.`
+      : 'Navy marker = cohort average.';
+    doc.moveDown(0.2).fontSize(8).fillColor(MUTED).text(cohortNote, 50, doc.y, { width: 495 });
 
     // Exercise Risk Evaluation — printed legend + zone gauges + radar
     sectionTitle(doc, 'Exercise Risk Evaluation');
-    riskLegend(doc);
+    // Individual report: a band chip sits at the top, so the note explaining
+    // that a Watch reading is not an escalation has something to point at.
+    riskLegend(doc, { hasBandChip: true });
     zoneGauge(doc, 'Exercise Risks (overall)', num(latest.exerciseRisks) ?? 0);
     doc.moveDown(0.2);
     for (const [key, label] of RISKS) zoneGauge(doc, label, num(latest[key]) ?? 0);

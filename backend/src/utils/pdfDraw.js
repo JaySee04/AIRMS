@@ -597,7 +597,13 @@ function focusTable(doc, title, rows) {
   doc.moveDown(0.4);
 }
 
-function riskLegend(doc) {
+// `hasBandChip` says whether THIS report carries a per-athlete risk band at the
+// top. Only the individual report does; the team and holistic reports open with
+// group averages and have no band to refer to. The sentence distinguishing a
+// regional reading from an escalation is therefore printed only where the thing
+// it points at actually exists — the first version referred every reader to a
+// chip that two of the three reports do not have.
+function riskLegend(doc, { hasBandChip = false } = {}) {
   ensure(doc, 16);
   const y = doc.y; let x = 50;
   for (const z of [['Low (0–15)', BAND.green], ['Watch (16–25)', BAND.amber], ['Elevated (>25)', BAND.red]]) {
@@ -608,7 +614,10 @@ function riskLegend(doc) {
   doc.fillColor(TEXT);
   doc.y = y + 12;
   doc.fontSize(7.5).fillColor(MUTED).font('Helvetica')
-    .text('The HoloMotion report prints Low 0–15 · Medium 16–55 · High 56–100. AIRMS keeps the report’s Low boundary and subdivides its Medium band into Watch and Elevated so ISN can act early; readings above 55 do not occur in practice. These are the standard bands — the dashboards hold each athlete’s sport-critical regions to a tighter Watch/Elevated boundary (12/20), so a region may band one step higher on screen than here.',
+    .text('The HoloMotion report prints Low 0–15 · Medium 16–55 · High 56–100. AIRMS keeps the report’s Low boundary and subdivides its Medium band into Watch and Elevated so ISN can act early; readings above 55 do not occur in practice. These are the standard bands — the dashboards hold each athlete’s sport-critical regions to a tighter Watch/Elevated boundary (12/20), so a region may band one step higher on screen than here.'
+      + (hasBandChip
+        ? ' A Watch or Elevated reading here is a REGIONAL finding, not an escalation — the risk band at the top of this report summarises the cohort-normed escalation rules, so it can read “No indicators flagged” while a region below sits above Low.'
+        : ''),
       50, doc.y, { width: doc.page.width - 100 });
   doc.fillColor(TEXT);
   doc.moveDown(0.2);
@@ -1195,7 +1204,14 @@ function symmetryFindings(subitems) {
       gap = Math.round(Math.abs(l - rr));
       weaker = gap < 3 ? 'Balanced' : l < rr ? 'Left' : 'Right';
     }
-    const status = sym >= 85 ? 'Good symmetry' : sym >= 75 ? 'Acceptable' : sym >= 60 ? 'Mild asymmetry' : 'Marked asymmetry';
+    // The score and the side are different measurements, and a row could print
+    // "Mild asymmetry" beside "Balanced" — two columns contradicting each other,
+    // reconcilable only by reading the footnote. They are not actually in
+    // conflict: the HoloMotion symmetry score can be low while left and right
+    // ROM/stability are level, which means the imbalance is not a side-to-side
+    // one. Saying that is more useful than leaving the reader to notice it.
+    let status = sym >= 85 ? 'Good symmetry' : sym >= 75 ? 'Acceptable' : sym >= 60 ? 'Mild asymmetry' : 'Marked asymmetry';
+    if (sym < 75 && weaker === 'Balanced') status += ' (not side-to-side)';
     out.push({ key, label, sym, status, tier: tierOf(sym), weaker, gap });
   }
   return out;
