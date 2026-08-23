@@ -66,9 +66,26 @@ export interface ScreeningIndicator {
 // say. The BAND is untouched — reasons and escalations are different things.
 const NOTABLE_Z = -1;
 
+/**
+ * How big a gap is, for a reader who does not think in standard deviations.
+ *
+ * The bands are the ones the system already acts on: ±0.25 is the dead band the
+ * difference column colours against, and -1 is NOTABLE_Z, the point at which a
+ * component is named as a reason even when no rule fired on it. So the words
+ * track thresholds the software genuinely uses rather than being invented for
+ * the label.
+ */
+function gapWord(z: number): string {
+  const a = Math.abs(z);
+  if (a < 0.25) return 'about the same';
+  if (a < 1) return z > 0 ? 'a little better' : 'a little behind';
+  if (a < 2) return z > 0 ? 'clearly better' : 'clearly behind';
+  return z > 0 ? 'far better' : 'far behind';
+}
+
 /** Reasons to assess: the stored escalation reasons, plus any component clearly
  *  below the group that no rule happened to cover. */
-function whyAssess(screening: ScreeningIndicator): string[] {
+function whyAssess(screening: ScreeningIndicator, audience: 'self' | 'staff' = 'staff'): string[] {
   const out = [...(screening.factors ?? [])];
   const named = out.join(' ').toLowerCase();
   for (const d of (screening.cohortDeltas ?? []).filter((x) => x.z <= NOTABLE_Z).sort((a, b) => a.z - b.z)) {
@@ -79,7 +96,10 @@ function whyAssess(screening: ScreeningIndicator): string[] {
     // L/R balance a negative delta means a HIGHER raw value — saying "Injury risk
     // 4.9 below the group" for an athlete at 19 against a group mean of 14.1 states
     // the opposite of the truth.
-    out.push(`${d.label} ${Math.abs(d.delta)} worse than the group (${d.z} SD)`);
+    // The SD is dropped for the athlete for the same reason as the table cell.
+    out.push(audience === 'self'
+      ? `${d.label} ${Math.abs(d.delta)} worse than the group (${gapWord(d.z)})`
+      : `${d.label} ${Math.abs(d.delta)} worse than the group (${d.z} SD)`);
   }
   return out;
 }
@@ -231,7 +251,7 @@ export default function OverallRiskBadge({
     : HERO_MSG[audience][historical ? 'past' : 'now'][band];
 
   const deltas = screening.cohortDeltas ?? [];
-  const forList = whyAssess(screening);
+  const forList = whyAssess(screening, audience);
   const againstList = screening.reasonsAgainst ?? [];
   const rank = screening.cohortRank;
   const size = screening.cohortSize;
@@ -278,7 +298,9 @@ export default function OverallRiskBadge({
           <div className="risk-hero-stat-sub">
             as printed by HoloMotion
             {pct != null && (
-              <><br /><strong>{ordinal(pct)} pct</strong> of group ({rank}/{size})</>
+              audience === 'self'
+                ? <><br /><strong>{ordinal(pct)}</strong> of the group ({rank} of {size})</>
+                : <><br /><strong>{ordinal(pct)} pct</strong> of group ({rank}/{size})</>
             )}
           </div>
         </div>
@@ -336,7 +358,11 @@ export default function OverallRiskBadge({
               {historical ? 'Against the group at that screening' : `How ${who} compare${audience === 'self' ? '' : 's'} to the comparison group`}
               {screening.cohortLabel && <span className="cohort-profile-group"> · {screening.cohortLabel}</span>}
               {typeof size === 'number' && size > 0
-                && <span className="cohort-profile-group"> · n={size}</span>}
+                && (
+                  <span className="cohort-profile-group">
+                    {audience === 'self' ? ` · ${size} athletes` : ` · n=${size}`}
+                  </span>
+                )}
             </div>
             {smallCohort && (
               <p className="cohort-profile-caveat">
@@ -371,7 +397,15 @@ export default function OverallRiskBadge({
                         {/* Signed, not an arrow glyph: the sign already carries
                             the direction, and colour only reinforces it. */}
                         {d.delta > 0 ? '+' : ''}{d.delta}
-                        <span className="cohort-profile-sd"> ({d.z} SD)</span>
+                        {/* A standard deviation is information to a clinician and
+                            noise to the athlete whose body it describes. Same
+                            audience switch the hero sentence already uses: staff
+                            get the statistic, the athlete gets the size of the
+                            gap in words. Nothing is hidden — the number above is
+                            identical either way. */}
+                        {audience === 'staff'
+                          ? <span className="cohort-profile-sd"> ({d.z} SD)</span>
+                          : <span className="cohort-profile-sd"> ({gapWord(d.z)})</span>}
                       </td>
                     </tr>
                   );

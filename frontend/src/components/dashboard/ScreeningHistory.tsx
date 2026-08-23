@@ -235,15 +235,16 @@ export default function ScreeningHistory({ athleteId, headerAction, canReinstate
             better-or-worse, so a fall in exercise risks is green.
             {rel && (rel.anySufficient ? (
               <>
-                {' '}A change is called only past that score&apos;s minimal detectable
-                change, measured from athletes&apos; own repeat screenings.
+                {' '}A change is only called real when it is bigger than the
+                normal variation between two screenings of the same athlete,
+                measured from athletes who have been screened more than once.
               </>
             ) : (
               <>
-                {' '}“Steady” uses an <strong>assumed</strong> threshold of ±{rel.fallback}:
-                the programme holds {rel.scores[0]?.pairs ?? 0} repeat screenings and needs{' '}
-                {rel.minPairs} before a real one can be measured. Until then, treat small
-                movements as unproven rather than as progress.
+                {' '}“Steady” uses an <strong>assumed</strong> limit of ±{rel.fallback}:
+                only {rel.scores[0]?.pairs ?? 0} athletes here have been screened twice, and{' '}
+                {rel.minPairs} are needed before the real limit can be worked out. Until then,
+                treat small movements as unproven rather than as progress.
               </>
             ))}
           </p>
