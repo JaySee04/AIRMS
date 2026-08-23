@@ -16,6 +16,7 @@ const PDFDocument = require('pdfkit');
 const { orientedComponents } = require('../utils/cohorts');
 const { compositeZ } = require('../utils/overallIndicator');
 const { effectiveBand, BAND_LABEL } = require('./bands');
+const { symmetryFindings } = require('./symmetry');
 const {
   bodyFront, bodyBack, frontOutline, backOutline, SCOPED_SLUGS: BODYMAP_SCOPED_SLUGS, worstValueBySlug,
 } = require('../utils/bodymap');
@@ -1186,36 +1187,9 @@ function squadMuscleFigure(doc, members, opts = {}) {
 // per-side ROM/Stability say WHICH side is weaker. This is a TMG-style analysis,
 // but every number is printed on the HoloMotion report — nothing is fabricated.
 // Status bands reuse HoloMotion's own subitem tiers (85 / 75 / 60).
-function symmetryFindings(subitems) {
-  if (!subitems || typeof subitems !== 'object') return [];
-  const sideAvg = (a, b) => {
-    const v = [num(a), num(b)].filter((x) => x !== null);
-    return v.length ? v.reduce((p, c) => p + c, 0) / v.length : null;
-  };
-  const out = [];
-  for (const [key, label] of SUBITEM_REGIONS) {
-    const r = subitems[key] || {};
-    const sym = num(r.sym);
-    if (sym === null) continue;
-    const l = sideAvg(r.romL, r.stabL);
-    const rr = sideAvg(r.romR, r.stabR);
-    let weaker = 'Balanced'; let gap = null;
-    if (l !== null && rr !== null) {
-      gap = Math.round(Math.abs(l - rr));
-      weaker = gap < 3 ? 'Balanced' : l < rr ? 'Left' : 'Right';
-    }
-    // The score and the side are different measurements, and a row could print
-    // "Mild asymmetry" beside "Balanced" — two columns contradicting each other,
-    // reconcilable only by reading the footnote. They are not actually in
-    // conflict: the HoloMotion symmetry score can be low while left and right
-    // ROM/stability are level, which means the imbalance is not a side-to-side
-    // one. Saying that is more useful than leaving the reader to notice it.
-    let status = sym >= 85 ? 'Good symmetry' : sym >= 75 ? 'Acceptable' : sym >= 60 ? 'Mild asymmetry' : 'Marked asymmetry';
-    if (sym < 75 && weaker === 'Balanced') status += ' (not side-to-side)';
-    out.push({ key, label, sym, status, tier: tierOf(sym), weaker, gap });
-  }
-  return out;
-}
+// symmetryFindings moved to utils/symmetry.js so the dashboard can render the
+// same analysis. Two definitions of "which side is weaker" would eventually
+// name different sides for the same athlete on screen and on paper.
 
 // Lateral Symmetry section — the analytic counterpart to the raw subitem table:
 // region · symmetry score (tier-coloured) · plain-language status · which side
@@ -1239,8 +1213,13 @@ function symmetrySection(doc, subitems) {
   for (const r of rows) {
     doc.fontSize(9).font('Helvetica').fillColor(TEXT).text(r.label, x, y + 3, { width: labelW - 6, lineBreak: false });
     const cx = x + labelW + symW / 2;
-    doc.circle(cx, y + 7, 10).fill(r.tier.color);
-    doc.fillColor(r.tier.ink).fontSize(8).font('Helvetica-Bold').text(String(r.sym), cx - 10, y + 3.5, { width: 20, align: 'center', lineBreak: false });
+    // The tier is derived here, not carried on the row: utils/symmetry.js
+    // returns the finding, and how a finding is COLOURED is this module's
+    // business. Keeping colour out of the shared util is what lets the
+    // dashboard consume the same rows without inheriting pdfkit's palette.
+    const tier = tierOf(r.sym);
+    doc.circle(cx, y + 7, 10).fill(tier.color);
+    doc.fillColor(tier.ink).fontSize(8).font('Helvetica-Bold').text(String(r.sym), cx - 10, y + 3.5, { width: 20, align: 'center', lineBreak: false });
     doc.fontSize(9).font('Helvetica').fillColor(r.sym >= 75 ? TEXT : bandOnLight('amber')).text(r.status, x + labelW + symW + 10, y + 3, { width: statusW - 12, lineBreak: false });
     doc.fillColor(MUTED).text(r.weaker === 'Balanced' ? 'Balanced' : `${r.weaker} weaker by ${r.gap}`, x + labelW + symW + statusW, y + 3, { lineBreak: false });
     y += 22;

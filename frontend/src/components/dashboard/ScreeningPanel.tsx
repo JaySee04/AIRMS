@@ -42,6 +42,19 @@ export interface ScreeningData {
   // Display-only detail (not part of z-scoring) — not stored on the Athlete
   // row, so callers pull these from the athlete's `.screening` sub-object.
   subitems?: Subitems | null;
+  // Per-region lateral symmetry, computed server-side (backend
+  // utils/symmetry.js) so the screen and the printed report cannot name
+  // different weaker sides for the same athlete.
+  lateralSymmetry?: SymmetryRow[] | null;
+}
+
+export interface SymmetryRow {
+  key: string;
+  label: string;
+  sym: number;
+  status: string;
+  weaker: 'Left' | 'Right' | 'Balanced';
+  gap: number | null;
 }
 
 // Indicator display scale. The report prints Low 0–15 / Medium 16–55 /
@@ -247,6 +260,9 @@ export default function ScreeningPanel({
       {/* Training focus — AIRMS' counterpart of the report's closing Training
           Prescription: corrective exercises for the regions that breached
           their sport thresholds, worst first. */}
+      {athlete.lateralSymmetry && athlete.lateralSymmetry.length > 0 && (
+        <LateralSymmetry rows={athlete.lateralSymmetry} />
+      )}
       {showTrainingFocus && <TrainingFocus athlete={athlete} historical={historical} />}
     </>
   );
@@ -257,6 +273,70 @@ export default function ScreeningPanel({
 // since been superseded. So the heading, the empty state and the footnote all
 // stop instructing, rather than the block being hidden — "what did that screening
 // say to work on" is a fair question to ask of history.
+// Lateral Symmetry — which side is weaker, and by how much.
+//
+// This existed ONLY in the printed report until 2026-08-23. A clinician looking
+// at an athlete on screen could see a symmetry SCORE on the gauges and a
+// worse-side colour on the body map, but nothing that named a side — so the one
+// line in a screening that says which limb to train was reachable only by
+// downloading a PDF.
+//
+// The rows come from the server (backend utils/symmetry.js), the same function
+// that draws the report's table, because two implementations of "which side is
+// weaker" would eventually name different sides for one athlete.
+//
+// Regions with no symmetry score are omitted rather than shown blank: an
+// unmeasured region is not a finding of symmetry.
+function LateralSymmetry({ rows }: { rows: SymmetryRow[] }) {
+  if (!rows.length) return null;
+  const notable = rows.filter((r) => r.weaker !== 'Balanced');
+  return (
+    <div className="card" style={{ marginBottom: 20 }}>
+      <div className="card-header">
+        <div>
+          <h2 className="card-title" style={{ marginBottom: 0 }}>Lateral Symmetry</h2>
+          <span className="card-sub">
+            {notable.length
+              ? `${notable.length} of ${rows.length} regions favour one side`
+              : 'Left and right are level across every measured region'}
+          </span>
+        </div>
+      </div>
+      <table className="cohort-profile-table">
+        <thead>
+          <tr>
+            <th scope="col">Region</th>
+            <th scope="col" className="num">Symmetry</th>
+            <th scope="col">Status</th>
+            <th scope="col">Weaker side</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.key}>
+              <td><strong>{r.label}</strong></td>
+              <td className="num">{r.sym}</td>
+              <td style={{ color: r.sym >= 75 ? 'inherit' : 'var(--risk-moderate)' }}>{r.status}</td>
+              <td>
+                {r.weaker === 'Balanced'
+                  ? <span className="text-muted">Balanced</span>
+                  : <strong>{r.weaker} weaker by {r.gap}</strong>}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="card-sub" style={{ marginTop: 10 }}>
+        Symmetry is HoloMotion&apos;s 0&ndash;100 score per region (higher = more
+        symmetric), banded on its own 85 / 75 / 60 tiers. Weaker side is a
+        separate reading &mdash; it compares that region&apos;s left and right ROM
+        and stability, so a low score with level sides means the imbalance is not
+        a side-to-side one.
+      </p>
+    </div>
+  );
+}
+
 function TrainingFocus({ athlete, historical = false }: { athlete: ScreeningData; historical?: boolean }) {
   const focus = buildTrainingFocus(athlete.risks, athlete.sport);
   return (

@@ -10,6 +10,7 @@
 // Adding the cohort-comparison fields (2026-08-11) meant editing all three again,
 // which is the moment to stop. §19.
 
+const { symmetryFindings } = require('./symmetry');
 const { effectiveBand } = require('./bands');
 const { screeningAgeDays, recallState } = require('./recall');
 
@@ -54,6 +55,19 @@ function toIndicator(s, dueDays = null) {
     cohortLabel: s.cohortLabel ?? null,
     cohortDeltas: arr(s.cohortDeltas),
     subitems: s.subitems || null,
+    // Lateral symmetry, derived here rather than in the client.
+    //
+    // The subitems are already on this payload, so the frontend COULD compute
+    // it — and for the band vocabulary and the indicator list this codebase
+    // deliberately keeps a mirrored definition per package, pinned by tests.
+    // Those are vocabularies. This is arithmetic whose output names the side a
+    // clinician trains, so one definition beats two that agree today:
+    // utils/symmetry.js, the same rows the printed report draws.
+    //
+    // Named lateralSymmetry, not symmetry: `symmetry` is already the athlete's
+    // scalar 0-100 score on this very payload, and a key that quietly replaced
+    // a number with an array would break every existing reader.
+    lateralSymmetry: s.subitems ? symmetryFindings(s.subitems) : null,
     overrideBand: s.overrideBand,
     overrideNote: s.overrideNote,
     overrideBy: s.overrideBy,
