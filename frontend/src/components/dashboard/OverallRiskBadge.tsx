@@ -261,6 +261,7 @@ export default function OverallRiskBadge({
   const smallCohort = typeof size === 'number' && size > 0 && size < SMALL_COHORT;
 
   return (
+    <>
     <div className={`risk-hero risk-hero--${HERO_CLS[band]}`}>
       <div style={{ flex: 1 }}>
 
@@ -303,6 +304,32 @@ export default function OverallRiskBadge({
           <p className={`risk-hero-stale risk-hero-stale--${recall}`}>{staleNotice}</p>
         )}
 
+
+        {/* Both sides of the evidence. AIRMS only ever recorded reasons to
+            escalate, so a green athlete's hero asserted "fine" with nothing
+            behind it and an amber one showed a lone negative with no
+            counterweight. The band above stays the verdict. */}
+        {escCount > 0 && !hasFactors && (
+          <div className="risk-factors">
+            <span className="risk-factors-label">Why:</span>
+            <span className="risk-factor-chip">
+              {escCount} escalation{escCount === 1 ? '' : 's'} recorded
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+
+    {/* Evidence, deliberately OUTSIDE the banded hero.
+        The hero was carrying a verdict AND the whole case for it, so it
+        stood ~750px tall in a saturated band colour and one of its two
+        evidence blocks always ended short of the other, leaving a wedge of
+        empty green that three rounds of re-layout only relocated. The band
+        now wraps the verdict alone, which is what a band colour is FOR:
+        stating the finding at a glance. The numbers behind it sit in an
+        ordinary card, where unequal column heights read as page whitespace
+        rather than as a hole in a coloured slab. */}
+    <div className="risk-evidence card">
         {deltas.length > 0 && (
           <div className="cohort-profile">
             <div className="cohort-profile-head">
@@ -360,11 +387,6 @@ export default function OverallRiskBadge({
             </div>
           </div>
         )}
-
-        {/* Both sides of the evidence. AIRMS only ever recorded reasons to
-            escalate, so a green athlete's hero asserted "fine" with nothing
-            behind it and an amber one showed a lone negative with no
-            counterweight. The band above stays the verdict. */}
         {(forList.length > 0 || againstList.length > 0) && (
           <div className="reason-cols">
             <div className="reason-col reason-col--for">
@@ -385,15 +407,7 @@ export default function OverallRiskBadge({
             </div>
           </div>
         )}
-        {escCount > 0 && !hasFactors && (
-          <div className="risk-factors">
-            <span className="risk-factors-label">Why:</span>
-            <span className="risk-factor-chip">
-              {escCount} escalation{escCount === 1 ? '' : 's'} recorded
-            </span>
-          </div>
-        )}
-      </div>
     </div>
+  </>
   );
 }
