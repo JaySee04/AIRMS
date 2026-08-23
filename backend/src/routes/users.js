@@ -8,6 +8,50 @@ const rbac = require('../middleware/rbac');
 const { PERMISSION_KEYS, PERMISSION_LABELS, sanitizePermissions } = require('../utils/permissions');
 const { validatePassword } = require('../utils/passwordPolicy');
 const { recordAudit } = require('../utils/audit');
+const { sendMail, buildInviteEmail } = require('../utils/mailer');
+const { issueCode, INVITE_CODE_TTL_MIN, RESET_CODE_MAX_ATTEMPTS } = require('../utils/resetCodes');
+const crypto = require('crypto');
+
+// Roles an administrator may create. `athlete` is deliberately absent: athlete
+// accounts are not part of this deployment's onboarding (JC, 2026-08-23), and
+// creating one would also need a roster record to attach it to, which is a
+// different decision from "who may use the system".
+const INVITABLE_ROLES = ['medical', 'coach', 'admin', 'executive'];
+
+// The site an invitation points at. Env rather than derived from the request:
+// the invitee's link must go to the web app, and the API is on a different
+// origin — deriving it from Host would send people to the API domain, where
+// there is no activation page.
+const siteUrl = () => (process.env.FRONTEND_URL || '').split(',')[0].trim() || null;
+
+// Send (or re-send) an invitation. Mutates and SAVES the user.
+//
+// The password set here is random and immediately discarded: an invited account
+// must be unusable until its owner chooses a credential, and the administrator
+// who created it must not be able to sign in as them. That is the whole reason
+// this flow exists rather than an admin typing a password and texting it over.
+async function sendInvite(user, req, { creating = false } = {}) {
+  if (creating) user.password = crypto.randomBytes(32).toString('hex');
+  const code = issueCode(user, { ttlMinutes: INVITE_CODE_TTL_MIN });
+  user.invitedAt = new Date();
+  await user.save();
+
+  const mail = buildInviteEmail({
+    code,
+    name: user.name,
+    role: user.role === 'medical' ? 'medical staff' : user.role,
+    invitedBy: req.user?.name || null,
+    expiresInDays: Math.round(INVITE_CODE_TTL_MIN / (60 * 24)),
+    maxAttempts: RESET_CODE_MAX_ATTEMPTS,
+    siteUrl: siteUrl(),
+  });
+  // Awaited, unlike the reset mail: an administrator pressing "invite" needs to
+  // know whether it actually went. A reset can be fire-and-forget because the
+  // user is present and will simply ask again; nobody is watching an invitation
+  // fail.
+  await sendMail({ to: user.email, ...mail });
+  return code;
+}
 
 const router = express.Router();
 
@@ -47,30 +91,69 @@ router.get('/', async (req, res) => {
 // POST /api/users — create a staff account: a coach (needs an assigned sport)
 // or a medical staffer (full permissions by default, opt-out model). Admins and
 // athletes still come from seed/register, not this endpoint.
+// POST /api/users — create a coach, medical, admin or executive account.
+//
+// Two ways in, and the difference matters:
+//
+//   * WITH a password — the administrator sets it and must convey it to the
+//     person somehow. Retained because it is how every existing account was
+//     made and how a demo account is minted, but it means a credential travels
+//     out of band and the administrator knows it.
+//
+//   * WITHOUT one (`invite: true`) — the account is created with a random
+//     password nobody ever sees, and the person receives a one-time code to set
+//     their own. This is the path for real people: the only password that ever
+//     exists is the one its owner chose.
 router.post('/', async (req, res) => {
   try {
-    const { name, email, password, role, coachSport } = req.body || {};
-    const wantRole = role === 'medical' ? 'medical' : role === 'coach' ? 'coach' : null;
+    const {
+      name, email, password, role, coachSport, invite,
+    } = req.body || {};
+    const wantRole = INVITABLE_ROLES.includes(role) ? role : null;
+    const wantInvite = Boolean(invite) || !password;
     const errors = [];
-    if (!wantRole) errors.push('Role must be "coach" or "medical"');
+    if (!wantRole) errors.push(`Role must be one of: ${INVITABLE_ROLES.join(', ')}`);
     if (!name || !String(name).trim()) errors.push('Name is required');
     if (!email || !String(email).trim()) errors.push('Email is required');
-    // Enforce the SAME password policy as self-service change/reset — an
-    // admin-minted account must not be weaker than one a user sets themselves.
-    if (!password) errors.push('Password is required');
-    else { const pwError = validatePassword(String(password)); if (pwError) errors.push(pwError); }
+    // An invited account needs no password from the administrator; one set by
+    // hand still faces the SAME policy as a user-chosen one, so an admin-minted
+    // account cannot be the weak one.
+    if (!wantInvite) {
+      const pwError = validatePassword(String(password));
+      if (pwError) errors.push(pwError);
+    }
     if (wantRole === 'coach' && (!coachSport || !String(coachSport).trim())) errors.push('A coach needs an assigned sport');
     if (errors.length) return res.status(400).json({ message: errors.join('; ') });
 
     const user = await User.create({
       name: String(name).trim(),
-      email: String(email).trim(),
-      password: String(password),
+      email: String(email).trim().toLowerCase(),
+      // Replaced immediately by sendInvite when inviting; a value is needed here
+      // because the column is NOT NULL and the model hashes on save.
+      password: wantInvite ? crypto.randomBytes(32).toString('hex') : String(password),
       role: wantRole,
-      // Medical staff carry no sport; they default to full permissions (null →
-      // everything granted under the opt-out model in utils/permissions).
       coachSport: wantRole === 'coach' ? String(coachSport).trim() : null,
     });
+
+    let invited = false;
+    if (wantInvite) {
+      try {
+        await sendInvite(user, req, { creating: true });
+        invited = true;
+      } catch (err) {
+        // The account exists but the invitation did not arrive, and saying so is
+        // the difference between an administrator re-sending and an administrator
+        // waiting for a person who was never contacted. The account is left in
+        // place rather than rolled back so the invite can simply be re-sent.
+        return res.status(201).json({
+          ...publicUser(user),
+          invited: false,
+          inviteError: err.message,
+          message: 'Account created, but the invitation email could not be sent. Use Resend invite.',
+        });
+      }
+    }
+
     // Who was given access to the system, and by whom. Creating an account is
     // the act that makes every later action by that account possible, so a trail
     // that records the actions but not the granting has a hole at the start of
@@ -79,15 +162,43 @@ router.post('/', async (req, res) => {
       action: 'user.create',
       entity: 'user',
       entityId: user.id,
-      summary: `Created ${wantRole} account for ${user.name} (${user.email})`,
-      meta: { role: wantRole, email: user.email, coachSport: user.coachSport || null },
+      summary: `Created ${wantRole} account for ${user.name} (${user.email})${invited ? ' and sent an invitation' : ''}`,
+      meta: {
+        role: wantRole, email: user.email, coachSport: user.coachSport || null, invited,
+      },
     });
-    res.status(201).json(publicUser(user));
+    res.status(201).json({ ...publicUser(user), invited });
   } catch (err) {
     if (err.name === 'SequelizeUniqueConstraintError') {
       return res.status(409).json({ message: 'A user with that email already exists.' });
     }
     res.status(400).json({ message: err.message });
+  }
+});
+
+// POST /api/users/:id/invite — send or re-send an activation code.
+//
+// Also usable on an account that already has a password: it mints a new code
+// and the old one dies, which is what "I never got it" and "it expired" both
+// need. It does NOT clear the existing password, so a working account stays
+// usable while its owner decides whether to bother.
+router.post('/:id/invite', async (req, res) => {
+  try {
+    const user = await User.findByPk(req.params.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    if (!user.isActive) return res.status(409).json({ message: 'That account is deactivated. Reactivate it before inviting.' });
+
+    await sendInvite(user, req);
+    recordAudit(req, {
+      action: 'user.invite',
+      entity: 'user',
+      entityId: user.id,
+      summary: `Sent an activation code to ${user.name} (${user.email})`,
+      meta: { role: user.role, email: user.email, resend: Boolean(user.activatedAt) },
+    });
+    res.json({ ...publicUser(user), invited: true });
+  } catch (err) {
+    res.status(502).json({ message: `Could not send the invitation: ${err.message}` });
   }
 });
 

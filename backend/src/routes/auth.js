@@ -24,12 +24,13 @@ const signToken = (id) =>
 // shorter TTL (just long enough to type a new password) and gates access to
 // the actual reset-password endpoint, so the OTP itself never travels in the
 // password-reset request payload.
-const RESET_CODE_TTL_MIN = 10;
-const RESET_CODE_MAX_ATTEMPTS = 5;
-const RESET_VERIFY_TOKEN_TTL_MIN = 5;
-const RESET_VERIFY_TOKEN_BYTES = 32;
-const generateResetCode = () => String(crypto.randomInt(0, 1000000)).padStart(6, '0');
-const hashResetCode = (raw) => crypto.createHash('sha256').update(String(raw)).digest('hex');
+// Code generation, hashing and the attempt/TTL rules now live in
+// utils/resetCodes.js so the invitation flow shares them exactly.
+const {
+  generateResetCode, hashResetCode,
+  RESET_CODE_TTL_MIN, RESET_CODE_MAX_ATTEMPTS,
+  RESET_VERIFY_TOKEN_TTL_MIN, RESET_VERIFY_TOKEN_BYTES,
+} = require('../utils/resetCodes');
 
 router.post('/login', async (req, res) => {
   try {
@@ -200,6 +201,11 @@ router.post('/reset-password', async (req, res) => {
     }
 
     user.password = password;
+    // First password an invited account has ever had: record that the
+    // invitation was taken up. Only ever set once — a later reset is not a
+    // re-activation, and overwriting it would destroy the one fact this column
+    // exists to hold, which is when the person actually joined.
+    if (user.invitedAt && !user.activatedAt) user.activatedAt = new Date();
     user.resetTokenHash = null;
     user.resetTokenExpiresAt = null;
     user.resetCodeAttempts = 0;

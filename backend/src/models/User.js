@@ -70,6 +70,29 @@ const User = sequelize.define('User', {
     defaultValue: true,
     field: 'is_active',
   },
+  // Invitation state. An invited account exists and is `isActive`, but nobody
+  // — including the administrator who created it — knows its password: it is
+  // minted random and discarded. The invitee sets the first one they, and only
+  // they, will know, using the same one-time code the reset flow uses.
+  //
+  // Both columns are recorded rather than a single boolean because the useful
+  // administrative question is not "is this pending" but "who have we invited
+  // and never heard back from, and how long ago" — the answer to which decides
+  // whether to chase somebody or re-send. `activatedAt` staying null while
+  // `invitedAt` recedes into the past IS the signal.
+  //
+  // Null on both means an account created before this existed, or seeded: it
+  // has a password somebody chose directly, and no invitation was ever sent.
+  invitedAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    field: 'invited_at',
+  },
+  activatedAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    field: 'activated_at',
+  },
   // Password-reset OTP state. The 6-digit code is stored as a SHA-256 hash
   // so a DB compromise doesn't leak any active codes. resetCodeAttempts
   // tracks failed entries — the code is invalidated after 5 wrong attempts

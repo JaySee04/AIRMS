@@ -98,4 +98,49 @@ function buildResetEmail({ code, expiresInMinutes, maxAttempts }) {
   return { subject, text };
 }
 
-module.exports = { sendMail, buildResetEmail };
+// Email-template builder for an account INVITATION.
+//
+// Same one-time-code mechanism as the reset above, and deliberately so: one
+// definition of what a code is means an invitation cannot end up weaker than a
+// reset. What differs is what the recipient needs told, and it is a different
+// situation in three ways.
+//
+// They did not ask for this, so the mail must say who did and why it exists —
+// an unexplained six-digit code from an unfamiliar system reads as phishing,
+// and a cautious clinician deleting it is the CORRECT response to a mail that
+// fails to explain itself.
+//
+// They have no password to fall back on, so "ignore this if it wasn't you" is
+// wrong advice here: ignoring it means never getting access.
+//
+// And the code lives for days rather than minutes, so the expiry is stated in
+// days and the mail says plainly that it can be re-sent.
+function buildInviteEmail({ code, name, role, invitedBy, expiresInDays, maxAttempts, siteUrl }) {
+  const subject = 'AIRMS — Your account is ready to activate';
+  const who = invitedBy ? `${invitedBy} at Institut Sukan Negara` : 'Institut Sukan Negara';
+  const text = [
+    `Hello${name ? ` ${name}` : ''},`,
+    '',
+    `${who} has created an AIRMS account for you${role ? ` as ${role}` : ''}.`,
+    'AIRMS is the Athlete Injury Risk Management System used to read and act on',
+    'HoloMotion screening results.',
+    '',
+    'Your activation code is:',
+    '',
+    `    ${code}`,
+    '',
+    siteUrl
+      ? `To finish setting up, open ${siteUrl}/activate and enter your email address and this code. You will then choose your own password.`
+      : 'To finish setting up, open the AIRMS activation page and enter your email address and this code. You will then choose your own password.',
+    '',
+    `Nobody at ISN knows or can see the password you choose — that is the point of this step. The code expires in ${expiresInDays} days and is single-use; after ${maxAttempts} incorrect entries it is invalidated and an administrator will need to send you a new one.`,
+    '',
+    'If you were not expecting this, please contact the person named above before using it rather than ignoring it — an account has been created either way.',
+    '',
+    '— AIRMS · Institut Sukan Negara',
+  ].join('\n');
+
+  return { subject, text };
+}
+
+module.exports = { sendMail, buildResetEmail, buildInviteEmail };
