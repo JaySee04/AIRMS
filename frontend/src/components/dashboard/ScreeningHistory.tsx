@@ -70,6 +70,36 @@ function fmtNum(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(1);
 }
 
+interface ReliabilityScore {
+  key: string;
+  label: string;
+  higherBetter: boolean;
+  pairs: number;
+  deadBand: number;
+  sufficient: boolean;
+  reason: string | null;
+}
+interface Reliability {
+  scores: ReliabilityScore[];
+  minPairs: number;
+  fallback: number;
+  anySufficient: boolean;
+}
+
+/**
+ * Name a movement, or decline to.
+ *
+ * `deadBand` is the minimal detectable change for that score — below it, a
+ * difference cannot be told apart from measurement variation, so calling it
+ * improvement would be inventing a finding. Orientation comes from the score,
+ * never from the sign of the delta: exercise risks improve by going DOWN.
+ */
+function verdictFor(gain: number, deadBand: number): 'improved' | 'declined' | 'steady' {
+  if (gain >= deadBand) return 'improved';
+  if (gain <= -deadBand) return 'declined';
+  return 'steady';
+}
+
 export default function ScreeningHistory({ athleteId, headerAction, canReinstate = false }: {
   athleteId: string;
   /** Optional right-side header slot (e.g. the athlete's Download PDF button). */
@@ -83,6 +113,7 @@ export default function ScreeningHistory({ athleteId, headerAction, canReinstate
   canReinstate?: boolean;
 }) {
   const [rows, setRows] = useState<ScreeningRow[] | null>(null);
+  const [rel, setRel] = useState<Reliability | null>(null);
   const [busy, setBusy] = useState<number | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
@@ -90,6 +121,12 @@ export default function ScreeningHistory({ athleteId, headerAction, canReinstate
   useEffect(() => {
     let cancelled = false;
     setRows(null);
+    // The programme's detectable-change thresholds, fetched alongside the rows.
+    // Failure is non-fatal on purpose: without them the panels fall back to
+    // showing movement without naming it, which is what they did before.
+    api.get<Reliability>('/screenings/reliability')
+      .then(setRel)
+      .catch(() => setRel(null));
     api.get<ScreeningRow[]>(`/screenings/athlete/${athleteId}`)
       .then((r) => { if (!cancelled) setRows(r); })
       .catch(() => { if (!cancelled) setRows([]); }); // non-critical surface — fail quiet
@@ -153,6 +190,7 @@ export default function ScreeningHistory({ athleteId, headerAction, canReinstate
             const to = real[real.length - 1];
             const delta = +(to - from).toFixed(1);
             const gain = c.higherBetter ? delta : -delta;
+            const band = rel?.scores.find((x) => x.key === c.key)?.deadBand ?? null;
             return (
               <div className="trend-cell" key={c.key}>
                 <div className="trend-cell-label">{c.label}</div>
@@ -166,18 +204,48 @@ export default function ScreeningHistory({ athleteId, headerAction, canReinstate
                     {delta > 0 ? '+' : ''}{delta}
                   </span>
                 </div>
+                {/* The verdict, and only when there is a threshold to judge it
+                    against. A movement smaller than the detectable change is
+                    reported as steady rather than as a small improvement,
+                    because at that size the two are indistinguishable. */}
+                {band !== null && (
+                  <div className={`trend-cell-verdict trend-cell-verdict--${verdictFor(gain, band)}`}>
+                    {verdictFor(gain, band) === 'steady'
+                      ? `steady (within ±${band})`
+                      : verdictFor(gain, band) === 'improved' ? 'improved' : 'declined'}
+                  </div>
+                )}
               </div>
             );
           })}
-          {/* Deliberately no improving/declining verdict per score here. That
-              needs the programme's detectable-change threshold, which is
-              computed cohort-wide (Programme Activity) and is not on this
-              athlete-scoped payload. Showing the movement without naming it is
-              honest; naming it from an unavailable threshold would not be. */}
+          {/* Verdicts arrived 2026-08-23. They were withheld while the
+              detectable-change threshold was unavailable to this view — naming a
+              movement from a threshold you do not have is worse than not naming
+              it. It is now served by GET /screenings/reliability, the same pass
+              the coach's arrows and the institution's change chart read, so the
+              three cannot disagree about whether a move was real.
+
+              Where the threshold is ASSUMED rather than measured, the note below
+              says so. That distinction is the point: a reader told "improved"
+              deserves to know whether the bar it cleared was earned from repeat
+              screenings or is a documented default standing in for one. */}
           <p className="chart-note" style={{ gridColumn: '1 / -1', marginTop: 2 }}>
             Each panel is scaled to its own range, so heights are not comparable between
             panels — read the shape and the printed values, not the position. Colour follows
             better-or-worse, so a fall in exercise risks is green.
+            {rel && (rel.anySufficient ? (
+              <>
+                {' '}A change is called only past that score&apos;s minimal detectable
+                change, measured from athletes&apos; own repeat screenings.
+              </>
+            ) : (
+              <>
+                {' '}“Steady” uses an <strong>assumed</strong> threshold of ±{rel.fallback}:
+                the programme holds {rel.scores[0]?.pairs ?? 0} repeat screenings and needs{' '}
+                {rel.minPairs} before a real one can be measured. Until then, treat small
+                movements as unproven rather than as progress.
+              </>
+            ))}
           </p>
         </div>
       )}

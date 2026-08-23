@@ -4,6 +4,8 @@ const { recordAudit } = require('../utils/audit');
 const { getSettings } = require('../utils/settings');
 const { sequelize, Screening, Athlete, MuscleFlag } = require('../models');
 const auth = require('../middleware/auth');
+const { reliability } = require('../utils/reliability');
+const { PERIOD_SCORES } = require('../utils/periodScores');
 const rbac = require('../middleware/rbac');
 const requirePermission = require('../middleware/permission');
 const { notifyOverrideToCoach } = require('../utils/notifications');
@@ -16,6 +18,47 @@ const router = express.Router();
 // GET /api/screenings/athlete/:id — full history (newest first). Athletes may
 // read their own; coaches athletes in their assigned sport; medical/admin any
 // (medical gated by viewRecords).
+// GET /api/screenings/reliability — the programme's detectable-change
+// thresholds, per score.
+//
+// Its own endpoint rather than a field on the history response, for two
+// reasons. It is a fact about the PROGRAMME, not about an athlete: the same
+// numbers govern the athlete's sparklines, the coach's arrows and the
+// institution's change chart, and computing it per athlete would invite them to
+// disagree. And /athlete/:id already returns a bare array to three callers, so
+// widening it into an object would break two of them for no gain.
+//
+// Deliberately open to any authenticated user. It carries no athlete data — six
+// thresholds and how they were arrived at — and an athlete reading their own
+// history needs it to know whether a movement in their own line means anything.
+//
+// The honest answer is usually "we cannot tell yet": below MIN_PAIRS repeat
+// screenings each score declines and falls back to the documented value, and
+// `sufficient` says which happened. See utils/reliability.js.
+router.get('/reliability', auth, async (_req, res) => {
+  try {
+    const rows = await Screening.findAll({
+      attributes: ['id', 'athleteId', 'assessedAt', ...PERIOD_SCORES.map(([k]) => k)],
+      raw: true,
+    });
+    const rel = reliability(rows);
+    res.json({
+      scores: rel.scores.map((x) => ({
+        key: x.key,
+        label: x.label,
+        higherBetter: x.higherBetter,
+        pairs: x.pairs,
+        deadBand: x.deadBand,
+        sufficient: x.sufficient,
+        reason: x.reason,
+      })),
+      minPairs: rel.minPairs,
+      fallback: rel.fallback,
+      anySufficient: rel.anySufficient,
+    });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+});
+
 router.get('/athlete/:id', auth, requirePermission('viewRecords'), async (req, res) => {
   try {
     if (req.user.role === 'athlete' && req.user.athleteId !== req.params.id) {

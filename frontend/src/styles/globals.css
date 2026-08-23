@@ -3102,3 +3102,18 @@ textarea:focus-visible,
   stroke-linecap: round;
 }
 .bodymap-region-group.is-active .bodymap-deep { stroke-width: 3; }
+
+/* The improved/declined/steady verdict under a trend sparkline.
+   Muted rather than loud: the verdict is a qualifier on the number above it,
+   not a headline, and on the seeded data most of them read "steady" because the
+   threshold is still an assumed one. */
+.trend-cell-verdict {
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 2px;
+}
+.trend-cell-verdict--improved { color: var(--risk-low); }
+.trend-cell-verdict--declined { color: var(--risk-high); }
+.trend-cell-verdict--steady   { color: var(--text-muted); font-weight: 600; letter-spacing: 0; text-transform: none; }
