@@ -117,6 +117,64 @@ flow. Some paths are additionally checked by driving the util directly against t
 dev database from a `node -e` script — see the verification notes in recent commit
 messages for what that looked like.
 
+## Deployed instance (2026-08-23)
+
+| | |
+|---|---|
+| Web | `https://airms-web.vercel.app` (Vercel project `airms-web`, root `frontend`) |
+| API | `https://airms-api.vercel.app` (project `airms-api`, root cleared — deploy from `backend/`) |
+| Database | Aiven managed MySQL 8.4.8, TLS **required** (`MYSQL_SSL=1` + `MYSQL_SSL_CA`) |
+
+**Deploy with the CLI, not git.** The GitHub webhook does not fire for this
+branch, so a push does not build. From `backend/` or `frontend/`:
+`npx vercel --prod --token=<token>`. Deploying the API from the repo ROOT fails
+on this machine — gotcha 7 below, OneDrive reparse points.
+
+Four platform faults are documented in [`docs/DEPLOY.md`](docs/DEPLOY.md), each
+of which presents as the same opaque `FUNCTION_INVOCATION_FAILED`: the wrong
+branch deploying (`main` predates the MySQL migration, so the symptom was a
+*MongoDB* error), Root Directory versus where you deploy from, Hobby plans
+rejecting sub-daily crons (now `0 23 * * *` — survivable only because `isDue`
+tests whether the due moment has passed rather than matching an hour), and
+`mysql2` being traced out of the bundle because Sequelize resolves its dialect
+with a dynamic require (fixed by passing `dialectModule`).
+
+Two properties of the hosted instance differ from local and are stated in
+DEPLOY.md rather than left to be discovered: uploads cap at **4.5 MB** (the
+compact HoloMotion report is ~1 MB and fine; the 7.58 MB expanded one is
+rejected), and **"on-device redaction" becomes "pre-provider redaction"** — the
+browser uploads the un-redacted PDF to the API, so the name still never reaches
+the vision provider but does traverse a third-party host.
+
+## Account onboarding — invitation, not admin-typed passwords (2026-08-23)
+
+There is **no self-registration** and there will not be. An administrator
+creates an account with **no password**: one is generated, hashed and discarded
+unread, so the account exists and nobody — including its creator — can sign in
+as that person. The invitee receives a six-digit code and sets the first
+password that ever really exists on the account.
+
+The mechanism is the password-reset flow, unchanged. `utils/resetCodes.js` was
+extracted from `routes/auth.js` so both share ONE definition of what a one-time
+code is; two definitions is how an invitation ends up weaker than a reset
+without anybody deciding it should be. What differs is deliberate: a 7-day TTL
+(the NIST SP 800-63A ceiling for an enrollment code — the five-attempt limit,
+not the digit count, is what makes six digits acceptable across it), an email
+that says who invited them and why, and an **awaited** send because an
+administrator pressing invite needs to know it went.
+
+`users.invited_at` / `users.activated_at` record it (`ALTER TABLE` both on an
+existing dev DB). Both null = an account whose password somebody typed
+directly, which is every seeded one. `POST /api/users` takes `invite: true`;
+`POST /api/users/:id/invite` re-sends and kills the previous code. Roles:
+medical, coach, admin, executive — **athlete is deliberately excluded** (JC,
+2026-08-23), since an athlete account also needs a roster record to attach to.
+The invitee lands on `/activate`.
+
+**Known limitation:** invitations send from a personal Gmail, which to a
+clinician reads as phishing. Real use needs ISN's relay or a controlled domain
+with SPF/DKIM; the mailer is env-driven, so it is configuration, not code.
+
 ## Demo credentials (seeded)
 
 | Role | Email | Password |

@@ -45,9 +45,9 @@ clinician's time. See §3 Q1.
 
 ---
 
-## 2. Numbers, measured 2026-08-21
+## 2. Numbers, measured 2026-08-23
 
-Re-measure before the viva; these drift with every reseed. Last run **2026-08-21**: every database figure below was unchanged from the 2026-08-19 measurement **except the audit count**, which grows whenever anyone opens a report. The commit and test rows moved; both suites were green (336 / 121).
+Re-measure before the viva; these drift with every reseed. Last run **2026-08-23**: every database figure below is unchanged from 2026-08-19 **except the audit count**, which grows whenever anyone opens a report. The commit and test rows moved; both suites were green (350 / 126). The same figures were verified against the DEPLOYED database, not only the laptop — see §8.
 
 ```powershell
 cd backend
@@ -63,11 +63,11 @@ node -e "require('dotenv').config();const{sequelize,Athlete,Screening,CohortThre
 | Cohorts computed | 49 | all pinned |
 | Cohort an athlete is scored against | min 5, **median 7**, max 10 | **all 56 are below 11 peers** (§4 W2) |
 | Repeat pairs available | 18 | below the 20 needed for MDC95 (§5 L2) |
-| Audit rows | 26 | 5 action types, **all 5 roles** — the athlete row appeared 2026-08-20, when self-download began working |
+| Audit rows | 40 | 5 action types, **all 5 roles** — the athlete row appeared 2026-08-20, when self-download began working |
 | Users | 10 | across 5 roles — 4 reach a deliverable inbox (§5 L7) |
 | Muscle flags | 336 | |
-| Commits, FYP I → FYP II | **259** | 238 files, +56,978 / −7,680 lines |
-| Tests | 336 backend (21 suites) + 121 frontend (8) | |
+| Commits, FYP I → FYP II | **276** | 249 files, +58,627 / −7,681 lines |
+| Tests | 350 backend (22 suites) + 126 frontend (8) | |
 
 **The settings that decide bands** (`backend/src/utils/settings.js`, live values):
 
@@ -309,6 +309,71 @@ developer had the project open.
 *Backing: `docs/DEPLOY.md`; `backend/src/mailTick.js`; `backend/src/utils/lock.js`;
 `docs/DESIGN_DECISIONS.md` §36.*
 
+### Q12 · "Is this actually deployed, or only on your laptop?"
+
+**It is live, and the demo runs against it.**
+
+> The web app is at `airms-web.vercel.app`, the API at `airms-api.vercel.app`,
+> against a managed MySQL. Both halves deploy from one repository as separate
+> Vercel projects. The API was not rewritten for serverless — `api/index.js`
+> imports the same Express app `npm start` runs, and `server.js` listens only
+> when it is the program, so a route added to the app is live in both and the
+> two cannot describe different APIs.
+
+**If pushed — what did the platform force you to change?** Four things, and one
+of them is worth volunteering because it tested a design decision. Vercel's
+Hobby plan rejects any cron more frequent than daily, so the hourly tick became
+daily. That is survivable only because `isDue` asks whether the due moment has
+**passed** rather than matching an hour exactly — the marker design from §36
+absorbing a constraint it was not written for. A scheduler pinned to an exact
+hour would have needed rewriting to deploy at all. The other three: the wrong
+branch was deploying (`main` predates the MySQL migration, so the failure was a
+*MongoDB* error in code nobody had touched), Root Directory versus the directory
+you deploy from, and `mysql2` being traced out of the bundle because Sequelize
+resolves its dialect with a dynamic require the bundler cannot see.
+
+**The honest limits of the hosted instance**, all recorded in `DEPLOY.md`:
+uploads are capped at 4.5 MB by the platform, so the 7.58 MB expanded HoloMotion
+layout is rejected there while the ~1 MB compact one is fine; and "on-device
+redaction" becomes "pre-provider redaction", since the browser now uploads the
+un-redacted PDF to the API. The name still never reaches the vision provider —
+which is the disclosure the design guards against — but it does traverse a
+third-party host. The on-device claim remains true of the local deployment ISN
+would actually run.
+
+*Backing: `docs/DEPLOY.md`; `backend/api/index.js`; `backend/vercel.json`.*
+
+### Q13 · "How does a real person get an account? I see demo logins."
+
+**An administrator invites them; nobody else ever knows their password.**
+
+> There is no self-registration, deliberately: for an institution holding
+> clinical data, "anyone with an email can make an account" is the wrong shape.
+> An administrator creates the account with **no password** — one is generated,
+> hashed and discarded unread — and the person receives a six-digit code and
+> chooses the first password that ever really exists on the account. The
+> administrator cannot sign in as them, which matters for an audit trail that
+> names people for their actions.
+
+**If pushed — why not a link, and why six digits for seven days?** The mechanism
+is the password-reset flow unchanged, sharing one definition of what a one-time
+code is (`utils/resetCodes.js`), so an invitation cannot end up weaker than a
+reset without anyone deciding it should be. Seven days is the ceiling NIST SP
+800-63A sets for an enrollment code; what makes six digits acceptable across
+that window is the five-attempt limit rather than the digit count — five guesses
+against a million values, and the code burns whether or not the attacker is the
+intended recipient.
+
+**Volunteer the weakness:** invitations currently send from a personal Gmail
+account. A clinician receiving an unexplained six-digit code from a personal
+address is looking at a textbook phishing pattern, and deleting it would be the
+correct response. Real institutional use needs ISN's own relay or a controlled
+sending domain with SPF and DKIM; the mailer is entirely environment-driven, so
+that is configuration rather than code.
+
+*Backing: `backend/src/utils/resetCodes.js`; `backend/src/routes/users.js`;
+`frontend/src/app/activate/page.tsx`.*
+
 ---
 
 ## 4. Where the design argues against itself
@@ -381,7 +446,7 @@ Things that will look like bugs and are not. Know what you will say.
   movement in five scores and flatness in the sixth, that is the seeder, not the
   code.
 - **L6 · The branch is called `feat/mysql-migration`.** It was about MySQL for
-  three commits and has been all of FYP II for 256. Renaming was considered and
+  three commits and has been all of FYP II for 273. Renaming was considered and
   rejected: it has a public upstream, and five docs name it in prose — including
   the logbook source material. `main` is FYP I; this branch is FYP II.
 - **L7 · Four demo accounts reach a real inbox; five bounce.** `@isn.gov.my`
@@ -409,12 +474,50 @@ Things that will look like bugs and are not. Know what you will say.
       outcome back onto the tile. Delivery lands in one Gmail mailbox across four
       plus-addressed accounts; `@isn.gov.my` recipients bounce, which is expected.
       Nothing needs a database edit or a restart.
+- [ ] **Open the deployed site a few minutes early** (§7). The first request
+      after an idle spell can take a minute while Vercel and Aiven wake; that is
+      not something to discover in front of a panel.
+- [ ] **Decide which instance you demo from.** The laptop is faster and can
+      import the 7.58 MB report; the deployment proves it is real. Doing the
+      import locally and everything else live is a defensible split — say so
+      rather than switching silently.
 - [ ] **Rehearse Q1, Q2 and Q4 aloud.** Those are the three where a hesitant
       answer reads as a gap rather than a decision.
 
 ---
 
-## 7. What this file does not vouch for
+## 7. The deployed instance
+
+| | |
+|---|---|
+| Web | `https://airms-web.vercel.app` |
+| API | `https://airms-api.vercel.app` |
+| Database | Aiven managed MySQL 8.4.8, TLS verified with the provider CA |
+
+Seeded identically to the laptop and **verified against the deployment**, not
+inferred from it: 62 athletes, 74 screenings, 49 cohorts, bands 38/9/9, the
+three engine-level foreign keys intact and the five-value role enum preserved —
+which is why the choice was real MySQL rather than a MySQL-*compatible* engine,
+where a schema leaning on foreign keys quietly loses them.
+
+All five roles authenticate against it; an executive reads analytics and is
+refused settings (403); an athlete is refused the roster and a teammate's report
+(403) and gets their own (200); a PDF streams out of a serverless function.
+
+**Two things to say before the panel finds them.** Deploys currently run from
+the CLI because the Git webhook does not fire for this branch — a platform
+annoyance, not a system property. And the demo accounts with their documented
+passwords are reachable on that public URL; that is a deliberate choice for a
+stakeholder sandbox seeded with synthetic data, and it is not what an ISN
+deployment would look like.
+
+**Cold starts.** The first request after an idle period can take up to a minute
+— Vercel waking a function plus Aiven waking a free-tier database. Open the site
+a few minutes before the demo so the panel does not watch a spinner.
+
+---
+
+## 8. What this file does not vouch for
 
 - **The Word report.** Nothing here has been checked against the document you
   will submit. `REPORT_EDIT_PACK.md` R1–R10 is the list of edits it still needs.

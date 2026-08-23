@@ -114,6 +114,25 @@
 >   from eight hand-maintained copies to one definition per package (§31),
 >   pinned by tests that assert the exclusion rather than assuming it.
 
+> **Deployed, and onboarding is real — 2026-08-23.** Two changes that alter what
+> the project *is*, rather than what it computes.
+>
+> - **It runs on the internet.** `airms-web.vercel.app` and
+>   `airms-api.vercel.app` against a managed MySQL, seeded identically to the
+>   laptop and verified against the deployment: 62 athletes, bands 38/9/9, the
+>   engine-level foreign keys and the five-value role enum intact. The API was
+>   adapted rather than forked — the serverless entry point imports the same
+>   Express app — and the scheduled mail moved from an in-process ticker to a
+>   platform cron. See [`DEPLOY.md`](DEPLOY.md) for the four faults met on the
+>   way, and for the two properties that differ once hosted (a 4.5 MB upload cap,
+>   and on-device redaction becoming pre-provider redaction).
+> - **People can be given accounts without anyone typing their password.** An
+>   administrator invites; the invitee sets the first password that ever really
+>   exists on the account. The mechanism is the password-reset flow unchanged,
+>   sharing one definition of a one-time code, so an invitation cannot end up
+>   weaker than a reset. Athlete accounts are deliberately out of scope for now.
+>   Table 4.1 grows to **55** use cases.
+
 ---
 
 ## Quick status table

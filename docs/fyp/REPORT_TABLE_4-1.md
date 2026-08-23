@@ -122,6 +122,14 @@ pasting.
 | | UC-45 | Override Risk Band | After assessing an athlete, set their risk band manually with a required explanatory note, shown alongside the calculated band so the divergence is visible; the override applies across the system until the next screening is imported. | Medical Staff |
 | | UC-46 | View Squad Readiness Board | View a read-only board of every athlete in the coach's assigned sport, with each athlete's risk band mapped to Full-Go, Observation or Restricted, sorted worst-first, naming each athlete's most concerning screening region and the direction of travel since their previous screening; filterable by programme, gender and event and scoped to the coach's sport on the server. | Coach |
 | | UC-47 | View Squad Focus & Needs-Attention | View the squad's shared weak regions and muscle hotspots turned into suggested training adjustments, alongside a list of the athletes requiring attention with the reason each was escalated. | Coach |
+| **General Module** | UC-48 | Invite User | Create an account with no password and email the person a six-digit activation code. The password the account is created with is random, hashed and discarded unread, so nobody — including the administrator — can sign in as that user. Re-sending mints a fresh code and invalidates the previous one. | Administrator |
+| | UC-49 | Activate Account | Set the first password on an invited account by entering the emailed code. The code is single-use, expires after seven days, and is invalidated after five incorrect entries. | Athlete, Medical Staff, Administrator, Coach, Executive |
+| | UC-50 | Set Notification Preferences | Opt out of individual categories of system email from the profile page. The institution setting decides whether a category is sent at all; the user decides only whether they still receive it. | Athlete, Medical Staff, Administrator, Coach, Executive |
+| **Module 4 — Cohort Norms & Governance** | UC-51 | Pin Cohort Norm Version | Designate one saved norm version as the norms in force, so a subsequent import holds the published statistics instead of overwriting them; what the new data would have said is parked alongside and the drift between the two surfaced. Restoring over a pin, or deleting the pinned version, is refused. | Administrator |
+| | UC-52 | Send Scheduled Institutional Mail | Email the monthly institutional digest, with the holistic report attached, and the rescreen recall list naming who is overdue and who has never been screened. Driven by a persisted month marker rather than a scheduling instant, so a run missed while the host was unavailable is sent late rather than skipped, and guarded by a cross-process lock so two schedulers produce one email. | System |
+| | UC-53 | Force a Scheduled Mail Run | Run a scheduled mail immediately and report the outcome, bypassing the due check but never the institution's own on/off switch for that category. | Administrator |
+| **Module 5 — Analytics & Reporting** | UC-54 | View Activity Log | Read the append-only trail of actions taken in the system — imports, overrides, norm changes, settings changes, personnel changes, report downloads and data exports — filtered by action and date, with a staff activity rollup that counts reads separately from changes, and a PDF export. | Administrator, Executive |
+| | UC-55 | Generate Programme Activity Report | Produce the programme KPI document covering screening coverage, throughput, within-athlete change, seasonality and activity by account, drawn from the same computation the on-screen panel reads so the screen and the document cannot quote different figures. | Administrator, Executive |
 
 ---
 
@@ -142,7 +150,7 @@ Each of these is defensible and already true of the build:
 
 ---
 
-## Appendix C — UC-1–44 (2026-07-20 numbering) → UC-1–47 (this table)
+## Appendix C — UC-1–44 (2026-07-20 numbering) → UC-1–55 (this table)
 
 | Was | Now | Disposition |
 |---|---|---|
