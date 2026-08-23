@@ -557,11 +557,17 @@ label:has(> input[type='radio']) {
    was removed 2026-07-16. */
 .risk-hero {
   border-radius: var(--r-lg);
-  padding: 24px 28px;
+  /* Was 24/28. The hero is the first thing on the page and does not need to be
+     the tallest: its job is to state a verdict and show the evidence, and the
+     padding was adding a band of empty colour above and below both. */
+  padding: 18px 20px;
   display: flex;
-  align-items: center;
+  /* Top, not centre. Centring made the score card float in the middle of a
+     column as tall as the whole comparison table, so the taller the evidence
+     grew the more empty colour appeared beside it. */
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 24px;
+  gap: 20px;
   border: 1px solid var(--border);
   margin-bottom: 20px;
   /* The score block drops under the verdict rather than off the screen. */
@@ -695,12 +701,17 @@ label:has(> input[type='radio']) {
 .cohort-profile-group { font-weight: 400; text-transform: none; letter-spacing: 0; }
 .cohort-profile-table {
   width: 100%;
+  /* The void this closes: with four columns stretched across the full hero the
+     measure sat at the far left and its number at the far right, so the eye had
+     to cross ~900px of nothing to pair a label with its value. Capping the
+     table keeps a row readable as one line. It still fills narrower screens. */
+  max-width: 720px;
   border-collapse: collapse;
   font-size: var(--fs-md);
 }
 .cohort-profile-table th,
 .cohort-profile-table td {
-  padding: 4px 6px;
+  padding: 3px 6px;
   text-align: left;
   font-weight: 400;
   color: var(--text);
