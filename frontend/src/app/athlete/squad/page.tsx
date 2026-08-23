@@ -66,7 +66,7 @@ export default function AthleteSquadPage() {
       <div className="card">
         <div className="card-header"><div>
           <h2 className="card-title" style={{ marginBottom: 0 }}>{data?.sport ?? 'My'} Squad</h2>
-          <span className="card-sub">Your squad&apos;s readiness at a glance — read-only. Detailed reports stay private to each athlete and the medical team.</span>
+          <span className="card-sub">Read-only. Each athlete&apos;s detailed report stays private to them and the medical team.</span>
         </div></div>
         {loading ? (
           <p className="text-muted">Loading…</p>

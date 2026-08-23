@@ -3198,3 +3198,32 @@ textarea:focus-visible,
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }
+
+/* ── Narrow screens ────────────────────────────────────────────────────────
+   The comparison table is four columns with a long first cell ("Injury risk
+   (lower is better)"), and it had no small-screen handling: below roughly a
+   phone's width the measure name wrapped to three lines while the numbers
+   crushed together. Dropping the parenthetical hint and tightening the type
+   keeps a row on one line; the hint is restated by the footnote under the
+   table, so nothing is lost with it gone. */
+@media (max-width: 640px) {
+  .cohort-profile-table { font-size: var(--fs-sm); }
+  .cohort-profile-table th,
+  .cohort-profile-table td { padding: 3px 4px; }
+  .cohort-profile-hint { display: none; }
+  /* The SD / plain-word parenthetical is the first thing worth losing when the
+     difference column has no room — the signed number carries the meaning. */
+  .cohort-profile-sd { display: none; }
+}
+
+/* The verdict band stacks its score card under the wording rather than beside
+   it, where 320px of phone leaves no room for two columns. */
+@media (max-width: 560px) {
+  /* Front and back are a hard two-column split. At phone width that is two
+     figures about 150px wide, where a flagged muscle is a few pixels and the
+     whole point of the drawing is lost. Stacked, each gets the full width. */
+  .bm-figures { grid-template-columns: minmax(0, 1fr); row-gap: 8px; }
+  .risk-hero { padding: 14px 14px; }
+  .risk-hero > div:first-child { grid-template-columns: minmax(0, 1fr); row-gap: 12px; }
+  .risk-hero-stat { justify-self: start; }
+}

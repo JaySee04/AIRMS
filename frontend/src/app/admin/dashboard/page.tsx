@@ -329,7 +329,7 @@ export default function AdminDashboard() {
             <div className="card" style={{ marginBottom: 20 }}>
               <div className="card-header"><div>
                 <h2 className="card-title" style={{ marginBottom: 0 }}>Highest {focus.label} readings</h2>
-                <span className="card-sub">Who to look at first &mdash; one step from where the problem is to who has it.</span>
+                <span className="card-sub">Who to look at first.</span>
               </div></div>
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ minWidth: 520 }}>
