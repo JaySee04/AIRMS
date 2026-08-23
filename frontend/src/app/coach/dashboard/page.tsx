@@ -229,6 +229,29 @@ export default function CoachDashboard() {
     [classified],
   );
 
+  // Whose reading is out of date.
+  //
+  // AIRMS already emails each coach a monthly list of the athletes in their
+  // sport who are overdue or have never been screened — and the dashboard they
+  // open showed no trace of it, while rendering every readiness band in the
+  // present tense over screenings that may be months old. The data was on this
+  // payload the whole time (toIndicator ships recallState and
+  // screeningAgeDays); it was simply never drawn. Same argument §33b used to
+  // put staleness on the athlete's hero, applied to the reader who acts on it.
+  const recall = useMemo(() => {
+    const out = { overdue: 0, dueSoon: 0, never: 0 };
+    classified.forEach(({ row }) => {
+      const st = row.screening?.recallState;
+      if (st === 'overdue') out.overdue += 1;
+      else if (st === 'due-soon') out.dueSoon += 1;
+      // `never` covers both: the recall state the backend assigns, and an
+      // athlete with no screening row at all — for a coach chasing people in,
+      // those are the same errand.
+      else if (st === 'never' || !row.screening) out.never += 1;
+    });
+    return out;
+  }, [classified]);
+
   // The noise floor the arrows judge against. Comes from the server so this view
   // and the institution's change chart cannot disagree about whether a move is
   // real — it was a literal 2 here, which matched the backend only because
@@ -639,7 +662,18 @@ export default function CoachDashboard() {
             <div>
               <h2 className="card-title" style={{ marginBottom: 0 }}>Squad breakdown</h2>
               <span className="card-sub">
-                {coverage.scored}/{coverage.total} screened · momentum since last screening:{' '}
+                {coverage.scored}/{coverage.total} screened
+                {(recall.overdue > 0 || recall.never > 0) && (
+                  <>
+                    {' · '}
+                    <strong style={{ color: 'var(--risk-high)' }}>
+                      {recall.overdue > 0 && `${recall.overdue} overdue`}
+                      {recall.overdue > 0 && recall.never > 0 && ', '}
+                      {recall.never > 0 && `${recall.never} never screened`}
+                    </strong>
+                  </>
+                )}
+                {' · momentum since last screening: '}
                 <strong style={{ color: 'var(--risk-low)' }}>{momentum.improving} ↑</strong> improving ·{' '}
                 <strong style={{ color: 'var(--risk-high)' }}>{momentum.declining} ↓</strong> declining · {momentum.steady} steady
               </span>
@@ -720,6 +754,18 @@ export default function CoachDashboard() {
                     <td>
                       <strong>{row.name}</strong>
                       <div className="text-muted" style={{ fontSize: 'var(--fs-sm)' }}>{row.athleteId} · {row.program ?? '—'} · {row.gender ?? '—'}</div>
+                      {(row.screening?.recallState === 'overdue' || row.screening?.recallState === 'due-soon') && (
+                        <div
+                          style={{
+                            fontSize: 'var(--fs-2xs)', fontWeight: 700,
+                            color: row.screening.recallState === 'overdue' ? 'var(--risk-high)' : 'var(--risk-moderate)',
+                          }}
+                        >
+                          {row.screening.recallState === 'overdue' ? 'Screening overdue' : 'Rescreen due soon'}
+                          {typeof row.screening.screeningAgeDays === 'number'
+                            && ` · ${row.screening.screeningAgeDays} days old`}
+                        </div>
+                      )}
                     </td>
                     {squadHasEvents && (
                       <td style={{ fontSize: 'var(--fs-sm)' }}>
