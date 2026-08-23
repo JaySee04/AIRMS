@@ -87,7 +87,7 @@ router.post('/screening/pdf', auth, rbac('medical', 'admin'), requirePermission(
       disciplines,
       // Screening-snapshot extras from the preview (stored on the screenings
       // history row, not the flat athletes columns).
-      assessedAt = null, summary = null, subitems = null,
+      assessedAt = null, summary = null, subitems = null, prescription = null,
     } = req.body || {};
 
     // Auto Title-Case the name (report prints lowercase; operator may not fix it).
@@ -156,6 +156,7 @@ router.post('/screening/pdf', auth, rbac('medical', 'admin'), requirePermission(
       kneeInjuryRisk: num(athlete.kneeInjuryRisk) ?? 0,
       ankleInjuryRisk: num(athlete.ankleInjuryRisk) ?? 0,
       subitems: subitems || null,
+      prescription: prescription || null,
       summaryText: summary || null,
       muscleFlags: { myodynamia, tension },
       // overallIndicator/band/escalations computed in Stage C once cohorts exist.

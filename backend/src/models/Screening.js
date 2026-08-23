@@ -38,6 +38,11 @@ const Screening = sequelize.define('Screening', {
   // Gives per-region left/right asymmetry, which feeds the indicator's
   // asymmetry penalty and the coach attention table.
   subitems: { type: DataTypes.JSON, allowNull: true },
+  // HoloMotion's own Training Prescription, read from the report's TEXT layer
+  // (utils/prescription.js) — no model, no tokens. Null on the compact layout,
+  // which does not print one; null is therefore "this report had none", not
+  // "we failed to read it", and the UI shows no panel rather than an empty one.
+  prescription: { type: DataTypes.JSON, allowNull: true },
   // Page-1 summary comment, shown verbatim as "what the report said".
   summaryText: { type: DataTypes.TEXT, allowNull: true, field: 'summary_text' },
   // Snapshot of the muscle lists at import time (the live body map still reads

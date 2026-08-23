@@ -46,6 +46,17 @@ export interface ScreeningData {
   // utils/symmetry.js) so the screen and the printed report cannot name
   // different weaker sides for the same athlete.
   lateralSymmetry?: SymmetryRow[] | null;
+  // HoloMotion's own training programme, read from the report's text layer.
+  // Null when the report carried none (the compact layout does not print one).
+  prescription?: Prescription | null;
+}
+
+export interface Prescription {
+  note: string | null;
+  days: Array<{
+    day: number;
+    exercises: Array<{ no: number; name: string; reps: string; sets: number; rest: number }>;
+  }>;
 }
 
 export interface SymmetryRow {
@@ -260,6 +271,7 @@ export default function ScreeningPanel({
       {/* Training focus — AIRMS' counterpart of the report's closing Training
           Prescription: corrective exercises for the regions that breached
           their sport thresholds, worst first. */}
+      {athlete.prescription && <TrainingPrescription prescription={athlete.prescription} />}
       {athlete.lateralSymmetry && athlete.lateralSymmetry.length > 0 && (
         <LateralSymmetry rows={athlete.lateralSymmetry} />
       )}
@@ -287,6 +299,53 @@ export default function ScreeningPanel({
 //
 // Regions with no symmetry score are omitted rather than shown blank: an
 // unmeasured region is not a finding of symmetry.
+// HoloMotion's Training Prescription, reproduced.
+//
+// This is the one card on the dashboard that tells anybody what to DO, and it
+// is deliberately NOT AIRMS's advice. The "Training Focus" card below is a
+// region-frequency heuristic this project wrote, and is careful to speak about
+// load rather than treatment; this is the programme the institution's own
+// instrument issued off the same screening. The heading says whose it is, and
+// the instrument's own caveat about how long it stands is reproduced verbatim
+// rather than paraphrased — restating somebody else's clinical hedge in our own
+// words would make it ours.
+function TrainingPrescription({ prescription }: { prescription: Prescription }) {
+  const total = prescription.days.reduce((n, d) => n + d.exercises.length, 0);
+  if (!total) return null;
+  return (
+    <div className="card" style={{ marginBottom: 20 }}>
+      <div className="card-header">
+        <div>
+          <h2 className="card-title" style={{ marginBottom: 0 }}>Training Prescription</h2>
+          <span className="card-sub">
+            From the HoloMotion report · {prescription.days.length} days, {total} exercises
+          </span>
+        </div>
+      </div>
+      {prescription.note && (
+        <p className="card-sub" style={{ marginTop: 0 }}>{prescription.note}.</p>
+      )}
+      <div className="prescription-days">
+        {prescription.days.map((d) => (
+          <div className="prescription-day" key={d.day}>
+            <div className="prescription-day-head">Day {d.day}</div>
+            <ul className="prescription-list">
+              {d.exercises.map((e) => (
+                <li key={e.no}>
+                  <span className="prescription-ex">{e.name}</span>
+                  <span className="prescription-dose">
+                    {e.reps} × {e.sets} · {e.rest}s rest
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function LateralSymmetry({ rows }: { rows: SymmetryRow[] }) {
   if (!rows.length) return null;
   const notable = rows.filter((r) => r.weaker !== 'Balanced');

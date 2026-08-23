@@ -3227,3 +3227,34 @@ textarea:focus-visible,
   .risk-hero > div:first-child { grid-template-columns: minmax(0, 1fr); row-gap: 12px; }
   .risk-hero-stat { justify-self: start; }
 }
+
+/* HoloMotion's training prescription — a day per column, wrapping.
+   auto-fit with a floor means six days sit in two or three rows on a laptop and
+   stack on a phone, without a breakpoint per screen size. */
+.prescription-days {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+}
+.prescription-day-head {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 4px;
+  margin-bottom: 6px;
+}
+.prescription-list { list-style: none; margin: 0; padding: 0; }
+.prescription-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 3px 0;
+  font-size: var(--fs-sm);
+  border-bottom: 1px dashed var(--border);
+}
+.prescription-list li:last-child { border-bottom: 0; }
+.prescription-ex { min-width: 0; }
+.prescription-dose { color: var(--text-muted); white-space: nowrap; font-variant-numeric: tabular-nums; }

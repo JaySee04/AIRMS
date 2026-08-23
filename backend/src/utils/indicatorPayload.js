@@ -20,7 +20,7 @@ const { screeningAgeDays, recallState } = require('./recall');
 const INDICATOR_ATTRS = [
   'id', 'assessedAt', 'totalScore', 'overallIndicator', 'overallBand', 'escalations',
   'factors', 'reasonsAgainst', 'cohortZ', 'cohortRank', 'cohortSize', 'cohortLabel', 'cohortDeltas',
-  'subitems', 'overrideBand', 'overrideNote', 'overrideBy', 'overrideAt',
+  'subitems', 'prescription', 'overrideBand', 'overrideNote', 'overrideBy', 'overrideAt',
 ];
 
 const arr = (v) => (Array.isArray(v) ? v : []);
@@ -55,6 +55,8 @@ function toIndicator(s, dueDays = null) {
     cohortLabel: s.cohortLabel ?? null,
     cohortDeltas: arr(s.cohortDeltas),
     subitems: s.subitems || null,
+    // HoloMotion's own prescribed programme, when the report carried one.
+    prescription: s.prescription || null,
     // Lateral symmetry, derived here rather than in the client.
     //
     // The subitems are already on this payload, so the frontend COULD compute

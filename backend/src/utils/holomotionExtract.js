@@ -143,6 +143,8 @@ function mapToAthlete(extracted) {
   };
 }
 
+const { prescriptionFromPdf } = require('./prescription');
+
 // Full pipeline: PDF buffer → mapped Athlete payload (+ screening extras + raw).
 // Sends the first N full pages of the report (layout-robust — see pdfRender).
 async function extractFromPdf(buffer) {
@@ -153,8 +155,22 @@ async function extractFromPdf(buffer) {
   const mapped = mapToAthlete(extracted);
   // `usage` answers "what does one report cost to ingest?" — carried through to
   // the preview response so the operator sees it per file, and logged.
+  // The training prescription rides along from the PDF's TEXT layer — no model,
+  // no tokens, no extra pages sent anywhere. It is read after the vision call so
+  // a failure here cannot cost the operator the extraction they paid for.
+  let prescription = null;
+  try {
+    prescription = await prescriptionFromPdf(buffer);
+  } catch (err) {
+    console.error('[extract] prescription parse failed:', err.message);
+  }
+
   return {
-    ...mapped, raw: extracted, pagesRead: images.map((i) => i.page), usage: usage || null,
+    ...mapped,
+    raw: extracted,
+    prescription,
+    pagesRead: images.map((i) => i.page),
+    usage: usage || null,
   };
 }
 
