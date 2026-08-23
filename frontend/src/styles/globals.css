@@ -3117,3 +3117,15 @@ textarea:focus-visible,
 .trend-cell-verdict--improved { color: var(--risk-low); }
 .trend-cell-verdict--declined { color: var(--risk-high); }
 .trend-cell-verdict--steady   { color: var(--text-muted); font-weight: 600; letter-spacing: 0; text-transform: none; }
+
+/* The peer average printed under a subitem cell.
+   Deliberately small, muted and unbanded: it is context for the reader's own
+   judgement, not a second verdict. Cohorts here are 5–10 athletes, so a tier or
+   a z-score per cell would claim a precision the sample cannot support. */
+.subitem-peer {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}

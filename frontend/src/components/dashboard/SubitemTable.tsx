@@ -24,7 +24,42 @@ const num = (v: unknown): number | null => (v === null || v === undefined || v =
 // see lib/holomotionTiers.ts.
 const tier = tierMeta;
 
-export default function SubitemTable({ subitems }: { subitems: Subitems | null | undefined }) {
+export interface SubitemCohort {
+  label: string;
+  tier: string;
+  n: number;
+  matrix: Array<{ key: string; label: string; cells: Array<{ key: string; label: string; value: number | null; n: number }> }>;
+}
+
+// Peer context per cell, added 2026-08-23 at JC's instruction over a stated
+// objection — and the objection is why this shows a group MEAN and nothing else.
+//
+// A cohort here is 5–10 athletes. A standard deviation per CELL from that many
+// observations is unstable enough that banding a cell, or printing a z-score for
+// it, would be inventing precision the data cannot support; the §33c argument
+// about thin cohorts applies with more force at cell level, not less.
+//
+// So: "64, group 75.4" is a description a physiologist can weigh themselves.
+// "64 — Below Average (z = −1.4)" would be a claim, and at five peers per cell
+// it would be the wrong claim often enough to matter.
+function cohortCell(
+  cohort: SubitemCohort | null | undefined, regionKey: string, colKey: string,
+): number | null {
+  if (!cohort) return null;
+  // The backend labels columns 'ROM L' / 'Stability L' / 'Symmetry'; this table
+  // uses shorter heads. Match on position rather than on label text, which
+  // would couple two independent wordings.
+  const order = ['romL', 'romR', 'stabL', 'stabR', 'sym'];
+  const idx = order.indexOf(colKey);
+  const row = cohort.matrix.find((r) => r.key === regionKey || r.label === regionKey);
+  const cell = row && idx >= 0 ? row.cells[idx] : null;
+  return cell ? cell.value : null;
+}
+
+export default function SubitemTable({ subitems, cohort }: {
+  subitems: Subitems | null | undefined;
+  cohort?: SubitemCohort | null;
+}) {
   if (!subitems || typeof subitems !== 'object') {
     return <div className="text-muted" style={{ fontSize: 'var(--fs-sm)' }}>No subitem scores were read from this report (older / compact layout).</div>;
   }
@@ -48,12 +83,21 @@ export default function SubitemTable({ subitems }: { subitems: Subitems | null |
                     const v = num((row as Record<string, unknown>)[ckey]);
                     if (v === null) return <td key={ckey} className="text-muted">—</td>;
                     const t = tier(v);
+                    const g = cohortCell(cohort, rkey as string, ckey);
                     return (
                       <td key={ckey}>
                         <span style={{
                           display: 'inline-block', minWidth: 26, padding: '2px 6px', borderRadius: 6,
                           fontSize: 'var(--fs-xs)', fontWeight: 700, color: '#fff', background: t.color,
                         }}>{v}</span>
+                        {g !== null && (
+                          <span
+                            className="subitem-peer"
+                            title={`Group average for this cell across ${cohort?.n} peers`}
+                          >
+                            {g}
+                          </span>
+                        )}
                       </td>
                     );
                   })}

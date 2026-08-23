@@ -2,8 +2,12 @@ const express = require('express');
 const { recordAudit } = require('../utils/audit');
 const { Op } = require('sequelize');
 const { Athlete, MuscleFlag, Screening, AthleteDiscipline } = require('../models');
-const { screeningMovement, recomputeCohorts } = require('../utils/cohorts');
-const { recomputeIndicators } = require('../utils/overallIndicator');
+const {
+  screeningMovement, recomputeCohorts, resolveCohortStats, latestScreeningsByAthlete,
+} = require('../utils/cohorts');
+const {
+  recomputeIndicators, belongsToCohort, resolvedCohortId, cohortLabelFor,
+} = require('../utils/overallIndicator');
 const { notifyInjuryToCoach } = require('../utils/notifications');
 const { programmeActivityData } = require('../utils/programmeActivity');
 const { aggregateSubitems } = require('../utils/subitemAggregate');
@@ -461,6 +465,45 @@ router.get('/:id', auth, requirePermission('viewRecords'), async (req, res) => {
     }
     const out = serializeAthlete(athlete);
     out.screening = await latestIndicator(req.params.id);
+
+    // Per-cell peer context for the 25-subitem table.
+    //
+    // Built on JC's instruction (2026-08-23) over a stated objection, and the
+    // objection shapes what this returns. A cohort here is 5-10 athletes, and a
+    // standard deviation per CELL from that many observations is unstable
+    // enough that banding a cell, or printing a z-score for it, would be
+    // inventing precision the data cannot support — the §33c argument applies
+    // with more force at cell level, not less.
+    //
+    // So this ships the group MEAN per cell and the number of peers behind it,
+    // and nothing else. "Your torso ROM right is 64, the group averages 71" is
+    // a description a physiologist can weigh for themselves. "Your torso ROM
+    // right is Below Average (z = -1.4)" would be a claim, and at n=7 per cell
+    // it would be the wrong one often enough to matter.
+    if (out.screening && out.screening.subitems) {
+      const settings = await getSettings();
+      const cohort = await resolveCohortStats(athlete, {
+        minN: settings.min_cohort_n, fallbackEnabled: settings.fallback_enabled,
+      });
+      if (cohort && cohort.tier) {
+        // resolveCohortStats returns the STATS for the resolved tier, not its
+        // identity; the id is derived from the athlete plus that tier, by the
+        // same helper the scorer uses — so the peers averaged here are exactly
+        // the peers the athlete was scored against.
+        const cohortId = resolvedCohortId(athlete, cohort);
+        const peers = (await latestScreeningsByAthlete())
+          .filter((e) => belongsToCohort(e.athlete, cohortId))
+          .map((e) => e.screening);
+        const agg = aggregateSubitems(peers);
+        out.subitemCohort = {
+          label: cohortLabelFor(cohortId),
+          tier: cohort.tier,
+          n: peers.length,
+          matrix: agg.matrix,
+        };
+      }
+    }
+
     res.json(out);
   } catch (err) {
     res.status(500).json({ message: err.message });

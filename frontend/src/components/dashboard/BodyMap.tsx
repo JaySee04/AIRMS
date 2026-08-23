@@ -10,7 +10,7 @@ import {
 } from './bodymap-data/muscles';
 import type { BodyPart } from './bodymap-data/types';
 import type { Subitems, SubitemRow } from './OverallRiskBadge';
-import SubitemTable from './SubitemTable';
+import SubitemTable, { type SubitemCohort } from './SubitemTable';
 import {
   TIER_LABEL, TIER_ORDER, TIER_RANGE, TIER_RANK, tierOf, type TierState,
 } from '@/lib/holomotionTiers';
@@ -30,6 +30,10 @@ interface BodyMapProps {
   // figure unchanged. When present, a mode toggle appears letting the same
   // "muscle hero" figure be read either as muscle flags or as ROM/Stability.
   subitems?: Subitems | null;
+  // Per-cell peer averages for the subitem table below the figure. Optional:
+  // an older screening or an athlete with no resolvable cohort simply shows the
+  // table without peer context rather than an empty column.
+  subitemCohort?: SubitemCohort | null;
   // Set in the history views, where the figure is drawn from a screening chosen
   // by date. Wording only — the geometry and the flags are unaffected.
   historical?: boolean;
@@ -344,7 +348,7 @@ function renderParts(
 }
 
 export default function BodyMap({
-  myodynamia, tension, subitems, historical = false,
+  myodynamia, tension, subitems, subitemCohort, historical = false,
 }: BodyMapProps) {
   const myo = useMemo(() => buildFlagMap(myodynamia), [myodynamia]);
   const ten = useMemo(() => buildFlagMap(tension), [tension]);
@@ -555,7 +559,7 @@ export default function BodyMap({
 
       {activeMode === 'subitems' && (
         <div style={{ marginTop: 4 }}>
-          <SubitemTable subitems={subitems} />
+          <SubitemTable subitems={subitems} cohort={subitemCohort} />
         </div>
       )}
     </>

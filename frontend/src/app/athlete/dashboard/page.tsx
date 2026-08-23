@@ -17,9 +17,13 @@ import OverallRiskBadge, { ScreeningIndicator } from '@/components/dashboard/Ove
 import { api } from '@/lib/api';
 import { getSession } from '@/lib/auth';
 import type { AthleteRisks } from '@/lib/screeningAlerts';
+import type { SubitemCohort } from '@/components/dashboard/SubitemTable';
 import { RADAR_LABELS, highThresholdsFor, riskRadarSeries } from '@/lib/screeningAlerts';
 
 interface Athlete {
+  // Per-cell peer averages for the subitem table. Server-computed over the same
+  // cohort the athlete was scored against (routes/athletes.js).
+  subitemCohort?: SubitemCohort | null;
   athleteId: string;
   name: string;
   sport: string;
@@ -207,7 +211,7 @@ export default function AthleteDashboard() {
             <span className="card-sub">L = left · R = right · B = both</span>
           </div>
         </div>
-        <BodyMap myodynamia={athlete.myodynamia ?? []} tension={athlete.tension ?? []} subitems={athlete.screening?.subitems} />
+        <BodyMap myodynamia={athlete.myodynamia ?? []} tension={athlete.tension ?? []} subitems={athlete.screening?.subitems} subitemCohort={athlete.subitemCohort} />
       </div>
     </DashboardLayout>
   );
