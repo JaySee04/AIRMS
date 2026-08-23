@@ -45,9 +45,9 @@ clinician's time. See §3 Q1.
 
 ---
 
-## 2. Numbers, measured 2026-08-23
+## 2. Numbers, measured 2026-08-24
 
-Re-measure before the viva; these drift with every reseed. Last run **2026-08-23**: every database figure below is unchanged from 2026-08-19 **except the audit count**, which grows whenever anyone opens a report. The commit and test rows moved; both suites were green (350 / 126). The same figures were verified against the DEPLOYED database, not only the laptop — see §8.
+Re-measure before the viva; these drift with every reseed. Last run **2026-08-23**: every database figure below is unchanged from 2026-08-19 **except the audit count**, which grows whenever anyone opens a report. The commit and test rows moved; both suites were green (361 / 126). The same figures were verified against the DEPLOYED database, not only the laptop — see §8.
 
 ```powershell
 cd backend
@@ -66,8 +66,8 @@ node -e "require('dotenv').config();const{sequelize,Athlete,Screening,CohortThre
 | Audit rows | 40 | 5 action types, **all 5 roles** — the athlete row appeared 2026-08-20, when self-download began working |
 | Users | 10 | across 5 roles — 4 reach a deliverable inbox (§5 L7) |
 | Muscle flags | 336 | |
-| Commits, FYP I → FYP II | **276** | 249 files, +58,627 / −7,681 lines |
-| Tests | 350 backend (22 suites) + 126 frontend (8) | |
+| Commits, FYP I → FYP II | **291** | 252 files, +59,805 / −7,679 lines |
+| Tests | 361 backend (23 suites) + 126 frontend (8) | |
 
 **The settings that decide bands** (`backend/src/utils/settings.js`, live values):
 
@@ -374,6 +374,36 @@ that is configuration rather than code.
 *Backing: `backend/src/utils/resetCodes.js`; `backend/src/routes/users.js`;
 `frontend/src/app/activate/page.tsx`.*
 
+### Q14 · "The screening tells you what is wrong. Does it tell anyone what to do?"
+
+**Yes, and deliberately not in our own words.**
+
+> The HoloMotion report prints a two-week Training Prescription on its last
+> pages — day by day, each exercise with reps, sets and a rest interval, derived
+> by the instrument from the same screening AIRMS scores. Nothing read it until
+> 2026-08-23. It now appears on the screening panel for the athlete, the
+> clinician and the coach, headed as the instrument's own, with its caveat about
+> how long the programme stands quoted verbatim rather than paraphrased.
+
+**If pushed — isn't AIRMS giving training advice?** No, and the interface keeps
+the two visibly apart. The *Training Focus* card is AIRMS's own: a
+region-frequency heuristic that speaks about programme load rather than
+treatment, because a read-only coach acting on a screening should be adjusting
+volume, not prescribing rehabilitation. The *Training Prescription* card is
+HoloMotion's, reproduced. A panellist asking "who is giving this advice" can be
+shown both cards and the answer is on them.
+
+**The detail worth volunteering:** I expected this to be expensive — a new
+extraction schema and roughly 1,550 tokens per page across 32 extra pages — and
+checking the actual PDF disproved it. Pages 1–6 are rendered graphics with no
+text layer, which is exactly why they need a vision model; the prescription
+pages are ordinary text. So it costs no model call, no tokens, and works even
+with no AI provider configured. The parser is strict because the output is a
+programme somebody may follow: a row read loosely produces something that looks
+complete and is wrong, and nothing downstream could detect it.
+
+*Backing: `backend/src/utils/prescription.js`; `backend/tests/prescription.test.js`.*
+
 ---
 
 ## 4. Where the design argues against itself
@@ -446,7 +476,7 @@ Things that will look like bugs and are not. Know what you will say.
   movement in five scores and flatness in the sixth, that is the seeder, not the
   code.
 - **L6 · The branch is called `feat/mysql-migration`.** It was about MySQL for
-  three commits and has been all of FYP II for 273. Renaming was considered and
+  three commits and has been all of FYP II for 288. Renaming was considered and
   rejected: it has a public upstream, and five docs name it in prose — including
   the logbook source material. `main` is FYP I; this branch is FYP II.
 - **L7 · Four demo accounts reach a real inbox; five bounce.** `@isn.gov.my`

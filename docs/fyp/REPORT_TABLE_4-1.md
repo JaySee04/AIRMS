@@ -130,6 +130,11 @@ pasting.
 | | UC-53 | Force a Scheduled Mail Run | Run a scheduled mail immediately and report the outcome, bypassing the due check but never the institution's own on/off switch for that category. | Administrator |
 | **Module 5 — Analytics & Reporting** | UC-54 | View Activity Log | Read the append-only trail of actions taken in the system — imports, overrides, norm changes, settings changes, personnel changes, report downloads and data exports — filtered by action and date, with a staff activity rollup that counts reads separately from changes, and a PDF export. | Administrator, Executive |
 | | UC-55 | Generate Programme Activity Report | Produce the programme KPI document covering screening coverage, throughput, within-athlete change, seasonality and activity by account, drawn from the same computation the on-screen panel reads so the screen and the document cannot quote different figures. | Administrator, Executive |
+| **Module 3 — Screening Data Ingestion** | UC-56 | Extract Training Prescription | Read the two-week training programme HoloMotion prints at the back of the report — grouped by day, each exercise with repetitions, sets and rest interval — from the document's text layer. Requires no AI provider and no additional pages transmitted, unlike the score extraction. A report whose layout carries no prescription yields none rather than an empty programme. | System |
+| **Module 1 — Athlete Dashboard & Overall Risk Indicator** | UC-57 | View Training Prescription | Read the prescribed programme from the latest screening, presented as the instrument's own recommendation and distinct from the system's own training-focus suggestion. | Athlete, Medical Staff, Coach (assigned sport only) |
+| | UC-58 | View Lateral Symmetry | Read each body region's symmetry score with the side that is weaker and by how much — the same rows the printed report draws. | Athlete, Medical Staff, Coach (assigned sport only) |
+| | UC-59 | Interpret Change Between Screenings | Read whether each score has improved, declined or held steady since the previous screening, judged against the programme's own detectable-change threshold, which reports itself as measured or assumed. | Athlete, Medical Staff, Coach (assigned sport only) |
+| **Module 6 — Clinical & Squad Monitoring** | UC-60 | Identify Overdue Screenings in Squad | See which athletes in the assigned sport are overdue for rescreening or have never been screened, using the same recall rule as the monthly reminder email. | Coach |
 
 ---
 
@@ -150,7 +155,7 @@ Each of these is defensible and already true of the build:
 
 ---
 
-## Appendix C — UC-1–44 (2026-07-20 numbering) → UC-1–55 (this table)
+## Appendix C — UC-1–44 (2026-07-20 numbering) → UC-1–60 (this table)
 
 | Was | Now | Disposition |
 |---|---|---|

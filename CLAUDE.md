@@ -117,6 +117,53 @@ flow. Some paths are additionally checked by driving the util directly against t
 dev database from a `node -e` script — see the verification notes in recent commit
 messages for what that looked like.
 
+## Clinical surfaces added 2026-08-23/24
+
+Four things the system held but never showed, found by reviewing the dashboards
+as a physiologist would rather than by reading the backlog:
+
+- **Lateral symmetry is on screen** (`utils/symmetry.js`, extracted from
+  `pdfDraw.js`). The printed report named which side was weaker and by how much;
+  no dashboard did, and the body map's own rule paints the WORSE of L/R, which
+  discards the side. Computed server-side and shipped as `lateralSymmetry`, not
+  `symmetry` — that key is already the athlete's scalar score on the same object.
+- **The history calls its own changes** (`GET /screenings/reliability`). It drew
+  six sparklines and refused to name any, because the detectable-change
+  threshold was not on an athlete-scoped payload. Its own endpoint now, because
+  the threshold is a fact about the PROGRAMME — the same six numbers govern the
+  athlete's panels, the coach's arrows and the institution's change chart. It
+  reports whether the threshold was **earned or assumed**, and on the seeded data
+  it is assumed: 18 repeat pairs against the 20 needed.
+- **Per-cell peer means on the subitem table**, built on JC's instruction over a
+  stated objection. The objection shaped it: at 5–10 peers a per-CELL standard
+  deviation is unstable, so the cells carry the group MEAN and nothing else — no
+  tier, no z-score. `§33c` applies with more force at cell level, not less.
+- **The coach sees the recall they are already emailed about.** AIRMS mails each
+  coach a monthly overdue list and the dashboard showed no trace of it, while
+  rendering readiness in the present tense over months-old screenings. The data
+  was already on the payload.
+
+## Training Prescription — read from the text layer (2026-08-23)
+
+The report's last pages carry HoloMotion's own two-week programme: day by day,
+each exercise with reps, sets and rest. `utils/prescription.js` reads it and
+`screenings.prescription` (JSON) stores it. **This needs no vision model**:
+pages 1–6 are rendered graphics with no text layer, which is why they need one;
+the prescription pages are ordinary text. No tokens, no extra pages transmitted,
+and it works with no AI provider configured.
+
+Parsed strictly, because the output is a programme somebody may follow — a row
+read loosely looks complete and is wrong. Rows must match the printed shape or
+are dropped, days are sliced before rows are matched, and reps keep their unit
+so a 30-second hold is never shown as 30 repetitions. `null` means the report
+carried none (the compact layout does not) rather than a failure, so no panel
+appears. Verified: Nazwan's 38-page report yields 6 days / 48 exercises;
+Thung's 12-page compact report yields null.
+
+**Keep it distinct from the Training Focus card**, which is AIRMS's own
+region-frequency heuristic and speaks about load rather than treatment. One is
+the instrument's advice reproduced; the other is ours.
+
 ## Deployed instance (2026-08-23)
 
 | | |
