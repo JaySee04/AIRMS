@@ -25,6 +25,20 @@ interface StaffUser {
   isActive: boolean;
   permissions: Record<string, boolean> | null;
   lastLoginAt: string | null;
+  // Null on both = an account whose password somebody typed directly (every
+  // seeded one). invitedAt set with activatedAt still null = invited and not
+  // yet taken up, which is the state an administrator has to act on.
+  invitedAt: string | null;
+  activatedAt: string | null;
+}
+
+/** Has this person been invited and not yet set a password? */
+function isPending(u: StaffUser): boolean {
+  return Boolean(u.invitedAt) && !u.activatedAt;
+}
+
+function daysSince(iso: string): number {
+  return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
 }
 
 interface PermissionMeta { keys: string[]; labels: Record<string, string>; }
@@ -48,6 +62,11 @@ export default function AdminPersonnelPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  // Invitation is the default: the alternative means a credential travels over
+  // WhatsApp and the administrator knows it for ever. Setting one by hand stays
+  // available for a demo account, or for somebody with no working mailbox yet.
+  const [byInvite, setByInvite] = useState(true);
+  const [invitingId, setInvitingId] = useState<number | null>(null);
   const [showPw, setShowPw] = useState(false);
   const [sport, setSport] = useState('');
   const [adding, setAdding] = useState(false);
@@ -75,21 +94,31 @@ export default function AdminPersonnelPage() {
   useEffect(() => { load(); }, [load]);
 
   const sportRequired = role === 'coach';
-  const canAdd = name.trim() && email.trim() && !validatePassword(password) && (!sportRequired || sport.trim());
+  const canAdd = name.trim() && email.trim() && (byInvite || !validatePassword(password)) && (!sportRequired || sport.trim());
 
   async function addAccount(e: React.FormEvent) {
     e.preventDefault();
-    const pwError = validatePassword(password);
-    if (pwError) { setAddError(`Password: ${pwError.toLowerCase()}`); setAddMsg(null); return; }
+    if (!byInvite) {
+      const pwError = validatePassword(password);
+      if (pwError) { setAddError(`Password: ${pwError.toLowerCase()}`); setAddMsg(null); return; }
+    }
     setAdding(true); setAddError(null); setAddMsg(null);
     try {
-      await api.post<StaffUser>('/users', {
-        role, name, email, password,
+      const created = await api.post<StaffUser & { invited?: boolean; inviteError?: string }>('/users', {
+        role, name, email, invite: byInvite,
+        ...(byInvite ? {} : { password }),
         ...(role === 'coach' ? { coachSport: sport } : {}),
       });
-      setAddMsg(role === 'coach'
-        ? `Coach "${name.trim()}" created for ${sport.trim()}.`
-        : `Medical staff "${name.trim()}" created with full access.`);
+      const who = role === 'coach' ? `Coach "${name.trim()}"` : `Medical staff "${name.trim()}"`;
+      // The account exists either way; whether the person can be reached is the
+      // part worth reporting, because it decides what the administrator does
+      // next — nothing, or re-send.
+      if (byInvite && created.invited === false) {
+        setAddError(`${who} was created, but the invitation could not be sent${created.inviteError ? `: ${created.inviteError}` : ''}. Use "Resend invite" below.`);
+      }
+      setAddMsg(byInvite
+        ? (created.invited === false ? null : `${who} created — an activation code has been emailed to ${email.trim()}.`)
+        : `${who} created with the password you set.`);
       setName(''); setEmail(''); setPassword(''); setSport('');
       await load();
     } catch (e) {
@@ -136,6 +165,54 @@ export default function AdminPersonnelPage() {
     base[key] = !granted(user.permissions, key);
     patchUser(user, { permissions: base });
   }
+
+  async function resendInvite(u: StaffUser) {
+    setInvitingId(u.id);
+    setError(null);
+    try {
+      const updated = await api.post<StaffUser>(`/users/${u.id}/invite`, {});
+      const setList = u.role === 'coach' ? setCoaches : setMedical;
+      setList((cur) => cur.map((x) => (x._id === u._id ? { ...x, ...updated } : x)));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not send the invitation');
+    } finally {
+      setInvitingId(null);
+    }
+  }
+
+  // The line under a person's name that says where they are in onboarding.
+  //
+  // "Never signed in" was the only signal before, and it cannot distinguish
+  // somebody who was invited an hour ago from somebody invited three weeks ago
+  // who never responded — which are the two cases with completely different
+  // answers. An invitation that has been sitting for days is the one thing on
+  // this page an administrator has to chase.
+  const onboardingLine = (u: StaffUser) => {
+    if (isPending(u)) {
+      const d = daysSince(u.invitedAt as string);
+      return (
+        <span style={{ color: 'var(--risk-moderate)' }}>
+          Invited {d === 0 ? 'today' : d === 1 ? 'yesterday' : `${d} days ago`} · not yet activated
+        </span>
+      );
+    }
+    if (u.lastLoginAt) return `Last login ${new Date(u.lastLoginAt).toLocaleDateString()}`;
+    return 'Never signed in';
+  };
+
+  const inviteButton = (u: StaffUser) => (
+    <button
+      type="button"
+      className="btn btn-outline btn-sm"
+      disabled={invitingId === u.id || !u.isActive}
+      onClick={() => resendInvite(u)}
+      title={isPending(u)
+        ? 'Send a fresh activation code — the previous one stops working'
+        : 'Send an activation code so they can set a new password themselves'}
+    >
+      {invitingId === u.id ? 'Sending…' : isPending(u) ? 'Resend invite' : 'Send invite'}
+    </button>
+  );
 
   const accountBadge = (u: StaffUser) => (
     <button
@@ -197,6 +274,24 @@ export default function AdminPersonnelPage() {
             )}
           </div>
           <div className="form-group">
+            <label>How they get access</label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <label style={{ fontWeight: 400 }}>
+                <input type="radio" checked={byInvite} onChange={() => setByInvite(true)} />
+                {' '}Email them an activation code <strong>(recommended)</strong>
+              </label>
+              <label style={{ fontWeight: 400 }}>
+                <input type="radio" checked={!byInvite} onChange={() => setByInvite(false)} />
+                {' '}Set a password myself
+              </label>
+              <p className="card-sub" style={{ margin: 0 }}>
+                {byInvite
+                  ? 'They choose their own password from the code. Nobody here ever knows it, and the code expires in 7 days.'
+                  : 'You will have to pass this password to them somehow, and you will know it afterwards. Use only for a demo account or somebody with no working mailbox.'}
+              </p>
+            </div>
+          </div>
+          <div className="form-group" style={{ display: byInvite ? 'none' : undefined }}>
             <label>Password <span style={{ color: 'var(--risk-high)' }}>*</span></label>
             <div className="password-input-wrap" style={{ maxWidth: 420 }}>
               <input
@@ -262,7 +357,7 @@ export default function AdminPersonnelPage() {
                       <strong>{c.name}</strong>
                       <div className="text-muted" style={{ fontSize: 'var(--fs-sm)' }}>{c.email}</div>
                       <div className="text-muted" style={{ fontSize: 'var(--fs-xs)' }}>
-                        {c.lastLoginAt ? `Last login ${new Date(c.lastLoginAt).toLocaleDateString()}` : 'Never signed in'}
+                        {onboardingLine(c)}
                       </div>
                     </td>
                     <td>
@@ -285,7 +380,12 @@ export default function AdminPersonnelPage() {
                         </button>
                       </div>
                     </td>
-                    <td style={{ textAlign: 'center' }}>{accountBadge(c)}</td>
+                    <td style={{ textAlign: 'center' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center' }}>
+                        {accountBadge(c)}
+                        {inviteButton(c)}
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -325,7 +425,7 @@ export default function AdminPersonnelPage() {
                       <strong>{u.name}</strong>
                       <div className="text-muted" style={{ fontSize: 'var(--fs-sm)' }}>{u.email}</div>
                       <div className="text-muted" style={{ fontSize: 'var(--fs-xs)' }}>
-                        {u.lastLoginAt ? `Last login ${new Date(u.lastLoginAt).toLocaleDateString()}` : 'Never signed in'}
+                        {onboardingLine(u)}
                       </div>
                     </td>
                     {meta?.keys.map((k) => (
@@ -345,7 +445,12 @@ export default function AdminPersonnelPage() {
                         </label>
                       </td>
                     ))}
-                    <td style={{ textAlign: 'center' }}>{accountBadge(u)}</td>
+                    <td style={{ textAlign: 'center' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center' }}>
+                        {accountBadge(u)}
+                        {inviteButton(u)}
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>

@@ -80,7 +80,11 @@ router.get('/', async (req, res) => {
     const rows = await User.findAll({
       where: { role },
       order: [['name', 'ASC']],
-      attributes: ['id', 'name', 'email', 'role', 'isActive', 'permissions', 'coachSport', 'lastLoginAt', 'createdAt'],
+      // invitedAt/activatedAt are listed explicitly: this is an allow-list, so a
+      // column added to the model is invisible here until named. The personnel
+      // page needs them to distinguish 'invited three weeks ago, never
+      // responded' from 'never signed in', which are different problems.
+      attributes: ['id', 'name', 'email', 'role', 'isActive', 'permissions', 'coachSport', 'lastLoginAt', 'createdAt', 'invitedAt', 'activatedAt'],
     });
     res.json(rows.map((u) => ({ ...u.get({ plain: true }), _id: String(u.id) })));
   } catch (err) {
