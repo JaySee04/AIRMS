@@ -263,6 +263,24 @@ export default function OverallRiskBadge({
   return (
     <div className={`risk-hero risk-hero--${HERO_CLS[band]}`}>
       <div style={{ flex: 1 }}>
+
+        {/* HoloMotion's own printed number is the headline. It is the one value a
+            clinician can check against the PDF in their hand, which the derived
+            0-100 indicator never was. The indicator is still computed and still
+            drives ranking, alerts and report ordering — it is just no longer the
+            thing shown. */}
+        <div className="risk-hero-stat">
+          <div className="risk-hero-stat-val" style={{ color: meta.color }}>
+            {screening.totalScore ?? '—'}
+          </div>
+          <div className="risk-hero-stat-label">Total Score</div>
+          <div className="risk-hero-stat-sub">
+            as printed by HoloMotion
+            {pct != null && (
+              <><br /><strong>{ordinal(pct)} pct</strong> of group ({rank}/{size})</>
+            )}
+          </div>
+        </div>
         <div className="risk-hero-label">{heroLabel}</div>
         <div className="risk-hero-level">
           {meta.label}
@@ -375,24 +393,6 @@ export default function OverallRiskBadge({
             </span>
           </div>
         )}
-      </div>
-
-      {/* HoloMotion's own printed number is the headline. It is the one value a
-          clinician can check against the PDF in their hand, which the derived
-          0-100 indicator never was. The indicator is still computed and still
-          drives ranking, alerts and report ordering — it is just no longer the
-          thing shown. */}
-      <div className="risk-hero-stat">
-        <div className="risk-hero-stat-val" style={{ color: meta.color }}>
-          {screening.totalScore ?? '—'}
-        </div>
-        <div className="risk-hero-stat-label">Total Score</div>
-        <div className="risk-hero-stat-sub">
-          as printed by HoloMotion
-          {pct != null && (
-            <><br /><strong>{ordinal(pct)} pct</strong> of group ({rank}/{size})</>
-          )}
-        </div>
       </div>
     </div>
   );

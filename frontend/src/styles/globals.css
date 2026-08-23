@@ -592,22 +592,47 @@ label:has(> input[type='radio']) {
  */
 .risk-hero > div:first-child {
   min-width: 0;
+  flex: 1;
   display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
-  column-gap: 28px;
+  /* Three columns now, because the score card moved INSIDE this grid. As a
+     sibling of the grid it was a flex column reserving full height for
+     something that only occupies the top, so everything below it was dead
+     space — the void simply moved there when the table stopped stretching.
+     In the grid it takes one cell of row 1 and the evidence uses the rest. */
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr) auto;
+  column-gap: 24px;
   align-items: start;
 }
+/* Row 1, far right, and nothing beneath it is reserved. */
+.risk-hero > div:first-child > .risk-hero-stat {
+  grid-column: 3;
+  grid-row: 1 / span 3;
+  align-self: start;
+}
 /* The verdict and anything qualifying it speak to the whole card. */
+/* The verdict and anything qualifying it speak to the whole card — but stop
+   short of column 3, which the score card occupies. */
 .risk-hero > div:first-child > .risk-hero-label,
 .risk-hero > div:first-child > .risk-hero-level,
 .risk-hero > div:first-child > .risk-hero-msg,
 .risk-hero > div:first-child > .risk-factors,
-.risk-hero > div:first-child > .risk-hero-stale { grid-column: 1 / -1; }
+.risk-hero > div:first-child > .risk-hero-stale { grid-column: 1 / 3; }
+/* The evidence rows DO run under the card, which is the whole point. */
+.risk-hero > div:first-child > .cohort-profile { grid-column: 1; }
+.risk-hero > div:first-child > .reason-cols { grid-column: 2 / -1; }
 
 /* Below this the two columns would each be too narrow to read a four-column
    table or a bulleted reason, so the stack returns. */
 @media (max-width: 1100px) {
   .risk-hero > div:first-child { grid-template-columns: minmax(0, 1fr); }
+  .risk-hero > div:first-child > .risk-hero-label,
+  .risk-hero > div:first-child > .risk-hero-level,
+  .risk-hero > div:first-child > .risk-hero-msg,
+  .risk-hero > div:first-child > .risk-factors,
+  .risk-hero > div:first-child > .risk-hero-stale,
+  .risk-hero > div:first-child > .cohort-profile,
+  .risk-hero > div:first-child > .reason-cols,
+  .risk-hero > div:first-child > .risk-hero-stat { grid-column: 1; grid-row: auto; }
 }
 .risk-hero--low      { background: var(--risk-low-bg);         border-color: rgba(61, 124, 71, 0.3); }
 .risk-hero--mod      { background: var(--risk-moderate-bg);    border-color: rgba(200, 155, 60, 0.4); }
