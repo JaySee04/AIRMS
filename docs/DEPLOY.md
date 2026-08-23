@@ -202,6 +202,40 @@ instance holds its own pool against a single 76-connection ceiling: at 5 apiece
 fifteen concurrent instances exhaust it, which a live demo can reach.
 `MYSQL_POOL_MAX` overrides.
 
+### Four things that bite, all found the hard way
+
+The API and web app are live at `airms-api.vercel.app` and `airms-web.vercel.app`.
+Getting there hit four faults, each hiding the next; they are recorded because
+every one of them presents as the same opaque `FUNCTION_INVOCATION_FAILED`.
+
+1. **The wrong branch.** Vercel tracks one branch for production, and a new
+   project defaults to the repository's default branch. That was `main` — the
+   pre-MySQL codebase — so the deployed API kept failing on a *MongoDB*
+   connection error, for code nobody had touched in months. Check
+   Settings → Environments → Production → Branch Tracking, and note that
+   **Redeploy re-runs the same commit**: it cannot move a deployment onto a
+   different branch.
+
+2. **Root Directory versus where you deploy from.** With Root Directory set to
+   `backend`, deploying *from* `backend/` makes Vercel look for `backend/backend`.
+   Either deploy from the repository root with the setting in place, or clear the
+   setting and deploy from the package directory. Deploying from the root fails
+   on this machine for an unrelated reason — see gotcha 7 in `CLAUDE.md`, the
+   OneDrive reparse points — so this repo uses the second option.
+
+3. **Cron frequency is plan-gated.** Hobby accounts allow **daily** crons only;
+   the hourly `0 * * * *` is rejected at deploy time. It is now `0 23 * * *`.
+   This is survivable only because `isDue` asks whether the due moment has
+   *passed* rather than matching an hour exactly, so a daily tick still sends on
+   the right day — at worst later in it. A design that pinned the send to an
+   exact hour would have needed rewriting for the platform.
+
+4. **`mysql2` gets traced out of the bundle.** Sequelize resolves its dialect
+   driver with a dynamic `require`, which static analysis cannot see, so the
+   driver is omitted and every cold start dies with *"Please install mysql2
+   package manually"* — at module scope, before any route runs. `config/db.js`
+   now requires it explicitly and passes it as `dialectModule`.
+
 ### Scheduled mail
 
 `setInterval` cannot work here: the function is frozen between invocations, so

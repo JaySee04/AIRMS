@@ -1,0 +1,14 @@
+.vercel
+.env*
+
+# Added by `vercel link`. `.vercel/` holds the project id; `.env*` covers the
+# .env.local the CLI writes (it carries a short-lived OIDC token).
+#
+# The negation is not decoration: `.env*` also matches backend/.env.example and
+# frontend/.env.local.example, which are COMMITTED templates. Tracked files stay
+# tracked, so nothing broke today — but the day someone re-adds one it would be
+# silently ignored, and a missing example file is exactly the kind of absence
+# nobody notices.
+.vercel
+.env*
+!*.example

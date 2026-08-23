@@ -1,4 +1,13 @@
 const { Sequelize } = require('sequelize');
+// Sequelize resolves its dialect driver with a DYNAMIC require, which a
+// bundler's static analysis cannot see. On Vercel that means mysql2 is traced
+// out of the function and every cold start dies with "Please install mysql2
+// package manually" — at module scope, so before any route runs.
+//
+// Requiring it here makes the dependency visible to the tracer, and passing it
+// as `dialectModule` means Sequelize uses this instance rather than trying to
+// resolve its own. Harmless locally, load-bearing when deployed.
+const mysql2 = require('mysql2');
 
 // Managed MySQL (Aiven, TiDB Cloud, Railway, RDS) requires TLS; a local dev
 // server does not have it. Off unless asked for, so nothing changes for the
@@ -42,6 +51,7 @@ const sequelize = new Sequelize(
     host: process.env.MYSQL_HOST || 'localhost',
     port: Number(process.env.MYSQL_PORT) || 3306,
     dialect: 'mysql',
+    dialectModule: mysql2,
     logging: process.env.SQL_LOG === '1' ? console.log : false,
     // mysql2 returns DECIMAL as strings by default. The composite risk model
     // in frontend/src/lib/risk.ts compares these as numbers and would break
