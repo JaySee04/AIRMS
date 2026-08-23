@@ -577,7 +577,38 @@ label:has(> input[type='radio']) {
    message, factor chips, the gauge). min-width: 0 lets it shrink properly
    inside the flex row so the right-hand ACWR card never gets pushed off
    the viewport when the level or message is long (e.g. compound labels). */
-.risk-hero > div:first-child { min-width: 0; }
+/* The evidence column is a GRID, not a stack.
+ *
+ * Capping the comparison table stopped a label and its number being flung to
+ * opposite edges, but it left the right half of the hero empty and the card
+ * exactly as tall — the emptiness moved rather than went. The height was never
+ * the table's width, it was that every block sat under the one before it while
+ * half the card's width went unused.
+ *
+ * So the comparison sits beside the reasons instead of above them. Two columns
+ * of roughly equal weight, the heading and message spanning both, which is the
+ * shape the content already had: a verdict, then the numbers behind it and the
+ * arguments either way, read together rather than scrolled through.
+ */
+.risk-hero > div:first-child {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  column-gap: 28px;
+  align-items: start;
+}
+/* The verdict and anything qualifying it speak to the whole card. */
+.risk-hero > div:first-child > .risk-hero-label,
+.risk-hero > div:first-child > .risk-hero-level,
+.risk-hero > div:first-child > .risk-hero-msg,
+.risk-hero > div:first-child > .risk-factors,
+.risk-hero > div:first-child > .risk-hero-stale { grid-column: 1 / -1; }
+
+/* Below this the two columns would each be too narrow to read a four-column
+   table or a bulleted reason, so the stack returns. */
+@media (max-width: 1100px) {
+  .risk-hero > div:first-child { grid-template-columns: minmax(0, 1fr); }
+}
 .risk-hero--low      { background: var(--risk-low-bg);         border-color: rgba(61, 124, 71, 0.3); }
 .risk-hero--mod      { background: var(--risk-moderate-bg);    border-color: rgba(200, 155, 60, 0.4); }
 .risk-hero--high     { background: var(--risk-high-bg);        border-color: rgba(176, 48, 48, 0.4); }
@@ -701,11 +732,9 @@ label:has(> input[type='radio']) {
 .cohort-profile-group { font-weight: 400; text-transform: none; letter-spacing: 0; }
 .cohort-profile-table {
   width: 100%;
-  /* The void this closes: with four columns stretched across the full hero the
-     measure sat at the far left and its number at the far right, so the eye had
-     to cross ~900px of nothing to pair a label with its value. Capping the
-     table keeps a row readable as one line. It still fills narrower screens. */
-  max-width: 720px;
+  /* No cap needed now: the grid column above is the constraint, and a cap on top
+     of it would only re-open the gap between a label and its number inside an
+     already-narrow column. */
   border-collapse: collapse;
   font-size: var(--fs-md);
 }
@@ -768,8 +797,11 @@ label:has(> input[type='radio']) {
 .reason-cols {
   margin-top: 14px;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 12px;
+  /* Stacked, because this now occupies one column of the hero rather than its
+     full width — auto-fit would try for two and give each about 200px. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  align-content: start;
 }
 /* Two bordered, filled panels for a for/against pair were the heaviest thing on
    the card. What encodes the polarity is the COLOUR of the left rule, not the
