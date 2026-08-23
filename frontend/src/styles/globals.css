@@ -1099,11 +1099,11 @@ label:has(> input[type='radio']) {
 .bodymap-silhouette {
   fill: var(--bodymap-fill-mid);
   stroke: var(--bodymap-outline);
-  /* Heavier than the muscle line-work (1.2) by enough to read as the body's own
-     edge. At 3 the contour and the internal divisions carried nearly the same
-     weight, so the figure read as a field of shapes rather than as a body with
-     muscles on it. */
-  stroke-width: 4.5;
+  /* Heavier than the muscle line-work by enough to read as the body's own edge.
+     At 3 the contour and the internal divisions carried nearly the same weight
+     and the figure read as a field of shapes; at 4.5 it read as a thick border
+     drawn around a person. 3.6 is the middle that separates without shouting. */
+  stroke-width: 3.6;
   stroke-linejoin: round;
   stroke-linecap: round;
   vector-effect: non-scaling-stroke;
@@ -1117,8 +1117,11 @@ label:has(> input[type='radio']) {
   stroke: var(--bodymap-region-stroke);
   /* Every muscle keeps a visible edge even unflagged, so adjacent flagged
      muscles separate instead of merging into one mass — the pectorals and the
-     deltoids used to read as a single orange field. */
-  stroke-width: 1.6;
+     deltoids used to read as a single orange field. Weight was the wrong lever
+     for that: 1.6 across ~90 paths turned the figure into wireframe. The
+     separation now comes from CONTRAST (the tier strokes below), leaving the
+     line itself fine. */
+  stroke-width: 1.15;
   stroke-linejoin: round;
   vector-effect: non-scaling-stroke;
   /* stroke and stroke-width are in the transition because the active state
@@ -1141,18 +1144,45 @@ label:has(> input[type='radio']) {
   pointer-events: none;
   cursor: default;
 }
-.bodymap-region--weak  { fill: var(--flag-weak);  stroke: rgba(0,0,0,0.35); }
-.bodymap-region--tight { fill: var(--flag-tight); stroke: rgba(0,0,0,0.35); }
-.bodymap-region--both  { fill: var(--flag-both);  stroke: rgba(0,0,0,0.35); }
+.bodymap-region--weak  { fill: var(--flag-weak);  stroke: rgba(15, 44, 74, 0.30); }
+.bodymap-region--tight { fill: var(--flag-tight); stroke: rgba(15, 44, 74, 0.30); }
+.bodymap-region--both  { fill: var(--flag-both);  stroke: rgba(15, 44, 74, 0.30); }
 
 /* ROM & Stability mode — same figure, tier-coloured by region instead of
    weak/tight (see BodyMap.tsx's subitems mode). Reuses the risk-tier CSS
    vars already defined for the subitem table / screening gauges elsewhere,
    so light/dark theming is automatic. */
-.bodymap-region--excellent { fill: var(--risk-low);         stroke: rgba(0,0,0,0.35); }
-.bodymap-region--good      { fill: var(--risk-undertrained); stroke: rgba(0,0,0,0.35); }
-.bodymap-region--average   { fill: var(--risk-moderate);    stroke: rgba(0,0,0,0.35); }
-.bodymap-region--below     { fill: var(--risk-high);        stroke: rgba(0,0,0,0.35); }
+/* ROM & Stability mode paints EVERY region, unlike Muscle Flags which colours
+   only what is flagged. At full saturation with a near-black edge that turned
+   the figure into a colouring book: ~90 shapes each shouting, with no visual
+   rest anywhere and no way for the eye to find the region that matters.
+
+   Softening the fill and lightening the edge keeps every tier distinguishable
+   — they are four well-separated hues, not four shades of one — while letting
+   the figure read as a body with shading on it. The tier a region belongs to
+   is still legible; it just no longer arrives as a block of paint.
+
+   fill-opacity rather than lighter colour values so the SAME tokens keep
+   driving it, and dark mode follows without a second palette. */
+.bodymap-region--excellent,
+.bodymap-region--good,
+.bodymap-region--average,
+.bodymap-region--below {
+  fill-opacity: 0.74;
+  stroke: rgba(15, 44, 74, 0.28);
+}
+.bodymap-region--excellent { fill: var(--risk-low); }
+.bodymap-region--good      { fill: var(--risk-undertrained); }
+.bodymap-region--average   { fill: var(--risk-moderate); }
+.bodymap-region--below     { fill: var(--risk-high); }
+
+/* A flagged muscle stays at full strength: in Muscle Flags mode only a handful
+   are painted, so there is nothing to compete with and the finding should be
+   unmistakable. Softening those would trade clarity for calm in the one place
+   the map is answering a question. */
+.bodymap-region--weak,
+.bodymap-region--tight,
+.bodymap-region--both { fill-opacity: 1; }
 
 /* Hover handling is done at the group level so every path inside the
    region reacts as one unit (an "obliques" group contains ~8 path
