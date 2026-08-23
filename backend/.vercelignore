@@ -1,0 +1,18 @@
+# Files that never run in the deployed function.
+#
+# Vercel bundles the project directory into each function, and bundle size is
+# paid on every cold start. None of the below is reachable from api/index.js:
+# the suites run in CI and on a laptop, the scripts are operator tools driven
+# from a terminal, and nodemon is a dev-only watcher.
+#
+# scripts/ also holds sample HoloMotion reports — real athletes' assessments,
+# gitignored and never committed, but excluded here too so that a future change
+# to that policy cannot quietly ship clinical PDFs to a public host.
+
+tests/
+scripts/
+nodemon.json
+
+# The OCR model cache. Written at runtime into the platform temp directory
+# (see utils/redactName.js); a copy from a developer's machine is dead weight.
+.tesseract/
