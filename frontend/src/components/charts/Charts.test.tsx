@@ -37,12 +37,17 @@ describe('PeriodChart — layout follows the number of periods', () => {
     expect(html).not.toContain('periodrow-track');
   });
 
-  it('draws ROWS when there are few, instead of two blocks and a canyon', () => {
-    // The reported fault: quarterly/yearly views of a young dataset have one or
-    // two periods, and as columns that reads like a chart that failed to load.
+  // CHANGED 2026-08-24: two and three periods used to switch to rows, so ONE
+  // card drew four different graphics depending on how many periods the active
+  // filter produced. On the seeded data, Monthly / Quarterly / Yearly gave
+  // columns, a change chart and a block of text. Switching idiom is a strong
+  // signal and it was firing on a property of the FILTER rather than on anything
+  // about the data. The canyon that motivated rows was a width problem, and it
+  // is handled at the bar width.
+  it('draws COLUMNS for two periods too, rather than switching idiom', () => {
     const html = render(<PeriodChart points={[period('q2', 'Q2 2026', 43, 73.6), period('q3', 'Q3 2026', 22, 72.3)]} />);
-    expect(html).toContain('periodrow-track');
-    expect(html).not.toContain('periodchart-svg');
+    expect(html).toContain('periodchart-svg');
+    expect(html).not.toContain('periodrow-track');
   });
 
   // CHANGED 2026-08-11: one period used to render as a single row. It is not a
@@ -62,26 +67,42 @@ describe('PeriodChart — layout follows the number of periods', () => {
   it('draws an EMPTY period rather than skipping it', () => {
     // Continuous axis: "nobody was screened that month" is the finding for a
     // screening programme, and a discrete axis hid it by omitting the bucket.
+    // Had to survive the move to columns, and nearly did not: a zero-height
+    // column draws nothing at all, which would have lost the gap exactly the way
+    // the discrete axis once did. A baseline tick keeps it on the page.
     const html = render(<PeriodChart points={[
       period('m1', 'Apr', 17), { key: 'm2', label: 'May', value: 0, segments: [], line: null }, period('m3', 'Jun', 21),
     ]} />);
-    expect(html).toContain('periodrow--empty');
-    expect(html).toContain('no screening');
+    expect(html).toContain('periodchart-empty');
     expect(html).toContain('May');
   });
 
+  // Rows are no longer the layout for a sparse selection, but they are still the
+  // COMPOSITION breakdown drawn under a single period. Both properties therefore
+  // still have a subject, and are asserted where that code now lives rather than
+  // deleted along with the layout that used to reach them.
   it('row length is the count on a SHARED scale, so 22 reads as half of 43', () => {
-    const html = render(<PeriodChart points={[period('q2', 'Q2', 43), period('q3', 'Q3', 22)]} valueLabel="Athletes tested" />);
+    const html = render(<PeriodChart
+      points={[period('y', '2026', 65)]}
+      composition={[period('q2', 'Q2', 43), period('q3', 'Q3', 22)]}
+      compositionGrain="quarter"
+      valueLabel="Athletes tested" />);
     const bars = widths(html).filter((w) => w > 0);
-    // First row is the max, so 100%; the second is 22/43.
     expect(bars[0]).toBeCloseTo(100, 0);
     expect(bars[1]).toBeCloseTo((22 / 43) * 100, 0);
   });
 
   it('shows the line series per row when it is present, and omits the column when not', () => {
-    const withLine = render(<PeriodChart points={[period('a', 'A', 10, 70), period('b', 'B', 20, 75)]} lineLabel="Average Total Score" />);
+    const withLine = render(<PeriodChart
+      points={[period('y', '2026', 30)]}
+      composition={[period('a', 'A', 10, 70), period('b', 'B', 20, 75)]}
+      compositionGrain="quarter"
+      lineLabel="Average Total Score" />);
     expect(withLine).toContain('periodrow-line');
-    const withoutLine = render(<PeriodChart points={[period('a', 'A', 10), period('b', 'B', 20)]} />);
+    const withoutLine = render(<PeriodChart
+      points={[period('y', '2026', 30)]}
+      composition={[period('a', 'A', 10), period('b', 'B', 20)]}
+      compositionGrain="quarter" />);
     expect(withoutLine).not.toContain('periodrow-line');
   });
 
@@ -400,19 +421,23 @@ describe('PeriodChart — the sparse-grain layouts', () => {
     key, label, value, segments: [{ label: 'Safe', value, color: 'var(--risk-low)' }], line: null,
   });
 
-  it('TWO periods lead with the changes, keeping throughput as context', () => {
+  // The comparison still leads the reading, just not the layout. Two columns do
+  // leave the reader to do the subtraction, so the change chart stays - drawn
+  // BENEATH the columns rather than instead of them, so the card keeps one
+  // primary graphic across every grain and the comparison is an addition.
+  it('TWO periods draw the columns AND the change chart beneath', () => {
     const html = render(<PeriodChart
       points={[p('q2', 'Q2 2026', 43), p('q3', 'Q3 2026', 22)]}
       slope={[{ key: 'rom', label: 'ROM', from: 77.6, to: 72.4, higherBetter: true, direction: 'declining' }]} />);
+    expect(html).toContain('periodchart-svg');
     expect(html).toContain('mdelta-row');
-    expect(html).toContain('slope-throughput');
-    expect(html).toContain('periodrow-track');
+    expect(html).not.toContain('slope-throughput');
   });
 
-  it('two periods WITHOUT metric data still fall back to rows', () => {
+  it('two periods WITHOUT metric data still draw the columns', () => {
     const html = render(<PeriodChart points={[p('a', 'A', 4), p('b', 'B', 9)]} />);
     expect(html).not.toContain('mdelta-row');
-    expect(html).toContain('periodrow-track');
+    expect(html).toContain('periodchart-svg');
   });
 
   it('ONE period shows what it is made of, instead of a dead panel', () => {

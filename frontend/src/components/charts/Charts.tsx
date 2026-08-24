@@ -198,15 +198,24 @@ export interface PeriodPoint {
   line?: number | null;
 }
 
-// Below this many periods, columns are the wrong idiom.
+// Columns serve every selection with something to compare (2+ periods).
 //
-// A quarterly or yearly view of a young dataset is one or two periods. Drawn as
-// columns that is two fat blocks with a canyon between them and a line crossing
-// empty space — it reads as a chart that failed to load, which is exactly how the
-// quarterly view looked while the monthly one (five or six periods) looked fine.
-// Few periods become full-width ROWS instead: the same band mix and the same
-// shared count axis, but the width is spent on the data rather than on gaps.
-const COLUMN_MIN_POINTS = 4;
+// They used not to. A threshold sent 1, 2 and 3 periods down three other paths,
+// so one card rendered FOUR different graphics depending on how many periods a
+// filter happened to produce — on the seeded data, clicking Monthly / Quarterly
+// / Yearly gave columns, a change chart and a block of text. Switching idiom is
+// a strong signal, and it was firing on a property of the filter rather than on
+// anything about the data.
+//
+// The original worry was real: two columns with a canyon between them read as a
+// chart that failed to load. That was a WIDTH problem and it was fixed at the
+// width — `barW` caps and the slots flex, so two periods draw as two broad
+// columns filling the card. With the cause gone the threshold outlived its
+// reason, and its own comment only ever argued for "one or two periods" while
+// the constant excluded three as well.
+//
+// One period still gets its own treatment, because that is not a threshold —
+// there is genuinely nothing to compare.
 
 export function PeriodChart({
   points, lineLabel, valueLabel, height = 150, composition, compositionGrain, slope,
@@ -250,26 +259,12 @@ export function PeriodChart({
     );
   }
 
-  // Exactly two periods: the comparison IS the content, so lead with the metric
-  // slopes and keep the throughput rows underneath as context.
-  if (points.length === 2 && slope && slope.length) {
-    return (
-      <>
-        <MetricDeltas
-          metrics={slope}
-          fromLabel={points[0].label}
-          toLabel={points[1].label}
-        />
-        <div className="slope-throughput">
-          <PeriodRows points={points} lineLabel={lineLabel} valueLabel={valueLabel} />
-        </div>
-      </>
-    );
-  }
-
-  if (points.length < COLUMN_MIN_POINTS) {
-    return <PeriodRows points={points} lineLabel={lineLabel} valueLabel={valueLabel} />;
-  }
+  // Exactly two periods still get the metric change chart — §26's point stands,
+  // that with two the comparison IS the content and a pair of columns leaves the
+  // reader to do the subtraction. It is now drawn BENEATH the columns instead of
+  // in place of them, so the card keeps one primary graphic across every grain
+  // and the comparison is an addition rather than a substitution.
+  const isPair = points.length === 2 && !!slope && slope.length > 0;
   const maxV = Math.max(1, ...points.map((p) => p.value));
   const lineVals = points.map((p) => p.line).filter((v): v is number => v != null);
   const hasLine = lineVals.length >= 2;
@@ -299,6 +294,7 @@ export function PeriodChart({
     .join(' ');
 
   return (
+    <>
     <div className="periodchart">
       <div className="periodchart-plot" style={{ height: H }} ref={tipHost}>
         <HoverTip tip={tip} />
@@ -317,7 +313,19 @@ export function PeriodChart({
             let y = H;
             return (
               <g key={p.key}>
-                {segs.length ? segs.map((s) => {
+                {/* A period with no screening is the one bar that must not be
+                    invisible. The continuous axis (§24) exists because "nobody
+                    was screened that month" IS the finding for a screening
+                    programme — the rows layout said so in words, and a
+                    zero-height column would say it by drawing nothing at all.
+                    A baseline tick keeps the gap on the page. */}
+                {p.value === 0 ? (
+                  <rect className="periodchart-empty" x={cx(i) - barW / 2} y={H - 2} width={barW} height={2}
+                    fill="var(--text-muted)" opacity="0.5"
+                    onMouseEnter={onTip(`${p.label}: no screening`)}
+                    onMouseMove={onTip(`${p.label}: no screening`)}
+                    onMouseLeave={hide} />
+                ) : segs.length ? segs.map((s) => {
                   const sh = (s.value / segTotal) * h;
                   y -= sh;
                   return (
@@ -371,6 +379,12 @@ export function PeriodChart({
         {points.map((p) => (<span key={p.key}>{p.label}</span>))}
       </div>
     </div>
+    {isPair && slope && (
+      <div style={{ marginTop: 'var(--sp-lg)' }}>
+        <MetricDeltas metrics={slope} fromLabel={points[0].label} toLabel={points[1].label} />
+      </div>
+    )}
+    </>
   );
 }
 
