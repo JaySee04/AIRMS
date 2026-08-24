@@ -1,18 +1,15 @@
 #!/usr/bin/env node
 // One scheduled-mail pass, then exit. `npm run mail:tick`.
 //
-// WHY THIS FILE EXISTS
-// The digest and the rescreen reminder are monthly OBLIGATIONS, and they were
-// driven by a `setInterval` inside the Express process. That ties a monthly
-// promise to the uptime of a web server: the marker design means a process that
-// is down when the mail falls due sends LATE rather than never — but "late"
-// means "whenever the backend next runs", which on a development machine is
-// "whenever somebody opens the project". A feature nobody has to open is
-// exactly what these two were built to be, so the schedule cannot live there.
+// The digest and the rescreen reminder are monthly OBLIGATIONS, and a
+// `setInterval` inside Express ties them to a web server's uptime. The marker
+// design means a late process sends late rather than never — but "late" means
+// "whenever somebody next opens the project", and not having to be opened is the
+// whole point of these two.
 //
-// This runs the identical `tick()` the interval runs — one definition, so a
-// deployment cannot end up sending the digest and silently never the reminder —
-// against the same database, and exits. An OS scheduler drives it:
+// Runs the identical `tick()` the interval runs — one definition, so a deployment
+// cannot send the digest and silently never the reminder — then exits. An OS
+// scheduler drives it:
 //
 //   Windows   scripts/install-mail-task.ps1   (Task Scheduler, hourly, per-user)
 //   Linux     0 * * * *  cd /srv/airms/backend && /usr/bin/node src/mailTick.js

@@ -6,35 +6,25 @@
 // constant: a change of 2 points or more was real, less than 2 was "steady".
 // Nothing derived it. On a 0-100 scale, 2 was a guess.
 //
-// That guess is the single most-cited weakness of the whole traffic-light genre.
-// Robertson, Bartlett & Gastin (IJSPP 2017), reviewing exactly this kind of
-// system, put "evidence-based guidelines related to the determination of
-// benchmarks and baselines and the subsequent boundaries used for categories"
-// on their future-work list. A dead band nobody can justify is a threshold that
-// silently decides which athletes get looked at.
+// A dead band nobody can justify is a threshold that silently decides which
+// athletes get looked at, and it is the most-cited weakness of the genre:
+// Robertson, Bartlett & Gastin (IJSPP 2017) list "the boundaries used for
+// categories" as open work.
 //
-// THE STANDARD METHOD (Hopkins; the MSK reliability literature)
-//   typical error   TE    = SD of the within-athlete differences / sqrt(2)
-//   minimal detectable change
-//                   MDC95 = 1.96 * sqrt(2) * TE  ( = 2.77 * TE )
-// A change smaller than MDC95 cannot be distinguished from measurement noise at
-// 95% confidence. That is the number the dead band should be.
+// Standard method (Hopkins; the MSK reliability literature):
+//   TE    = SD of within-athlete differences / sqrt(2)
+//   MDC95 = 2.77 * TE     (1.96 * sqrt(2) * TE)
+// Below MDC95 a change cannot be told from measurement noise at 95% confidence.
 //
-// THE HONEST CAVEAT, AND WHY IT IS THE SAFE DIRECTION
-// A true test-retest needs two measurements close enough together that nothing
-// real changed. AIRMS only has screenings months apart, which contain genuine
-// change on top of measurement error, so this SD is inflated and the resulting
-// MDC95 is an UPPER BOUND on the instrument's error rather than the error
-// itself. That errs toward calling real changes "steady" — under-claiming, not
-// over-claiming — which is the right way round for a band that decides whether
-// a clinician is asked to look at somebody. The output says so, everywhere it
-// is displayed, rather than presenting a bound as a measurement.
+// The caveat, which errs the safe way: a true test-retest needs measurements
+// close enough together that nothing real changed, and AIRMS only has screenings
+// months apart. The SD is inflated, so MDC95 is an UPPER BOUND — it under-calls
+// change rather than over-calling it, which is the right direction for a band
+// deciding whether a clinician is asked to look. Said so wherever displayed.
 //
-// AND IT DECLINES. Below `minPairs` repeat screenings the estimate is not
-// stable, so it reports `sufficient: false` and the caller keeps the documented
-// fallback. Same discipline as seasonality() refusing to name a quarter under
-// two years of data: a confidently wrong threshold here would quietly change
-// who gets assessed.
+// And it DECLINES below `minPairs` pairs, reporting sufficient:false so the
+// caller keeps the documented fallback — the same discipline as seasonality()
+// refusing to name a quarter under two years of data.
 
 const { PERIOD_SCORES } = require('./periodScores');
 

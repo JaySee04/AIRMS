@@ -1,33 +1,25 @@
 // Muscle-level partition of the body-map asset — the HoloMotion vocabulary.
 //
-// WHY THIS EXISTS
-// The silhouette geometry comes from react-muscle-highlighter (MIT, Sorooj
-// Shehryar — see bodyFront.ts for the attribution that must stay). That asset
-// is a *workout* atlas: its parts are training regions (chest, biceps, quads,
-// hamstring). HoloMotion is a *clinical postural* instrument whose Muscle
-// Imbalance section names individual muscles, including deep stabilisers
-// (piriformis, iliopsoas, rectus capitis anterior). The two taxonomies do not
-// line up, so rendering HoloMotion flags on workout regions collapsed up to
-// five distinct muscles into one shape — e.g. every glute finding, weak or
-// tight, became a single blob. See docs/DESIGN_DECISIONS.md §4.
+// The silhouette comes from react-muscle-highlighter (MIT, Sorooj Shehryar — see
+// bodyFront.ts for the attribution that must stay), which is a *workout* atlas:
+// its parts are training regions. HoloMotion is a clinical postural instrument
+// naming individual muscles, deep stabilisers included. The taxonomies do not
+// line up, so drawing HoloMotion flags on workout regions collapsed up to five
+// muscles into one shape — every glute finding, weak or tight, became one blob.
+// See docs/DESIGN_DECISIONS.md §4.
 //
-// WHAT THIS DOES
-// Re-slices the SAME licensed path data into HoloMotion's muscles. Sixteen of
-// the 22 muscles are recovered from sub-paths that already exist in the asset
-// (the library draws the three vasti and the two glute heads as separate `d`
-// strings — it just labels them all "quadriceps" / "gluteal"). No geometry is
-// redrawn, so nothing can drift out of alignment with the silhouette.
+// This re-slices the SAME licensed paths into HoloMotion's 22 muscles. Sixteen
+// come from sub-paths the asset already has (it draws the three vasti and both
+// glute heads separately, then labels them all "quadriceps" / "gluteal"), so no
+// geometry is redrawn and nothing can drift out of alignment.
 //
-// Sub-paths are selected by MEASURED GEOMETRY, not by array index: the asset's
-// left and right limbs do not list their sub-paths in the same order (compare
-// upper-back left [1]=large vs right [2]=large), so index-based slicing would
-// silently mirror-swap muscles.
+// Sub-paths are selected by MEASURED GEOMETRY, not array index: left and right
+// limbs do not list theirs in the same order (upper-back left [1] is the large
+// one, right [2] is), so index slicing would silently mirror-swap muscles.
 //
-// The remaining 6 muscles are deep or absent from a surface atlas. They are
-// drawn as schematic insets positioned inside their parent's measured bounding
-// box — the same convention HoloMotion itself uses (its Muscle Imbalance figure
-// shades piriformis *inside* the gluteal mass). Deriving them from the parent
-// box keeps them anatomically contained rather than freehand-placed.
+// The remaining 6 are deep or absent from a surface atlas, drawn as insets inside
+// their parent's measured box — HoloMotion's own figure shades piriformis inside
+// the gluteal mass. Deriving from the parent box keeps them contained.
 import { bodyFront } from './bodyFront';
 import { bodyBack } from './bodyBack';
 import type { BodyPart } from './types';
@@ -118,40 +110,24 @@ function circlePath(cx: number, cy: number, r: number, sweep: 0 | 1 = 0): string
   return `M ${cx - r} ${cy} a ${r} ${r} 0 1 ${sweep} ${r * 2} 0 a ${r} ${r} 0 1 ${sweep} ${-r * 2} 0 Z`;
 }
 
-// Deep muscles are drawn as their own ANATOMY — an oriented oval in the place
-// the structure actually occupies — rather than as the ring-and-dot marker used
-// until 2026-08-22.
+// Deep muscles are drawn as oriented ovals in the place the structure occupies,
+// replacing the ring-and-dot marker used until 2026-08-22.
 //
-// The history matters, because this reverses a deliberate decision twice. The
-// first convention filled a plain ellipse inside the parent, which read as an
-// attempt to draw the muscle and failed at it. It was replaced by a marker on
-// the argument that a marker claims only "this structure, at this location",
-// which the licensed surface atlas can support and a shape cannot: it has no
-// geometry for piriformis, iliopsoas, gluteus minimus, the internal oblique or
-// rectus capitis anterior, because none of them is visible from the surface.
+// The licensed surface atlas has no geometry for piriformis, iliopsoas, gluteus
+// minimus, the internal oblique or rectus capitis anterior — none is visible from
+// the surface — which is why a marker was chosen first. Size, position and ANGLE
+// now come from each muscle's real course instead: piriformis runs obliquely from
+// sacrum to greater trochanter, iliopsoas descends near-vertically, the internal
+// oblique fans up and medially against the external's grain.
 //
-// JC asked (2026-08-22) for a figure that reads as a human body while staying
-// useful to a physiologist. Both halves of that are honoured here rather than
-// only the first:
+// They stay marked as deep. BodyMap draws them with a dashed edge
+// (.bodymap-deep), the illustration convention for a structure beneath the plane
+// shown, so the figure does not promote an inference to a surface observation.
 //
-//   * SHAPE — each deep muscle gets an oval whose size, position and ANGLE are
-//     taken from its real course, not from a template. Piriformis runs obliquely
-//     from sacrum to greater trochanter; iliopsoas descends near-vertically to
-//     the lesser trochanter; the internal oblique fans up and medially, against
-//     the external oblique's grain. A physiologist reading the figure sees a
-//     structure lying the way that structure lies.
-//
-//   * HONESTY — they are still marked as deep. BodyMap draws these with a dashed
-//     edge (.bodymap-deep), which is the long-standing anatomical-illustration
-//     convention for a structure lying beneath the plane being shown. So the
-//     figure says "this muscle, here, underneath" instead of silently promoting
-//     an inference to a surface observation.
-//
-// Sizes stay fractions of the PARENT's measured box, so a deep muscle is
-// contained by the structure it lies under no matter how the asset is scaled.
-// The old marker's fixed radius is deliberately not carried over: two muscles of
-// genuinely different size should not be drawn identically once the figure is
-// claiming to show shape.
+// Sizes are fractions of the PARENT's measured box, so a deep muscle stays
+// contained by the structure it lies under at any scale. The old marker's fixed
+// radius is not carried over — two muscles of different size should not be drawn
+// identically once the figure claims to show shape.
 
 // An ellipse as a path, rotated about its centre. Two half-arcs, because SVG's
 // elliptical arc takes the x-axis rotation directly and needs no trigonometry

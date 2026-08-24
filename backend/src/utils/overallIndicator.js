@@ -4,24 +4,17 @@
 // ESCALATION, matching Dr Thung's spec (redesign spec §5):
 //
 //   base = green (safe)
-//   +1 escalation if the athlete is MEANINGFULLY below the cohort mean
-//     (composite z < escalation_below_mean_z, default -0.5). This was a plain
-//     z < 0 until 2026-08-11, which flagged half of every cohort by
-//     construction — 27 of 58 seeded athletes tripped it, and 12 of the 14
-//     ambers rested on it alone, one at z = -0.163. A sign test is arithmetic,
-//     not a finding.
-//   +1 escalation if the athlete is among the BOTTOM-k of the cohort
-//   +1 escalation if any single exercise-risk indicator is BOTH over the
-//     Elevated threshold AND the athlete is a peer-outlier on that indicator
-//     (per-indicator z ≥ cutoff vs the cohort). This is the "peers AND the
-//     threshold" rule: a threshold breach alone won't escalate (>90% of the
-//     squad trips one), only a breach where the athlete is also clearly worse
-//     than their cohort on that specific measure. Admin-toggleable.
-//   band: 0 escalations = green · 1 = amber (needs attention) · ≥2 = red
-//         (immediate assessment). The count reaches at most 3.
+//   +1 if MEANINGFULLY below the cohort mean (z < escalation_below_mean_z,
+//     default -0.5). A plain z < 0 until 2026-08-11, which flagged half of every
+//     cohort by construction: 27 of 58 seeded athletes, and 12 of the 14 ambers
+//     rested on it alone, one at z = -0.163. A sign test is arithmetic.
+//   +1 if among the BOTTOM-k of the cohort.
+//   +1 if any single exercise-risk indicator is over the Elevated threshold AND
+//     the athlete is a peer-outlier on it (z >= cutoff). Both, because a breach
+//     alone escalates >90% of the squad. Admin-toggleable.
+//   band: 0 = green, 1 = amber, >=2 = red. At most 3.
 //
-// So a "good raw score" athlete who is nonetheless below his cohort and among
-// the worst performers escalates twice → red, exactly as specified.
+// So a good raw score that is still below cohort and bottom-k escalates twice.
 
 const { orientedComponents, COMPONENTS, SHOWN_RISK_KEYS } = require('./cohorts');
 

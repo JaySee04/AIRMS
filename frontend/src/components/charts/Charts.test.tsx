@@ -61,7 +61,7 @@ describe('PeriodChart — layout follows the number of periods', () => {
     expect(html).toContain('2026');
     expect(html).toContain('58');
     // And it says why, rather than leaving a lone bar to be interpreted.
-    expect(html).toMatch(/no change to report yet/);
+    expect(html).toMatch(/no change to report/);
   });
 
   it('draws an EMPTY period rather than skipping it', () => {
@@ -237,7 +237,7 @@ describe('DotPlot — the zoomed axis that made clustered scores readable', () =
   it('DECLARES its zoom, because a zoomed axis exaggerates', () => {
     const html = render(<DotPlot rows={rows} min={0} max={100} />);
     expect(html).toMatch(/Axis zoomed to/);
-    expect(html).toContain('0–100 scale');
+    expect(html).toMatch(/of 0–100/);
   });
 
   it('survives a single value without collapsing to a zero-width axis', () => {

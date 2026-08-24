@@ -1,40 +1,21 @@
-// Scheduled monthly digest (§16).
+// Scheduled monthly digest (§16). Asked for by Dr Hoo ("automatic reporting")
+// and Dr Thung ("something standard ... generate every month") — the PDFs
+// already produced the content; nothing happened without being asked.
 //
-// Dr Hoo: "maybe you want to think about reporting, automatic reporting as one of
-// the features". Dr Thung: "I think something standard, then you can actually
-// generate every month." The three PDFs already produce the CONTENT of a monthly
-// review; what was missing was anything that happened without being asked.
+// No cron library. A cron expression fires at an instant, and a process that is
+// down at that instant skips the month with no error — for a monthly report,
+// a year with eleven entries. Instead an hourly tick asks whether this month's
+// digest is still owed, against a marker in settings: idempotent (the marker IS
+// the month) and self-healing (down Monday, sends Tuesday).
 //
-// WHY NO CRON LIBRARY
-// A cron expression fires at an instant. If the process is down at that instant —
-// a restart, a deploy, a laptop that was closed — the month is simply skipped and
-// nobody finds out, which for a monthly report means a year has eleven entries and
-// no error. So instead: an hourly tick asks "is this month's digest still owed?"
-// against a marker persisted in settings. That makes it
-//   - idempotent: the marker is the month, so a restart cannot double-send;
-//   - self-healing: a process down all Monday sends on Tuesday rather than never;
-//   - safe to run twice.
-// A cron library would have given none of those, which is the whole reason the
-// naive version was worth avoiding.
+// It was not safe to run twice, though this comment once said so: the marker is
+// written only after a successful send, so concurrent ticks both send. Both sends
+// now take a compare-and-swap lock (utils/lock.js), so it is enforced.
 //
-// THAT THIRD PROPERTY WAS ASSERTED, NOT TRUE (corrected 2026-08-19). This
-// comment used to explain it as "two instances race on the same marker, and the
-// loser's send is skipped because the month is already recorded". That holds for
-// a RESTART and fails for genuine concurrency: `setSetting` is a read-then-write
-// and the marker is written only AFTER a successful send, so two processes
-// ticking together both read it unset, both send, and both then record the
-// month. It cost nothing while exactly one process ever ticked — and moving the
-// schedule out of the web process (§36) makes two tickers the normal case. Both
-// sends now run under a compare-and-swap lock (`utils/lock.js`), so the property
-// is enforced rather than claimed.
-//
-// WHERE THE TICK COMES FROM
-// `startScheduler()` runs an in-process interval, which is right for `npm run
-// dev` and wrong for a deployment: it ties a monthly obligation to the uptime of
-// a web server. `npm run mail:tick` (src/mailTick.js) runs exactly one tick and
-// exits, for an OS scheduler to drive. Set MAIL_SCHEDULER=off in a deployment
-// that does this, so the two do not both tick — though thanks to the lock, it is
-// now merely wasteful rather than wrong if they do.
+// startScheduler() ticks in-process, which suits `npm run dev` and not a
+// deployment — it ties a monthly obligation to a web server's uptime. `npm run
+// mail:tick` runs one tick and exits for an OS scheduler; set MAIL_SCHEDULER=off
+// there so both do not tick (wasteful rather than wrong, given the lock).
 
 const { Op } = require('sequelize');
 const { Athlete, Screening } = require('../models');

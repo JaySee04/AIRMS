@@ -1,42 +1,22 @@
-// A cross-process lock, so "safe to run twice" is true rather than asserted.
+// A cross-process lock, so "safe to run twice" is enforced rather than asserted.
 //
-// WHY THIS EXISTS
-// `utils/scheduler.js` claimed its month-marker design made concurrent runs
-// safe: "two instances race on the same marker, and the loser's send is skipped
-// because the month is already recorded." That was true of a RESTART and false
-// of genuine concurrency. `setSetting` is a read-then-write, and the marker is
-// deliberately written only AFTER a successful send (so a failure retries
-// rather than losing the month) — so two processes that tick at the same
-// instant both read the marker as unset, both send, and both then record the
-// month. Two identical monthly reports, and the trail says one.
+// scheduler.js's month marker made RESTARTS safe, not concurrency: setSetting is
+// a read-then-write and the marker is written only after a successful send, so
+// two processes ticking together both read it unset and both send. Harmless
+// while one process ticked; §36 makes two tickers normal.
 //
-// It cost nothing while exactly one process ever ticked. Moving the schedule
-// out of the web process (§36) makes two tickers the NORMAL case — an OS task
-// and a running dev server — so the claim has to become true.
+// Locks live in `settings` under `lock:*` — no new table, and getSettings()
+// ignores keys absent from DEFAULTS, so they stay invisible to the settings API.
 //
-// WHY RAW SQL
-// Locks live in the `settings` table (no new table, no migration), namespaced
-// `lock:*` so they can never collide with a real setting — `getSettings()`
-// ignores any key absent from DEFAULTS, so these rows are invisible to the
-// settings API and the admin page.
+// Raw SQL with JSON_UNQUOTE because `Setting.value` is a JSON column: a
+// `destroy({ where: { value: token } })` binds a string against JSON and matches
+// nothing, so the first version acquired locks and never released them. Caught
+// by asserting the row was gone after a race, not by the race passing — one
+// process sent either way.
 //
-// But `Setting.value` is a **JSON** column, and that quietly breaks the obvious
-// implementation. `Setting.destroy({ where: { key, value: token } })` binds the
-// token as a string against a JSON column and matches nothing — so the first
-// version of this file acquired locks correctly and then FAILED TO RELEASE
-// THEM, leaving a row that blocked the next send until the TTL expired. It was
-// caught by asserting the lock row was gone after a race, not by the race
-// passing: exactly one process sent either way. Comparisons therefore go
-// through `JSON_UNQUOTE`, written out as SQL so the atomicity is reviewable
-// rather than inferred from an ORM's behaviour.
-//
-// EXPIRY, AND WHY IT IS NOT OPTIONAL
-// A process that dies mid-send never releases. Without expiry that deadlocks
-// the digest for ever — the exact failure the scheduler was written to avoid,
-// reintroduced by its own safety mechanism. So a lock older than `ttlMs` may be
-// taken over, and the takeover is a conditional UPDATE against the exact stale
-// value, so two processes finding the same stale lock still produce exactly one
-// winner.
+// Expiry is not optional: a process that dies mid-send would deadlock the digest
+// for ever. Takeover is a conditional UPDATE against the stale value, so two
+// finders still produce one winner.
 
 const crypto = require('crypto');
 const { QueryTypes, UniqueConstraintError } = require('sequelize');

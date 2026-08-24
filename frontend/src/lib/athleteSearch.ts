@@ -1,30 +1,24 @@
 // Finding one athlete on a 62-name roster, from a name a clinician half
 // remembers or an IC they are reading off a form.
 //
-// ONE matcher for every athlete search in the app — the medical rail and the
-// upload page's AthleteSearchSelect both call it. They had a copy each, both
-// `name.toLowerCase().includes(q) || athleteId.includes(q)`, which fails three
-// ways that matter here:
+// ONE matcher for every athlete search — the medical rail and the upload page's
+// AthleteSearchSelect both call it. Each had its own
+// `name.includes(q) || athleteId.includes(q)`, which failed three ways:
 //
-//   1. WORD ORDER. "faris ahmad" does not appear as a substring of "Ahmad
-//      Faris", so the athlete the clinician is looking at returns nothing. On
-//      this roster names average two words and the given name comes first, so
-//      recalling them the other way round is an ordinary thing to do.
-//   2. IC PUNCTUATION. ICs are printed on forms as 070202-02-1001 and stored as
-//      070202021001. Typing what is on the paper matched nothing at all.
-//   3. NO RANKING. Results came back in roster order, so typing an exact IC put
-//      that athlete wherever the alphabet left them.
+//   1. WORD ORDER — "faris ahmad" is not a substring of "Ahmad Faris", so the
+//      athlete on screen returned nothing.
+//   2. IC PUNCTUATION — printed on forms as 070202-02-1001, stored as
+//      070202021001, so typing what is on the paper matched nothing.
+//   3. NO RANKING — an exact IC landed wherever the alphabet left it.
 //
-// AND SEMANTICS, DELIBERATELY: every token in the query must match something.
-// Each extra word the clinician types narrows the list. An OR would widen it,
-// which is the opposite of what typing more is for.
+// AND semantics, deliberately: every token must match something, so each extra
+// word narrows the list. An OR widens it, which is the opposite of what typing
+// more is for.
 //
-// WHY RANKING IS A SAFETY FEATURE HERE, NOT A NICETY. Five names on this roster
-// belong to two different athletes each (Adam Kumar, Aiman Bakar, Faris Ahmad,
-// Zikri Chong, Zikri Ahmad — 10 of 62 people). Their clinical records are not
-// interchangeable, and the only things that separate them are the IC and the
-// sport. So an exact IC outranks everything, and `ambiguous` is set on any hit
-// whose name is shared, for the UI to mark.
+// Ranking is a SAFETY feature here. Five names on this roster belong to two
+// athletes each (10 of 62 people), their records are not interchangeable, and
+// only the IC and sport separate them. So an exact IC outranks everything, and
+// `ambiguous` is set on any hit whose name is shared, for the UI to mark.
 
 export interface SearchableAthlete {
   athleteId: string;

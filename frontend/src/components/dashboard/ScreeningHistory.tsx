@@ -230,9 +230,8 @@ export default function ScreeningHistory({ athleteId, headerAction, canReinstate
               deserves to know whether the bar it cleared was earned from repeat
               screenings or is a documented default standing in for one. */}
           <p className="chart-note" style={{ gridColumn: '1 / -1', marginTop: 2 }}>
-            Each panel is scaled to its own range, so heights are not comparable between
-            panels — read the shape and the printed values, not the position. Colour follows
-            better-or-worse, so a fall in exercise risks is green.
+            Each panel has its own range, so compare shapes and printed values, not heights.
+            Colour follows better-or-worse, so falling exercise risks are green.
             {rel && (rel.anySufficient ? (
               <>
                 {' '}A change is only called real when it is bigger than the

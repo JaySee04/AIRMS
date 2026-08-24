@@ -119,8 +119,8 @@ export function DotPlot({
         ))}
       </div>
       <p className="chart-note">
-        Axis zoomed to {fmt(axisLo)}–{fmt(axisHi)}{unit} of a {min}–{max} scale, so small
-        differences are visible — read the printed values for absolute level.
+        Axis zoomed to {fmt(axisLo)}–{fmt(axisHi)}{unit} of {min}–{max}. Read the printed
+        values for absolute level.
         {reference != null && ` Dashed line = ${referenceLabel ?? 'reference'} (${fmt(reference)}${unit}).`}
       </p>
     </div>
@@ -698,8 +698,8 @@ function SinglePeriod({
       )}
       <p className="chart-note" style={{ marginBottom: 0 }}>
         {composition && composition.length > 1
-          ? `Only one ${compositionGrain === 'quarter' ? 'year' : 'period'} of screening falls in this selection, so there is no period-on-period change to report — the breakdown above is the same data one grain finer.`
-          : 'Only one period of screening falls in this selection, so there is no change to report yet — choose a finer grain above for a breakdown.'}
+          ? 'One period only, so no change to report. The breakdown above is the same data, one grain finer.'
+          : 'One period only, so no change to report. Try a finer grain.'}
       </p>
     </div>
   );

@@ -1,32 +1,22 @@
 // The seven exercise-risk indicators AIRMS shows — ONE definition.
 //
-// WHY THIS EXISTS
-// This list is not a display detail. It encodes a clinical instruction from
-// Dr Thung: `spinalDiscHerniation` (Lumbar Disc Herniation) is extracted from
-// the HoloMotion report and stored, but ISN cannot perform that assessment, so
-// it must never be scored, charted, printed or named anywhere a user can see.
-// "Which indicators are shown" and "LDH is excluded" are the same decision.
+// Not a display detail. It encodes Dr Thung's instruction that
+// `spinalDiscHerniation` (Lumbar Disc Herniation) is extracted and stored but
+// never scored, charted, printed or named — ISN cannot perform that assessment.
+// "Which indicators are shown" and "LDH is excluded" are one decision.
 //
-// That decision was written out FIVE times across the backend — the cohort
-// scorer, the overall indicator's labels, the cohort-focus util, the athlete
-// analytics route and the PDF toolkit — plus three more on the frontend. Every
-// copy carried a comment pointing at the others ("Mirrors SHOWN_RISK_KEYS in
-// cohorts.js..."), which documented the hazard rather than removing it. Eight
-// hand-maintained copies of a rule whose failure mode is silent and clinical:
-// an eighth indicator added to six lists, or LDH added to one.
+// It had been written out eight times (five backend, three frontend), each copy
+// carrying a comment pointing at the others, which documented the hazard instead
+// of removing it. The failure mode is silent and clinical: an indicator added to
+// six lists of seven, or LDH added to one.
 //
-// Same shape as `utils/bands.js`: one definition per PACKAGE, because there is
-// no shared types package (a locked decision). The frontend keeps its own in
-// `lib/screeningAlerts.ts`, and `riskIndicators.test.js` pins the two together
-// so they cannot drift apart unnoticed.
+// One definition per PACKAGE, like utils/bands.js — there is no shared types
+// package (locked). The frontend's lives in lib/screeningAlerts.ts and
+// riskIndicators.test.js pins the two together.
 //
-// TWO LABEL VOCABULARIES, deliberately:
-//   `label`       — the terse UI wording used by dashboards and analytics.
-//   `reportLabel` — HoloMotion's OWN printed wording, used by the PDF reports
-//                   so a clinician can check a line against the report in their
-//                   hand. These are not synonyms to be unified: "Knee" is what
-//                   the dashboard says, "Ligament Strain" is what the source
-//                   document says.
+// Two label vocabularies, deliberately: `label` is the terse UI wording
+// ("Knee"), `reportLabel` is HoloMotion's own printed wording ("Ligament
+// Strain") so a clinician can check a line against the report in hand.
 const RISK_INDICATORS = [
   { key: 'neckInjuryRisk', label: 'Neck', reportLabel: 'Neck Pain' },
   { key: 'shoulderInjuryRisk', label: 'Shoulder', reportLabel: 'Shoulder Pain' },

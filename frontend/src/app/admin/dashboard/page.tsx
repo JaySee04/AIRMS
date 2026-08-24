@@ -687,10 +687,9 @@ export default function AdminDashboard() {
               markers={[{ at: 50, label: 'Cohort average (50)', color: 'var(--text-muted)' }]}
             />
             <p className="chart-note">
-              The indicator is relative by construction, so the centre of this shape sits at 50 whatever
-              the squad&apos;s absolute quality. What it shows is the SPREAD — a tight cluster means an even
-              squad, a long left tail means a handful of athletes carrying the risk, and the averages on
-              this page cannot tell those apart.
+              The indicator is relative, so the centre sits at 50 whatever the squad&apos;s absolute
+              quality. The SPREAD is the reading: a tight cluster is an even squad, a long left tail is
+              a few athletes carrying the risk. Averages cannot tell those apart.
             </p>
           </>
         )}
