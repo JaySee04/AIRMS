@@ -172,10 +172,30 @@ the instrument's advice reproduced; the other is ours.
 | API | `https://airms-api.vercel.app` (project `airms-api`, root cleared — deploy from `backend/`) |
 | Database | Aiven managed MySQL 8.4.8, TLS **required** (`MYSQL_SSL=1` + `MYSQL_SSL_CA`) |
 
-**Deploy with the CLI, not git.** The GitHub webhook does not fire for this
-branch, so a push does not build. From `backend/` or `frontend/`:
-`npx vercel --prod --token=<token>`. Deploying the API from the repo ROOT fails
-on this machine — gotcha 7 below, OneDrive reparse points.
+**A push to `feat/mysql-migration` deploys both projects** (restored
+2026-08-24 — the webhook had been dead, which made every deploy need the CLI and
+a short-lived token). Three settings hold it together and all three have been
+wrong at some point:
+
+| | `airms-api` | `airms-web` |
+|---|---|---|
+| Root Directory | `backend` | `frontend` |
+| Production Branch | `feat/mysql-migration` | `feat/mysql-migration` |
+| Git repo | `JaySee04/AIRMS` | `JaySee04/AIRMS` |
+
+**Reconnecting the repo silently resets Production Branch to `main`**, and `main`
+predates the MySQL migration — so the reconnect that fixes the webhook also arms
+the MongoDB-against-MySQL failure. Re-set it in the same sitting. It is not
+settable through `PATCH /v9/projects/:id` (that endpoint rejects the field);
+`PATCH /v1/projects/:id/branch` with `{"branch": "..."}` works, as does the
+dashboard.
+
+Root Directory must be SET for a git build (which starts at the repo root, finds
+no `vercel.json`, and fails with `No entrypoint found`) and must be UNSET for a
+`npx vercel --prod` run from inside `backend/` or `frontend/` — the two cannot
+both be satisfied. Git deploys are now the supported path. If you ever need the
+CLI back, clear Root Directory first; deploying from the repo ROOT is not an
+option on this machine (gotcha 7 below, OneDrive reparse points).
 
 Four platform faults are documented in [`docs/DEPLOY.md`](docs/DEPLOY.md), each
 of which presents as the same opaque `FUNCTION_INVOCATION_FAILED`: the wrong

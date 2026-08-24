@@ -202,11 +202,13 @@ instance holds its own pool against a single 76-connection ceiling: at 5 apiece
 fifteen concurrent instances exhaust it, which a live demo can reach.
 `MYSQL_POOL_MAX` overrides.
 
-### Four things that bite, all found the hard way
+### Five things that bite, all found the hard way
 
 The API and web app are live at `airms-api.vercel.app` and `airms-web.vercel.app`.
 Getting there hit four faults, each hiding the next; they are recorded because
-every one of them presents as the same opaque `FUNCTION_INVOCATION_FAILED`.
+every one of them presents as the same opaque `FUNCTION_INVOCATION_FAILED`. A
+fifth was found later, restoring the git webhook, and is the nastiest of the set
+because fixing one thing silently breaks another.
 
 1. **The wrong branch.** Vercel tracks one branch for production, and a new
    project defaults to the repository's default branch. That was `main` — the
@@ -221,7 +223,12 @@ every one of them presents as the same opaque `FUNCTION_INVOCATION_FAILED`.
    Either deploy from the repository root with the setting in place, or clear the
    setting and deploy from the package directory. Deploying from the root fails
    on this machine for an unrelated reason — see gotcha 7 in `CLAUDE.md`, the
-   OneDrive reparse points — so this repo uses the second option.
+   OneDrive reparse points.
+
+   This repo used the second option until 2026-08-24 and now uses the first,
+   because the two are mutually exclusive and git deploys need the setting.
+   Root Directory is `backend` / `frontend`; `npx vercel --prod` from inside
+   those folders will now fail, and clearing the setting is the way back.
 
 3. **Cron frequency is plan-gated.** Hobby accounts allow **daily** crons only;
    the hourly `0 * * * *` is rejected at deploy time. It is now `0 23 * * *`.
@@ -235,6 +242,31 @@ every one of them presents as the same opaque `FUNCTION_INVOCATION_FAILED`.
    driver is omitted and every cold start dies with *"Please install mysql2
    package manually"* — at module scope, before any route runs. `config/db.js`
    now requires it explicitly and passes it as `dialectModule`.
+
+5. **Reconnecting the git repo resets Production Branch to `main`.** The webhook
+   had stopped firing, so every deploy needed the CLI and a short-lived token —
+   three separate sessions were blocked on an expired one. The fix is to
+   disconnect and reconnect the repository, which re-registers the webhook. It
+   also, without saying so, sets Production Branch back to the repository
+   default. That is `main`, which is gotcha 1 above: the very failure the
+   reconnect appears to have nothing to do with. **Re-set the branch in the same
+   sitting and verify it**, because a push will otherwise deploy the pre-MySQL
+   codebase to production.
+
+   `airms-web` had never been linked to git at all, which is why it had never
+   once auto-deployed.
+
+   The branch is not settable through `PATCH /v9/projects/:id` — that endpoint
+   rejects both `productionBranch` and `link` as unknown properties, and returns
+   `200` with the project body when you PATCH something it *does* accept, so a
+   failed write is easy to miss. `PATCH /v1/projects/:id/branch` with
+   `{"branch": "feat/mysql-migration"}` works. So does the dashboard, under
+   Settings → Git.
+
+   Verify with an empty commit and watch that BOTH projects produce a
+   `production` (not `preview`) deployment for that SHA. A push landing on a
+   branch Vercel does not track produces a preview build that looks like success
+   and changes nothing at the alias.
 
 ### Scheduled mail
 
