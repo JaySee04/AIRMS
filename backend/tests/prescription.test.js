@@ -97,3 +97,43 @@ describe('strictness — a partial row is dropped, not guessed', () => {
     expect(p.days[1].exercises.map((e) => e.name)).toEqual(['Beta']);
   });
 });
+
+// A name that wrapped across a page boundary. Lifted verbatim from the text
+// layer of Nazwan's report, where Day 2 straddles pages 35 and 36 — the one
+// wrap in 48 rows, and the reason this block exists. HoloMotion emits the
+// numeric cells BEFORE the wrapped tail of the name, so the row parses cleanly
+// with a name that is short by three words and reads as though it were whole.
+describe('a name wrapped across a page break', () => {
+  const WRAPPED = 'Training Prescription Day 2 Training Recommendation '
+    + 'No. Exercises Reps Sets Rest Interval '
+    + '6 Close Stance Kneeling Push-Up 10x 3 30 '
+    + '7 Middle Trapezius Bundle And Rhomboid Muscle 30s 1 10 Stretch (R) -2 '
+    + '8 Seated Calf Stretch 30s 1 10';
+  const rows = parsePrescription(WRAPPED).days[0].exercises;
+
+  it('reassembles the printed name instead of keeping the short one', () => {
+    // "…Rhomboid Muscle" is a different exercise from "…Rhomboid Muscle Stretch
+    // (R)", and drops the side it applies to.
+    expect(rows[1].name).toBe('Middle Trapezius Bundle And Rhomboid Muscle Stretch (R) -2');
+  });
+
+  it('does not read the stranded "-2" as the next row number', () => {
+    expect(rows[2]).toEqual({ no: 8, name: 'Seated Calf Stretch', reps: '30s', sets: 1, rest: 10 });
+  });
+
+  it('leaves the numbering as printed', () => {
+    expect(rows.map((e) => e.no)).toEqual([6, 7, 8]);
+  });
+});
+
+describe('text after the last row is left alone', () => {
+  it('does not append an unbounded trailing fragment to the last name', () => {
+    // A fragment between two rows is inside the table body and can only be the
+    // preceding cell. One after the LAST row has nothing closing it and could be
+    // page furniture, so it is not treated as part of the exercise.
+    const p = parsePrescription(
+      'Training Prescription Day 1 Training Recommendation 1 Half Squat 10x 3 30 Page 36 of 38',
+    );
+    expect(p.days[0].exercises[0].name).toBe('Half Squat');
+  });
+});

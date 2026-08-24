@@ -7,6 +7,9 @@
 require('dotenv').config({ path: require('path').join(__dirname, '../../.env') });
 
 const { sequelize, User, Athlete, MuscleFlag, AthleteDiscipline, Screening, CohortThreshold } = require('../models');
+const fs = require('fs');
+const path = require('path');
+const { prescriptionFromPdf, prescriptionSize } = require('./prescription');
 
 // ── Deterministic PRNG (seed=42 — same demo data on every reseed) ──────────
 let _seed = 42;
@@ -354,8 +357,13 @@ function genSubitems(a) {
 //   - Thung: his seeded STALE values dated earlier — importing his
 //     real PDF then adds a newer, better snapshot → the individual report shows
 //     stale→good progress.
-//   - Nazwan: his real values + the real subitem table.
-function buildScreenings(athletes) {
+//   - Nazwan: his real values, the real subitem table, and the real Training
+//     Prescription read out of the PDF we ship in scripts/samples. Parsed at
+//     seed time rather than checked in as a JSON fixture, so the seeded
+//     programme is by construction whatever utils/prescription.js reads today
+//     and cannot drift away from the parser. Costs one text-layer read: those
+//     pages carry real text, so there is no rendering and no model call.
+function buildScreenings(athletes, nazwanPrescription = null) {
   const daysAgo = (d) => { const dt = new Date(); dt.setDate(dt.getDate() - d); return dt; };
   const snap = (a, assessedAt, extra = {}) => ({
     athleteId: a.athleteId,
@@ -383,7 +391,7 @@ function buildScreenings(athletes) {
     const screened = a.overallActivityScore != null;
     if (!screened) continue;
     if (a.athleteId === IC_NAZWAN) {
-      rows.push(snap(a, daysAgo(6), { subitems: NAZWAN_SUBITEMS }));
+      rows.push(snap(a, daysAgo(6), { subitems: NAZWAN_SUBITEMS, prescription: nazwanPrescription }));
     } else {
       rows.push(snap(a, daysAgo(range(20, 75)), { subitems: genSubitems(a) }));
     }
@@ -507,7 +515,20 @@ async function seed() {
     await AthleteDiscipline.bulkCreate(disciplines, { transaction: t });
     console.log(`Inserted ${disciplines.length} athlete-discipline rows`);
 
-    const screenings = buildScreenings(athletes);
+    // A missing or unreadable sample must not cost the whole seed: the
+    // prescription is one panel on one athlete, and null is already its
+    // documented "this report carried none" value.
+    let nazwanPrescription = null;
+    try {
+      const samplePath = path.join(__dirname, '..', '..', 'scripts', 'samples', 'nazwan.pdf');
+      nazwanPrescription = await prescriptionFromPdf(fs.readFileSync(samplePath));
+      console.log(`Read Nazwan's training prescription: ${nazwanPrescription.days.length} days,`
+        + ` ${prescriptionSize(nazwanPrescription)} exercises`);
+    } catch (err) {
+      console.log(`No training prescription seeded (${err.message})`);
+    }
+
+    const screenings = buildScreenings(athletes, nazwanPrescription);
     await Screening.bulkCreate(screenings, { transaction: t });
     console.log(`Inserted ${screenings.length} screening snapshots`);
 

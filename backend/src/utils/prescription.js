@@ -34,8 +34,15 @@ const DAY_RE = /Day\s+(\d+)\s+Training Recommendation/gi;
  * The name is lazy and may contain spaces, brackets and the report's own "-2"
  * variant suffixes ("Latissimus Dorsi Stretch (L) -2"), so it is bounded by the
  * reps token rather than by whitespace.
+ *
+ * The row number is anchored to a whitespace boundary. Without it the "2" of
+ * a "-2" suffix stranded by a page break (see the wrap handling in
+ * parsePrescription) is itself a valid one-digit number, so the parser reads
+ * the row AFTER it as row 2 and swallows the real number into the name.
+ * Measured on a real report: "8 Seated Calf Stretch" came back as no=2,
+ * name="8 Seated Calf Stretch". Both halves are wrong and neither looks it.
  */
-const ROW_RE = /(\d{1,2})\s+(.+?)\s+(\d+\s*[xs])\s+(\d+)\s+(\d+)/gi;
+const ROW_RE = /(?<!\S)(\d{1,2})\s+(.+?)\s+(\d+\s*[xs])\s+(\d+)\s+(\d+)/gi;
 
 /** Collapse the runs of whitespace pdfjs leaves between text items. */
 const tidy = (s) => String(s || '').replace(/\s+/g, ' ').trim();
@@ -74,19 +81,50 @@ function parsePrescription(text) {
     // Drop the column headings so "Reps Sets Rest Interval" cannot be read as a row.
     chunk = chunk.replace(/No\.\s*Exercises\s*Reps\s*Sets\s*Rest Interval/gi, ' ');
 
-    const exercises = [];
+    // Collect the rows and the text BETWEEN them in one pass, because a name
+    // that wrapped across a page break arrives after its own numbers.
+    const raw = [];
     let r;
+    let prevEnd = 0;
     ROW_RE.lastIndex = 0;
     while ((r = ROW_RE.exec(chunk)) !== null) {
-      const name = tidy(r[2]);
-      if (!name || name.length > 80) continue;
-      exercises.push({
+      raw.push({
         no: Number(r[1]),
-        name,
+        name: tidy(r[2]),
         reps: tidy(r[3]).replace(/\s+/g, ''),
         sets: Number(r[4]),
         rest: Number(r[5]),
+        gapBefore: tidy(chunk.slice(prevEnd, r.index)),
       });
+      prevEnd = ROW_RE.lastIndex;
+    }
+
+    // Repair names HoloMotion wrapped over a page boundary. Its text layer emits
+    // the numeric cells before the wrapped tail, so the printed row
+    //   7 | Middle Trapezius Bundle And Rhomboid Muscle Stretch (R) -2 | 30s | 1 | 10
+    // arrives as "7 Middle Trapezius Bundle And Rhomboid Muscle 30s 1 10 Stretch
+    // (R) -2". The row matches the table's shape and is accepted, and the tail is
+    // then stranded between this row's numbers and the next row's number.
+    //
+    // Appending it is not a guess. A fragment BOUNDED BY TWO ROWS sits inside the
+    // table body, and the only cell it can belong to is the Exercises cell of the
+    // row it follows. Dropping it instead would leave "Middle Trapezius Bundle And
+    // Rhomboid Muscle" — a different exercise from the one printed, missing the
+    // side it applies to, and reading as complete. That is the failure this parser
+    // exists to prevent, so losing text is as unacceptable here as inventing it.
+    //
+    // Deliberately NOT applied to text after the LAST row: that fragment has no
+    // row closing it, so it is not necessarily inside the table at all.
+    for (let k = 1; k < raw.length; k += 1) {
+      const gap = raw[k].gapBefore;
+      if (gap && gap.length <= 60 && /[A-Za-z]/.test(gap)) raw[k - 1].name = `${raw[k - 1].name} ${gap}`;
+    }
+
+    const exercises = [];
+    for (const e of raw) {
+      // Checked AFTER the repair, so the bound applies to the name actually kept.
+      if (!e.name || e.name.length > 80) continue;
+      exercises.push({ no: e.no, name: e.name, reps: e.reps, sets: e.sets, rest: e.rest });
     }
     if (exercises.length) days.push({ day: marks[i].day, exercises });
   }
