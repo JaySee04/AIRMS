@@ -267,11 +267,24 @@ there.
   things are moving; every other one is a snapshot. Athletes tested and their
   band mix over recent periods, at a grain you pick — and each grain is labelled
   with how many periods it would draw, so quarterly and yearly announce their own
-  thinness before you click them. Deliberately a summary: full throughput,
-  coverage and retest analysis lives on **Programme Activity**, which is a
-  separate page on purpose. The movement arrow is coloured by the API’s own
-  verdict, never by the sign of the number — a small move reads as *steady*, and
-  Exercise Risks improve by going **down**.
+  thinness before you click them.
+  - The columns have **two readings**, switched by the toggle above the chart:
+    *Athletes tested* scales their height to the headcount, *Band mix %* makes
+    every column equal so the mix is comparable between a busy month and a quiet
+    one. It alternates every 10 seconds and **stops as soon as you click either
+    button**, so you can hold whichever you are reading.
+  - The **average Total Score** line runs over the columns and is read against
+    the **right-hand axis**, which prints its own range — that range is zoomed,
+    not from zero, and the panel says so.
+  - A period with no screening keeps its slot, outlined and labelled: for a
+    screening programme, the gap is the finding.
+  - Two periods add a **change chart** underneath, one bar per metric, because
+    with only two the comparison is the whole content.
+
+  Deliberately a summary: full throughput, coverage and retest analysis lives on
+  **Programme Activity**, which is a separate page on purpose. The movement arrow
+  is coloured by the API’s own verdict, never by the sign of the number — a small
+  move reads as *steady*, and Exercise Risks improve by going **down**.
 - **Focus · ⟨indicator⟩** *(focus set)* — the same cohort read through one
   indicator, set against the institute baseline so “worse than normal?” is
   answerable rather than left to intuition. No athlete is filtered out — that is
