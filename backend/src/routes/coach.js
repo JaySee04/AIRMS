@@ -1,15 +1,11 @@
-// Coach role — a first-class 4th role (FYP II, promoted 2026-07-19; read-only).
+// Coach role — a first-class 4th role (FYP II), read-only.
 //
-// A coach gets a READ-ONLY squad-readiness view of the athletes in their
-// assigned sport(s), plus read-only screening detail (and, since 2026-07-23,
-// the individual screening PDF + history) for those same athletes — enforced
-// by sport-scope checks in routes/athletes.js, screenings.js and
-// screeningReports.js. No clinical notes, no injury records, no uploads.
-// Readiness derives from each athlete's cohort-normed HoloMotion band — the
-// same indicator the athlete and medical views report. (This route used to
-// also aggregate a 28-day ACWR per athlete; that compute + payload were
-// removed on 2026-07-16 when ACWR left the dashboards — the frontend no
-// longer read it. See docs/fyp/ACWR_REBUILD.md.)
+// A READ-ONLY squad-readiness view of the athletes in their assigned sport(s),
+// plus screening detail, the individual screening PDF and history for those same
+// athletes — enforced by sport-scope checks in routes/athletes.js, screenings.js
+// and screeningReports.js. No clinical notes, no injury records, no uploads.
+// Readiness derives from the cohort-normed HoloMotion band, the same indicator
+// the athlete and medical views report.
 const express = require('express');
 const { Op } = require('sequelize');
 const { Athlete, MuscleFlag, Screening, AthleteDiscipline } = require('../models');
@@ -57,9 +53,8 @@ router.get('/readiness', auth, rbac('coach'), async (req, res) => {
     for (const s of screenings) {
       const n = seen.get(s.athleteId) || 0;
       if (n === 0) {
-        // One shared shaper (utils/indicatorPayload.js) — this payload used to be
-        // hand-built here and had already drifted, dropping the clinician
-        // override the coach's override card promises them.
+        // One shared shaper (utils/indicatorPayload.js), so this payload cannot
+        // drift from the clinician override the coach's override card promises.
         indicatorByAthlete.set(s.athleteId, {
           ...toIndicator(s, dueDays),
           prevIndicator: null,
@@ -111,18 +106,16 @@ router.get('/readiness', auth, rbac('coach'), async (req, res) => {
 
     // The threshold at which the coach's trend arrows call a move real.
     //
-    // Derived here rather than hardcoded in the page, and derived over the WHOLE
-    // roster rather than this sport, for the reason the rescreen recall is: a
-    // coach's view must be a SLICE of the institution's judgement, never a
-    // second opinion. The dashboard used a literal 2, which agrees with the
-    // institution only by accident — reliability declines below MIN_PAIRS and
-    // falls back to exactly 2. The day ISN records its twentieth repeat pair,
-    // MDC95 becomes a real number, the admin change chart follows it, and a
-    // hardcoded arrow would quietly keep answering "did this change" differently
-    // on the coach's screen. `deadBandFor` is always usable, so the client never
-    // branches; `sufficient` says whether it was earned or assumed, per score
-    // rather than for the pass as a whole — the indicator can decline while
-    // another score qualifies, and it is the indicator the arrows judge.
+    // Derived here rather than hardcoded, and over the WHOLE roster rather than
+    // this sport, for the reason the rescreen recall is: a coach's view must be a
+    // SLICE of the institution's judgement, never a second opinion. A literal 2
+    // agrees with the institution only by accident — the day ISN records its
+    // twentieth repeat pair MDC95 becomes a real number, the admin change chart
+    // follows it, and a hardcoded arrow would keep answering "did this change"
+    // differently on the coach's screen. `deadBandFor` is always usable so the
+    // client never branches; `sufficient` says whether it was earned or assumed,
+    // per score — the indicator can decline while another qualifies, and it is
+    // the indicator the arrows judge.
     const allIndicators = await Screening.findAll({
       attributes: ['id', 'athleteId', 'assessedAt', 'overallIndicator'],
       raw: true,

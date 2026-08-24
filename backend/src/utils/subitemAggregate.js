@@ -2,22 +2,20 @@
 //
 // The densest thing the instrument produces: 5 regions x {ROM L/R, Stability
 // L/R, Symmetry} = 25 readings per athlete, and Total Score is literally its
-// mean (verified on three real reports, residual <=1.2). None of it was
-// aggregated at squad level.
+// mean (verified on three real reports, residual <=1.2).
 //
-// LEFT VS RIGHT was the part invisible everywhere. It is the only bilateral data
-// the report carries and what a movement screen exists to find, yet AIRMS
-// collapsed it three ways: the body map paints the WORSE of L/R, the composite
-// averages every gap into `balance`, and the subitem table leaves the subtraction
-// to the reader. Real magnitudes: Thung's neck ROM 95 left against 62 right (33
-// points); Elffie's neck 15, pelvis 13; Nazwan's neck 11.
+// LEFT VS RIGHT is why it is aggregated here. It is the only bilateral data the
+// report carries and what a movement screen exists to find, yet every other view
+// collapses it: the body map paints the WORSE of L/R, the composite averages
+// every gap into `balance`, and the subitem table leaves the subtraction to the
+// reader. Real magnitudes: Thung's neck ROM 95 left against 62 right (33 points);
+// Elffie's neck 15, pelvis 13; Nazwan's neck 11.
 //
 // Pure — no DB, no Sequelize — so it is unit-testable.
 
-// Region keys + display names, matching the report's own section order (top of
-// the body down). Imported rather than mirrored: this file used to carry its own
-// copy under a comment asking for the two to be kept in step by hand, which is
-// exactly the arrangement that lost Lower Limbs. See utils/symmetry.js.
+// Region keys + display names, in the report's own section order (top of the body
+// down). Imported from utils/symmetry.js, never mirrored — a hand-kept second
+// copy is what lost Lower Limbs.
 const { SUBITEM_REGIONS: REGIONS } = require('./symmetry');
 
 const CELLS = [
@@ -30,15 +28,13 @@ const CELLS = [
 
 // A left/right difference at or above this PERCENT is called out.
 //
-// Was 10 raw POINTS, which counted two clinically different situations the same:
-// 80 vs 70 is a 12.5% deficit in a strong limb, 40 vs 30 is 25% in a weak one.
-// The inter-limb asymmetry literature uses percentages, and return-to-sport
-// criteria are stated as a limb symmetry index of 85-90%.
+// A percentage, not raw points: 80 vs 70 is a 12.5% deficit in a strong limb
+// while 40 vs 30 is 25% in a weak one, and points count those the same. The
+// inter-limb asymmetry literature uses percentages, and return-to-sport criteria
+// are stated as a limb symmetry index of 85-90%.
 //
-// 10% is kept because it is the most commonly cited figure and lands close to the
-// old threshold across HoloMotion's range. It is not a hard boundary — asymmetry
-// above 10% is common in uninjured athletes and the cut is debated. What changed
-// is how the quantity is EXPRESSED.
+// 10% is the most commonly cited figure. It is not a hard boundary — asymmetry
+// above 10% is common in uninjured athletes and the cut is debated.
 //
 // NOT applied to the composite's `balance` term in utils/cohorts.js: that is
 // z-scored against the cohort, which already removes the scale, so normalising it

@@ -182,10 +182,9 @@ export function RankedBars({ rows, unit = '' }: { rows: RankedRow[]; unit?: stri
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-// PeriodChart — throughput columns per period with an average-score line over
-// them. Columns FLEX to fill the card but cap their width, so two periods look
-// like two columns in a full-width chart rather than two lonely 62px stubs in a
-// 1500px box (which is exactly how the old "Direction of travel" strip read).
+// PeriodChart — band mix per period, with an average-score line on its own
+// right-hand axis. Columns FLEX to fill the card but cap their width, so two
+// periods draw as two broad columns rather than stubs with a canyon between.
 // ══════════════════════════════════════════════════════════════════════════
 export interface PeriodPoint {
   key: string;
@@ -200,22 +199,14 @@ export interface PeriodPoint {
 
 // Columns serve every selection with something to compare (2+ periods).
 //
-// They used not to. A threshold sent 1, 2 and 3 periods down three other paths,
-// so one card rendered FOUR different graphics depending on how many periods a
-// filter happened to produce — on the seeded data, clicking Monthly / Quarterly
-// / Yearly gave columns, a change chart and a block of text. Switching idiom is
-// a strong signal, and it was firing on a property of the filter rather than on
-// anything about the data.
+// Switching chart idiom on the number of periods a filter happens to produce is
+// a strong signal firing on nothing about the data — it made one card render
+// four different graphics. The canyon that argued for a different layout at two
+// periods is a WIDTH problem, handled at the width: `barW` caps and the slots
+// flex.
 //
-// The original worry was real: two columns with a canyon between them read as a
-// chart that failed to load. That was a WIDTH problem and it was fixed at the
-// width — `barW` caps and the slots flex, so two periods draw as two broad
-// columns filling the card. With the cause gone the threshold outlived its
-// reason, and its own comment only ever argued for "one or two periods" while
-// the constant excluded three as well.
-//
-// One period still gets its own treatment, because that is not a threshold —
-// there is genuinely nothing to compare.
+// One period is still treated separately. That is not a threshold — there is
+// genuinely nothing to compare.
 
 /**
  * How the columns are scaled.
@@ -347,10 +338,9 @@ export function PeriodChart({
   const n = points.length;
 
   // Percentages, because the line shares the columns' plot box and that box is
-  // sized in CSS. Its scale is its own and is LABELLED on the right — the fault
-  // in the original combined chart was not that two series shared a plot, it was
-  // that the second one had no axis, so its slope was an artefact of a scale the
-  // reader could not see.
+  // sized in CSS. Its scale is its own and is LABELLED on the right: two series
+  // may share a plot, but a series without an axis has a slope that is an
+  // artefact of a scale the reader cannot see.
   const lyPct = (v: number) => 100 - ((v - lMin) / (lMax - lMin || 1)) * 100;
   const scoreTicks = hasLine ? [lMax, (lMin + lMax) / 2, lMin] : [];
   const linePct = points
@@ -519,11 +509,10 @@ export function PeriodChart({
 // ══════════════════════════════════════════════════════════════════════════
 // MetricDeltas — what CHANGED between exactly two periods.
 //
-// Replaced a slopegraph, which needs COMMENSURABLE metrics and these are not:
-// Total Score, ROM, Stability and Symmetry cluster at 72-78, the indicator sits
-// at ~50 by construction, and exercise risks at ~18 on an inverted scale. On one
-// axis the four movement scores collapsed into overlapping pixels — the same
-// flattening already documented for the 0-100 track, reintroduced.
+// Not a slopegraph: that needs COMMENSURABLE metrics and these are not. Total
+// Score, ROM, Stability and Symmetry cluster at 72-78, the indicator sits at ~50
+// by construction, exercise risks at ~18 on an inverted scale — on one axis the
+// movement scores collapse into overlapping pixels.
 //
 // The values are incommensurable; the CHANGES are not (every delta here is
 // between -5.2 and +2.6). So plot the changes on a shared delta axis with zero

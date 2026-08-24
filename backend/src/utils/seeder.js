@@ -21,17 +21,14 @@ function rfloat(min, max, dp = 1) { return parseFloat((rnd() * (max - min) + min
 // entries per report, each carrying a single side. Verified against all three
 // real reports we hold (Thung, Nazwan, Elffie — 18 slots, no exceptions).
 //
-// Three ways the old seeder diverged, all fixed:
+// Three constraints that follow:
 //
-//  1. COUNT — rolled each muscle at p=0.18, so an athlete got zero flags or
-//     eight. Real reports are always 3 + 3.
-//  2. SIDE — emitted 'B' (bilateral) ~15% of the time. HoloMotion has no such
-//     value; a bilateral finding prints as TWO sided lines. 'B' existed only
-//     because the old object-keyed shape (one key per muscle) could not hold
-//     both. An array of pairs can.
-//  3. VOCABULARY — drew uniformly from 24 invented names. Real output is
-//     hip-dominated: 14 of the 18 observed slots are Gluteus Maximus/Medius,
-//     Piriformis, Iliopsoas or Sartorius.
+//  1. COUNT — always 3 + 3, never a per-muscle roll.
+//  2. SIDE — 'L' or 'R' only. HoloMotion has no bilateral value; a bilateral
+//     finding prints as TWO sided lines, which is why this is an array of pairs
+//     rather than one key per muscle.
+//  3. VOCABULARY — hip-dominated: 14 of the 18 observed slots are Gluteus
+//     Maximus/Medius, Piriformis, Iliopsoas or Sartorius.
 //
 // 18 draws is a weighted core, not a closed list, so the plausible tail stays
 // reachable at realistic rarity. Deliberately NOT tuned to the observed 77.8%
@@ -114,11 +111,8 @@ const DEMO_SPORTS = ['Badminton', 'Swimming', 'Athletics', 'Football', 'Hockey']
 // digits are derived deterministically from a sequence number so the seed=42
 // dataset stays stable and every athlete's key is unique.
 //
-// The birth year is derived from the athlete's OWN age, so the IC and the age
-// column agree — anyone cross-checking the two (which is exactly what an IC is
-// for) sees a consistent record. It previously ran off the sequence number
-// alone, `(88 + seq) % 100`, which handed later athletes birth years in the
-// 1930s and 40s: a 22-year-old whose IC said 1933.
+// The birth year comes from the athlete's OWN age, so the IC and the age column
+// agree — cross-checking the two is exactly what an IC is for.
 function icFor(seq, age) {
   const birthYear = new Date().getFullYear() - Number(age);
   const yy = String(birthYear % 100).padStart(2, '0');
@@ -432,23 +426,17 @@ function buildUsers() {
     // Executive — read-only oversight. Sees the admin analytics and can download
     // the reports; cannot import, edit norms, touch the roster or personnel.
     { name: 'Datuk Executive', email: 'executive@isn.gov.my', password: 'executive123', role: 'executive' },
-    // Deliverable-inbox counterparts (2026-08-19), following the same pattern as
-    // Medical Demo 02 above: the canonical @isn.gov.my logins are LEFT ALONE —
-    // they are documented, and swapping them would churn credentials days before
-    // assessment — and a second account with a real inbox is added beside them.
+    // Deliverable-inbox counterparts, beside the canonical @isn.gov.my logins
+    // rather than replacing them (those are documented credentials).
     //
-    // Without these, two email paths could never be shown ARRIVING: the digest's
-    // executive copy, and the coach's sport-scoped slice of the rescreen recall.
-    // Both are slices of mails that other recipients do receive, so the code was
-    // exercised; nobody could see the result.
-    //
-    // Plus-addressing (`+coach`, `+exec`) delivers to the same Gmail mailbox
-    // while remaining distinct addresses — so one inbox can verify every role,
-    // and each message still shows which role it was addressed to.
+    // Two email paths could otherwise never be shown ARRIVING: the digest's
+    // executive copy and the coach's sport-scoped slice of the rescreen recall.
+    // Plus-addressing (`+coach`, `+exec`) keeps them distinct addresses landing
+    // in one checkable Gmail mailbox, each still showing which role it went to.
     //
     // Coach Demo 02 shares Badminton with Coach Demo 01 ON PURPOSE: the reminder
-    // sends one email per SPORT, not per coach, so this pair demonstrates that
-    // rule — two coaches, one message, delivered to the checkable inbox.
+    // sends one email per SPORT, not per coach, so the pair demonstrates that
+    // rule — two coaches, one message.
     { name: 'Coach Demo 02', email: 'poseidonapollo11+coach@gmail.com', password: 'coach123', role: 'coach', coachSport: 'Badminton' },
     { name: 'Executive Demo 02', email: 'poseidonapollo11+exec@gmail.com', password: 'executive123', role: 'executive' },
   ];
@@ -564,14 +552,12 @@ async function seed() {
     if (hi % 3 !== 0) continue; // every third athlete gets a prior snapshot
     const delta = DELTAS[hi % DELTAS.length];       // current − prev (positive = improved)
     const nudge = delta > 0 ? -3 : 3;               // move the raw score consistent with the trend
-    // The nudge is applied to the COMPONENTS and Total Score is derived from
-    // them, for the same reason `buildScreenings` derives it (§34b): on a real
-    // HoloMotion report Total Score IS the mean of the subitem table, so a row
-    // whose Total Score moved while ROM, stability and symmetry stayed bit-
-    // identical is arithmetic the instrument cannot produce. Nudging all three
-    // by `nudge` leaves the derived Total Score exactly where nudging it
-    // directly used to — 0.4n + 0.4n + 0.2n = n — so the demonstrated trend is
-    // unchanged, and a retest now differs in the things a retest measures.
+    // The nudge applies to the COMPONENTS and Total Score is derived from them
+    // (§34b): Total Score IS the mean of the subitem table, so a row whose Total
+    // Score moved while ROM, stability and symmetry stayed bit-identical is
+    // arithmetic the instrument cannot produce. 0.4n + 0.4n + 0.2n = n, so the
+    // demonstrated trend is unchanged and a retest differs in what a retest
+    // measures.
     const bump = (v) => (v == null ? null : clamp100(Number(v) + nudge));
     const pRom = bump(s.rom);
     const pStab = bump(s.stability);
@@ -616,15 +602,14 @@ async function seed() {
 
 // RUN ONLY WHEN INVOKED AS A SCRIPT.
 //
-// This file used to call seed() unconditionally at import time, so
-// `require('./src/utils/seeder')` — the obvious way to check the module parses —
-// silently dropped the schema and reseeded the database. It cost a pinned norm
-// version and an entire audit trail on 2026-08-19 before anyone noticed what had
-// happened, because the destructive part looks exactly like a successful import.
+// Importing this module must never seed. Calling seed() at import time made
+// `require('./src/utils/seeder')` — the obvious way to check it parses — drop the
+// schema and reseed, which cost a pinned norm version and an audit trail before
+// anyone noticed, because the destructive part looks like a successful import.
 //
-// `npm run seed` still works: it runs this file directly, so require.main is this
-// module. Nothing else can trigger it by accident — including a test that pulls in
-// a module which happens to require this one. See docs/DESIGN_DECISIONS.md §34c.
+// `npm run seed` runs the file directly, so require.main is this module and
+// nothing else can trigger it — including a test that transitively requires it.
+// See docs/DESIGN_DECISIONS.md §34c.
 if (require.main === module) {
   seed().catch(async (err) => {
     console.error(err);
