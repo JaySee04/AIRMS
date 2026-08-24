@@ -65,6 +65,34 @@ const authLimiter = rateLimit({
   message: { message: 'Too many failed attempts. Please wait a few minutes and try again.' },
 });
 
+// GET /api/health — liveness, and a deliberate touch of the database.
+//
+// Unauthenticated and returns nothing about anybody: an ok flag and whether the
+// database answered. That is the whole surface, because its job is to be safe to
+// call from outside.
+//
+// It exists for a reason peculiar to this deployment. Aiven's free tier powers a
+// database off when it sees no activity, which takes the site down until someone
+// clicks Power on — and it also means the nightly mail tick finds no database
+// and the monthly digest silently never sends. A free uptime pinger calling this
+// every 15 minutes is activity, so the database stays awake and both problems go
+// away without paying for the tier that disables the power-off. See DEPLOY.md.
+//
+// SELECT 1 rather than a model query on purpose: it proves the pool can reach
+// the server without depending on any table existing, so a schema problem
+// reports itself as a schema problem elsewhere rather than as "unhealthy" here.
+app.get('/api/health', async (_req, res) => {
+  try {
+    await sequelize.query('SELECT 1');
+    res.json({ ok: true, db: 'up' });
+  } catch (err) {
+    // 503, not 500: the app is fine, its dependency is not — and an uptime
+    // monitor should read this as "down" so a sleeping database is visible
+    // rather than being reported as a healthy service.
+    res.status(503).json({ ok: false, db: 'down', detail: err.message });
+  }
+});
+
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/athletes', athleteRoutes);

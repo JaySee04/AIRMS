@@ -275,6 +275,39 @@ each cold start, into the platform temp directory
 (`TESSERACT_CACHE_PATH` overrides it), which makes the first import after an
 idle period noticeably slower than the rest.
 
+## Keeping the free-tier database awake
+
+Aiven's free tier powers a service off when it sees no activity. Two things break
+when it does: the site returns `503 Database unavailable` to anyone who opens the
+link, and the nightly mail tick finds no database — so the monthly digest and the
+rescreen recall silently never send, because the marker is only consumed after a
+successful send and the retry meets the same sleeping database tomorrow.
+
+Paying for the $5/month tier disables the power-off and is the simplest fix. The
+free one is to give the database some activity:
+
+`GET /api/health` is unauthenticated, runs `SELECT 1` and returns
+`{ok:true,db:"up"}` — or **503** with `db:"down"` when the pool cannot reach the
+server, so a monitor reads a sleeping database as down rather than as healthy.
+It reveals nothing about anybody, which is what makes it safe to call from
+outside.
+
+Point a free uptime pinger at it every 15 minutes:
+
+```
+https://airms-api.vercel.app/api/health
+```
+
+[cron-job.org](https://cron-job.org) and UptimeRobot both do this on a free plan
+with no card. Fifteen minutes is comfortably inside the idle window and costs
+about 2,900 requests a month, which is nothing against Vercel's Hobby limits.
+
+Two things this does NOT do. It will not resurrect a database that has already
+been powered off — that still needs **Power on** in the Aiven console, and the
+pinger keeps it awake from then on. And it does not remove the power-off policy,
+so if the pinger is ever paused or its free plan lapses, the idle clock starts
+again.
+
 ## Not covered here
 
 Where the app itself runs, how MySQL is hosted, TLS, and backups are ISN's
