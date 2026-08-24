@@ -90,13 +90,9 @@ const TIERS = [
   { min: 0, label: 'Below Average', color: '#b03030', ink: '#ffffff', onLight: '#b03030' },
 ];
 const tierOf = (v) => TIERS.find((t) => v >= t.min) || TIERS[TIERS.length - 1];
-const SUBITEM_REGIONS = [
-  ['neck', 'Neck'],
-  ['shoulder', 'Shoulder & Upper Limbs'],
-  ['torso', 'Torso'],
-  ['pelvis', 'Pelvis'],
-  ['lowerLimbs', 'Lower Limbs'],
-];
+// One definition, in utils/symmetry.js — see the note there for what a second
+// copy of this list cost.
+const { SUBITEM_REGIONS } = require('./symmetry');
 const SUBITEM_COLS = [['romL', 'ROM L'], ['romR', 'ROM R'], ['stabL', 'Stab L'], ['stabR', 'Stab R'], ['sym', 'Sym']];
 
 const SCORE_ROWS = [

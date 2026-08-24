@@ -23,15 +23,10 @@
 // Pure — no DB, no Sequelize — so it is unit-testable.
 
 // Region keys + display names, matching the report's own section order (top of
-// the body down). Mirrors SUBITEM_REGIONS in pdfDraw.js, which a Node PDF process
-// needs separately; keep the two in step.
-const REGIONS = [
-  ['neck', 'Neck'],
-  ['shoulder', 'Shoulder & Upper Limbs'],
-  ['torso', 'Torso'],
-  ['pelvis', 'Pelvis'],
-  ['lowerLimbs', 'Lower Limbs'],
-];
+// the body down). Imported rather than mirrored: this file used to carry its own
+// copy under a comment asking for the two to be kept in step by hand, which is
+// exactly the arrangement that lost Lower Limbs. See utils/symmetry.js.
+const { SUBITEM_REGIONS: REGIONS } = require('./symmetry');
 
 const CELLS = [
   ['romL', 'ROM L'],

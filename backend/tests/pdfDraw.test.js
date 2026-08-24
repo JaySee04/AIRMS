@@ -689,3 +689,28 @@ describe('pdfDraw toolkit', () => {
     });
   });
 });
+
+// The Lateral Symmetry table is the report's answer to "which side do I train".
+// Its region list is no longer defined in this file — it is imported from
+// utils/symmetry.js, which is the right shape but means a defect over there
+// prints here. It already did once: the list was retyped with `lower` for
+// `lowerLimbs` during an extraction, and because symmetryFindings omits a region
+// with no symmetry score, Lower Limbs simply stopped being printed. Nothing
+// failed, because every value that WAS printed was correct.
+//
+// Asserted on the rendered page rather than on symmetryFindings, deliberately:
+// the module has its own suite, and this one exists to catch the row going
+// missing between a correct module and the paper.
+describe('the Lateral Symmetry table names every region', () => {
+  let text;
+  beforeAll(async () => { ({ joined: text } = await textOf((doc) => D.symmetrySection(doc, SUBITEMS))); });
+
+  it.each([['Neck'], ['Shoulder & Upper Limbs'], ['Torso'], ['Pelvis'], ['Lower Limbs']])(
+    'prints %s',
+    (label) => { expect(text).toContain(label); },
+  );
+
+  it('prints a side for a region whose sides differ', () => {
+    expect(text).toMatch(/Left|Right/);
+  });
+});

@@ -24,13 +24,31 @@
 // shared numbers util does not exist. Same coercion pdfDraw uses.
 const num = (v) => (v === null || v === undefined || Number.isNaN(Number(v)) ? null : Number(v));
 
-/** The five regions HoloMotion reports, in the order its own table uses. */
+/**
+ * The five regions HoloMotion reports, in the order its own table uses (top of
+ * the body down).
+ *
+ * The ONE definition. pdfDraw.js and subitemAggregate.js import it from here;
+ * they each had their own copy, and subitemAggregate's carried a comment asking
+ * whoever came next to keep them in step by hand. That is what went wrong: this
+ * list was retyped during the 2026-08-23 extraction with `lower` for
+ * `lowerLimbs`, and because a region with no symmetry score is deliberately
+ * OMITTED rather than shown empty, the wrong key was indistinguishable from a
+ * screening that never measured the region. Lower Limbs silently vanished from
+ * the dashboard panel and from the printed Lateral Symmetry table for every
+ * athlete — the region that matters most in most sports, missing from the one
+ * output whose entire purpose is naming a side to act on.
+ *
+ * The keys are HoloMotion's, as they arrive from extraction
+ * (utils/holomotionExtract.js) and as every consumer stores them. They are not
+ * ours to shorten.
+ */
 const SUBITEM_REGIONS = [
   ['neck', 'Neck'],
   ['shoulder', 'Shoulder & Upper Limbs'],
   ['torso', 'Torso'],
   ['pelvis', 'Pelvis'],
-  ['lower', 'Lower Limbs'],
+  ['lowerLimbs', 'Lower Limbs'],
 ];
 
 /**

@@ -59,11 +59,11 @@ cd frontend; npm run lint  # next lint
 cd frontend; npm run build
 
 # Unit tests (jest, in both packages — no linter configured for the backend)
-cd backend; npx jest      # 21 suites: cohorts, overallIndicator, permissions, rbac, pdfDraw,
+cd backend; npx jest      # 24 suites: cohorts, overallIndicator, permissions, rbac, pdfDraw,
                           # screeningPeriods, cohortFocus, visionUsage, alerts, scheduler,
                           # bands, mailPrefs, holisticReport, programmeActivity, subitemAggregate,
                           # reliability, rescreenReminder, riskIndicators, recall,
-                          # mailSendNow, lock
+                          # mailSendNow, lock, prescription, settingsChanges, symmetry
 cd frontend; npx jest     # 8 suites: lib/risk.ts, lib/screeningUploadStore.ts, bodymap-data/muscles.ts,
                           # components/charts (rendered via react-dom/server — no jsdom needed),
                           # lib/bands.ts, lib/athleteSearch.ts, lib/rank.ts,
