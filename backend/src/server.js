@@ -100,6 +100,29 @@ app.get('/api/health', async (_req, res) => {
   }
 });
 
+// GET / — a service descriptor, because the API's root is a URL people land on.
+//
+// Everything here mounts under /api, so `/` had no handler and Express answered
+// its default HTML 404. That is correct, and it reads as an outage: it is what
+// Vercel screenshots for the deployment tile, and what a supervisor or the
+// stakeholder sees if they click the API link rather than the web app. "Cannot
+// GET /" was twice mistaken for a broken deployment during setup.
+//
+// Says what the service is and where to check it, and deliberately nothing else
+// — no version, no environment, no dependency state. It is unauthenticated, so
+// it gets the same treatment as /api/health: enough to identify the service,
+// nothing that helps anyone attack it. The liveness answer stays at /api/health,
+// which actually touches the database; this one must never imply health it has
+// not checked.
+app.get('/', (_req, res) => {
+  res.json({
+    service: 'AIRMS API',
+    description: 'Athlete Injury Risk Management System — Institut Sukan Negara',
+    health: '/api/health',
+    app: process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',')[0] : undefined,
+  });
+});
+
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/athletes', athleteRoutes);
