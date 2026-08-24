@@ -199,6 +199,18 @@ describe('PeriodChart — layout follows the number of periods', () => {
     expect(html).toMatch(/periodchart-scoredot[^>]*>\s*<em>73\.8<\/em>/);
   });
 
+  it('drops the x-axis right gutter with the axis it was reserved for', () => {
+    // The gutter matches the right-hand axis so a label sits under its own
+    // column. That axis is conditional, so the gutter has to be: reserving its
+    // width with no axis there shifted every label away from the column it names.
+    const withLine = render(<PeriodChart
+      points={[period('a', 'Jun', 30, 76.4), period('b', 'Jul', 28, 73.8)]}
+      lineLabel="Average Total Score" autoRotate={false} />);
+    expect(withLine).not.toContain('periodchart-xaxis--noright');
+    const noLine = render(<PeriodChart points={[period('a', 'Jun', 30), period('b', 'Jul', 28)]} autoRotate={false} />);
+    expect(noLine).toContain('periodchart-xaxis--noright');
+  });
+
   it('omits the right axis and its key entirely when there is no line to draw', () => {
     const html = render(<PeriodChart points={[period('a', 'Jun', 30), period('b', 'Jul', 28)]} />);
     expect(html).not.toContain('periodchart-yaxis--right');
@@ -537,7 +549,10 @@ describe('PeriodChart — the sparse-grain layouts', () => {
       slope={[{ key: 'rom', label: 'ROM', from: 77.6, to: 72.4, higherBetter: true, direction: 'declining' }]} />);
     expect(html).toContain('periodchart-mix');
     expect(html).toContain('mdelta-row');
-    expect(html).not.toContain('slope-throughput');
+    // Not rows underneath: PeriodRows is the composition layout now, and a
+    // two-period selection has no composition, so its absence is a real property
+    // rather than a class name that happens to be gone.
+    expect(html).not.toContain('periodrow-track');
   });
 
   it('two periods WITHOUT metric data still draw the columns', () => {

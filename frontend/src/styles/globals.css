@@ -1329,9 +1329,6 @@ label:has(> input[type='radio']) {
 }
 .bm-card-item:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
 
-.bodymap-muscle--weak  { fill: var(--flag-weak);  stroke: rgba(0, 0, 0, 0.35); }
-.bodymap-muscle--tight { fill: var(--flag-tight); stroke: rgba(0, 0, 0, 0.35); }
-.bodymap-muscle--both  { fill: var(--flag-both);  stroke: rgba(0, 0, 0, 0.35); }
 
 .bm-legend {
   display: grid;
@@ -2796,7 +2793,12 @@ textarea:focus-visible,
   background: var(--bg-card); border-radius: var(--r-xs); padding: 0 3px;
 }
 
+/* Gutters match the axes either side, so a label sits under its own column.
+   The right gutter is conditional because the right-hand axis is: with no score
+   line there is nothing to read off it, and reserving its width anyway shifted
+   every label 38px away from the column it names. */
 .periodchart-xaxis { display: flex; gap: var(--sp-sm); margin-top: 6px; padding-left: 38px; padding-right: 38px; }
+.periodchart-xaxis--noright { padding-right: 0; }
 .periodchart-xaxis > span {
   flex: 1 1 0; min-width: 0; text-align: center;
   font-size: var(--fs-xs); color: var(--text-muted);
@@ -2815,10 +2817,10 @@ textarea:focus-visible,
 .periodchart-key { display: inline-flex; align-items: center; gap: 6px; }
 .periodchart-key em { font-style: normal; color: var(--text-muted); font-size: var(--fs-2xs); }
 .periodchart-key-col {
-  width: 10px; height: 12px; border-radius: 2px; display: inline-block;
+  width: 10px; height: 12px; border-radius: var(--r-xs); display: inline-block;
   background: linear-gradient(to top, var(--risk-low) 60%, var(--risk-moderate) 60%, var(--risk-moderate) 85%, var(--risk-high) 85%);
 }
-.periodchart-key-line { width: 14px; height: 2.5px; border-radius: 2px; background: var(--brand-navy); display: inline-block; }
+.periodchart-key-line { width: 14px; height: 2.5px; border-radius: var(--r-xs); background: var(--brand-navy); display: inline-block; }
 
 @media (prefers-reduced-motion: reduce) {
   .periodchart-stack { transition: none; }
@@ -3110,7 +3112,6 @@ textarea:focus-visible,
 
 /* The throughput rows kept beneath the change chart for two-period views: the
    changes say WHAT moved, the rows say how many athletes it was measured on. */
-.slope-throughput { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
 
 /* A single period's internal breakdown — a year has nothing to compare against
    but is still MADE of quarters. */
@@ -3202,7 +3203,7 @@ textarea:focus-visible,
    that created it and flicker. It also keeps the tip from blocking a click on
    the muscle underneath.
 
-   The host element must be `position: relative` (see .bm-fig, .chart-hostable).
+   The host element must be `position: relative` (see .bm-fig).
    --------------------------------------------------------------------------- */
 .viz-tip {
   position: absolute;

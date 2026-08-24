@@ -469,7 +469,7 @@ export function PeriodChart({
       {/* The headcount rides on the x-axis rather than above its column: it must
           stay visible in the SHARE view, which by construction cannot encode it,
           and there is no room for a second label inside the plot. */}
-      <div className="periodchart-xaxis">
+      <div className={`periodchart-xaxis${hasLine ? '' : ' periodchart-xaxis--noright'}`}>
         {points.map((p) => (
           <span key={p.key}>
             {p.label}
