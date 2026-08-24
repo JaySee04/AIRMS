@@ -64,12 +64,11 @@ const Screening = sequelize.define('Screening', {
 
   // The comparison behind the band, persisted rather than recomputed on read.
   //
-  // All four of these were already being calculated inside recomputeIndicators
-  // and then thrown away, which left the dashboards with one abstract 0-100
-  // number and no way to say WHICH component drove it, or how the athlete sits
-  // among their peers. Persisted (not derived on read) for the same reason every
-  // other derived value here is: the norms move when cohort membership changes,
-  // so a screening must carry the comparison it was actually scored against.
+  // Without them the dashboards have one abstract 0-100 number and no way to say
+  // WHICH component drove it, or where the athlete sits among peers. Persisted
+  // rather than derived on read for the reason every derived value here is: the
+  // norms move when cohort membership changes, so a screening must carry the
+  // comparison it was actually scored against.
   cohortZ: { type: DataTypes.DECIMAL(6, 3), allowNull: true, field: 'cohort_z' },
   cohortRank: { type: DataTypes.INTEGER, allowNull: true, field: 'cohort_rank' },
   cohortSize: { type: DataTypes.INTEGER, allowNull: true, field: 'cohort_size' },

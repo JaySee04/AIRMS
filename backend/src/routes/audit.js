@@ -193,12 +193,11 @@ async function staffActivity({ from: fromQ, to: toQ } = {}) {
     .sort((a, b) => (b.actions + b.screeningsImported) - (a.actions + a.screeningsImported)
       || b.downloads - a.downloads);
 
-  // Is the previous window a fair comparison at all? If logging did not exist for
-  // any of it, every account reads "+n (was 0)" — which looks like a programme
-  // that went from idle to busy when in fact the recorder was switched on
-  // mid-story. The number is arithmetically right and the meaning it conveys is
-  // false, so the caller is told not to draw it rather than left to infer this
-  // from `logCompleteFrom` on its own.
+  // Is the previous window a fair comparison? If logging did not cover it, every
+  // account reads "+n (was 0)" — arithmetically right, and it says a programme
+  // went from idle to busy when really the recorder was switched on mid-story.
+  // The caller is told not to draw it rather than left to infer that from
+  // `logCompleteFrom`.
   const logCompleteFrom = first ? first.createdAt : null;
   const comparable = !!logCompleteFrom && new Date(logCompleteFrom).getTime() <= prevFrom.getTime();
 

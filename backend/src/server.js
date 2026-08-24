@@ -67,10 +67,9 @@ const authLimiter = rateLimit({
 
 // GET /api/health — liveness, and a deliberate touch of the database.
 //
-// Replaced a static {status:'ok', driver:'mysql'} that queried nothing and so
-// answered 200 while the database was unreachable — the one moment a health
-// check exists for. Verified against the deployed instance with the database
-// powered off: the old endpoint said ok.
+// It touches the database on purpose. A health check that queries nothing
+// answers 200 while the database is unreachable, which is the one moment it
+// exists for.
 //
 // Unauthenticated, and returns nothing about anybody: an ok flag and whether the
 // database answered. Its job is to be safe to call from outside.

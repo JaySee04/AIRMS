@@ -21,20 +21,17 @@ const router = express.Router();
 // GET /api/screenings/reliability — the programme's detectable-change
 // thresholds, per score.
 //
-// Its own endpoint rather than a field on the history response, for two
-// reasons. It is a fact about the PROGRAMME, not about an athlete: the same
-// numbers govern the athlete's sparklines, the coach's arrows and the
-// institution's change chart, and computing it per athlete would invite them to
-// disagree. And /athlete/:id already returns a bare array to three callers, so
-// widening it into an object would break two of them for no gain.
+// Its own endpoint rather than a field on the history response: it is a fact
+// about the PROGRAMME, not an athlete. The same numbers govern the athlete's
+// sparklines, the coach's arrows and the institution's change chart, and
+// computing it per athlete would invite them to disagree.
 //
-// Deliberately open to any authenticated user. It carries no athlete data — six
-// thresholds and how they were arrived at — and an athlete reading their own
-// history needs it to know whether a movement in their own line means anything.
+// Open to any authenticated user — it carries no athlete data, just six
+// thresholds and how they were arrived at, and an athlete needs it to know
+// whether a movement in their own line means anything.
 //
-// The honest answer is usually "we cannot tell yet": below MIN_PAIRS repeat
-// screenings each score declines and falls back to the documented value, and
-// `sufficient` says which happened. See utils/reliability.js.
+// The answer is usually "we cannot tell yet": below MIN_PAIRS each score
+// declines to the documented fallback, and `sufficient` says which happened.
 router.get('/reliability', auth, async (_req, res) => {
   try {
     const rows = await Screening.findAll({

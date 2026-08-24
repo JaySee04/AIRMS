@@ -353,13 +353,11 @@ router.get('/teammates', auth, async (req, res) => {
       raw: true,
     });
     const indicators = await latestIndicatorsFor(mates.map((m) => m.athleteId));
-    // A teammate's row carries NO athleteId. Since A2 (2026-08-04) the athlete key
-    // IS the IC number, so the previous shape shipped every squad member's national
-    // identity number — date of birth, birth state and sex encoded in it — to every
-    // other athlete's browser, for use as a React key. A system that redacts the
-    // athlete's NAME on-device before a screening image may leave the machine
-    // (§18) must not hand out 16 NRICs to draw a table. `gender` goes for the
-    // plainer reason that nothing rendered it.
+    // A teammate's row carries NO athleteId. The athlete key IS the IC number
+    // (A2), which encodes date of birth, birth state and sex — a system that
+    // redacts the athlete's NAME on-device before a screening image may leave the
+    // machine (§18) must not hand 16 NRICs to a browser to use as a React key.
+    // `gender` goes for the plainer reason that nothing rendered it.
     const teammates = mates.map((m) => {
       const ind = indicators.get(m.athleteId);
       const isSelf = m.athleteId === req.user.athleteId;
@@ -401,12 +399,10 @@ router.get('/teammates', auth, async (req, res) => {
 // GET /api/athletes/:id/sport-context — this athlete read against their OWN
 // sport, for the clinician looking at them.
 //
-// Dr Thung, 2026-04-24 (13:00): "the doctor in the room can also see, okay, this
-// spot, what are the prominent kind of injury and when going to happen? So you
-// can also give them a good advice." The medical view used to answer that from
-// the injury log; that went with the HoloMotion-only cut, so it is answered from
-// screening instead — which region is prominent across the sport, and whether
-// THIS athlete is worse or better than their squad on it.
+// Dr Thung, 2026-04-24: "the doctor in the room can also see, okay, this spot,
+// what are the prominent kind of injury and when going to happen?" Answered from
+// screening — which region is prominent across the sport, and whether THIS
+// athlete is worse or better than their squad on it.
 //
 // Declared BEFORE /:id so Express doesn't swallow "sport-context" as an id.
 router.get('/:id/sport-context', auth, rbac('medical', 'admin'), requirePermission('viewRecords'), async (req, res) => {
@@ -607,10 +603,9 @@ router.patch('/:id/injury', auth, rbac('medical', 'admin'), requirePermission('v
       injuryBy: injured ? (req.user?.name || null) : null,
       injuryAt: injured ? new Date() : null,
     });
-    // An injured athlete is excluded from norm CALCULATION, so the norm has to
-    // be rebuilt now. This used to be deferred to "the next recompute", which
-    // meant the exclusion was real in the eligibility rules but invisible in the
-    // published norm until somebody happened to import a report.
+    // An injured athlete is excluded from norm CALCULATION, so the norm is
+    // rebuilt HERE. Deferring it to the next recompute leaves the exclusion real
+    // in the rules and invisible in the published norm.
     const cohorts = await recomputeCohorts();
     const indicators = await recomputeIndicators();
     // Tell the sport's coach — the athlete is unavailable and the squad's norm

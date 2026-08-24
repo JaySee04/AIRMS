@@ -19,13 +19,11 @@ const signToken = (id) =>
 // 1M code space is mitigated by RESET_CODE_MAX_ATTEMPTS: the code is
 // invalidated after 5 wrong entries.
 //
-// After the OTP is verified, the same hash column is reused to store a
-// 32-byte verification token issued back to the client. This token has a
-// shorter TTL (just long enough to type a new password) and gates access to
-// the actual reset-password endpoint, so the OTP itself never travels in the
-// password-reset request payload.
-// Code generation, hashing and the attempt/TTL rules now live in
-// utils/resetCodes.js so the invitation flow shares them exactly.
+// After the OTP is verified the same hash column holds a 32-byte verification
+// token issued back to the client, with a shorter TTL (long enough to type a
+// password) gating the reset-password endpoint — so the OTP never travels in the
+// reset payload. Generation, hashing and the attempt/TTL rules live in
+// utils/resetCodes.js, shared exactly with the invitation flow.
 const {
   generateResetCode, hashResetCode,
   RESET_CODE_TTL_MIN, RESET_CODE_MAX_ATTEMPTS,

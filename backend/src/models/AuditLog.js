@@ -3,15 +3,12 @@ const { sequelize } = require('../config/db');
 
 // Append-only record of who changed what, for work transparency.
 //
-// AIRMS had no answer to "who imported this screening?", "who moved this norm?"
-// or "who marked this athlete injured?" — the data showed the result and the
-// institution had to take it on trust. Every write worth questioning now leaves
-// a row here.
+// Answers "who imported this screening?", "who moved this norm?", "who marked
+// this athlete injured?" — questions the data itself shows only the result of.
 //
 // Deliberately NOT a foreign key to users: the actor's name and role are COPIED
-// in at write time. An audit trail that changes when someone is renamed, has
-// their role changed, or is deleted is not an audit trail — it has to say who
-// they were when they acted, not who they are now.
+// in at write time. A trail that changes when someone is renamed or deleted is
+// not a trail — it must say who they were when they acted, not who they are.
 //
 // There is no update or delete path anywhere in the app. Rows are written and
 // read, never edited.

@@ -152,15 +152,14 @@ router.post('/versions/:id/restore', auth, rbac('admin'), async (req, res) => {
 
 // ── Pinning: which saved version is IN FORCE ────────────────────────────────
 //
-// Saving and restoring a version made an ARCHIVE. Pinning makes it governance:
-// while a version is pinned, `recomputeCohorts` holds its numbers instead of
-// overwriting them, so an import can no longer quietly move the norm every
-// athlete is scored against. That is the whole difference, and without it
-// "institution-governed norms" was only true between imports.
+// Saving a version is an ARCHIVE; pinning is governance. While a version is
+// pinned `recomputeCohorts` HOLDS its numbers instead of overwriting them, so an
+// import cannot quietly move the norm every athlete is scored against — without
+// which "institution-governed norms" is only true between imports.
 //
 // Pinning deliberately REUSES restore: "in force" has to mean the live rows
-// actually are the snapshot, so scoring keeps reading cohort_thresholds and there
-// is no second place that decides which numbers apply.
+// ARE the snapshot, so scoring keeps reading cohort_thresholds and no second
+// place decides which numbers apply.
 async function applySnapshot(version) {
   const snap = Array.isArray(version.snapshot) ? version.snapshot : [];
   const existing = await CohortThreshold.findAll();
@@ -323,11 +322,10 @@ router.patch('/members/:athleteId', auth, rbac('admin', 'medical'), canEditNorms
     let recomputed = null;
     if (req.body.normExcluded !== undefined) {
       await a.update({ normExcluded: !!req.body.normExcluded });
-      // Changing who COUNTS changes the norm, so recompute now rather than
-      // leaving it to the next import. Awaited, not queued: the admin is looking
-      // at the cohort table and expects the numbers to have moved when the tick
-      // does. Deferring it was the whole bug — the exclusion applied to
-      // eligibility but the published norm still included them.
+      // Changing who COUNTS changes the norm, so recompute here rather than at
+      // the next import — deferred, the exclusion applies to eligibility while
+      // the published norm still includes them. Awaited, not queued: the admin is
+      // looking at the table and expects the numbers to move with the tick.
       const cohorts = await recomputeCohorts();
       const indicators = await recomputeIndicators();
       recomputed = { cohorts, indicators };
