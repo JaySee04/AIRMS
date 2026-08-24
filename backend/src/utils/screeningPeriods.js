@@ -1,26 +1,19 @@
 // Screening-programme activity over time — the INSTITUTIONAL view.
 //
-// Every other analytic in AIRMS answers "how is this athlete?". This one
-// answers "how is the screening programme?": how many athletes ISN actually
-// tested in a period, how often they come back, and whether the population's
-// scores are moving up or down. It is the administrator's own performance
-// picture, not an athlete's.
+// Every other analytic answers "how is this athlete?". This answers "how is the
+// programme?" — the administrator's performance picture, not an athlete's.
 //
-// Two complementary readings, because they answer different questions:
+// Two readings, because they answer different questions:
 //
-//   PERIODS (yearly / quarterly / monthly) — calendar throughput and the
-//   population average per bucket. Answers "did we test more people this
-//   quarter than last, and is the squad better than it was?". Comparing period
-//   averages mixes cohorts (a period with more juniors reads worse), so this is
-//   a programme-level indicator, not proof any athlete changed.
+//   PERIODS (yearly/quarterly/monthly) — calendar throughput and the population
+//   average per bucket. Comparing period averages mixes cohorts (a period with
+//   more juniors reads worse), so it is a programme indicator, not proof any
+//   athlete changed.
 //
-//   BETWEEN TESTS — within-athlete consecutive pairs. Answers "when an athlete
-//   is retested, do they come back better?", which the calendar view cannot,
-//   because each athlete is their own control. Also carries the retest
-//   interval, which is the programme's actual screening cadence.
+//   BETWEEN TESTS — within-athlete consecutive pairs, where each athlete is
+//   their own control, plus the retest interval the programme actually runs at.
 //
-// Pure: no DB, no Sequelize. Fed a flat array of screening rows by
-// routes/athletes.js and unit-tested in tests/screeningPeriods.test.js.
+// Pure: no DB, no Sequelize. Unit-tested in tests/screeningPeriods.test.js.
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 

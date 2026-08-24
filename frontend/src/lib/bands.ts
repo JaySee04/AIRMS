@@ -1,19 +1,17 @@
 // The risk-band vocabulary for the frontend — one definition of what each band
 // is CALLED and what colour it is drawn in.
 //
-// The backend has had `utils/bands.js` since 2026-08-10 for exactly this reason.
-// The frontend never got the equivalent, and it had already drifted: six files
-// declared their own map, and the same red band was labelled "Immediate
-// assessment" in the risk hero and "Immediate" in the trend legend and the admin
-// distribution bar — two names for one clinical state, on screens an admin sees
-// side by side.
+// The backend has had utils/bands.js since 2026-08-10; the frontend never got
+// the equivalent and had already drifted. Six files declared their own map, and
+// the red band read "Immediate assessment" in the risk hero but "Immediate" in
+// the trend legend and admin distribution bar — two names for one clinical state,
+// on screens an admin sees side by side.
 //
-// Both spellings were defensible in place: a legend under a chart has no room for
-// "Immediate assessment". So this exports BOTH, deliberately, rather than forcing
-// one string and making some panel worse:
-//   BAND_LABEL — the full clinical wording. Use in prose, heroes, reports.
-//   BAND_SHORT — the compact form. Use in legends, chips, table cells.
-// What is no longer possible is a SEVENTH spelling appearing by accident.
+// Both spellings are defensible in place (a legend has no room for the long
+// form), so BOTH are exported rather than forcing one and making a panel worse:
+//   BAND_LABEL — full clinical wording, for prose, heroes and reports.
+//   BAND_SHORT — compact, for legends, chips and table cells.
+// What is no longer possible is a seventh spelling appearing by accident.
 //
 // Colours stay CSS custom properties so they follow the theme, and they are the
 // status tokens — never reuse them as chart series hues (see --series-* in

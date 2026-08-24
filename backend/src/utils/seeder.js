@@ -21,27 +21,22 @@ function rfloat(min, max, dp = 1) { return parseFloat((rnd() * (max - min) + min
 // entries per report, each carrying a single side. Verified against all three
 // real reports we hold (Thung, Nazwan, Elffie — 18 slots, no exceptions).
 //
-// Three ways the old seeder diverged from that, all now fixed:
+// Three ways the old seeder diverged, all fixed:
 //
-//  1. COUNT. It rolled every muscle independently at p=0.18, so an athlete
-//     could surface zero flags or eight. Real reports are always 3 + 3.
-//  2. SIDE. It emitted 'B' (bilateral) ~15% of the time. HoloMotion has no
-//     such value — a bilateral finding is printed as TWO sided lines, e.g.
-//     Elffie's "Gluteus maximus R" and "Gluteus maximus L". The old
-//     object-keyed shape physically could not represent that, one key per
-//     muscle, which is why 'B' existed. An array of pairs can.
-//  3. VOCABULARY. It drew uniformly from 24 invented names. Real output is
-//     hip-dominated: 14 of the 18 observed slots are Gluteus Maximus, Gluteus
-//     Medius, Piriformis, Iliopsoas or Sartorius.
+//  1. COUNT — rolled each muscle at p=0.18, so an athlete got zero flags or
+//     eight. Real reports are always 3 + 3.
+//  2. SIDE — emitted 'B' (bilateral) ~15% of the time. HoloMotion has no such
+//     value; a bilateral finding prints as TWO sided lines. 'B' existed only
+//     because the old object-keyed shape (one key per muscle) could not hold
+//     both. An array of pairs can.
+//  3. VOCABULARY — drew uniformly from 24 invented names. Real output is
+//     hip-dominated: 14 of the 18 observed slots are Gluteus Maximus/Medius,
+//     Piriformis, Iliopsoas or Sartorius.
 //
-// The observed set is only 18 draws, so it is treated as a weighted core rather
-// than a closed list — the plausible tail stays reachable so the body map still
-// exercises other regions, just at realistic rarity.
-//
-// Deliberately NOT tuned to reproduce the observed 77.8% hip share: that figure
-// rests on 18 slots and is inflated by two of the three athletes happening to be
-// hip-heavy, while Thung's entire tension set was upper-body. Landing near 55%
-// keeps the distribution honestly hip-dominant without overfitting the sample.
+// 18 draws is a weighted core, not a closed list, so the plausible tail stays
+// reachable at realistic rarity. Deliberately NOT tuned to the observed 77.8%
+// hip share — that rests on 18 slots and two hip-heavy athletes, while Thung's
+// tension set was entirely upper-body. ~55% is hip-dominant without overfitting.
 const SIDES = ['L', 'R'];
 const CORE_P = 0.8; // share of draws taken from the observed vocabulary
 

@@ -1,24 +1,16 @@
 // Aggregating the HoloMotion Physical Fitness Subitem table across a cohort.
 //
-// WHY THIS EXISTS
-// The subitem table is the densest thing the instrument produces: 5 body regions
-// × {ROM left, ROM right, Stability left, Stability right, Symmetry} = 25 readings
-// per athlete. Everything else on the report is a summary of it — Total Score is
-// literally its mean (verified against three real reports, residual ≤1.2).
+// The densest thing the instrument produces: 5 regions x {ROM L/R, Stability
+// L/R, Symmetry} = 25 readings per athlete, and Total Score is literally its
+// mean (verified on three real reports, residual <=1.2). None of it was
+// aggregated at squad level.
 //
-// AIRMS was using none of it at squad level. The admin dashboard aggregated only
-// the 7 exercise-risk indicators; the 25-cell table appeared as raw numbers on an
-// individual and in the team PDF's heatmap, and nowhere else. So the richest
-// measurement in the source document had no dashboard representation at all.
-//
-// And the part that matters most was invisible everywhere: LEFT VS RIGHT. It is
-// the only bilateral data the report carries, it is what a movement screen exists
-// to find, and AIRMS collapsed it three different ways — the body map paints a
-// region by the WORSE of L/R, the cohort composite averages every gap into one
-// `balance` number, and the subitem table prints L and R side by side and leaves
-// the subtraction to the reader. Real magnitudes from the verified reports:
-// Thung's neck ROM is 95 left against 62 right, a 33-point gap; Elffie's neck 15
-// and pelvis 13; Nazwan's neck 11.
+// LEFT VS RIGHT was the part invisible everywhere. It is the only bilateral data
+// the report carries and what a movement screen exists to find, yet AIRMS
+// collapsed it three ways: the body map paints the WORSE of L/R, the composite
+// averages every gap into `balance`, and the subitem table leaves the subtraction
+// to the reader. Real magnitudes: Thung's neck ROM 95 left against 62 right (33
+// points); Elffie's neck 15, pelvis 13; Nazwan's neck 11.
 //
 // Pure — no DB, no Sequelize — so it is unit-testable.
 
@@ -38,24 +30,20 @@ const CELLS = [
 
 // A left/right difference at or above this PERCENT is called out.
 //
-// This was 10 raw score POINTS, which made two clinically different situations
-// count identically: 80 vs 70 is a 12.5% deficit in a strong limb, while 40 vs 30
-// is 25% in a weak one. The inter-limb asymmetry literature expresses the measure
-// as a percentage, and return-to-sport criteria are stated as a limb symmetry
-// index of 85-90% — so a percentage is both more honest and directly comparable
-// to a criterion a clinician already knows.
+// Was 10 raw POINTS, which counted two clinically different situations the same:
+// 80 vs 70 is a 12.5% deficit in a strong limb, 40 vs 30 is 25% in a weak one.
+// The inter-limb asymmetry literature uses percentages, and return-to-sport
+// criteria are stated as a limb symmetry index of 85-90%.
 //
-// 10% is retained as the figure because it is the value most commonly cited, and
-// it lands close to the old points threshold across the range HoloMotion actually
-// produces. It is not a hard clinical boundary: asymmetry above 10% is common in
-// uninjured athletes and the threshold itself is debated in the literature. What
-// changed is how the quantity is EXPRESSED, not a claim that 10 is the right cut.
+// 10% is kept because it is the most commonly cited figure and lands close to the
+// old threshold across HoloMotion's range. It is not a hard boundary — asymmetry
+// above 10% is common in uninjured athletes and the cut is debated. What changed
+// is how the quantity is EXPRESSED.
 //
-// NOT applied to the composite indicator's `balance` term in utils/cohorts.js,
-// deliberately: that term is z-scored against the athlete's cohort, and z-scoring
-// already removes the scale, so normalising it would move nobody's band while
-// making the code harder to follow. The threshold here is an ABSOLUTE cut-off,
-// which is exactly where the un-normalised form did damage.
+// NOT applied to the composite's `balance` term in utils/cohorts.js: that is
+// z-scored against the cohort, which already removes the scale, so normalising it
+// would move nobody's band. This threshold is an ABSOLUTE cut-off, which is where
+// the un-normalised form did damage.
 // See docs/DESIGN_DECISIONS.md §33.
 const NOTABLE_GAP_PCT = 10;
 

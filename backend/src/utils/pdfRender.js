@@ -1,25 +1,19 @@
 // Renders PDF pages to PNG images so any vision model can read them.
 //
-// Why render instead of sending the PDF? HoloMotion reports are produced by
-// jsPDF and contain NO extractable text layer — the entire report (gauges,
-// body maps, score bubbles) is baked in as graphics. pdf-parse / pdfjs text
-// extraction both return zero characters (verified against real exports).
-// Vision is the only reliable read, and every vision provider (OpenAI, Qwen,
-// Anthropic, local Ollama, …) accepts images — but not all accept raw PDFs.
-// Rendering to images is therefore the portable, provider-agnostic path.
+// Render rather than send the PDF: HoloMotion's data pages are jsPDF graphics
+// with NO text layer — pdf-parse and pdfjs both return zero characters on real
+// exports. Every vision provider accepts images; not all accept raw PDFs, so
+// images are the provider-agnostic path.
 //
-// Why FULL PAGES of the data section (not fixed crops)? HoloMotion reports
-// come in more than one page layout: a compact variant packs the data section
-// into ~3 pages, an expanded variant spreads the SAME sections across ~6
-// (info→p1, muscle imbalance→p3, posture→p4, subitems→p5, risk circles→p6).
-// Fixed page+fraction crops tuned to one layout miss on the other. Rendering
-// the first N pages as whole images is robust to which page each section lands
-// on — the data section is always the FIRST part of the report, before the
-// repetitive image-analysis / trajectory / training-prescription pages. The
-// per-section crop optimization was retired for this reason (2026-07-13).
+// FULL PAGES, not fixed crops. The report ships in more than one layout — a
+// compact variant packs the data section into ~3 pages, an expanded one spreads
+// the same sections across ~6 — so crops tuned to one miss on the other.
+// Whole pages are robust to where each section lands, and the data section is
+// always first, before the image-analysis and prescription pages. The
+// per-section crop optimisation was retired for this reason (2026-07-13).
 //
-// pdfjs's Node build calls require("canvas") internally; package.json aliases
-// "canvas" → @napi-rs/canvas (a prebuilt binary, no node-gyp compile needed).
+// pdfjs's Node build requires("canvas"); package.json aliases that to
+// @napi-rs/canvas (prebuilt, no node-gyp).
 
 // `canvas` (aliased to the prebuilt @napi-rs/canvas) is a NATIVE binary, and it
 // is loaded lazily rather than at module scope.

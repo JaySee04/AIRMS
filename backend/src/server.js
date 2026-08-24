@@ -67,27 +67,21 @@ const authLimiter = rateLimit({
 
 // GET /api/health — liveness, and a deliberate touch of the database.
 //
-// This REPLACED an earlier /api/health that returned a static
-// {status:'ok', driver:'mysql', timestamp} without querying anything. It
-// answered 200 while the database was unreachable — which is the one moment a
-// health check exists for, and it is how a monitor comes to report a service
-// healthy right through an outage. Verified against the deployed instance while
-// the database was powered off: the old endpoint said ok.
+// Replaced a static {status:'ok', driver:'mysql'} that queried nothing and so
+// answered 200 while the database was unreachable — the one moment a health
+// check exists for. Verified against the deployed instance with the database
+// powered off: the old endpoint said ok.
 //
-// Unauthenticated and returns nothing about anybody: an ok flag and whether the
-// database answered. That is the whole surface, because its job is to be safe to
-// call from outside.
+// Unauthenticated, and returns nothing about anybody: an ok flag and whether the
+// database answered. Its job is to be safe to call from outside.
 //
-// It exists for a reason peculiar to this deployment. Aiven's free tier powers a
-// database off when it sees no activity, which takes the site down until someone
-// clicks Power on — and it also means the nightly mail tick finds no database
-// and the monthly digest silently never sends. A free uptime pinger calling this
-// every 15 minutes is activity, so the database stays awake and both problems go
-// away without paying for the tier that disables the power-off. See DEPLOY.md.
+// Aiven's free tier powers the database off when it sees no activity, which
+// takes the site down and silently stops the monthly mail. A free uptime pinger
+// calling this every 15 minutes counts as activity. See DEPLOY.md.
 //
-// SELECT 1 rather than a model query on purpose: it proves the pool can reach
-// the server without depending on any table existing, so a schema problem
-// reports itself as a schema problem elsewhere rather than as "unhealthy" here.
+// SELECT 1 rather than a model query: it proves the pool can reach the server
+// without depending on any table existing, so a schema problem reports itself
+// elsewhere rather than as "unhealthy" here.
 app.get('/api/health', async (_req, res) => {
   try {
     await sequelize.query('SELECT 1');

@@ -519,24 +519,20 @@ export function PeriodChart({
 // ══════════════════════════════════════════════════════════════════════════
 // MetricDeltas — what CHANGED between exactly two periods.
 //
-// This replaced a slopegraph, which was the wrong chart and looked it. A
-// slopegraph puts every metric on one vertical scale so the steeper line is the
-// bigger move — but that only holds when the metrics are COMMENSURABLE, and these
-// are not: Total Score, ROM, Stability and Symmetry cluster at 72-78, the overall
-// indicator sits at ~50 by construction, and exercise risks live at ~18 on a
-// scale that runs the other way. Forced onto one axis, the four movement scores
-// collapsed into a few pixels of overlapping lines with unreadable labels. It was
-// the same flattening already documented for the 0-100 score track, reintroduced.
+// Replaced a slopegraph, which needs COMMENSURABLE metrics and these are not:
+// Total Score, ROM, Stability and Symmetry cluster at 72-78, the indicator sits
+// at ~50 by construction, and exercise risks at ~18 on an inverted scale. On one
+// axis the four movement scores collapsed into overlapping pixels — the same
+// flattening already documented for the 0-100 track, reintroduced.
 //
-// The values are incommensurable. The CHANGES are not — every delta here falls
-// between -5.2 and +2.6 points. So plot the changes, on a shared delta axis with
-// zero in the middle, and print the before/after as text where exact levels
-// belong.
+// The values are incommensurable; the CHANGES are not (every delta here is
+// between -5.2 and +2.6). So plot the changes on a shared delta axis with zero
+// in the middle, and print before/after as text where exact levels belong.
 //
-// Bar direction is the ORIENTED gain, so right is always better, on every row,
-// including exercise risks where the raw number moves the other way. The printed
-// delta keeps its true sign — the bar answers "better or worse", the number
-// answers "by how much", and neither has to lie for the other.
+// Bar direction is the ORIENTED gain, so right is always better — including
+// exercise risks, where the raw number moves the other way. The printed delta
+// keeps its true sign: the bar answers "better or worse", the number "by how
+// much", and neither has to lie for the other.
 // ══════════════════════════════════════════════════════════════════════════
 export interface MetricDelta {
   key: string;

@@ -1,24 +1,20 @@
 // Lateral symmetry per body region: the score, what it means, and which side is
 // weaker.
 //
-// Extracted from utils/pdfDraw.js (2026-08-23) because this analysis existed
-// ONLY on paper. The individual PDF printed a full Lateral Symmetry table while
-// no dashboard showed side-to-side anything — so the one line in a screening
-// that names what to train was available to whoever downloaded a report and to
-// nobody else.
+// Extracted from utils/pdfDraw.js (2026-08-23) because it existed ONLY on paper:
+// the individual PDF printed a Lateral Symmetry table while no dashboard showed
+// side-to-side anything, so the one line naming what to train reached whoever
+// downloaded a report and nobody else.
 //
-// It lives here rather than being reimplemented in the frontend for the reason
-// the band vocabulary and the indicator list each have one module: two
-// definitions of "which side is weaker" would eventually disagree, and the
-// screen and the printed report would then name different sides for the same
-// athlete. That is the failure this codebase keeps finding, and it is worse
-// here than most — a clinician acts on the side.
+// Server-side rather than reimplemented in the frontend, for the reason the band
+// vocabulary and the indicator list each have one module: two definitions of
+// "which side is weaker" would eventually name different sides for one athlete,
+// and a clinician acts on the side.
 //
-// HoloMotion prints a per-region symmetry score AND per-side ROM/stability.
-// They answer different questions and can legitimately disagree: a low symmetry
-// score with level left/right values means the imbalance is real but not
-// side-to-side. The status text says so rather than leaving two columns to
-// contradict each other.
+// HoloMotion prints a per-region symmetry score AND per-side ROM/stability, which
+// can legitimately disagree — a low score with level sides means the imbalance is
+// real but not side-to-side. The status text says so rather than leaving two
+// columns to contradict each other.
 
 // Local rather than imported: this module has exactly one numeric concern and a
 // shared numbers util does not exist. Same coercion pdfDraw uses.
