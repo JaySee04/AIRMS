@@ -67,6 +67,13 @@ const authLimiter = rateLimit({
 
 // GET /api/health — liveness, and a deliberate touch of the database.
 //
+// This REPLACED an earlier /api/health that returned a static
+// {status:'ok', driver:'mysql', timestamp} without querying anything. It
+// answered 200 while the database was unreachable — which is the one moment a
+// health check exists for, and it is how a monitor comes to report a service
+// healthy right through an outage. Verified against the deployed instance while
+// the database was powered off: the old endpoint said ok.
+//
 // Unauthenticated and returns nothing about anybody: an ok flag and whether the
 // database answered. That is the whole surface, because its job is to be safe to
 // call from outside.
@@ -104,12 +111,6 @@ app.use('/api/screenings', screeningRoutes);
 app.use('/api/screening-reports', screeningReportRoutes);
 app.use('/api/isn', isnRoutes);
 app.use('/api/audit', auditRoutes);
-
-app.get('/api/health', (_req, res) => res.json({
-  status: 'ok',
-  driver: 'mysql',
-  timestamp: new Date(),
-}));
 
 app.use((err, _req, res, _next) => {
   console.error(err.stack);
