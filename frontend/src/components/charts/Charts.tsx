@@ -345,12 +345,16 @@ export function PeriodChart({
   const lMax = lHi + lPad;
 
   const n = points.length;
-  const SW = 1000;
-  const SH = 56;
-  const sx = (i: number) => (SW / n) * i + (SW / n) / 2;
-  const sy = (v: number) => SH - 5 - ((v - lMin) / (lMax - lMin || 1)) * (SH - 10);
-  const linePts = points
-    .map((p, i) => (p.line == null ? null : `${sx(i)},${sy(p.line)}`))
+
+  // Percentages, because the line shares the columns' plot box and that box is
+  // sized in CSS. Its scale is its own and is LABELLED on the right — the fault
+  // in the original combined chart was not that two series shared a plot, it was
+  // that the second one had no axis, so its slope was an artefact of a scale the
+  // reader could not see.
+  const lyPct = (v: number) => 100 - ((v - lMin) / (lMax - lMin || 1)) * 100;
+  const scoreTicks = hasLine ? [lMax, (lMin + lMax) / 2, lMin] : [];
+  const linePct = points
+    .map((p, i) => (p.line == null ? null : `${((i + 0.5) / n) * 100},${lyPct(p.line)}`))
     .filter((x): x is string => x !== null)
     .join(' ');
 
@@ -371,7 +375,7 @@ export function PeriodChart({
           </button>
         </div>
         {/* Content that changes on its own must say so and must be stoppable
-            (WCAG 2.2.2). The toggle is the stop, so it says which button does it. */}
+            (WCAG 2.2.2). The toggle is the stop, so the hint names it. */}
         {!held && autoRotate && (
           <span className="periodchart-rotating">switching every 10s &middot; click to hold</span>
         )}
@@ -383,16 +387,17 @@ export function PeriodChart({
             <span key={t} style={{ bottom: `${gridPct(t)}%` }}>{isShare ? `${t}%` : fmt(t)}</span>
           ))}
         </div>
+
         <div className="periodchart-grid">
           {gridTicks.map((t) => (
             <span key={t} className={t === 0 ? 'periodchart-gridline periodchart-gridline--base' : 'periodchart-gridline'}
               style={{ bottom: `${gridPct(t)}%` }} />
           ))}
+
           <div className="periodchart-mix">
             {points.map((p) => {
               const segs = (p.segments ?? []).filter((sg) => sg.value > 0);
               const total = segs.reduce((acc, sg) => acc + sg.value, 0) || 1;
-              // Share: every column full height. Count: height against the axis.
               const colH = isShare ? 100 : (p.value / axisTop) * 100;
               return (
                 <div className="periodchart-col" key={p.key}>
@@ -416,9 +421,8 @@ export function PeriodChart({
                             onMouseMove={onTip(tipText)}
                             onMouseLeave={hide}
                           >
-                            {/* The number rides IN the slice when it fits: colour
-                                alone must not carry the band (WCAG 1.4.1), the
-                                same rule as every band label in AIRMS. */}
+                            {/* Colour alone must not carry the band (WCAG 1.4.1),
+                                the same rule as every band label in AIRMS. */}
                             {pct >= 18 && colH >= 22 && <em>{isShare ? `${Math.round(pct)}%` : sg.value}</em>}
                           </span>
                         );
@@ -430,58 +434,78 @@ export function PeriodChart({
                       )}
                     </div>
                   )}
-                  {/* Headcount stays on screen in BOTH views — it is what the
-                      share view cannot show, and dropping it there would trade
-                      one blind spot for another. */}
-                  <span className="periodchart-n">{p.value}</span>
                 </div>
               );
             })}
           </div>
+
+          {/* The score, over the same columns and on the same plot — but read
+              against the right-hand axis, never the left. Drawn after the
+              columns so it sits on top, and pointer-events off so it cannot
+              steal the hover from the band it crosses. */}
+          {hasLine && (
+            <>
+              <svg viewBox="0 0 100 100" preserveAspectRatio="none"
+                className="periodchart-svg" role="img"
+                aria-label={`${lineLabel ?? 'Average'} per period, ${fmt(lLo)} to ${fmt(lHi)}, right axis`}>
+                <polyline points={linePct} fill="none" stroke="var(--brand-navy)" strokeWidth="2.5"
+                  vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />
+              </svg>
+              {points.map((p, i) => (p.line == null ? null : (
+                <span
+                  key={p.key}
+                  className="periodchart-scoredot"
+                  style={{ left: `${((i + 0.5) / n) * 100}%`, top: `${lyPct(p.line)}%` }}
+                  onMouseEnter={onTip(`${p.label} — ${lineLabel ?? 'value'}: ${fmt(p.line)}`)}
+                  onMouseMove={onTip(`${p.label} — ${lineLabel ?? 'value'}: ${fmt(p.line)}`)}
+                  onMouseLeave={hide}
+                >
+                  <em>{fmt(p.line)}</em>
+                </span>
+              )))}
+            </>
+          )}
         </div>
+
+        {hasLine && (
+          <div className="periodchart-yaxis periodchart-yaxis--right" aria-hidden>
+            {scoreTicks.map((t) => (
+              <span key={t} style={{ bottom: `${100 - lyPct(t)}%` }}>{fmt(t)}</span>
+            ))}
+          </div>
+        )}
       </div>
 
+      {/* The headcount rides on the x-axis rather than above its column: it must
+          stay visible in the SHARE view, which by construction cannot encode it,
+          and there is no room for a second label inside the plot. */}
       <div className="periodchart-xaxis">
-        {points.map((p) => (<span key={p.key}>{p.label}</span>))}
+        {points.map((p) => (
+          <span key={p.key}>
+            {p.label}
+            <em>{p.value}</em>
+          </span>
+        ))}
       </div>
 
-      {hasLine && (
-        <div className="periodchart-score">
-          <div className="periodchart-score-head">
-            <span>{lineLabel ?? 'Average'}</span>
-            {/* The zoom is DECLARED, as DotPlot declares its own. A zoomed axis
-                exaggerates, and an undeclared one invites the reader to believe
-                a 2-point move is a collapse. */}
-            <span className="text-muted">
-              axis {fmt(lMin)}&ndash;{fmt(lMax)} &middot; zoomed, not from zero
-            </span>
-          </div>
-          <div className="periodchart-score-plot" style={{ height: SH }}>
-            <svg viewBox={`0 0 ${SW} ${SH}`} preserveAspectRatio="none"
-              className="periodchart-svg" role="img"
-              aria-label={`${lineLabel ?? 'Average'} per period, ${fmt(lLo)} to ${fmt(lHi)}`}>
-              <line x1="0" x2={SW} y1={SH - 5} y2={SH - 5} stroke="var(--chart-grid)"
-                strokeWidth="1" vectorEffect="non-scaling-stroke" />
-              <polyline points={linePts} fill="none" stroke="var(--brand-navy)" strokeWidth="2"
-                vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
-            </svg>
-            {/* Dots and values as HTML: preserveAspectRatio="none" stretches the
-                viewBox, which would turn circles into ellipses and distort text. */}
-            {points.map((p, i) => (p.line == null ? null : (
-              <span
-                key={p.key}
-                className="periodchart-scoredot"
-                style={{ left: `${((i + 0.5) / n) * 100}%`, top: `${(sy(p.line) / SH) * 100}%` }}
-                onMouseEnter={onTip(`${p.label} — ${lineLabel ?? 'value'}: ${fmt(p.line)}`)}
-                onMouseMove={onTip(`${p.label} — ${lineLabel ?? 'value'}: ${fmt(p.line)}`)}
-                onMouseLeave={hide}
-              >
-                <em>{fmt(p.line)}</em>
-              </span>
-            )))}
-          </div>
-        </div>
-      )}
+      {/* One legend for a chart with two scales, saying which side each is read
+          from. The zoom is DECLARED, as DotPlot declares its own: a zoomed axis
+          exaggerates, and an undeclared one invites the reader to read a
+          two-point move as a collapse. */}
+      <div className="periodchart-legend">
+        <span className="periodchart-key">
+          <i className="periodchart-key-col" aria-hidden />
+          {isShare ? 'Band mix, share of those tested' : 'Athletes tested'}
+          <em>left axis</em>
+        </span>
+        {hasLine && (
+          <span className="periodchart-key">
+            <i className="periodchart-key-line" aria-hidden />
+            {lineLabel ?? 'Average'}
+            <em>right axis &middot; {fmt(lMin)}&ndash;{fmt(lMax)}, zoomed, not from zero</em>
+          </span>
+        )}
+      </div>
     </div>
     {isPair && slope && (
       <div style={{ marginTop: 'var(--sp-lg)' }}>

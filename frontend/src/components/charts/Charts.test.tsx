@@ -185,7 +185,11 @@ describe('PeriodChart — layout follows the number of periods', () => {
     const html = render(<PeriodChart
       points={[period('a', 'Jun', 30, 76.4), period('b', 'Jul', 28, 73.8)]}
       lineLabel="Average Total Score" />);
-    expect(html).toContain('periodchart-score');
+    // Asserted on the LEGEND, not on 'periodchart-score' — that substring is
+    // also inside 'periodchart-scoredot', so the old assertion passed whether or
+    // not the axis was ever labelled.
+    expect(html).toContain('periodchart-yaxis--right');
+    expect(html).toMatch(/right axis/);
     expect(html).toMatch(/zoomed, not from zero/);
     expect(html).toContain('Average Total Score');
     // And the values are ON the chart, not hidden behind a hover. Asserted
@@ -195,9 +199,21 @@ describe('PeriodChart — layout follows the number of periods', () => {
     expect(html).toMatch(/periodchart-scoredot[^>]*>\s*<em>73\.8<\/em>/);
   });
 
-  it('omits the score strip entirely when there is no line to draw', () => {
+  it('omits the right axis and its key entirely when there is no line to draw', () => {
     const html = render(<PeriodChart points={[period('a', 'Jun', 30), period('b', 'Jul', 28)]} />);
-    expect(html).not.toContain('periodchart-score');
+    expect(html).not.toContain('periodchart-yaxis--right');
+    expect(html).not.toMatch(/right axis/);
+  });
+
+  it('reads the two series off DIFFERENT axes, and says which is which', () => {
+    // The fault in the first combined chart was not that two series shared a
+    // plot — it was that the second had no axis, so its slope was an artefact
+    // of a scale the reader could not see.
+    const html = render(<PeriodChart
+      points={[period('a', 'Jun', 33, 76.4), period('b', 'Jul', 28, 73.8)]}
+      lineLabel="Average Total Score" defaultMode="count" autoRotate={false} />);
+    expect(html).toMatch(/Athletes tested<em>left axis/);
+    expect(html).toMatch(/Average Total Score<em>right axis/);
   });
 });
 

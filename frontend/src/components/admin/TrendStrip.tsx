@@ -240,11 +240,10 @@ export default function TrendStrip({ query }: { query: string }) {
             )}
           </div>
 
-          {/* Short, because the chart now labels itself: the columns carry
-              proportion and say so by being equal, the headcount is printed
-              above each, and the score strip states its own range. The note it
-              replaced had to explain two encodings sharing one unlabelled
-              plot. */}
+          {/* Short, because the chart labels itself now: both axes are drawn and
+              named, the legend says which series reads which side, and the score
+              range states its own zoom. The note it replaced had to explain two
+              encodings sharing one unlabelled plot. */}
           <p className="chart-note" style={{ marginBottom: 0 }}>
             Counted from screening history, so an athlete tested twice counts once per period
             they were tested in.

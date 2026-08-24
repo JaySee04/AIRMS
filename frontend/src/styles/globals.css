@@ -2720,11 +2720,15 @@ textarea:focus-visible,
   font-size: var(--fs-2xs); color: var(--text-muted); font-variant-numeric: tabular-nums;
 }
 
-/* ── PeriodChart: two scalings of one set of columns ───────────────────────
-   Count answers "how much screening happened", share answers "how is the mix
-   moving", and neither is visible in the other. The chart draws both and lets
-   the reader hold one. Gridlines belong to both: a column with nothing to read
-   its height against is decoration. */
+/* ── PeriodChart: one plot, two series, two labelled axes ──────────────────
+   Columns (left axis) and the average-score line (right axis) share one plot,
+   which is what the card is for. The original combined chart failed not because
+   two series shared a box but because the second had no axis at all - its slope
+   was an artefact of an invisible scale. Both scales are drawn and named now.
+
+   The columns themselves have two scalings, toggled: counts answer "how much
+   screening happened", shares answer "how is the mix moving", and each hides
+   what the other shows. */
 .periodchart { position: relative; }
 
 .periodchart-modes {
@@ -2734,91 +2738,90 @@ textarea:focus-visible,
 .seg-group--sm .seg-btn { padding: 4px 10px; font-size: var(--fs-xs); }
 .periodchart-rotating { font-size: var(--fs-2xs); color: var(--text-muted); }
 
-/* Plot: a y-axis gutter beside a gridded area the columns stand in. */
 .periodchart-plotwrap { display: flex; align-items: stretch; gap: 8px; }
-.periodchart-yaxis {
-  position: relative; width: 30px; flex: 0 0 auto; height: 168px;
-}
+.periodchart-yaxis { position: relative; width: 30px; flex: 0 0 auto; height: 184px; }
 .periodchart-yaxis > span {
   position: absolute; right: 0; transform: translateY(50%);
   font-size: var(--fs-2xs); color: var(--text-muted);
-  font-variant-numeric: tabular-nums; line-height: 1;
+  font-variant-numeric: tabular-nums; line-height: 1; white-space: nowrap;
 }
-.periodchart-grid { position: relative; flex: 1 1 auto; height: 168px; min-width: 0; }
+/* Right axis belongs to the line, so it is inked like the line - otherwise two
+   identical-looking axes leave the reader guessing which series reads which. */
+.periodchart-yaxis--right > span { right: auto; left: 0; color: var(--brand-navy); font-weight: 600; }
+
+.periodchart-grid { position: relative; flex: 1 1 auto; height: 184px; min-width: 0; }
 .periodchart-gridline {
   position: absolute; left: 0; right: 0; height: 1px;
   background: var(--chart-grid); pointer-events: none;
 }
 .periodchart-gridline--base { background: var(--border); }
 
-/* Columns sit on the baseline and grow up, so height reads against the grid. */
-.periodchart-mix {
-  position: absolute; inset: 0;
-  display: flex; align-items: flex-end; gap: var(--sp-sm);
-}
-.periodchart-col {
-  flex: 1 1 0; min-width: 0; height: 100%;
-  display: flex; flex-direction: column; justify-content: flex-end; align-items: stretch;
-}
+.periodchart-mix { position: absolute; inset: 0; display: flex; align-items: flex-end; gap: var(--sp-sm); }
+.periodchart-col { flex: 1 1 0; min-width: 0; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; }
 .periodchart-stack {
   display: flex; flex-direction: column-reverse;
   max-width: 190px; width: 100%; margin: 0 auto;
   border-radius: var(--r-xs) var(--r-xs) 0 0; overflow: hidden;
-  /* Height is set per column, and the transition makes the switch between the
-     two scalings legible as a change of scale rather than a redraw. */
   transition: height 320ms ease;
 }
 .periodchart-stack > span { display: flex; align-items: center; justify-content: center; min-height: 0; }
-/* Counts inside the slices: colour alone must not carry the band (WCAG 1.4.1). */
 .periodchart-stack > span em {
   font-style: normal; font-size: var(--fs-2xs); font-weight: 700;
   color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
   font-variant-numeric: tabular-nums;
 }
-/* A period nobody was screened in: drawn, outlined, and named. */
 .periodchart-empty {
   border: 1px dashed var(--border); background: transparent;
   align-items: center; justify-content: center; border-radius: var(--r-xs);
 }
-.periodchart-empty > span {
-  font-size: var(--fs-2xs); color: var(--text-muted); text-align: center; padding: 0 4px;
-}
-/* Headcount sits under its own column, present in BOTH views — it is exactly
-   what the share view cannot show. */
-.periodchart-n {
-  text-align: center; font-size: var(--fs-xs); font-weight: 700;
-  font-variant-numeric: tabular-nums; padding-top: 4px;
-}
-.periodchart-xaxis { display: flex; gap: var(--sp-sm); margin-top: 2px; padding-left: 38px; }
-.periodchart-xaxis > span {
-  flex: 1 1 0; min-width: 0; text-align: center;
-  font-size: var(--fs-xs); color: var(--text-muted);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
+.periodchart-empty > span { font-size: var(--fs-2xs); color: var(--text-muted); text-align: center; padding: 0 4px; }
 
-@media (prefers-reduced-motion: reduce) {
-  .periodchart-stack { transition: none; }
+/* The line sits OVER the columns and must not intercept their hover - the band
+   underneath is what a reader is usually pointing at. */
+.periodchart-svg {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  overflow: visible; pointer-events: none;
 }
-
-/* The score trend, given its own strip and its own DECLARED scale rather than
-   being overlaid on a count axis it has nothing to do with. */
-.periodchart-score { margin-top: var(--sp-md); border-top: 1px solid var(--border); padding-top: var(--sp-sm); }
-.periodchart-score-head {
-  display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-sm);
-  font-size: var(--fs-xs); flex-wrap: wrap;
-}
-.periodchart-score-plot { position: relative; margin-top: 4px; }
-.periodchart-svg { display: block; width: 100%; height: 100%; overflow: visible; }
 .periodchart-scoredot {
   position: absolute; transform: translate(-50%, -50%);
   width: 9px; height: 9px; border-radius: 999px;
   background: var(--bg-card); border: 2.5px solid var(--brand-navy);
 }
-/* The value sits beside its dot, so the trend is readable without hovering. */
+/* Value beside its dot, so the trend reads without hovering. A halo keeps it
+   legible where it crosses a filled column. */
 .periodchart-scoredot em {
-  position: absolute; left: 50%; top: -3px; transform: translate(-50%, -100%);
+  position: absolute; left: 50%; top: -4px; transform: translate(-50%, -100%);
   font-style: normal; font-size: var(--fs-2xs); font-weight: 700;
-  color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap;
+  color: var(--brand-navy); font-variant-numeric: tabular-nums; white-space: nowrap;
+  background: var(--bg-card); border-radius: var(--r-xs); padding: 0 3px;
+}
+
+.periodchart-xaxis { display: flex; gap: var(--sp-sm); margin-top: 6px; padding-left: 38px; padding-right: 38px; }
+.periodchart-xaxis > span {
+  flex: 1 1 0; min-width: 0; text-align: center;
+  font-size: var(--fs-xs); color: var(--text-muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.periodchart-xaxis > span em {
+  display: block; font-style: normal; font-weight: 700;
+  font-size: var(--fs-xs); color: var(--text); font-variant-numeric: tabular-nums;
+}
+
+/* One legend for two scales, saying which side each is read from. */
+.periodchart-legend {
+  display: flex; flex-wrap: wrap; gap: var(--sp-md);
+  margin-top: var(--sp-sm); font-size: var(--fs-xs);
+}
+.periodchart-key { display: inline-flex; align-items: center; gap: 6px; }
+.periodchart-key em { font-style: normal; color: var(--text-muted); font-size: var(--fs-2xs); }
+.periodchart-key-col {
+  width: 10px; height: 12px; border-radius: 2px; display: inline-block;
+  background: linear-gradient(to top, var(--risk-low) 60%, var(--risk-moderate) 60%, var(--risk-moderate) 85%, var(--risk-high) 85%);
+}
+.periodchart-key-line { width: 14px; height: 2.5px; border-radius: 2px; background: var(--brand-navy); display: inline-block; }
+
+@media (prefers-reduced-motion: reduce) {
+  .periodchart-stack { transition: none; }
 }
 
 /* ── Ring: one proportion ────────────────────────────────────────────────── */
