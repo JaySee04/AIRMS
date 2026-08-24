@@ -112,7 +112,7 @@ export default function TrendStrip({ query }: { query: string }) {
         <div>
           <h2 className="card-title" style={{ marginBottom: 0 }}>Direction of travel</h2>
           <span className="card-sub">
-            Athletes tested and their band mix over recent periods, for the current filters.
+            Band mix per period as a share of who was tested, for the current filters.
           </span>
         </div>
         {/* Each grain carries how many periods it would draw. The quarterly and
@@ -240,10 +240,14 @@ export default function TrendStrip({ query }: { query: string }) {
             )}
           </div>
 
+          {/* Short, because the chart now labels itself: the columns carry
+              proportion and say so by being equal, the headcount is printed
+              above each, and the score strip states its own range. The note it
+              replaced had to explain two encodings sharing one unlabelled
+              plot. */}
           <p className="chart-note" style={{ marginBottom: 0 }}>
-            Column height = athletes tested that period, split by their band; the line is the
-            period&apos;s average Total Score on its own zoomed scale. Counted from screening
-            history, so an athlete tested twice counts once per period they were tested in.
+            Counted from screening history, so an athlete tested twice counts once per period
+            they were tested in.
           </p>
         </>
       )}

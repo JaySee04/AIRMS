@@ -265,119 +265,133 @@ export function PeriodChart({
   // in place of them, so the card keeps one primary graphic across every grain
   // and the comparison is an addition rather than a substitution.
   const isPair = points.length === 2 && !!slope && slope.length > 0;
-  const maxV = Math.max(1, ...points.map((p) => p.value));
+  // The band MIX is drawn as proportions, not as a stack whose height is the
+  // headcount.
+  //
+  // Height-as-count conflated two questions that belong to different people:
+  // "how many did we test" is a programme question, "how are they doing" is a
+  // clinical one. Throughput swings hard between periods on a real screening
+  // calendar - 33 athletes one month, 4 the next - so a count-height stack
+  // squashed the mix into an unreadable sliver in exactly the periods where a
+  // small group most needs reading, and made a quiet month look like a good one.
+  // Headcount is ONE number per period, which is a label, not a bar.
+  //
+  // Equal-height columns mean the eye compares LIKE WITH LIKE across periods:
+  // the question this card exists to answer is whether the mix is shifting, and
+  // that is a comparison of proportions.
   const lineVals = points.map((p) => p.line).filter((v): v is number => v != null);
   const hasLine = lineVals.length >= 2;
-  // The line gets its own zoomed axis: an average score of ~50 plotted against a
-  // count axis topping out at 55 would sit mid-chart by coincidence and imply a
-  // relationship between two unrelated quantities.
   const lLo = hasLine ? Math.min(...lineVals) : 0;
   const lHi = hasLine ? Math.max(...lineVals) : 1;
-  const lPad = Math.max((lHi - lLo) * 0.6, 2);
+  // Padding is modest, and the range is PRINTED. The old chart padded by 60% and
+  // showed no axis at all, so the line's slope was an artefact of an invisible
+  // scale - the one thing a trend line must never be.
+  const lPad = Math.max((lHi - lLo) * 0.35, 1);
   const lMin = lLo - lPad;
   const lMax = lHi + lPad;
 
   const n = points.length;
-  const W = 1000;
-  const H = height;
-  const slot = W / n;
-  // Wide bars, because this chart routinely renders TWO periods. At 55% of a
-  // half-width slot they were 84px stubs sitting at 25% and 75% of a 1500px card
-  // with a canyon between them — visually the same emptiness this replaced.
-  const barW = Math.min(slot * 0.66, 190);
-  const cx = (i: number) => slot * i + slot / 2;
-  const ly = (v: number) => H - ((v - lMin) / (lMax - lMin || 1)) * H;
-
+  const SW = 1000;
+  const SH = 56;
+  const sx = (i: number) => (SW / n) * i + (SW / n) / 2;
+  const sy = (v: number) => SH - 5 - ((v - lMin) / (lMax - lMin || 1)) * (SH - 10);
   const linePts = points
-    .map((p, i) => (p.line == null ? null : `${cx(i)},${ly(p.line)}`))
-    .filter((s): s is string => s !== null)
+    .map((p, i) => (p.line == null ? null : `${sx(i)},${sy(p.line)}`))
+    .filter((x): x is string => x !== null)
     .join(' ');
 
   return (
     <>
-    <div className="periodchart">
-      <div className="periodchart-plot" style={{ height: H }} ref={tipHost}>
-        <HoverTip tip={tip} />
-        <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="periodchart-svg" role="img"
-          aria-label={`${valueLabel ?? 'Value'} per period${hasLine && lineLabel ? `, with ${lineLabel}` : ''}`}>
-          {[0.25, 0.5, 0.75].map((g) => (
-            <line key={g} x1="0" x2={W} y1={H * g} y2={H * g} stroke="var(--chart-grid)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
-          ))}
-          {/* A baseline for the columns to stand on. Without it they hang in the
-              card and the eye has no zero to read heights against. */}
-          <line x1="0" x2={W} y1={H} y2={H} stroke="var(--border)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
-          {points.map((p, i) => {
-            const h = (p.value / maxV) * (H - 4);
-            const segs = (p.segments ?? []).filter((s) => s.value > 0);
-            const segTotal = segs.reduce((s, x) => s + x.value, 0) || 1;
-            let y = H;
-            return (
-              <g key={p.key}>
-                {/* A period with no screening is the one bar that must not be
-                    invisible. The continuous axis (§24) exists because "nobody
-                    was screened that month" IS the finding for a screening
-                    programme — the rows layout said so in words, and a
-                    zero-height column would say it by drawing nothing at all.
-                    A baseline tick keeps the gap on the page. */}
-                {p.value === 0 ? (
-                  <rect className="periodchart-empty" x={cx(i) - barW / 2} y={H - 2} width={barW} height={2}
-                    fill="var(--text-muted)" opacity="0.5"
-                    onMouseEnter={onTip(`${p.label}: no screening`)}
-                    onMouseMove={onTip(`${p.label}: no screening`)}
-                    onMouseLeave={hide} />
-                ) : segs.length ? segs.map((s) => {
-                  const sh = (s.value / segTotal) * h;
-                  y -= sh;
-                  return (
-                    <rect key={s.label} x={cx(i) - barW / 2} y={y} width={barW} height={sh} fill={s.color}
-                      onMouseEnter={onTip(`${p.label} — ${s.label}: ${s.value}`)}
-                      onMouseMove={onTip(`${p.label} — ${s.label}: ${s.value}`)}
+    <div className="periodchart" ref={tipHost}>
+      <HoverTip tip={tip} />
+      <div className="periodchart-mix">
+        {points.map((p) => {
+          const segs = (p.segments ?? []).filter((sg) => sg.value > 0);
+          const total = segs.reduce((acc, sg) => acc + sg.value, 0) || 1;
+          return (
+            <div className="periodchart-col" key={p.key}>
+              <span className="periodchart-n">
+                {p.value}
+                <em>{p.value === 1 ? 'athlete' : 'athletes'}</em>
+              </span>
+              {p.value === 0 ? (
+                // Still drawn, never skipped: for a screening programme a period
+                // with nobody in it IS the finding (§24), and it is the one bar a
+                // proportion chart has no proportion to draw.
+                <div className="periodchart-stack periodchart-empty">
+                  <span>no screening</span>
+                </div>
+              ) : (
+                <div className="periodchart-stack">
+                  {segs.length ? segs.map((sg) => {
+                    const pct = (sg.value / total) * 100;
+                    const tipText = `${p.label} - ${sg.label}: ${sg.value} of ${total} (${Math.round(pct)}%)`;
+                    return (
+                      <span
+                        key={sg.label}
+                        style={{ flex: `${sg.value} 0 0`, background: sg.color }}
+                        onMouseEnter={onTip(tipText)}
+                        onMouseMove={onTip(tipText)}
+                        onMouseLeave={hide}
+                      >
+                        {/* The number rides IN the slice when it fits. Colour
+                            alone carries the band elsewhere in AIRMS and is
+                            paired with text for the same reason (WCAG 1.4.1). */}
+                        {pct >= 18 && <em>{sg.value}</em>}
+                      </span>
+                    );
+                  }) : (
+                    <span style={{ flex: 1, background: 'var(--series-2)' }}
+                      onMouseEnter={onTip(`${p.label}: ${p.value}`)}
+                      onMouseMove={onTip(`${p.label}: ${p.value}`)}
                       onMouseLeave={hide} />
-                  );
-                }) : (
-                  <rect x={cx(i) - barW / 2} y={H - h} width={barW} height={h} fill="var(--series-2)"
-                    onMouseEnter={onTip(`${p.label}: ${p.value}`)}
-                    onMouseMove={onTip(`${p.label}: ${p.value}`)}
-                    onMouseLeave={hide} />
-                )}
-              </g>
-            );
-          })}
-          {hasLine && (
-            <>
-              <polyline points={linePts} fill="none" stroke="var(--brand-navy)" strokeWidth="2.5"
+                  )}
+                </div>
+              )}
+              <span className="periodchart-x">{p.label}</span>
+            </div>
+          );
+        })}
+      </div>
+
+      {hasLine && (
+        <div className="periodchart-score">
+          <div className="periodchart-score-head">
+            <span>{lineLabel ?? 'Average'}</span>
+            {/* The zoom is DECLARED, as DotPlot declares its own. A zoomed axis
+                exaggerates, and an undeclared one invites the reader to believe
+                a 2-point move is a collapse. */}
+            <span className="text-muted">
+              axis {fmt(lMin)}&ndash;{fmt(lMax)} &middot; zoomed, not from zero
+            </span>
+          </div>
+          <div className="periodchart-score-plot" style={{ height: SH }}>
+            <svg viewBox={`0 0 ${SW} ${SH}`} preserveAspectRatio="none"
+              className="periodchart-svg" role="img"
+              aria-label={`${lineLabel ?? 'Average'} per period, ${fmt(lLo)} to ${fmt(lHi)}`}>
+              <line x1="0" x2={SW} y1={SH - 5} y2={SH - 5} stroke="var(--chart-grid)"
+                strokeWidth="1" vectorEffect="non-scaling-stroke" />
+              <polyline points={linePts} fill="none" stroke="var(--brand-navy)" strokeWidth="2"
                 vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
-              {points.map((p, i) => (p.line == null ? null : (
-                <circle key={p.key} cx={cx(i)} cy={ly(p.line)} r="4.5" fill="var(--bg-card)"
-                  stroke="var(--brand-navy)" strokeWidth="2.5" vectorEffect="non-scaling-stroke"
-                  onMouseEnter={onTip(`${p.label} — ${lineLabel ?? 'value'}: ${fmt(p.line)}`)}
-                  onMouseMove={onTip(`${p.label} — ${lineLabel ?? 'value'}: ${fmt(p.line)}`)}
-                  onMouseLeave={hide} />
-              )))}
-            </>
-          )}
-        </svg>
-        {/* Column totals as HTML, not SVG text: preserveAspectRatio="none"
-            stretches the viewBox horizontally, which would distort glyphs.
-            Positioned per column at the top of ITS OWN bar — a single row pinned
-            above the plot left the numbers floating far from the short bars they
-            described. */}
-        {points.map((p, i) => (
-          <span
-            key={p.key}
-            className="periodchart-top"
-            style={{
-              left: `${((i + 0.5) / n) * 100}%`,
-              bottom: `${(p.value / maxV) * 100}%`,
-            }}
-          >
-            {p.value}
-          </span>
-        ))}
-      </div>
-      <div className="periodchart-axis">
-        {points.map((p) => (<span key={p.key}>{p.label}</span>))}
-      </div>
+            </svg>
+            {/* Dots and their values as HTML: preserveAspectRatio="none" stretches
+                the viewBox, which would turn circles into ellipses and distort
+                glyphs. Same reason the column totals were already HTML. */}
+            {points.map((p, i) => (p.line == null ? null : (
+              <span
+                key={p.key}
+                className="periodchart-scoredot"
+                style={{ left: `${((i + 0.5) / n) * 100}%`, top: `${(sy(p.line) / SH) * 100}%` }}
+                onMouseEnter={onTip(`${p.label} - ${lineLabel ?? 'value'}: ${fmt(p.line)}`)}
+                onMouseMove={onTip(`${p.label} - ${lineLabel ?? 'value'}: ${fmt(p.line)}`)}
+                onMouseLeave={hide}
+              >
+                <em>{fmt(p.line)}</em>
+              </span>
+            )))}
+          </div>
+        </div>
+      )}
     </div>
     {isPair && slope && (
       <div style={{ marginTop: 'var(--sp-lg)' }}>

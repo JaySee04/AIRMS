@@ -32,8 +32,8 @@ const widths = (html: string) => [...html.matchAll(/width:\s*([\d.]+)%/g)].map((
 describe('PeriodChart — layout follows the number of periods', () => {
   it('draws COLUMNS once there are several periods', () => {
     const html = render(<PeriodChart points={[1, 2, 3, 4, 5, 6].map((i) => period(`p${i}`, `M${i}`, 10 + i, 70 + i))} />);
-    expect(html).toContain('periodchart-svg');
-    expect(html).toContain('<rect');
+    expect(html).toContain('periodchart-mix');
+    expect(html).toContain('periodchart-stack');
     expect(html).not.toContain('periodrow-track');
   });
 
@@ -108,6 +108,49 @@ describe('PeriodChart — layout follows the number of periods', () => {
 
   it('renders nothing for no periods rather than an empty frame', () => {
     expect(render(<PeriodChart points={[]} />)).toBe('');
+  });
+
+  // REDESIGNED 2026-08-24. Column height used to be the headcount, so a month
+  // with 4 athletes drew a sliver next to a month with 33 and the band MIX -
+  // the thing the card exists to show - was unreadable exactly when the group
+  // was small. Height now carries proportion and nothing else; the headcount is
+  // a label, because it is one number per period.
+  it('columns are EQUAL height, so the mix is comparable across periods', () => {
+    const html = render(<PeriodChart points={[period('a', 'Jun', 33), period('b', 'Aug', 4)]} />);
+    // No per-column height style: every stack takes the same fixed height from
+    // the stylesheet, so a light period is not drawn as a worse one.
+    expect(html).not.toMatch(/class="periodchart-stack"[^>]*style="[^"]*height/);
+    // Both headcounts are still stated.
+    expect(html).toContain('33');
+    expect(html).toContain('4');
+  });
+
+  it('slices carry their COUNT, so colour is not the only carrier', () => {
+    // WCAG 1.4.1 - the same reason every band in AIRMS is worded as well as
+    // coloured. Only slices with room get the number.
+    const html = render(<PeriodChart points={[period('a', 'Jun', 30), period('b', 'Jul', 30)]} />);
+    expect(html).toMatch(/<em>\d+<\/em>/);
+  });
+
+  it('the score line DECLARES its zoom instead of hiding it', () => {
+    // It was overlaid on the count axis with 60% padding and no labels at all,
+    // so its slope was an artefact of a scale the reader could not see.
+    const html = render(<PeriodChart
+      points={[period('a', 'Jun', 30, 76.4), period('b', 'Jul', 28, 73.8)]}
+      lineLabel="Average Total Score" />);
+    expect(html).toContain('periodchart-score');
+    expect(html).toMatch(/zoomed, not from zero/);
+    expect(html).toContain('Average Total Score');
+    // And the values are ON the chart, not hidden behind a hover. Asserted
+    // against the DOT markup: the svg aria-label also names the range, so a
+    // bare toContain('73.8') passes even with the labels deleted.
+    expect(html).toMatch(/periodchart-scoredot[^>]*>\s*<em>76\.4<\/em>/);
+    expect(html).toMatch(/periodchart-scoredot[^>]*>\s*<em>73\.8<\/em>/);
+  });
+
+  it('omits the score strip entirely when there is no line to draw', () => {
+    const html = render(<PeriodChart points={[period('a', 'Jun', 30), period('b', 'Jul', 28)]} />);
+    expect(html).not.toContain('periodchart-score');
   });
 });
 
@@ -429,7 +472,7 @@ describe('PeriodChart — the sparse-grain layouts', () => {
     const html = render(<PeriodChart
       points={[p('q2', 'Q2 2026', 43), p('q3', 'Q3 2026', 22)]}
       slope={[{ key: 'rom', label: 'ROM', from: 77.6, to: 72.4, higherBetter: true, direction: 'declining' }]} />);
-    expect(html).toContain('periodchart-svg');
+    expect(html).toContain('periodchart-mix');
     expect(html).toContain('mdelta-row');
     expect(html).not.toContain('slope-throughput');
   });
@@ -437,7 +480,7 @@ describe('PeriodChart — the sparse-grain layouts', () => {
   it('two periods WITHOUT metric data still draw the columns', () => {
     const html = render(<PeriodChart points={[p('a', 'A', 4), p('b', 'B', 9)]} />);
     expect(html).not.toContain('mdelta-row');
-    expect(html).toContain('periodchart-svg');
+    expect(html).toContain('periodchart-mix');
   });
 
   it('ONE period shows what it is made of, instead of a dead panel', () => {

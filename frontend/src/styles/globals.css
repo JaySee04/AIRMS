@@ -2720,26 +2720,73 @@ textarea:focus-visible,
   font-size: var(--fs-2xs); color: var(--text-muted); font-variant-numeric: tabular-nums;
 }
 
-/* ── PeriodChart: throughput columns + score line ─────────────────────────── */
-.periodchart-plot { position: relative; }
-.periodchart-svg { display: block; width: 100%; height: 100%; overflow: visible; }
-/* Column totals and period labels are HTML in evenly-spaced flex cells, matching
-   the SVG's equal slots. Drawn outside the SVG because preserveAspectRatio="none"
-   stretches it horizontally and would distort any text inside. */
-.periodchart-axis { display: flex; }
-/* One label per column, sitting just above THAT column's top edge. */
-.periodchart-top {
-  position: absolute;
-  transform: translate(-50%, -3px);
-  font-size: var(--fs-xs); font-weight: 700;
-  white-space: nowrap; pointer-events: none;
+/* ── PeriodChart: band mix as PROPORTIONS, with the score on its own axis ──
+   Equal-height columns on purpose. Height used to encode headcount, which
+   squashed the mix to a sliver in light months and answered a programme
+   question ("how many") with the space owed to a clinical one ("how are they").
+   Headcount is one number per period, so it is a label above the column. */
+.periodchart { position: relative; }
+.periodchart-mix { display: flex; align-items: flex-end; gap: var(--sp-sm); }
+.periodchart-col { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: stretch; }
+
+/* Headcount, above its own column. */
+.periodchart-n {
+  text-align: center; font-size: var(--fs-sm); font-weight: 700;
+  font-variant-numeric: tabular-nums; line-height: 1.1; margin-bottom: 5px;
 }
-.periodchart-axis > span {
-  flex: 1 1 0; min-width: 0; text-align: center;
+.periodchart-n em {
+  display: block; font-style: normal; font-weight: 400;
+  font-size: var(--fs-2xs); color: var(--text-muted);
+}
+
+/* The proportion stack. Fixed height, so every period is compared like with
+   like; the widest a column gets is capped so two periods do not become two
+   slabs across a 1500px card. */
+.periodchart-stack {
+  display: flex; flex-direction: column-reverse;
+  height: 132px; max-width: 190px; width: 100%; margin: 0 auto;
+  border-radius: var(--r-xs); overflow: hidden; background: var(--chart-track);
+}
+.periodchart-stack > span { display: flex; align-items: center; justify-content: center; min-height: 0; }
+/* Counts inside the slices: colour alone must not carry the band (WCAG 1.4.1). */
+.periodchart-stack > span em {
+  font-style: normal; font-size: var(--fs-2xs); font-weight: 700;
+  color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+  font-variant-numeric: tabular-nums;
+}
+/* A period nobody was screened in: drawn, outlined, and named. */
+.periodchart-empty {
+  border: 1px dashed var(--border); background: transparent;
+  align-items: center; justify-content: center;
+}
+.periodchart-empty > span {
+  font-size: var(--fs-2xs); color: var(--text-muted); text-align: center; padding: 0 4px;
+}
+.periodchart-x {
+  margin-top: 7px; text-align: center; font-size: var(--fs-xs); color: var(--text-muted);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.periodchart-axis { margin-top: 7px; }
-.periodchart-axis > span { font-size: var(--fs-xs); color: var(--text-muted); }
+
+/* The score trend, given its own strip and its own DECLARED scale rather than
+   being overlaid on a count axis it has nothing to do with. */
+.periodchart-score { margin-top: var(--sp-md); border-top: 1px solid var(--border); padding-top: var(--sp-sm); }
+.periodchart-score-head {
+  display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-sm);
+  font-size: var(--fs-xs); flex-wrap: wrap;
+}
+.periodchart-score-plot { position: relative; margin-top: 4px; }
+.periodchart-svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.periodchart-scoredot {
+  position: absolute; transform: translate(-50%, -50%);
+  width: 9px; height: 9px; border-radius: 999px;
+  background: var(--bg-card); border: 2.5px solid var(--brand-navy);
+}
+/* The value sits beside its dot, so the trend is readable without hovering. */
+.periodchart-scoredot em {
+  position: absolute; left: 50%; top: -3px; transform: translate(-50%, -100%);
+  font-style: normal; font-size: var(--fs-2xs); font-weight: 700;
+  color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap;
+}
 
 /* ── Ring: one proportion ────────────────────────────────────────────────── */
 .ring { text-align: center; flex-shrink: 0; }
