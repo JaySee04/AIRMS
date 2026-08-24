@@ -2,15 +2,10 @@
 // live in routes/screeningReports.js and call into this; that file does
 // routing, fetching and page composition only.
 //
-// Scale/density is modelled on the TMG group/individual report format JC
-// provided (multi-page, radar + zone gauges + per-athlete sections +
-// interpretation text) while keeping the AIRMS navy/gold identity. The
-// Exercise Risk Evaluation uses HoloMotion's printed indicator names and the
-// AIRMS bands (Low ≤15 · Watch 16–25 · Elevated >25) — the SAME words and
-// boundaries the dashboards use; see the RISK_ZONES note below. The Physical
-// Fitness Subitem Score table uses HoloMotion's 60/75/85 tier boundaries
-// (Below Average / Average / Good / Excellent). Lumbar Disc Herniation is
-// stored but never shown (Dr Thung / ISN facilities).
+// Modelled on the TMG group/individual report format JC provided, in the AIRMS
+// navy/gold identity. Risk bands and subitem tiers are the dashboards' own (see
+// RISK_ZONES and TIERS below), so a value reads the same on screen and on paper.
+// Lumbar Disc Herniation is stored but never shown (Dr Thung / ISN facilities).
 
 const PDFDocument = require('pdfkit');
 const { orientedComponents } = require('../utils/cohorts');
@@ -45,26 +40,21 @@ const bandOnLight = (b) => BAND_ON_LIGHT[b] || TEXT;
 // band rename in bands.js would have left the PDFs still saying "Safe".
 const bandLabel = (b) => BAND_LABEL[b] || '\u2014';
 
-// Exercise Risk Evaluation bands. These MUST agree with the dashboards —
-// frontend/src/lib/screeningAlerts.ts is the counterpart definition and carries
-// the full rationale. Summary:
+// Exercise Risk Evaluation bands. MUST agree with the dashboards —
+// frontend/src/lib/screeningAlerts.ts is the counterpart and carries the full
+// rationale.
 //
 //   HoloMotion prints:  Low 0–15 │ Medium 16–55        │ High 56–100
 //   AIRMS shows:        Low ≤15  │ Watch 16–25 · Elevated >25
 //
-// AIRMS' Low boundary is the report's exactly; above it AIRMS subdivides the
-// report's broad Medium band so ISN can act early. AIRMS never says "High" —
-// the report reserves that for 56–100, far above anything the instrument
-// produces (the ground-truth reports top out at 27). Until 2026-07-16 these
-// reports used the printed legend while the dashboards used ≤15/≤25/>25, so a
-// 26 read "Medium Risk" on the PDF and "HIGH RISK" on screen.
+// Low is the report's boundary exactly; above it AIRMS subdivides the broad
+// Medium band so ISN can act early. AIRMS never says "High": the report reserves
+// that for 56–100, far above anything the instrument produces (ground-truth
+// reports top out at 27).
 const RISK_AXIS_MAX = 40; // display axis, matches the dashboard strips
-// Zone tints are the light-theme --risk-low-bg / --risk-moderate-bg /
-// --risk-high-bg, i.e. exactly what .screening-strip-zone--{ok,watch,high} paint
-// on the dashboard, so a printed strip and an on-screen strip are the same
-// picture.
-// `color` fills marks (markers, ticks, swatches); `onLight` is the same meaning
-// as text on white paper, with the amber darkened for legibility.
+// Zone tints are the light-theme --risk-*-bg, what the dashboard's strip paints,
+// so printed and on-screen strips are the same picture. `color` fills marks;
+// `onLight` is the same meaning as text on white paper, amber darkened.
 const RISK_ZONES = [
   { max: 15, label: 'Low', color: BAND.green, onLight: bandOnLight('green'), tint: '#e8f5ea' },
   { max: 25, label: 'Watch', color: BAND.amber, onLight: bandOnLight('amber'), tint: '#fef9e7' },
@@ -76,13 +66,10 @@ const ELEVATED_THRESHOLD = RISK_ZONES[1].max; // 25 — the radar guide polygon 
 // deliberately absent) — one definition, in utils/riskIndicators.js.
 const { REPORT_RISKS: RISKS } = require('./riskIndicators');
 
-// Physical Fitness Subitem Score — HoloMotion's 60/75/85 tiers. Colours mirror
-// the website's ROM & Stability language exactly (BodyMap: --risk-low /
-// --risk-undertrained / --risk-moderate / --risk-high, light theme) so a tier
-// reads the same green → blue → yellow → red on screen and on paper.
-//   color   — the fill (discs, bars, heatmap cells, body regions, swatches)
-//   ink     — text drawn ON that fill (white on dark tiers; dark on yellow)
-//   onLight — tier-coloured text on white paper (yellow darkened to stay legible)
+// Physical Fitness Subitem Score — HoloMotion's 60/75/85 tiers, in BodyMap's
+// light-theme colours so a tier reads the same green → blue → yellow → red on
+// screen and on paper.
+//   color   — the fill · ink — text ON that fill · onLight — text on white paper
 const TIERS = [
   { min: 85, label: 'Excellent', color: '#3d7c47', ink: '#ffffff', onLight: '#3d7c47' },
   { min: 75, label: 'Good', color: '#2a6391', ink: '#ffffff', onLight: '#2a6391' },
@@ -356,11 +343,9 @@ function bandTable(doc, entries) {
 // Newest first, matching the admin dashboard.
 // Seasonality — which part of the YEAR carries the risk, every year pooled.
 //
-// The caveat is drawn FIRST and unconditionally. This table's whole danger is
-// that it reads like a finding at a glance: four quarters, one of them worst,
-// therefore move the pre-season block. Until the pattern has repeated across
-// years that reading is unsupported, and the reader has to meet that sentence
-// before the numbers, not after them.
+// The caveat is drawn FIRST and unconditionally: four quarters with one worst
+// reads like a finding at a glance, and until the pattern repeats across years
+// it is unsupported. The reader meets that sentence before the numbers.
 function seasonTable(doc, season) {
   if (!season || !season.buckets) return;
   const present = season.buckets.filter((b) => b.tests > 0);
@@ -594,12 +579,10 @@ function focusTable(doc, title, rows) {
   doc.moveDown(0.4);
 }
 
-// `hasBandChip` says whether THIS report carries a per-athlete risk band at the
-// top. Only the individual report does; the team and holistic reports open with
-// group averages and have no band to refer to. The sentence distinguishing a
-// regional reading from an escalation is therefore printed only where the thing
-// it points at actually exists — the first version referred every reader to a
-// chip that two of the three reports do not have.
+// `hasBandChip`: only the individual report carries a per-athlete band at the
+// top — team and holistic open with group averages. The sentence distinguishing
+// a regional reading from an escalation is printed only where the chip it points
+// at exists.
 function riskLegend(doc, { hasBandChip = false } = {}) {
   ensure(doc, 16);
   const y = doc.y; let x = 50;
@@ -787,12 +770,11 @@ function throughputChart(doc, periods, opts = {}) {
 }
 
 // ── Change bars ─────────────────────────────────────────────────────────────
-// One diverging bar per score on a shared DELTA axis, right for better. The
-// report listed these as signed numbers, which makes "ROM fell 5.2 while
-// stability rose 2.6" something the reader has to assemble. Mirrors MetricDeltas
-// on the dashboard, including the rule that cost a redesign there: bar DIRECTION
-// is the oriented gain (exercise risks improve by falling, so a drop draws right)
-// while the printed number keeps its true sign.
+// One diverging bar per score on a shared DELTA axis, right for better —
+// signed numbers alone make "ROM fell 5.2 while stability rose 2.6" something
+// the reader assembles. Mirrors MetricDeltas, including its rule: bar DIRECTION
+// is the oriented gain (risks improve by falling, so a drop draws right) while
+// the printed number keeps its true sign.
 function changeBars(doc, deltas, opts = {}) {
   const rows = (deltas || [])
     .filter((d) => d && d.avgDelta !== null && d.avgDelta !== undefined)
@@ -869,15 +851,13 @@ function changeBars(doc, deltas, opts = {}) {
 }
 
 // ── Risk vs movement scatter ────────────────────────────────────────────────
-// The §25 finding the printed reports had no way to carry. Total Score and
-// Exercise Risks measure different halves of the HoloMotion report, so an
-// athlete can move well and still score risky — 13 of the seeded squad do, and
-// no averaged panel or ranked table surfaces them, because averaging is exactly
-// what hides a diagonal relationship.
+// §25: Total Score and Exercise Risks measure different halves of the report, so
+// an athlete can move well and still score risky — 13 of the seeded squad do, and
+// averaging is exactly what hides a diagonal relationship.
 //
-// Quadrants split on the group's own MEDIANS rather than fixed cut-offs: the
-// question is "who is unusual for this squad", and a fixed line would put an
-// entire strong cohort in one box and say nothing.
+// Quadrants split on the group's own MEDIANS, not fixed cut-offs: the question is
+// who is unusual for THIS squad, and a fixed line puts a whole strong cohort in
+// one box.
 function riskMovementScatter(doc, points, opts = {}) {
   const pts = (points || [])
     .map((p) => ({ x: num(p.x), y: num(p.y), band: p.band, name: p.name }))
