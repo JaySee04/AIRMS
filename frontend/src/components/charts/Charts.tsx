@@ -21,7 +21,7 @@
 // for a single proportion. Every one still labels its values directly — meaning
 // is never carried by colour alone.
 
-import { ReactNode, useRef } from 'react';
+import { useEffect, useRef, useState, ReactNode } from 'react';
 import type { MouseEvent as ReactMouseEvent } from 'react';
 import HoverTip, { useHoverTip } from '@/components/ui/HoverTip';
 
@@ -217,8 +217,38 @@ export interface PeriodPoint {
 // One period still gets its own treatment, because that is not a threshold —
 // there is genuinely nothing to compare.
 
+/**
+ * How the columns are scaled.
+ *
+ * `count` — height is athletes tested, read against a gridded axis.
+ * `share` — every column full height, so the band MIX is compared like with like.
+ *
+ * Both are legitimate readings of the same data and each hides what the other
+ * shows: counts make a light month look like a good one, shares make four
+ * athletes look like thirty-three. Rather than pick, the chart shows both.
+ */
+export type PeriodMode = 'count' | 'share';
+
+/** Seconds between automatic views, before the reader takes over. */
+const ROTATE_MS = 10000;
+
+/**
+ * Axis ticks at a round step, so gridlines land on numbers a person would
+ * choose. A bare max/4 gives ticks like 8.25, which is worse than no axis.
+ */
+function niceTicks(max: number, target = 4): { top: number; ticks: number[] } {
+  const raw = Math.max(1, max) / target;
+  const mag = 10 ** Math.floor(Math.log10(raw));
+  const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((c) => c >= raw) ?? 10 * mag;
+  const top = Math.ceil(Math.max(1, max) / step) * step;
+  const ticks: number[] = [];
+  for (let v = 0; v <= top + 1e-9; v += step) ticks.push(+v.toFixed(6));
+  return { top, ticks };
+}
+
 export function PeriodChart({
   points, lineLabel, valueLabel, height = 150, composition, compositionGrain, slope,
+  defaultMode = 'count', autoRotate = true,
 }: {
   points: PeriodPoint[];
   lineLabel?: string;
@@ -229,6 +259,10 @@ export function PeriodChart({
   compositionGrain?: string;
   /** Per-metric changes — the right chart for exactly two periods. */
   slope?: MetricDelta[];
+  /** Which view opens. Counts, because that is the question asked first. */
+  defaultMode?: PeriodMode;
+  /** Cycle the two views until the reader chooses one. */
+  autoRotate?: boolean;
 }) {
   // Hooks first: this component has two early returns below, and React requires
   // the same hook order on every render regardless of which branch is taken.
@@ -240,6 +274,24 @@ export function PeriodChart({
   const { tip, show, hide } = useHoverTip();
   const tipHost = useRef<HTMLDivElement>(null);
   const onTip = (text: string) => (e: ReactMouseEvent) => show([text], tipHost.current, e.clientX, e.clientY);
+
+  const [mode, setMode] = useState<PeriodMode>(defaultMode);
+  // Once the reader picks a view, it STAYS picked. Content that keeps moving
+  // under someone who has chosen is the failure mode of every rotating panel.
+  const [held, setHeld] = useState(false);
+
+  useEffect(() => {
+    if (held || !autoRotate) return undefined;
+    // An automatically changing graphic is motion, and some readers have asked
+    // the platform not to send them any (WCAG 2.3.3 / prefers-reduced-motion).
+    // They get the default view and the toggle, which loses them nothing.
+    if (typeof window !== 'undefined'
+      && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return undefined;
+    const t = setInterval(() => setMode((m) => (m === 'count' ? 'share' : 'count')), ROTATE_MS);
+    return () => clearInterval(t);
+  }, [held, autoRotate]);
+
+  const choose = (m: PeriodMode) => { setHeld(true); setMode(m); };
 
   if (!points.length) return null;
 
@@ -265,27 +317,29 @@ export function PeriodChart({
   // in place of them, so the card keeps one primary graphic across every grain
   // and the comparison is an addition rather than a substitution.
   const isPair = points.length === 2 && !!slope && slope.length > 0;
-  // The band MIX is drawn as proportions, not as a stack whose height is the
-  // headcount.
+  // Two scalings of one set of columns.
   //
-  // Height-as-count conflated two questions that belong to different people:
-  // "how many did we test" is a programme question, "how are they doing" is a
-  // clinical one. Throughput swings hard between periods on a real screening
-  // calendar - 33 athletes one month, 4 the next - so a count-height stack
-  // squashed the mix into an unreadable sliver in exactly the periods where a
-  // small group most needs reading, and made a quiet month look like a good one.
-  // Headcount is ONE number per period, which is a label, not a bar.
-  //
-  // Equal-height columns mean the eye compares LIKE WITH LIKE across periods:
-  // the question this card exists to answer is whether the mix is shifting, and
-  // that is a comparison of proportions.
+  // Count answers "how much screening happened", share answers "how is the mix
+  // moving", and each is invisible in the other: a count stack squashes a
+  // 4-athlete month into a sliver where the mix cannot be read, and a share
+  // stack draws that same month exactly as tall as a 33-athlete one. The
+  // earlier chart picked counts and buried the mix; picking shares buried the
+  // volume. Both are drawn, and the reader can hold either.
+  const maxV = Math.max(...points.map((p) => p.value));
+  const { top: axisTop, ticks } = niceTicks(maxV);
+  const isShare = mode === 'share';
+  // Gridlines are the point of the count view — without a scale to read heights
+  // against, a column is decoration.
+  const gridTicks = isShare ? [0, 25, 50, 75, 100] : ticks;
+  const gridPct = (v: number) => (isShare ? v : (v / axisTop) * 100);
+
   const lineVals = points.map((p) => p.line).filter((v): v is number => v != null);
   const hasLine = lineVals.length >= 2;
   const lLo = hasLine ? Math.min(...lineVals) : 0;
   const lHi = hasLine ? Math.max(...lineVals) : 1;
-  // Padding is modest, and the range is PRINTED. The old chart padded by 60% and
-  // showed no axis at all, so the line's slope was an artefact of an invisible
-  // scale - the one thing a trend line must never be.
+  // Modest padding, and the range is PRINTED. The first version of this chart
+  // padded by 60% and showed no axis at all, so the line's slope was an artefact
+  // of an invisible scale — the one thing a trend line must never be.
   const lPad = Math.max((lHi - lLo) * 0.35, 1);
   const lMin = lLo - lPad;
   const lMax = lHi + lPad;
@@ -304,54 +358,91 @@ export function PeriodChart({
     <>
     <div className="periodchart" ref={tipHost}>
       <HoverTip tip={tip} />
-      <div className="periodchart-mix">
-        {points.map((p) => {
-          const segs = (p.segments ?? []).filter((sg) => sg.value > 0);
-          const total = segs.reduce((acc, sg) => acc + sg.value, 0) || 1;
-          return (
-            <div className="periodchart-col" key={p.key}>
-              <span className="periodchart-n">
-                {p.value}
-                <em>{p.value === 1 ? 'athlete' : 'athletes'}</em>
-              </span>
-              {p.value === 0 ? (
-                // Still drawn, never skipped: for a screening programme a period
-                // with nobody in it IS the finding (§24), and it is the one bar a
-                // proportion chart has no proportion to draw.
-                <div className="periodchart-stack periodchart-empty">
-                  <span>no screening</span>
-                </div>
-              ) : (
-                <div className="periodchart-stack">
-                  {segs.length ? segs.map((sg) => {
-                    const pct = (sg.value / total) * 100;
-                    const tipText = `${p.label} - ${sg.label}: ${sg.value} of ${total} (${Math.round(pct)}%)`;
-                    return (
-                      <span
-                        key={sg.label}
-                        style={{ flex: `${sg.value} 0 0`, background: sg.color }}
-                        onMouseEnter={onTip(tipText)}
-                        onMouseMove={onTip(tipText)}
-                        onMouseLeave={hide}
-                      >
-                        {/* The number rides IN the slice when it fits. Colour
-                            alone carries the band elsewhere in AIRMS and is
-                            paired with text for the same reason (WCAG 1.4.1). */}
-                        {pct >= 18 && <em>{sg.value}</em>}
-                      </span>
-                    );
-                  }) : (
-                    <span style={{ flex: 1, background: 'var(--series-2)' }}
-                      onMouseEnter={onTip(`${p.label}: ${p.value}`)}
-                      onMouseMove={onTip(`${p.label}: ${p.value}`)}
-                      onMouseLeave={hide} />
+
+      <div className="periodchart-modes">
+        <div className="seg-group seg-group--sm" role="tablist" aria-label="Column scale">
+          <button type="button" role="tab" aria-selected={!isShare}
+            className={`seg-btn${!isShare ? ' active' : ''}`} onClick={() => choose('count')}>
+            Athletes tested
+          </button>
+          <button type="button" role="tab" aria-selected={isShare}
+            className={`seg-btn${isShare ? ' active' : ''}`} onClick={() => choose('share')}>
+            Band mix %
+          </button>
+        </div>
+        {/* Content that changes on its own must say so and must be stoppable
+            (WCAG 2.2.2). The toggle is the stop, so it says which button does it. */}
+        {!held && autoRotate && (
+          <span className="periodchart-rotating">switching every 10s &middot; click to hold</span>
+        )}
+      </div>
+
+      <div className="periodchart-plotwrap">
+        <div className="periodchart-yaxis" aria-hidden>
+          {gridTicks.map((t) => (
+            <span key={t} style={{ bottom: `${gridPct(t)}%` }}>{isShare ? `${t}%` : fmt(t)}</span>
+          ))}
+        </div>
+        <div className="periodchart-grid">
+          {gridTicks.map((t) => (
+            <span key={t} className={t === 0 ? 'periodchart-gridline periodchart-gridline--base' : 'periodchart-gridline'}
+              style={{ bottom: `${gridPct(t)}%` }} />
+          ))}
+          <div className="periodchart-mix">
+            {points.map((p) => {
+              const segs = (p.segments ?? []).filter((sg) => sg.value > 0);
+              const total = segs.reduce((acc, sg) => acc + sg.value, 0) || 1;
+              // Share: every column full height. Count: height against the axis.
+              const colH = isShare ? 100 : (p.value / axisTop) * 100;
+              return (
+                <div className="periodchart-col" key={p.key}>
+                  {p.value === 0 ? (
+                    // Drawn, never skipped: for a screening programme a period
+                    // with nobody in it IS the finding (§24), and it is the one
+                    // column neither scaling has a height for.
+                    <div className="periodchart-stack periodchart-empty" style={{ height: '100%' }}>
+                      <span>no screening</span>
+                    </div>
+                  ) : (
+                    <div className="periodchart-stack" style={{ height: `${colH}%` }}>
+                      {segs.length ? segs.map((sg) => {
+                        const pct = (sg.value / total) * 100;
+                        const tipText = `${p.label} — ${sg.label}: ${sg.value} of ${total} (${Math.round(pct)}%)`;
+                        return (
+                          <span
+                            key={sg.label}
+                            style={{ flex: `${sg.value} 0 0`, background: sg.color }}
+                            onMouseEnter={onTip(tipText)}
+                            onMouseMove={onTip(tipText)}
+                            onMouseLeave={hide}
+                          >
+                            {/* The number rides IN the slice when it fits: colour
+                                alone must not carry the band (WCAG 1.4.1), the
+                                same rule as every band label in AIRMS. */}
+                            {pct >= 18 && colH >= 22 && <em>{isShare ? `${Math.round(pct)}%` : sg.value}</em>}
+                          </span>
+                        );
+                      }) : (
+                        <span style={{ flex: 1, background: 'var(--series-2)' }}
+                          onMouseEnter={onTip(`${p.label}: ${p.value}`)}
+                          onMouseMove={onTip(`${p.label}: ${p.value}`)}
+                          onMouseLeave={hide} />
+                      )}
+                    </div>
                   )}
+                  {/* Headcount stays on screen in BOTH views — it is what the
+                      share view cannot show, and dropping it there would trade
+                      one blind spot for another. */}
+                  <span className="periodchart-n">{p.value}</span>
                 </div>
-              )}
-              <span className="periodchart-x">{p.label}</span>
-            </div>
-          );
-        })}
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <div className="periodchart-xaxis">
+        {points.map((p) => (<span key={p.key}>{p.label}</span>))}
       </div>
 
       {hasLine && (
@@ -374,16 +465,15 @@ export function PeriodChart({
               <polyline points={linePts} fill="none" stroke="var(--brand-navy)" strokeWidth="2"
                 vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
             </svg>
-            {/* Dots and their values as HTML: preserveAspectRatio="none" stretches
-                the viewBox, which would turn circles into ellipses and distort
-                glyphs. Same reason the column totals were already HTML. */}
+            {/* Dots and values as HTML: preserveAspectRatio="none" stretches the
+                viewBox, which would turn circles into ellipses and distort text. */}
             {points.map((p, i) => (p.line == null ? null : (
               <span
                 key={p.key}
                 className="periodchart-scoredot"
                 style={{ left: `${((i + 0.5) / n) * 100}%`, top: `${(sy(p.line) / SH) * 100}%` }}
-                onMouseEnter={onTip(`${p.label} - ${lineLabel ?? 'value'}: ${fmt(p.line)}`)}
-                onMouseMove={onTip(`${p.label} - ${lineLabel ?? 'value'}: ${fmt(p.line)}`)}
+                onMouseEnter={onTip(`${p.label} — ${lineLabel ?? 'value'}: ${fmt(p.line)}`)}
+                onMouseMove={onTip(`${p.label} — ${lineLabel ?? 'value'}: ${fmt(p.line)}`)}
                 onMouseLeave={hide}
               >
                 <em>{fmt(p.line)}</em>

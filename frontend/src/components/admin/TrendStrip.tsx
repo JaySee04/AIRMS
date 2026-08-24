@@ -112,7 +112,7 @@ export default function TrendStrip({ query }: { query: string }) {
         <div>
           <h2 className="card-title" style={{ marginBottom: 0 }}>Direction of travel</h2>
           <span className="card-sub">
-            Band mix per period as a share of who was tested, for the current filters.
+            Athletes tested and their band mix over recent periods, for the current filters.
           </span>
         </div>
         {/* Each grain carries how many periods it would draw. The quarterly and

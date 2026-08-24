@@ -110,19 +110,66 @@ describe('PeriodChart — layout follows the number of periods', () => {
     expect(render(<PeriodChart points={[]} />)).toBe('');
   });
 
-  // REDESIGNED 2026-08-24. Column height used to be the headcount, so a month
-  // with 4 athletes drew a sliver next to a month with 33 and the band MIX -
-  // the thing the card exists to show - was unreadable exactly when the group
-  // was small. Height now carries proportion and nothing else; the headcount is
-  // a label, because it is one number per period.
-  it('columns are EQUAL height, so the mix is comparable across periods', () => {
-    const html = render(<PeriodChart points={[period('a', 'Jun', 33), period('b', 'Aug', 4)]} />);
-    // No per-column height style: every stack takes the same fixed height from
-    // the stylesheet, so a light period is not drawn as a worse one.
-    expect(html).not.toMatch(/class="periodchart-stack"[^>]*style="[^"]*height/);
-    // Both headcounts are still stated.
-    expect(html).toContain('33');
-    expect(html).toContain('4');
+  // REDESIGNED 2026-08-24, then again the same day. Height first encoded the
+  // headcount, which squashed a 4-athlete month into a sliver next to a
+  // 33-athlete one and made the band MIX unreadable exactly when the group was
+  // small. Making every column equal fixed that and broke the opposite thing:
+  // a light month drew as tall as a busy one. Neither reading is wrong and each
+  // hides what the other shows, so both are drawn and the reader holds one.
+  const busyQuiet = [period('a', 'Jun', 33), period('b', 'Aug', 4)];
+
+  it('COUNT view scales height to the headcount, against a real axis', () => {
+    const html = render(<PeriodChart points={busyQuiet} defaultMode="count" autoRotate={false} />);
+    const heights = [...html.matchAll(/class="periodchart-stack"[^>]*style="height:\s*([\d.]+)%/g)]
+      .map((m) => Number(m[1]));
+    expect(heights).toHaveLength(2);
+    // 4 of 33 is a short column, not an equal one.
+    expect(heights[0]).toBeGreaterThan(heights[1] * 4);
+    // And there is something to read that height against.
+    expect(html).toContain('periodchart-gridline');
+    expect(html).toContain('periodchart-yaxis');
+  });
+
+  it('SHARE view makes every column equal, so the mix is comparable', () => {
+    const html = render(<PeriodChart points={busyQuiet} defaultMode="share" autoRotate={false} />);
+    const heights = [...html.matchAll(/class="periodchart-stack"[^>]*style="height:\s*([\d.]+)%/g)]
+      .map((m) => Number(m[1]));
+    expect(heights).toEqual([100, 100]);
+    // Percentage gridlines rather than counts.
+    expect(html).toContain('50%');
+  });
+
+  it('keeps the headcount on screen in BOTH views', () => {
+    // It is precisely what the share view cannot encode, so dropping it there
+    // would trade one blind spot for another.
+    for (const m of ['count', 'share'] as const) {
+      const html = render(<PeriodChart points={busyQuiet} defaultMode={m} autoRotate={false} />);
+      expect(html).toContain('>33<');
+      expect(html).toContain('>4<');
+    }
+  });
+
+  it('offers both views as a toggle', () => {
+    const html = render(<PeriodChart points={busyQuiet} autoRotate={false} />);
+    expect(html).toContain('Athletes tested');
+    expect(html).toContain('Band mix %');
+    expect(html).toContain('role="tablist"');
+  });
+
+  it('says that it rotates, because content that moves must be stoppable', () => {
+    // WCAG 2.2.2. The toggle IS the stop, so the hint names it; once a view is
+    // held the hint has nothing left to warn about.
+    expect(render(<PeriodChart points={busyQuiet} />)).toMatch(/switching every 10s/);
+    expect(render(<PeriodChart points={busyQuiet} autoRotate={false} />)).not.toMatch(/switching every 10s/);
+  });
+
+  it('gridline ticks land on round numbers a person would choose', () => {
+    // max/4 on 33 athletes gives 8.25, which is worse than no axis at all.
+    const html = render(<PeriodChart points={busyQuiet} defaultMode="count" autoRotate={false} />);
+    const ticks = [...html.matchAll(/class="periodchart-yaxis"[\s\S]*?<\/div>/g)][0][0];
+    const nums = [...ticks.matchAll(/>([\d.]+)</g)].map((m) => Number(m[1]));
+    expect(nums.every((v) => Number.isInteger(v))).toBe(true);
+    expect(nums).toContain(0);
   });
 
   it('slices carry their COUNT, so colour is not the only carrier', () => {
