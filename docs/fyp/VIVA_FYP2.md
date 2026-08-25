@@ -45,9 +45,9 @@ clinician's time. See §3 Q1.
 
 ---
 
-## 2. Numbers, measured 2026-08-24
+## 2. Numbers, measured 2026-08-25
 
-Re-measure before the viva; these drift with every reseed. Last run **2026-08-23**: every database figure below is unchanged from 2026-08-19 **except the audit count**, which grows whenever anyone opens a report. The commit and test rows moved; both suites were green (361 / 126). The same figures were verified against the DEPLOYED database, not only the laptop — see §8.
+Re-measure before the viva; these drift with every reseed. Last run **2026-08-25**, against BOTH databases: every roster, screening, band and cohort figure below is identical on the laptop and on the deployed instance, and unchanged from 2026-08-19. Two rows moved — the test counts, and the audit trail, which was reset by a reseed (see the note under the table).
 
 ```powershell
 cd backend
@@ -60,14 +60,15 @@ node -e "require('dotenv').config();const{sequelize,Athlete,Screening,CohortThre
 | Athletes with a screening | 56 | **6 have none** — see §5 L3 |
 | Screenings held | 74 | 56 latest + 18 prior snapshots |
 | Band split (latest per athlete) | **38 green / 9 amber / 9 red** | evidence the pipeline runs, **not** that the model is calibrated (§4 W4) |
-| Cohorts computed | 49 | all pinned |
+| Cohorts computed | 49 | all pinned, as `Pre-viva baseline 2026-08-25` |
+| Saved norm versions | 1 | the pinned one — **verified**: recompute while pinned returns `pinnedHeld: true`, 49 of 49 held, all parking `fresh_stats` for `pinDrift()` |
 | Cohort an athlete is scored against | min 5, **median 7**, max 10 | **all 56 are below 11 peers** (§4 W2) |
 | Repeat pairs available | 18 | below the 20 needed for MDC95 (§5 L2) |
-| Audit rows | 40 | 5 action types, **all 5 roles** — the athlete row appeared 2026-08-20, when self-download began working |
+| Audit rows | 11 hosted / 1 local | **thin on purpose-by-accident: a reseed clears the trail**, and the laptop was reseeded 2026-08-25. All 5 roles ARE represented on the hosted instance (`report.download` x10, `norm.pin` x1) — the §20 property that a read-only role appears at all was re-verified live that day by downloading one report as coach and one as executive |
 | Users | 10 | across 5 roles — 4 reach a deliverable inbox (§5 L7) |
 | Muscle flags | 336 | |
 | Commits, FYP I → FYP II | **291** | 252 files, +59,805 / −7,679 lines |
-| Tests | 361 backend (23 suites) + 126 frontend (8) | |
+| Tests | 382 backend (24 suites) + 137 frontend (8) | new since 2026-08-24: `symmetry`, `prescription`, and the PeriodChart layout set |
 
 **The settings that decide bands** (`backend/src/utils/settings.js`, live values):
 
@@ -442,6 +443,14 @@ softer if you get there first.
 ---
 
 ## 5. Demo landmines
+
+**L0 — the Activity Log lags the action it records (hosted only).** Audit writes
+are deliberately fire-and-forget, so logging can never fail the operation it
+describes. On the serverless host that also makes them *late*: a report download
+returns its PDF and the row lands seconds afterwards. Measured 2026-08-25 — an
+executive download was absent from the trail on an immediate read and present on
+the next. **If you demo the trail, refresh it**, and do not click Download and
+Activity Log in the same breath. It is not a lost write; it is an unawaited one.
 
 Things that will look like bugs and are not. Know what you will say.
 
