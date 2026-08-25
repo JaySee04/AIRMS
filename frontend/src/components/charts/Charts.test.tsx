@@ -107,7 +107,10 @@ describe('PeriodChart — layout follows the number of periods', () => {
   });
 
   it('renders nothing for no periods rather than an empty frame', () => {
-    expect(render(<PeriodChart points={[]} />)).toBe('');
+    // Also guards a crash path: the rotation effect closes over `canShare`, so if
+    // that const were declared after this early return it would never be
+    // initialised and the callback would throw on an empty selection.
+    expect(render(<PeriodChart points={[]} autoRotate />)).toBe('');
   });
 
   // REDESIGNED 2026-08-24, then again the same day. Height first encoded the

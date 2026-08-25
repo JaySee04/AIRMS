@@ -269,6 +269,16 @@ export function PeriodChart({
   const tipHost = useRef<HTMLDivElement>(null);
   const onTip = (text: string) => (e: ReactMouseEvent) => show([text], tipHost.current, e.clientX, e.clientY);
 
+  // Computed BEFORE the early returns and listed in the effect's deps. The effect
+  // closes over it, and a const declared after a `return null` is never
+  // initialised — the callback would then throw on an empty selection.
+  //
+  // The share view divides a column into its bands, so it needs bands. Programme
+  // Activity plots test COUNTS with no segments at all: offered there, the toggle
+  // rotated a page into one full-height grey block every 10 seconds under a
+  // legend describing a mix that was not in the data.
+  const canShare = points.some((p) => (p.segments ?? []).length > 0);
+
   const [mode, setMode] = useState<PeriodMode>(defaultMode);
   // Once the reader picks a view, it STAYS picked. Content that keeps moving
   // under someone who has chosen is the failure mode of every rotating panel.
@@ -283,7 +293,7 @@ export function PeriodChart({
       && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return undefined;
     const t = setInterval(() => setMode((m) => (m === 'count' ? 'share' : 'count')), ROTATE_MS);
     return () => clearInterval(t);
-  }, [held, autoRotate]);
+  }, [held, autoRotate, canShare]);
 
   const choose = (m: PeriodMode) => { setHeld(true); setMode(m); };
 
@@ -321,11 +331,6 @@ export function PeriodChart({
   // volume. Both are drawn, and the reader can hold either.
   const maxV = Math.max(...points.map((p) => p.value));
   const { top: axisTop, ticks } = niceTicks(maxV);
-  // The share view divides a column into its bands, so it needs bands. Programme
-  // Activity plots test COUNTS with no segments at all: offered there, the toggle
-  // rotated a page into one full-height grey block every 10 seconds under a
-  // legend describing a mix that was not in the data.
-  const canShare = points.some((p) => (p.segments ?? []).length > 0);
   const isShare = canShare && mode === 'share';
   // The caller's own noun. Hardcoding "Athletes tested" mislabelled Programme
   // Activity, which counts TESTS — an athlete screened twice is two of one and
