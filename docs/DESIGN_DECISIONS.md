@@ -2959,6 +2959,20 @@ The chart, its in-slice counts and the legend row beneath it all read
 `athleteBands`; the frontend falls back to `bands` if an older API response
 lacks the field, so a stale deploy degrades rather than crashes.
 
+### One definition of counting a band
+
+The two tallies differ only in what they are handed — every screening, or one row
+per athlete — so the counting itself is written once as `tallyBands`, and
+`seasonality()` was migrated onto it as well. It had grown its own copy. Three
+places applying `effectiveBand` by hand is three places for the clinical override
+to be dropped, which is the failure `utils/bands.js` exists to prevent; a
+mutation replacing `effectiveBand(r)` with `r.overallBand` in the shared helper
+fails two tests, where before it would have had to be made three times.
+
+Deliberately NOT done: fusing the three passes over `rows` into one. There are 74
+screenings. §31's rule stands — measure before optimising, and three named loops
+read better than one that does everything.
+
 **Verified on the hosted database**: every bucket at every grain now satisfies
 `sum(athleteBands) === athletes`, and the yearly column reads 38 / 9 / 9 —
 identical to the dossier headline it used to contradict. Three mutations run:

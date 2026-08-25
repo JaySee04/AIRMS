@@ -105,6 +105,20 @@ function keysBetween(first, last, grain) {
   return out;
 }
 
+// Green/amber/red headcounts for a set of screenings. Written once because the
+// two tallies below differ only in WHAT they are handed — every screening, or
+// one row per athlete — and a second copy of the counting is a second place for
+// the band precedence (`effectiveBand`, which honours a clinical override) to be
+// got wrong.
+function tallyBands(rows) {
+  const out = { green: 0, amber: 0, red: 0, none: 0 };
+  for (const r of rows) {
+    const b = effectiveBand(r);
+    out[b in out ? b : 'none'] += 1;
+  }
+  return out;
+}
+
 // Calendar buckets. Each period carries its throughput (tests, distinct
 // athletes, how many of them were retests) and its population averages, plus
 // the change against the PREVIOUS period present in the series.
@@ -152,22 +166,14 @@ function bucketByPeriod(screenings, grain, deadBands) {
       // the dossier headline is per athlete. Patient-level rather than
       // encounter-level denominators are the clinical-reporting norm for this
       // reason: an encounter denominator counts the frequently-seen twice.
-      const bands = { green: 0, amber: 0, red: 0, none: 0 };
-      for (const r of rows) {
-        const b = effectiveBand(r);
-        bands[b in bands ? b : 'none'] += 1;
-      }
+      const bands = tallyBands(rows);
 
       const latestPerAthlete = new Map();
       for (const r of rows) {
         const held = latestPerAthlete.get(r.athleteId);
         if (!held || new Date(r.assessedAt) > new Date(held.assessedAt)) latestPerAthlete.set(r.athleteId, r);
       }
-      const athleteBands = { green: 0, amber: 0, red: 0, none: 0 };
-      for (const r of latestPerAthlete.values()) {
-        const b = effectiveBand(r);
-        athleteBands[b in athleteBands ? b : 'none'] += 1;
-      }
+      const athleteBands = tallyBands(latestPerAthlete.values());
       const averages = {};
       for (const [k] of PERIOD_SCORES) {
         averages[k] = mean(rows.map((r) => num(r[k])).filter((v) => v !== null));
@@ -337,11 +343,9 @@ function seasonality(screenings, { grain = 'quarter', noise = 2 } = {}) {
     key, label, pos, rows: bucketRows, years,
   }) => {
     const perAthlete = new Set(bucketRows.map((r) => r.athleteId));
-    const bands = { green: 0, amber: 0, red: 0, none: 0 };
-    for (const r of bucketRows) {
-      const b = effectiveBand(r);
-      bands[b in bands ? b : 'none'] += 1;
-    }
+    // Per SCREENING, deliberately: this ranks quarters by the share of flagged
+    // screenings, which is a statement about throughput across years.
+    const bands = tallyBands(bucketRows);
     const averages = {};
     for (const [k] of PERIOD_SCORES) {
       averages[k] = mean(bucketRows.map((r) => num(r[k])).filter((v) => v !== null));
