@@ -23,7 +23,7 @@ import { tierMeta } from '@/lib/holomotionTiers';
 import {
   AthleteRisks, BAND_LABEL, INDICATORS, WATCH_THRESHOLD, HIGH_THRESHOLD,
   TIGHT_WATCH_THRESHOLD, TIGHT_HIGH_THRESHOLD,
-  RegionThresholds, thresholdsFor, bandFor, criticalRegionsFor,
+  RegionThresholds, thresholdsFor, bandFor, criticalRegionsFor, riskBand,
 } from '@/lib/screeningAlerts';
 import { buildTrainingFocus } from '@/lib/trainingFocus';
 import type { Subitems } from './OverallRiskBadge';
@@ -79,24 +79,8 @@ const STRIP_MAX = 40;
 const qualityBand = tierMeta;
 
 // Presentation for a lower-is-better band (Exercise Risks gauge + indicators).
-// Words come from BAND_LABEL so the strips, the alert banner, the admin cohort
-// chart and the PDF reports all describe the same number identically. Note
-// "Elevated", not "High" — the report reserves High for 56–100. See the band
-// vocabulary note in lib/screeningAlerts.ts.
-const BAND_META = {
-  ok: { label: BAND_LABEL.ok, color: 'var(--risk-low)' },
-  watch: { label: BAND_LABEL.watch, color: 'var(--risk-moderate)' },
-  high: { label: BAND_LABEL.high, color: 'var(--risk-high)' },
-} as const;
-
-// The overall Exercise Risks gauge is banded on the instrument's own scale —
-// it has no body region, so sport tightening doesn't apply to it.
-const INSTRUMENT_BANDS: RegionThresholds = { watch: WATCH_THRESHOLD, high: HIGH_THRESHOLD, tightened: false };
-
-function riskBand(v: number, t: RegionThresholds = INSTRUMENT_BANDS) {
-  const cls = bandFor(v, t);
-  return { cls, ...BAND_META[cls] };
-}
+// BAND_META, INSTRUMENT_BANDS and riskBand live in lib/screeningAlerts.ts, with
+// the thresholds and the band vocabulary they depend on.
 
 // Ring gauge with tier tick marks so the value is read against its
 // thresholds, not just as a number. `ticks` are fractions of `max`.

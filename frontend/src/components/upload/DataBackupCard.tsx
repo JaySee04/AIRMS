@@ -5,13 +5,13 @@
 // snapshot for records, review, or handover.
 
 import { useState } from 'react';
+import { getSession } from '@/lib/auth';
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000/api';
 
-function getToken(): string | null {
-  if (typeof window === 'undefined') return null;
-  return localStorage.getItem('airms_token');
-}
+// The storage key is lib/auth.ts's business. Read directly here, a rename there
+// would leave the backup export silently unauthenticated.
+const getToken = (): string | null => getSession()?.token ?? null;
 
 export default function DataBackupCard() {
   const [busy, setBusy] = useState(false);

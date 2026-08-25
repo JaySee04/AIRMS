@@ -142,6 +142,49 @@ export function bandFor(value: number, t: RegionThresholds): 'ok' | 'watch' | 'h
   return 'ok';
 }
 
+/**
+ * Amber is a light yellow: white on it fails legibility, so a filled amber mark
+ * takes dark ink. Same rule as pdfDraw.js BAND_INK, so a strip printed and a
+ * strip on screen are legible the same way.
+ */
+export const AMBER_INK = '#3d2f05';
+
+/**
+ * What a banded value is CALLED and what it is drawn in.
+ *
+ * Words come from BAND_LABEL so the strips, the alert banner, the admin cohort
+ * chart and the PDF reports describe the same number identically. Note
+ * "Elevated", not "High" — the report reserves High for 56-100.
+ */
+export const BAND_META = {
+  ok: { label: BAND_LABEL.ok, color: 'var(--risk-low)', ink: '#fff' },
+  watch: { label: BAND_LABEL.watch, color: 'var(--risk-moderate)', ink: AMBER_INK },
+  high: { label: BAND_LABEL.high, color: 'var(--risk-high)', ink: '#fff' },
+} as const;
+
+/**
+ * The instrument's own scale, untightened — for a value with no body region,
+ * such as the overall Exercise Risks score.
+ */
+export const INSTRUMENT_BANDS: RegionThresholds = {
+  watch: WATCH_THRESHOLD, high: HIGH_THRESHOLD, tightened: false,
+};
+
+/**
+ * Band a value against a region's thresholds, or the instrument's if none is
+ * given, and return what to call it and how to draw it.
+ *
+ * Written here rather than in a component because the import PREVIEW had its
+ * own copy with the numbers inlined (`v > 25`, `v > 15`) and its own colour
+ * table. That is the same value shown twice in one workflow — the operator
+ * checks a report in the preview, commits it, and sees it again on the panel
+ * — from two definitions that nothing kept in step.
+ */
+export function riskBand(v: number, t: RegionThresholds = INSTRUMENT_BANDS) {
+  const cls = bandFor(v, t);
+  return { cls, ...BAND_META[cls] };
+}
+
 // The Elevated (high-band) cutoff for every indicator, in INDICATORS order —
 // i.e. the same axis order the risk radar and the threshold strips use.
 // Sport-critical regions come back tightened (thresholdsFor handles that), so

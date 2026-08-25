@@ -11,6 +11,7 @@
 
 import { tierMeta } from '@/lib/holomotionTiers';
 import { REPORT_RISKS } from '@/lib/screeningAlerts';
+import { riskBand } from '@/lib/screeningAlerts';
 
 interface Props {
   athlete: Record<string, unknown>; // flat extracted scores (values read via num())
@@ -33,16 +34,9 @@ const RISK_AXIS = 40; // display axis — matches the dashboard strips
 
 const num = (v: unknown): number | null => (v === null || v === undefined || v === '' || Number.isNaN(Number(v)) ? null : Number(v));
 
-// Amber is a light yellow — white on it fails legibility, so filled amber
-// marks take dark ink (same rule as pdfDraw.js BAND_INK).
-const AMBER_INK = '#3d2f05';
-
-// Exercise-risk band (lower is better): Low ≤15 · Watch ≤25 · Elevated >25.
-function riskBand(v: number) {
-  if (v > 25) return { label: 'Elevated', color: 'var(--risk-high)', onFill: '#fff' };
-  if (v > 15) return { label: 'Watch', color: 'var(--risk-moderate)', onFill: AMBER_INK };
-  return { label: 'Low', color: 'var(--risk-low)', onFill: '#fff' };
-}
+// riskBand comes from lib/screeningAlerts.ts. It used to be re-declared here
+// with the thresholds inlined, so the preview an operator checks a report
+// against could disagree with the panel they see after committing it.
 
 // Same tier source as the dashboards, so the operator verifies an import
 // against the wording they will see afterwards.
@@ -102,7 +96,7 @@ export default function ScreeningPreview({ athlete }: Props) {
                 </div>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                   <strong style={{ fontSize: 'var(--fs-sm)', minWidth: 18, textAlign: 'right' }}>{v}</strong>
-                  <Pill text={band.label} color={band.color} ink={band.onFill} />
+                  <Pill text={band.label} color={band.color} ink={band.ink} />
                 </span>
               </div>
             );

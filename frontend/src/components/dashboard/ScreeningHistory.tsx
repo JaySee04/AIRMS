@@ -11,6 +11,7 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { Sparkline } from '@/components/charts/Charts';
+import { fmtScreeningDate } from '@/lib/periods';
 
 interface ScreeningRow {
   id: number;
@@ -59,9 +60,12 @@ function num(v: number | string | null | undefined): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-function fmtDate(iso: string | null | undefined): string {
-  return iso ? new Date(iso).toISOString().slice(0, 10) : '—';
-}
+// fmtScreeningDate, like every other screening surface. This printed
+// toISOString().slice(0, 10) — day only, and in UTC — which is wrong twice on
+// the one screen where it matters most: two screenings CAN share a day (which
+// is why the shared helper goes to the minute), and a late-evening local
+// assessment displayed as the following day.
+const fmtDate = fmtScreeningDate;
 
 // Whole numbers stay whole; a decimal keeps one place. Screening scores are
 // mostly integers, and printing "74.0" beside "74" reads as more precision than
