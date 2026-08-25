@@ -1008,24 +1008,6 @@ label:has(> input[type='radio']) {
   line-height: 1.4;
 }
 [data-theme="dark"] .acwr-gauge-note { border-top-color: rgba(255,255,255,0.12); }
-.tab {
-  appearance: none;
-  background: none;
-  border: none;
-  padding: 10px 16px;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: var(--fs-md);
-  color: var(--text-muted);
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-}
-.tab.active {
-  color: var(--brand-navy);
-  border-color: var(--brand-navy);
-  font-weight: 600;
-}
-[data-theme="dark"] .tab.active { color: var(--brand-gold); border-color: var(--brand-gold); }
 
 /* Empty state */
 .empty-state {
@@ -1564,8 +1546,6 @@ label:has(> input[type='radio']) {
   font-size: var(--fs-xs);
   color: var(--text-muted);
   pointer-events: none;
-}
-.rail-search-kbd {
   border: 1px solid var(--border);
   border-radius: var(--r-xs);
   padding: 0 5px;
@@ -1872,11 +1852,19 @@ tr.is-selected-actor { background: var(--bg-subtle); }
   font-weight: 600;
   color: var(--text);
 }
+/* ONE definition. `.tab` and `.tab.active` were declared twice, ~860 lines
+   apart, and the two disagreed: the earlier set the active underline to
+   --brand-navy, the later to --brand-gold. The later won silently, so the light
+   theme has been drawing a gold underline while a dark-theme override written
+   against the navy version sat next to the dead rule. Merged to what actually
+   rendered, so appearance is unchanged. */
 .tab {
   appearance: none;
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
+  /* Pulls the underline onto the container's own bottom border. */
+  margin-bottom: -1px;
   padding: 10px 16px;
   font-family: inherit;
   font-size: var(--fs-md);
@@ -1890,6 +1878,7 @@ tr.is-selected-actor { background: var(--bg-subtle); }
   border-bottom-color: var(--brand-gold);
   font-weight: 600;
 }
+[data-theme="dark"] .tab.active { color: var(--brand-gold); border-bottom-color: var(--brand-gold); }
 
 /* ── Modal ─────────────────────────────────────────────────────────────────── */
 .modal-backdrop {
