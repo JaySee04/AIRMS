@@ -230,7 +230,11 @@ const ROTATE_MS = 10000;
 function niceTicks(max: number, target = 4): { top: number; ticks: number[] } {
   const raw = Math.max(1, max) / target;
   const mag = 10 ** Math.floor(Math.log10(raw));
-  const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((c) => c >= raw) ?? 10 * mag;
+  let step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((c) => c >= raw) ?? 10 * mag;
+  // Headcounts are whole. Below ~8 the round-number step lands on 0.5, and an
+  // axis reading "1.5 athletes" is worse than a coarse one.
+  if (step < 1) step = 1;
+  else if (!Number.isInteger(step)) step = Math.ceil(step);
   const top = Math.ceil(Math.max(1, max) / step) * step;
   const ticks: number[] = [];
   for (let v = 0; v <= top + 1e-9; v += step) ticks.push(+v.toFixed(6));
@@ -238,13 +242,12 @@ function niceTicks(max: number, target = 4): { top: number; ticks: number[] } {
 }
 
 export function PeriodChart({
-  points, lineLabel, valueLabel, height = 150, composition, compositionGrain, slope,
+  points, lineLabel, valueLabel, composition, compositionGrain, slope,
   defaultMode = 'count', autoRotate = true,
 }: {
   points: PeriodPoint[];
   lineLabel?: string;
   valueLabel?: string;
-  height?: number;
   /** The selection one grain finer — shown when there is only one period. */
   composition?: PeriodPoint[];
   compositionGrain?: string;
@@ -272,7 +275,7 @@ export function PeriodChart({
   const [held, setHeld] = useState(false);
 
   useEffect(() => {
-    if (held || !autoRotate) return undefined;
+    if (held || !autoRotate || !canShare) return undefined;
     // An automatically changing graphic is motion, and some readers have asked
     // the platform not to send them any (WCAG 2.3.3 / prefers-reduced-motion).
     // They get the default view and the toggle, which loses them nothing.
@@ -318,7 +321,16 @@ export function PeriodChart({
   // volume. Both are drawn, and the reader can hold either.
   const maxV = Math.max(...points.map((p) => p.value));
   const { top: axisTop, ticks } = niceTicks(maxV);
-  const isShare = mode === 'share';
+  // The share view divides a column into its bands, so it needs bands. Programme
+  // Activity plots test COUNTS with no segments at all: offered there, the toggle
+  // rotated a page into one full-height grey block every 10 seconds under a
+  // legend describing a mix that was not in the data.
+  const canShare = points.some((p) => (p.segments ?? []).length > 0);
+  const isShare = canShare && mode === 'share';
+  // The caller's own noun. Hardcoding "Athletes tested" mislabelled Programme
+  // Activity, which counts TESTS — an athlete screened twice is two of one and
+  // one of the other.
+  const countLabel = valueLabel ?? 'Athletes tested';
   // Gridlines are the point of the count view — without a scale to read heights
   // against, a column is decoration.
   const gridTicks = isShare ? [0, 25, 50, 75, 100] : ticks;
@@ -353,23 +365,25 @@ export function PeriodChart({
     <div className="periodchart" ref={tipHost}>
       <HoverTip tip={tip} />
 
-      <div className="periodchart-modes">
-        <div className="seg-group seg-group--sm" role="tablist" aria-label="Column scale">
-          <button type="button" role="tab" aria-selected={!isShare}
-            className={`seg-btn${!isShare ? ' active' : ''}`} onClick={() => choose('count')}>
-            Athletes tested
-          </button>
-          <button type="button" role="tab" aria-selected={isShare}
-            className={`seg-btn${isShare ? ' active' : ''}`} onClick={() => choose('share')}>
-            Band mix %
-          </button>
+      {canShare && (
+        <div className="periodchart-modes">
+          <div className="seg-group seg-group--sm" role="tablist" aria-label="Column scale">
+            <button type="button" role="tab" aria-selected={!isShare}
+              className={`seg-btn${!isShare ? ' active' : ''}`} onClick={() => choose('count')}>
+              {countLabel}
+            </button>
+            <button type="button" role="tab" aria-selected={isShare}
+              className={`seg-btn${isShare ? ' active' : ''}`} onClick={() => choose('share')}>
+              Band mix %
+            </button>
+          </div>
+          {/* Content that changes on its own must say so and must be stoppable
+              (WCAG 2.2.2). The toggle is the stop, so the hint names it. */}
+          {!held && autoRotate && (
+            <span className="periodchart-rotating">switching every 10s &middot; click to hold</span>
+          )}
         </div>
-        {/* Content that changes on its own must say so and must be stoppable
-            (WCAG 2.2.2). The toggle is the stop, so the hint names it. */}
-        {!held && autoRotate && (
-          <span className="periodchart-rotating">switching every 10s &middot; click to hold</span>
-        )}
-      </div>
+      )}
 
       <div className="periodchart-plotwrap">
         <div className="periodchart-yaxis" aria-hidden>
@@ -485,7 +499,7 @@ export function PeriodChart({
       <div className="periodchart-legend">
         <span className="periodchart-key">
           <i className="periodchart-key-col" aria-hidden />
-          {isShare ? 'Band mix, share of those tested' : 'Athletes tested'}
+          {isShare ? 'Band mix, share of those tested' : countLabel}
           <em>left axis</em>
         </span>
         {hasLine && (

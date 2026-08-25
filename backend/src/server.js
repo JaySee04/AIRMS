@@ -89,7 +89,12 @@ app.get('/api/health', async (_req, res) => {
     // 503, not 500: the app is fine, its dependency is not — and an uptime
     // monitor should read this as "down" so a sleeping database is visible
     // rather than being reported as a healthy service.
-    res.status(503).json({ ok: false, db: 'down', detail: err.message });
+    // The message is LOGGED, not returned: a driver error names the host, the
+    // user and sometimes the database, and this endpoint is unauthenticated by
+    // design. Its stated surface is an ok flag and whether the database
+    // answered — returning the raw error broke its own rule.
+    console.error('[health] database unreachable:', err.message);
+    res.status(503).json({ ok: false, db: 'down' });
   }
 });
 

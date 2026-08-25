@@ -172,7 +172,6 @@ export default function TrendStrip({ query }: { query: string }) {
               }))}
               valueLabel="Athletes tested"
               lineLabel="Average Total Score"
-              height={158}
               // A single period gets the finer buckets it is made of; two periods
               // get metric slopes, because with two the comparison IS the content
               // and a pair of columns leaves the reader to do the subtraction.

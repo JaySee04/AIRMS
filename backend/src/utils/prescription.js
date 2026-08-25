@@ -117,7 +117,13 @@ function parsePrescription(text) {
     // row closing it, so it is not necessarily inside the table at all.
     for (let k = 1; k < raw.length; k += 1) {
       const gap = raw[k].gapBefore;
-      if (gap && gap.length <= 60 && /[A-Za-z]/.test(gap)) raw[k - 1].name = `${raw[k - 1].name} ${gap}`;
+      if (!gap || gap.length > 60 || !/[A-Za-z]/.test(gap)) continue;
+      const joined = `${raw[k - 1].name} ${gap}`;
+      // Keep the SHORTER reading rather than dropping the row. The 80-char bound
+      // below rejects implausible names; if a repair overruns it, the un-repaired
+      // name is still a real exercise and losing the whole row would lose a
+      // prescribed movement, which is the outcome this parser exists to prevent.
+      if (joined.length <= 80) raw[k - 1].name = joined;
     }
 
     const exercises = [];

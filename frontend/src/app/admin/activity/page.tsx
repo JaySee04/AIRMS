@@ -279,7 +279,6 @@ export default function AdminActivity() {
                     }))}
                     valueLabel="Tests performed"
                     lineLabel="Average indicator"
-                    height={150}
                   />
                 </div>
                 <div className="verdict-stats">

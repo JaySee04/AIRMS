@@ -199,6 +199,45 @@ describe('PeriodChart — layout follows the number of periods', () => {
     expect(html).toMatch(/periodchart-scoredot[^>]*>\s*<em>73\.8<\/em>/);
   });
 
+  // Programme Activity plots test COUNTS with no band segments at all. The share
+  // view divides a column into its bands, so offered there it rotated the page
+  // into one full-height grey block every 10s under a legend describing a mix
+  // that was not in the data — and called those tests "athletes".
+  it('offers the share view only where there IS a mix to show', () => {
+    const bare = [
+      { key: 'a', label: 'Jun', value: 30, line: null },
+      { key: 'b', label: 'Jul', value: 12, line: null },
+    ];
+    const html = render(<PeriodChart points={bare} valueLabel="Tests performed" />);
+    expect(html).not.toContain('Band mix %');
+    expect(html).not.toMatch(/switching every 10s/);
+    // and every column keeps its own height rather than being flattened to 100%
+    const heights = [...html.matchAll(/class="periodchart-stack"[^>]*style="height:\s*([\d.]+)%/g)]
+      .map((m) => Number(m[1]));
+    expect(heights[0]).toBeGreaterThan(heights[1]);
+  });
+
+  it('labels the count axis with the caller’s noun, not "athletes"', () => {
+    // Programme Activity counts tests: an athlete screened twice is two of one
+    // and one of the other.
+    const html = render(<PeriodChart points={busyQuiet} valueLabel="Tests performed"
+      lineLabel="Average indicator" autoRotate={false} />);
+    expect(html).toContain('Tests performed');
+    expect(html).not.toContain('Athletes tested');
+  });
+
+  it('keeps axis ticks whole, because headcounts are', () => {
+    // A round-number step lands on 0.5 below ~8, and "1.5 athletes" is worse
+    // than a coarse axis.
+    const html = render(<PeriodChart points={[period('a', 'Jun', 2), period('b', 'Jul', 1)]}
+      defaultMode="count" autoRotate={false} />);
+    const yaxis = html.slice(html.indexOf('periodchart-yaxis'));
+    const ticks = [...yaxis.slice(0, yaxis.indexOf('periodchart-grid')).matchAll(/>([\d.]+)</g)]
+      .map((m) => Number(m[1]));
+    expect(ticks.length).toBeGreaterThan(1);
+    expect(ticks.every((t) => Number.isInteger(t))).toBe(true);
+  });
+
   it('drops the x-axis right gutter with the axis it was reserved for', () => {
     // The gutter matches the right-hand axis so a label sits under its own
     // column. That axis is conditional, so the gutter has to be: reserving its

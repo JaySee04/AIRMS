@@ -137,3 +137,21 @@ describe('text after the last row is left alone', () => {
     expect(p.days[0].exercises[0].name).toBe('Half Squat');
   });
 });
+
+describe('a repair that would overrun the name bound', () => {
+  it('keeps the shorter name rather than dropping the exercise', () => {
+    // The 80-char bound rejects implausible names. Applied AFTER the page-break
+    // repair it could reject a REPAIRED one, and dropping the row loses a
+    // prescribed movement — the outcome this parser exists to prevent.
+    const long = 'x'.repeat(58);
+    const p = parsePrescription(
+      'Training Prescription Day 1 Training Recommendation '
+      + `1 ${long} 30s 1 10 ${'y'.repeat(40)} `
+      + '2 Seated Calf Stretch 30s 1 10',
+    );
+    const names = p.days[0].exercises.map((e) => e.name);
+    expect(names).toHaveLength(2);
+    expect(names[0]).toBe(long);
+    expect(names[1]).toBe('Seated Calf Stretch');
+  });
+});
