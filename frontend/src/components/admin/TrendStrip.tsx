@@ -30,13 +30,19 @@ interface Delta {
   higherBetter: boolean;
   direction: 'improving' | 'steady' | 'declining';
 }
+type BandCounts = { green: number; amber: number; red: number; none: number };
+
 interface Period {
   key: string;
   label: string;
   tests: number;
   athletes: number;
   retestedWithin?: number;
-  bands: { green: number; amber: number; red: number; none: number };
+  /** One per SCREENING — seasonality's denominator, kept for that. */
+  bands: BandCounts;
+  /** One per ATHLETE, from their latest screening in the period. Optional so an
+   *  older API response still renders, falling back to `bands`. */
+  athleteBands?: BandCounts;
   averages?: Record<string, number | null>;
   // The API computes direction itself, including whether higher is better for
   // each metric — recomputing that here would be a second opinion to keep in
@@ -54,6 +60,10 @@ interface PeriodsResponse {
 // The metrics compared when a selection has exactly two periods. The boolean is
 // `higherBetter` — exercise risks is the one that runs the other way, and getting
 // it wrong would draw a rise in injury risk as an improvement.
+// The column height is the athlete count, so the stack must be per athlete.
+// Falls back to the per-screening tally if the API predates athleteBands.
+const bandsOf = (p: Period): BandCounts => p.athleteBands ?? p.bands;
+
 const COMPARED_METRICS: Array<[string, string, boolean]> = [
   ['overallIndicator', 'Indicator', true],
   ['totalScore', 'Total Score', true],
@@ -167,7 +177,10 @@ export default function TrendStrip({ query }: { query: string }) {
                 key: p.key,
                 label: p.label,
                 value: p.athletes,
-                segments: BAND_TOKENS.map((b) => ({ label: b.label, value: p.bands[b.key], color: b.color })),
+                // athleteBands, not bands: the column's height is the ATHLETE
+                // count, so its subdivision has to be per athlete or the stack
+                // sums to a different number than the column says.
+                segments: BAND_TOKENS.map((b) => ({ label: b.label, value: bandsOf(p)[b.key], color: b.color })),
                 line: typeof p.averages?.totalScore === 'number' ? p.averages.totalScore : null,
               }))}
               valueLabel="Athletes tested"
@@ -179,7 +192,7 @@ export default function TrendStrip({ query }: { query: string }) {
                 key: p.key,
                 label: p.label,
                 value: p.athletes,
-                segments: BAND_TOKENS.map((b) => ({ label: b.label, value: p.bands[b.key], color: b.color })),
+                segments: BAND_TOKENS.map((b) => ({ label: b.label, value: bandsOf(p)[b.key], color: b.color })),
                 line: typeof p.averages?.totalScore === 'number' ? p.averages.totalScore : null,
               }))}
               compositionGrain={data?.composition?.grain}
@@ -207,7 +220,7 @@ export default function TrendStrip({ query }: { query: string }) {
                     display: 'inline-block', width: 9, height: 9, borderRadius: 2,
                     background: t.color, marginRight: 5,
                   }} />
-                  {t.label} <strong>{latest.bands[t.key]}</strong>
+                  {t.label} <strong>{bandsOf(latest)[t.key]}</strong>
                 </span>
               ))}
               <Link href="/admin/activity" style={{ marginLeft: 'auto' }}>

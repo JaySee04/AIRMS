@@ -278,6 +278,11 @@ there.
     not from zero, and the panel says so.
   - A period with no screening keeps its slot, outlined and labelled: for a
     screening programme, the gap is the finding.
+  - **Each athlete is counted once per period**, using their most recent
+    screening in it. So the bands always add up to the headcount printed under
+    the column — an athlete screened twice in a quarter is one athlete, in the
+    band their later test put them in. (Screening *counts* live on Programme
+    Activity, which is the page that asks how much testing happened.)
   - Two periods add a **change chart** underneath, one bar per metric, because
     with only two the comparison is the whole content.
 

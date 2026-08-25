@@ -133,10 +133,40 @@ function bucketByPeriod(screenings, grain, deadBands) {
     .map(({ key, label, rows }) => {
       const perAthlete = new Map();
       for (const r of rows) perAthlete.set(r.athleteId, (perAthlete.get(r.athleteId) ?? 0) + 1);
+
+      // TWO band tallies, because a period answers two different questions and
+      // conflating them produced a chart whose column height disagreed with the
+      // segments drawn inside it.
+      //
+      //   bands        — one per SCREENING. seasonality() ranks quarters by the
+      //                  share of flagged screenings, which is a statement about
+      //                  throughput and must keep counting tests.
+      //   athleteBands — one per ATHLETE, taken from their LATEST screening in
+      //                  this period. This is what "band" means everywhere else
+      //                  in AIRMS (utils/cohorts latestScreeningsByAthlete), and
+      //                  it is the only tally that sums to `athletes`.
+      //
+      // They diverge exactly when somebody is screened twice inside one bucket:
+      // monthly they agreed by luck, quarterly 42 against 34, yearly 74 against
+      // 56 — the same population described two ways on two admin screens, since
+      // the dossier headline is per athlete. Patient-level rather than
+      // encounter-level denominators are the clinical-reporting norm for this
+      // reason: an encounter denominator counts the frequently-seen twice.
       const bands = { green: 0, amber: 0, red: 0, none: 0 };
       for (const r of rows) {
         const b = effectiveBand(r);
         bands[b in bands ? b : 'none'] += 1;
+      }
+
+      const latestPerAthlete = new Map();
+      for (const r of rows) {
+        const held = latestPerAthlete.get(r.athleteId);
+        if (!held || new Date(r.assessedAt) > new Date(held.assessedAt)) latestPerAthlete.set(r.athleteId, r);
+      }
+      const athleteBands = { green: 0, amber: 0, red: 0, none: 0 };
+      for (const r of latestPerAthlete.values()) {
+        const b = effectiveBand(r);
+        athleteBands[b in athleteBands ? b : 'none'] += 1;
       }
       const averages = {};
       for (const [k] of PERIOD_SCORES) {
@@ -151,6 +181,7 @@ function bucketByPeriod(screenings, grain, deadBands) {
         // show more tests than athletes, and the gap is worth seeing.
         retestedWithin: [...perAthlete.values()].filter((n) => n > 1).length,
         bands,
+        athleteBands,
         averages,
       };
     });

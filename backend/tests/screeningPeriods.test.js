@@ -412,3 +412,50 @@ describe('seasonality — which quarter carries the risk', () => {
     expect(out.seasonality.buckets).toHaveLength(4);
   });
 });
+
+// A period answers two different questions, and the chart conflated them.
+//
+// `bands` counts SCREENINGS — seasonality ranks quarters by the share of flagged
+// screenings and needs that. `athleteBands` counts ATHLETES, from each one's
+// latest screening in the period, which is what "band" means everywhere else in
+// AIRMS (latestScreeningsByAthlete). The column height is the athlete count, so
+// only athleteBands sums to it.
+describe('per-athlete band counts', () => {
+  const mk = (athleteId, assessedAt, overallBand) => ({
+    athleteId, assessedAt, overallBand, overrideBand: null, totalScore: 70,
+  });
+
+  it('counts an athlete ONCE per period, however often they were screened', () => {
+    // Same athlete twice in one month, plus one other athlete.
+    const out = periodsOf([
+      mk('A', '2026-06-02', 'red'),
+      mk('A', '2026-06-20', 'green'),
+      mk('B', '2026-06-10', 'amber'),
+    ]);
+    const p = out[out.length - 1];
+    expect(p.athletes).toBe(2);
+    expect(p.tests).toBe(3);
+    // Per screening: red + green + amber = 3. Per athlete: 2.
+    expect(sum(p.bands)).toBe(3);
+    expect(sum(p.athleteBands)).toBe(2);
+    expect(sum(p.athleteBands)).toBe(p.athletes);
+  });
+
+  it('represents a re-screened athlete by their LATEST band in that period', () => {
+    // A was red on the 2nd and green on the 20th; the period should say green.
+    const out = periodsOf([mk('A', '2026-06-02', 'red'), mk('A', '2026-06-20', 'green')]);
+    const p = out[out.length - 1];
+    expect(p.athleteBands.green).toBe(1);
+    expect(p.athleteBands.red).toBe(0);
+  });
+
+  it('leaves `bands` counting screenings, because seasonality depends on it', () => {
+    const out = periodsOf([mk('A', '2026-06-02', 'red'), mk('A', '2026-06-20', 'red')]);
+    const p = out[out.length - 1];
+    expect(p.bands.red).toBe(2);
+    expect(p.athleteBands.red).toBe(1);
+  });
+
+  function periodsOf(rows) { return screeningPeriods(rows, 'month').periods; }
+  function sum(b) { return b.green + b.amber + b.red + b.none; }
+});
