@@ -74,3 +74,6 @@ SUBMISSION_WORKFLOW.md
 .vercel
 .env*
 !*.example
+
+# Rendered deliverable — regenerate with backend/scripts/guide-to-pdf.js
+AIRMS-System-Guide.pdf
