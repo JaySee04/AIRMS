@@ -9,7 +9,8 @@
     "seed": "node src/utils/seeder.js",
     "test": "jest",
     "verify:vision": "node scripts/verify-holomotion-extract.js",
-    "mail:tick": "node src/mailTick.js"
+    "mail:tick": "node src/mailTick.js",
+    "guide:pdf": "node scripts/guide-to-pdf.js && node scripts/verify-guide-pdf.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
