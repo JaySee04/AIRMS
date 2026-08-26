@@ -182,15 +182,24 @@ router.post('/', async (req, res) => {
 
 // POST /api/users/:id/invite — send or re-send an activation code.
 //
-// Also usable on an account that already has a password: it mints a new code
-// and the old one dies, which is what "I never got it" and "it expired" both
-// need. It does NOT clear the existing password, so a working account stays
-// usable while its owner decides whether to bother.
+// Refused once the account has been activated. The mail this sends says an
+// account has been created and asks the reader to finish setting it up, which is
+// false for somebody who joined weeks ago; and issuing it overwrote `invitedAt`,
+// leaving a record in which the invitation postdates the activation.
+//
+// The rule is enforced here rather than only hidden in the UI, so it holds for
+// anything that calls the API. A locked-out member uses the self-serve reset,
+// which is the flow written for that case.
 router.post('/:id/invite', async (req, res) => {
   try {
     const user = await User.findByPk(req.params.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
     if (!user.isActive) return res.status(409).json({ message: 'That account is deactivated. Reactivate it before inviting.' });
+    if (user.activatedAt) {
+      return res.status(409).json({
+        message: 'That account has already been activated. They can reset their own password from "Forgot password?" on the sign-in page.',
+      });
+    }
 
     await sendInvite(user, req);
     recordAudit(req, {
@@ -198,7 +207,7 @@ router.post('/:id/invite', async (req, res) => {
       entity: 'user',
       entityId: user.id,
       summary: `Sent an activation code to ${user.name} (${user.email})`,
-      meta: { role: user.role, email: user.email, resend: Boolean(user.activatedAt) },
+      meta: { role: user.role, email: user.email },
     });
     res.json({ ...publicUser(user), invited: true });
   } catch (err) {

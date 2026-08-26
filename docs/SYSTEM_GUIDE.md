@@ -205,6 +205,11 @@ Staff accounts, and what each may do.
   One is generated, hashed and discarded unread, and the invitee sets the first
   password that ever really exists on the account from a six-digit code valid for
   seven days. Nobody, including the creator, can sign in as that person.
+- **Send invite / Resend invite** appears only while an account has not been
+  activated. Once somebody has joined, it is gone — the invitation email tells
+  the reader an account has just been created for them and asks them to finish
+  setting it up, which is untrue for an existing member. A member who is locked
+  out uses **Forgot password?** on the sign-in page.
 - Per-capability permissions for medical staff: view records, upload data, edit
   norms. Every capability is on by default; unchecking one revokes it
   immediately, the feature disappears from that user's sidebar, and the backend

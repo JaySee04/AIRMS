@@ -200,7 +200,21 @@ export default function AdminPersonnelPage() {
     return 'Never signed in';
   };
 
-  const inviteButton = (u: StaffUser) => (
+  // Offered while the account carries no activation — either never invited (a
+  // seeded account whose password was typed directly) or invited and not yet
+  // taken up. Gone once they have joined.
+  //
+  // It used to render for everyone, labelled "Send invite" for people who had
+  // joined weeks earlier. Three things were wrong with that, and the button was
+  // the least of them: re-sending overwrote `invitedAt`, so the record claimed
+  // somebody was invited AFTER they activated; and the mail it sent says "an
+  // account has been created for you ... to finish setting up", which to an
+  // existing member reads as a duplicate account or as phishing.
+  //
+  // Nothing is lost. An activated user who is locked out uses "Forgot password?"
+  // on the login page, which sends the mail written for that situation, with the
+  // short TTL that suits it.
+  const inviteButton = (u: StaffUser) => (u.activatedAt ? null : (
     <button
       type="button"
       className="btn btn-outline btn-sm"
@@ -208,11 +222,11 @@ export default function AdminPersonnelPage() {
       onClick={() => resendInvite(u)}
       title={isPending(u)
         ? 'Send a fresh activation code — the previous one stops working'
-        : 'Send an activation code so they can set a new password themselves'}
+        : 'Email an activation code so they can set their own password'}
     >
       {invitingId === u.id ? 'Sending…' : isPending(u) ? 'Resend invite' : 'Send invite'}
     </button>
-  );
+  ));
 
   const accountBadge = (u: StaffUser) => (
     <button
