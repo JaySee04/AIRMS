@@ -244,6 +244,25 @@ with SPF/DKIM; the mailer is env-driven, so it is configuration, not code.
 
 ## Demo credentials (seeded)
 
+**Short logins for stakeholder testing** (added 2026-08-26) — one password,
+`airms2026`, across all five, because what makes a credential list hard to use is
+tracking which password goes with which address, not the length of either:
+
+| Role | Email |
+|---|---|
+| admin | `admin@isn.my` |
+| medical | `med@isn.my` |
+| coach | `coach@isn.my` (Badminton) |
+| athlete | `athlete@isn.my` (John Doe) |
+| executive | `exec@isn.my` |
+
+These are **additional** accounts, not renames. The canonical `@isn.gov.my`
+logins below are referenced in five docs and asserted in `mailSendNow.test.js`,
+and they still work. The coach's sport and the athlete's roster link are copied
+from their canonical counterparts at seed time rather than hardcoded, so an alias
+cannot drift from what it mirrors.
+
+
 | Role | Email | Password |
 |---|---|---|
 | athlete | `athlete@isn.gov.my` | `athlete123` (John Doe — the athlete key is now the IC number, e.g. `070202021001`; `npm run seed` prints each demo athlete's IC) |

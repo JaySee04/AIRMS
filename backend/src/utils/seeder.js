@@ -401,6 +401,15 @@ function flattenMuscleFlags(athletes) {
   return rows;
 }
 
+/**
+ * One password for every short stakeholder login.
+ *
+ * Not a security boundary — this dataset is entirely fabricated and the site is
+ * a demonstration. It is long enough not to read as negligence on a public URL,
+ * which `admin` or `1234` would.
+ */
+const DEMO_PASSWORD = 'airms2026';
+
 function buildUsers() {
   // Plain-text passwords here — the User model's beforeSave hook hashes
   // them when bulkCreate runs with individualHooks: true.
@@ -438,6 +447,22 @@ function buildUsers() {
     // sends one email per SPORT, not per coach, so the pair demonstrates that
     // rule — two coaches, one message.
     { name: 'Coach Demo 02', email: 'poseidonapollo11+coach@gmail.com', password: 'coach123', role: 'coach', coachSport: 'Badminton' },
+
+    // Short logins for stakeholder testing (2026-08-26).
+    //
+    // ADDED beside the canonical @isn.gov.my accounts, never replacing them:
+    // those are documented in five places and asserted in mailSendNow.test.js,
+    // and renaming them to save eight keystrokes would be a poor trade.
+    //
+    // One password across all five, deliberately. What makes a credential list
+    // hard to use over email or in a meeting is not its length, it is having to
+    // track WHICH password goes with which address — so there is only one to
+    // remember, and the address carries the role.
+    { name: 'Admin (short login)', email: 'admin@isn.my', password: DEMO_PASSWORD, role: 'admin' },
+    { name: 'Medical (short login)', email: 'med@isn.my', password: DEMO_PASSWORD, role: 'medical' },
+    { name: 'Coach (short login)', email: 'coach@isn.my', password: DEMO_PASSWORD, role: 'coach', coachSport: 'Badminton' },
+    { name: 'John Doe', email: 'athlete@isn.my', password: DEMO_PASSWORD, role: 'athlete', athleteId: IC_JOHN },
+    { name: 'Executive (short login)', email: 'exec@isn.my', password: DEMO_PASSWORD, role: 'executive' },
     { name: 'Executive Demo 02', email: 'poseidonapollo11+exec@gmail.com', password: 'executive123', role: 'executive' },
   ];
 }
