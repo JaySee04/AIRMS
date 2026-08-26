@@ -7,7 +7,7 @@ import type { MuscleEntry } from '@/components/dashboard/BodyMap';
 import OverallRiskBadge, { ScreeningIndicator } from '@/components/dashboard/OverallRiskBadge';
 import ClinicianBandOverride from '@/components/dashboard/ClinicianBandOverride';
 import type { AthleteRisks } from '@/lib/screeningAlerts';
-import { RADAR_LABELS, highThresholdsFor, riskRadarSeries } from '@/lib/screeningAlerts';
+import { INSTRUMENT_BANDS, RADAR_LABELS, highThresholdsFor, riskBand, riskRadarSeries } from '@/lib/screeningAlerts';
 
 // Chart.js and the body-map path data are the heaviest client code on this
 // page and render nothing on the server anyway — split them out so the
@@ -37,6 +37,12 @@ interface AthleteListItem {
   gender?: string;
   disciplines?: string[];
   isActive?: boolean;
+  // Already on the wire from GET /athletes; declared so the landing pane can
+  // summarise the roster without a second request. Null on an athlete who has
+  // never been screened, which is how "not yet screened" is counted.
+  injuryRiskIndex?: number | null;
+  overallActivityScore?: number | null;
+  isInjured?: boolean;
 }
 
 interface AthleteFull extends AthleteListItem {
@@ -285,6 +291,33 @@ export default function MedicalDashboard() {
     return Array.from(set).sort();
   }, [athletes, filterSport]);
 
+  // What the landing pane shows before an athlete is chosen. The copy promised
+  // "quick-access groups below" and there were none — two stat tiles and then
+  // most of a screen of nothing.
+  //
+  // Everything here is a FACT already on the roster payload. Deliberately no
+  // cohort band: that verdict is not on this response, and inventing a second
+  // one here is how a landing pane comes to contradict the hero the clinician
+  // sees one click later. The one score shown is HoloMotion's printed Exercise
+  // Risks, banded by the SAME riskBand/INSTRUMENT_BANDS the screening panel
+  // uses for that gauge, so the two cannot disagree.
+  const roster = useMemo(() => {
+    const screened = athletes.filter((a) => a.injuryRiskIndex != null);
+    const bySport = Array.from(
+      athletes.reduce((m, a) => m.set(a.sport, (m.get(a.sport) ?? 0) + 1), new Map<string, number>()),
+    ).sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0]));
+    const topRisk = [...screened]
+      .sort((a, b) => (b.injuryRiskIndex as number) - (a.injuryRiskIndex as number))
+      .slice(0, 6);
+    return {
+      screened: screened.length,
+      unscreened: athletes.length - screened.length,
+      injured: athletes.filter((a) => a.isInjured).length,
+      bySport,
+      topRisk,
+    };
+  }, [athletes]);
+
   // Autocomplete for the events editor: curated seeds for the selected athlete's
   // sport plus every event already used in that sport.
   const eventSuggestions = useMemo(() => {
@@ -497,14 +530,71 @@ export default function MedicalDashboard() {
                 <div className="stat-tile">
                   <div className="stat-tile-label">Athletes on roster</div>
                   <div className="stat-tile-value">{loadingList ? '…' : athletes.length}</div>
-                  <div className="stat-tile-delta">Active</div>
+                  <div className="stat-tile-delta">{loadingList ? '' : `across ${sports.length} sports`}</div>
                 </div>
                 <div className="stat-tile">
-                  <div className="stat-tile-label">Sports</div>
-                  <div className="stat-tile-value">{loadingList ? '…' : sports.length}</div>
-                  <div className="stat-tile-delta">On the roster</div>
+                  <div className="stat-tile-label">Screened</div>
+                  <div className="stat-tile-value">{loadingList ? '…' : roster.screened}</div>
+                  <div className="stat-tile-delta">have a HoloMotion report</div>
+                </div>
+                <div className="stat-tile">
+                  <div className="stat-tile-label">Not yet screened</div>
+                  <div className="stat-tile-value">{loadingList ? '…' : roster.unscreened}</div>
+                  <div className="stat-tile-delta">need a first assessment</div>
+                </div>
+                <div className="stat-tile">
+                  <div className="stat-tile-label">Flagged injured</div>
+                  <div className="stat-tile-value">{loadingList ? '…' : roster.injured}</div>
+                  <div className="stat-tile-delta">excluded from cohort norms</div>
                 </div>
               </div>
+
+              {roster.bySport.length > 0 && (
+                <div className="card" style={{ marginBottom: 20 }}>
+                  <h3 className="quick-heading">Jump to a squad</h3>
+                  <div className="quick-chips">
+                    {roster.bySport.map(([sport, n]) => (
+                      <button
+                        key={sport}
+                        type="button"
+                        className="quick-chip"
+                        onClick={() => { setFilterSport(sport); searchRef.current?.focus(); }}
+                      >
+                        {sport}<span className="quick-chip-n">{n}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {roster.topRisk.length > 0 && (
+                <div className="card">
+                  <h3 className="quick-heading">Highest exercise risk</h3>
+                  <p className="text-muted quick-sub">
+                    HoloMotion&rsquo;s own printed Exercise Risks score, highest first — the
+                    instrument&rsquo;s reading, not the cohort verdict. Open an athlete for that.
+                  </p>
+                  <ul className="quick-list">
+                    {roster.topRisk.map((a) => {
+                      const band = riskBand(a.injuryRiskIndex as number, INSTRUMENT_BANDS);
+                      return (
+                        <li key={a.athleteId}>
+                          <button type="button" onClick={() => setSelectedId(a.athleteId)}>
+                            <span className="quick-list-name">{a.name}</span>
+                            <span className="quick-list-meta">{a.sport}</span>
+                            <span
+                              className="quick-list-score"
+                              style={{ background: band.color, color: band.ink }}
+                            >
+                              {a.injuryRiskIndex} · {band.label}
+                            </span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
             </>
           ) : loadingSelected ? (
             <p className="text-muted">Loading athlete details…</p>

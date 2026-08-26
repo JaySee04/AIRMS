@@ -385,7 +385,7 @@ button { cursor: pointer; font-family: inherit; }
   color: var(--text);
   cursor: pointer;
 }
-.topbar-menu-btn:hover { background: var(--bg-subtle); }
+.topbar-menu-btn:hover { background: var(--bg); }
 
 /* ── Narrow layout ────────────────────────────────────────────────────────────
    The sidebar is a fixed 256px column and .main-area is offset by exactly that
@@ -546,6 +546,73 @@ label:has(> input[type='radio']) {
   margin-top: 6px;
   color: var(--text);
 }
+/* ── Landing pane quick-access (medical dashboard) ────────────────────────
+   Sizes come from the scale (DESIGN_DECISIONS §29) — no new literals. */
+.quick-heading {
+  margin: 0 0 var(--sp-xs);
+  font-size: var(--fs-lg);
+}
+.quick-sub {
+  margin: 0 0 var(--sp-md);
+  font-size: var(--fs-sm);
+  max-width: 68ch;
+}
+.quick-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-xs);
+}
+.quick-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-xs);
+  padding: 7px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-card);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.quick-chip:hover { border-color: var(--brand-navy); background: var(--bg); }
+.quick-chip-n {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--bg);
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+.quick-chip:hover .quick-chip-n { background: var(--bg-card); }
+
+.quick-list { list-style: none; margin: 0; padding: 0; }
+.quick-list > li + li { border-top: 1px solid var(--border); }
+.quick-list button {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-sm);
+  width: 100%;
+  padding: 10px var(--sp-xs);
+  background: none;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+  border-radius: var(--r-sm);
+  color: var(--text);
+}
+.quick-list button:hover { background: var(--bg); }
+.quick-list-name { font-weight: 600; font-size: var(--fs-md); }
+.quick-list-meta { color: var(--text-muted); font-size: var(--fs-sm); flex: 1; }
+.quick-list-score {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
 .stat-tile-delta {
   font-size: var(--fs-sm);
   color: var(--text-muted);
@@ -1561,11 +1628,11 @@ label:has(> input[type='radio']) {
   line-height: 1;
   border-radius: var(--r-xs);
 }
-.rail-search-clear:hover { color: var(--text); background: var(--bg-subtle); }
+.rail-search-clear:hover { color: var(--text); background: var(--bg); }
 
 .rail-filter-chip {
   border: 1px solid var(--border);
-  background: var(--bg-subtle);
+  background: var(--bg);
   color: var(--text-muted);
   border-radius: 999px;
   padding: 2px 8px;
@@ -1624,7 +1691,7 @@ label:has(> input[type='radio']) {
   align-items: center;
   gap: 5px;
   border: 1px solid var(--brand-navy);
-  background: var(--bg-subtle);
+  background: var(--bg);
   color: var(--text);
   border-radius: 999px;
   padding: 5px 11px;
@@ -1719,7 +1786,7 @@ label:has(> input[type='radio']) {
 [data-theme='dark'] .staff-actor-link:hover { color: var(--brand-gold, #d8b45a); }
 .staff-actor-link[aria-pressed='true'] { color: var(--brand-navy); border-bottom-style: solid; }
 [data-theme='dark'] .staff-actor-link[aria-pressed='true'] { color: var(--brand-gold, #d8b45a); }
-tr.is-selected-actor { background: var(--bg-subtle); }
+tr.is-selected-actor { background: var(--bg); }
 
 /* The run of text the query matched. Weight and colour only — a filled
    highlight would fight the row's own selected/hover states. */
@@ -2256,7 +2323,7 @@ tr.row-flash > td { animation: row-flash 1.6s ease-out; }
 /* For labels that are a CATEGORY, not a verdict. The three risk badges above
    carry a judgement, so using one on something merely routine — a report being
    read — states a safety opinion the app does not hold. */
-.badge-neutral { background: var(--bg-subtle); color: var(--text-muted); border: 1px solid var(--border); padding: 1px 7px; border-radius: var(--r-lg); font-size: var(--fs-sm); font-weight: 600; }
+.badge-neutral { background: var(--bg); color: var(--text-muted); border: 1px solid var(--border); padding: 1px 7px; border-radius: var(--r-lg); font-size: var(--fs-sm); font-weight: 600; }
 
 /* ── Login Split ────────────────────────────────────────────────────────────── */
 .login-split {
