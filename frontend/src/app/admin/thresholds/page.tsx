@@ -11,6 +11,7 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import DashboardLayout from '@/components/layout/DashboardLayout';
+import NormSettings from '@/components/admin/NormSettings';
 import { useNormChangeNotice } from '@/components/admin/NormChangeNotice';
 import { api } from '@/lib/api';
 import { tierMeta } from '@/lib/holomotionTiers';
@@ -183,6 +184,14 @@ export default function CohortThresholdsPage() {
       document.getElementById(`cohort-${ids[0]}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
   }, [cohorts]);
+
+  async function saveSetting(key: string, value: number | boolean | string) {
+    setBusy(true); setError(null);
+    try {
+      await api.patch('/cohorts/settings/all', { [key]: value });
+      setSettings(await api.get<SettingsResp>('/cohorts/settings/all'));
+    } catch (e) { setError(e instanceof Error ? e.message : 'Save failed'); } finally { setBusy(false); }
+  }
 
   async function recompute() {
     setBusy(true); setMsg(null); setError(null);
@@ -360,8 +369,15 @@ export default function CohortThresholdsPage() {
       {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
       {msg && <div className="alert alert-success" style={{ marginBottom: 16 }}>{msg}</div>}
 
-      {/* Cohort norms — the norm VALUES. The Norming Settings + Email
-          Notifications config now live on the admin Settings page (button
+      {/* The norm-affecting settings, above the table they govern. Everything
+          else that used to sit with them — email, scheduled mail, import alerts
+          — stays on the Settings page, reachable from the button below. */}
+      {isAdmin && settings && (
+        <NormSettings set={set} saveSetting={saveSetting} recompute={recompute} busy={busy} />
+      )}
+
+      {/* Cohort norms — the norm VALUES. The Email Notifications and
+          scheduled-mail config live on the admin Settings page (button
           below), so this page stays focused on the norms themselves. */}
       <div className="card">
         <div className="card-header"><div>
