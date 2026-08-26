@@ -2125,6 +2125,35 @@ tr.row-flash > td { animation: row-flash 1.6s ease-out; }
   color: var(--text);
   transition: border-color 0.15s;
 }
+/* A radio or a checkbox is not a text field.
+   The block above stretches every input in a .form-group to 100% and gives it a
+   border and 9px/12px padding, which is right for a text box and wrong for a
+   choice control: the radio became a full-width bordered box with its dot
+   centred and its wording pushed to the far right of the card. */
+.form-group input[type="radio"],
+.form-group input[type="checkbox"] {
+  width: auto;
+  min-width: 0;
+  max-width: none;
+  padding: 0;
+  border: none;
+  margin: 0;
+  flex: 0 0 auto;
+  accent-color: var(--brand-navy);
+}
+
+/* One option: the control and its wording on a single line, the wording able to
+   wrap under itself rather than under the control. */
+.radio-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-weight: 400;
+  cursor: pointer;
+  line-height: 1.45;
+}
+.radio-option > input { margin-top: 2px; }
+
 .form-group input:focus,
 .form-group select:focus,
 .form-group textarea:focus {

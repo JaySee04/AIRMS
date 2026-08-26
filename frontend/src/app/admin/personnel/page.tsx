@@ -290,13 +290,13 @@ export default function AdminPersonnelPage() {
           <div className="form-group">
             <label>How they get access</label>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label style={{ fontWeight: 400 }}>
-                <input type="radio" checked={byInvite} onChange={() => setByInvite(true)} />
-                {' '}Email them an activation code <strong>(recommended)</strong>
+              <label className="radio-option">
+                <input type="radio" name="access-method" checked={byInvite} onChange={() => setByInvite(true)} />
+                <span>Email them an activation code <strong>(recommended)</strong></span>
               </label>
-              <label style={{ fontWeight: 400 }}>
-                <input type="radio" checked={!byInvite} onChange={() => setByInvite(false)} />
-                {' '}Set a password myself
+              <label className="radio-option">
+                <input type="radio" name="access-method" checked={!byInvite} onChange={() => setByInvite(false)} />
+                <span>Set a password myself</span>
               </label>
               <p className="card-sub" style={{ margin: 0 }}>
                 {byInvite
