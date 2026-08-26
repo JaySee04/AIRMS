@@ -12,14 +12,14 @@
 
 | Role | Email | Password |
 |---|---|---|
-| Athlete | `athlete@isn.gov.my` | `athlete123` (John Doe — the athlete key is now the **IC number**, e.g. `070202021001`; `npm run seed` prints each demo athlete's IC) |
-| Athlete | `thung@isn.gov.my` | `thung123` (Thung Jin Seng — seeded as a deliberately **stale** earlier assessment; import the sample HoloMotion PDF to watch his dashboard update to the printed values) |
-| Medical | `medical@isn.gov.my` | `medical123` (Medical Demo 01) |
-| Medical (alert inbox) | `23005005@siswa.um.edu.my` | `medical123` (Medical Demo 02 — a real deliverable inbox, so import-commit alerts demo against something checkable) |
-| Coach | `coach@isn.gov.my` | `coach123` (read-only, **sport-scoped** — squad readiness, team + individual report download for their own sport's athletes) |
-| Executive | `executive@isn.gov.my` | `executive123` (Datuk Executive — read-only institutional oversight: admin analytics + PDF reports, and **nothing that writes**) |
-| Admin | `admin@isn.gov.my` | `admin123` |
-| Admin (SMTP demo) | `poseidonapollo11@gmail.com` | `admin123` (real Gmail, so the email-reset flow demos against an inbox you can check) |
+| Athlete | `athlete@isn.gov.my` | airms2026 (John Doe — the athlete key is now the **IC number**, e.g. `070202021001`; `npm run seed` prints each demo athlete's IC) |
+| Athlete | `thung@isn.gov.my` | airms2026 (Thung Jin Seng — seeded as a deliberately **stale** earlier assessment; import the sample HoloMotion PDF to watch his dashboard update to the printed values) |
+| Medical | `medical@isn.gov.my` | airms2026 (Medical Demo 01) |
+| Medical (alert inbox) | `23005005@siswa.um.edu.my` | airms2026 (Medical Demo 02 — a real deliverable inbox, so import-commit alerts demo against something checkable) |
+| Coach | `coach@isn.gov.my` | airms2026 (read-only, **sport-scoped** — squad readiness, team + individual report download for their own sport's athletes) |
+| Executive | `executive@isn.gov.my` | airms2026 (Datuk Executive — read-only institutional oversight: admin analytics + PDF reports, and **nothing that writes**) |
+| Admin | `admin@isn.gov.my` | airms2026 |
+| Admin (SMTP demo) | `poseidonapollo11@gmail.com` | airms2026 (real Gmail, so the email-reset flow demos against an inbox you can check) |
 
 (Run `npm run seed` from project root to reseed.)
 

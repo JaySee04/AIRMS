@@ -388,13 +388,13 @@ If port 3000 is held: kill the stale process (`Stop-Process -Id <pid> -Force` in
 
 | Role | Email | Password | Athlete linked |
 |---|---|---|---|
-| athlete | `athlete@isn.gov.my` | `athlete123` | John Doe |
-| athlete | `thung@isn.gov.my` | `thung123` | Thung Jin Seng (ground-truth anchor) |
-| medical | `medical@isn.gov.my` | `medical123` | — |
-| medical (alert inbox) | `23005005@siswa.um.edu.my` | `medical123` | — |
+| athlete | `athlete@isn.gov.my` | airms2026 | John Doe |
+| athlete | `thung@isn.gov.my` | airms2026 | Thung Jin Seng (ground-truth anchor) |
+| medical | `medical@isn.gov.my` | airms2026 | — |
+| medical (alert inbox) | `23005005@siswa.um.edu.my` | airms2026 | — |
 | coach | see `/admin/personnel` | — | sport-scoped |
-| admin | `admin@isn.gov.my` | `admin123` | — |
-| admin (SMTP demo) | `poseidonapollo11@gmail.com` | `admin123` | — |
+| admin | `admin@isn.gov.my` | airms2026 | — |
+| admin (SMTP demo) | `poseidonapollo11@gmail.com` | airms2026 | — |
 
 > **The athlete key is the IC number since 2026-08-04 (A2)** — the `athleteId` column keeps its name internally and still serialises as `_id`, but its *values* are 12-digit ICs (e.g. `890202021001`) and the UI labels it "IC Number". The old `ATH0001` scheme is gone; `npm run seed` prints each demo athlete's IC.
 

@@ -326,7 +326,7 @@ Figma UI. Half-doing it is worse than declaring it.
 ## Stage E — email alerts
 - [x] ~~Provide a test recipient inbox~~ — **wired 2026-07-17.**
   `23005005@siswa.um.edu.my` is now a seeded active **medical** user (Medical
-  Demo 02, password `medical123`). Medical staff receive an alert for *every*
+  Demo 02, password airms2026). Medical staff receive an alert for *every*
   flagged athlete, so any import that lands an athlete amber/red emails this
   real inbox. Verified via `alertMany(['ATH0061'])`:
   `To: medical@isn.gov.my, 23005005@siswa.um.edu.my, coach@isn.gov.my`.

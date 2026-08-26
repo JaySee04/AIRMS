@@ -227,7 +227,7 @@ npm run seed      # drops + reseeds MySQL, deterministic PRNG (seed=42); prints 
 npm run dev       # backend :5000 + frontend :3000
 ```
 
-Demo login: `athlete@isn.gov.my` / `athlete123` (John Doe). The athlete key is the **IC number** since 2026-08-04 — `npm run seed` prints them. Full credentials in [CLAUDE.md](../CLAUDE.md) §Demo credentials.
+Demo login: `athlete@isn.gov.my` / `airms2026` (John Doe). The athlete key is the **IC number** since 2026-08-04 — `npm run seed` prints them. Full credentials in [CLAUDE.md](../CLAUDE.md) §Demo credentials.
 
 ---
 

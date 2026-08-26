@@ -402,11 +402,18 @@ function flattenMuscleFlags(athletes) {
 }
 
 /**
- * One password for every short stakeholder login.
+ * The password for EVERY seeded account.
  *
- * Not a security boundary — this dataset is entirely fabricated and the site is
- * a demonstration. It is long enough not to read as negligence on a public URL,
- * which `admin` or `1234` would.
+ * It used to be `<role>123` — admin123, medical123, coach123 and so on. That
+ * reads as convenient and is not: handing a stakeholder five logins means five
+ * address/password pairs to keep straight, and the pairing is the part people
+ * get wrong, not the typing. One password and the address carries the role.
+ *
+ * Not a security boundary. The dataset is entirely fabricated and the site is a
+ * demonstration; this is long enough not to read as negligence on a public URL,
+ * which `admin` or `1234` would. Real accounts are created by invitation and set
+ * their own password under the full policy (utils/resetCodes.js), which these
+ * seeded fixtures deliberately sit outside.
  */
 const DEMO_PASSWORD = 'airms2026';
 
@@ -414,27 +421,27 @@ function buildUsers() {
   // Plain-text passwords here — the User model's beforeSave hook hashes
   // them when bulkCreate runs with individualHooks: true.
   return [
-    { name: 'Admin User', email: 'admin@isn.gov.my', password: 'admin123', role: 'admin' },
-    { name: 'Admin Demo', email: 'poseidonapollo11@gmail.com', password: 'admin123', role: 'admin' },
-    { name: 'Medical Demo 01', email: 'medical@isn.gov.my', password: 'medical123', role: 'medical' },
+    { name: 'Admin User', email: 'admin@isn.gov.my', password: DEMO_PASSWORD, role: 'admin' },
+    { name: 'Admin Demo', email: 'poseidonapollo11@gmail.com', password: DEMO_PASSWORD, role: 'admin' },
+    { name: 'Medical Demo 01', email: 'medical@isn.gov.my', password: DEMO_PASSWORD, role: 'medical' },
     // Live-alert test recipient (2026-07-17): a real, deliverable inbox. Import-
     // commit alerts email ALL active medical staff, so any flagged athlete's
     // alert lands here — lets JC verify the email feature against a checkable
     // inbox. Also a working login (medical view) if useful. (The other seeded
     // recipients use fake @isn.gov.my addresses, so real sends to those bounce
     // to the SMTP account — expected; delete those bounce-backs.)
-    { name: 'Medical Demo 02', email: '23005005@siswa.um.edu.my', password: 'medical123', role: 'medical' },
-    { name: 'John Doe', email: 'athlete@isn.gov.my', password: 'athlete123', role: 'athlete', athleteId: IC_JOHN },
+    { name: 'Medical Demo 02', email: '23005005@siswa.um.edu.my', password: DEMO_PASSWORD, role: 'medical' },
+    { name: 'John Doe', email: 'athlete@isn.gov.my', password: DEMO_PASSWORD, role: 'athlete', athleteId: IC_JOHN },
     // Ground-truth athlete login — Dr Thung's own HoloMotion report seeded
     // 1:1, so the athlete view can be checked against the printed PDF.
-    { name: 'Thung Jin Seng', email: 'thung@isn.gov.my', password: 'thung123', role: 'athlete', athleteId: IC_THUNG },
+    { name: 'Thung Jin Seng', email: 'thung@isn.gov.my', password: DEMO_PASSWORD, role: 'athlete', athleteId: IC_THUNG },
     // Coach role (first-class 4th role) — one sport per coach. Badminton includes
     // John Doe and Thung, so the coach's squad overlaps the athlete
     // demo logins.
-    { name: 'Coach Demo 01', email: 'coach@isn.gov.my', password: 'coach123', role: 'coach', coachSport: 'Badminton' },
+    { name: 'Coach Demo 01', email: 'coach@isn.gov.my', password: DEMO_PASSWORD, role: 'coach', coachSport: 'Badminton' },
     // Executive — read-only oversight. Sees the admin analytics and can download
     // the reports; cannot import, edit norms, touch the roster or personnel.
-    { name: 'Datuk Executive', email: 'executive@isn.gov.my', password: 'executive123', role: 'executive' },
+    { name: 'Datuk Executive', email: 'executive@isn.gov.my', password: DEMO_PASSWORD, role: 'executive' },
     // Deliverable-inbox counterparts, beside the canonical @isn.gov.my logins
     // rather than replacing them (those are documented credentials).
     //
@@ -446,24 +453,8 @@ function buildUsers() {
     // Coach Demo 02 shares Badminton with Coach Demo 01 ON PURPOSE: the reminder
     // sends one email per SPORT, not per coach, so the pair demonstrates that
     // rule — two coaches, one message.
-    { name: 'Coach Demo 02', email: 'poseidonapollo11+coach@gmail.com', password: 'coach123', role: 'coach', coachSport: 'Badminton' },
-
-    // Short logins for stakeholder testing (2026-08-26).
-    //
-    // ADDED beside the canonical @isn.gov.my accounts, never replacing them:
-    // those are documented in five places and asserted in mailSendNow.test.js,
-    // and renaming them to save eight keystrokes would be a poor trade.
-    //
-    // One password across all five, deliberately. What makes a credential list
-    // hard to use over email or in a meeting is not its length, it is having to
-    // track WHICH password goes with which address — so there is only one to
-    // remember, and the address carries the role.
-    { name: 'Admin (short login)', email: 'admin@isn.my', password: DEMO_PASSWORD, role: 'admin' },
-    { name: 'Medical (short login)', email: 'med@isn.my', password: DEMO_PASSWORD, role: 'medical' },
-    { name: 'Coach (short login)', email: 'coach@isn.my', password: DEMO_PASSWORD, role: 'coach', coachSport: 'Badminton' },
-    { name: 'John Doe', email: 'athlete@isn.my', password: DEMO_PASSWORD, role: 'athlete', athleteId: IC_JOHN },
-    { name: 'Executive (short login)', email: 'exec@isn.my', password: DEMO_PASSWORD, role: 'executive' },
-    { name: 'Executive Demo 02', email: 'poseidonapollo11+exec@gmail.com', password: 'executive123', role: 'executive' },
+    { name: 'Coach Demo 02', email: 'poseidonapollo11+coach@gmail.com', password: DEMO_PASSWORD, role: 'coach', coachSport: 'Badminton' },
+    { name: 'Executive Demo 02', email: 'poseidonapollo11+exec@gmail.com', password: DEMO_PASSWORD, role: 'executive' },
   ];
 }
 
@@ -609,17 +600,18 @@ async function seed() {
     console.log(`Inserted ${priorRows.length} prior screening snapshots (coach trend history)`);
   }
 
-  console.log('\nDemo credentials:');
-  console.log('  Admin:   admin@isn.gov.my              / admin123');
-  console.log('  Admin:   poseidonapollo11@gmail.com    / admin123');
-  console.log('  Medical: medical@isn.gov.my            / medical123');
-  console.log('  Medical: 23005005@siswa.um.edu.my      / medical123   (live-alert test inbox)');
-  console.log('  Executive: executive@isn.gov.my        / executive123 (read-only: analytics + reports)');
-  console.log(`  Athlete: athlete@isn.gov.my            / athlete123   (John Doe, IC ${IC_JOHN})`);
-  console.log(`  Athlete: thung@isn.gov.my              / thung123     (Thung Jin Seng, IC ${IC_THUNG} — 1:1 with the sample HoloMotion PDF)`);
-  console.log('  Coach:   coach@isn.gov.my              / coach123');
-  console.log('  Coach:   poseidonapollo11+coach@gmail.com / coach123     (deliverable inbox, same sport)');
-  console.log('  Executive: poseidonapollo11+exec@gmail.com / executive123 (deliverable inbox)');
+  console.log(`
+Demo credentials - one password for every account: ${DEMO_PASSWORD}`);
+  console.log("  Admin:     admin@isn.gov.my                  (Dr Thung’s role)");
+  console.log('  Admin:     poseidonapollo11@gmail.com        (real inbox - email-reset demo)');
+  console.log('  Medical:   medical@isn.gov.my');
+  console.log('  Medical:   23005005@siswa.um.edu.my          (live-alert test inbox)');
+  console.log('  Coach:     coach@isn.gov.my                  (Badminton)');
+  console.log('  Coach:     poseidonapollo11+coach@gmail.com  (deliverable inbox, same sport)');
+  console.log('  Executive: executive@isn.gov.my              (read-only: analytics + reports)');
+  console.log('  Executive: poseidonapollo11+exec@gmail.com   (deliverable inbox)');
+  console.log(`  Athlete:   athlete@isn.gov.my                (John Doe, IC ${IC_JOHN})`);
+  console.log(`  Athlete:   thung@isn.gov.my                  (Thung Jin Seng, IC ${IC_THUNG} - 1:1 with the sample HoloMotion PDF)`);
 
   await sequelize.close();
   console.log('\nSeeding complete.');

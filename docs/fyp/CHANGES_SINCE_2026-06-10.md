@@ -87,7 +87,7 @@ personalisation axes, prescription answer).
   report); ~1 in 10 athletes unscreened so "no data" states are demoable.
 - **ATH0061 Thung Jin Seng** — Dr Thung's own report transcribed 1:1
   (77/12/88/72/75, the eight printed risk circles, 3+3 muscle flags) with a
-  login (`thung@isn.gov.my / thung123`): an ingest of the same PDF must
+  login (`thung@isn.gov.my / airms2026): an ingest of the same PDF must
   reproduce this row exactly, so the pipeline has verifiable ground truth.
 - John Doe (ATH0001) reshaped to HoloMotion-form integers preserving the
   Module 2 demo profile; Thung gets an 8-week masters-volume activity history.

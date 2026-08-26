@@ -98,12 +98,12 @@ the clinician, the coach and the administrator."**
 
 | Role | Demo email | Landing page | Scope |
 |---|---|---|---|
-| **athlete** | `athlete@isn.gov.my` / `athlete123` | `/athlete/dashboard` | Self only — sees own activity, injuries, risk |
-| **medical** | `medical@isn.gov.my` / `medical123` | `/medical/dashboard` | All athletes — can log injuries, review self-reports |
-| **admin** | `admin@isn.gov.my` / `admin123` | `/admin/dashboard` | Full system — analytics, data uploads, PDF reports |
-| **admin** (SMTP demo) | `poseidonapollo11@gmail.com` / `admin123` | `/admin/dashboard` | Identical privileges; created so the email-reset flow can demo against a real Gmail inbox |
+| **athlete** | `athlete@isn.gov.my` / airms2026 | `/athlete/dashboard` | Self only — sees own activity, injuries, risk |
+| **medical** | `medical@isn.gov.my` / airms2026 | `/medical/dashboard` | All athletes — can log injuries, review self-reports |
+| **admin** | `admin@isn.gov.my` / airms2026 | `/admin/dashboard` | Full system — analytics, data uploads, PDF reports |
+| **admin** (SMTP demo) | `poseidonapollo11@gmail.com` / airms2026 | `/admin/dashboard` | Identical privileges; created so the email-reset flow can demo against a real Gmail inbox |
 
-Each role's seeded password is `<role>123` (e.g. `admin123`). Confirmed in `backend/src/utils/seeder.js`. The seeded passwords do **not** satisfy the 10-char + complexity policy — that's intentional (the policy gates user-driven password setting, not seeded fixtures). If you ever reset a seeded user's password via the live UI, pick something that satisfies the policy (e.g. `ISN#admin2026`).
+Every seeded account shares one password, `airms2026` (it was `<role>123` until 2026-08-26 — five logins meant five address/password pairs to keep straight, and the pairing is what people get wrong). Confirmed in `backend/src/utils/seeder.js`. The seeded passwords do **not** satisfy the 10-char + complexity policy — that's intentional (the policy gates user-driven password setting, not seeded fixtures). If you ever reset a seeded user's password via the live UI, pick something that satisfies the policy (e.g. `ISN#admin2026`).
 
 Role gating is done client-side in `frontend/src/components/layout/DashboardLayout.tsx` via the `allowedRoles` prop. Backend enforces RBAC at every protected route via `backend/src/middleware/rbac.js`.
 

@@ -178,7 +178,7 @@ a short-lived token). Three settings hold it together and all three have been
 wrong at some point:
 
 | | `airms-api` | `airms-web` |
-|---|---|---|
+|---|---|
 | Root Directory | `backend` | `frontend` |
 | Production Branch | `feat/mysql-migration` | `feat/mysql-migration` |
 | Git repo | `JaySee04/AIRMS` | `JaySee04/AIRMS` |
@@ -244,38 +244,28 @@ with SPF/DKIM; the mailer is env-driven, so it is configuration, not code.
 
 ## Demo credentials (seeded)
 
-**Short logins for stakeholder testing** (added 2026-08-26) — one password,
-`airms2026`, across all five, because what makes a credential list hard to use is
-tracking which password goes with which address, not the length of either:
+**Every seeded account uses the same password: `airms2026`.** It was `<role>123`
+until 2026-08-26. Handing a stakeholder five logins means five address/password
+pairs to keep straight, and the pairing is what people get wrong, not the typing
+— so there is one password and the address carries the role. Not a security
+boundary: the dataset is fabricated, and real accounts are created by invitation
+and set their own password under the full policy, which these fixtures
+deliberately sit outside.
 
-| Role | Email |
-|---|---|
-| admin | `admin@isn.my` |
-| medical | `med@isn.my` |
-| coach | `coach@isn.my` (Badminton) |
-| athlete | `athlete@isn.my` (John Doe) |
-| executive | `exec@isn.my` |
-
-These are **additional** accounts, not renames. The canonical `@isn.gov.my`
-logins below are referenced in five docs and asserted in `mailSendNow.test.js`,
-and they still work. The coach's sport and the athlete's roster link are copied
-from their canonical counterparts at seed time rather than hardcoded, so an alias
-cannot drift from what it mirrors.
-
-
-| Role | Email | Password |
+| Role | Email | Notes |
 |---|---|---|
-| athlete | `athlete@isn.gov.my` | `athlete123` (John Doe — the athlete key is now the IC number, e.g. `070202021001`; `npm run seed` prints each demo athlete's IC) |
-| athlete | `thung@isn.gov.my` | `thung123` (Thung Jin Seng — seeded as a deliberately STALE earlier assessment so importing the sample HoloMotion PDF visibly updates his dashboard to the printed values; extraction ground truth lives in `backend/scripts/verify-holomotion-extract.js`) |
-| medical | `medical@isn.gov.my` | `medical123` (Medical Demo 01) |
-| medical (alert inbox) | `23005005@siswa.um.edu.my` | `medical123` (Medical Demo 02 — real deliverable inbox; import-commit alerts land here so the email feature demos against a checkable inbox) |
-| admin | `admin@isn.gov.my` | `admin123` |
-| admin (SMTP demo) | `poseidonapollo11@gmail.com` | `admin123` (real-Gmail account so the email-reset flow demos against an inbox you can check) |
-| executive | `executive@isn.gov.my` | `executive123` (Datuk Executive — **read-only oversight**: admin analytics + PDF reports, and nothing that writes) |
-| coach (deliverable inbox) | `poseidonapollo11+coach@gmail.com` | `coach123` (Coach Demo 02 — same Badminton squad as Coach Demo 01 **on purpose**: the rescreen reminder sends one email per SPORT, not per coach, so the pair demonstrates that rule into a checkable inbox) |
-| executive (deliverable inbox) | `poseidonapollo11+exec@gmail.com` | `executive123` (Executive Demo 02 — so the digest's executive copy can be seen arriving; the `@isn.gov.my` addresses bounce) |
+| athlete | `athlete@isn.gov.my` | (John Doe — the athlete key is now the IC number, e.g. `070202021001`; `npm run seed` prints each demo athlete's IC) |
+| athlete | `thung@isn.gov.my` | (Thung Jin Seng — seeded as a deliberately STALE earlier assessment so importing the sample HoloMotion PDF visibly updates his dashboard to the printed values; extraction ground truth lives in `backend/scripts/verify-holomotion-extract.js`) |
+| medical | `medical@isn.gov.my` | (Medical Demo 01) |
+| medical (alert inbox) | `23005005@siswa.um.edu.my` | (Medical Demo 02 — real deliverable inbox; import-commit alerts land here so the email feature demos against a checkable inbox) |
+| admin | `admin@isn.gov.my` | Admin User — **Dr Thung's role**; the admin surface was built at his request (`MASTER_CLARIFICATIONS` §12) |
+| admin (SMTP demo) | `poseidonapollo11@gmail.com` | (real-Gmail account so the email-reset flow demos against an inbox you can check) |
+| coach | `coach@isn.gov.my` | Coach Demo 01 — Badminton, the squad John Doe and Thung are in, so the coach view overlaps the athlete logins |
+| executive | `executive@isn.gov.my` | (Datuk Executive — **read-only oversight**: admin analytics + PDF reports, and nothing that writes) |
+| coach (deliverable inbox) | `poseidonapollo11+coach@gmail.com` | (Coach Demo 02 — same Badminton squad as Coach Demo 01 **on purpose**: the rescreen reminder sends one email per SPORT, not per coach, so the pair demonstrates that rule into a checkable inbox) |
+| executive (deliverable inbox) | `poseidonapollo11+exec@gmail.com` | (Executive Demo 02 — so the digest's executive copy can be seen arriving; the `@isn.gov.my` addresses bounce) |
 
-Seeded passwords intentionally do not satisfy the 10-char + complexity password policy — the policy gates user-driven password setting via `change-password` / `reset-password`, not seeded fixtures.
+`airms2026` intentionally does not satisfy the 10-char + complexity password policy — the policy gates user-driven password setting via `change-password` / `reset-password`, not seeded fixtures.
 
 ## Architecture overview
 
