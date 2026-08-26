@@ -200,9 +200,16 @@ export default function AdminPersonnelPage() {
     return 'Never signed in';
   };
 
-  // Offered while the account carries no activation — either never invited (a
-  // seeded account whose password was typed directly) or invited and not yet
-  // taken up. Gone once they have joined.
+  // Offered only while nobody can get into the account yet.
+  //
+  // Two signals, and both are needed. `activatedAt` says they set their own
+  // password from a code. `lastLoginAt` says they have signed in at all — which
+  // covers a seeded account, or one whose password an administrator typed: those
+  // carry no activation, so an activation-only rule still offered to "invite"
+  // somebody who logs in every day.
+  //
+  // Either way the mail is false. It says an account has just been created and
+  // asks the reader to finish setting it up.
   //
   // It used to render for everyone, labelled "Send invite" for people who had
   // joined weeks earlier. Three things were wrong with that, and the button was
@@ -214,7 +221,7 @@ export default function AdminPersonnelPage() {
   // Nothing is lost. An activated user who is locked out uses "Forgot password?"
   // on the login page, which sends the mail written for that situation, with the
   // short TTL that suits it.
-  const inviteButton = (u: StaffUser) => (u.activatedAt ? null : (
+  const inviteButton = (u: StaffUser) => (u.activatedAt || u.lastLoginAt ? null : (
     <button
       type="button"
       className="btn btn-outline btn-sm"

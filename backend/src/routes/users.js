@@ -195,9 +195,12 @@ router.post('/:id/invite', async (req, res) => {
     const user = await User.findByPk(req.params.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
     if (!user.isActive) return res.status(409).json({ message: 'That account is deactivated. Reactivate it before inviting.' });
-    if (user.activatedAt) {
+    // Activated, or simply signed in at all: either way somebody already has a
+    // working password, and this mail tells its reader an account has just been
+    // created for them.
+    if (user.activatedAt || user.lastLoginAt) {
       return res.status(409).json({
-        message: 'That account has already been activated. They can reset their own password from "Forgot password?" on the sign-in page.',
+        message: 'That account is already in use. They can reset their own password from "Forgot password?" on the sign-in page.',
       });
     }
 
