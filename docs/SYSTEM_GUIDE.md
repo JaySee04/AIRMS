@@ -238,7 +238,39 @@ trail that changes when somebody is renamed is not a trail.
 - **The athlete's name is blacked out of the page image before it is sent for
   extraction**, so the one direct identifier never reaches the AI provider. This
   is working on the hosted site — a test import returned the name as `██████`.
+- **The athlete need not already be on the roster.** If the report is for
+  somebody AIRMS has never seen, the system looks them up in the **ISN athlete
+  directory** and offers to create them pre-filled — name, IC, sport, programme,
+  events — so a new athlete costs no separate data-entry step. The panel says
+  *"new, from the ISN directory ... added when you commit"*, and the athlete is
+  created only when you commit the report.
 - **Data Backup** — the full dataset as an Excel workbook.
+
+#### The three sample reports
+
+Three real HoloMotion reports from the screening session of **29 July 2025** are
+provided with this guide. They are set up to demonstrate the path above: all
+three athletes are **in the ISN directory and not yet on the AIRMS roster**, so
+uploading their reports both creates the athlete and records their first
+screening.
+
+| Report | Age on the report | Total Score | Exercise Risks |
+|---|---|---|---|
+| Nur Aina Danish | 18 | 77 (Good) | 14 (Low) |
+| Nurin Syazwani Binti Rusli | 17 | 70 (Average) | 19 (Medium) |
+| Nur Batrisyia Binti Yusof | 16 | 68 (Average) | 21 (Medium) |
+
+Drop all three in at once — batch upload is supported. Each is matched to its
+ISN record automatically from the file name, so there should be nothing to type;
+the search controls below each report are there to correct a wrong match, not to
+make one. All three are Badminton / PELAPIS, which is the same squad as the coach
+demonstration account, so their scores appear on the coach's board once
+committed.
+
+Please do check each extracted value against the PDF in your hand before
+committing — that preview step exists precisely so a misread never reaches the
+record, and telling us about a misread is one of the most useful things you can
+report back.
 
 ### Settings (`/admin/settings`)
 

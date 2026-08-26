@@ -113,6 +113,83 @@ const ISN_DIRECTORY = [
     dateRegistered: '2025-01-13',
     status: 'active',
   },
+
+  // ── The 2025-07-29 screening session ──────────────────────────────────────
+  // Three athletes from one afternoon's squad run (15:42, 16:00 and 16:56),
+  // whose HoloMotion reports JC holds and will hand to Dr Thung and Dr Hoo to
+  // upload. They are in ISN's directory and deliberately NOT in the seeded AIRMS
+  // roster, so each report resolves to `inRoster: false` — "new, from the ISN
+  // directory ... added when you commit" — and the whole ingestion path runs end
+  // to end: parse the name from the filename, look it up in ISN, create the
+  // athlete pre-filled, score the first screening, alert the clinician.
+  //
+  // Two details are load-bearing:
+  //
+  //   `name` must match what parseNameFromFilename() recovers from the supplied
+  //   filename, since matchInIsn accepts only a UNIQUE hit. The files are
+  //   "rpt_2025-07-29_12. nurin syazwani binti rusli_<hash>.pdf" and so on; the
+  //   parser strips the date, the batch number and the hash, and the comparison
+  //   is case-insensitive, so the properly-cased master record below matches the
+  //   report's lowercase and ALL-CAPS spellings alike.
+  //
+  //   `dateOfBirth` is set so the age it derives AT THE SCREENING DATE equals
+  //   the age printed on that athlete's report (17, 16 and 18). Age is derived,
+  //   not stored, so the directory shows them a year older today — which is what
+  //   a master record holding a birth date should do. The upload takes the
+  //   REPORT's age regardless (see fromReport in screeningUploadStore.ts); ISN's
+  //   is only the fallback for a report that did not read cleanly.
+  //
+  // Badminton / PELAPIS / Female puts them beside the four seeded athletes of
+  // that squad, aged 15-18. That group is one short of `min_cohort_n`, so their
+  // first screening scores against the `sg` tier (Badminton / Female, n=7) — a
+  // real same-sport, same-sex norm, and the fallback ladder doing its job rather
+  // than a contrivance. It is also Coach Demo's squad, so the coach dashboard
+  // picks them up once the reports are committed.
+  {
+    icNumber: '070322080314',
+    name: 'Nur Aina Danish',
+    dateOfBirth: '2007-03-22',   // 18 on 2025-07-29, as printed
+    gender: 'Female',
+    sport: 'Badminton',
+    programme: 'PELAPIS',
+    disciplines: ["Women's Singles"],
+    nationality: 'Malaysian',
+    stateOfBirth: 'Perak',
+    contactEmail: 'nur.aina@isn-athlete.example.my',
+    contactPhone: '0123456787',
+    dateRegistered: '2024-03-18',
+    status: 'active',
+  },
+  {
+    icNumber: '080214100248',
+    name: 'Nurin Syazwani Binti Rusli',
+    dateOfBirth: '2008-02-14',   // 17 on 2025-07-29, as printed
+    gender: 'Female',
+    sport: 'Badminton',
+    programme: 'PELAPIS',
+    disciplines: ["Women's Doubles", 'Mixed Doubles'],
+    nationality: 'Malaysian',
+    stateOfBirth: 'Selangor',
+    contactEmail: 'nurin.syazwani@isn-athlete.example.my',
+    contactPhone: '0123456788',
+    dateRegistered: '2024-07-02',
+    status: 'active',
+  },
+  {
+    icNumber: '090506010576',
+    name: 'Nur Batrisyia Binti Yusof',
+    dateOfBirth: '2009-05-06',   // 16 on 2025-07-29, as printed
+    gender: 'Female',
+    sport: 'Badminton',
+    programme: 'PELAPIS',
+    disciplines: ["Women's Singles"],
+    nationality: 'Malaysian',
+    stateOfBirth: 'Johor',
+    contactEmail: 'nur.batrisyia@isn-athlete.example.my',
+    contactPhone: '0123456789',
+    dateRegistered: '2025-02-24',
+    status: 'active',
+  },
 ];
 
 function ageFromDob(dob) {

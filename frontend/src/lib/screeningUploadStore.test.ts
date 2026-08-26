@@ -37,6 +37,22 @@ describe('parseNameFromFilename', () => {
     expect(parseNameFromFilename('3. Aisha Ahmad.pdf')).toBe('Aisha Ahmad');
   });
 
+  // The three reports JC hands to Dr Thung and Dr Hoo. Their names must survive
+  // the parser intact, because the athletes are not in the roster: the ONLY way
+  // they resolve is an exact hit in the ISN directory, and matchInIsn accepts
+  // nothing ambiguous. A stray "12." would silently make that lookup miss.
+  it.each([
+    ['rpt_2025-07-29_12. nurin syazwani binti rusli_e52fec0f97a949b39aa431d5803c3c51.pdf',
+      'nurin syazwani binti rusli'],
+    ['rpt_2025-07-29_14. NUR BATRISYIA BINTI YUSOF_ed1880dee45c420f8e55ad63c38b488c.pdf',
+      'NUR BATRISYIA BINTI YUSOF'],
+    // Note the space before the underscore - this one is in the real filename.
+    ['rpt_2025-07-29_12. nur aina danish _c1c39c42d2774c47a513e4d2b856a1ee.pdf',
+      'nur aina danish'],
+  ])('reads the 2025-07-29 session file %#', (filename, expected) => {
+    expect(parseNameFromFilename(filename)).toBe(expected);
+  });
+
   it('strips a long alphanumeric digest that is not pure hex', () => {
     expect(parseNameFromFilename('zara tan_a1b2z9k4m7q3.pdf')).toBe('zara tan');
   });
