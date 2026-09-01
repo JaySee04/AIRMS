@@ -13,7 +13,11 @@ import { ISN_SPORTS } from '@/lib/sports';
 import SportSelect from '@/components/ui/SportSelect';
 import { passwordRules, validatePassword, PASSWORD_MIN_LENGTH } from '@/lib/passwordPolicy';
 
-type Role = 'coach' | 'medical';
+// The roles an administrator may create here. Mirrors INVITABLE_ROLES in
+// backend/src/routes/users.js — `athlete` is excluded from both, because an
+// athlete account also needs a roster record to attach to, which is a different
+// decision from "who may use the system".
+type Role = 'coach' | 'medical' | 'admin' | 'executive';
 
 interface StaffUser {
   _id: string;
@@ -52,6 +56,13 @@ function granted(perms: Record<string, boolean> | null, key: string): boolean {
 export default function AdminPersonnelPage() {
   const [coaches, setCoaches] = useState<StaffUser[]>([]);
   const [medical, setMedical] = useState<StaffUser[]>([]);
+  // Administration and oversight. The endpoint has always accepted these two
+  // roles; only the form and the lists did not offer them, so an administrator
+  // could not create a colleague or an executive without someone editing the
+  // database. They share a section: neither carries per-capability permissions
+  // (those are medical-only) and neither is scoped to a sport.
+  const [admins, setAdmins] = useState<StaffUser[]>([]);
+  const [executives, setExecutives] = useState<StaffUser[]>([]);
   const [meta, setMeta] = useState<PermissionMeta | null>(null);
   const [sportDraft, setSportDraft] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(true);
@@ -75,14 +86,18 @@ export default function AdminPersonnelPage() {
 
   const load = useCallback(async () => {
     try {
-      const [m, coachList, medList] = await Promise.all([
+      const [m, coachList, medList, adminList, execList] = await Promise.all([
         api.get<PermissionMeta>('/users/permission-meta'),
         api.get<StaffUser[]>('/users?role=coach'),
         api.get<StaffUser[]>('/users?role=medical'),
+        api.get<StaffUser[]>('/users?role=admin'),
+        api.get<StaffUser[]>('/users?role=executive'),
       ]);
       setMeta(m);
       setCoaches(coachList);
       setMedical(medList);
+      setAdmins(adminList);
+      setExecutives(execList);
       setSportDraft(Object.fromEntries(coachList.map((c) => [c.id, c.coachSport ?? ''])));
       setError(null);
     } catch (e) {
@@ -142,17 +157,29 @@ export default function AdminPersonnelPage() {
     }
   }
 
+  // One definition of "which list is this person in". It was an inline
+  // `role === 'coach' ? setCoaches : setMedical` in three places, which silently
+  // filed an admin under medical the moment a third role existed.
+  const listSetterFor = (role: string) => (
+    role === 'coach' ? setCoaches
+      : role === 'medical' ? setMedical
+        : role === 'admin' ? setAdmins
+          : setExecutives
+  );
+
   // Optimistic patch of one user in whichever list they belong to.
   async function patchUser(user: StaffUser, next: Partial<Pick<StaffUser, 'permissions' | 'isActive'>>) {
-    const setList = user.role === 'coach' ? setCoaches : setMedical;
+    const setList = listSetterFor(user.role);
     const prevCoaches = coaches; const prevMedical = medical;
+    const prevAdmins = admins; const prevExecutives = executives;
     setList((cur) => cur.map((u) => (u._id === user._id ? { ...u, ...next } : u)));
     setSavingId(user._id); setError(null);
     try {
       const updated = await api.patch<StaffUser>(`/users/${user.id}`, next);
       setList((cur) => cur.map((u) => (u._id === user._id ? { ...u, ...updated } : u)));
     } catch (e) {
-      setCoaches(prevCoaches); setMedical(prevMedical); // rollback
+      setCoaches(prevCoaches); setMedical(prevMedical);
+      setAdmins(prevAdmins); setExecutives(prevExecutives); // rollback
       setError(e instanceof Error ? e.message : 'Failed to update');
     } finally {
       setSavingId(null);
@@ -171,7 +198,7 @@ export default function AdminPersonnelPage() {
     setError(null);
     try {
       const updated = await api.post<StaffUser>(`/users/${u.id}/invite`, {});
-      const setList = u.role === 'coach' ? setCoaches : setMedical;
+      const setList = listSetterFor(u.role);
       setList((cur) => cur.map((x) => (x._id === u._id ? { ...x, ...updated } : x)));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not send the invitation');
@@ -257,8 +284,11 @@ export default function AdminPersonnelPage() {
         <div className="card-header"><div>
           <h2 className="card-title" style={{ marginBottom: 0 }}>Add Personnel</h2>
           <span className="card-sub">
-            Create a coach (read-only, scoped to one sport) or a medical staff account (full access by default).
-            The password must meet the AIRMS policy: at least {PASSWORD_MIN_LENGTH} characters, with upper + lower case, a number, and a symbol.
+            Four roles: a coach (read-only, one sport), medical staff (clinical access, every capability on
+            by default), an executive (read-only oversight, writes nothing), or another administrator — who can
+            do everything you can, including creating and removing accounts here.
+            If you set a password yourself it must meet the AIRMS policy: at least {PASSWORD_MIN_LENGTH} characters,
+            with upper + lower case, a number, and a symbol. Inviting them avoids that: they choose their own.
           </span>
         </div></div>
         {addError && <div className="alert alert-error">{addError}</div>}
@@ -270,6 +300,8 @@ export default function AdminPersonnelPage() {
               <select value={role} onChange={(e) => setRole(e.target.value as Role)}>
                 <option value="coach">Coach — read-only, one sport</option>
                 <option value="medical">Medical staff — clinical access</option>
+                <option value="executive">Executive — read-only oversight</option>
+                <option value="admin">Administrator — full access, including this page</option>
               </select>
             </div>
             <div className="form-group">
@@ -466,6 +498,55 @@ export default function AdminPersonnelPage() {
                         </label>
                       </td>
                     ))}
+                    <td style={{ textAlign: 'center' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center' }}>
+                        {accountBadge(u)}
+                        {inviteButton(u)}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Administration & oversight */}
+      <div className="card" style={{ marginTop: 20 }}>
+        <div className="card-header"><div>
+          <h2 className="card-title" style={{ marginBottom: 0 }}>Administration &amp; oversight</h2>
+          <span className="card-sub">
+            {admins.length} administrator{admins.length === 1 ? '' : 's'} and {executives.length} executive
+            {executives.length === 1 ? '' : 's'} · no per-capability switches here — an administrator can do
+            everything, an executive can read and write nothing.
+          </span>
+        </div></div>
+        {admins.length + executives.length === 0 ? (
+          <p className="text-muted">No accounts yet.</p>
+        ) : (
+          <div className="table-wrap">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Account</th>
+                  <th>Role</th>
+                  <th style={{ textAlign: 'center' }}>Account</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[...admins, ...executives].map((u) => (
+                  <tr key={u._id}>
+                    <td>
+                      <div style={{ fontWeight: 600 }}>{u.name}</div>
+                      <div className="text-muted" style={{ fontSize: 'var(--fs-sm)' }}>{u.email}</div>
+                      <div className="text-muted" style={{ fontSize: 'var(--fs-xs)' }}>{onboardingLine(u)}</div>
+                    </td>
+                    <td>
+                      <span className={u.role === 'admin' ? 'badge-high' : 'badge-low'}>
+                        {u.role === 'admin' ? 'Administrator' : 'Executive'}
+                      </span>
+                    </td>
                     <td style={{ textAlign: 'center' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center' }}>
                         {accountBadge(u)}

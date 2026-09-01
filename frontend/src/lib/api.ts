@@ -1,5 +1,26 @@
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000/api';
 
+/**
+ * An HTTP failure, carrying the status.
+ *
+ * The status matters to callers that must tell one failure from another — a
+ * session check has to distinguish "the server rejected this token" (sign out)
+ * from "the network is down" (keep the session and try later). A bare Error
+ * with a message collapses those two into the same thing.
+ */
+export class ApiError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
+
+/** True when the server refused the caller's identity, not merely the request. */
+export const isAuthError = (e: unknown): boolean =>
+  e instanceof ApiError && (e.status === 401 || e.status === 403);
+
 function getToken(): string | null {
   if (typeof window === 'undefined') return null;
   return localStorage.getItem('airms_token');
@@ -21,7 +42,7 @@ async function request<T>(
   });
 
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.message ?? `HTTP ${res.status}`);
+  if (!res.ok) throw new ApiError(res.status, data.message ?? `HTTP ${res.status}`);
   return data as T;
 }
 
@@ -36,7 +57,7 @@ async function upload<T>(path: string, formData: FormData): Promise<T> {
     body: formData,
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.message ?? `HTTP ${res.status}`);
+  if (!res.ok) throw new ApiError(res.status, data.message ?? `HTTP ${res.status}`);
   return data as T;
 }
 
@@ -54,7 +75,7 @@ async function downloadPost(path: string, body: unknown): Promise<Response> {
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    throw new Error(data.message ?? `HTTP ${res.status}`);
+    throw new ApiError(res.status, data.message ?? `HTTP ${res.status}`);
   }
   return res;
 }
@@ -66,7 +87,7 @@ async function downloadGet(path: string, filename: string): Promise<void> {
   const res = await fetch(`${BASE}${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    throw new Error(data.message ?? `HTTP ${res.status}`);
+    throw new ApiError(res.status, data.message ?? `HTTP ${res.status}`);
   }
   // Prefer the server-set filename (Content-Disposition) — the backend owns the
   // report-naming scheme. Fall back to the caller's name if the header is absent.

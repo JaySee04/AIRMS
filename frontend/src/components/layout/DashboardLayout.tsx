@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
-import { api } from '@/lib/api';
+import { api, isAuthError } from '@/lib/api';
 import {
   getSession, saveSession, clearSession,
   SessionUser, PermissionKey, Role, hasPermission, firstPermittedPath,
@@ -41,19 +41,35 @@ export default function DashboardLayout({ children, allowedRoles, title, require
     const saved = localStorage.getItem('airms_theme') as 'light' | 'dark' | null;
     if (saved) setTheme(saved);
 
-    // Permissions are admin-editable at any time, but the session user in
-    // localStorage is a login-time snapshot. Refresh it from the server so a
-    // revocation takes effect on the staffer's next navigation, not their
-    // next login. Backend routes enforce live permissions regardless — this
-    // keeps the UI (sidebar, page gates) in agreement with them.
-    if (session.user.role === 'medical') {
-      api.get<{ user: SessionUser }>('/auth/me')
-        .then(({ user: fresh }) => {
-          saveSession(session.token, fresh);
-          setUser(fresh);
-        })
-        .catch(() => null); // offline/expired: keep the snapshot; API gates still hold
-    }
+    // Confirm the session with the SERVER, for every role.
+    //
+    // The gate above reads `airms_user` out of localStorage, which is a
+    // login-time snapshot the browser owns — on its own it answers "what does
+    // this browser claim?", not "who is this?". Two consequences, and the first
+    // is an ordinary bug rather than an attack:
+    //
+    //   A token expires after 7 days. Returning on day 8, the snapshot still
+    //   said "admin", so the shell rendered and then every panel failed 401 — a
+    //   broken page instead of the sign-in screen.
+    //
+    //   Editing that snapshot by hand rendered the shell too. No data ever came
+    //   with it (every request 401s, which is the boundary that counts), but an
+    //   empty admin frame is not something to hand anybody.
+    //
+    // Asking the server settles both. It also picks up a permission an admin
+    // revoked mid-session, which is why this call already existed for medical.
+    api.get<{ user: SessionUser }>('/auth/me')
+      .then(({ user: fresh }) => {
+        if (!allowedRoles.includes(fresh.role)) { router.replace('/'); return; }
+        saveSession(session.token, fresh);
+        setUser(fresh);
+      })
+      .catch((err) => {
+        // Only a refusal ends the session. A network failure must not sign
+        // somebody out — that would drop the whole institute back to the login
+        // page the moment the API blinked.
+        if (isAuthError(err)) { clearSession(); router.replace('/'); }
+      });
   }, [allowedRoles, router]);
 
   useEffect(() => {

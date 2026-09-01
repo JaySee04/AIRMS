@@ -201,10 +201,16 @@ The reference every athlete is scored against, and its governance.
 
 Staff accounts, and what each may do.
 
+- **Four roles can be created here** — coach (read-only, one sport), medical
+  staff (clinical access), executive (read-only oversight) and administrator
+  (everything you can do, including this page). Athlete accounts are not created
+  here; see §9.
 - Create an account **by invitation**: no password is typed by the administrator.
   One is generated, hashed and discarded unread, and the invitee sets the first
   password that ever really exists on the account from a six-digit code valid for
   seven days. Nobody, including the creator, can sign in as that person.
+- Administrators and executives are listed under **Administration & oversight**,
+  which carries no capability switches: those apply to medical staff only.
 - **Send invite / Resend invite** appears only while nobody can get into the
   account yet — it has never been activated *and* never been signed into. Once
   somebody has used it, the control is gone: the invitation email tells its
