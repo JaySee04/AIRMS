@@ -89,7 +89,17 @@ const DEFAULTS = {
 
 // Merge stored overrides over defaults. Unknown/legacy keys are ignored.
 async function getSettings() {
-  const rows = await Setting.findAll({ raw: true }).catch(() => []);
+  // Deliberately NOT caught. Swallowing a failed read here returns DEFAULTS,
+  // which is the most dangerous shape this failure can take: every caller gets a
+  // complete, plausible settings object and nothing anywhere says it is wrong.
+  // `pinned_norm_version_id` would read as unset, so a PINNED norm silently
+  // releases and the athletes in that request are scored against live norms
+  // instead of the approved snapshot — different clinical numbers, no error.
+  // `min_cohort_n`, `escalation_below_mean_z` and the alert thresholds revert
+  // the same way. If this table cannot be read the database is down and every
+  // other query in the request is about to fail regardless; failing here says
+  // so instead of quietly re-norming the institution.
+  const rows = await Setting.findAll({ raw: true });
   const out = { ...DEFAULTS };
   for (const r of rows) if (r.key in DEFAULTS) out[r.key] = r.value;
   return out;

@@ -359,7 +359,19 @@ export default function CoachDashboard() {
   );
 
   const total = classified.length;
-  const pct = (n: number) => (total ? Math.round((n / total) * 100) : 0);
+  // Denominated over SCREENED athletes, not the whole squad.
+  //
+  // Over the squad the three band tiles summed to 88% on the seeded data: two
+  // never-screened athletes were 13% that appeared in no tile and in no bar
+  // segment, so the bar simply stopped short of its track with nothing on
+  // screen saying why. A band is a statement ABOUT a screening — an athlete
+  // without one is not "not cleared", they are unknown — so they are counted
+  // out of the percentages and stated separately, which is also the thing a
+  // coach can act on (book a first assessment).
+  //
+  // The card below already reads "N of 14 screened athletes"; this is the same
+  // denominator, which is why coverage.scored is reused rather than recomputed.
+  const pct = (n: number) => (coverage.scored ? Math.round((n / coverage.scored) * 100) : 0);
 
   const selected = useMemo(
     () => (selectedId ? data?.athletes.find((a) => a.athleteId === selectedId) ?? null : null),
@@ -561,6 +573,17 @@ export default function CoachDashboard() {
                     counts[b] > 0 ? (
                       <div key={b} style={{ width: `${pct(counts[b])}%`, background: BAND_META[b].color }} title={`${BAND_META[b].label}: ${counts[b]}`} />
                     ) : null,
+                  )}
+                </div>
+                <div className="text-muted" style={{ fontSize: 'var(--fs-xs)', marginTop: 6 }}>
+                  {counts.unscored > 0 ? (
+                    <>
+                      Of {coverage.scored} screened athlete{coverage.scored === 1 ? '' : 's'}.{' '}
+                      <strong>{counts.unscored}</strong> more {counts.unscored === 1 ? 'has' : 'have'} never been
+                      screened and {counts.unscored === 1 ? 'is' : 'are'} not counted above — {counts.unscored === 1 ? 'that athlete needs' : 'they need'} a first assessment, not a review.
+                    </>
+                  ) : (
+                    <>All {coverage.scored} athlete{coverage.scored === 1 ? '' : 's'} in this squad have a screening on record.</>
                   )}
                 </div>
               </>

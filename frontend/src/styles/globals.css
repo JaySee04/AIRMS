@@ -1363,7 +1363,10 @@ label:has(> input[type='radio']) {
      flag colour, brightening barely reads, while a halo separates the muscle
      from the figure at any fill. */
   filter: brightness(1.12) drop-shadow(0 0 5px rgba(15, 44, 74, 0.45));
-  stroke: var(--text-primary);
+  /* --text (not --text-primary, which is defined nowhere: an undefined custom
+     property invalidates the whole declaration, and `stroke` INHERITS, so the
+     active muscle silently took its parent's stroke instead of this one). */
+  stroke: var(--text);
   stroke-width: 2.6;
 }
 [data-theme="dark"] .bodymap-region-group.is-active .bodymap-region,
@@ -1401,7 +1404,15 @@ label:has(> input[type='radio']) {
 .bm-card-item:focus-visible {
   background: var(--bg-hover, rgba(127, 145, 170, 0.14));
 }
-.bm-card-item:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+/* --brand-gold, matching the global focus ring below. This said var(--primary),
+   which is defined nowhere, so the declaration was invalid at computed-value
+   time and `outline` fell back to its initial value of `none` -- and because
+   this rule is MORE specific than the global `button:focus-visible`, it took
+   the working gold ring down with it. Measured in Chrome: outline-style
+   computed `none` here while an ordinary button computed `solid 2px`.
+   The offset stays negative: the row is full-bleed with -8px margins, so an
+   outset ring would be clipped by the card. */
+.bm-card-item:focus-visible { outline: 2px solid var(--brand-gold, #c89b3c); outline-offset: -2px; }
 
 
 .bm-legend {

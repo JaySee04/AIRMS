@@ -1,13 +1,19 @@
-// API response shaper. Every route emits its rows through one of these
-// helpers, which:
-//   - expose Sequelize's numeric `id` as a stringified `_id` field too,
-//     so the frontend has a stable string identifier to use as a React key
+// API response shaper for Athlete rows. Both helpers here:
+//   - expose the athleteId as a stringified `_id` field too, so the frontend
+//     has a stable string identifier to use as a React key
 //   - reassemble Athlete's flat risk-indicator columns into a nested
 //     `risks` object, and split muscle_flags rows by flag_type into
-//     myodynamia[] / tension[] arrays for the frontend to consume.
+//     myodynamia[] / tension[] arrays for the frontend to consume
+//   - strip the clinician's injury note unless the viewer may read it
 //
 // The `_id` field name is the only piece of legacy nomenclature on the wire;
 // it has no engine semantics — it is just a string version of the row id.
+//
+// It previously also exported serializeGeneric / serializeMany / withStringId
+// under a header claiming "every route emits its rows through one of these
+// helpers". No route did: all three had zero callers anywhere, including the
+// tests. A comment asserting a convention nothing follows is worse than no
+// comment, because the next person extends the dead branch.
 
 const { CLINICIAN_NOTE_FIELDS, readsClinicianNotes } = require('./permissions');
 
@@ -29,22 +35,6 @@ function withoutClinicianNotes(obj, viewer) {
 function plainOf(instance) {
   if (instance == null) return instance;
   return typeof instance.get === 'function' ? instance.get({ plain: true }) : instance;
-}
-
-function withStringId(obj) {
-  if (obj == null) return obj;
-  if (obj.id !== undefined && obj._id === undefined) {
-    obj._id = String(obj.id);
-  }
-  return obj;
-}
-
-function serializeGeneric(instance) {
-  return withStringId(plainOf(instance));
-}
-
-function serializeMany(rows) {
-  return rows.map(serializeGeneric);
 }
 
 function serializeAthlete(instance, viewer) {
@@ -123,8 +113,6 @@ function serializeAthleteList(rows, viewer) {
 }
 
 module.exports = {
-  serializeGeneric,
-  serializeMany,
   serializeAthlete,
   serializeAthleteList,
 };

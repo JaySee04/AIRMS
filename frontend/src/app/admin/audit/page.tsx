@@ -300,7 +300,7 @@ export default function AuditPage() {
                       {open === e._id && e.meta && (
                         <pre style={{
                           marginTop: 8, fontSize: 'var(--fs-xs)', whiteSpace: 'pre-wrap',
-                          background: 'var(--bg-secondary)', padding: 8, borderRadius: 4,
+                          background: 'var(--bg)', padding: 8, borderRadius: 4,
                         }}>
                           {JSON.stringify(e.meta, null, 2)}
                         </pre>

@@ -3197,3 +3197,62 @@ because it is a judgement worth defending rather than a gap to close quietly.
 the coach pages read their sport from `/coach/readiness` and handle the null case
 explicitly, and `SessionUser` does not declare the field, so nothing can reach
 for it.
+
+---
+
+## 44. The defect class, swept deliberately (2026-09-02)
+
+Nearly every real defect in AIRMS has been the same shape — *a wrong answer that
+looks like a right one* — and after the fourth in a fortnight it was worth
+hunting rather than stumbling over. [`docs/SILENT_FAILURES.md`](SILENT_FAILURES.md)
+names the six sub-patterns, the hypotheses that sweep for each, and the standing
+guards. This section records what the first sweep changed.
+
+**Five fixes.** Three CSS custom properties were used and defined nowhere, which
+does not warn or throw — the declaration is invalid at computed-value time and
+the property silently falls back. `--primary` on `.bm-card-item:focus-visible`
+computed `outline: none`, and because that rule is *more specific* than the
+global `button:focus-visible` gold ring it removed the keyboard focus indicator
+from six body-map rows; measured in Chrome, `outlineStyle: "none"` there against
+`solid 2px rgb(245,197,24)` on every other button. `--text-primary` left the
+active muscle inheriting its parent's `stroke`; `--bg-secondary` left the audit
+page's JSON block with no panel.
+
+`getSettings()` caught its own database error and returned `[]`, so every caller
+received a complete, plausible settings object assembled from DEFAULTS. The
+dangerous key is `pinned_norm_version_id`: unset, **a pinned norm silently
+releases** and those athletes are scored against live norms rather than the
+approved snapshot — different clinical numbers, nothing on screen. The catch was
+incidental to the file's creation, not a diagnosed need, and `getSettings` is not
+called at boot, so it now throws. If that table cannot be read the database is
+down and the rest of the request is about to fail regardless.
+
+The coach's readiness tiles summed to **88%**. Three band tiles were denominated
+over the whole squad while two of sixteen athletes had no screening at all, so
+they appeared in no tile and no bar segment and the stacked bar stopped short of
+its track — reading as a rendering artefact rather than as two missing people.
+The card immediately beneath already used the right denominator ("10 of 14
+*screened* athletes"). Percentages are now over `coverage.scored`, and the
+unscreened are stated in their own line: a band is a claim about a screening, so
+an athlete without one is not "not cleared", they are unknown, and what they need
+is a first assessment rather than a review.
+
+`serializeGeneric`, `serializeMany` and `withStringId` had zero callers anywhere
+including the tests, under a header comment asserting "every route emits its rows
+through one of these helpers". Removed, and the header corrected — a comment
+asserting a convention nothing follows is worse than no comment, because the next
+person extends the dead branch.
+
+**Four hypotheses came back clean**, which is recorded rather than discarded so
+the next sweep does not re-tread them: no aggregation util produces `NaN` or
+`Infinity` on empty or degenerate input (20 cases; `!st.sd` guards every z-score
+site and `compositeZ` guards the empty case), all 16 nav links resolve, no
+`x || fallback` swallows a legitimate zero, and the cross-package vocabularies
+have not drifted.
+
+**The new guard is `frontend/src/lib/cssTokens.test.ts`**, which asserts every
+`var(--x)` used without a fallback is defined, and reports `token used at
+file:line`. It guards a class rather than an instance — this is the third time an
+undefined token has shipped. It carries a corpus assertion so that neutering the
+file walker cannot make it pass vacuously, and it was mutation-tested by
+reintroducing `--text-primary`.
