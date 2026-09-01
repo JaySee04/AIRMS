@@ -59,11 +59,12 @@ cd frontend; npm run lint  # next lint
 cd frontend; npm run build
 
 # Unit tests (jest, in both packages — no linter configured for the backend)
-cd backend; npx jest      # 24 suites: cohorts, overallIndicator, permissions, rbac, pdfDraw,
+cd backend; npx jest      # 26 suites: cohorts, overallIndicator, permissions, rbac, pdfDraw,
                           # screeningPeriods, cohortFocus, visionUsage, alerts, scheduler,
                           # bands, mailPrefs, holisticReport, programmeActivity, subitemAggregate,
                           # reliability, rescreenReminder, riskIndicators, recall,
-                          # mailSendNow, lock, prescription, settingsChanges, symmetry
+                          # mailSendNow, lock, prescription, settingsChanges, symmetry,
+                          # isnDirectory, accountLifecycle
 cd frontend; npx jest     # 8 suites: lib/risk.ts, lib/screeningUploadStore.ts, bodymap-data/muscles.ts,
                           # components/charts (rendered via react-dom/server — no jsdom needed),
                           # lib/bands.ts, lib/athleteSearch.ts, lib/rank.ts,
@@ -79,6 +80,12 @@ guard failure modes that are *silent*: a band comparison that disagrees between
 two call sites, or a preference that reads as consent), the composite risk model
 (`frontend/src/lib/risk.test.ts`) and the body-map muscle partition
 (`frontend/src/components/dashboard/bodymap-data/muscles.test.ts`).
+
+`isnDirectory.test.js` and `accountLifecycle.test.js` are both of the
+silent-failure kind described next: an ambiguous name in the ISN directory makes
+the demo walkthrough fall back to manual search with no error, and a role the
+endpoint accepts but the form does not offer is uncreatable with nothing
+anywhere saying so.
 
 **The silent-failure suites are the point.** Three more were added for the same
 reason — a wrong answer that looks like a right one: `reliability.test.js`
@@ -238,9 +245,80 @@ medical, coach, admin, executive — **athlete is deliberately excluded** (JC,
 2026-08-23), since an athlete account also needs a roster record to attach to.
 The invitee lands on `/activate`.
 
+**All four roles are creatable from the page, and the two lists are pinned
+(2026-09-01, `DESIGN_DECISIONS.md §42`).** The endpoint had accepted four roles
+for weeks while the form offered two — the page carried its own narrowed
+`type Role = 'coach' | 'medical'` — so the administrator could not create a
+colleague or an executive without editing the database.
+`tests/accountLifecycle.test.js` now pins `INVITABLE_ROLES` to the page's
+options in the direction that fails silently (accepted-but-not-offered is
+invisible; the reverse crashes). Adding a role means touching **both**, and the
+test says so. The picker shows what the chosen role can and cannot reach, marked
+for `admin`, because `admin` sits under `medical` in the list and the mistake
+between them is quiet.
+
+**Deactivation is immediate and guarded.** `middleware/auth.js` re-reads the
+user row on every request and rejects an inactive one, so switching an account
+off ends its session on the next click rather than at token expiry — the
+property that matters when somebody leaves ISN. `PATCH /api/users/:id` accepts
+`isActive` for **every** role (it used to return early for anything but medical
+and coach, which left an executive impossible to switch off and the badge on the
+page dead). Two refusals, because neither is undoable from the interface: you
+cannot deactivate your own account, and the institution cannot be left with no
+active administrator — the latter unreachable today and documented as such
+rather than left looking load-bearing.
+
+**Invite gating: `activatedAt || lastLoginAt`.** The control is offered only
+while nobody can get into the account yet. Gating on `activatedAt` alone still
+offered to "invite" a seeded account somebody signs into daily.
+
 **Known limitation:** invitations send from a personal Gmail, which to a
 clinician reads as phishing. Real use needs ISN's relay or a controlled domain
 with SPF/DKIM; the mailer is env-driven, so it is configuration, not code.
+
+## The three demo reports, and the ISN directory (2026-09-01)
+
+Three real HoloMotion reports from the **2025-07-29** session are handed to
+Dr Thung and Dr Hoo to upload: Nur Aina Danish (Total 77 / Risks 14), Nurin
+Syazwani Binti Rusli (70 / 19), Nur Batrisyia Binti Yusof (68 / 21). All three
+are in `backend/src/mock/isnDirectory.js` and deliberately **NOT** on the seeded
+roster, so each report resolves `inRoster: false` and committing it both creates
+the athlete and records their first screening — the whole ingestion path, end to
+end.
+
+Two properties are load-bearing and asserted in `tests/isnDirectory.test.js`:
+the `name` must be what `parseNameFromFilename()` recovers from the supplied
+filename (`matchInIsn` accepts only a UNIQUE hit and returns null on anything
+ambiguous — silently), and `dateOfBirth` is set so the age DERIVED at the
+screening date equals the age printed on that athlete's report. Age advances, so
+the directory shows them a year older today; the upload takes the REPORT's age
+regardless. Badminton / PELAPIS / Female puts them in Coach Demo's squad, one
+short of `min_cohort_n`, so they score against the `sg` tier (Badminton /
+Female, n=7) — the fallback ladder working, not a contrivance.
+
+Verified against the hosted extractor: **138/138 values match the printed
+reports** across all three (scalars, 8 indicators, 25 subitem cells, muscle
+flags with sides, prescription, timestamp). ~2.1 MB each, under the 4.5 MB
+hosted cap. The extracted name comes back `null` — that is the redaction
+working, not a failure.
+
+## The stakeholder guide is generated and CHECKED (2026-09-01)
+
+`docs/SYSTEM_GUIDE.md` → `AIRMS-System-Guide.pdf` via **`cd backend; npm run
+guide:pdf`**, which renders *and* verifies in one command. Doing those
+separately is exactly how it shipped broken three times: `scripts/guide-to-pdf.js`
+was a line printer, not a markdown renderer, and produced a document where every
+block after a table ran off the page (the table left `doc.x` in its last
+column), `**bold**` spanning two source lines printed its asterisks, `####` and
+backticks printed raw, and table cells truncated mid-sentence.
+
+`scripts/verify-guide-pdf.js` reads the RENDERED pdf back and fails on markdown
+reaching the page or any text laid beyond the right margin. **Glyph
+rasterisation is not available in this environment** (pdfjs cannot polyfill
+`Path2D`), which is why those faults survived — the text-layer and geometry
+checks are the substitute, and reproducing the defect makes the check report 41
+overflowing items. Only Helvetica and Helvetica-Bold hydrate here (gotcha 7), so
+emphasis is rendered with its markers stripped rather than slanted.
 
 ## Demo credentials (seeded)
 
@@ -412,7 +490,8 @@ Three-tier monorepo orchestrated by `concurrently` from the root `package.json`.
 **Frontend** (`frontend/`, Next.js 14 App Router, TypeScript, plain CSS with variables):
 - Pages live under `frontend/src/app/<role>/<slug>/page.tsx` — the URL hierarchy is the role-based access boundary (`/athlete/*`, `/medical/*`, `/admin/*`)
 - Every authenticated page wraps its content in `<DashboardLayout allowedRoles={[...]} title="...">` (`components/layout/`). The layout enforces client-side role gating; backend RBAC is the actual security
-- Auth state is JWT in `localStorage`, managed via `lib/auth.ts` (`saveSession` / `getSession` / `clearSession`). API calls go through `lib/api.ts` which auto-attaches the bearer token
+- Auth state is JWT in `localStorage`, managed via `lib/auth.ts` (`saveSession` / `getSession` / `clearSession`). API calls go through `lib/api.ts` which auto-attaches the bearer token. **`lib/api.ts` throws `ApiError` carrying the HTTP status**, and `isAuthError()` tells a refusal (401/403) from a network failure — a bare `Error` collapsed those into one, and they need opposite handling
+- **`DashboardLayout` confirms the session with the SERVER, for every role** (2026-09-01). The gate reads `airms_user` from `localStorage`, which is a login-time snapshot the browser owns — it answers "what does this browser claim?", not "who is this?". Measured with a real browser against 20 protected routes: with no session every route already bounced to `/`, nothing painted, and all 46 API calls returned 401; as a coach, every admin/medical route bounced and every call 403'd. What did NOT hold was an **expired** token (7-day JWT: on day 8 the snapshot still said "admin", so the shell rendered and every panel failed 401 — a broken page instead of the sign-in screen) and a hand-edited snapshot, which rendered an empty admin shell. `/auth/me` on mount settles both; only `isAuthError` ends the session, because signing everyone out whenever the API blinks would be its own outage
 - Modules 1 and 6 (Athlete Dashboard & Overall Risk Indicator, Clinical & Squad Monitoring) share the same dashboard components (`BodyMap`, `WorkloadChart`, `RiskRadar`, `ScreeningPanel` — the embedded HoloMotion report with threshold strips; there are no standalone screening pages) and the same `classifyCompositeRisk()` from `lib/risk.ts` — the medical view is "the athlete dashboard with a clinician's affordances added"
 - Styling: a single `frontend/src/styles/globals.css` with CSS custom properties. Dark mode via `[data-theme="dark"]` on `<html>`. **Do not introduce CSS-in-JS, Tailwind, or component libraries.**
 - **There is a design scale — use it (2026-08-16, `DESIGN_DECISIONS.md §29`).** Type `--fs-2xs|xs|sm|md|lg|xl|2xl`, radius `--r-xs|sm|md|lg` (+ `999px` for pills), spacing `--sp-xs|sm|md|lg|xl`. Named for ROLE, not size. The file previously held 31 distinct font-size literals and the markup another 160 inline ones that bypassed the stylesheet entirely — **do not add a new literal**; pick the nearest step, or change what the step means. `--radius` is an alias of `--r-md`, kept because it was already in use.

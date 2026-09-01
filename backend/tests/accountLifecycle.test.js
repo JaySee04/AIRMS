@@ -112,3 +112,53 @@ describe('the route still carries these guards', () => {
     expect(src).not.toMatch(/return res\.status\(400\)\.json\(\{ message: 'Only medical staff and coaches are configurable\.' \}\);/);
   });
 });
+
+// ── the two packages' role lists ────────────────────────────────────────────
+// Which roles an administrator may create is decided twice: INVITABLE_ROLES
+// here, and the Role union plus the <option> list on the Personnel page. There
+// is no shared types package, so nothing makes them agree.
+//
+// The drift is SILENT in one direction and only that one. Adding a role to the
+// backend without adding the option leaves it uncreatable with no error
+// anywhere — which is precisely what had happened to `admin` and `executive`:
+// the endpoint accepted them for weeks while the form offered two roles, so an
+// administrator could not create a colleague. The reverse crashes loudly
+// (ROLE_INFO[role] would be undefined), so it needs no guard.
+describe('creatable roles agree across the two packages', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const page = fs.readFileSync(
+    path.join(__dirname, '..', '..', 'frontend', 'src', 'app', 'admin', 'personnel', 'page.tsx'),
+    'utf8',
+  );
+  // Read from the source rather than required: importing the route pulls in the
+  // models, the mailer and the audit trail for a value that is a literal. The
+  // guard assertions above read the same file the same way.
+  const routeSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'routes', 'users.js'), 'utf8');
+  const INVITABLE_ROLES = JSON.parse(
+    routeSrc.match(/const INVITABLE_ROLES = (\[[^\]]+\])/)[1].replace(/'/g, '"'),
+  );
+
+  const sorted = (a) => [...a].sort();
+
+  it('the endpoint offers exactly medical, coach, admin and executive', () => {
+    expect(sorted(INVITABLE_ROLES)).toEqual(['admin', 'coach', 'executive', 'medical']);
+  });
+
+  it('athlete is excluded from both — an athlete account also needs a roster record', () => {
+    expect(INVITABLE_ROLES).not.toContain('athlete');
+    expect(page).not.toMatch(/<option value="athlete"/);
+  });
+
+  it('every creatable role is offered by the form', () => {
+    const options = [...page.matchAll(/<option value="([a-z]+)"/g)].map((m) => m[1]);
+    expect(sorted(options)).toEqual(sorted(INVITABLE_ROLES));
+  });
+
+  it('every offered role has a summary of what it grants', () => {
+    // ROLE_INFO drives the button label and the can/cannot list beside the
+    // picker; a role without one renders "Create undefined".
+    const described = [...page.matchAll(/^ {2}([a-z]+): \{$/gm)].map((m) => m[1]);
+    INVITABLE_ROLES.forEach((r) => expect(described).toContain(r));
+  });
+});
