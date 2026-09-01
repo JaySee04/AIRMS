@@ -19,7 +19,7 @@ const { recordAudit } = require('../utils/audit');
 const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
 const requirePermission = require('../middleware/permission');
-const { isForeignAthleteRequest, canDownloadIndividualReport } = require('../utils/permissions');
+const { isForeignAthleteRequest, canDownloadIndividualReport, notFoundStatusFor } = require('../utils/permissions');
 const { resolveCohortStats, orientedComponents, computeStats } = require('../utils/cohorts');
 const { getSettings } = require('../utils/settings');
 const { effectiveBand } = require('../utils/bands');
@@ -114,7 +114,10 @@ router.get('/individual/:id.pdf', auth, rbac('athlete', 'medical', 'admin', 'coa
       Screening.findAll({ where: { athleteId: req.params.id }, order: [['assessedAt', 'DESC'], ['id', 'DESC']], raw: true }),
       getSettings(),
     ]);
-    if (!athlete) return res.status(404).json({ message: 'Athlete not found' });
+    // Same status a foreign athlete gets, for a scoped role: the coach branch of
+    // canDownloadIndividualReport needs the row, so refusing only afterwards
+    // would let a coach separate a real IC from an invented one.
+    if (!athlete) return res.status(notFoundStatusFor(req.user)).json({ message: 'Athlete not found' });
     // The full decision, now that the row is loaded. Coaches may pull individual
     // reports, but only for athletes in their one assigned sport.
     if (!canDownloadIndividualReport(req.user, athlete)) {

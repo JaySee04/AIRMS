@@ -66,6 +66,7 @@ async function latestIndicatorsFor(athleteIds) {
 const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
 const requirePermission = require('../middleware/permission');
+const { notFoundStatusFor } = require('../utils/permissions');
 const { serializeAthlete, serializeAthleteList } = require('../utils/serialize');
 const { cleanDisciplineList } = require('../utils/disciplines');
 
@@ -119,7 +120,7 @@ router.get('/', auth, rbac('medical', 'admin', 'executive'), requirePermission('
       order: [['name', 'ASC']],
       include: [{ model: AthleteDiscipline, as: 'disciplines', attributes: ['discipline'], separate: true }],
     });
-    res.json(serializeAthleteList(rows));
+    res.json(serializeAthleteList(rows, req.user));
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -453,13 +454,16 @@ router.get('/:id', auth, requirePermission('viewRecords'), async (req, res) => {
         { model: AthleteDiscipline, as: 'disciplines', attributes: ['discipline'] },
       ],
     });
-    if (!athlete) return res.status(404).json({ message: 'Athlete not found' });
+    // 403 rather than 404 for a scoped role: the coach's sport check below runs
+    // AFTER this lookup, so a plain 404 here would tell a coach which IC numbers
+    // are on the roster. See notFoundStatusFor.
+    if (!athlete) return res.status(notFoundStatusFor(req.user)).json({ message: 'Athlete not found' });
     // Coach: screening detail is in remit, but only for their assigned sport —
     // same scope rule as the team/individual reports and screening history.
     if (req.user.role === 'coach' && athlete.sport !== req.user.coachSport) {
       return res.status(403).json({ message: 'Coaches can only view athletes in their assigned sport.' });
     }
-    const out = serializeAthlete(athlete);
+    const out = serializeAthlete(athlete, req.user);
     out.screening = await latestIndicator(req.params.id);
 
     // Per-cell peer context for the 25-subitem table.
@@ -532,7 +536,7 @@ router.post('/', auth, rbac('admin'), async (req, res) => {
         { model: AthleteDiscipline, as: 'disciplines', attributes: ['discipline'] },
       ],
     });
-    res.status(201).json(serializeAthlete(reloaded));
+    res.status(201).json(serializeAthlete(reloaded, req.user));
   } catch (err) {
     res.status(400).json({ message: err.message });
   }
@@ -572,7 +576,7 @@ router.patch('/:id', auth, rbac('medical', 'admin'), requirePermission('viewReco
         { model: AthleteDiscipline, as: 'disciplines', attributes: ['discipline'] },
       ],
     });
-    res.json(serializeAthlete(reloaded));
+    res.json(serializeAthlete(reloaded, req.user));
   } catch (err) {
     res.status(400).json({ message: err.message });
   }

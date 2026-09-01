@@ -72,6 +72,51 @@ function canDownloadIndividualReport(user, athlete) {
   }
 }
 
+// ── Scoped roles must not be able to enumerate the roster ───────────────────
+//
+// isForeignAthleteRequest gets this right for the athlete by refusing BEFORE
+// the lookup, for the reason written above it. The coach's scope compares
+// `sport`, so it necessarily runs AFTER the row is loaded — and every route
+// that did so answered 404 for an unknown id and 403 for a foreign one, which
+// is precisely the split that reasoning rules out. Measured 2026-09-02:
+// /athletes/:id and /screening-reports/individual/:id.pdf both leaked it, so a
+// coach could confirm whether an IC number was on the ISN roster. The IC
+// encodes date of birth, birth state and sex — which is why /teammates
+// withholds it from athletes — so confirming one is on the roster discloses
+// something real, not something theoretical.
+//
+// Fails CLOSED on a missing user: an unauthenticated caller should never be the
+// one told an id is merely unknown.
+function scopeHidesExistence(user) {
+  if (!user) return true;
+  return user.role === 'coach' || user.role === 'athlete';
+}
+
+// The status a scoped lookup must return when the row is not there. Named as a
+// function so the routes read as one decision rather than three copies of a
+// ternary that could each be written backwards.
+function notFoundStatusFor(user) {
+  return scopeHidesExistence(user) ? 403 : 404;
+}
+
+// ── Clinician notes are not part of a read-only role's payload ──────────────
+//
+// `isInjured` is a roster FACT: a coach needs to know their athlete is flagged,
+// and the institution's coverage figures depend on it. The note, its author and
+// its timestamp are the clinician's working record — and nothing outside the
+// medical dashboard and the admin cohort-members panel renders them.
+//
+// They reached the coach and executive payloads because serializeAthlete spread
+// every column, so the roster serialiser granted by omission. This is the
+// allow-list that replaces that: a role added later has to be named here on
+// purpose, and a call site that forgets to say who is asking gets nothing.
+const CLINICIAN_NOTE_FIELDS = ['injuryNote', 'injuryBy', 'injuryAt'];
+const NOTE_READER_ROLES = ['medical', 'admin'];
+
+function readsClinicianNotes(viewer) {
+  return Boolean(viewer) && NOTE_READER_ROLES.includes(viewer.role);
+}
+
 // Normalise an arbitrary input object to a clean { key: boolean } map limited
 // to known keys — used when the admin saves a permission set.
 function sanitizePermissions(input) {
@@ -86,4 +131,6 @@ function sanitizePermissions(input) {
 module.exports = {
   PERMISSION_KEYS, PERMISSION_LABELS, hasPermission, sanitizePermissions,
   isForeignAthleteRequest, canDownloadIndividualReport,
+  scopeHidesExistence, notFoundStatusFor,
+  CLINICIAN_NOTE_FIELDS, NOTE_READER_ROLES, readsClinicianNotes,
 };

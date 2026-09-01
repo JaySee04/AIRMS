@@ -3103,3 +3103,97 @@ loudly (`ROLE_INFO[role]` undefined), so it needs no guard. Mutation-tested —
 removing the executive option, and adding a role to the backend alone, each fail
 it. This is the same remedy as §31, for the same reason: a comment pointing at
 the other file documents the hazard without preventing it.
+
+---
+
+## 43. What a scoped role may LEARN, which is not what it may call (2026-09-02)
+
+`rbac()` answers "may you call this". It says nothing about what comes back, or
+about what a refusal itself tells you. Auditing the four non-admin roles by
+calling all 52 endpoints as each of them — rather than by reading the guards —
+found the role model sound and two disclosures underneath it.
+
+**The role model itself held.** Every write is refused for coach, executive and
+athlete (21 write probes, all 403). `executive` has no write reach anywhere,
+which is the property that names it. Coach is refused every athlete outside
+their sport across detail, history, individual PDF and team PDF; athlete is
+refused every record but their own. Each of the three medical capabilities has a
+matching `requiredPermission` on both the page and the route, so a revoked one
+hides the nav entry, blocks the page and 403s the API — no dead controls, and
+`/admin/thresholds` correctly withholds pin/restore/delete from medical and says
+so in its own copy.
+
+### A refusal is an answer
+
+A coach could tell a real IC number from an invented one:
+
+```
+/athletes/030109371036          (real, other sport)  -> 403
+/athletes/000000000000          (not real)           -> 404
+```
+
+`isForeignAthleteRequest` already reasons about exactly this and refuses
+**before** the lookup, because "a 404 for an unknown id and a 403 for a known one
+would tell an athlete probing IC numbers which ones are on the roster". The
+coach's scope compares `sport`, so it *cannot* run before the row is loaded —
+and every route that loaded first answered 404 for a stranger and 403 for a
+foreigner. The care taken for one scoped role was structurally unavailable to
+the other.
+
+`notFoundStatusFor(user)` returns 403 for coach and athlete and 404 for everyone
+else, so a missing row and a forbidden one are one answer. Three sites use it:
+`/athletes/:id`, `/screening-reports/individual/:id.pdf`, `/screenings/:id/full`.
+It fails **closed** on a missing user. This matters because the IC encodes date
+of birth, birth state and sex — the stated reason `/teammates` withholds it — so
+confirming one is on the ISN roster discloses something real.
+
+A bare 404 elsewhere in those files is correct and deliberately left: nothing
+`PATCH /:id/injury` looks up is scoped, because the route is medical-only.
+
+### Granting by omission
+
+`serializeAthlete` and `serializeAthleteList` build their result by spreading the
+row, so every column on the model shipped to every role that could read one.
+That put `injuryNote`, `injuryBy` and `injuryAt` — the clinician's free-text
+working record — on coach and executive payloads. Nothing renders them outside
+the medical dashboard and the admin cohort-members panel, and the seed holds
+zero injured athletes, so it was invisible and would have appeared the first
+time a clinician used the flag.
+
+Both serialisers now take a `viewer` and strip those three unless the caller is
+`medical` or `admin`. **`isInjured` deliberately stays for everyone** — it is a
+roster fact a coach needs and the institution's coverage figures rest on, and
+stripping it would be the opposite mistake.
+
+The structural half matters more than the field: an allow-by-omission serialiser
+means the *next* column added to `Athlete` ships to every role automatically.
+`users.js` already does the opposite, with an explicit `attributes:` list and a
+comment about this exact property. `viewer` is optional in the signature and the
+omitted case **withholds**, so a call site that forgets to say who is asking
+under-discloses rather than over-discloses.
+
+### Why the tests read the route source
+
+`tests/athleteDisclosure.test.js` is 20 cases, and the last four read
+`routes/*.js` as text. The predicates are pure, so they pass whether or not
+anything calls them — the `winAnsiSafe` failure, and the one that left
+`isForeignAthleteRequest` correct and unreachable for weeks. All seven guards
+were mutation-tested: un-scoping the coach, failing open on a missing user,
+adding `executive` to the note allow-list, dropping either strip, reverting the
+route to a bare 404, and dropping `req.user` from a serialiser call each fail
+between 1 and 5 cases. Re-probed live afterwards: all eight enumeration probes
+uniformly 403, and the roster field diff shows medical retaining exactly the
+three fields executive lost.
+
+### Left alone, on purpose
+
+`medical` cannot reach Screening Analytics (`/athletes/analytics/screening`,
+403). Consistent with the sidebar and deliberate — those two endpoints are
+institutional oversight — but Screening Analytics is squad *shape*, which is
+arguably more a physiologist's tool than an administrator's. Recorded here
+because it is a judgement worth defending rather than a gap to close quietly.
+
+`coachSport` is on neither `/auth/login` nor `/auth/me`, and that is harmless:
+the coach pages read their sport from `/coach/readiness` and handle the null case
+explicitly, and `SessionUser` does not declare the field, so nothing can reach
+for it.

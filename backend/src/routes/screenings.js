@@ -8,6 +8,7 @@ const { reliability } = require('../utils/reliability');
 const { PERIOD_SCORES } = require('../utils/periodScores');
 const rbac = require('../middleware/rbac');
 const requirePermission = require('../middleware/permission');
+const { notFoundStatusFor } = require('../utils/permissions');
 const { notifyOverrideToCoach } = require('../utils/notifications');
 const { queuePostImport } = require('../utils/postImport');
 const { effectiveBand } = require('../utils/bands');
@@ -91,7 +92,10 @@ router.get('/athlete/:id', auth, requirePermission('viewRecords'), async (req, r
 router.get('/:id/full', auth, requirePermission('viewRecords'), async (req, res) => {
   try {
     const s = await Screening.findByPk(req.params.id, { raw: true });
-    if (!s) return res.status(404).json({ message: 'Screening not found' });
+    // Scoped roles get the same answer for "no such screening" as for "not
+    // yours" — the ownership checks below need the row, so a 404 here would
+    // report which screening ids exist.
+    if (!s) return res.status(notFoundStatusFor(req.user)).json({ message: 'Screening not found' });
     if (req.user.role === 'athlete' && req.user.athleteId !== s.athleteId) {
       return res.status(403).json({ message: 'Access denied' });
     }
