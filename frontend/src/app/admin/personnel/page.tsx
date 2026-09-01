@@ -13,6 +13,38 @@ import { ISN_SPORTS } from '@/lib/sports';
 import SportSelect from '@/components/ui/SportSelect';
 import { passwordRules, validatePassword, PASSWORD_MIN_LENGTH } from '@/lib/passwordPolicy';
 
+/**
+ * What each role is, in the words an administrator needs to grant it correctly.
+ *
+ * Shown live beside the picker rather than as one dense paragraph covering all
+ * four. Least privilege only means something if the person granting it can see
+ * what they are granting, and on this page the expensive mistake is quiet:
+ * `admin` and `medical` sit next to each other in the list, and one of them can
+ * create accounts and move the cohort norms.
+ */
+const ROLE_INFO: Record<Role, { noun: string; can: string[]; cannot: string[] }> = {
+  coach: {
+    noun: 'Coach',
+    can: ['See their own squad’s readiness and rescreen recall', 'Download the team report and their athletes’ screening PDFs'],
+    cannot: ['Cannot see any other sport', 'Cannot change anything at all'],
+  },
+  medical: {
+    noun: 'Medical staff',
+    can: ['Open any athlete’s clinical record', 'Import HoloMotion reports and override a risk band', 'Edit cohort norms'],
+    cannot: ['Cannot manage accounts or institution settings'],
+  },
+  executive: {
+    noun: 'Executive',
+    can: ['See institution-wide analytics, the activity log and every report'],
+    cannot: ['Cannot write anything — no imports, norms, accounts or settings'],
+  },
+  admin: {
+    noun: 'Administrator',
+    can: ['Everything medical staff can do', 'Create, invite and deactivate accounts — including yours', 'Pin the cohort norms and change institution settings'],
+    cannot: [],
+  },
+};
+
 // The roles an administrator may create here. Mirrors INVITABLE_ROLES in
 // backend/src/routes/users.js — `athlete` is excluded from both, because an
 // athlete account also needs a roster record to attach to, which is a different
@@ -124,7 +156,7 @@ export default function AdminPersonnelPage() {
         ...(byInvite ? {} : { password }),
         ...(role === 'coach' ? { coachSport: sport } : {}),
       });
-      const who = role === 'coach' ? `Coach "${name.trim()}"` : `Medical staff "${name.trim()}"`;
+      const who = `${ROLE_INFO[role].noun} "${name.trim()}"`;
       // The account exists either way; whether the person can be reached is the
       // part worth reporting, because it decides what the administrator does
       // next — nothing, or re-send.
@@ -284,11 +316,9 @@ export default function AdminPersonnelPage() {
         <div className="card-header"><div>
           <h2 className="card-title" style={{ marginBottom: 0 }}>Add Personnel</h2>
           <span className="card-sub">
-            Four roles: a coach (read-only, one sport), medical staff (clinical access, every capability on
-            by default), an executive (read-only oversight, writes nothing), or another administrator — who can
-            do everything you can, including creating and removing accounts here.
-            If you set a password yourself it must meet the AIRMS policy: at least {PASSWORD_MIN_LENGTH} characters,
-            with upper + lower case, a number, and a symbol. Inviting them avoids that: they choose their own.
+            Pick the role first — what it can reach is listed beneath it. Inviting the person is the
+            recommended path: they set the only password the account ever has. A password you set yourself
+            must meet the AIRMS policy ({PASSWORD_MIN_LENGTH}+ characters, upper and lower case, a number, a symbol).
           </span>
         </div></div>
         {addError && <div className="alert alert-error">{addError}</div>}
@@ -303,6 +333,12 @@ export default function AdminPersonnelPage() {
                 <option value="executive">Executive — read-only oversight</option>
                 <option value="admin">Administrator — full access, including this page</option>
               </select>
+              <div className={`role-note${role === 'admin' ? ' role-note--strong' : ''}`}>
+                <ul>
+                  {ROLE_INFO[role].can.map((c) => <li key={c} className="role-can">{c}</li>)}
+                  {ROLE_INFO[role].cannot.map((c) => <li key={c} className="role-cannot">{c}</li>)}
+                </ul>
+              </div>
             </div>
             <div className="form-group">
               <label>Name <span style={{ color: 'var(--risk-high)' }}>*</span></label>
@@ -319,12 +355,12 @@ export default function AdminPersonnelPage() {
                 <label>Assigned sport <span style={{ color: 'var(--risk-high)' }}>*</span></label>
                 <SportSelect sports={ISN_SPORTS} value={sport} onChange={setSport} placeholder="Search the ISN sports…" />
               </div>
-            ) : (
+            ) : role === 'medical' ? (
               <div className="form-group">
                 <label>Access</label>
                 <input value="Full clinical access (tune below after creating)" disabled />
               </div>
-            )}
+            ) : null}
           </div>
           <div className="form-group">
             <label>How they get access</label>
@@ -378,7 +414,7 @@ export default function AdminPersonnelPage() {
             )}
           </div>
           <button type="submit" className="btn btn-gold" disabled={adding || !canAdd}>
-            {adding ? 'Creating…' : `Create ${role === 'coach' ? 'coach' : 'medical staff'}`}
+            {adding ? 'Creating…' : `Create ${ROLE_INFO[role].noun.toLowerCase()}`}
           </button>
         </form>
       </div>

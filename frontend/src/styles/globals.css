@@ -546,6 +546,31 @@ label:has(> input[type='radio']) {
   margin-top: 6px;
   color: var(--text);
 }
+/* ── Role summary on Add Personnel ──────────────────────────────────────── */
+.role-note {
+  margin-top: var(--sp-xs);
+  padding: var(--sp-sm) var(--sp-md);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--brand-navy);
+  border-radius: var(--r-sm);
+  background: var(--bg);
+}
+/* Granting full administration is the one choice here that cannot be undone by
+   the person who receives it, so it is marked rather than left to read the same
+   as the others. */
+.role-note--strong { border-left-color: var(--risk-high); }
+.role-note ul { margin: 0; padding: 0; list-style: none; }
+.role-note li {
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  padding-left: 18px;
+  position: relative;
+}
+.role-note li::before { position: absolute; left: 0; font-weight: 700; }
+.role-can::before { content: '+'; color: var(--risk-low); }
+.role-cannot::before { content: '–'; color: var(--text-muted); }
+.role-cannot { color: var(--text-muted); }
+
 /* ── Landing pane quick-access (medical dashboard) ────────────────────────
    Sizes come from the scale (DESIGN_DECISIONS §29) — no new literals. */
 .quick-heading {

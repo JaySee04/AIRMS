@@ -11,6 +11,7 @@ const { recordAudit } = require('../utils/audit');
 const { sendMail, buildInviteEmail } = require('../utils/mailer');
 const { issueCode, INVITE_CODE_TTL_MIN, RESET_CODE_MAX_ATTEMPTS } = require('../utils/resetCodes');
 const crypto = require('crypto');
+const { Op } = require('sequelize');
 
 // Roles an administrator may create. `athlete` is deliberately absent: athlete
 // accounts are not part of this deployment's onboarding (JC, 2026-08-23), and
@@ -230,14 +231,50 @@ router.patch('/:id', async (req, res) => {
     // subject is an entry nobody can act on.
     const before = { permissions: user.permissions, coachSport: user.coachSport, isActive: user.isActive };
 
+    // What is CONFIGURABLE depends on the role: medical staff have
+    // per-capability permissions, a coach has an assigned sport, and an
+    // administrator or executive has neither.
     if (user.role === 'medical') {
       if (req.body.permissions !== undefined) user.permissions = sanitizePermissions(req.body.permissions);
     } else if (user.role === 'coach') {
       if (typeof req.body.coachSport === 'string') user.coachSport = req.body.coachSport.trim() || null;
-    } else {
-      return res.status(400).json({ message: 'Only medical staff and coaches are configurable.' });
+    } else if (req.body.permissions !== undefined || req.body.coachSport !== undefined) {
+      return res.status(400).json({ message: 'Administrators and executives have no capability switches or assigned sport.' });
     }
-    if (typeof req.body.isActive === 'boolean') user.isActive = req.body.isActive;
+
+    // ACTIVATION is separate, and applies to every role. It used to fall after
+    // a blanket `return` for anything that was not medical or coach, so an
+    // administrator or executive could never be switched off — somebody leaving
+    // the institute kept their access to athlete data, and the control on the
+    // page silently 400'd.
+    if (typeof req.body.isActive === 'boolean' && req.body.isActive !== user.isActive) {
+      // Locking the institution out of its own system is one click away and is
+      // not reversible from the interface — only from the database.
+      //
+      // The self-check is the one that fires. The last-admin check below is
+      // UNREACHABLE on today's routes, and deliberately kept: an actor must be
+      // active (the auth middleware re-reads the row on every request) and must
+      // be an admin (rbac above), so if the target is the last ACTIVE admin then
+      // the target is the actor, and the self-check has already refused. It is
+      // written out because the two guard different things — one says you may
+      // not remove your own access, the other says the institution must keep an
+      // administrator — and only the second still holds if a later route lets
+      // anything other than the account's owner switch an admin off.
+      if (!req.body.isActive) {
+        if (String(user.id) === String(req.user.id)) {
+          return res.status(409).json({ message: 'You cannot deactivate your own account. Ask another administrator.' });
+        }
+        if (user.role === 'admin') {
+          const otherActiveAdmins = await User.count({
+            where: { role: 'admin', isActive: true, id: { [Op.ne]: user.id } },
+          });
+          if (otherActiveAdmins === 0) {
+            return res.status(409).json({ message: 'This is the last active administrator. Create or reactivate another before deactivating this one.' });
+          }
+        }
+      }
+      user.isActive = req.body.isActive;
+    }
     await user.save();
 
     const changes = [];

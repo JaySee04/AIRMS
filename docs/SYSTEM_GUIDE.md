@@ -209,8 +209,18 @@ Staff accounts, and what each may do.
   One is generated, hashed and discarded unread, and the invitee sets the first
   password that ever really exists on the account from a six-digit code valid for
   seven days. Nobody, including the creator, can sign in as that person.
+- **What the role can reach is listed under the picker as you choose it.** The
+  expensive mistake on this page is quiet — `admin` and `medical` sit next to
+  each other, and one of them can create accounts and move the cohort norms.
 - Administrators and executives are listed under **Administration & oversight**,
   which carries no capability switches: those apply to medical staff only.
+- **Deactivating an account takes effect immediately**, not at the end of the
+  session — every request re-checks the account, so somebody who has left loses
+  access on their next click rather than when their sign-in expires. Click the
+  Active / Inactive badge to switch it.
+- Two things the system refuses, because neither can be undone from the
+  interface: **you cannot deactivate your own account**, and the institution
+  cannot be left with no active administrator.
 - **Send invite / Resend invite** appears only while nobody can get into the
   account yet — it has never been activated *and* never been signed into. Once
   somebody has used it, the control is gone: the invitation email tells its
