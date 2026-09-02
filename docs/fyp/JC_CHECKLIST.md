@@ -212,9 +212,17 @@ You said "make your own decisions." Decided and in the code — veto any; silenc
   all. If a panellist asks "where did your graded composite model go?", the
   answer is `docs/fyp/ACWR_REBUILD.md` — kept as a rebuild spec, not a "it
   still runs" story.
-- [ ] **Seed injuries are realistic now** — recovery status is a function of how
+- [x] ~~**Seed injuries are realistic now** — recovery status is a function of how
   long ago the injury happened, so 19/62 athletes (31%) carry an active injury
-  instead of 61/62 (98%). Coach readiness went 4/96/0% → 43/14/39%.
+  instead of 61/62 (98%). Coach readiness went 4/96/0% → 43/14/39%.~~ —
+  **superseded 2026-08-02, verified 2026-09-02.** This describes the `Injury`
+  model, which the HoloMotion-only cut deleted. There is no injury table and no
+  seeded injuries; what survives is a single clinician-set `isInjured` flag whose
+  purpose is cohort-norm eligibility, and **0 of 62 athletes carry it** on the
+  seeded data (measured). Coach readiness is now derived from the HoloMotion
+  band, not from injuries: 64% / 21% / 14% of the **14 screened** athletes in the
+  Badminton squad, with 2 more never screened and counted separately. Do not
+  quote the old figures — `npm run measure:facts` prints the current ones.
 - [ ] **I tried skewing the seeded risk scores healthier and reverted it** — the
   two real reports (Thung 15/18/14/24/9/26/27, Nazwan 14/8/12/16/15/21/26) sit
   at a median of ~15 with half of all regions above 15, which is exactly what

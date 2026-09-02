@@ -128,6 +128,9 @@ working, and it stops the next sweep re-treading the same ground.
 | H7 | A number quoted in the docs no longer matches the database | measure it (`npm run measure:facts`) | **5 found.** See below — this was the largest single finding of the second sweep. |
 | H11 | A sort sees `null` and puts an unscored athlete at the top of a "worst" list | grep numeric comparators, check each for a prior filter | **Clean.** `topRisk` sorts a pre-filtered `screened` array; the ranked team report uses `?? 0`, which lands a null-indicator athlete last, as intended. |
 | H16 | Removing a swallowed error turns a wrong answer into an **outage** | inject the fault, drive the running server | **Clean, and it needed checking.** See below. |
+| H12 | A row buckets into one period and **displays** as another | compare UTC vs institution-zone parts for every row, then check reachability | **1 found.** Buckets were UTC, dates were rendered in the viewer's zone. Fixed. |
+| H13 | Two operators committing the same report create a **duplicate retest** | simulate the duplicate through the real reliability utils, then drive the live endpoint | **1 found, and aimed at the demo.** Fixed at both layers. |
+| H14 | The report and checklist docs quote figures the system no longer produces | grep every number out of `docs/`, compare with `measure:facts` | **2 found.** The viva dossier was already correct. |
 
 ### H7 in full — the docs had drifted from the database
 
@@ -176,11 +179,74 @@ every probe. The scheduler is safe for a separate reason worth knowing —
 
 **Always ask this of a fix that converts silence into an error.**
 
+### H12 — bucketed in one calendar, dated in another
+
+`periodKeyOf()` bucketed on `getUTC*()`. `fmtScreeningDate()` rendered with
+`toLocaleString(undefined, …)` — the **viewer's** zone. On the hosted instance
+the API runs in UTC and a clinician's browser runs in MYT (UTC+8), so a
+screening taken between 00:00 and 07:59 local falls on the previous UTC day.
+Across a month end the same row was drawn in one column of the trend chart and
+dated into the next month on the row beneath it.
+
+Nothing on record triggers it — all 74 screenings sit at 11:00 UTC (19:00 MYT)
+— but a **morning** screening is entirely normal at an institute, and
+seasonality is the output the docs call the one whose plausible failure is a
+confidently wrong institutional decision (§24).
+
+Both packages now name one `INSTITUTION_TZ` (`Asia/Kuala_Lumpur`), because a
+screening belongs to the day it happened at ISN. Verified before shipping that
+re-bucketing every row in that zone moves **none** of them at any grain: a
+correctness fix for data not yet collected, not a restatement of numbers already
+quoted. `periods.test.ts` pins the two constants together and both were
+mutation-tested. One existing backend assertion legitimately **changed** —
+`2026-03-31T23:59:59Z` is Q2 at ISN, not Q1 — and now says which calendar it
+means.
+
+### H13 — a duplicate commit manufactured a retest
+
+The screening commit was an unconditional `INSERT` and the
+`(athlete_id, assessed_at)` index is **not unique**, so committing the same
+report twice appended an identical row. `consecutivePairs()` then paired the two
+as a retest with a difference of **zero on every score**.
+
+Measured against the real rows: **two** duplicate commits took the engine from
+18 pairs — correctly declining, dead band 2, labelled an assumption — to 20
+pairs and a *derived* dead band of 5.7 to 11.5. That is precisely the failure
+`reliability.js` exists to prevent, reached by inflating the numerator rather
+than by lowering the floor, which is the direction nobody was watching.
+
+It is not hypothetical: the demo hands **the same three reports to two people**.
+
+Fixed at both layers, because either alone leaves a hole. The commit is now
+idempotent on `(athleteId, assessedAt)` — matching the intent already stated for
+the muscle-flag and event replaces — and `consecutivePairs` collapses readings
+that share an instant, since two rows at the same moment are not a retest
+whatever produced them. Verified by driving the live endpoint: the same payload
+twice yields one row (`action: "re-imported"`), a genuinely later session still
+appends, and the probe cleans up after itself.
+
+**A remaining hardening, deliberately not applied:** a unique index on
+`(athlete_id, assessed_at)` would close the millisecond-wide TOCTOU window
+between the `findOne` and the `create`. It needs an `ALTER TABLE` on the local
+and hosted databases, and the realistic scenario is two people minutes apart,
+not milliseconds — so it is recorded here rather than forced through during
+demo preparation.
+
+### H14 — the checklist described a deleted feature
+
+The viva dossier and `MODULES_STATUS.md` were already correct. Two documents
+were not: `PROJECT_GUIDE.md` carried the same "19 pairs" as CLAUDE.md, and
+`JC_CHECKLIST.md` claimed *"19/62 athletes (31%) carry an active injury"* —
+describing the `Injury` model, which the HoloMotion-only cut deleted on
+2026-08-02. **0 of 62** carry the surviving `isInjured` flag. Marked superseded
+in the file's own convention rather than deleted, since the entry is a record of
+what was once true.
+
 **Still not swept** (recorded so the gap is known rather than assumed absent):
-timezone handling on `assessedAt` boundaries and period bucketing; concurrent
-import behaviour beyond the mail lock; and the report's own figures and tables
-(`VIVA_FYP2 §2` must be re-measured with `measure:facts` before the viva
-regardless).
+concurrent *norm recompute* against a simultaneous import — the mail sends take
+a cross-process lock but `queuePostImport` only debounces within one process, so
+two API instances could recompute at once; and the generated HTML diagrams in
+`docs/fyp/*.html`, which no test reads.
 
 ---
 
@@ -194,6 +260,8 @@ instead of reaching Dr Thung.
 | A — unreachable | `permissions.test.js` "UC-41 wiring", `athleteDisclosure.test.js` "wiring", `accountLifecycle.test.js` role pin. All read route **source**, because the predicates are pure and pass regardless. |
 | B — by omission | `riskIndicators.test.js` + `screeningAlerts.indicators.test.ts` pin the two packages' indicator lists and **assert the LDH exclusion as a value**; `bands.test.ts` pins the labels; `athleteDisclosure.test.js` pins the note allow-list. |
 | E — dead declarations | **`lib/cssTokens.test.ts`** — every `var(--x)` used without a fallback must be defined. Reports `token used at file:line`. Includes a corpus check, so deleting the walker cannot make it pass vacuously. |
+| D — wrong denominator, in TIME | `periods.test.ts` + `screeningPeriods.test.js` pin one `INSTITUTION_TZ` across both packages and assert the boundary instants explicitly, in a named calendar. |
+| Duplicate ingest | `reliability.test.js` collapses same-instant readings and asserts duplicates cannot push the engine over `MIN_PAIRS`; the commit is idempotent on `(athleteId, assessedAt)`. |
 | Docs drifting from data | **`npm run measure:facts`** — prints the quoted headline numbers from the database, through the same utils the screens use, so the script cannot quote a different band rule than the dashboard. |
 | F — unread output | `npm run guide:pdf` renders **and verifies** in one command; `verify-guide-pdf.js` reads the PDF back. `capturePdfText` / `capturePaintOps` patch `PDFDocument.prototype` *before* construction so an unwired guard fails. |
 

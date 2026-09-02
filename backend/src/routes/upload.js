@@ -179,7 +179,29 @@ router.post('/screening/pdf', auth, rbac('medical', 'admin'), requirePermission(
         await AthleteDiscipline.destroy({ where: { athleteId: data.athleteId }, transaction: t });
         if (disciplineRows.length) await AthleteDiscipline.bulkCreate(disciplineRows, { transaction: t });
       }
-      await Screening.create(screeningRow, { transaction: t });
+      // Idempotent on (athleteId, assessedAt), like the muscle-flag and event
+      // replaces above. Committing the same report twice used to append a
+      // SECOND screening row identical to the first, and nothing downstream
+      // could tell them apart: reliability() paired them as a retest with a
+      // difference of zero on every score. Measured — two such commits took the
+      // dead band from the documented fallback of 2, correctly labelled an
+      // assumption, to a DERIVED 5.7-11.5. The demo hands the same three
+      // reports to two people, so this is the expected path, not an edge case.
+      //
+      // An undated screening still inserts: with no assessedAt there is nothing
+      // to match on, and merging two undated rows would be a guess.
+      const twin = screeningRow.assessedAt
+        ? await Screening.findOne({
+          where: { athleteId: data.athleteId, assessedAt: screeningRow.assessedAt },
+          transaction: t,
+        })
+        : null;
+      if (twin) {
+        await Screening.update(screeningRow, { where: { id: twin.id }, transaction: t });
+        action = action === 'created' ? 'created' : 're-imported';
+      } else {
+        await Screening.create(screeningRow, { transaction: t });
+      }
     });
 
     // New screening data → refresh cohort norms, re-score the indicators, and

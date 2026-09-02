@@ -18,9 +18,30 @@ export const GRAINS: Array<{ key: Grain; label: string }> = [
 /** Grain as a noun, for prose ("only one quarter of screening falls here"). */
 export const GRAIN_NOUN: Record<Grain, string> = { month: 'month', quarter: 'quarter', year: 'year' };
 
+/**
+ * The calendar this system dates things in: ISN's, not the viewer's.
+ *
+ * This formatter passed `undefined` as the locale AND left the timezone
+ * unset, so it rendered in whatever zone the browser happened to be in, while
+ * the backend bucketed the same row into a month with `getUTC*()`. On the
+ * hosted instance the API runs in UTC and a clinician's browser runs in MYT
+ * (UTC+8), so a screening taken between 00:00 and 07:59 local sits on the
+ * PREVIOUS UTC day — and across a month end the trend chart drew it in one
+ * column while the row beneath it carried a date in the next month.
+ *
+ * Pinned rather than left to the viewer because a screening belongs to the day
+ * it happened at ISN. A coach opening the same dashboard while abroad should
+ * read the same date their colleague in Bukit Jalil does.
+ *
+ * Must equal INSTITUTION_TZ in backend/src/utils/screeningPeriods.js.
+ * periods.test.ts pins them together — there is no shared types package.
+ */
+export const INSTITUTION_TZ = 'Asia/Kuala_Lumpur';
+
 /** A screening's assessed-at, to the minute — two screenings can share a day. */
 export const fmtScreeningDate = (d: string | null | undefined): string => (d
-  ? new Date(d).toLocaleString(undefined, {
+  ? new Date(d).toLocaleString('en-GB', {
+    timeZone: INSTITUTION_TZ,
     year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
   })
   : 'Undated');

@@ -24,11 +24,47 @@ describe('periodKeyOf', () => {
     expect(periodKeyOf(d, 'month')).toEqual({ key: '2026-08', label: 'Aug 2026' });
   });
 
-  it('puts quarter boundaries in the right quarter', () => {
+  // Boundaries are decided in the INSTITUTION's calendar (INSTITUTION_TZ,
+  // Asia/Kuala_Lumpur), not UTC. These cases used to assert the UTC answer,
+  // which is why two of them changed when the frame did: an instant late on
+  // 31 March UTC is already 1 April at ISN, and for "which quarter is the risky
+  // one" the answer that matters is the one on the wall in Bukit Jalil.
+  it('puts quarter boundaries in the right quarter, in the ISN calendar', () => {
+    // 08:00 MYT on 1 Jan — unambiguously Q1 in both frames.
     expect(periodKeyOf('2026-01-01T00:00:00Z', 'quarter').key).toBe('2026-Q1');
-    expect(periodKeyOf('2026-03-31T23:59:59Z', 'quarter').key).toBe('2026-Q1');
+    // 23:59 UTC on 31 Mar is 07:59 on 1 Apr in KL, so it belongs to Q2.
+    expect(periodKeyOf('2026-03-31T23:59:59Z', 'quarter').key).toBe('2026-Q2');
+    // The last instant that is still Q1 at ISN: 15:59:59 UTC = 23:59:59 MYT.
+    expect(periodKeyOf('2026-03-31T15:59:59Z', 'quarter').key).toBe('2026-Q1');
+    // And the first that is Q2 there.
+    expect(periodKeyOf('2026-03-31T16:00:00Z', 'quarter').key).toBe('2026-Q2');
     expect(periodKeyOf('2026-04-01T00:00:00Z', 'quarter').key).toBe('2026-Q2');
     expect(periodKeyOf('2026-12-31T00:00:00Z', 'quarter').key).toBe('2026-Q4');
+  });
+
+  it('buckets a morning screening on the day it happened at ISN', () => {
+    // The realistic case, and the one the old UTC framing got wrong: an
+    // institute screens athletes early, and 07:00 MYT on 1 August is 23:00 UTC
+    // on 31 July. It belongs to August.
+    expect(periodKeyOf('2025-07-31T23:00:00Z', 'month').key).toBe('2025-08');
+    expect(periodKeyOf('2025-07-31T23:00:00Z', 'quarter').key).toBe('2025-Q3');
+  });
+
+  it('does not depend on the timezone the SERVER happens to run in', () => {
+    // Vercel runs UTC; this laptop runs MYT. The bucket must not move between
+    // them, which is the whole reason the zone is named rather than implied.
+    const iso = '2025-07-31T23:00:00Z';
+    const prev = process.env.TZ;
+    try {
+      process.env.TZ = 'UTC';
+      const a = periodKeyOf(iso, 'month').key;
+      process.env.TZ = 'America/New_York';
+      const b = periodKeyOf(iso, 'month').key;
+      expect(a).toBe(b);
+      expect(a).toBe('2025-08');
+    } finally {
+      if (prev === undefined) delete process.env.TZ; else process.env.TZ = prev;
+    }
   });
 
   it('returns null for an unparseable date', () => {

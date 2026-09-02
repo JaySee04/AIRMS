@@ -1,4 +1,6 @@
-const { reliability, pairedDifferences, sd } = require('../src/utils/reliability');
+const {
+  reliability, pairedDifferences, sd, consecutivePairs, MIN_PAIRS,
+} = require('../src/utils/reliability');
 
 // One athlete, two screenings, only the fields under test set.
 let seq = 0;
@@ -153,5 +155,109 @@ describe('integration with direction of travel', () => {
     const strict = screeningPeriods(rows, { grain: 'month', noise: 2 });
     const loose = strict.betweenTests.deltas.find((d) => d.key === 'totalScore');
     expect(loose.deadBand).toBe(2);
+  });
+});
+
+// ── Duplicate commits must not manufacture a retest ─────────────────────────
+//
+// Found 2026-09-02 sweeping for concurrency faults. The screening commit was an
+// unconditional INSERT and the (athlete_id, assessed_at) index is not unique, so
+// committing the same report twice appended an identical row. consecutivePairs
+// then paired the two as a retest with a difference of zero on every score.
+//
+// Measured against the real 74 rows: TWO duplicate commits took the engine from
+// 18 pairs — correctly declining, dead band 2, labelled an assumption — to 20
+// pairs and a DERIVED dead band of 5.7 to 11.5. That is the failure this module
+// exists to prevent, reached by inflating the numerator instead of lowering the
+// floor. The demo hands the same three reports to two people, so it is the
+// expected path rather than an edge case.
+describe('same-instant readings are not a retest', () => {
+  const at = (iso, over = {}) => ({
+    id: Math.floor(Math.random() * 1e6),
+    athleteId: 'A1',
+    assessedAt: iso,
+    overallIndicator: 50, totalScore: 70, rom: 70,
+    stability: 70, symmetry: 70, exerciseRisks: 10,
+    ...over,
+  });
+
+  it('collapses a duplicate commit instead of pairing it', () => {
+    const one = [at('2026-01-01T00:00:00Z'), at('2026-06-01T00:00:00Z')];
+    const withDupe = [
+      at('2026-01-01T00:00:00Z'),
+      at('2026-01-01T00:00:00Z'),   // the second operator pressing Commit
+      at('2026-06-01T00:00:00Z'),
+    ];
+    expect(consecutivePairs(one).pairs).toHaveLength(1);
+    expect(consecutivePairs(withDupe).pairs).toHaveLength(1);
+  });
+
+  it('produces no zero-elapsed pair, however many duplicates arrive', () => {
+    const rows = [];
+    for (let i = 0; i < 6; i += 1) rows.push(at('2026-01-01T00:00:00Z'));
+    rows.push(at('2026-06-01T00:00:00Z'));
+    const { pairs } = consecutivePairs(rows);
+    const zeroGap = pairs.filter(
+      ([a, b]) => new Date(a.assessedAt).getTime() === new Date(b.assessedAt).getTime(),
+    );
+    expect(zeroGap).toHaveLength(0);
+  });
+
+  it('keeps a genuine retest either side of a duplicate', () => {
+    // A, A(dup), B, C -> two real pairs, not three.
+    const rows = [
+      at('2026-01-01T00:00:00Z'),
+      at('2026-01-01T00:00:00Z'),
+      at('2026-06-01T00:00:00Z'),
+      at('2026-11-01T00:00:00Z'),
+    ];
+    expect(consecutivePairs(rows).pairs).toHaveLength(2);
+  });
+
+  it('does not let duplicates push the engine over MIN_PAIRS', () => {
+    // Enough athletes to sit just under the floor, then flood duplicates.
+    const rows = [];
+    for (let a = 0; a < MIN_PAIRS - 1; a += 1) {
+      rows.push(at('2026-01-01T00:00:00Z', { athleteId: `A${a}` }));
+      rows.push(at('2026-06-01T00:00:00Z', { athleteId: `A${a}`, totalScore: 74 }));
+    }
+    expect(reliability(rows).scores[0].pairs).toBe(MIN_PAIRS - 1);
+    expect(reliability(rows).anySufficient).toBe(false);
+
+    const flooded = [...rows];
+    for (let a = 0; a < MIN_PAIRS - 1; a += 1) {
+      flooded.push(at('2026-01-01T00:00:00Z', { athleteId: `A${a}` }));
+    }
+    // Still short of the floor: a duplicate is not evidence.
+    expect(reliability(flooded).scores[0].pairs).toBe(MIN_PAIRS - 1);
+    expect(reliability(flooded).anySufficient).toBe(false);
+  });
+});
+
+// The commit path is what stops duplicates existing at all. The route body has
+// no extracted util, so this reads the source — same reason as the wiring
+// assertions in athleteDisclosure.test.js.
+describe('wiring — the screening commit is idempotent', () => {
+  const src = require('fs').readFileSync(
+    require('path').join(__dirname, '..', 'src', 'routes', 'upload.js'), 'utf8',
+  );
+
+  it('looks for an existing screening at the same assessedAt before inserting', () => {
+    expect(src).toMatch(/Screening\.findOne\(\{[\s\S]{0,160}assessedAt: screeningRow\.assessedAt/);
+  });
+
+  it('updates that row rather than appending a second', () => {
+    // The BRANCH, not just the call. Asserting only that the update statement
+    // exists passes happily when it sits inside `if (false)` — a mutation run
+    // proved exactly that, which is the same defect shape being guarded here:
+    // present, plausible, and never reached.
+    const at = src.indexOf('if (twin) {');
+    expect(at).toBeGreaterThan(-1);
+    expect(src.slice(at, at + 200)).toContain('Screening.update(screeningRow, { where: { id: twin.id }');
+  });
+
+  it('still inserts when there is no date to match on', () => {
+    expect(src).toMatch(/screeningRow\.assessedAt\s*\?/);
+    expect(src).toMatch(/Screening\.create\(screeningRow, \{ transaction: t \}\)/);
   });
 });

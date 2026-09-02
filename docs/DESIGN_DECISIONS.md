@@ -3256,3 +3256,72 @@ file:line`. It guards a class rather than an instance — this is the third time
 undefined token has shipped. It carries a corpus assertion so that neutering the
 file walker cannot make it pass vacuously, and it was mutation-tested by
 reintroducing `--text-primary`.
+
+---
+
+## 45. The three sweeps that were left open (2026-09-02)
+
+§44 named three areas as unswept rather than implying they were clean. These are
+their results. Two produced real defects; both were latent, and one is aimed
+squarely at the stakeholder demo.
+
+### The calendar a screening belongs to
+
+`periodKeyOf()` bucketed with `getUTC*()`; `fmtScreeningDate()` rendered with
+`toLocaleString(undefined, …)`, the viewer's zone. Hosted, the API runs in UTC
+and a clinician's browser runs in MYT, so a screening between 00:00 and 07:59
+local sits on the previous UTC day — and across a month end the trend chart drew
+it in one column while the row beneath carried a date in the next month.
+Seasonality is where that matters most (§24).
+
+Both packages now name one `INSTITUTION_TZ = 'Asia/Kuala_Lumpur'`. A screening
+belongs to the day it happened at ISN, and a coach opening the dashboard abroad
+should read what their colleague in Bukit Jalil reads. Verified before shipping
+that re-bucketing all 74 rows in that zone moves none of them at any grain — a
+fix for data not yet collected, not a restatement of published numbers. One
+existing assertion legitimately changed: `2026-03-31T23:59:59Z` is Q2 at ISN,
+and the test now says which calendar it is asserting.
+
+### A duplicate commit was counted as a retest
+
+The screening commit was an unconditional `INSERT` and `(athlete_id,
+assessed_at)` is not a unique index, so the same report committed twice appended
+an identical row — which `consecutivePairs()` then paired as a retest with a
+difference of zero on every score.
+
+Two such commits take the engine from 18 pairs (declining, dead band 2, labelled
+an assumption) to 20 pairs and a **derived** dead band of 5.7–11.5. That is the
+failure `reliability.js` exists to prevent, reached by inflating the numerator
+rather than lowering the floor — the direction nobody was guarding. And it is the
+expected path, not an edge case: the demo hands the same three reports to two
+people.
+
+Fixed at both layers. The commit is idempotent on `(athleteId, assessedAt)`,
+matching the intent already stated for the muscle-flag and event replaces; and
+`consecutivePairs` collapses readings sharing an instant, because two rows at the
+same moment are not a retest whatever produced them. Verified by driving the live
+endpoint — same payload twice gives one row, a later session still appends.
+
+A unique index would additionally close the TOCTOU window between the `findOne`
+and the `create`. It needs an `ALTER TABLE` on two databases and the realistic
+case is two people minutes apart; recorded in `SILENT_FAILURES.md` rather than
+forced through during demo preparation.
+
+### The documents
+
+The viva dossier and `MODULES_STATUS.md` were already correct.
+`PROJECT_GUIDE.md` carried the same stale "19 pairs", and `JC_CHECKLIST.md`
+claimed 19 of 62 athletes carry an active injury — describing the `Injury` model
+deleted on 2026-08-02, where the surviving flag is set on **none** of them.
+Marked superseded in the file's own convention, since the entry records
+something that was once true.
+
+### On the guards themselves
+
+A mutation run caught a test of mine that was not doing its job: asserting the
+`Screening.update` call *exists* passes when it sits inside `if (false)`. The
+assertion now pins the branch. The mutation harness had the matching flaw — it
+counted any non-zero exit as "caught", so a test file that failed to **parse**
+scored as a pass; it now requires the suite to have actually run. Both are the
+same shape as the defects being hunted, which is the argument for mutation
+testing rather than a reason to distrust it.

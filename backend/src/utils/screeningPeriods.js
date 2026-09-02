@@ -33,11 +33,42 @@ const num = (v) => (v === null || v === undefined || v === '' || Number.isNaN(Nu
 
 // Calendar bucket for a date. `key` sorts lexicographically inside a grain, so
 // it doubles as the ordering value — no separate sort field needed.
+// ── Which calendar decides the bucket ───────────────────────────────────────
+//
+// ISN's, not UTC's. "Which quarter is the risky one" is a question about the
+// institution's year, and a screening run on the morning of 1 August in Kuala
+// Lumpur belongs to August however it is stored.
+//
+// This was getUTC*(), while the frontend dated the same row with
+// toLocaleString() in the VIEWER's zone. On the hosted instance the API runs in
+// UTC and the clinician's browser runs in MYT (UTC+8), so a screening between
+// 00:00 and 07:59 local falls on the PREVIOUS UTC day — and when that crosses a
+// month end it was drawn in one column of the trend chart and dated into
+// another on the row directly beneath. Seasonality is the output where this
+// matters most: it is the one whose plausible failure is a confidently wrong
+// institutional decision (§24).
+//
+// Verified before the change: re-bucketing all 74 screenings on record in this
+// zone moves NONE of them at any grain, because the seeded and imported rows
+// all sit at 11:00 UTC (19:00 MYT). It is a correctness fix for data not yet
+// collected, not a restatement of the numbers already quoted.
+//
+// frontend/src/lib/periods.ts pins the same zone; periods.test.ts holds them
+// together, there being no shared types package.
+const INSTITUTION_TZ = 'Asia/Kuala_Lumpur';
+
+// Calendar parts of an instant AS SEEN in the institution's timezone.
+const zonedParts = (d) => {
+  const p = new Intl.DateTimeFormat('en-GB', {
+    timeZone: INSTITUTION_TZ, year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(d).reduce((o, x) => { o[x.type] = x.value; return o; }, {});
+  return { year: Number(p.year), month: Number(p.month) - 1, day: Number(p.day) };
+};
+
 function periodKeyOf(date, grain) {
   const d = date instanceof Date ? date : new Date(date);
   if (Number.isNaN(d.getTime())) return null;
-  const y = d.getUTCFullYear();
-  const m = d.getUTCMonth();
+  const { year: y, month: m } = zonedParts(d);
   if (grain === 'year') return { key: String(y), label: String(y) };
   if (grain === 'quarter') {
     const q = Math.floor(m / 3) + 1;
@@ -330,13 +361,13 @@ function seasonality(screenings, { grain = 'quarter', noise = 2 } = {}) {
   for (const s of rows) {
     const d = new Date(s.assessedAt);
     if (Number.isNaN(d.getTime())) continue;
-    const m = d.getUTCMonth();
+    const m = zonedParts(d).month;
     const key = g === 'month' ? String(m + 1).padStart(2, '0') : `Q${Math.floor(m / 3) + 1}`;
     const slot = byKey.get(key);
     if (!slot) continue;
     slot.rows.push(s);
-    slot.years.add(d.getUTCFullYear());
-    allYears.add(d.getUTCFullYear());
+    slot.years.add(zonedParts(d).year);
+    allYears.add(zonedParts(d).year);
   }
 
   const buckets = [...byKey.values()].map(({
@@ -465,4 +496,5 @@ function screeningPeriods(screenings, { grain = 'quarter', noise } = {}) {
 
 module.exports = {
   screeningPeriods, seasonality, periodKeyOf, grainCounts, median, PERIOD_SCORES, GRAINS,
+  INSTITUTION_TZ,
 };

@@ -81,9 +81,27 @@ function consecutivePairs(screenings) {
     const sorted = rows
       .filter((r) => !Number.isNaN(new Date(r.assessedAt || 0).getTime()))
       .sort((a, b) => new Date(a.assessedAt) - new Date(b.assessedAt) || (a.id || 0) - (b.id || 0));
-    if (sorted.length < 2) continue;
+
+    // Collapse readings that share an instant. Two rows with the same
+    // assessedAt are not a retest — they are the same screening recorded
+    // twice, which is what a second operator committing the same PDF produces
+    // (the demo hands the same three reports to two people).
+    //
+    // Left in, each such pair contributes a difference of ZERO to every score,
+    // and counts toward MIN_PAIRS. Measured on the real rows: two duplicate
+    // commits take this from 18 pairs — correctly declining, dead band 2, and
+    // saying so — to 20 pairs and a DERIVED dead band of 5.7 to 11.5. That is
+    // the exact failure this module exists to prevent, reached by inflating the
+    // numerator rather than by lowering the floor.
+    const distinct = [];
+    for (const r of sorted) {
+      const prev = distinct[distinct.length - 1];
+      if (prev && new Date(prev.assessedAt).getTime() === new Date(r.assessedAt).getTime()) continue;
+      distinct.push(r);
+    }
+    if (distinct.length < 2) continue;
     athletesWithRetest += 1;
-    for (let i = 1; i < sorted.length; i += 1) pairs.push([sorted[i - 1], sorted[i]]);
+    for (let i = 1; i < distinct.length; i += 1) pairs.push([distinct[i - 1], distinct[i]]);
   }
   return { pairs, athletesWithRetest };
 }
