@@ -5,6 +5,7 @@
 jest.mock('../src/models', () => ({ Screening: {}, Athlete: {}, CohortThreshold: {} }));
 
 const {
+  SMALL_COHORT,
   meanSd, orientedComponents, resolveFromMap, buildApprovedCohortMap,
   cohortReview, pinDrift, screeningMovement,
 } = require('../src/utils/cohorts');
@@ -209,5 +210,51 @@ describe('pinDrift', () => {
   it('reports no n movement when the fresh count is unknown', () => {
     const d = pinDrift({ n: 9, stats: { x: { mean: 1 } }, freshStats: { x: { mean: 1 } } });
     expect(d.nDelta).toBeNull();
+  });
+});
+
+// ── The small-cohort caveat is ONE number ───────────────────────────────────
+//
+// It was written out three times — the risk badge, the individual PDF, and the
+// measurement script — each with a comment naming the others. One of those
+// comments had already drifted into a falsehood: it claimed the value was read
+// from the component when it had been retyped. A comment pointing at another
+// file documents the hazard without preventing it (§31, §42).
+//
+// The backend now has one definition. The frontend keeps its own because there
+// is no shared types package, so this pins them — a cohort hedged on screen and
+// stated flatly in the printed report is the drift this codebase keeps finding,
+// and the report is the copy that gets filed.
+describe('SMALL_COHORT is not restated anywhere', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const root = path.join(__dirname, '..', '..');
+
+  it('matches the frontend badge that renders the caveat', () => {
+    const src = fs.readFileSync(
+      path.join(root, 'frontend', 'src', 'components', 'dashboard', 'OverallRiskBadge.tsx'),
+      'utf8',
+    );
+    const m = src.match(/const SMALL_COHORT = (\d+)/);
+    expect(m).not.toBeNull();
+    expect(Number(m[1])).toBe(SMALL_COHORT);
+  });
+
+  it('is imported by the report and the script, not retyped', () => {
+    for (const rel of [
+      ['backend', 'src', 'routes', 'screeningReports.js'],
+      ['backend', 'scripts', 'measure-facts.js'],
+    ]) {
+      const src = fs.readFileSync(path.join(root, ...rel), 'utf8');
+      // Uses it...
+      expect(src).toMatch(/\bSMALL_COHORT\b/);
+      // ...but does not define it.
+      expect(src).not.toMatch(/const SMALL_COHORT\s*=/);
+    }
+  });
+
+  it('is a plausible peer count, not an accidental zero', () => {
+    expect(SMALL_COHORT).toBeGreaterThan(1);
+    expect(Number.isInteger(SMALL_COHORT)).toBe(true);
   });
 });

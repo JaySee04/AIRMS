@@ -26,21 +26,19 @@ require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
 
 const { Athlete } = require('../src/models');
 const { effectiveBand } = require('../src/utils/bands');
-const { latestScreeningsByAthlete, resolveCohortStats } = require('../src/utils/cohorts');
+const {
+  latestScreeningsByAthlete, resolveCohortStats, SMALL_COHORT,
+} = require('../src/utils/cohorts');
 const { reliability } = require('../src/utils/reliability');
 const { getSettings } = require('../src/utils/settings');
 const { Screening } = require('../src/models');
 const { PERIOD_SCORES } = require('../src/utils/periodScores');
+// median and SMALL_COHORT come from the application, not from a second
+// implementation here: a measurement script that computes its own median or
+// carries its own threshold will eventually report a number the screens do
+// not, which is the exact drift this script exists to detect.
+const { median } = require('../src/utils/screeningPeriods');
 
-const median = (xs) => {
-  const s = [...xs].sort((a, b) => a - b);
-  if (!s.length) return null;
-  return s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2;
-};
-
-// The caveat threshold, read from the component that renders it rather than
-// retyped — SMALL_COHORT lives in OverallRiskBadge.tsx and is `size < 10`.
-const SMALL_COHORT = 10;
 
 (async () => {
   const settings = await getSettings();

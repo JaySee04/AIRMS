@@ -3501,3 +3501,54 @@ default store is in-memory, so several instances keep several counters; and it i
 keyed by IP, so it does not bound guesses against one account from many
 addresses. Both want a shared store; neither justifies a second control days
 before a stakeholder demo.
+
+---
+
+## 49. Optimisation: one duplicated constant, and a lot of measurement (2026-09-02)
+
+Asked to optimise, the honest first step was to find out whether anything was
+slow. Mostly it is not, and the numbers are recorded here so the question does
+not have to be re-opened — and so "did you consider performance?" has an answer
+better than an opinion.
+
+### What was actually wrong: a constant written three times
+
+`SMALL_COHORT = 10` — the peer count below which a cohort caveats itself — was
+declared in the risk badge, in the individual PDF route, and in the measurement
+script. Each carried a comment naming the others, which is the §31 pattern:
+a comment documents the hazard without preventing it. One of those comments had
+already drifted into a **falsehood**, claiming the value was "read from the
+component rather than retyped" in a file that retyped it.
+
+There is now one backend definition in `utils/cohorts.js`, imported by both
+backend callers. The frontend keeps its own because there is no shared types
+package, and `cohorts.test.js` pins the two — mutation-tested by drifting each
+side and by making the report restate it. `median()` was likewise
+re-implemented in the measurement script and now comes from
+`screeningPeriods.js`: a script that computes its own median will eventually
+report a number the screens do not, which is precisely what it exists to detect.
+
+### What was measured and left alone
+
+| | |
+|---|---|
+| Queries per endpoint | **2–9, independent of roster size.** No N+1 anywhere — the batching helpers do their job |
+| Endpoint latency | 3–75 ms (heaviest: holistic PDF at 75 ms) |
+| Payloads | 12–79 KB (heaviest: `/cohorts`, which carries both pinned and fresh stats by design) |
+| `latestScreeningsByAthlete()` | 3 ms at 62 athletes; ~90 ms extrapolated to a 30× roster |
+| Frontend build | Succeeds, 29 static pages, 87.4 KB shared, heaviest route 136 KB |
+
+`latestScreeningsByAthlete()` does load every athlete and every screening to
+compute peer means for a cohort of five to ten, which is wasteful by
+construction. It is left alone deliberately: 3 ms now and ~90 ms at thirty times
+ISN's current roster is not a problem, and it sits on the clinical path that
+produces the per-cell peer means built on JC's explicit instruction. Rewriting a
+working clinical query on a speculative scaling argument, days before a
+stakeholder demo, would be the wrong trade. The measurement is here so a future
+decision starts from numbers.
+
+`AcwrGauge.tsx` and `WorkloadChart.tsx` have no importer. They are the
+documented ACWR rebuild path and are **kept**; Next tree-shakes them, so they
+cost nothing in the bundle. Six test suites construct their own source-reading
+scaffolding, and that is left too — boilerplate is not a duplicated *fact*, and
+this codebase's real hazard is semantic duplication, not repeated `path.join`.

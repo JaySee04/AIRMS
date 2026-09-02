@@ -20,16 +20,12 @@ const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
 const requirePermission = require('../middleware/permission');
 const { isForeignAthleteRequest, canDownloadIndividualReport, notFoundStatusFor } = require('../utils/permissions');
-const { resolveCohortStats, orientedComponents, computeStats } = require('../utils/cohorts');
+const {
+  resolveCohortStats, orientedComponents, computeStats, SMALL_COHORT,
+} = require('../utils/cohorts');
 const { getSettings } = require('../utils/settings');
 const { effectiveBand } = require('../utils/bands');
 
-// Mirrors SMALL_COHORT in frontend/src/components/dashboard/OverallRiskBadge.tsx.
-// Named on both sides so the screen and the printed report caveat the SAME
-// cohorts: a comparison hedged on one surface and stated flatly on the other is
-// the drift this codebase keeps finding, and the report is the copy that gets
-// filed.
-const SMALL_COHORT = 10;
 const { holisticData, drawHolistic } = require('../utils/holisticReport');
 const { programmeActivityData } = require('../utils/programmeActivity');
 const { sendError } = require('../utils/httpError');

@@ -364,8 +364,24 @@ async function resolveCohortStats(athlete, opts = {}) {
   return resolveFromMap(athlete, buildApprovedCohortMap(approved), opts);
 }
 
+// Below this many peers a cohort caveats itself, on every surface.
+//
+// It was written out THREE times — the risk badge, the individual PDF, and the
+// measurement script — each with a comment naming the others. A comment pointing
+// at another file documents the hazard without preventing it (§31, §42), and one
+// of those comments had already drifted into a falsehood: it claimed the value
+// was read from the component when it had been retyped.
+//
+// The frontend keeps its own copy because there is no shared types package;
+// `cohorts.test.js` pins the two together, in the direction that matters — a
+// number hedged on one surface and stated flatly on another is the drift this
+// codebase keeps finding, and the printed report is the copy that gets filed.
+//
+// Measured 2026-09-02: 55 of 56 scored athletes fall under it.
+const SMALL_COHORT = 10;
+
 module.exports = {
-  COMPONENTS, SHOWN_RISK_KEYS,
+  COMPONENTS, SHOWN_RISK_KEYS, SMALL_COHORT,
   orientedComponents, meanSd, computeStats,
   tierKeysFor, latestScreeningsByAthlete,
   recomputeCohorts, resolveCohortStats, resolveFromMap, buildApprovedCohortMap,
