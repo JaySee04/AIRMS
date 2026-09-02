@@ -3396,3 +3396,42 @@ immediately: the first ERD edit fixed the footer to "Nine tables" and left the
 `panel_slides.html` and `risk-algebra-slide.html` are ACWR-era FYP I artefacts
 and are left alone — `REPORT_EDIT_PACK.md` already records what is stale in
 them, and rewriting frozen history is not correcting a current figure.
+
+---
+
+## 47. The use-case diagrams, reconciled against Chapter 4 (2026-09-02)
+
+The last figures nobody had checked. `REPORT_TABLE_4-1.md` holds 60 use cases and
+is the authority for Chapter 4; diffing the diagrams against it by label found
+**seven** use cases present in the table and in no diagram — UC-48/49/50
+(invitation onboarding and notification preferences) missing from the General
+Module diagram, and UC-51/52/53/56 (norm pinning, scheduled mail, forcing a mail
+run, prescription extraction) missing from the data-management one. Every one is
+a feature added after its diagram was drawn.
+
+`uc-general` was also missing the **Executive actor** entirely, though UC-49 and
+UC-50 both name it and the role has existed since 2026-08-08. Its caption still
+said "all four roles" and described personnel management as "creating a coach or
+medical account", both superseded by §42.
+
+The activity diagram was invalidated by *this session's own work*: it said the
+commit "appends immutable screening snapshot", which stopped being true when the
+commit became idempotent (§45). It now says the snapshot is keyed on
+(athlete, assessed-at) and that a re-import updates rather than duplicates. A
+figure can be made stale by the commit that fixes the code — an argument for
+reconciling the two together rather than leaving the diagram for later.
+
+All corrected, re-diffed to zero unmatched, and rendered and read.
+
+**Two notes worth keeping.** The first attempt at the data-management fix
+anchored on the string `"divider"`, which also appears in that file's header
+prose, so it shifted Module 3 along with Module 4 — and *still rendered
+plausibly*, as a taller box with its contents sitting lower. Only comparing the
+coordinates against their expected values caught it, which is the same lesson as
+everything else in `SILENT_FAILURES.md`.
+
+And an inconsistency **inside** the authority is left for JC rather than
+patched: UC-1 to UC-4 list four actors and omit Executive, while UC-49 and UC-50
+include it. An executive must log in to activate their account, so the omission
+reads as an oversight — but `REPORT_TABLE_4-1.md` is the authority, and editing
+an authority to agree with a diagram is the wrong direction of travel.

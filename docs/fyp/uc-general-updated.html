@@ -33,10 +33,10 @@
     <span class="swatch"></span> added since the FYP I decomposition
   </div>
 
-  <svg width="1100" height="720" viewBox="0 0 1100 720" font-family="Helvetica, Arial, sans-serif">
+  <svg width="1100" height="980" viewBox="0 0 1100 980" font-family="Helvetica, Arial, sans-serif">
 
     <!-- System boundary -->
-    <rect x="300" y="40" width="500" height="620" fill="#fff" stroke="#6c8ebf" stroke-width="1.4"/>
+    <rect x="300" y="40" width="500" height="880" fill="#fff" stroke="#6c8ebf" stroke-width="1.4"/>
     <text x="550" y="62" text-anchor="middle" font-size="13" font-weight="bold">AIRMS — General Module</text>
 
     <!-- ── Associations ── -->
@@ -65,6 +65,22 @@
       <!-- System → Enforce RBAC, Enforce Per-User Permissions -->
       <line x1="962" y1="525" x2="665" y2="520"/>
       <line x1="962" y1="533" x2="665" y2="598"/>
+      <!-- Administrator → Invite User (UC-48), Activate Account, Set Notification Preferences -->
+      <line x1="962" y1="240" x2="665" y2="678"/>
+      <line x1="962" y1="248" x2="665" y2="758"/>
+      <line x1="962" y1="256" x2="665" y2="838"/>
+      <!-- Athlete → Activate Account, Set Notification Preferences (UC-49, UC-50) -->
+      <line x1="138" y1="182" x2="435" y2="756"/>
+      <line x1="138" y1="190" x2="435" y2="836"/>
+      <!-- Medical Staff → Activate Account, Set Notification Preferences -->
+      <line x1="138" y1="362" x2="435" y2="762"/>
+      <line x1="138" y1="370" x2="435" y2="842"/>
+      <!-- Coach → Activate Account, Set Notification Preferences -->
+      <line x1="138" y1="524" x2="435" y2="768"/>
+      <line x1="138" y1="532" x2="435" y2="848"/>
+      <!-- Executive → Activate Account, Set Notification Preferences -->
+      <line x1="138" y1="700" x2="435" y2="774"/>
+      <line x1="138" y1="708" x2="435" y2="854"/>
     </g>
 
     <!-- ── Use cases ── -->
@@ -93,6 +109,20 @@
       <ellipse cx="550" cy="600" rx="115" ry="27" fill="#d5e8d4" stroke="#82b366" stroke-width="1.3"/>
       <text x="550" y="597" text-anchor="middle" font-size="12">Enforce Per-User</text>
       <text x="550" y="611" text-anchor="middle" font-size="12">Permissions</text>
+
+      <!-- UC-48 — invitation onboarding, 2026-08-23 -->
+      <ellipse cx="550" cy="680" rx="115" ry="27" fill="#d5e8d4" stroke="#82b366" stroke-width="1.3"/>
+      <text x="550" y="684" text-anchor="middle" font-size="12">Invite User</text>
+
+      <!-- UC-49 -->
+      <ellipse cx="550" cy="760" rx="115" ry="27" fill="#d5e8d4" stroke="#82b366" stroke-width="1.3"/>
+      <text x="550" y="757" text-anchor="middle" font-size="12">Activate Account</text>
+      <text x="550" y="771" text-anchor="middle" font-size="11">(one-time code)</text>
+
+      <!-- UC-50 -->
+      <ellipse cx="550" cy="840" rx="115" ry="27" fill="#d5e8d4" stroke="#82b366" stroke-width="1.3"/>
+      <text x="550" y="837" text-anchor="middle" font-size="12">Set Notification</text>
+      <text x="550" y="851" text-anchor="middle" font-size="12">Preferences</text>
     </g>
 
     <!-- ── Actors ── -->
@@ -126,6 +156,17 @@
     </g>
     <text x="110" y="554" text-anchor="middle" font-size="12" font-weight="bold">Coach</text>
 
+    <!-- Executive (read-only oversight, 5th role since 2026-08-08). Absent from
+         this diagram until 2026-09-02 although UC-49 and UC-50 both name it. -->
+    <g stroke="#1a1a1a" stroke-width="1.5" fill="none">
+      <circle cx="110" cy="648" r="11"/>
+      <line x1="110" y1="659" x2="110" y2="690"/>
+      <line x1="94" y1="670" x2="126" y2="670"/>
+      <line x1="110" y1="690" x2="96" y2="714"/>
+      <line x1="110" y1="690" x2="124" y2="714"/>
+    </g>
+    <text x="110" y="732" text-anchor="middle" font-size="12" font-weight="bold">Executive</text>
+
     <!-- Administrator -->
     <g stroke="#1a1a1a" stroke-width="1.5" fill="none">
       <circle cx="990" cy="160" r="11"/>
@@ -151,10 +192,14 @@
   <div class="foot">
     Profiles are view-only plus in-place change-password; identity fields (name, age, gender, sport, programme)
     are maintained through the Module 3 (Screening Data Ingestion) import or by the administrator, not self-service — there is no
-    self-registration (accounts are provisioned). All four roles have the full account surface: login, password
-    reset, in-place change-password and profile. <b>Manage Personnel &amp; Permissions</b> is one administrator
-    capability covering both personnel types — creating a coach or medical account, assigning or changing a
-    coach's single sport, and granting or revoking a medical staffer's individual capabilities. Per-user
+    self-registration (accounts are provisioned). All five roles have the full account surface: login, password
+    reset, in-place change-password, profile and per-user notification preferences. <b>Manage Personnel &amp;
+    Permissions</b> is one administrator capability covering all four invitable roles — creating a medical, coach,
+    administrator or executive account, assigning or changing a coach's single sport, and granting or revoking a
+    medical staffer's individual capabilities. An account is created with <i>no usable password</i>: one is
+    generated, hashed and discarded unread, and the person sets the first real password from a one-time code
+    (<b>Invite User</b> → <b>Activate Account</b>), so nobody — including the administrator who created it — can
+    sign in as them. Per-user
     permissions are an opt-out model: a capability is granted unless explicitly revoked, and on revocation the
     system blocks it server-side while the feature disappears from that staffer's interface on their next
     navigation.

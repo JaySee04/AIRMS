@@ -106,9 +106,10 @@
       <text x="500" y="240" text-anchor="middle" font-size="12">Locate and obscure the</text>
       <text x="500" y="255" text-anchor="middle" font-size="12">athlete&#8217;s name (local OCR)</text>
 
-      <rect x="370" y="302" width="260" height="48" rx="12" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.3"/>
-      <text x="500" y="322" text-anchor="middle" font-size="12">Vision AI model extracts</text>
-      <text x="500" y="337" text-anchor="middle" font-size="12">structured data (one call/report)</text>
+      <rect x="370" y="298" width="260" height="56" rx="12" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.3"/>
+      <text x="500" y="318" text-anchor="middle" font-size="12">Vision AI model extracts</text>
+      <text x="500" y="332" text-anchor="middle" font-size="12">structured data (one call/report);</text>
+      <text x="500" y="345" text-anchor="middle" font-size="10.5" fill="#666">training prescription read from the text layer</text>
 
       <!-- filename-match decision -->
       <polygon points="500,375 585,412 500,449 415,412" fill="#fff" stroke="#6c8ebf" stroke-width="1.3"/>
@@ -138,10 +139,15 @@
       <text x="745" y="711" text-anchor="middle" font-size="12">Skip this report</text>
 
       <!-- Commit -->
-      <rect x="360" y="773" width="280" height="54" rx="12" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.3"/>
-      <text x="500" y="791" text-anchor="middle" font-size="12">Upsert athlete; replace muscle flags;</text>
-      <text x="500" y="806" text-anchor="middle" font-size="12">append immutable screening</text>
-      <text x="500" y="821" text-anchor="middle" font-size="12">snapshot (transaction)</text>
+      <!-- The screening row is written idempotently on (athlete_id, assessed_at)
+           since 2026-09-02: re-committing the same report UPDATES that row rather
+           than appending a second. A duplicate is not a loud failure downstream —
+           it reads as a retest with a difference of zero on every score. -->
+      <rect x="360" y="768" width="280" height="66" rx="12" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.3"/>
+      <text x="500" y="786" text-anchor="middle" font-size="12">Upsert athlete; replace muscle flags;</text>
+      <text x="500" y="801" text-anchor="middle" font-size="12">write screening snapshot, keyed on</text>
+      <text x="500" y="816" text-anchor="middle" font-size="12">(athlete, assessed-at) (transaction)</text>
+      <text x="500" y="830" text-anchor="middle" font-size="10.5" fill="#666">re-import updates, never duplicates</text>
 
       <!-- more-reports decision -->
       <polygon points="500,847 590,877 500,907 410,877" fill="#fff" stroke="#6c8ebf" stroke-width="1.3"/>

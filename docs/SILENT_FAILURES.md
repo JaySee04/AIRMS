@@ -300,9 +300,46 @@ and are **left alone** — `REPORT_EDIT_PACK.md` already records what is stale i
 them, and rewriting frozen history is not the same as correcting a current
 figure.
 
-**Still not swept:** `uc-general-updated.html`, `uc-datamgmt-updated.html` and
-`activity-dataimport-updated.html` were rendered and read but not checked
-use-case by use-case against `REPORT_TABLE_4-1.md`.
+### H19 — the use-case diagrams against the authority (swept 2026-09-02)
+
+`REPORT_TABLE_4-1.md` holds 60 use cases and CLAUDE.md names it the authority for
+Chapter 4. Diffing the diagrams against it by label found **seven** use cases in
+the table and in no diagram, every one a feature added after the diagram was
+drawn:
+
+| Diagram | Missing |
+|---|---|
+| `uc-general-updated.html` | UC-48 Invite User · UC-49 Activate Account · UC-50 Set Notification Preferences |
+| `uc-datamgmt-updated.html` | UC-51 Pin Cohort Norm Version · UC-52 Send Scheduled Institutional Mail · UC-53 Force a Scheduled Mail Run · UC-56 Extract Training Prescription |
+
+Plus one absent **actor**: `uc-general` drew Athlete, Medical Staff, Coach,
+Administrator and System, but not **Executive** — although UC-49 and UC-50 both
+name it. The role has existed since 2026-08-08.
+
+And one node that today's own work invalidated: the activity diagram said the
+commit *"append[s] immutable screening snapshot"*, which stopped being true the
+moment the commit became idempotent (H13). It now reads "write screening
+snapshot, keyed on (athlete, assessed-at) — re-import updates, never
+duplicates". **A diagram can be made stale by the commit that fixes the code**,
+which is an argument for reconciling figures in the same change rather than
+later.
+
+All corrected, re-diffed to zero unmatched, and rendered.
+
+**A caveat on my own tooling:** the first pass at the data-management fix
+anchored on the string `"divider"`, which also appears in the file's header
+prose. It therefore shifted **Module 3** as well as Module 4 — and the result
+still rendered plausibly, with a taller box and its contents sitting lower.
+Only checking the coordinates against their expected values caught it. The
+anchor now requires the line to start with `<!--`.
+
+**An inconsistency inside the authority, left for JC.** UC-1 to UC-4 (Login,
+Reset Password, Change Password, View Profile) list four actors and omit
+Executive, while UC-49 and UC-50 include it. An executive plainly logs in — they
+must, to activate their account — so the omission looks like an oversight in the
+table. It is **not** corrected here: `REPORT_TABLE_4-1.md` is the authority, and
+silently editing an authority to match a diagram is the wrong direction of
+travel.
 
 ---
 
