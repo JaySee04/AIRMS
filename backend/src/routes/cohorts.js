@@ -4,14 +4,14 @@
 // admin-only.
 const express = require('express');
 const { recordAudit } = require('../utils/audit');
+const { recomputeAll } = require('../utils/recompute');
 const { CohortThreshold, Athlete, CohortNormVersion } = require('../models');
 const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
 const {
-  recomputeCohorts, cohortReview, pinDrift,
+  cohortReview, pinDrift,
   latestScreeningsByAthlete, tierKeysFor, isEligibleForNorms, cohortKeyOf,
 } = require('../utils/cohorts');
-const { recomputeIndicators } = require('../utils/overallIndicator');
 const {
   getSettings, setSetting, DEFAULTS, appliedSettingChanges,
 } = require('../utils/settings');
@@ -59,8 +59,7 @@ router.get('/', auth, rbac('admin', 'medical'), canEditNorms, async (_req, res) 
 // then re-score every athlete's overall indicator. Admin + norm-editing medical.
 router.post('/recompute', auth, rbac('admin', 'medical'), canEditNorms, async (_req, res) => {
   try {
-    const cohorts = await recomputeCohorts();
-    const indicators = await recomputeIndicators();
+    const { cohorts, indicators } = await recomputeAll();
     res.json({ message: 'Recomputed', cohorts, indicators });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
@@ -138,7 +137,7 @@ router.post('/versions/:id/restore', auth, rbac('admin'), async (req, res) => {
     // Same installer the pin uses — restore and pin differ only in whether the
     // norms are then HELD, so they must not have two ideas of what installing is.
     const snap = await applySnapshot(v);
-    const indicators = await recomputeIndicators();
+    const { indicators } = await recomputeAll({ cohorts: false });
     recordAudit(req, {
       action: 'norm.restore',
       entity: 'normVersion',
@@ -189,7 +188,7 @@ router.post('/versions/:id/pin', auth, rbac('admin'), async (req, res) => {
     // Set the pin AFTER applying, so a failure mid-apply cannot leave a pin
     // pointing at norms that were never installed.
     await setSetting('pinned_norm_version_id', v.id);
-    const indicators = await recomputeIndicators();
+    const { indicators } = await recomputeAll({ cohorts: false });
     recordAudit(req, {
       action: 'norm.pin',
       entity: 'normVersion',
@@ -211,8 +210,7 @@ router.post('/versions/unpin', auth, rbac('admin'), async (req, res) => {
     if (wasId === null) return res.status(400).json({ message: 'No norm version is pinned.' });
     const prev = await CohortNormVersion.findByPk(wasId, { raw: true });
     await setSetting('pinned_norm_version_id', null);
-    const cohorts = await recomputeCohorts();
-    const indicators = await recomputeIndicators();
+    const { cohorts, indicators } = await recomputeAll();
     recordAudit(req, {
       action: 'norm.unpin',
       entity: 'normVersion',
@@ -265,7 +263,7 @@ router.patch('/:id', auth, rbac('admin', 'medical'), canEditNorms, async (req, r
     }
     await row.update(patch);
     // Approval/edit changes the norms → re-score indicators.
-    const indicators = await recomputeIndicators();
+    const { indicators } = await recomputeAll({ cohorts: false });
     res.json({ cohort: row, indicators });
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
@@ -326,8 +324,7 @@ router.patch('/members/:athleteId', auth, rbac('admin', 'medical'), canEditNorms
       // the next import — deferred, the exclusion applies to eligibility while
       // the published norm still includes them. Awaited, not queued: the admin is
       // looking at the table and expects the numbers to move with the tick.
-      const cohorts = await recomputeCohorts();
-      const indicators = await recomputeIndicators();
+      const { cohorts, indicators } = await recomputeAll();
       recomputed = { cohorts, indicators };
       recordAudit(req, {
         action: 'norm.member',
@@ -407,7 +404,7 @@ router.patch('/settings/all', auth, rbac('admin'), async (req, res) => {
       return res.json({ settings: before, indicators: null, changed: [] });
     }
     for (const k of changed) await setSetting(k, req.body[k]);
-    const indicators = await recomputeIndicators();
+    const { indicators } = await recomputeAll({ cohorts: false });
     recordAudit(req, {
       action: 'settings.update',
       entity: 'settings',

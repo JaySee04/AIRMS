@@ -8,7 +8,7 @@
   show the COMPLETE live schema — all eight tables.
 
   Removed (deleted 2026-08-02 by the HoloMotion-only cut):
-    injuries, self_reports
+    injuries, self_reports (dropped 2026-08-02); audit_logs added 2026-08-10
 
   Added (FYP II tables the previous pass explicitly deferred as "out of scope"):
     screenings              — the immutable per-import snapshot; the table the
@@ -149,7 +149,7 @@
 
 <div class="page">
   <h1>AIRMS — Entity Relationship Diagram</h1>
-  <div class="sub">Eight tables — the complete live schema</div>
+  <div class="sub">Nine tables — the complete live schema</div>
   <div class="legend">
     <span class="sw"></span> added in FYP II
   </div>
@@ -370,10 +370,29 @@
       </table>
     </div>
 
+    <!-- ===== AUDIT_LOGS ===== -->
+    <!-- Drawn with NO relationship line, deliberately: see the note below. -->
+    <div class="table new" style="left: 100px; top: 800px; width: 260px;">
+      <div class="title">audit_logs</div>
+      <table>
+        <colgroup><col style="width:44px"><col></colgroup>
+        <tr><td class="key">PK</td><td class="col">id</td></tr>
+        <tr><td></td><td class="col">actor_id <span class="note">no FK</span></td></tr>
+        <tr><td></td><td class="col">actor_name</td></tr>
+        <tr><td></td><td class="col">actor_role</td></tr>
+        <tr><td></td><td class="col">action</td></tr>
+        <tr><td></td><td class="col">entity</td></tr>
+        <tr><td></td><td class="col">entity_id</td></tr>
+        <tr><td></td><td class="col">summary</td></tr>
+        <tr><td></td><td class="col">meta <span class="note">JSON</span></td></tr>
+        <tr><td></td><td class="col">created_at</td></tr>
+      </table>
+    </div>
+
   </div>
 
   <div class="foot">
-    <b>Eight tables.</b> <code>injuries</code> and <code>self_reports</code> were dropped on 2026-08-02 with the
+    <b>Nine tables.</b> <code>injuries</code> and <code>self_reports</code> were dropped on 2026-08-02 with the
     HoloMotion-only cut; <code>activities</code> and <code>recovery_baselines</code> on 2026-07-20 with Activity
     Tracking. What remains of injury state is five columns on <code>athletes</code>
     (<code>is_injured</code> … <code>norm_excluded</code>), set by a clinician and read by the cohort-norm
@@ -382,6 +401,11 @@
     the athlete's 12-digit identity-card number; the column name and its role are unchanged, and the API
     serialises it as <code>_id</code>. <code>users.athlete_id</code> is a deliberate soft link rather than an
     enforced constraint, so seeding order cannot deadlock.
+    <b><code>audit_logs</code> is deliberately unconnected.</b> It has no foreign key to
+    <code>users</code> and no line on this diagram: the actor's name and role are <i>copied onto the row</i> at
+    the moment of the action. A trail that re-reads the actor through a join changes when somebody is renamed
+    or deleted, which is the one thing a trail must not do. It is append-only in the strongest sense — there is
+    no update or delete path anywhere in the codebase, only writes and reads.
     <b><code>screenings</code> is append-only</b> — one immutable row per committed import, which is what makes
     history, progress deltas and the cohort norms possible; <code>athletes</code> holds only the latest values.
     <b>The two dashed links are derivations, not foreign keys:</b> a cohort is identified by the <i>values</i>

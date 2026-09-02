@@ -13,20 +13,20 @@
 // Same non-fatal contract as before: a failed recompute is corrected by the
 // next import or the admin "Recompute" button (routes/cohorts.js).
 
-const { recomputeCohorts } = require('./cohorts');
-const { recomputeIndicators } = require('./overallIndicator');
+const { tryRecomputeAll } = require('./recompute');
 const { alertMany } = require('./alerts');
 
 const DEBOUNCE_MS = 1500; // > the uploader's inter-file spacing is NOT needed —
                           // any burst that outruns the window just flushes twice.
+const BUSY_BACKOFF_MS = 5000; // another process holds the recompute lock
 
 const pending = new Set(); // athleteIds awaiting the next flush
 let timer = null;
 let inFlight = null;       // promise of the currently-running flush
 
-function schedule() {
+function schedule(delayMs) {
   if (timer) clearTimeout(timer);
-  timer = setTimeout(flush, DEBOUNCE_MS);
+  timer = setTimeout(flush, delayMs === undefined ? DEBOUNCE_MS : delayMs);
   if (timer.unref) timer.unref(); // never hold the process open for a flush
 }
 
@@ -36,10 +36,24 @@ async function flush() {
   if (!pending.size) return;
   const batch = [...pending];
   pending.clear();
+  let busy = false;
   inFlight = (async () => {
     try {
-      await recomputeCohorts();
-      await recomputeIndicators();
+      // Cross-process, not just cross-flush: `inFlight` above only serialises
+      // this process, and there can be more than one (§36, and the hosted API
+      // may run several instances). Two passes at once can rescore athletes
+      // against a thresholds table the other is halfway through rewriting.
+      const ran = await tryRecomputeAll();
+      if (ran === null) {
+        // Somebody else is mid-recompute. Their pass covers the norms, which are
+        // institution-wide — but it knows nothing about THIS batch's alerts, so
+        // the athletes go back on the queue rather than being dropped. Dropping
+        // them would be silent: the import succeeded, the norms are fresh, and
+        // the flagged athlete simply never gets emailed about.
+        busy = true;
+        batch.forEach((id) => pending.add(id));
+        return;
+      }
       await alertMany(batch);
     } catch (e) {
       // eslint-disable-next-line no-console
@@ -48,7 +62,9 @@ async function flush() {
   })();
   await inFlight;
   inFlight = null;
-  if (pending.size) schedule(); // commits that arrived mid-flush
+  // Back off when the lock was held, so a long recompute elsewhere is not met
+  // with a poll every 1.5s for its whole duration.
+  if (pending.size) schedule(busy ? BUSY_BACKOFF_MS : undefined);
 }
 
 // Fire-and-forget from the commit route. The HTTP response does not wait.

@@ -101,11 +101,33 @@ async function release(name, token) {
 }
 
 /**
+ * Acquire, waiting up to `waitMs` for the holder to finish.
+ *
+ * The scheduler never needed this — a digest that loses the race has nothing to
+ * do, because the winner already sent it. A norm recompute is different: the
+ * caller is an administrator watching a table, and "somebody else was
+ * recomputing" is not an answer to give them. So they queue instead.
+ */
+async function acquireWaiting(name, { ttlMs = DEFAULT_TTL_MS, waitMs = 0, pollMs = 200 } = {}) {
+  const deadline = Date.now() + waitMs;
+  for (;;) {
+    const token = await acquire(name, { ttlMs });
+    if (token) return token;
+    const left = deadline - Date.now();
+    if (left <= 0) return null;
+    await new Promise((r) => { setTimeout(r, Math.min(pollMs, left)); });
+  }
+}
+
+/**
  * Run `fn` while holding the lock, releasing it whatever happens.
  * Returns `onBusy` (default null) without running `fn` if the lock is held.
+ * With `waitMs`, queues for the lock before giving up.
  */
-async function withLock(name, fn, { ttlMs = DEFAULT_TTL_MS, onBusy = null } = {}) {
-  const token = await acquire(name, { ttlMs });
+async function withLock(name, fn, { ttlMs = DEFAULT_TTL_MS, onBusy = null, waitMs = 0 } = {}) {
+  const token = waitMs > 0
+    ? await acquireWaiting(name, { ttlMs, waitMs })
+    : await acquire(name, { ttlMs });
   if (!token) return onBusy;
   try {
     return await fn();
@@ -117,5 +139,5 @@ async function withLock(name, fn, { ttlMs = DEFAULT_TTL_MS, onBusy = null } = {}
 }
 
 module.exports = {
-  acquire, release, withLock, DEFAULT_TTL_MS, keyOf,
+  acquire, acquireWaiting, release, withLock, DEFAULT_TTL_MS, keyOf,
 };

@@ -3,10 +3,10 @@ const { recordAudit } = require('../utils/audit');
 const { Op } = require('sequelize');
 const { Athlete, MuscleFlag, Screening, AthleteDiscipline } = require('../models');
 const {
-  screeningMovement, recomputeCohorts, resolveCohortStats, latestScreeningsByAthlete,
+  screeningMovement, resolveCohortStats, latestScreeningsByAthlete,
 } = require('../utils/cohorts');
 const {
-  recomputeIndicators, belongsToCohort, resolvedCohortId, cohortLabelFor,
+  belongsToCohort, resolvedCohortId, cohortLabelFor,
 } = require('../utils/overallIndicator');
 const { notifyInjuryToCoach } = require('../utils/notifications');
 const { programmeActivityData } = require('../utils/programmeActivity');
@@ -67,6 +67,7 @@ const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
 const requirePermission = require('../middleware/permission');
 const { notFoundStatusFor } = require('../utils/permissions');
+const { recomputeAll } = require('../utils/recompute');
 const { serializeAthlete, serializeAthleteList } = require('../utils/serialize');
 const { cleanDisciplineList } = require('../utils/disciplines');
 
@@ -610,8 +611,7 @@ router.patch('/:id/injury', auth, rbac('medical', 'admin'), requirePermission('v
     // An injured athlete is excluded from norm CALCULATION, so the norm is
     // rebuilt HERE. Deferring it to the next recompute leaves the exclusion real
     // in the rules and invisible in the published norm.
-    const cohorts = await recomputeCohorts();
-    const indicators = await recomputeIndicators();
+    const { cohorts, indicators } = await recomputeAll();
     // Tell the sport's coach — the athlete is unavailable and the squad's norm
     // just moved. Fire-and-forget, same contract as the override notification:
     // a mail failure must not fail the clinical action.

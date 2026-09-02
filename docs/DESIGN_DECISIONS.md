@@ -3325,3 +3325,74 @@ counted any non-zero exit as "caught", so a test file that failed to **parse**
 scored as a pass; it now requires the suite to have actually run. Both are the
 same shape as the defects being hunted, which is the argument for mutation
 testing rather than a reason to distrust it.
+
+---
+
+## 46. Closing the last two, and the index that had to wait (2026-09-02)
+
+§45 left three things open. All are now closed.
+
+### One recompute at a time, across processes
+
+`postImport.js` serialised recomputes **within** a process with an `inFlight`
+promise. §36 made a second process normal, and the hosted API can run several
+instances. Rebuilding rewrites `cohort_thresholds` while rescoring reads them
+back, so two overlapping passes can publish an indicator assembled from part of
+one norm set and part of another.
+
+Ten call sites ran that sequence directly. They now go through one
+`utils/recompute.js` taking the same cross-process lock as the scheduled mail —
+a function rather than a lock repeated ten times, because ten call sites is how
+`riskIndicators` came to live in eight places (§31) and a recompute that forgets
+the lock looks exactly like one that takes it.
+
+The two entry points differ on purpose. `recomputeAll()` **queues** for the lock
+and **throws** on timeout: every caller reports a count to somebody watching a
+screen, and returning zeros would say "recomputed nothing" where the truth is
+"did not recompute". `tryRecomputeAll()` yields immediately for background work,
+and the import queue **re-queues its batch** — the winning pass refreshes the
+norms institution-wide but knows nothing about this batch's alerts, so dropping
+it would mean a flagged athlete silently never gets emailed.
+
+Verified against the real database: six simultaneous attempts gave one run and
+five refusals at max concurrency 1; six queueing attempts gave six runs, still
+at concurrency 1; no lock row survived.
+
+### The unique index, applied
+
+`(athlete_id, assessed_at)` is now UNIQUE. The application check added in §45
+handles the real case — two operators minutes apart — but its `findOne` and
+`create` are separate statements, so simultaneous commits can both find nothing
+and both insert. Only the engine closes that. Confirmed to reject a duplicate,
+to allow multiple **undated** screenings (MySQL treats NULLs as distinct, which
+is wanted: an undated row matches nothing so it always inserts), and to allow a
+genuinely later session.
+
+**The hosted database still needs it.** `.env` here points at localhost and
+there are no Aiven credentials on this machine, so the statement and its
+duplicate pre-check are recorded in `CLAUDE.md` gotcha 3 rather than run. The
+seeder needs no change: the existing 74 rows came from it and contain zero
+duplicates, which is the evidence — reseeding to prove it would have destroyed
+the pinned norm version, exactly as it did once before (§32).
+
+### The report figures had drifted
+
+The ERD and FDD are figures in a graded document that no test reads.
+
+`erd-corrected.html` (Fig 4.9) said **eight tables**; there are nine.
+`audit_logs` has existed since 2026-08-10 and had never reached it. It is drawn
+with **no relationship line**, deliberately: there is no foreign key to `users`
+because the actor's name and role are copied onto the row, and a trail that
+re-reads its actor through a join changes when somebody is renamed or deleted.
+
+`fdd-updated.html` (Fig 4.1) was missing two Module 5 leaves — UC-54 *View
+Activity Log* and UC-55 *Generate Programme Activity Report*, both already in
+`REPORT_TABLE_4-1.md`, the authority for Chapter 4. 46 leaves became 48.
+
+Both were caught by **rendering the page and looking at it**, and the habit paid
+immediately: the first ERD edit fixed the footer to "Nine tables" and left the
+*subtitle* saying eight. Reading the diff would not have found that.
+
+`panel_slides.html` and `risk-algebra-slide.html` are ACWR-era FYP I artefacts
+and are left alone — `REPORT_EDIT_PACK.md` already records what is stale in
+them, and rewriting frozen history is not correcting a current figure.

@@ -88,7 +88,24 @@ const Screening = sequelize.define('Screening', {
   tableName: 'screenings',
   underscored: true,
   indexes: [
-    { fields: ['athlete_id', 'assessed_at'] },
+    // UNIQUE, so a duplicate screening cannot exist even if two requests race.
+    //
+    // routes/upload.js checks for an existing row at the same assessedAt and
+    // updates it, which handles the real case (two operators, minutes apart).
+    // It cannot handle two commits landing in the same instant: the check and
+    // the insert are separate statements, so both transactions can find nothing
+    // and both insert. The engine closing that window is the only thing that
+    // actually closes it.
+    //
+    // It matters because a duplicate is not a loud failure downstream — it is a
+    // RETEST with a difference of zero on every score, which deflates the
+    // typical error and can push the reliability engine over MIN_PAIRS into
+    // claiming a derived dead band it has not earned (§45).
+    //
+    // NULL assessed_at is exempt, because MySQL treats NULLs as distinct in a
+    // unique index — which is the behaviour wanted: an undated screening cannot
+    // be matched to anything, so it always inserts.
+    { name: 'screenings_athlete_assessed_unique', unique: true, fields: ['athlete_id', 'assessed_at'] },
   ],
 });
 

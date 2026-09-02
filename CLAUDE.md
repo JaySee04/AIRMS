@@ -66,12 +66,12 @@ cd frontend; npm run lint  # next lint
 cd frontend; npm run build
 
 # Unit tests (jest, in both packages — no linter configured for the backend)
-cd backend; npx jest      # 27 suites: cohorts, overallIndicator, permissions, rbac, pdfDraw,
+cd backend; npx jest      # 28 suites: cohorts, overallIndicator, permissions, rbac, pdfDraw,
                           # screeningPeriods, cohortFocus, visionUsage, alerts, scheduler,
                           # bands, mailPrefs, holisticReport, programmeActivity, subitemAggregate,
                           # reliability, rescreenReminder, riskIndicators, recall,
                           # mailSendNow, lock, prescription, settingsChanges, symmetry,
-                          # isnDirectory, accountLifecycle, athleteDisclosure
+                          # isnDirectory, accountLifecycle, athleteDisclosure, recompute
 cd frontend; npx jest     # 10 suites: lib/risk.ts, lib/screeningUploadStore.ts, bodymap-data/muscles.ts,
                           # components/charts (rendered via react-dom/server — no jsdom needed),
                           # lib/bands.ts, lib/athleteSearch.ts, lib/rank.ts,
@@ -652,6 +652,14 @@ NEXT_PUBLIC_API_URL=http://localhost:5000/api
 3. **Seeder enum errors** — the classic offender (`Injury` enums) went with the model. The live enums to check seed data against are:
    - `User.role` — `athlete` | `medical` | `admin` | `coach` | `executive` (adding a value needs an `ALTER TABLE users MODIFY COLUMN role ENUM(...)` on an existing dev DB; a fresh clone gets it from `npm run seed`)
    - `cohort_thresholds` gained `fresh_stats` (JSON), `fresh_n` (INT), `fresh_at` (DATETIME) and `added_since_pin` (TINYINT default 0) for norm pinning on 2026-08-11 — `ALTER TABLE` them on an existing dev DB, same `SQL_SYNC=1` caveat
+   - `screenings` gained a **UNIQUE** key on `(athlete_id, assessed_at)` on 2026-09-02 (§45): a duplicate screening is not a loud failure downstream, it is a *retest with a difference of zero on every score*, which can push the reliability engine over `MIN_PAIRS` into claiming a derived dead band it has not earned. `npm run seed` creates it from the model; an existing database needs it applied by hand, and **the hosted Aiven database still does** — check first, because the ALTER fails if duplicates already exist:
+     ```sql
+     SELECT athlete_id, assessed_at, COUNT(*) c FROM screenings
+       GROUP BY athlete_id, assessed_at HAVING c > 1;   -- must return no rows
+     ALTER TABLE screenings
+       ADD UNIQUE KEY screenings_athlete_assessed_unique (athlete_id, assessed_at);
+     ```
+     NULL `assessed_at` is exempt (MySQL treats NULLs as distinct), which is the wanted behaviour: an undated screening matches nothing, so it always inserts.
    - `users.notify_prefs` (JSON, per-user email opt-out, added 2026-08-10) likewise needs `ALTER TABLE users ADD COLUMN notify_prefs JSON NULL AFTER permissions` on an existing dev DB — boot-time `sequelize.sync()` only runs when `SQL_SYNC=1`. `NULL` is the correct default and means "every notification on"
    - `Athlete.gender` — `Male` | `Female`; `Athlete.sex` — `M` | `F` (two separate columns)
    - `Athlete.program` — `PODIUM` | `PELAPIS` | `OTHERS`

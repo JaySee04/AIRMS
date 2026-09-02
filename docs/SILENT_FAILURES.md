@@ -242,11 +242,67 @@ describing the `Injury` model, which the HoloMotion-only cut deleted on
 in the file's own convention rather than deleted, since the entry is a record of
 what was once true.
 
-**Still not swept** (recorded so the gap is known rather than assumed absent):
-concurrent *norm recompute* against a simultaneous import — the mail sends take
-a cross-process lock but `queuePostImport` only debounces within one process, so
-two API instances could recompute at once; and the generated HTML diagrams in
-`docs/fyp/*.html`, which no test reads.
+### H17 — two recomputes at once (swept 2026-09-02)
+
+`postImport.js` prevented overlapping recomputes **within** one process, with an
+`inFlight` promise. That stopped being enough when a second process became
+normal: `npm run mail:tick` is its own process by design (§36), and the hosted
+API can run more than one instance. Rebuilding rewrites `cohort_thresholds`
+while rescoring reads those rows back — two overlapping passes can score an
+athlete against a table the other is halfway through replacing, producing a
+published indicator assembled from part of one norm set and part of another.
+
+Ten call sites did the sequence directly, which is how `riskIndicators` came to
+be maintained in eight places (§31). They now go through **one** function,
+`utils/recompute.js`, which takes the same cross-process lock as the scheduled
+mail:
+
+- `recomputeAll()` **queues** for the lock (20s) and **throws** on timeout.
+  Returning `{cohorts: 0}` would say "recomputed nothing" when the truth is "did
+  not recompute", and those are different answers to an administrator.
+- `tryRecomputeAll()` yields immediately for background work, and the import
+  queue **re-queues its batch** rather than dropping it — the running pass
+  refreshes the norms institution-wide but knows nothing about this batch's
+  alerts, so a dropped batch means a flagged athlete never gets emailed about.
+
+Verified against the real database: six simultaneous attempts → one ran, five
+declined, max concurrency 1; six queueing attempts → all six ran, still max
+concurrency 1; no lock row left behind. Five mutations, all caught.
+
+The unique index on `(athlete_id, assessed_at)` from H13 was also applied — it
+closes the millisecond window between the commit's `findOne` and its `create`
+that no application-level check can. Confirmed to reject a duplicate, to allow
+multiple **undated** screenings (MySQL treats NULLs as distinct, which is the
+wanted behaviour), and to allow a genuinely later session. **The hosted database
+still needs it**; the statement and its pre-check are in `CLAUDE.md` gotcha 3.
+
+### H18 — the report diagrams (swept 2026-09-02)
+
+The ERD and FDD are figures in a graded document that no test reads. Both had
+drifted, and both were caught by *rendering them and looking*:
+
+- **`erd-corrected.html` (Fig 4.9) showed eight tables; there are nine.**
+  `audit_logs` has existed since 2026-08-10 and had never reached the diagram.
+  Added, drawn deliberately with **no relationship line** — it has no foreign key
+  to `users` because the actor's name and role are copied onto the row, since a
+  trail that re-reads the actor through a join changes when somebody is renamed.
+- **`fdd-updated.html` (Fig 4.1) was missing two Module 5 leaves.** UC-54 *View
+  Activity Log* and UC-55 *Generate Programme Activity Report* were in
+  `REPORT_TABLE_4-1.md` — the authority for Chapter 4 — but not in the diagram
+  drawn from it. 46 leaves → 48.
+
+The render check earned its place immediately: the first ERD edit corrected the
+footer to "Nine tables" and left the **subtitle** saying eight. Reading the HTML
+would not have caught it; looking at the page did.
+
+`panel_slides.html` and `risk-algebra-slide.html` are ACWR-era FYP I artefacts
+and are **left alone** — `REPORT_EDIT_PACK.md` already records what is stale in
+them, and rewriting frozen history is not the same as correcting a current
+figure.
+
+**Still not swept:** `uc-general-updated.html`, `uc-datamgmt-updated.html` and
+`activity-dataimport-updated.html` were rendered and read but not checked
+use-case by use-case against `REPORT_TABLE_4-1.md`.
 
 ---
 
@@ -261,6 +317,8 @@ instead of reaching Dr Thung.
 | B — by omission | `riskIndicators.test.js` + `screeningAlerts.indicators.test.ts` pin the two packages' indicator lists and **assert the LDH exclusion as a value**; `bands.test.ts` pins the labels; `athleteDisclosure.test.js` pins the note allow-list. |
 | E — dead declarations | **`lib/cssTokens.test.ts`** — every `var(--x)` used without a fallback must be defined. Reports `token used at file:line`. Includes a corpus check, so deleting the walker cannot make it pass vacuously. |
 | D — wrong denominator, in TIME | `periods.test.ts` + `screeningPeriods.test.js` pin one `INSTITUTION_TZ` across both packages and assert the boundary instants explicitly, in a named calendar. |
+| Concurrent recompute | One `utils/recompute.js` takes a cross-process lock; `recompute.test.js` asserts the sequencing AND reads the route sources, so a call site that bypasses it fails. |
+| Report figures | Rendered headless and checked for overflow before shipping (`scratchpad` harness); leaf and table counts reconciled against `REPORT_TABLE_4-1.md` and the live models. |
 | Duplicate ingest | `reliability.test.js` collapses same-instant readings and asserts duplicates cannot push the engine over `MIN_PAIRS`; the commit is idempotent on `(athleteId, assessedAt)`. |
 | Docs drifting from data | **`npm run measure:facts`** — prints the quoted headline numbers from the database, through the same utils the screens use, so the script cannot quote a different band rule than the dashboard. |
 | F — unread output | `npm run guide:pdf` renders **and verifies** in one command; `verify-guide-pdf.js` reads the PDF back. `capturePdfText` / `capturePaintOps` patch `PDFDocument.prototype` *before* construction so an unwired guard fails. |
