@@ -125,11 +125,62 @@ working, and it stops the next sweep re-treading the same ground.
 | H9 | `x \|\| fallback` swallows a legitimate `0` | grep the fallback idioms | **Clean.** The only hits are `Map.get() \|\| 0`, which is correct. |
 | H10 | A nav link points at a route that does not exist | every `href` vs `app/**/page.tsx` | **Clean.** All 16 resolve. |
 | H15 | An aggregate returns `NaN` / `Infinity` on empty or degenerate input | call 20 utils with `[]`, `[one]`, zero-variance | **Clean.** No non-finite value produced anywhere. `meanSd([5])` returns `sd: 0`, and every z-score site guards with `!st.sd`; `compositeZ` guards the empty case with `if (!zs.length) return null`. |
+| H7 | A number quoted in the docs no longer matches the database | measure it (`npm run measure:facts`) | **5 found.** See below — this was the largest single finding of the second sweep. |
+| H11 | A sort sees `null` and puts an unscored athlete at the top of a "worst" list | grep numeric comparators, check each for a prior filter | **Clean.** `topRisk` sorts a pre-filtered `screened` array; the ranked team report uses `?? 0`, which lands a null-indicator athlete last, as intended. |
+| H16 | Removing a swallowed error turns a wrong answer into an **outage** | inject the fault, drive the running server | **Clean, and it needed checking.** See below. |
 
-**Not yet swept** (recorded so the gap is known rather than assumed absent):
-timezone handling on `assessedAt` boundaries; sort stability where a score is
-`null`; and the FYP report's quoted headline numbers against the live database
-(`VIVA_FYP2 §2` must be re-measured before the viva regardless).
+### H7 in full — the docs had drifted from the database
+
+The largest finding of the second sweep, and the one with a viva in front of it.
+`CLAUDE.md` carried **four different band splits** (29/14/15, 41/13/4, 43/10/5,
+38/9/9) and **two different reliability pair counts** (18 and 19). Every one was
+true when written; the seeder changed underneath them (§34 derived Total Score
+from the subitems, which moved the whole distribution) and prose does not
+recompute. A reader — including an examiner — cannot tell which line is current.
+
+Measured 2026-09-02, through the application's own utils:
+
+| Quoted | Measured | |
+|---|---|---|
+| 41/13/4, or 43/10/5 | **38 green / 9 amber / 9 red of 56** | confirmed against the app's own `bandDistribution` |
+| "19 pairs" | **18** | the other line already said 18 |
+| "all 56 of 56" cohorts below 10 peers | **55 of 56** | the caveat is `size < 10`; one athlete sits on exactly 10 |
+| "13 do" move well and score risky | **15–17** | the count moves with median tie-handling, so quote the range |
+| 58 athletes | **62** (56 scored, 6 never screened) | older "of 58" lines are historical and now labelled as such |
+
+Two of my first four comparisons were **wrong**, and only became right by being
+checked: I measured cohort *rows* (49, median 3) against a claim about each
+athlete's *resolved* cohort after the fallback ladder (56, median 7), and I used
+my own median tie convention. A doc/code disagreement is only a finding once you
+have matched the definition.
+
+The durable fix is not the five corrections — those will rot again — it is
+**`cd backend; npm run measure:facts`**, which prints every one of these numbers
+from the database through the same utils the screens use. Run it before quoting
+anything in the report or the viva.
+
+### H16 — check that the fix is not worse than the defect
+
+Removing the swallow from `getSettings()` (see §C) meant it could now reject.
+Express 4 does not catch a rejected promise from an async handler, and Node ≥15
+treats an unhandled rejection as fatal — so the fix could have traded a silent
+mis-scoring for a **crashed process**, which is worse. Static analysis said "10
+call sites outside a try", but most were utils whose callers wrap them, so the
+static answer was not the real one.
+
+Injecting the failure and driving the running server settled it: affected
+endpoints return 500, unaffected ones still return 200, and the process survives
+every probe. The scheduler is safe for a separate reason worth knowing —
+`recordOutcome` swallows its own errors, so the error path inside `tick()`'s
+`catch` cannot itself reject.
+
+**Always ask this of a fix that converts silence into an error.**
+
+**Still not swept** (recorded so the gap is known rather than assumed absent):
+timezone handling on `assessedAt` boundaries and period bucketing; concurrent
+import behaviour beyond the mail lock; and the report's own figures and tables
+(`VIVA_FYP2 §2` must be re-measured with `measure:facts` before the viva
+regardless).
 
 ---
 
@@ -143,6 +194,7 @@ instead of reaching Dr Thung.
 | A — unreachable | `permissions.test.js` "UC-41 wiring", `athleteDisclosure.test.js` "wiring", `accountLifecycle.test.js` role pin. All read route **source**, because the predicates are pure and pass regardless. |
 | B — by omission | `riskIndicators.test.js` + `screeningAlerts.indicators.test.ts` pin the two packages' indicator lists and **assert the LDH exclusion as a value**; `bands.test.ts` pins the labels; `athleteDisclosure.test.js` pins the note allow-list. |
 | E — dead declarations | **`lib/cssTokens.test.ts`** — every `var(--x)` used without a fallback must be defined. Reports `token used at file:line`. Includes a corpus check, so deleting the walker cannot make it pass vacuously. |
+| Docs drifting from data | **`npm run measure:facts`** — prints the quoted headline numbers from the database, through the same utils the screens use, so the script cannot quote a different band rule than the dashboard. |
 | F — unread output | `npm run guide:pdf` renders **and verifies** in one command; `verify-guide-pdf.js` reads the PDF back. `capturePdfText` / `capturePaintOps` patch `PDFDocument.prototype` *before* construction so an unwired guard fails. |
 
 ### The rule that makes the guards real

@@ -10,7 +10,8 @@
     "test": "jest",
     "verify:vision": "node scripts/verify-holomotion-extract.js",
     "mail:tick": "node src/mailTick.js",
-    "guide:pdf": "node scripts/guide-to-pdf.js && node scripts/verify-guide-pdf.js"
+    "guide:pdf": "node scripts/guide-to-pdf.js && node scripts/verify-guide-pdf.js",
+    "measure:facts": "node scripts/measure-facts.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
