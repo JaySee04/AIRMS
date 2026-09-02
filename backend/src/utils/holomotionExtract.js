@@ -9,6 +9,7 @@
 
 const { renderForExtraction } = require('./pdfRender');
 const { visionComplete } = require('./visionClient');
+const { expose } = require('./httpError');
 
 // The model is asked to return exactly this shape. Keys mirror the HoloMotion
 // report SECTION HEADINGS (not page numbers) so the target is unambiguous
@@ -55,13 +56,13 @@ Use null for any value you cannot read; never guess.`;
 
 // Strip markdown fences / surrounding prose and parse the first JSON object.
 function parseJsonReply(text) {
-  if (!text) throw new Error('Empty response from vision model');
+  if (!text) throw expose(new Error('Empty response from vision model'), 502);
   let s = text.trim();
   const fence = s.match(/```(?:json)?\s*([\s\S]*?)```/i);
   if (fence) s = fence[1].trim();
   const start = s.indexOf('{');
   const end = s.lastIndexOf('}');
-  if (start === -1 || end === -1) throw new Error('No JSON object in vision response');
+  if (start === -1 || end === -1) throw expose(new Error('No JSON object in vision response'), 502);
   return JSON.parse(s.slice(start, end + 1));
 }
 
@@ -149,7 +150,7 @@ const { prescriptionFromPdf } = require('./prescription');
 // Sends the first N full pages of the report (layout-robust — see pdfRender).
 async function extractFromPdf(buffer) {
   const images = await renderForExtraction(buffer);
-  if (!images.length) throw new Error('Could not render any pages from the PDF');
+  if (!images.length) throw expose(new Error('Could not render any pages from the PDF'), 502);
   const { text, usage } = await visionComplete(EXTRACTION_PROMPT, images);
   const extracted = parseJsonReply(text);
   const mapped = mapToAthlete(extracted);

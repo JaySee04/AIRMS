@@ -14,6 +14,7 @@ const { aggregateSubitems } = require('../utils/subitemAggregate');
 const { effectiveBand } = require('../utils/bands');
 const { INDICATOR_ATTRS, toIndicator } = require('../utils/indicatorPayload');
 const { getSettings } = require('../utils/settings');
+const { sendError } = require('../utils/httpError');
 const {
   focusBreakdown, isShownIndicator, SHOWN_INDICATORS, tally, bandOf,
 } = require('../utils/cohortFocus');
@@ -67,6 +68,7 @@ const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
 const requirePermission = require('../middleware/permission');
 const { notFoundStatusFor } = require('../utils/permissions');
+const { str, likeTerm } = require('../utils/queryParams');
 const { recomputeAll } = require('../utils/recompute');
 const { serializeAthlete, serializeAthleteList } = require('../utils/serialize');
 const { cleanDisciplineList } = require('../utils/disciplines');
@@ -88,7 +90,13 @@ async function syncDisciplines(athleteId, disciplines) {
 
 router.get('/', auth, rbac('medical', 'admin', 'executive'), requirePermission('viewRecords'), async (req, res) => {
   try {
-    const { sport, program, gender, discipline, search } = req.query;
+    // Shape-checked: Express turns `?sport[]=x` into an array and
+    // `?sport[$ne]=y` into an object, and both used to reach Sequelize as-is.
+    const sport = str(req.query.sport, 'sport');
+    const program = str(req.query.program, 'program');
+    const gender = str(req.query.gender, 'gender');
+    const discipline = str(req.query.discipline, 'discipline');
+    const search = str(req.query.search, 'search');
     const where = { isActive: true };
     if (sport) where.sport = sport;
     if (program) where.program = program;
@@ -98,9 +106,12 @@ router.get('/', auth, rbac('medical', 'admin', 'executive'), requirePermission('
     // filter client-side and already match both; this keeps the API honest for
     // any caller that filters server-side instead.
     if (search) {
+      // % and _ escaped: searching for "%" matched the entire roster, which
+      // reads as a generous search rather than as a bug.
+      const term = likeTerm(search);
       where[Op.or] = [
-        { name: { [Op.like]: `%${search}%` } },
-        { athleteId: { [Op.like]: `%${search}%` } },
+        { name: { [Op.like]: `%${term}%` } },
+        { athleteId: { [Op.like]: `%${term}%` } },
       ];
     }
     // Discipline lives in a join table — resolve the matching athlete IDs first,
@@ -123,7 +134,7 @@ router.get('/', auth, rbac('medical', 'admin', 'executive'), requirePermission('
     });
     res.json(serializeAthleteList(rows, req.user));
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err, 'athletes.js');
   }
 });
 
@@ -139,7 +150,7 @@ router.get('/meta/sports', auth, rbac('medical', 'admin', 'executive'), requireP
     });
     res.json(rows.map((r) => r.sport).filter(Boolean));
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err, 'athletes.js');
   }
 });
 
@@ -166,7 +177,7 @@ router.get('/meta/disciplines', auth, rbac('medical', 'admin', 'executive'), req
     out.sort((a, b) => a.sport.localeCompare(b.sport) || a.discipline.localeCompare(b.discipline));
     res.json(out);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err, 'athletes.js');
   }
 });
 
@@ -310,7 +321,7 @@ router.get('/analytics/screening', auth, rbac('admin', 'executive'), async (req,
         : null,
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err, 'athletes.js');
   }
 });
 
@@ -333,7 +344,7 @@ router.get('/analytics/periods', auth, rbac('admin', 'executive'), async (req, r
     // uses — the page and the document must not be able to quote different KPIs.
     return res.json(await programmeActivityData(req.query));
   } catch (err) {
-    return res.status(err.status || 500).json({ message: err.message });
+    return sendError(res, err, 'athletes.js');
   }
 });
 
@@ -391,7 +402,7 @@ router.get('/teammates', auth, async (req, res) => {
       } : null,
       teammates,
     });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { sendError(res, err, 'athletes.js'); }
 });
 
 // GET /api/athletes/:id — single athlete full detail (with muscle flags).
@@ -439,7 +450,7 @@ router.get('/:id/sport-context', auth, rbac('medical', 'admin'), requirePermissi
 
     return res.json({ sport: me.sport, n: squad.length, indicators });
   } catch (err) {
-    return res.status(500).json({ message: err.message });
+    return sendError(res, err, 'athletes.js');
   }
 });
 
@@ -507,7 +518,7 @@ router.get('/:id', auth, requirePermission('viewRecords'), async (req, res) => {
 
     res.json(out);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err, 'athletes.js');
   }
 });
 
@@ -589,7 +600,7 @@ router.delete('/:id', auth, rbac('admin'), async (req, res) => {
     if (!count) return res.status(404).json({ message: 'Athlete not found' });
     res.json({ message: 'Athlete deactivated' });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err, 'athletes.js');
   }
 });
 
@@ -629,7 +640,7 @@ router.patch('/:id/injury', auth, rbac('medical', 'admin'), requirePermission('v
       injuryBy: a.injuryBy, injuryAt: a.injuryAt,
       recomputed: { cohorts, indicators },
     });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { sendError(res, err, 'athletes.js'); }
 });
 
 module.exports = router;

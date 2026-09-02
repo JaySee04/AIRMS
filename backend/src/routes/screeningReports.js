@@ -32,6 +32,7 @@ const { effectiveBand } = require('../utils/bands');
 const SMALL_COHORT = 10;
 const { holisticData, drawHolistic } = require('../utils/holisticReport');
 const { programmeActivityData } = require('../utils/programmeActivity');
+const { sendError } = require('../utils/httpError');
 const {
   BAND, ELEVATED_THRESHOLD, GOLD, GRID, MUTED, NAVY, RISKS, SCORE_ROWS, TEXT, bandColor, bandLabel,
   bandPill, bar, betweenTestsBlock, bullets, cover, ensure, fileSlug, finish, fmtDate, periodTable,
@@ -92,7 +93,7 @@ router.get('/holistic.pdf', auth, rbac('admin', 'executive'), async (req, res) =
     const doc = startDoc(res, `${data.nameBits.join('_')}_${stamp}.pdf`);
     logDownload(req, 'Holistic Screening Report', { meta: scopeMeta(req.query) });
     drawHolistic(doc, data, stamp);
-  } catch (err) { if (!res.headersSent) res.status(500).json({ message: err.message }); }
+  } catch (err) { if (!res.headersSent) sendError(res, err, 'screeningReports.js'); }
 });
 
 // ── 2. Individual ───────────────────────────────────────────────────────────
@@ -293,7 +294,7 @@ router.get('/individual/:id.pdf', auth, rbac('athlete', 'medical', 'admin', 'coa
     }
 
     finish(doc, 'Individual Screening Report');
-  } catch (err) { if (!res.headersSent) res.status(500).json({ message: err.message }); }
+  } catch (err) { if (!res.headersSent) sendError(res, err, 'screeningReports.js'); }
 });
 
 // ── 3. Team ─────────────────────────────────────────────────────────────────
@@ -449,7 +450,7 @@ router.get('/team.pdf', auth, rbac('medical', 'admin', 'coach', 'executive'), re
     }
 
     finish(doc, 'Team Screening Report');
-  } catch (err) { if (!res.headersSent) res.status(500).json({ message: err.message }); }
+  } catch (err) { if (!res.headersSent) sendError(res, err, 'screeningReports.js'); }
 });
 
 
@@ -579,7 +580,7 @@ router.get('/programme-activity.pdf', auth, rbac('admin', 'executive'), async (r
 
     finish(doc, KIND_ACTIVITY);
   } catch (err) {
-    if (!res.headersSent) res.status(err.status || 500).json({ message: err.message });
+    if (!res.headersSent) sendError(res, err, 'screeningReports.js');
   }
 });
 
@@ -650,7 +651,7 @@ router.get('/activity-log.pdf', auth, rbac('admin', 'executive'), async (req, re
 
     finish(doc, 'Activity Log');
   } catch (err) {
-    if (!res.headersSent) res.status(500).json({ message: err.message });
+    if (!res.headersSent) sendError(res, err, 'screeningReports.js');
     else res.end();
   }
 });

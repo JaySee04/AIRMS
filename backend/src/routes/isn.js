@@ -8,6 +8,7 @@ const { Athlete } = require('../models');
 const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
 const { searchIsn, getIsnByIC } = require('../mock/isnDirectory');
+const { sendError } = require('../utils/httpError');
 
 const router = express.Router();
 
@@ -22,7 +23,7 @@ router.get('/athletes', auth, rbac('medical', 'admin'), async (req, res) => {
       ? new Set((await Athlete.findAll({ where: { athleteId: ics }, attributes: ['athleteId'], raw: true })).map((a) => a.athleteId))
       : new Set();
     res.json(results.map((r) => ({ ...r, inRoster: existing.has(r.icNumber) })));
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { sendError(res, err, 'isn.js'); }
 });
 
 router.get('/athletes/:ic', auth, rbac('medical', 'admin'), async (req, res) => {
@@ -31,7 +32,7 @@ router.get('/athletes/:ic', auth, rbac('medical', 'admin'), async (req, res) => 
     if (!rec) return res.status(404).json({ message: 'Not found in the ISN directory' });
     const existing = await Athlete.findOne({ where: { athleteId: rec.icNumber }, attributes: ['athleteId'], raw: true });
     res.json({ ...rec, inRoster: Boolean(existing) });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { sendError(res, err, 'isn.js'); }
 });
 
 module.exports = router;

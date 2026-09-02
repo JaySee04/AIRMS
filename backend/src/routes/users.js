@@ -12,6 +12,7 @@ const { sendMail, buildInviteEmail } = require('../utils/mailer');
 const { issueCode, INVITE_CODE_TTL_MIN, RESET_CODE_MAX_ATTEMPTS } = require('../utils/resetCodes');
 const crypto = require('crypto');
 const { Op } = require('sequelize');
+const { sendError } = require('../utils/httpError');
 
 // Roles an administrator may create. `athlete` is deliberately absent: athlete
 // accounts are not part of this deployment's onboarding (JC, 2026-08-23), and
@@ -89,7 +90,7 @@ router.get('/', async (req, res) => {
     });
     res.json(rows.map((u) => ({ ...u.get({ plain: true }), _id: String(u.id) })));
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err, 'users.js');
   }
 });
 
@@ -295,7 +296,7 @@ router.patch('/:id', async (req, res) => {
 
     res.json(publicUser(user));
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err, 'users.js');
   }
 });
 

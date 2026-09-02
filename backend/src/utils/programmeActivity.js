@@ -14,6 +14,7 @@ const { Screening, Athlete, AthleteDiscipline } = require('../models');
 const { screeningPeriods, median, GRAINS } = require('./screeningPeriods');
 const { getSettings } = require('./settings');
 const { recallState } = require('./recall');
+const { str, date } = require('./queryParams');
 
 // The scope filters, as a sentence — for the PDF cover and the page's own note,
 // so a printed copy says who it is about.
@@ -103,6 +104,9 @@ async function programmeActivityData(query = {}) {
   const {
     grain = 'quarter', sport, program, gender, discipline, ageMin, ageMax, from, to,
   } = query;
+  // Every filter is a single value or absent; `?sport[]=x` is a malformed
+  // request, not an undocumented multi-select.
+  for (const [k, v] of Object.entries({ sport, program, gender, discipline })) str(v, k);
   if (!GRAINS.includes(String(grain))) {
     const err = new Error(`grain must be one of: ${GRAINS.join(', ')}`);
     err.status = 400;
@@ -148,9 +152,12 @@ async function programmeActivityData(query = {}) {
 
   const scrWhere = { athleteId: { [Op.in]: ids } };
   if (from || to) {
+    // Validated rather than handed straight to the driver: `new Date('nonsense')`
+    // is an Invalid Date, which MySQL rejected with "Incorrect DATETIME value" —
+    // a 500, naming the engine, for what is plainly a malformed request.
     scrWhere.assessedAt = {};
-    if (from) scrWhere.assessedAt[Op.gte] = new Date(from);
-    if (to) scrWhere.assessedAt[Op.lte] = new Date(to);
+    if (from) scrWhere.assessedAt[Op.gte] = date(from, 'from');
+    if (to) scrWhere.assessedAt[Op.lte] = date(to, 'to');
   }
   const rows = await Screening.findAll({
     where: scrWhere,

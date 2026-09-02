@@ -300,6 +300,69 @@ and are **left alone** — `REPORT_EDIT_PACK.md` already records what is stale i
 them, and rewriting frozen history is not the same as correcting a current
 figure.
 
+### H20-H22 — what a failure says, and what a parameter is allowed to be
+
+Three findings and **one false alarm that is the most useful entry here.**
+
+**A 500 handed the caller the driver's own words.** 49 route handlers ended
+`catch (err) { res.status(500).json({ message: err.message }) }`. Measured:
+`?from=not-a-date` answered *"Incorrect DATETIME value: 'Invalid date'"* and
+`?gender[$ne]=Male` answered *"Invalid value { '$ne': 'Male' }"*. Neither is
+dangerous alone; together they confirm the engine, the ORM, and that a parameter
+reached a query unvalidated. `utils/httpError.js` now decides once: a 4xx keeps
+its message (it was written for the reader), an explicitly `expose`d error keeps
+its message (the operator uploading a PDF needs to know why it failed), and
+everything else gets a generic sentence while the real error goes to stderr with
+the route that produced it. **The opposite mistake would be worse** — a blanket
+"something went wrong" would have swallowed *"Could not render any pages from
+the PDF"*, which is exactly what the person who hit it needs.
+
+**Query parameters had no declared shape.** Express turns `?sport[]=x` into an
+array and `?sport[$ne]=y` into an object. The array form produced an
+undocumented multi-select (28 rows from a filter nobody designed or described in
+the report); the object form produced a 500 for what is plainly a malformed
+request. `utils/queryParams.js` asserts the shape and answers 400.
+
+**`%` in the search box matched the entire roster.** `Op.like` with an
+unescaped term makes `%` and `_` wildcards, so a clinician searching an IC
+number containing `_` got quietly wrong results. Not a security hole — a
+correctness one, and invisible, because "more rows than expected" reads as a
+generous search.
+
+#### The false alarm, and why it stays written down
+
+I reported **"no login rate limiting: 25 wrong passwords in 5.6s, no lockout"**
+and built a per-account throttle for it. Both the finding and the fix were
+wrong.
+
+`server.js` already mounts `express-rate-limit` on all of `/api/auth` — 30
+failed attempts per 15 minutes per IP, `skipSuccessfulRequests: true`, with a
+comment explaining that a demo signs in and out many times *successfully* and
+must never be throttled. **My probe made 25 attempts. The limit is 30.** I
+concluded "no limiter" from a probe that stopped short of the threshold, and my
+grep missed it because the exclusion filter I used to remove reset-code noise
+also removed the limiter.
+
+Then the fix broke the thing it protected: the first version locked an address
+for 15 minutes after five failures, and the probe proving it worked **locked the
+demo administrator out of their own account** — which is the denial-of-service
+lever NIST SP 800-63B §5.2.2 warns about, discovered by walking into it.
+
+It was reverted in full. A second limiter with a different threshold and a
+different message would have been exactly the drift this document exists to
+prevent (§31, §42): two definitions of "too many attempts".
+
+**Two real limitations of the existing limiter are recorded rather than
+papered over**, because they are viva questions: it uses the default in-memory
+store, so on a host running several instances each keeps its own counter; and it
+is keyed by IP, so it does not bound guesses against one *account* from many
+addresses. Both are fixable with a shared store; neither justifies a second
+control days before a demo.
+
+**The lesson is the probe, not the code.** A negative result is only evidence if
+the probe was capable of producing a positive one. This one was not, and it
+still read as a finding.
+
 ### H19 — the use-case diagrams against the authority (swept 2026-09-02)
 
 `REPORT_TABLE_4-1.md` holds 60 use cases and CLAUDE.md names it the authority for
@@ -357,6 +420,8 @@ instead of reaching Dr Thung.
 | Concurrent recompute | One `utils/recompute.js` takes a cross-process lock; `recompute.test.js` asserts the sequencing AND reads the route sources, so a call site that bypasses it fails. |
 | Report figures | Rendered headless and checked for overflow before shipping (`scratchpad` harness); leaf and table counts reconciled against `REPORT_TABLE_4-1.md` and the live models. |
 | Duplicate ingest | `reliability.test.js` collapses same-instant readings and asserts duplicates cannot push the engine over `MIN_PAIRS`; the commit is idempotent on `(athleteId, assessedAt)`. |
+| Leaky failures | `utils/httpError.js` is the only thing that answers a failed request; `httpHardening.test.js` reads every route source and fails if one returns a raw message on a 500. |
+| Unshaped input | `utils/queryParams.js` — a parameter is a string or the request is a 400. Wired sites asserted from source. |
 | Docs drifting from data | **`npm run measure:facts`** — prints the quoted headline numbers from the database, through the same utils the screens use, so the script cannot quote a different band rule than the dashboard. |
 | F — unread output | `npm run guide:pdf` renders **and verifies** in one command; `verify-guide-pdf.js` reads the PDF back. `capturePdfText` / `capturePaintOps` patch `PDFDocument.prototype` *before* construction so an unwired guard fails. |
 

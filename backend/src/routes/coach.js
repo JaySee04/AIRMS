@@ -15,6 +15,7 @@ const { INDICATOR_ATTRS, toIndicator } = require('../utils/indicatorPayload');
 const { getSettings } = require('../utils/settings');
 const { effectiveBand } = require('../utils/bands');
 const { reliability } = require('../utils/reliability');
+const { sendError } = require('../utils/httpError');
 
 const router = express.Router();
 
@@ -128,7 +129,7 @@ router.get('/readiness', auth, rbac('coach'), async (req, res) => {
       deadBandDerived: Boolean(rel.byKey.overallIndicator?.sufficient),
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err, 'coach.js');
   }
 });
 

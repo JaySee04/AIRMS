@@ -17,6 +17,8 @@
 //
 // Node 18+ provides global fetch, so there is no extra dependency here.
 
+const { expose } = require('./httpError');
+
 const DEFAULT_BASE_URLS = {
   openai: 'https://api.openai.com/v1',
   anthropic: 'https://api.anthropic.com',
@@ -113,7 +115,9 @@ async function callOpenAICompatible(cfg, prompt, images) {
   });
   if (!res.ok) {
     const detail = await res.text().catch(() => '');
-    throw new Error(`Vision API ${res.status}: ${detail.slice(0, 300)}`);
+    // Exposed: a provider that refused (bad key, quota, model name) is the
+    // operator's problem to fix, and a generic 500 would leave them guessing.
+    throw expose(new Error(`Vision API ${res.status}: ${detail.slice(0, 300)}`), 502);
   }
   const json = await res.json();
   return {
@@ -139,7 +143,9 @@ async function callAnthropic(cfg, prompt, images) {
   });
   if (!res.ok) {
     const detail = await res.text().catch(() => '');
-    throw new Error(`Vision API ${res.status}: ${detail.slice(0, 300)}`);
+    // Exposed: a provider that refused (bad key, quota, model name) is the
+    // operator's problem to fix, and a generic 500 would leave them guessing.
+    throw expose(new Error(`Vision API ${res.status}: ${detail.slice(0, 300)}`), 502);
   }
   const json = await res.json();
   return {

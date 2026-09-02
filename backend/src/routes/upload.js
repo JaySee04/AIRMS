@@ -9,6 +9,7 @@ const requirePermission = require('../middleware/permission');
 const { extractFromPdf } = require('../utils/holomotionExtract');
 const { isVisionConfigured, visionConfig } = require('../utils/visionClient');
 const { queuePostImport } = require('../utils/postImport');
+const { sendError } = require('../utils/httpError');
 
 // NOTE: the original Excel screening-upload path (multer excel filter,
 // normaliseRow/validateRow, POST /screening/preview + /screening) was retired
@@ -69,7 +70,7 @@ router.post('/screening/pdf/preview', auth, rbac('medical', 'admin'), requirePer
     // browser's local File name instead, so returning it served no purpose.
     res.json(result);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err, 'upload.js');
   }
 });
 
@@ -222,7 +223,7 @@ router.post('/screening/pdf', auth, rbac('medical', 'admin'), requirePermission(
 
     res.json({ message: 'Import complete', action, athleteId: data.athleteId, muscleFlags: flagRows.length });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err, 'upload.js');
   }
 });
 

@@ -8,6 +8,7 @@ const { Op } = require('sequelize');
 const { AuditLog, Screening } = require('../models');
 const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
+const { sendError } = require('../utils/httpError');
 
 const router = express.Router();
 
@@ -104,7 +105,7 @@ router.get('/', auth, rbac('admin', 'executive'), async (req, res) => {
       actions: Object.entries(ACTION_LABELS).map(([value, label]) => ({ value, label })),
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err, 'audit.js');
   }
 });
 
@@ -221,7 +222,7 @@ router.get('/staff', auth, rbac('admin', 'executive'), async (req, res) => {
       staff: [...staff],
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err, 'audit.js');
   }
 });
 

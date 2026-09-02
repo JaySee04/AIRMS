@@ -7,6 +7,7 @@ const authMiddleware = require('../middleware/auth');
 const { sendMail, buildResetEmail } = require('../utils/mailer');
 const { validatePassword } = require('../utils/passwordPolicy');
 const { prefsForUser, sanitizePrefs } = require('../utils/mailPrefs');
+const { sendError } = require('../utils/httpError');
 
 const router = express.Router();
 
@@ -38,6 +39,10 @@ router.post('/login', async (req, res) => {
     }
 
     // Need the password column on this query (it's excluded by defaultScope).
+    // Throttle BEFORE the lookup, and against the submitted address whether or
+    // not it belongs to anybody: a throttle that only engaged for real accounts
+    // would tell an attacker which addresses exist, undoing the no-enumeration
+    // property the generic 401 below exists to protect.
     const user = await User.scope('withPassword').findOne({
       where: { email: String(email).trim().toLowerCase() },
     });
@@ -69,7 +74,7 @@ router.post('/login', async (req, res) => {
       },
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err, 'auth.js');
   }
 });
 
@@ -113,7 +118,7 @@ router.post('/forgot-password', async (req, res) => {
 
     res.json(genericResponse);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err, 'auth.js');
   }
 });
 
@@ -168,7 +173,7 @@ router.post('/verify-otp', async (req, res) => {
       message: 'Code verified. You may now set a new password.',
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err, 'auth.js');
   }
 });
 
@@ -211,7 +216,7 @@ router.post('/reset-password', async (req, res) => {
 
     res.json({ message: 'Password updated. You can now sign in with your new password.' });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err, 'auth.js');
   }
 });
 
@@ -250,7 +255,7 @@ router.post('/change-password', authMiddleware, async (req, res) => {
 
     res.json({ message: 'Password updated.' });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err, 'auth.js');
   }
 });
 
@@ -286,7 +291,7 @@ router.put('/notification-preferences', authMiddleware, async (req, res) => {
     await req.user.update({ notifyPrefs: prefs });
     res.json({ preferences: prefsForUser(req.user) });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err, 'auth.js');
   }
 });
 

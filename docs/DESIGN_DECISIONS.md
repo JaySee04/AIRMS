@@ -3435,3 +3435,69 @@ patched: UC-1 to UC-4 list four actors and omit Executive, while UC-49 and UC-50
 include it. An executive must log in to activate their account, so the omission
 reads as an oversight — but `REPORT_TABLE_4-1.md` is the authority, and editing
 an authority to agree with a diagram is the wrong direction of travel.
+
+---
+
+## 48. What a failure says, and what a parameter is allowed to be (2026-09-02)
+
+Three hardening fixes and one retraction.
+
+### One place decides what a failed request reveals
+
+49 route handlers ended `catch (err) { res.status(500).json({ message: err.message }) }`,
+which hands the driver's own words to whoever asked. Measured against the running
+server: `?from=not-a-date` answered *"Incorrect DATETIME value: 'Invalid date'"*,
+and `?gender[$ne]=Male` answered *"Invalid value { '$ne': 'Male' }"*. Neither
+matters alone. Together they confirm the engine, the ORM, and that a parameter
+reached a query unexamined; a unique constraint would have volunteered its index
+name.
+
+`utils/httpError.js` decides once, and the rule is about **intent, not status**:
+a 4xx keeps its message because a 4xx is a statement about the request and was
+shaped deliberately; anything marked `expose` keeps its message, for operational
+failures that are genuinely the caller's business; everything else is our fault,
+so the caller gets one generic sentence and the server gets the real error with
+the route that produced it.
+
+The opposite mistake would have been worse, and this project has made it before:
+a blanket "something went wrong" would also have swallowed *"Could not render any
+pages from the PDF"* — which is precisely what the operator uploading it needs to
+read. Those three extraction errors and the two vision-provider failures are
+marked exposable for that reason.
+
+### A query parameter is a string, or it is a 400
+
+Express turns `?sport[]=x` into an array and `?sport[$ne]=y` into an object, and
+both reached Sequelize unexamined. The array form quietly produced an
+**undocumented multi-select** — 28 rows from a filter nobody designed, tested or
+described in Chapter 4. The object form was refused by Sequelize (so: no operator
+injection) but reported as a *server* fault. `utils/queryParams.js` asserts the
+shape and answers 400, which is the truthful status.
+
+Separately, `Op.like` was interpolating the raw search term, so `%` matched the
+entire roster and `_` matched any character. A correctness bug rather than a
+security one, and invisible: more rows than expected reads as a generous search.
+
+### The retraction: there was already a rate limiter
+
+I reported "no login rate limiting — 25 wrong passwords in 5.6s, no lockout" and
+built a per-account throttle for it. The finding was wrong and the fix was worse.
+
+`server.js` already mounts `express-rate-limit` across `/api/auth`: 30 failed
+attempts per 15 minutes per IP, `skipSuccessfulRequests: true`, commented with
+the reasoning that a demo signs in and out repeatedly and successfully and must
+never be throttled. **My probe made 25 attempts against a limit of 30** — it was
+incapable of producing a positive result, and I read its silence as a finding.
+
+The throttle I wrote then demonstrated the hazard it was supposed to avoid: its
+first version locked an address for fifteen minutes after five failures, and the
+probe proving it worked locked the demo administrator out of their own account —
+the denial-of-service lever NIST SP 800-63B §5.2.2 warns about, met head-on. It
+was reverted in full, because a second limiter with a different threshold and a
+different message is precisely the drift §31 and §42 exist to prevent.
+
+Two real limitations of the existing limiter are recorded rather than fixed: the
+default store is in-memory, so several instances keep several counters; and it is
+keyed by IP, so it does not bound guesses against one account from many
+addresses. Both want a shared store; neither justifies a second control days
+before a stakeholder demo.

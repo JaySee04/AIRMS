@@ -13,6 +13,7 @@ const { notifyOverrideToCoach } = require('../utils/notifications');
 const { queuePostImport } = require('../utils/postImport');
 const { effectiveBand } = require('../utils/bands');
 const { toIndicator } = require('../utils/indicatorPayload');
+const { sendError } = require('../utils/httpError');
 
 const router = express.Router();
 
@@ -54,7 +55,7 @@ router.get('/reliability', auth, async (_req, res) => {
       fallback: rel.fallback,
       anySufficient: rel.anySufficient,
     });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { sendError(res, err, 'screenings.js'); }
 });
 
 router.get('/athlete/:id', auth, requirePermission('viewRecords'), async (req, res) => {
@@ -80,7 +81,7 @@ router.get('/athlete/:id', auth, requirePermission('viewRecords'), async (req, r
       order: [['assessedAt', 'DESC'], ['id', 'DESC']],
     });
     res.json(rows);
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { sendError(res, err, 'screenings.js'); }
 });
 
 // GET /api/screenings/:id/full — ONE screening reshaped into the athlete-dashboard
@@ -132,7 +133,7 @@ router.get('/:id/full', auth, requirePermission('viewRecords'), async (req, res)
       tension: Array.isArray(flags.tension) ? flags.tension.map(({ muscle, side }) => ({ muscle, side })) : [],
       screening: toIndicator(s, (await getSettings()).rescreen_due_days),
     });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { sendError(res, err, 'screenings.js'); }
 });
 
 // PATCH /api/screenings/:id/override — clinician sets the effective band after a
@@ -169,7 +170,7 @@ router.patch('/:id/override', auth, rbac('medical', 'admin'), requirePermission(
       meta: { band: band || null, note: band ? String(note).trim() : null, computed: row.overallBand },
     });
     res.json(row);
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { sendError(res, err, 'screenings.js'); }
 });
 
 // POST /api/screenings/:id/reinstate — make an EARLIER screening the athlete's
@@ -283,7 +284,7 @@ router.post('/:id/reinstate', auth, rbac('medical', 'admin'), requirePermission(
       // snapshotting, so the flags on screen still belong to a later report.
       muscleFlagsRestored: hasFlagSnapshot,
     });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { sendError(res, err, 'screenings.js'); }
 });
 
 module.exports = router;

@@ -8,6 +8,7 @@ const { Athlete, MuscleFlag } = require('../models');
 const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
 const { recordAudit } = require('../utils/audit');
+const { sendError } = require('../utils/httpError');
 
 const router = express.Router();
 
@@ -38,7 +39,7 @@ router.get('/backup.xlsx', auth, rbac('admin'), async (req, res) => {
     });
     res.send(buffer);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    sendError(res, err, 'export.js');
   }
 });
 

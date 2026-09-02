@@ -18,6 +18,7 @@ const {
 const { hasPermission } = require('../utils/permissions');
 const { effectiveBand } = require('../utils/bands');
 const { runDigestOnce, runReminderOnce } = require('../utils/scheduler');
+const { sendError } = require('../utils/httpError');
 
 const router = express.Router();
 
@@ -52,7 +53,7 @@ router.get('/', auth, rbac('admin', 'medical'), canEditNorms, async (_req, res) 
         drift: pinDrift(r),
       })),
     });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { sendError(res, err, 'cohorts.js'); }
 });
 
 // POST /api/cohorts/recompute — regenerate cohort norms from latest screenings,
@@ -61,7 +62,7 @@ router.post('/recompute', auth, rbac('admin', 'medical'), canEditNorms, async (_
   try {
     const { cohorts, indicators } = await recomputeAll();
     res.json({ message: 'Recomputed', cohorts, indicators });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { sendError(res, err, 'cohorts.js'); }
 });
 
 // ── Norm versions (B1): name, list, rename, restore, delete a saved norm set ──
@@ -81,7 +82,7 @@ router.post('/versions', auth, rbac('admin', 'medical'), canEditNorms, async (re
       label, note: String(req.body.note || '').trim() || null, createdBy: req.user?.name || null, snapshot,
     });
     res.json({ id: v.id, label: v.label, cohorts: snapshot.length });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { sendError(res, err, 'cohorts.js'); }
 });
 
 // GET /api/cohorts/versions — saved versions (metadata only, no snapshot payload).
@@ -103,7 +104,7 @@ router.get('/versions', auth, rbac('admin', 'medical'), canEditNorms, async (_re
         };
       }),
     });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { sendError(res, err, 'cohorts.js'); }
 });
 
 router.patch('/versions/:id', auth, rbac('admin', 'medical'), canEditNorms, async (req, res) => {
@@ -116,7 +117,7 @@ router.patch('/versions/:id', auth, rbac('admin', 'medical'), canEditNorms, asyn
       await v.update({ label: l });
     }
     res.json({ id: v.id, label: v.label });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { sendError(res, err, 'cohorts.js'); }
 });
 
 // POST /api/cohorts/versions/:id/restore — upsert a saved snapshot onto the live
@@ -146,7 +147,7 @@ router.post('/versions/:id/restore', auth, rbac('admin'), async (req, res) => {
       meta: { cohorts: snap, rescored: indicators },
     });
     res.json({ message: 'Restored', restored: snap, indicators });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { sendError(res, err, 'cohorts.js'); }
 });
 
 // ── Pinning: which saved version is IN FORCE ────────────────────────────────
@@ -197,7 +198,7 @@ router.post('/versions/:id/pin', auth, rbac('admin'), async (req, res) => {
       meta: { cohorts, rescored: indicators },
     });
     res.json({ message: 'Pinned', pinnedId: v.id, cohorts, indicators });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { sendError(res, err, 'cohorts.js'); }
 });
 
 // POST /api/cohorts/versions/unpin — release the pin and let the norms track the
@@ -219,7 +220,7 @@ router.post('/versions/unpin', auth, rbac('admin'), async (req, res) => {
       meta: { cohorts, rescored: indicators },
     });
     res.json({ message: 'Released', cohorts, indicators });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { sendError(res, err, 'cohorts.js'); }
 });
 
 router.delete('/versions/:id', auth, rbac('admin'), async (req, res) => {
@@ -234,7 +235,7 @@ router.delete('/versions/:id', auth, rbac('admin'), async (req, res) => {
     const n = await CohortNormVersion.destroy({ where: { id: req.params.id } });
     if (!n) return res.status(404).json({ message: 'Version not found' });
     res.json({ message: 'Deleted' });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { sendError(res, err, 'cohorts.js'); }
 });
 
 // PATCH /api/cohorts/:id — edit the norm (overrides) or, admin-only, move it
@@ -265,7 +266,7 @@ router.patch('/:id', auth, rbac('admin', 'medical'), canEditNorms, async (req, r
     // Approval/edit changes the norms → re-score indicators.
     const { indicators } = await recomputeAll({ cohorts: false });
     res.json({ cohort: row, indicators });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { sendError(res, err, 'cohorts.js'); }
 });
 
 // GET /api/cohorts/:id/members — the athletes in this cohort tier, each with
@@ -308,7 +309,7 @@ router.get('/:id/members', auth, rbac('admin', 'medical'), canEditNorms, async (
       members,
       thresholds: { total: settings.norm_min_total, rom: settings.norm_min_rom, stability: settings.norm_min_stability },
     });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { sendError(res, err, 'cohorts.js'); }
 });
 
 // PATCH /api/cohorts/members/:athleteId — toggle an athlete's manual norm
@@ -336,7 +337,7 @@ router.patch('/members/:athleteId', auth, rbac('admin', 'medical'), canEditNorms
       });
     }
     res.json({ athleteId: a.athleteId, normExcluded: a.normExcluded, recomputed });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { sendError(res, err, 'cohorts.js'); }
 });
 
 // POST /api/cohorts/settings/mail/:kind/send-now — run a scheduled email NOW.
@@ -379,7 +380,7 @@ router.post('/settings/mail/:kind/send-now', auth, rbac('admin'), async (req, re
       meta: { kind, ...result },
     });
     res.json({ kind, ...result, settings: await getSettings() });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { sendError(res, err, 'cohorts.js'); }
 });
 
 // GET /api/settings — current settings merged over defaults. Readable by admin
@@ -388,7 +389,7 @@ router.post('/settings/mail/:kind/send-now', auth, rbac('admin'), async (req, re
 router.get('/settings/all', auth, rbac('admin', 'medical'), canEditNorms, async (_req, res) => {
   try {
     res.json({ settings: await getSettings(), defaults: DEFAULTS });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { sendError(res, err, 'cohorts.js'); }
 });
 
 // A PATCH that changes nothing writes nothing, rescores nothing and logs
@@ -415,7 +416,7 @@ router.patch('/settings/all', auth, rbac('admin'), async (req, res) => {
       },
     });
     res.json({ settings: await getSettings(), indicators, changed });
-  } catch (err) { res.status(500).json({ message: err.message }); }
+  } catch (err) { sendError(res, err, 'cohorts.js'); }
 });
 
 module.exports = router;
