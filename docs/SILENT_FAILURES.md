@@ -495,6 +495,45 @@ cannot be real in a unit test — the models, the auth middleware, and the audit
 writer — and the models mock gives every table every finder, because a partial
 one is what caused three of the four.
 
+### 3e. The access gate, which had no test at all (2026-09-02)
+
+`DashboardLayout` wraps every authenticated page and decides what renders. It
+had no test, which is uncomfortable twice over: it is the one component whose
+job is access, and it had been *changed* days earlier to confirm the session
+with the server.
+
+A DOM environment was added for it — `jest-environment-jsdom` and React Testing
+Library, opted into **per file** with a `@jest-environment jsdom` docblock, so
+the existing node-environment suites run exactly as before.
+`DashboardLayout.test.tsx` pins nine properties, including the two that are easy
+to get backwards:
+
+- the **server's** answer beats the browser's `localStorage` claim, so a forged
+  or stale snapshot is corrected rather than trusted;
+- a 401 **clears the session** — a redirect alone would leave the stale token
+  for the next page load to trust again;
+- a network blink does **not** sign anybody out, which would drop the whole
+  institute to the login screen the moment the API hiccupped.
+
+Six mutations, all caught: removing the confirmation, dropping the role check,
+not clearing on 401, signing out on *any* error, dropping the initial gate, and
+ignoring a revoked capability.
+
+**What it deliberately does not assert.** The gate renders *optimistically* from
+the snapshot and corrects when the server answers, and `router.replace` is
+mocked — so the content does not vanish in a test. Asserting an unmount would be
+asserting the mock. The backend is the real boundary and is tested separately;
+nothing here should be read as "the API is safe because this passes".
+
+**Four setup faults, each failing differently**, which is why this took longer
+than the tests themselves: a `useRouter` stub returning a fresh object per render
+made the effect loop for ever (`Maximum update depth exceeded`) — real
+`useRouter` is stable; `jest.mock('@/lib/api')` could not resolve the path alias
+because SWC rewrites `@/` inside *imports* but `jest.mock` is resolved by jest,
+which needed `moduleNameMapper`; the jest-dom matchers were installed but never
+imported, so `toBeInTheDocument is not a function`; and once imported they still
+needed a `.d.ts`, because runtime and `tsc` fail independently.
+
 ### 3c. Three things that cannot be promised
 
 1. **Absence cannot be proved.** Every sweep so far found something. That is
@@ -506,11 +545,10 @@ one is what caused three of the four.
    because this file's own comments mentioned them. Reasoning found none of
    that; mutation runs found all three.
 3. **The untested surface is where to look next.** Route handlers were the
-   worst of it and are now covered (§3d); what remains is the **frontend**,
-   which has no page or end-to-end tests at all. Its suites render components
-   through `react-dom/server`, which cannot exercise a page's hooks, effects or
-   data fetching — closing that needs a DOM environment and a decision about
-   adding one, not just more tests.
+   worst of it (§3d) and the client-side access gate had nothing at all (§3e);
+   both are covered now. What remains untested is the **page** components
+   themselves — the dashboards' own data-shaping — and there is still no
+   end-to-end test that drives a real browser against a real server.
 
 ### The rule that makes the guards real
 

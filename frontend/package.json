@@ -16,6 +16,8 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
     "@types/jest": "^30.0.0",
     "@types/node": "^20",
     "@types/react": "^18",
@@ -23,6 +25,7 @@
     "eslint": "^8.57.1",
     "eslint-config-next": "^14.2.35",
     "jest": "^30.4.2",
+    "jest-environment-jsdom": "^30.5.1",
     "typescript": "^5"
   }
 }

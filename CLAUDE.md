@@ -84,10 +84,13 @@ cd backend; npx jest      # 31 suites: cohorts, overallIndicator, permissions, r
                           # mailSendNow, lock, prescription, settingsChanges, symmetry,
                           # isnDirectory, accountLifecycle, athleteDisclosure, recompute,
                           # httpHardening, codebaseHygiene, reportRoutes
-cd frontend; npx jest     # 10 suites: lib/risk.ts, lib/screeningUploadStore.ts, bodymap-data/muscles.ts,
+cd frontend; npx jest     # 11 suites: lib/risk.ts, lib/screeningUploadStore.ts, bodymap-data/muscles.ts,
                           # components/charts (rendered via react-dom/server — no jsdom needed),
                           # lib/bands.ts, lib/athleteSearch.ts, lib/rank.ts,
-                          # lib/screeningAlerts.indicators.ts, lib/cssTokens.ts, lib/periods.ts
+                          # lib/screeningAlerts.indicators.ts, lib/cssTokens.ts, lib/periods.ts,
+                          # components/layout/DashboardLayout (jsdom - the access gate; opt in
+                          # per file with a @jest-environment docblock, so the node suites are
+                          # untouched)
 ```
 
 Jest covers the pure logic: scoring/permissions (`backend/tests/`), the PDF
