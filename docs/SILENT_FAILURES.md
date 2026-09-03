@@ -604,6 +604,29 @@ Verified by mutation both ways: breaking date formatting fails
 `/athlete/history` and `/athlete/dashboard`; renaming the figure class fails all
 three body-map checks; restoring returns 59/59.
 
+### 3h. A guard that held only where it was tested (2026-09-03)
+
+The query-shape guard from H21 was **inert in production**, and nothing in this
+repository could have told me. Measured against the live API, from the same
+commit:
+
+| | local | hosted |
+|---|---|---|
+| `?gender[$ne]=Male` | 400 rejected | **200, all 62 athletes** |
+| `?sport[]=Badminton` | 400 rejected | **200, all 62 athletes** |
+
+Express parses a bracketed parameter into a nested value, which `str()` refuses.
+The hosted runtime does not parse it at all — the key arrives as the literal
+string `sport[]`, so `req.query.sport` is undefined, the filter is skipped, and
+the endpoint answers 200 with everything. No privilege issue: the roster is
+already visible to every role that can call it. But the filter is silently
+ignored, and **the test suite reported success the whole time**.
+
+`assertPlainQuery()` now checks the KEYS, which covers both platforms, and runs
+before any filter is read. Found only by comparing the two environments — which
+is now worth doing after any change to request handling, because a guard that
+holds where it is tested and not where it runs is worse than no guard at all.
+
 ### 3c. Three things that cannot be promised
 
 1. **Absence cannot be proved.** Every sweep so far found something. That is

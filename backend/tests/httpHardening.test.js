@@ -20,7 +20,9 @@
 const fs = require('fs');
 const path = require('path');
 const { sendError, expose, GENERIC } = require('../src/utils/httpError');
-const { str, num, date, likeTerm, badRequest } = require('../src/utils/queryParams');
+const {
+  str, num, date, likeTerm, badRequest, assertPlainQuery,
+} = require('../src/utils/queryParams');
 
 const fakeRes = () => {
   const r = { statusCode: null, body: null, headers: {} };
@@ -183,5 +185,50 @@ describe('wiring', () => {
     expect(src).toMatch(/date\(from, 'from'\)/);
     expect(src).toMatch(/date\(to, 'to'\)/);
     expect(src).not.toMatch(/Op\.gte\] = new Date\(from\)/);
+  });
+});
+
+// ── the guard must hold on BOTH platforms ───────────────────────────────────
+//
+// str() catches what Express makes of a bracket locally — an array from
+// `?p[]=x`, an object from `?p[k]=y`. The hosted runtime does not parse the
+// bracket at all: the key arrives as the literal string `p[]`, so `req.query.p`
+// is undefined, the filter is skipped, and the endpoint answers 200 with
+// everything.
+//
+// Measured against the live API on 2026-09-03: `?gender[$ne]=Male` gave 400
+// locally and 200 with all 62 athletes hosted, from the same commit. The guard
+// held where it was tested and nowhere else, which is worse than no guard —
+// the test reported success.
+describe('assertPlainQuery — bracketed KEYS, not just parsed values', () => {
+  it('accepts an ordinary query', () => {
+    expect(() => assertPlainQuery({ sport: 'Badminton', gender: 'Female' })).not.toThrow();
+    expect(() => assertPlainQuery({})).not.toThrow();
+    expect(() => assertPlainQuery(undefined)).not.toThrow();
+  });
+
+  it('rejects the literal key the hosted runtime produces', () => {
+    // This is the shape str() cannot see: the value is fine, the KEY is not.
+    expect(() => assertPlainQuery({ 'sport[]': 'Badminton' })).toThrow(/"sport" must be a single value/);
+    expect(() => assertPlainQuery({ 'gender[$ne]': 'Male' })).toThrow(/"gender" must be a single value/);
+  });
+
+  it('gives it a 400, because the request is what is malformed', () => {
+    try {
+      assertPlainQuery({ 'sport[]': 'x' });
+      throw new Error('should have thrown');
+    } catch (e) {
+      expect(e.status).toBe(400);
+    }
+  });
+
+  it('is wired into the roster route, before any filter is read', () => {
+    const src = fs.readFileSync(
+      path.join(__dirname, '..', 'src', 'routes', 'athletes.js'), 'utf8',
+    );
+    const at = src.indexOf('assertPlainQuery(req.query)');
+    expect(at).toBeGreaterThan(-1);
+    // and it runs BEFORE the filters are pulled out, or it guards nothing
+    expect(at).toBeLessThan(src.indexOf("str(req.query.sport, 'sport')"));
   });
 });

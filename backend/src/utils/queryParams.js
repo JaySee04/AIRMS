@@ -87,6 +87,33 @@ function likeTerm(value) {
   return String(value).replace(/[\\%_]/g, (c) => `\\${c}`);
 }
 
+/**
+ * Reject a query string carrying bracketed keys, whatever the platform made of
+ * them.
+ *
+ * `str()` alone was not enough, and the gap only showed on the deployment.
+ * Locally Express parses `?sport[]=x` into an ARRAY and `?gender[$ne]=y` into an
+ * OBJECT, which `str()` refuses. On the hosted runtime the bracket is not parsed
+ * at all: the key stays the literal string `sport[]`, so `req.query.sport` is
+ * simply undefined, the filter is skipped, and the whole roster comes back 200.
+ *
+ * Measured on 2026-09-03 against the live API — `?gender[$ne]=Male` answered
+ * 400 locally and 200 with every athlete hosted, from the same commit. A guard
+ * that holds where it is tested and not where it runs is worse than none,
+ * because the test reports success.
+ *
+ * Checking the KEYS covers both: the nested value on one platform and the
+ * literal bracket on the other. Not a privilege issue either way — the roster is
+ * already visible to every role that can call this — but a filter that is
+ * quietly ignored returns more than the caller asked for and says nothing.
+ */
+function assertPlainQuery(query) {
+  const bracketed = Object.keys(query || {}).filter((k) => k.includes('[') || k.includes(']'));
+  if (bracketed.length) {
+    throw badRequest(`"${bracketed[0].replace(/[[\]].*$/, '')}" must be a single value`);
+  }
+}
+
 module.exports = {
-  str, num, date, likeTerm, badRequest,
+  str, num, date, likeTerm, badRequest, assertPlainQuery,
 };

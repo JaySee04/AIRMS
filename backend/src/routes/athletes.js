@@ -68,7 +68,7 @@ const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
 const requirePermission = require('../middleware/permission');
 const { notFoundStatusFor } = require('../utils/permissions');
-const { str, likeTerm } = require('../utils/queryParams');
+const { str, likeTerm, assertPlainQuery } = require('../utils/queryParams');
 const { recomputeAll } = require('../utils/recompute');
 const { serializeAthlete, serializeAthleteList } = require('../utils/serialize');
 const { cleanDisciplineList } = require('../utils/disciplines');
@@ -90,8 +90,10 @@ async function syncDisciplines(athleteId, disciplines) {
 
 router.get('/', auth, rbac('medical', 'admin', 'executive'), requirePermission('viewRecords'), async (req, res) => {
   try {
-    // Shape-checked: Express turns `?sport[]=x` into an array and
-    // `?sport[$ne]=y` into an object, and both used to reach Sequelize as-is.
+    // Shape-checked twice over, because the two platforms disagree: locally the
+    // bracket becomes a nested value (caught by str), hosted it stays in the KEY
+    // and the filter would be silently skipped (caught by assertPlainQuery).
+    assertPlainQuery(req.query);
     const sport = str(req.query.sport, 'sport');
     const program = str(req.query.program, 'program');
     const gender = str(req.query.gender, 'gender');
