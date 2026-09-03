@@ -425,6 +425,51 @@ instead of reaching Dr Thung.
 | Docs drifting from data | **`npm run measure:facts`** — prints the quoted headline numbers from the database, through the same utils the screens use, so the script cannot quote a different band rule than the dashboard. |
 | F — unread output | `npm run guide:pdf` renders **and verifies** in one command; `verify-guide-pdf.js` reads the PDF back. `capturePdfText` / `capturePaintOps` patch `PDFDocument.prototype` *before* construction so an unwired guard fails. |
 
+### 3b. What is still only a habit, and what is now a command
+
+The sweeps that found everything on 2026-09-02 were **throwaway scripts in a
+temp folder**. They found a settings read that swallowed its own database error,
+three dead exports, a constant written out three times, seven missing use cases
+and a coach able to test IC numbers — and then they were deleted. That is not a
+process; it is luck plus a good afternoon.
+
+Two of them now live in the repository:
+
+| Command | Catches |
+|---|---|
+| `npx jest codebaseHygiene` | H1 (a `catch` returning an empty value) and H2 (an export nothing anywhere calls) — the two hypotheses no other test covered |
+| `npm run audit:access` | The 52-endpoint × 4-role matrix. Needs a running server, so it is a script, not a suite. Fails if any read-only role *reaches* a write |
+| `npm run coverage` | Now works at all — see below |
+| `npm run measure:facts` | The headline numbers, from the database |
+
+**`audit:access` checks for a REFUSAL, not for failure.** Its write probes carry
+a deliberately invalid id, so a role RBAC waved through still ends at 404. An
+earlier version only flagged a 2xx and would therefore have missed almost
+everything. Mutation-tested: adding `executive` to one write guard produces
+`executive reached POST /cohorts/versions/…/pin — expected 403, got 404`.
+
+**Coverage had never been measurable.** `npm run coverage` failed with
+`Cannot find module 'fs.realpath'` — a missing transitive dependency of the
+instrumenter — so nobody had ever seen a number. It is 74.7% of statements and
+63.5% of branches, and the shape matters more than the total: the gaps are
+concentrated in **route handlers** (`screeningReports.js` 7%, `audit.js` 19%),
+which is exactly where this session's defects lived. That is not an accident —
+`CLAUDE.md` already says route bodies are only tested where their logic was
+extracted into a util. It is the honest answer to "where is the next one".
+
+### 3c. Three things that cannot be promised
+
+1. **Absence cannot be proved.** Every sweep so far found something. That is
+   evidence the method works, not that the work is finished.
+2. **A guard only counts once it has been seen to fail.** `codebaseHygiene`
+   needed **three** corrections before it behaved — it first fired eleven times
+   and found nothing, then could not detect a dead function at all because a
+   declaration counts as a use, then could not flag the historical examples
+   because this file's own comments mentioned them. Reasoning found none of
+   that; mutation runs found all three.
+3. **The untested surface is where to look next.** Route handlers, and the
+   frontend pages, which have no page or end-to-end tests at all.
+
 ### The rule that makes the guards real
 
 **Mutation-test every guard: break the thing it protects and watch it fail.**
