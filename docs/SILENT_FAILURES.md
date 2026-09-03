@@ -571,6 +571,39 @@ browser download. Mutation-tested by putting the denominator back: the tiles
 rendered 56 / 19 / 13 and the run failed with `sum = 88%` — the original bug,
 caught end to end.
 
+### 3g. What the pages actually draw (2026-09-02)
+
+`npm run e2e` grew from 24 checks to **59**, covering the last thing §3c named:
+the pages rendered, but nothing said *what*.
+
+**Nothing renders as a non-answer.** `NaN`, `undefined`, `Invalid Date`,
+`[object Object]`, `Infinity` — these are what a wrong value looks like once it
+reaches a template. They are the visible end of this document's whole subject,
+they cost nothing to check, and no unit test sees them, because each is produced
+by data meeting a page rather than by either alone. Nine routes are swept, and
+each must also carry real content: a page that rendered its shell and nothing
+else reads as an ordinary empty state.
+
+**The body map and the charts draw.** The licensed figure is what the product is
+built around, and a chart that renders blank looks exactly like a chart with no
+data. Both are geometry, so both are counted — two figures, more than fifty
+regions, at least two SVGs carrying real shapes — on the athlete dashboard and
+in the coach and medical detail views, which the run reaches by clicking an
+athlete. Thresholds sit well under what was measured (2 figures, 156 regions) so
+ordinary content changes do not trip them: this asks *did it draw at all*, not
+*is the design unchanged*.
+
+**One of these checks was wrong when written, and a mutation found it.** Breaking
+date formatting so every screening rendered `Invalid Date` produced **59/59
+passing** — because the nine routes swept happened to be the nine that show no
+dates. The check was real; its page list did not reach the code it guarded. With
+the athlete pages added it fails on exactly the two that display a date. A
+sweep's *coverage* needs testing as much as its logic.
+
+Verified by mutation both ways: breaking date formatting fails
+`/athlete/history` and `/athlete/dashboard`; renaming the figure class fails all
+three body-map checks; restoring returns 59/59.
+
 ### 3c. Three things that cannot be promised
 
 1. **Absence cannot be proved.** Every sweep so far found something. That is
@@ -582,12 +615,14 @@ caught end to end.
    because this file's own comments mentioned them. Reasoning found none of
    that; mutation runs found all three.
 3. **The untested surface is where to look next.** Route handlers (§3d), the
-   access gate (§3e), the page arithmetic and an end-to-end browser run (§3f)
-   are all covered now. What is left is the rest of the page *rendering* — the
-   charts, the body map, the report panels — which have no assertions beyond
-   "the page did not fail to load". `npm run e2e` is the place to add them, and
-   it is a smoke test rather than a suite: it proves the app works, not that it
-   is correct.
+   access gate (§3e), the page arithmetic and the browser run (§3f), and what
+   the pages draw (§3g) are all covered now. What remains is genuinely harder
+   and is not pretended away: `e2e` asserts that a chart has geometry, not that
+   the geometry is *right* — a body map painting the wrong muscle, or a bar at
+   the wrong height, would pass. Those are questions for a person looking at the
+   screen, which is how the dead-band chart and the overprinting PDF column were
+   both found. **The tests reduce how often you must look; they do not replace
+   looking.**
 
 ### The rule that makes the guards real
 

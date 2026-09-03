@@ -75,9 +75,11 @@ cd frontend; npm run lint  # next lint
 
 # Frontend production build
 cd frontend; npm run e2e   # END-TO-END smoke: a real Chrome against the running
-                           # servers (needs `npm run dev`). 24 checks - auth boundaries,
+                           # servers (needs `npm run dev`). 59 checks - auth boundaries,
                            # each role's pages rendering, the readiness tiles accounting
-                           # for the squad, the body-map focus ring. Uses puppeteer-core
+                           # for the squad, the body-map focus ring, no NaN/undefined/
+                           # Invalid Date on any page, and the body map + charts actually
+                           # drawing geometry. Uses puppeteer-core
                            # with the installed Chrome, so nothing is downloaded.
                            # See docs/SILENT_FAILURES.md 3f.
 

@@ -105,6 +105,7 @@ async function visit(browser, route, session) {
       admin: await login('admin@isn.gov.my'),
       coach: await login('coach@isn.gov.my'),
       medical: await login('medical@isn.gov.my'),
+      athlete: await login('athlete@isn.gov.my'),
     };
   } catch (e) {
     console.error(`${e.message}\nAre both servers running (npm run dev) and the database seeded?`);
@@ -169,7 +170,7 @@ async function visit(browser, route, session) {
     await cd.page.close();
 
     console.log('\n5. keyboard focus is visible where focus was removed once');
-    const fp = await visit(browser, '/athlete/dashboard', await login('athlete@isn.gov.my'));
+    const fp = await visit(browser, '/athlete/dashboard', sessions.athlete);
     const ring = await fp.page.evaluate(() => {
       const el = document.querySelector('.bm-card-item');
       if (!el) return { found: false };
@@ -183,6 +184,67 @@ async function visit(browser, route, session) {
       check('body-map rows present to check', false, 'no .bm-card-item on the page');
     }
     await fp.page.close();
+    console.log('\n6. nothing renders as a non-answer');
+    // "NaN%", "undefined", "Invalid Date" and "[object Object]" are what a wrong
+    // value looks like once it reaches a page. They are the visible end of this
+    // project's whole defect class, they cost nothing to check, and no unit test
+    // sees them because each one is produced by data meeting a template.
+    const JUNK = ['NaN', 'undefined', 'Invalid Date', '[object Object]', 'null%', 'Infinity'];
+    for (const [role, route] of [
+      ['admin', '/admin/dashboard'], ['admin', '/admin/activity'],
+      ['admin', '/admin/audit'], ['admin', '/admin/reports'],
+      ['admin', '/admin/thresholds'], ['admin', '/admin/personnel'],
+      ['medical', '/medical/dashboard'], ['coach', '/coach/dashboard'],
+      ['coach', '/coach/reports'],
+      // The athlete pages carry the SCREENING DATES, and every other page in
+      // this list happens not to. A mutation that broke date formatting passed
+      // the whole section until these were added — the check was real, its page
+      // list simply did not reach the code it guards.
+      ['athlete', '/athlete/history'], ['athlete', '/athlete/dashboard'],
+      ['athlete', '/athlete/squad'],
+    ]) {
+      const r = await visit(browser, route, sessions[role]);
+      const found = JUNK.filter((j) => r.text.includes(j));
+      check(`${route} shows no non-answer`, found.length === 0, found.join(', '));
+      // A page that rendered its shell and nothing else is also a failure, and
+      // reads as an ordinary empty state.
+      check(`${route} rendered real content`, r.text.length > 400, `${r.text.length} chars`);
+      await r.page.close();
+    }
+
+    console.log('\n7. the body map and charts actually draw');
+    // The body map is the licensed figure the whole product is built around, and
+    // a chart that renders blank looks exactly like a chart with no data. Both
+    // are geometry, so both can be counted. Thresholds are set well under what
+    // was measured (2 figures, 156 regions) so ordinary content changes do not
+    // trip them — this is asking "did it draw at all", not pinning a design.
+    const drawn = async (label, session, route, click) => {
+      const r = await visit(browser, route, session);
+      if (click) {
+        const clicked = await r.page.evaluate((sel) => {
+          const el = document.querySelector(sel);
+          if (!el) return false;
+          el.click();
+          return true;
+        }, click);
+        check(`${label}: an athlete can be opened`, clicked);
+        await new Promise((x) => { setTimeout(x, 3500); });
+      }
+      const g = await r.page.evaluate(() => ({
+        figures: document.querySelectorAll('.bm-fig').length,
+        regions: document.querySelectorAll('.bodymap-region').length,
+        richSvgs: Array.from(document.querySelectorAll('svg'))
+          .filter((s) => s.querySelectorAll('path,rect,circle,line,polygon,polyline').length > 5).length,
+      }));
+      check(`${label}: body map draws its figures`, g.figures >= 2, `${g.figures} figure(s)`);
+      check(`${label}: body map draws its regions`, g.regions > 50, `${g.regions} region(s)`);
+      check(`${label}: charts carry geometry`, g.richSvgs >= 2, `${g.richSvgs} drawn svg(s)`);
+      await r.page.close();
+    };
+
+    await drawn('athlete dashboard', sessions.athlete, '/athlete/dashboard', null);
+    await drawn('coach detail', sessions.coach, '/coach/dashboard', '.athlete-row');
+    await drawn('medical detail', sessions.medical, '/medical/dashboard', '.athlete-row');
   } finally {
     await browser.close();
   }
