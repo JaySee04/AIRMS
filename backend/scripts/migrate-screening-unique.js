@@ -38,16 +38,93 @@
 //     matches nothing and must always insert.
 require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
 
-const { sequelize } = require('../src/config/db');
-const { QueryTypes } = require('sequelize');
+const { QueryTypes, Sequelize } = require('sequelize');
+const mysql2 = require('mysql2');
 
 const INDEX = 'screenings_athlete_assessed_unique';
 
+// ── connecting somewhere other than backend/.env ────────────────────────────
+//
+// The hosted database is the one that needs this, and its credentials are not
+// on the development machine. Assembling five MYSQL_* variables on a command
+// line is exactly the sort of thing that gets half-done, so a single connection
+// string is accepted instead — the kind a managed-database console hands out
+// ready to paste:
+//
+//   npm run migrate:screening-unique -- --url "mysql://user:pass@host:12345/defaultdb"
+//
+// Aiven requires TLS and signs with a project CA, so pass the certificate
+// offered on the same page:
+//
+//   ... --url "mysql://..." --ca ./ca.pem
+//
+// --insecure skips certificate verification. It is offered because a one-off
+// migration from a trusted machine is a defensible use, and refusing outright
+// would only push somebody towards a worse workaround — but the server is then
+// unauthenticated, so prefer --ca whenever the file is to hand.
+const argv = process.argv.slice(2);
+const argOf = (name) => {
+  const i = argv.indexOf(`--${name}`);
+  return i >= 0 ? argv[i + 1] : null;
+};
+const urlArg = argOf('url');
+const caArg = argOf('ca');
+const insecure = argv.includes('--insecure');
+
+function connect() {
+  const dialectOptions = { decimalNumbers: true };
+  if (caArg) {
+    // eslint-disable-next-line global-require
+    dialectOptions.ssl = { ca: require('fs').readFileSync(caArg, 'utf8'), rejectUnauthorized: true };
+  } else if (insecure) {
+    dialectOptions.ssl = { rejectUnauthorized: false };
+  } else if (process.env.MYSQL_SSL === '1') {
+    dialectOptions.ssl = process.env.MYSQL_SSL_CA
+      ? { ca: process.env.MYSQL_SSL_CA, rejectUnauthorized: true }
+      : { rejectUnauthorized: true };
+  }
+  if (urlArg) {
+    return new Sequelize(urlArg, {
+      dialect: 'mysql', dialectModule: mysql2, logging: false, dialectOptions,
+    });
+  }
+  // eslint-disable-next-line global-require
+  return require('../src/config/db').sequelize;
+}
+
+const sequelize = connect();
+
 (async () => {
-  const target = `${process.env.MYSQL_USER || 'root'}@${process.env.MYSQL_HOST || 'localhost'}`
-    + `:${process.env.MYSQL_PORT || 3306}/${process.env.MYSQL_DATABASE || 'airms'}`;
+  // Print WHERE this is about to run, password removed. Running a migration
+  // against the wrong database is the mistake worth making loud.
+  let target;
+  if (urlArg) {
+    let u;
+    try {
+      u = new URL(urlArg);
+    } catch {
+      // Managed-database passwords routinely contain @ : / # ? and %, every one
+      // of which means something inside a URL. This is the first thing anybody
+      // hits, and "Invalid URL" on its own does not say why.
+      console.error('✗ That --url could not be parsed.\n');
+      console.error('  A password containing @ : / # ? or % must be percent-encoded:');
+      console.error('    node -e "console.log(encodeURIComponent(process.argv[1]))" \'YOUR_PASSWORD\'');
+      console.error('  then paste the result in place of the password.\n');
+      console.error('  Or skip the URL entirely and pass the parts as environment variables:');
+      console.error('    MYSQL_HOST=… MYSQL_PORT=… MYSQL_USER=… MYSQL_PASSWORD=… MYSQL_DATABASE=… \\');
+      console.error('      MYSQL_SSL=1 MYSQL_SSL_CA="$(cat ca.pem)" npm run migrate:screening-unique');
+      process.exit(1);
+    }
+    target = `${u.username}@${u.hostname}:${u.port || 3306}${u.pathname}`;
+  } else {
+    target = `${process.env.MYSQL_USER || 'root'}@${process.env.MYSQL_HOST || 'localhost'}`
+      + `:${process.env.MYSQL_PORT || 3306}/${process.env.MYSQL_DATABASE || 'airms'}`;
+  }
+  let tls = process.env.MYSQL_SSL === '1' ? 'required' : 'off';
+  if (caArg) tls = 'verified against the supplied CA';
+  else if (insecure) tls = 'ENCRYPTED BUT NOT VERIFIED (--insecure)';
   console.log(`target : ${target}`);
-  console.log(`ssl    : ${process.env.MYSQL_SSL === '1' ? 'required' : 'off'}\n`);
+  console.log(`ssl    : ${tls}\n`);
 
   await sequelize.authenticate();
 

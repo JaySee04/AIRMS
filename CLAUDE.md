@@ -679,8 +679,14 @@ NEXT_PUBLIC_API_URL=http://localhost:5000/api
    - `cohort_thresholds` gained `fresh_stats` (JSON), `fresh_n` (INT), `fresh_at` (DATETIME) and `added_since_pin` (TINYINT default 0) for norm pinning on 2026-08-11 — `ALTER TABLE` them on an existing dev DB, same `SQL_SYNC=1` caveat
    - `screenings` gained a **UNIQUE** key on `(athlete_id, assessed_at)` on 2026-09-02 (§45): a duplicate screening is not a loud failure downstream, it is a *retest with a difference of zero on every score*, which can push the reliability engine over `MIN_PAIRS` into claiming a derived dead band it has not earned. `npm run seed` creates it from the model; an existing database needs it applied by hand, and **the hosted Aiven database still does** — check first, because the ALTER fails if duplicates already exist:
      ```powershell
-     cd backend; npm run migrate:screening-unique      # local, or set MYSQL_* for the hosted one
+     cd backend; npm run migrate:screening-unique      # local (reads backend/.env)
+     # hosted - one connection string, from the Aiven console:
+     cd backend; npm run migrate:screening-unique -- --url "mysql://user:pass@host:12345/defaultdb" --ca ./ca.pem
      ```
+     A managed-database password containing `@ : / # ? %` must be percent-encoded in the URL; the script says so
+     rather than just reporting "Invalid URL", and `--insecure` skips certificate verification if the CA file is
+     not to hand. It prints the target host (password removed) before doing anything, because running a migration
+     against the wrong database is the mistake worth making loud.
      `scripts/migrate-screening-unique.js` does the duplicate pre-check, **refuses and names them** rather than half-applying, creates the index, verifies it, and is idempotent. All three branches were exercised against the real table (index dropped, duplicate planted, refusal confirmed, then creation) rather than only the no-op path. For the hosted database, set `MYSQL_HOST/USER/PASSWORD/DATABASE`, `MYSQL_SSL=1` and `MYSQL_SSL_CA` on the command.
      NULL `assessed_at` is exempt (MySQL treats NULLs as distinct), which is the wanted behaviour: an undated screening matches nothing, so it always inserts.
    - `users.notify_prefs` (JSON, per-user email opt-out, added 2026-08-10) likewise needs `ALTER TABLE users ADD COLUMN notify_prefs JSON NULL AFTER permissions` on an existing dev DB — boot-time `sequelize.sync()` only runs when `SQL_SYNC=1`. `NULL` is the correct default and means "every notification on"
