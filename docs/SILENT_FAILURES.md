@@ -457,6 +457,44 @@ which is exactly where this session's defects lived. That is not an accident —
 `CLAUDE.md` already says route bodies are only tested where their logic was
 extracted into a util. It is the honest answer to "where is the next one".
 
+### 3d. The blind spot, closed (2026-09-02)
+
+Coverage said the gaps were in **route handlers**, and that was where three of
+this session's defects lived. `tests/reportRoutes.test.js` mounts the real
+routers behind a real Express app and drives them with supertest:
+
+| | before | after |
+|---|---|---|
+| `routes/screeningReports.js` | 7% | **44%** |
+| `routes/audit.js` | 19% | **42%** |
+| backend statements | 74.7% | **79.6%** |
+| backend branches | 63.5% | **67.8%** |
+
+The properties it pins are the ones that were found broken by hand: a coach gets
+the *same* status for an unknown athlete as for a foreign one, a refused
+download writes no audit row, a missing screening is reported rather than drawn
+as an empty document, and a 500 does not carry the driver's message. Five
+mutations, all caught.
+
+**Its own history is the lesson.** It began with pdfDraw, holisticReport,
+programmeActivity and cohorts all mocked, and each stub in turn became the thing
+under test:
+
+- without `page.width` the handler threw, the route 500'd, and the RBAC
+  assertion passed anyway — *a green test over a broken path*;
+- with the geometry but a frozen `doc.y`, the activity-log route paginated for
+  ever;
+- a hand-written `programmeActivityData` return produced "write after end"
+  mid-stream;
+- a partial `cohorts` mock omitted `latestScreeningsByAthlete`, so the holistic
+  route 500'd while "is not 403" still passed.
+
+Every one of those is the same failure this document is about, produced *by the
+test*. They went away when the mocks did. What is left is the minimum that
+cannot be real in a unit test — the models, the auth middleware, and the audit
+writer — and the models mock gives every table every finder, because a partial
+one is what caused three of the four.
+
 ### 3c. Three things that cannot be promised
 
 1. **Absence cannot be proved.** Every sweep so far found something. That is
@@ -467,8 +505,12 @@ extracted into a util. It is the honest answer to "where is the next one".
    declaration counts as a use, then could not flag the historical examples
    because this file's own comments mentioned them. Reasoning found none of
    that; mutation runs found all three.
-3. **The untested surface is where to look next.** Route handlers, and the
-   frontend pages, which have no page or end-to-end tests at all.
+3. **The untested surface is where to look next.** Route handlers were the
+   worst of it and are now covered (§3d); what remains is the **frontend**,
+   which has no page or end-to-end tests at all. Its suites render components
+   through `react-dom/server`, which cannot exercise a page's hooks, effects or
+   data fetching — closing that needs a DOM environment and a decision about
+   adding one, not just more tests.
 
 ### The rule that makes the guards real
 

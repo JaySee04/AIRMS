@@ -37,9 +37,11 @@ cd backend; npm run audit:access     # call all 52 endpoints as each non-admin r
                                      # read-only role REACHES a write (403 expected, not 404 -
                                      # a 404 means it got past the guard). See DESIGN_DECISIONS
                                      # 43 and docs/SILENT_FAILURES.md 3b.
-cd backend; npm run coverage         # 74.7% statements / 63.5% branches. The gaps are in ROUTE
-                                     # HANDLERS (screeningReports 7%, audit 19%) - which is where
-                                     # this project keeps finding defects. Needed a missing
+cd backend; npm run coverage         # 79.6% statements / 67.8% branches. Route handlers WERE the
+                                     # gap (screeningReports 7%, audit 19%); tests/reportRoutes.test.js
+                                     # took them to 44% / 42% by driving the real routers with
+                                     # supertest. The remaining blind spot is the FRONTEND, which has
+                                     # no page or end-to-end tests. Coverage needed a missing
                                      # transitive dep (fs.realpath) before it would run at all.
 cd backend; npm run measure:facts    # print the headline numbers MEASURED from the database
                                      # (roster, band split, cohort sizes, reliability pairs,
@@ -75,13 +77,13 @@ cd frontend; npm run lint  # next lint
 cd frontend; npm run build
 
 # Unit tests (jest, in both packages — no linter configured for the backend)
-cd backend; npx jest      # 30 suites: cohorts, overallIndicator, permissions, rbac, pdfDraw,
+cd backend; npx jest      # 31 suites: cohorts, overallIndicator, permissions, rbac, pdfDraw,
                           # screeningPeriods, cohortFocus, visionUsage, alerts, scheduler,
                           # bands, mailPrefs, holisticReport, programmeActivity, subitemAggregate,
                           # reliability, rescreenReminder, riskIndicators, recall,
                           # mailSendNow, lock, prescription, settingsChanges, symmetry,
                           # isnDirectory, accountLifecycle, athleteDisclosure, recompute,
-                          # httpHardening, codebaseHygiene
+                          # httpHardening, codebaseHygiene, reportRoutes
 cd frontend; npx jest     # 10 suites: lib/risk.ts, lib/screeningUploadStore.ts, bodymap-data/muscles.ts,
                           # components/charts (rendered via react-dom/server — no jsdom needed),
                           # lib/bands.ts, lib/athleteSearch.ts, lib/rank.ts,
