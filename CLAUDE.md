@@ -74,6 +74,13 @@ cd frontend; npx tsc --noEmit -p tsconfig.json
 cd frontend; npm run lint  # next lint
 
 # Frontend production build
+cd frontend; npm run e2e   # END-TO-END smoke: a real Chrome against the running
+                           # servers (needs `npm run dev`). 24 checks - auth boundaries,
+                           # each role's pages rendering, the readiness tiles accounting
+                           # for the squad, the body-map focus ring. Uses puppeteer-core
+                           # with the installed Chrome, so nothing is downloaded.
+                           # See docs/SILENT_FAILURES.md 3f.
+
 cd frontend; npm run build
 
 # Unit tests (jest, in both packages — no linter configured for the backend)
@@ -84,7 +91,7 @@ cd backend; npx jest      # 31 suites: cohorts, overallIndicator, permissions, r
                           # mailSendNow, lock, prescription, settingsChanges, symmetry,
                           # isnDirectory, accountLifecycle, athleteDisclosure, recompute,
                           # httpHardening, codebaseHygiene, reportRoutes
-cd frontend; npx jest     # 11 suites: lib/risk.ts, lib/screeningUploadStore.ts, bodymap-data/muscles.ts,
+cd frontend; npx jest     # 12 suites: lib/risk.ts, lib/screeningUploadStore.ts, bodymap-data/muscles.ts,
                           # components/charts (rendered via react-dom/server — no jsdom needed),
                           # lib/bands.ts, lib/athleteSearch.ts, lib/rank.ts,
                           # lib/screeningAlerts.indicators.ts, lib/cssTokens.ts, lib/periods.ts,

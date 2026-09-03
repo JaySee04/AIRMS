@@ -18,6 +18,7 @@ import { api } from '@/lib/api';
 import { MuscleEntry } from '@/lib/risk';
 import { computeBodyPartAlerts, AthleteRisks, BodyRegion, RADAR_LABELS, highThresholdsFor, riskRadarSeries } from '@/lib/screeningAlerts';
 import { getInitials } from '@/lib/name';
+import { readinessBreakdown, bandFor, type ReadinessBand } from '@/lib/readiness';
 // The RISK band vocabulary, kept apart from this file's READINESS bands below
 // (Full-Go / Observation / Restricted), which are a different thing wearing the
 // same three colours.
@@ -69,7 +70,10 @@ interface ReadinessResponse {
 // while the repeat screenings are too few to earn a real one.
 const DEFAULT_DEAD_BAND = 2;
 
-type Band = 'full' | 'observation' | 'restricted';
+// Band vocabulary, the green/amber/red mapping and the readiness arithmetic all
+// live in lib/readiness.ts, where they are tested. Keeping a second copy here is
+// how the 88% denominator bug survived unnoticed in the first place.
+type Band = ReadinessBand;
 
 const BAND_META: Record<Band, { label: string; badge: string; color: string }> = {
   full: { label: 'Full-Go', badge: 'badge-low', color: 'var(--risk-low)' },
@@ -100,15 +104,6 @@ const REGION_ADJUSTMENT: Record<BodyRegion, string> = {
 };
 
 // Map the cohort-normed HoloMotion band onto a coaching readiness band.
-// green → Full-Go · amber → Observation · red → Restricted (see 2026-07-16 note
-// in the file header for why this no longer derives from ACWR).
-function bandFor(effectiveBand?: 'green' | 'amber' | 'red' | null): Band | null {
-  if (effectiveBand === 'red') return 'restricted';
-  if (effectiveBand === 'amber') return 'observation';
-  if (effectiveBand === 'green') return 'full';
-  return null; // no screening / cohort too small to score
-}
-
 // Change in the overall indicator since the athlete's previous screening (higher
 // indicator = better). null when there's no prior screening to compare against.
 function trendDelta(row: ReadinessRow): number | null {
@@ -218,16 +213,15 @@ export default function CoachDashboard() {
       });
   }, [data, filterProgramme, filterGender, filterDiscipline]);
 
-  const counts = useMemo(() => {
-    const c = { full: 0, observation: 0, restricted: 0, unscored: 0 };
-    classified.forEach((x) => { if (x.band) c[x.band]++; else c.unscored++; });
-    return c;
-  }, [classified]);
-
-  const coverage = useMemo(
-    () => ({ scored: classified.filter((x) => x.band).length, total: classified.length }),
+  // One breakdown, from lib/readiness — counts, the screened denominator and the
+  // per-band shares, all tested there against the seeded squad this dashboard
+  // actually shows.
+  const breakdown = useMemo(
+    () => readinessBreakdown(classified.map((x) => x.band)),
     [classified],
   );
+  const counts = breakdown.counts;
+  const coverage = { scored: breakdown.scored, total: breakdown.total };
 
   // Whose reading is out of date.
   //
@@ -371,7 +365,9 @@ export default function CoachDashboard() {
   //
   // The card below already reads "N of 14 screened athletes"; this is the same
   // denominator, which is why coverage.scored is reused rather than recomputed.
-  const pct = (n: number) => (coverage.scored ? Math.round((n / coverage.scored) * 100) : 0);
+  // Shares come from the breakdown rather than being recomputed here — a second
+  // implementation of the same division is how the denominator drifted before.
+  const pct = (b: Band) => breakdown.share[b];
 
   const selected = useMemo(
     () => (selectedId ? data?.athletes.find((a) => a.athleteId === selectedId) ?? null : null),
@@ -560,7 +556,7 @@ export default function CoachDashboard() {
                   {(['full', 'observation', 'restricted'] as Band[]).map((b) => (
                     <div className="stat-tile" key={b} style={{ borderTop: `3px solid ${BAND_META[b].color}` }}>
                       <div className="stat-tile-label">{BAND_META[b].label}</div>
-                      <div className="stat-tile-value">{pct(counts[b])}%</div>
+                      <div className="stat-tile-value">{pct(b)}%</div>
                       <div className="stat-tile-delta">
                         {counts[b]} athlete{counts[b] === 1 ? '' : 's'}
                         {b === 'full' ? ' · cleared' : b === 'observation' ? ' · modified load' : ' · clinical priority'}
@@ -571,7 +567,7 @@ export default function CoachDashboard() {
                 <div style={{ display: 'flex', height: 14, borderRadius: 7, overflow: 'hidden', marginTop: 6 }}>
                   {(['full', 'observation', 'restricted'] as Band[]).map((b) =>
                     counts[b] > 0 ? (
-                      <div key={b} style={{ width: `${pct(counts[b])}%`, background: BAND_META[b].color }} title={`${BAND_META[b].label}: ${counts[b]}`} />
+                      <div key={b} style={{ width: `${pct(b)}%`, background: BAND_META[b].color }} title={`${BAND_META[b].label}: ${counts[b]}`} />
                     ) : null,
                   )}
                 </div>

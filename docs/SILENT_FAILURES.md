@@ -534,6 +534,43 @@ which needed `moduleNameMapper`; the jest-dom matchers were installed but never
 imported, so `toBeInTheDocument is not a function`; and once imported they still
 needed a `.d.ts`, because runtime and `tsc` fail independently.
 
+### 3f. The page arithmetic, and a browser that actually looks (2026-09-02)
+
+Two gaps §3c named are now closed.
+
+**The readiness arithmetic left the component.** The 88% bug lived inside the
+coach dashboard, where nothing could test it. `lib/readiness.ts` now owns the
+band vocabulary, the counts and the shares, with 18 cases against the seeded
+squad; the page imports them and keeps **no** copy — verified, because an
+extraction the caller ignores is just a second definition, which is the defect
+this whole document is about.
+
+One thing was nearly made worse in the process. The first version nudged the
+largest band so the three shares summed to exactly 100 — and that is the wrong
+trade. Nine of fourteen is 64%, and printing 65% to tidy a total makes the tile
+disagree with the "9 athletes" written directly beneath it, where a reader can
+check. A one-point sliver on a stacked bar is a cosmetic rounding artefact; a
+percentage that contradicts its own count is not. **Twelve points of hidden
+athletes and one point of rounding are not the same fault**, and the tests now
+say which one they are guarding.
+
+**`npm run e2e` drives a real browser against a real server.** Everything else
+here is a unit test with the awkward parts mocked — the right shape for logic,
+and exactly the shape that cannot catch a page that throws on mount, a redirect
+that never fires in a real router, or a percentage that is right in a function
+and wrong on screen. Three of this session's defects were only ever visible that
+way.
+
+24 checks: a signed-out visitor typing any dashboard URL is bounced, paints
+nothing private and receives no data; a coach typing an admin URL likewise; each
+role's own pages render with no failing request; the readiness tiles account for
+the screened squad; and the body-map rows still show a keyboard focus ring.
+
+It uses `puppeteer-core` against the Chrome already installed, so there is no
+browser download. Mutation-tested by putting the denominator back: the tiles
+rendered 56 / 19 / 13 and the run failed with `sum = 88%` — the original bug,
+caught end to end.
+
 ### 3c. Three things that cannot be promised
 
 1. **Absence cannot be proved.** Every sweep so far found something. That is
@@ -544,11 +581,13 @@ needed a `.d.ts`, because runtime and `tsc` fail independently.
    declaration counts as a use, then could not flag the historical examples
    because this file's own comments mentioned them. Reasoning found none of
    that; mutation runs found all three.
-3. **The untested surface is where to look next.** Route handlers were the
-   worst of it (§3d) and the client-side access gate had nothing at all (§3e);
-   both are covered now. What remains untested is the **page** components
-   themselves — the dashboards' own data-shaping — and there is still no
-   end-to-end test that drives a real browser against a real server.
+3. **The untested surface is where to look next.** Route handlers (§3d), the
+   access gate (§3e), the page arithmetic and an end-to-end browser run (§3f)
+   are all covered now. What is left is the rest of the page *rendering* — the
+   charts, the body map, the report panels — which have no assertions beyond
+   "the page did not fail to load". `npm run e2e` is the place to add them, and
+   it is a smoke test rather than a suite: it proves the app works, not that it
+   is correct.
 
 ### The rule that makes the guards real
 
