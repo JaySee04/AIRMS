@@ -67,7 +67,10 @@ interface PeriodsPayload {
     dueDays: number;
     current: number; dueSoon: number; overdue: number; never: number;
     medianAgeDays: number | null;
-    athletes: Array<{ athleteId: string; lastScreened: string | null; ageDays: number | null; status: string }>;
+    athletes: Array<{
+      athleteId: string; name: string | null; sport: string | null;
+      lastScreened: string | null; ageDays: number | null; status: string;
+    }>;
   };
   betweenTests: {
     athletesWithRetest: number;
@@ -334,14 +337,81 @@ export default function AdminActivity() {
               </div>
             </div>
 
+            {/* ── Who to call ────────────────────────────────────────────────
+                The counts above are the finding; this is the action. An
+                administrator cannot schedule "6 never screened" — they schedule
+                Maya Othman. Never-screened sort first because they need a first
+                assessment rather than a recall, which is the same distinction
+                the counts draw (JC, 2026-09-04). */}
+            {data.recall && (() => {
+              const RANK: Record<string, number> = { never: 0, overdue: 1, 'due-soon': 2 };
+              const LABEL: Record<string, string> = {
+                never: 'Never screened', overdue: 'Overdue', 'due-soon': 'Due soon',
+              };
+              const needing = data.recall.athletes
+                .filter((a) => a.status !== 'current')
+                .sort((a, b) => (RANK[a.status] ?? 9) - (RANK[b.status] ?? 9)
+                  || String(a.name || a.athleteId).localeCompare(String(b.name || b.athleteId)));
+              return (
+                <div className="card" style={{ marginBottom: 20 }}>
+                  <div className="card-header"><div>
+                    <h2 className="card-title" style={{ marginBottom: 0 }}>
+                      Athletes needing a screening ({needing.length})
+                    </h2>
+                    <span className="card-sub">
+                      Never screened first — those need a first assessment, not a recall. Read across
+                      all time, not the window above.
+                    </span>
+                  </div></div>
+                  {needing.length === 0 ? (
+                    <div className="empty-state">
+                      Every athlete on this roster has a current screening.
+                    </div>
+                  ) : (
+                    <div style={{ overflowX: 'auto' }}>
+                      <table style={{ minWidth: 560 }}>
+                        <thead>
+                          <tr>
+                            <th>Athlete</th>
+                            <th>Sport</th>
+                            <th>Status</th>
+                            <th style={{ textAlign: 'right' }}>Last screened</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {needing.map((a) => (
+                            <tr key={a.athleteId}>
+                              <td>{a.name || a.athleteId}</td>
+                              <td className="text-muted">{a.sport || '—'}</td>
+                              <td>
+                                <span className={a.status === 'never' ? 'badge-high' : 'badge-moderate'}>
+                                  {LABEL[a.status] || a.status}
+                                </span>
+                              </td>
+                              <td className="text-muted" style={{ textAlign: 'right' }}>
+                                {a.ageDays === null
+                                  ? 'no screening on record'
+                                  : `${a.ageDays} days ago`}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+
             <div style={{ overflowX: 'auto' }}>
               <table style={{ minWidth: 640 }}>
                 <thead>
                   <tr>
                     <th>Period</th>
                     <th style={{ width: '26%' }}>Tests / athletes</th>
-                    <th style={{ textAlign: 'right' }}>Tests</th>
-                    <th style={{ textAlign: 'right' }}>Athletes</th>
+                    <th style={{ textAlign: 'right' }}>Screenings</th>
+                    <th style={{ textAlign: 'right' }}>People screened</th>
                     <th style={{ textAlign: 'right' }}>Avg indicator</th>
                     <th style={{ textAlign: 'right' }}>vs previous</th>
                     <th style={{ textAlign: 'right' }}>Avg risk</th>

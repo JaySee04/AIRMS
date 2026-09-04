@@ -500,6 +500,8 @@ router.get('/programme-activity.pdf', auth, rbac('admin', 'executive'), async (r
     if (recall) {
       kpis.push(
         ['Screening considered current for', `${recall.dueDays} days`],
+        ['Currently up to date', `${recall.current}`],
+        ['Due soon', `${recall.dueSoon}`],
         ['Overdue a rescreen', `${recall.overdue}`],
         ['Never screened', `${recall.never}`],
         ['Median age of latest screening', recall.medianAgeDays === null ? '—' : `${recall.medianAgeDays} days`],
@@ -513,6 +515,62 @@ router.get('/programme-activity.pdf', auth, rbac('admin', 'executive'), async (r
       doc.y = y + 14;
     }
     doc.moveDown(0.5);
+
+    // ── Who to call ──────────────────────────────────────────────────────────
+    //
+    // The counts above say six athletes have never been screened. They do not
+    // say WHO, and a number nobody can act on is where a programme report stops
+    // being useful (JC, 2026-09-04). This is the checklist an administrator
+    // takes into a scheduling conversation, so it is a list of people, ordered
+    // never-screened first because they need a first assessment rather than a
+    // recall — the same distinction the counts already draw.
+    if (recall && Array.isArray(recall.athletes)) {
+      const RANK = { never: 0, overdue: 1, 'due-soon': 2 };
+      const needing = recall.athletes
+        .filter((a) => a.status !== 'current')
+        .sort((a, b) => (RANK[a.status] ?? 9) - (RANK[b.status] ?? 9)
+          || String(a.name || a.athleteId).localeCompare(String(b.name || b.athleteId)));
+
+      ensure(doc, 40);
+      doc.moveDown(0.6);
+      doc.fontSize(11).font('Helvetica-Bold').fillColor(TEXT).text('Athletes needing a screening', 50);
+      doc.moveDown(0.2);
+      doc.fontSize(7.5).font('Helvetica').fillColor(MUTED).text(
+        'Never screened first — those need a first assessment, not a recall. Read across all time, '
+        + 'not the selected window, because when somebody was last seen is a fact about them rather '
+        + 'than about the report date range.', 50, doc.y, { width: 495 },
+      );
+      doc.moveDown(0.4);
+
+      if (!needing.length) {
+        doc.fontSize(9.5).font('Helvetica').fillColor(TEXT)
+          .text('Every athlete on this roster has a current screening.', 50);
+      } else {
+        const LABEL = { never: 'Never screened', overdue: 'Overdue', 'due-soon': 'Due soon' };
+        // A tick box, because this is used as a checklist on paper.
+        for (const a of needing) {
+          ensure(doc, 15);
+          const y = doc.y;
+          doc.rect(52, y + 1, 8, 8).strokeColor(GRID).lineWidth(0.8).stroke();
+          doc.fontSize(9).font('Helvetica').fillColor(TEXT)
+            .text(a.name || a.athleteId, 68, y, { width: 190, lineBreak: false });
+          doc.fillColor(MUTED).fontSize(8)
+            .text(a.sport || '—', 262, y + 1, { width: 90, lineBreak: false });
+          doc.fontSize(8).fillColor(a.status === 'never' ? '#b3261e' : TEXT)
+            .text(LABEL[a.status] || a.status, 356, y + 1, { width: 90, lineBreak: false });
+          doc.fillColor(MUTED).fontSize(8).text(
+            a.ageDays === null ? 'no screening on record' : `${a.ageDays} days ago`,
+            450, y + 1, { width: 95, align: 'right', lineBreak: false },
+          );
+          doc.y = y + 15;
+        }
+        doc.moveDown(0.3);
+        doc.fontSize(7.5).fillColor(MUTED).font('Helvetica')
+          .text(`${needing.length} athlete${needing.length === 1 ? '' : 's'} listed.`, 50);
+      }
+      doc.moveDown(0.6);
+    }
+
     doc.fontSize(7.5).fillColor(MUTED).font('Helvetica').text(
       'Coverage is measured against the filtered roster for the selected window, so a narrow date range '
       + 'correctly counts an athlete as untested in that window. Tests per athlete is retest DEPTH — reach '
@@ -536,6 +594,44 @@ router.get('/programme-activity.pdf', auth, rbac('admin', 'executive'), async (r
     // up" at a glance; the table is what someone quotes in a meeting. Neither
     // replaces the other, and the report previously had only the second.
     sectionTitle(doc, `Screening Throughput (${grainWord})`, 200);
+    // How many PEOPLE were screened in each period, not how many screenings ran
+    // (JC, 2026-09-04). The two differ whenever anybody is retested, and it is
+    // the people figure that answers "how much of the roster did we reach this
+    // quarter" — the chart draws distinct athletes as the darker inner column,
+    // but the number printed on it was the test count, so the people figure was
+    // visible and unlabelled.
+    if (Array.isArray(periods) && periods.length) {
+      ensure(doc, 16 + periods.length * 13);
+      doc.fontSize(9.5).font('Helvetica-Bold').fillColor(TEXT).text('People screened per period', 50);
+      doc.moveDown(0.15);
+      const hy = doc.y;
+      doc.fontSize(7.5).font('Helvetica').fillColor(MUTED);
+      doc.text('Period', 50, hy, { width: 120, lineBreak: false });
+      doc.text('People', 200, hy, { width: 60, align: 'right', lineBreak: false });
+      doc.text('Screenings', 280, hy, { width: 70, align: 'right', lineBreak: false });
+      doc.text('Retested in period', 370, hy, { width: 110, align: 'right', lineBreak: false });
+      doc.y = hy + 11;
+      for (const p of periods) {
+        ensure(doc, 13);
+        const y = doc.y;
+        doc.fontSize(8.5).font('Helvetica').fillColor(TEXT)
+          .text(String(p.label ?? p.key ?? '—'), 50, y, { width: 120, lineBreak: false });
+        doc.font('Helvetica-Bold')
+          .text(String(p.athletes ?? 0), 200, y, { width: 60, align: 'right', lineBreak: false });
+        doc.font('Helvetica').fillColor(MUTED)
+          .text(String(p.tests ?? 0), 280, y, { width: 70, align: 'right', lineBreak: false });
+        doc.text(String(p.retestedWithin ?? 0), 370, y, { width: 110, align: 'right', lineBreak: false });
+        doc.y = y + 13;
+      }
+      doc.moveDown(0.2);
+      doc.fontSize(7.5).fillColor(MUTED).font('Helvetica').text(
+        'People counts each athlete once per period however many times they were screened; screenings '
+        + 'counts every assessment. Where the two diverge the programme is going deeper on the same '
+        + 'athletes rather than wider across the roster.', 50, doc.y, { width: 495 },
+      );
+      doc.moveDown(0.6);
+    }
+
     throughputChart(doc, periods);
     periodTable(doc, periods);
 

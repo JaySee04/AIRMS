@@ -3552,3 +3552,69 @@ documented ACWR rebuild path and are **kept**; Next tree-shakes them, so they
 cost nothing in the bundle. Six test suites construct their own source-reading
 scaffolding, and that is left too — boilerplate is not a duplicated *fact*, and
 this codebase's real hazard is semantic duplication, not repeated `path.join`.
+
+---
+
+## 50. The recall list names people, and the dashboards open on the two scores (2026-09-04)
+
+Four requests from JC. Three shipped; the fourth is a discussion opened rather
+than a change made.
+
+### A count is a finding; a name is an action
+
+Programme Activity reported that six athletes had never been screened, and did
+not say who. `rescreenRecall` had carried a per-athlete array all along, but with
+only the `athleteId` on it — which is the IC number, and nobody reads an IC
+number as a person. The roster query behind it selected `athleteId` alone, so
+adding `name` to the row without widening that query would have produced `null`
+on every line: present, plausible, useless.
+
+Both the report and the dashboard now carry **Athletes needing a screening** — a
+named checklist, never-screened first, because those need a first assessment
+rather than a recall. That is the same distinction the counts already drew; it
+just had nowhere to land. The PDF draws tick boxes, since it is used on paper.
+
+### People screened, not screenings run
+
+The period buckets already carried both `tests` and distinct `athletes`, and the
+throughput chart already drew the second as a darker inner column — but printed
+only the first as a number, so the people figure was visible and unlabelled. The
+report now prints a per-period table of people, screenings and retests.
+
+**On the dashboard the fix was smaller than it first looked, and the first
+attempt was wrong.** A new "People screened over time" card was added, and the
+table directly beneath it already had an `Athletes` column carrying exactly those
+numbers. That is a second definition of one fact — this codebase's signature
+defect — introduced while fixing a request about clarity. The new card was
+removed and the existing columns renamed to **Screenings** and **People
+screened**, which is what the request actually needed: the figure was there and
+unreadable, not missing.
+
+### The two scores lead every dashboard
+
+`HeadlineScores` puts HoloMotion's Total Score and Exercise Risks at the top of
+the admin, medical and coach dashboards. The admin page previously opened on a
+per-region Focus card, so the two figures a clinician can check against the
+printed report in their hand sat several scrolls down under a heading about
+something else. §21 had already decided Total Score is the headline *because* it
+is the verifiable one; this is the layout catching up with the reasoning.
+
+One component, not three copies — three dashboards rendering "the same" pair from
+three implementations is how the band vocabulary came to say "Safe" on two
+screens and something else on a third (§33). The card states that the two point
+in opposite directions (higher is better; lower is better), because printing 74.9
+beside 16.4 without saying so invites reading them the same way. Both averages
+are taken over **screened** athletes only, since an athlete with no screening has
+no score and counting them as zero would drag both toward a number nobody
+measured — the §44 denominator rule, applied on the way in.
+
+### Permissions: the picture before the change
+
+JC asked to rediscuss what an administrator grants. The answer is
+[`docs/PERMISSIONS.md`](PERMISSIONS.md), which changes nothing: a measured table
+of what all five roles actually reach, produced by calling every endpoint rather
+than by reading these documents, plus four decisions worth taking deliberately —
+medical reaching every athlete in the institute, executive reaching named
+athletes rather than only aggregates, per-account capabilities existing for
+medical alone, and those three capabilities being coarse. Each is defensible as
+it stands, which is why none was changed on my own judgement.

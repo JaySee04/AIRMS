@@ -3463,3 +3463,54 @@ textarea:focus-visible,
 .prescription-list li:last-child { border-bottom: 0; }
 .prescription-ex { min-width: 0; }
 .prescription-dose { color: var(--text-muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+/* ── Headline scores ─────────────────────────────────────────────────────────
+   The two HoloMotion figures every dashboard now opens on (2026-09-04). Sized
+   from the type scale rather than with new literals — --fs-2xl is the largest
+   existing step, and the value below deliberately goes one clamp beyond it
+   because this is the one number on the page meant to be read from across a
+   desk. See DESIGN_DECISIONS §29 on why a new bare literal is not the answer:
+   this is a named role, used once, defined here. */
+.headline-scores-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-xl);
+  align-items: flex-start;
+}
+.headline-score { min-width: 190px; }
+.headline-score-label {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.headline-score-value {
+  /* Clamped so it dominates on a desktop without overflowing a phone. */
+  font-size: clamp(2.2rem, 5vw, 3.1rem);
+  font-weight: 700;
+  line-height: 1.05;
+  color: var(--brand-navy);
+  margin: 2px 0 2px;
+}
+[data-theme="dark"] .headline-score-value { color: var(--text); }
+.headline-score-hint {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+.headline-bands { min-width: 190px; flex: 1 1 190px; }
+.headline-band-strip {
+  display: flex;
+  height: 12px;
+  border-radius: 999px;
+  overflow: hidden;
+  margin: 10px 0 6px;
+  background: var(--bg);
+}
+.headline-scores-scope {
+  margin-top: var(--sp-md);
+  padding-top: var(--sp-sm);
+  border-top: 1px solid var(--border);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}

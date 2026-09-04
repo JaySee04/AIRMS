@@ -20,8 +20,9 @@ The project ships its own extensive docs. Treat these as the source of truth —
 4. [`docs/PROJECT_GUIDE.md`](docs/PROJECT_GUIDE.md) — file-level map (models, routes, components, pages)
 5. [`docs/DESIGN_DECISIONS.md`](docs/DESIGN_DECISIONS.md) — read before suggesting "improvements" that may have already been considered and rejected
 6. [`docs/FYP_RUBRICS.md`](docs/FYP_RUBRICS.md) — current rubric weighting + pre-viva punch list
-7. [`docs/SILENT_FAILURES.md`](docs/SILENT_FAILURES.md) — **the defect class this project keeps producing** (a wrong answer that looks like a right one), its six sub-patterns, the hypotheses that sweep for each, and the standing guards. Read before an audit or a bug hunt; add to it when a new instance is found
-8. [`docs/fyp/VIVA_FYP2.md`](docs/fyp/VIVA_FYP2.md) — **the FYP II viva dossier**: the thesis, the ten hard questions with citations, the weaknesses to volunteer, the demo landmines, and every headline number measured against the live database rather than quoted from a doc. `VIVA_SCRIPT.md` / `VIVA_ANSWERS.md` are frozen FYP I artefacts — this is their successor. Re-measure §2 before quoting it.
+7. [`docs/PERMISSIONS.md`](docs/PERMISSIONS.md) — **who can actually do what**, measured by calling all 52 endpoints as every role rather than described. Read before touching RBAC, and before answering a viva question about access. Carries four open decisions that are JC's to make
+8. [`docs/SILENT_FAILURES.md`](docs/SILENT_FAILURES.md) — **the defect class this project keeps producing** (a wrong answer that looks like a right one), its six sub-patterns, the hypotheses that sweep for each, and the standing guards. Read before an audit or a bug hunt; add to it when a new instance is found
+9. [`docs/fyp/VIVA_FYP2.md`](docs/fyp/VIVA_FYP2.md) — **the FYP II viva dossier**: the thesis, the ten hard questions with citations, the weaknesses to volunteer, the demo landmines, and every headline number measured against the live database rather than quoted from a doc. `VIVA_SCRIPT.md` / `VIVA_ANSWERS.md` are frozen FYP I artefacts — this is their successor. Re-measure §2 before quoting it.
 
 ## Commands
 

@@ -40,6 +40,12 @@ function scopeLabel(query = {}) {
 // who has never been screened is a gap in the roster, not a lapsed recall — the
 // action is to book a first assessment, and they have no baseline to compare
 // anything against either.
+//
+// Each row carries the athlete's NAME and SPORT as well as the identifier
+// (2026-09-04, JC). Counts alone tell an administrator that six athletes have
+// never been screened; they do not tell anybody who to call, which is the only
+// thing that turns the figure into an action. The identifier on its own does not
+// help either — it is the IC number, which nobody reads as a person.
 async function rescreenRecall(roster, allRows = null) {
   const { rescreen_due_days: dueDays } = await getSettings();
   const ids = roster.map((r) => r.athleteId);
@@ -72,7 +78,10 @@ async function rescreenRecall(roster, allRows = null) {
     const t = latest.get(r.athleteId);
     if (t === undefined) {
       never += 1;
-      athletes.push({ athleteId: r.athleteId, lastScreened: null, ageDays: null, status: 'never' });
+      athletes.push({
+        athleteId: r.athleteId, name: r.name || null, sport: r.sport || null,
+        lastScreened: null, ageDays: null, status: 'never',
+      });
       continue;
     }
     const ageDays = Math.floor((now - t) / 86400000);
@@ -82,7 +91,8 @@ async function rescreenRecall(roster, allRows = null) {
     else if (status === 'due-soon') dueSoon += 1;
     else current += 1;
     athletes.push({
-      athleteId: r.athleteId, lastScreened: new Date(t).toISOString(), ageDays, status,
+      athleteId: r.athleteId, name: r.name || null, sport: r.sport || null,
+      lastScreened: new Date(t).toISOString(), ageDays, status,
     });
   }
 
@@ -132,7 +142,12 @@ async function programmeActivityData(query = {}) {
     where.athleteId = { [Op.in]: inDiscipline.map((d) => d.athleteId) };
   }
 
-  const roster = await Athlete.findAll({ where, attributes: ['athleteId'], raw: true });
+  // name and sport as well as the key: rescreenRecall puts them on every row so
+  // the recall list names people rather than identifiers. Selecting only
+  // athleteId here would leave those fields quietly null on every row.
+  const roster = await Athlete.findAll({
+    where, attributes: ['athleteId', 'name', 'sport'], raw: true,
+  });
   const ids = roster.map((r) => r.athleteId);
   const scope = scopeLabel(query);
 

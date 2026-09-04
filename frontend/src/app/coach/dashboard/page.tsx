@@ -19,6 +19,7 @@ import { MuscleEntry } from '@/lib/risk';
 import { computeBodyPartAlerts, AthleteRisks, BodyRegion, RADAR_LABELS, highThresholdsFor, riskRadarSeries } from '@/lib/screeningAlerts';
 import { getInitials } from '@/lib/name';
 import { readinessBreakdown, bandFor, type ReadinessBand } from '@/lib/readiness';
+import HeadlineScores from '@/components/dashboard/HeadlineScores';
 // The RISK band vocabulary, kept apart from this file's READINESS bands below
 // (Full-Go / Observation / Restricted), which are a different thing wearing the
 // same three colours.
@@ -369,6 +370,23 @@ export default function CoachDashboard() {
   // implementation of the same division is how the denominator drifted before.
   const pct = (b: Band) => breakdown.share[b];
 
+  // Squad averages for the headline, over SCREENED athletes only. An athlete
+  // with no screening has no score to average, and including them as a zero
+  // would drag both figures toward a number nobody measured — the same
+  // denominator mistake the tiles below used to make.
+  const headline = useMemo(() => {
+    const scored = classified.filter((x) => x.band);
+    if (!scored.length) return { total: null as number | null, risks: null as number | null };
+    const mean = (pick: (r: typeof scored[number]) => number | undefined) => {
+      const vs = scored.map(pick).filter((v): v is number => typeof v === 'number' && Number.isFinite(v));
+      return vs.length ? vs.reduce((a, b2) => a + b2, 0) / vs.length : null;
+    };
+    return {
+      total: mean((x) => x.row.overallActivityScore),
+      risks: mean((x) => x.row.injuryRiskIndex),
+    };
+  }, [classified]);
+
   const selected = useMemo(
     () => (selectedId ? data?.athletes.find((a) => a.athleteId === selectedId) ?? null : null),
     [selectedId, data],
@@ -495,6 +513,22 @@ export default function CoachDashboard() {
     <DashboardLayout allowedRoles={['coach']} title="Squad Readiness">
       {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
       {dlError && <div className="alert alert-error" style={{ marginBottom: 16 }}>{dlError}</div>}
+
+      {/* The same two figures the other dashboards open on, so a coach and a
+          clinician discussing one squad are looking at the same headline. */}
+      {!loading && classified.length > 0 && (
+        <HeadlineScores
+          subject="Squad"
+          totalScore={headline.total}
+          exerciseRisks={headline.risks}
+          bands={{
+            green: counts.full, amber: counts.observation, red: counts.restricted,
+          }}
+          scope={`${data?.sport ?? 'Squad'} · averaged over ${breakdown.scored} screened athlete`
+            + `${breakdown.scored === 1 ? '' : 's'}`
+            + `${counts.unscored ? ` · ${counts.unscored} not yet screened` : ''}`}
+        />
+      )}
 
       <div className="card" style={{ marginBottom: 20 }}>
         <div className="card-header">

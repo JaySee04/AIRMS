@@ -27,6 +27,7 @@ import { DotPlot, Heatmap, Histogram, RankedBars, Ring, Scatter } from '@/compon
 import { TIER_COLOR, TIER_LABEL, TIER_ORDER, TIER_RANGE, tierOf } from '@/lib/holomotionTiers';
 import { BAND_COLOR, bandSegments } from '@/lib/bands';
 import { api } from '@/lib/api';
+import HeadlineScores from '@/components/dashboard/HeadlineScores';
 
 // The licensed anatomical figure, at COHORT level. Heavy + client-only, so it
 // is split out exactly as the per-athlete dashboards do.
@@ -238,6 +239,25 @@ export default function AdminDashboard() {
         showFocus
         note="Slices every panel below. Programme throughput over time lives on Programme Activity."
       />
+
+      {/* The two figures a clinician can check against the printed report, before
+          anything else on the page. They were computed here all along and led
+          nowhere — the page opened on a per-region Focus card, so the headline
+          numbers sat several scrolls down under a heading about something else
+          (JC, 2026-09-04). §21 already decided Total Score is the headline
+          because it is the verifiable one; this is the layout catching up. */}
+      {cohort && (
+        <HeadlineScores
+          subject="Institute"
+          totalScore={cohort.averages?.overallActivityScore}
+          exerciseRisks={cohort.averages?.injuryRiskIndex}
+          bands={cohort.bandDistribution}
+          scope={`${cohort.screened} of ${cohort.totalAthletes} athletes screened`
+            + `${cohort.unscreened ? ` · ${cohort.unscreened} never screened` : ''}`
+            + ' · averages across the filtered cohort'}
+        />
+      )}
+
 
       {/* Every other panel here is a snapshot; this is the only one that says
           which way things are moving. Kept to a summary — the full throughput,

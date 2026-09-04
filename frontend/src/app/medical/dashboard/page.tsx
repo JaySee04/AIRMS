@@ -21,6 +21,7 @@ import SportContext from '@/components/dashboard/SportContext';
 import ScreeningDatePicker, { FullScreening } from '@/components/dashboard/ScreeningDatePicker';
 import InjuryStatusControl from '@/components/dashboard/InjuryStatusControl';
 import { api } from '@/lib/api';
+import HeadlineScores from '@/components/dashboard/HeadlineScores';
 import { searchAthletes } from '@/lib/athleteSearch';
 import MarkedText from '@/components/ui/MarkedText';
 import { disciplinesForSport } from '@/lib/disciplines';
@@ -309,12 +310,21 @@ export default function MedicalDashboard() {
     const topRisk = [...screened]
       .sort((a, b) => (b.injuryRiskIndex as number) - (a.injuryRiskIndex as number))
       .slice(0, 6);
+    // Institute averages for the headline, over SCREENED athletes only — an
+    // athlete with no screening has no score, and counting them as zero would
+    // drag both figures toward a number nobody measured.
+    const mean = (pick: (a: AthleteListItem) => number | null | undefined) => {
+      const vs = screened.map(pick).filter((v): v is number => typeof v === 'number' && Number.isFinite(v));
+      return vs.length ? vs.reduce((x, y) => x + y, 0) / vs.length : null;
+    };
     return {
       screened: screened.length,
       unscreened: athletes.length - screened.length,
       injured: athletes.filter((a) => a.isInjured).length,
       bySport,
       topRisk,
+      avgTotal: mean((a) => a.overallActivityScore),
+      avgRisks: mean((a) => a.injuryRiskIndex),
     };
   }, [athletes]);
 
@@ -519,6 +529,19 @@ export default function MedicalDashboard() {
           {!selectedId ? (
             /* Empty state — clinician's natural entry points */
             <>
+              {/* The same two figures the admin and coach dashboards open on, so
+                  every role starts from one headline (JC, 2026-09-04). */}
+              {!loadingList && roster.screened > 0 && (
+                <HeadlineScores
+                  subject="Institute"
+                  totalScore={roster.avgTotal}
+                  exerciseRisks={roster.avgRisks}
+                  scope={`averaged over ${roster.screened} screened athlete`
+                    + `${roster.screened === 1 ? '' : 's'}`
+                    + `${roster.unscreened ? ` · ${roster.unscreened} never screened` : ''}`}
+                />
+              )}
+
               <div className="card medical-empty-hero">
                 <h2 style={{ margin: 0 }}>Pick an athlete to begin</h2>
                 <p className="text-muted" style={{ margin: '6px 0 0' }}>
