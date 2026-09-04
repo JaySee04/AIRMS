@@ -3790,12 +3790,34 @@ sync:shared` generates two committed files from it:
 Each package imports its own copy. Nothing at build or run time reaches outside
 its Root Directory, so the deployment is untouched.
 
-**Not yet confirmed against the hosted instance at the time of writing** — this
-had not been pushed. Every local check passes (both suites, `tsc`, `next lint`,
-`npm run audit:access`, `npm run e2e`), and the whole design exists to protect a
-deploy, so the claim that the deploy is safe is the one claim here that a local
-green suite cannot establish. Push, then open the hosted web and API before
-treating this section as settled.
+**Confirmed against the hosted instance** (commit `b5527c4`, 2026-09-04). A
+local green suite cannot establish that a deploy is safe, and protecting the
+deploy is the entire reason for this design, so it was checked rather than
+assumed:
+
+- **The frontend build that is being served is the new one.** Established by a
+  string that differs precisely between the two versions — the served bundle
+  carries `" — clinician override by "` and does NOT carry the old
+  `"Clinician override by"` or the colour-word map `{green:"Green",…}`. The
+  probe was itself checked against a fixture containing both old markers, so
+  "absent" is evidence rather than a grep that matches nothing. An earlier
+  attempt to read the Next `buildId` returned empty on every poll and was a
+  probe fault (the value is backslash-escaped inside the RSC payload), not a
+  finding — the same trap §44 records.
+- **The API boots**, which is the check that matters for the enum change: the
+  models are defined with `DataTypes.ENUM(...GENDERS)` and friends, so a bad
+  import would be a dead function, not a wrong value. Login succeeds and the
+  roster returns 62 athletes whose genders are exactly `Male` / `Female` and
+  whose programmes are exactly `PODIUM` / `PELAPIS` / `OTHERS`.
+- **The shared lists drive real responses.** The focus breakdown slices by
+  `['Male','Female']`, `['PODIUM','PELAPIS','OTHERS']` and the four age-band
+  labels, in the shared order; all three period grains return; and the band
+  distribution comes back keyed `green` / `amber` / `red` at 38/9/9, the
+  measured split.
+
+A clean local `next build` (29 pages) was run before pushing, with the dev
+server stopped first — see gotcha 8, where building over a running dev server
+breaks both.
 
 Twelve facts moved in: `INSTITUTION_TZ`, `BANDS`, `BAND_RANK`, `BAND_LABEL`,
 `GENDERS`, `PROGRAMMES`, `AGE_GROUPS`, `GRAINS`, `RISK_AXIS_MAX`,
