@@ -4026,3 +4026,61 @@ reachable mainly from the **vision extractor**, whose output is a model's JSON
 and can carry anything. The fix is for data not yet collected, like §45's
 timezone fix before it, and it is worth having for the same reason: the failure
 it prevents is one nobody would see.
+
+### 54.6 Confirmed on the hosted instance
+
+Deploy `c6c8c3e`, 2026-09-04. `num()` feeds every score on every surface, so
+"nothing moved" had to be checked rather than asserted.
+
+Establishing that the new build was actually being served took two attempts, and
+the first was wrong in the way this document keeps recording. A probe for
+`bigint` — a token that appears in `toNum`'s new type guard — reported the new
+build live on its first poll, which was too fast to be true. It was a **false
+positive**: `bigint` also occurs in the vendor chunks, so the probe could not
+have produced a negative. The sound discriminator is the **chunk hash filenames**,
+compared against a set captured from the previous deploy: they are content
+addressed, so they change if and only if the bundle did.
+
+With that settled: all five PDFs render (`%PDF-` magic on each), the analytics
+endpoint returns 56 scatter points with **none missing a score**, and the band
+distribution is 38/9/9 — unchanged, which is the expected result and the one
+worth confirming.
+
+---
+
+## 55. Compacting CLAUDE.md: what the measurement actually said (2026-09-04)
+
+Attempted on request, and reported here mainly so nobody spends the effort twice
+on the assumption that there is a lot of fat to cut.
+
+`CLAUDE.md` is loaded into context every session, so its size is a real running
+cost: 744 lines, 12,520 words, 86 KB, of which the single "Architecture
+overview" section is 42 KB — half the file.
+
+Seven of the largest bullets were rewritten, cutting the historical narrative
+and the measurements (both of which this document already holds in full) and
+keeping the rule, the file locations and the section pointer. The result:
+
+**86,185 → 83,417 chars, a 3.2% reduction across the seven biggest bullets.**
+
+Extrapolated across the remaining ~35 bullets that is roughly 12–15%, for a
+large amount of careful prose surgery on the one file whose job is preventing
+regressions. That is a poor trade, and the reason is worth stating: **the bulk
+of CLAUDE.md is not padding.** Nearly every long bullet exists because something
+broke, and the sentence that looks redundant is usually the one naming the
+failure mode. Compressing it does not remove words so much as remove the reason
+a rule exists, which is what makes the rule survivable.
+
+The compaction that *was* worth doing is the kind in §53 and §54: not shorter
+prose, but fewer definitions. Twelve facts and one coercion helper moved from
+seventeen scattered copies to one source each, which shrinks the thing a reader
+has to hold in their head rather than the thing they have to scroll past.
+
+**How the seven rewrites were checked.** All 55 directive sentences ("do not",
+"never", "must", "stays", "is not negotiable") were extracted before the edit
+and matched against the file after. Fifty-four survived verbatim. The one that
+did not was a *rationale* clause, not a rule — the explanation of why read-only
+roles would otherwise never appear in the audit trail, which the rewrite states
+more briefly; the rule it justifies (reads are logged, and counted apart from
+changes) is intact. That check is the reason this was safe to do at all, and any
+future attempt should start by rerunning it.
