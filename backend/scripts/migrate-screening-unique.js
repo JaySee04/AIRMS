@@ -92,6 +92,8 @@ function connect() {
   return require('../src/config/db').sequelize;
 }
 
+const { applyScreeningUniqueIndex } = require('../src/utils/screeningUniqueIndex');
+
 const sequelize = connect();
 
 (async () => {
@@ -128,24 +130,23 @@ const sequelize = connect();
 
   await sequelize.authenticate();
 
-  const existing = await sequelize.query(
-    'SHOW INDEX FROM `screenings` WHERE Key_name = ?',
-    { replacements: [INDEX], type: QueryTypes.SELECT },
-  );
-  if (existing.length) {
-    console.log(`✓ ${INDEX} is already present — nothing to do.`);
+  // The migration itself lives in src/utils/screeningUniqueIndex.js, so this
+  // script and the API run the SAME function rather than two descriptions of
+  // it. A migration with two implementations is how one environment ends up
+  // with an index the other only thinks it has — which is exactly the position
+  // this project was in until 2026-09-04, when the hosted database turned out
+  // never to have had it.
+  const result = await applyScreeningUniqueIndex(sequelize);
+
+  if (result.status === 'already-present') {
+    console.log(`✓ ${result.index} is already present — nothing to do.`);
     process.exit(0);
   }
 
-  const dupes = await sequelize.query(
-    'SELECT athlete_id, assessed_at, COUNT(*) AS c FROM `screenings` '
-    + 'GROUP BY athlete_id, assessed_at HAVING c > 1 ORDER BY c DESC',
-    { type: QueryTypes.SELECT },
-  );
-  if (dupes.length) {
-    console.error(`✗ ${dupes.length} duplicate group(s) already exist. NOT altering the table.\n`);
-    dupes.slice(0, 20).forEach((d) => {
-      console.error(`    athlete ${d.athlete_id}  assessed ${new Date(d.assessed_at).toISOString()}  x${d.c}`);
+  if (result.status === 'refused') {
+    console.error(`✗ ${result.duplicates.length} duplicate group(s) already exist. NOT altering the table.\n`);
+    result.duplicates.slice(0, 20).forEach((d) => {
+      console.error(`    athlete ${d.athleteId}  assessed ${new Date(d.assessedAt).toISOString()}  x${d.count}`);
     });
     console.error('\n  Resolve these first — keep the row you want and delete the rest:');
     console.error('    SELECT id, athlete_id, assessed_at FROM screenings');
@@ -154,22 +155,9 @@ const sequelize = connect();
     console.error('\n  Then run this again.');
     process.exit(1);
   }
+
   console.log('✓ no duplicate (athlete_id, assessed_at) pairs — safe to add the index');
-
-  await sequelize.query(
-    `ALTER TABLE \`screenings\` ADD UNIQUE KEY \`${INDEX}\` (\`athlete_id\`, \`assessed_at\`)`,
-  );
-
-  const after = await sequelize.query(
-    'SHOW INDEX FROM `screenings` WHERE Key_name = ?',
-    { replacements: [INDEX], type: QueryTypes.SELECT },
-  );
-  if (!after.length) {
-    console.error('✗ the ALTER reported success but the index is not there. Investigate before relying on it.');
-    process.exit(1);
-  }
-  const cols = after.sort((a, b) => a.Seq_in_index - b.Seq_in_index).map((r) => r.Column_name);
-  console.log(`✓ created ${INDEX} on (${cols.join(', ')})`);
+  console.log(`✓ created ${result.index} on (${result.columns.join(', ')})`);
   console.log('\nRe-run this any time; it is idempotent.');
   process.exit(0);
 })().catch((e) => {

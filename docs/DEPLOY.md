@@ -374,5 +374,16 @@ The options are: paste the connection string from the Aiven console into
 inside the deployed API, which already holds the credentials; or un-mark the
 variables as sensitive, which trades away a real protection for convenience.
 
-The outstanding case is the `screenings (athlete_id, assessed_at)` UNIQUE index
-(§45). It is applied locally and **still outstanding on the hosted database**.
+**The `screenings (athlete_id, assessed_at)` UNIQUE index (§45) is APPLIED** on
+both databases as of 2026-09-04. The hosted one went on via the second route: a
+temporary admin-only endpoint deployed with the API, called once, verified by an
+independent read, and removed in the following commit. The migration logic lives
+in `src/utils/screeningUniqueIndex.js` so the CLI and that endpoint ran the same
+function; the endpoint is gone and the util remains, used by the CLI.
+
+If a future migration needs the hosted database, that is the pattern: put the
+change in a util, expose it admin-only and audited for one deploy, verify it
+with a separate GET rather than trusting the POST's own report, and remove it.
+`backend/tests/httpHardening.test.js` carries the checks that kept the last one
+honest — admin-only on every verb, no SQL in the route, mounted and unmounted
+together, and a hard removal deadline.
