@@ -345,3 +345,34 @@ again.
 Where the app itself runs, how MySQL is hosted, TLS, and backups are ISN's
 decisions and are not made in this repo. This file covers only the schedule,
 which is the part that was tied to a developer's laptop.
+
+## The hosted database credentials cannot be read back (2026-09-04)
+
+`MYSQL_HOST`, `MYSQL_USER`, `MYSQL_PASSWORD`, `MYSQL_DATABASE`, `MYSQL_SSL` and
+`MYSQL_SSL_CA` are marked **Sensitive** on the `airms-api` project. Vercel makes
+sensitive variables **write-only**: only the running function receives the real
+values. Nobody can read them back — not `vercel env pull`, not the REST API, not
+the dashboard, not the account owner.
+
+This matters because the failure is quiet. `vercel env pull` **succeeds**, prints
+`Secret values cannot be pulled from the production Environment`, and writes the
+literal string `[SENSITIVE]` in place of each value. Anything that then reads the
+file gets a hostname of `[SENSITIVE]` and fails with
+`getaddrinfo ENOTFOUND [SENSITIVE]` — an error that names the symptom and hides
+the cause.
+
+`backend/scripts/migrate-hosted.js` (`npm run migrate:hosted`) exists to make
+that legible: it logs in via the already-linked project, pulls, and **detects the
+placeholder**, exiting 3 with the explanation rather than attempting a connection
+that cannot work. It runs the migration normally if the variables are ever not
+sensitive.
+
+**Consequence for schema migrations.** A migration that needs the hosted database
+cannot be driven from a development machine using the Vercel-stored credentials.
+The options are: paste the connection string from the Aiven console into
+`npm run migrate:screening-unique -- --url "mysql://..."`; run the migration from
+inside the deployed API, which already holds the credentials; or un-mark the
+variables as sensitive, which trades away a real protection for convenience.
+
+The outstanding case is the `screenings (athlete_id, assessed_at)` UNIQUE index
+(§45). It is applied locally and **still outstanding on the hosted database**.
