@@ -22,6 +22,9 @@ const exportRoutes = require('./routes/export');
 const coachRoutes = require('./routes/coach');
 const cohortRoutes = require('./routes/cohorts');
 const auditRoutes = require('./routes/audit');
+// TEMPORARY (2026-09-04) — remove with the mount below once the hosted index
+// is applied. See routes/migrate.js.
+const migrateRoutes = require('./routes/migrate');
 const { startScheduler, stopScheduler } = require('./utils/scheduler');
 const screeningRoutes = require('./routes/screenings');
 const screeningReportRoutes = require('./routes/screeningReports');
@@ -132,6 +135,7 @@ app.use('/api/screenings', screeningRoutes);
 app.use('/api/screening-reports', screeningReportRoutes);
 app.use('/api/isn', isnRoutes);
 app.use('/api/audit', auditRoutes);
+app.use('/api/migrate', migrateRoutes); // TEMPORARY — remove once applied
 
 app.use((err, _req, res, _next) => {
   console.error(err.stack);

@@ -232,3 +232,71 @@ describe('assertPlainQuery — bracketed KEYS, not just parsed values', () => {
     expect(at).toBeLessThan(src.indexOf("str(req.query.sport, 'sport')"));
   });
 });
+
+// ── the temporary migration endpoint ────────────────────────────────────────
+//
+// routes/migrate.js exists because the hosted database's credentials are
+// write-only in Vercel, so the index could not be applied from a development
+// machine (DEPLOY.md). It alters schema, which is not something this system
+// should carry permanently, and the safety argument for adding it rests
+// entirely on it being short-lived.
+//
+// "Temporary" written in a comment is a wish. This is the thing that makes it
+// true: the endpoint must be admin-only while it exists, and it must be gone
+// once REMOVE_AFTER passes. A forgotten endpoint is precisely the silent
+// failure this project keeps finding — nothing breaks, it just quietly stays.
+describe('the temporary migration endpoint', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const routeFile = path.join(__dirname, '..', 'src', 'routes', 'migrate.js');
+  const serverFile = path.join(__dirname, '..', 'src', 'server.js');
+
+  // The index was applied to the hosted database on 2026-09-04. There is no
+  // second use for this endpoint, so the deadline is short on purpose.
+  const REMOVE_AFTER = new Date('2026-09-11T00:00:00Z');
+
+  const exists = fs.existsSync(routeFile);
+
+  it('is gone, or has not yet outstayed its welcome', () => {
+    if (!exists) return; // removed — which is the desired end state
+    // If this fails: delete backend/src/routes/migrate.js, its two lines in
+    // server.js, and this describe block. The migration is already applied;
+    // keeping the endpoint buys nothing and costs a schema-mutating route.
+    expect({ removeBy: REMOVE_AFTER.toISOString(), stillPresent: Date.now() < REMOVE_AFTER.getTime() })
+      .toEqual({ removeBy: REMOVE_AFTER.toISOString(), stillPresent: true });
+  });
+
+  it('is admin-only on both verbs while it does exist', () => {
+    if (!exists) return;
+    const src = fs.readFileSync(routeFile, 'utf8');
+    const routes = [...src.matchAll(/router\.(get|post)\(/g)];
+    expect(routes.length).toBeGreaterThan(0);
+    // Every route in the file carries auth + rbac('admin'). Asserted by
+    // counting rather than by reading one of them, so a third route added
+    // without a guard cannot hide behind two that have one.
+    expect((src.match(/auth, rbac\('admin'\)/g) || []).length).toBe(routes.length);
+  });
+
+  it('runs the shared migration util, not its own copy of the SQL', () => {
+    if (!exists) return;
+    const src = fs.readFileSync(routeFile, 'utf8');
+    expect(src).toContain("require('../utils/screeningUniqueIndex')");
+    // The route file contains NO SQL of its own — every statement lives in the
+    // shared util, which is idempotent and refuses rather than half-applying.
+    //
+    // Asserted as "no query call" rather than "no dangerous keyword": the
+    // keyword version matched this file's own comment saying it contains no
+    // DROP or DELETE, and matched the audit action `settings.update`. A check
+    // that fires on prose is a check that gets deleted.
+    const code = src.replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(code).not.toMatch(/sequelize\.query\s*\(/);
+    expect(code).not.toMatch(/ALTER\s+TABLE/i);
+  });
+
+  it('is mounted and unmounted together — no orphan require', () => {
+    const server = fs.readFileSync(serverFile, 'utf8');
+    const required = server.includes("require('./routes/migrate')");
+    const mounted = server.includes("app.use('/api/migrate'");
+    expect({ required, mounted, file: exists }).toEqual({ required: exists, mounted: exists, file: exists });
+  });
+});
