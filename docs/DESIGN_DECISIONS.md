@@ -3694,3 +3694,58 @@ recorded with actor and sport, a self-view is not, and a refused view is not.
 One test of mine was wrong first time and a failure caught it: it anchored on
 `const isSelf`, which also appears in `/teammates`, so it inspected the wrong
 function — the same ambiguous-anchor mistake that once shifted half an SVG.
+
+---
+
+## 52. Optimising for maintenance: the check that finds the next one (2026-09-04)
+
+Asked to optimise the whole codebase for maintainability, the first job was
+deciding what NOT to do. Performance was already measured and is not the problem
+(§49: 2–9 queries per endpoint regardless of roster size, 3–75 ms, healthy
+bundles). The largest files are `pdfDraw.js` at 1,575 lines and `Charts.tsx` at
+1,135 — both cohesive toolkits, both heavily tested, and splitting either days
+before a stakeholder demo would trade real risk for a feeling of tidiness.
+
+So the question became: where does this codebase actually cost maintenance? The
+answer is written all over its own history. There is **no shared types package**,
+so every fact that must agree across the frontend/backend boundary agrees by
+discipline. That has failed repeatedly and identically — `BAND_LABEL` (§33),
+`INVITABLE_ROLES` (§42), `SMALL_COHORT` (§49) — and each time the remedy was a
+new pin in whichever file the fault surfaced in.
+
+Measured: **nine** names are declared in both packages. Five were pinned. Four
+were not — `BANDS`, `GENDERS`, `RISK_AXIS_MAX` and `AGE_GROUPS` — and three of
+those four carried a comment *pointing at the other file*, which is the §31
+pattern: documents the hazard, prevents nothing. `AGE_GROUPS` even said
+"Boundaries and labels MUST match backend/src/utils/cohortFocus.js".
+
+### Why a tenth pin was not the answer
+
+Writing four more assertions would have closed four instances of a class that has
+now recurred four times. The useful change is the part that has been missing
+every time: **nothing noticed when a new shared fact appeared.**
+
+`crossPackage.test.js` therefore does two things. It pins the four unpinned facts
+— with `AGE_GROUPS` comparing only the shared tail, since the frontend carries an
+extra "All ages" entry that is a filter option rather than a band. And it
+**enumerates** the SCREAMING_CASE constants declared in each package, intersects
+them, and fails if any shared name is neither pinned here, nor listed as pinned
+elsewhere (naming the file, which is itself asserted to exist and to contain the
+name), nor explicitly recorded as a coincidental collision with a reason.
+
+Adding a constant to both packages tomorrow now forces a choice: pin it, or write
+down why it does not need pinning. That is the maintenance property worth having.
+
+### Verified by breaking it
+
+Five mutations, all caught: reversing the band order, offering a gender the
+database enum rejects, scaling the risk axis differently on screen, drifting an
+age boundary — and, the one that matters, **adding a new constant to both
+packages with no pin**, which nothing in the repository would previously have
+noticed.
+
+The literal reader was wrong first time and the suite caught it: it required a
+newline before the closing bracket, so every single-line literal like
+`const GENDERS = ['Male', 'Female'];` returned a fragment that failed to parse. A
+reader that quietly returns the wrong span is precisely the defect this file
+exists to catch, so it is now bracket-counted rather than regex-matched.

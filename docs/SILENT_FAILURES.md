@@ -422,6 +422,7 @@ instead of reaching Dr Thung.
 | Duplicate ingest | `reliability.test.js` collapses same-instant readings and asserts duplicates cannot push the engine over `MIN_PAIRS`; the commit is idempotent on `(athleteId, assessedAt)`. |
 | Leaky failures | `utils/httpError.js` is the only thing that answers a failed request; `httpHardening.test.js` reads every route source and fails if one returns a raw message on a 500. |
 | Unshaped input | `utils/queryParams.js` — a parameter is a string or the request is a 400. Wired sites asserted from source. |
+| B — cross-package drift | **`crossPackage.test.js`** pins every fact that exists in both packages AND enumerates them, so a constant newly added to both either gets pinned or fails the suite. The recurring problem was never a missing assertion — it was nobody noticing a new shared fact had appeared. |
 | Docs drifting from data | **`npm run measure:facts`** — prints the quoted headline numbers from the database, through the same utils the screens use, so the script cannot quote a different band rule than the dashboard. |
 | F — unread output | `npm run guide:pdf` renders **and verifies** in one command; `verify-guide-pdf.js` reads the PDF back. `capturePdfText` / `capturePaintOps` patch `PDFDocument.prototype` *before* construction so an unwired guard fails. |
 
