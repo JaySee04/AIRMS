@@ -3618,3 +3618,79 @@ medical reaching every athlete in the institute, executive reaching named
 athletes rather than only aggregates, per-account capabilities existing for
 medical alone, and those three capabilities being coarse. Each is defensible as
 it stands, which is why none was changed on my own judgement.
+
+---
+
+## 51. Reading is an act (2026-09-04)
+
+Four permission questions were left open in §50 for JC to decide. Asked to argue
+them out and act, I did — two produced changes, two did not, and the two that
+did turned out to be the same decision seen from opposite ends.
+
+### The question underneath all four
+
+*Should medical staff be scoped by sport, the way a coach is?*
+
+The case for scoping is least privilege: a physiotherapist who only ever works
+with swimmers can read every badminton athlete's clinical record. The case
+against is that clinical cover is not organised by sport — whoever is on duty may
+be asked about anybody, and an athlete arriving at a clinician who cannot see
+their history is a worse failure than a colleague reading one they did not need.
+
+The second argument wins, but **only if the reading is accountable** — and it was
+not. The trail logged report *downloads*, for the explicit reason that "for a
+read-only role reading is the only auditable act". Opening the same athlete's
+full record on screen left no trace whatsoever. A clinician could read every
+record in the institute invisibly, while downloading one PDF was permanent.
+
+So the answer "accountability rather than restriction" was being given for a
+system that did not have the accountability. `GET /athletes/:id` now writes an
+**`athlete.view`** row.
+
+Three properties, each deliberate. It is written after every permission check, so
+a **refused** request logs nothing — a trail recording reads that never happened
+is worse than none. An athlete opening their **own** record is skipped: that is
+not an access anybody needs to review, and logging it would bury the ones that
+are. And it is counted as a **read** in the staff rollup, because summing views
+with changes would let an account that only ever looked outrank the clinicians
+doing the work — the same reasoning that separated downloads originally.
+
+### The same decision, from the other end
+
+`executive` reached every athlete's raw record and screening history. No
+executive screen ever called those endpoints; it was reach nobody used.
+
+They are now refused. The individual **report** stays open, because following a
+figure down to the case genuinely is oversight — and that is the point rather
+than a concession. The PDF download is audited; the JSON endpoint was not.
+Funnelling an executive through the logged door means oversight of the
+institution is itself visible.
+
+`athlete` remains on every one of those `rbac()` lists and must: the self-scope
+check lives inside the handler, and a list that omitted athlete would leave it
+correct and unreachable — exactly how `isForeignAthleteRequest` sat dead for
+weeks.
+
+### The two that did not change
+
+Per-account capabilities stay medical-only. Coach and executive are each narrow
+enough that there is nothing meaningful to tune, and a permission surface nobody
+has asked for is complexity that must then be tested, explained and kept correct.
+**The capability model exists where capabilities vary.**
+
+The three medical capabilities stay coarse. The tempting fourth switch was "read
+but not export" — but exports were already audited and views now are too, so the
+distinction that switch would have drawn is drawn in the trail instead.
+
+### Verification
+
+Five mutations, all caught: un-auditing the view, logging refused and self views,
+demoting `athlete.view` from a read to a change, readmitting executive, and
+dropping athlete from an rbac list. The live matrix confirms executive refused on
+all three record endpoints and still reaching the analytics, the activity log and
+all three reports. A probe of the audit itself confirmed a clinician's view is
+recorded with actor and sport, a self-view is not, and a refused view is not.
+
+One test of mine was wrong first time and a failure caught it: it anchored on
+`const isSelf`, which also appears in `/teammates`, so it inspected the wrong
+function — the same ambiguous-anchor mistake that once shifted half an SVG.

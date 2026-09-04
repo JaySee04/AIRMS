@@ -175,3 +175,89 @@ describe('wiring — the guards must be REACHABLE', () => {
     }
   });
 });
+
+// ── Reading is an act, and oversight goes through the logged door ───────────
+//
+// Two decisions taken on 2026-09-04 after arguing both sides (DESIGN_DECISIONS
+// §51). Both are about the same question — should medical staff be scoped by
+// sport? — answered "no, but make the reading visible".
+describe('opening a clinical record is audited', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'routes', 'athletes.js'), 'utf8');
+
+  it('records athlete.view on the record endpoint', () => {
+    expect(src).toMatch(/action: 'athlete\.view'/);
+  });
+
+  it('logs it AFTER the permission checks, so a refusal leaves no trace', () => {
+    // A trail that records reads which never happened is worse than none: it
+    // would show a coach "opening" every athlete they were refused.
+    const guard = src.indexOf('Coaches can only view athletes in their assigned sport');
+    const log = src.indexOf("action: 'athlete.view'");
+    expect(guard).toBeGreaterThan(-1);
+    expect(log).toBeGreaterThan(guard);
+  });
+
+  it('skips an athlete reading their own record', () => {
+    // Not an access anybody needs to review, and logging it would bury the
+    // accesses that are.
+    //
+    // Anchored on the audit call and read BACKWARDS: `const isSelf` also appears
+    // in /teammates, and anchoring on it found that one instead — the same
+    // ambiguous-anchor mistake that once shifted half an SVG.
+    const at = src.indexOf("action: 'athlete.view'");
+    expect(at).toBeGreaterThan(-1);
+    const before = src.slice(Math.max(0, at - 300), at);
+    expect(before).toMatch(/if \(!isSelf\)/);
+    expect(before).toMatch(/req\.user\.role === 'athlete' && req\.user\.athleteId === athlete\.athleteId/);
+  });
+
+  it('counts as a READ in the staff rollup, not as a change', () => {
+    const audit = fs.readFileSync(path.join(__dirname, '..', 'src', 'routes', 'audit.js'), 'utf8');
+    const line = audit.match(/const ACCESS_ACTIONS = new Set\(\[[^\]]*\]\)/);
+    expect(line).not.toBeNull();
+    expect(line[0]).toContain('athlete.view');
+    // and it has a human label, or the Activity Log filter shows a raw key
+    expect(audit).toMatch(/'athlete\.view':\s*'/);
+  });
+});
+
+describe('executive reaches oversight, not raw clinical records', () => {
+  const read = (f) => fs.readFileSync(path.join(__dirname, '..', 'src', 'routes', f), 'utf8');
+
+  it.each([
+    ['athletes.js', "router.get('/:id'"],
+    ['screenings.js', "router.get('/athlete/:id'"],
+    ['screenings.js', "router.get('/:id/full'"],
+  ])('%s %s excludes executive', (file, route) => {
+    const src = read(file);
+    const at = src.indexOf(route);
+    expect(at).toBeGreaterThan(-1);
+    const decl = src.slice(at, at + 200);
+    expect(decl).toMatch(/rbac\(/);
+    expect(decl).not.toMatch(/'executive'/);
+  });
+
+  it.each([
+    ['athletes.js', "router.get('/:id'"],
+    ['screenings.js', "router.get('/athlete/:id'"],
+    ['screenings.js', "router.get('/:id/full'"],
+  ])('%s %s still admits athlete, whose self-check lives inside', (file, route) => {
+    // The isForeignAthleteRequest lesson: an rbac list that omitted athlete
+    // would leave the self-scope check correct and unreachable.
+    const src = read(file);
+    const decl = src.slice(src.indexOf(route), src.indexOf(route) + 200);
+    expect(decl).toMatch(/'athlete'/);
+    expect(decl).toMatch(/'coach'/);
+    expect(decl).toMatch(/'medical'/);
+    expect(decl).toMatch(/'admin'/);
+  });
+
+  it('leaves the individual report open to executive — the audited path', () => {
+    // The capability is funnelled, not removed: an executive following a figure
+    // to a named case pulls the PDF, and that download is logged.
+    const rep = read('screeningReports.js');
+    const at = rep.indexOf("router.get('/individual/:id.pdf'");
+    expect(at).toBeGreaterThan(-1);
+    expect(rep.slice(at, at + 200)).toMatch(/'executive'/);
+  });
+});

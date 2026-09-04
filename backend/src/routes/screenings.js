@@ -58,7 +58,23 @@ router.get('/reliability', auth, async (_req, res) => {
   } catch (err) { sendError(res, err, 'screenings.js'); }
 });
 
-router.get('/athlete/:id', auth, requirePermission('viewRecords'), async (req, res) => {
+// Executive is deliberately absent from this allow-list.
+//
+// The role is defined as institutional oversight — the admin analytics and the
+// three PDF reports — and a raw clinical record is neither. No executive screen
+// calls this endpoint; the grant was reach nobody used.
+//
+// The capability is not actually lost, it is funnelled: an executive following a
+// figure down to a named case pulls the individual report, which is the same
+// clinical content and is AUDITED as `report.download`. Routing them through the
+// logged path rather than the unlogged one is the point — oversight of the
+// institution should itself be visible.
+//
+// `athlete` IS on this list, and must stay. The self-scope check lives inside
+// the handler, and an rbac() list that omitted athlete would leave it correct
+// and unreachable — which is exactly how isForeignAthleteRequest sat dead for
+// weeks (§ Correct, and unreachable).
+router.get('/athlete/:id', auth, rbac('athlete', 'medical', 'admin', 'coach'), requirePermission('viewRecords'), async (req, res) => {
   try {
     if (req.user.role === 'athlete' && req.user.athleteId !== req.params.id) {
       return res.status(403).json({ message: 'Access denied' });
@@ -90,7 +106,23 @@ router.get('/athlete/:id', auth, requirePermission('viewRecords'), async (req, r
 // come from the row's JSON snapshot (history), not the live muscle_flags table.
 // Same access control as the history list: athlete self, coach sport-scoped,
 // medical/admin any (viewRecords).
-router.get('/:id/full', auth, requirePermission('viewRecords'), async (req, res) => {
+// Executive is deliberately absent from this allow-list.
+//
+// The role is defined as institutional oversight — the admin analytics and the
+// three PDF reports — and a raw clinical record is neither. No executive screen
+// calls this endpoint; the grant was reach nobody used.
+//
+// The capability is not actually lost, it is funnelled: an executive following a
+// figure down to a named case pulls the individual report, which is the same
+// clinical content and is AUDITED as `report.download`. Routing them through the
+// logged path rather than the unlogged one is the point — oversight of the
+// institution should itself be visible.
+//
+// `athlete` IS on this list, and must stay. The self-scope check lives inside
+// the handler, and an rbac() list that omitted athlete would leave it correct
+// and unreachable — which is exactly how isForeignAthleteRequest sat dead for
+// weeks (§ Correct, and unreachable).
+router.get('/:id/full', auth, rbac('athlete', 'medical', 'admin', 'coach'), requirePermission('viewRecords'), async (req, res) => {
   try {
     const s = await Screening.findByPk(req.params.id, { raw: true });
     // Scoped roles get the same answer for "no such screening" as for "not

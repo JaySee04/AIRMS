@@ -5,7 +5,8 @@ each non-administrator role against the running system (`cd backend; npm run
 audit:access`), re-run 2026-09-04. Where this disagrees with any other document,
 this one is right, because the other one was written and this one was executed.*
 
-Written to open a discussion, not to close one. It changes nothing.
+Written to open a discussion; §3 records how it was settled. Two of the four
+questions produced changes and the table below already reflects them.
 
 ---
 
@@ -33,9 +34,10 @@ athlete.**
 | | admin | medical | coach | executive | athlete |
 |---|---|---|---|---|---|
 | **Reading athletes** | | | | | |
+| *(opening a record writes an `athlete.view` audit row)* | | | | | |
 | Athlete roster (all) | ✓ | ✓ | — | ✓ | — |
-| One athlete's full record | ✓ | ✓ | *sport* | ✓ | *self* |
-| Screening history | ✓ | ✓ | *sport* | ✓ | *self* |
+| One athlete's full record | ✓ | ✓ | *sport* | — | *self* |
+| Screening history | ✓ | ✓ | *sport* | — | *self* |
 | Squad list without IC numbers | — | — | — | — | ✓ |
 | Sport context for an athlete | ✓ | ✓ | — | — | — |
 | **Reports** | | | | | |
@@ -63,10 +65,13 @@ athlete.**
 
 ---
 
-## 3. Four things worth a decision
+## 3. Four things that were open, and how they were settled
 
-These are the places where the current answer is defensible but not obvious.
-None is a bug.
+*Argued both ways on 2026-09-04 and decided. Two produced changes, two did not.
+The reasoning is kept because the answers are only as good as it.*
+
+None was a bug. Each was a place where the existing answer was defensible but
+not obvious, which is precisely where a system quietly drifts.
 
 ### 3.1 Medical staff reach every athlete in the institute
 
@@ -78,9 +83,28 @@ clinician who cannot see their history.
 The argument against is simply least privilege: a physiotherapist who only ever
 works with swimmers can currently read every badminton athlete's clinical record.
 
-**Open question:** should medical be scopeable by sport or programme, the way a
-coach is — as an *option* an administrator can set per account, defaulting to
-unscoped so nothing changes for existing staff?
+**Settled: leave it unscoped, and make the reading visible instead.**
+
+Clinical cover is not organised by sport. Whoever is on duty may be asked about
+anybody, and an athlete arriving at a clinician who cannot see their history is a
+worse failure than a colleague reading a record they did not need. Scoping would
+buy a little confidentiality and cost the thing the system is for.
+
+But that argument only holds if the reading is *accountable*, and it was not.
+The trail logged report **downloads** — for the stated reason that "for a
+read-only role reading is the only auditable act" — while opening the same
+athlete's full record on screen left no trace at all. A clinician could read
+every record in the institute invisibly, and downloading one PDF was permanent.
+
+`GET /athletes/:id` now writes an **`athlete.view`** row: who opened whose record,
+and when. It is written after every permission check, so a refused request logs
+nothing; an athlete opening their *own* record is skipped, because that is not an
+access anybody needs to review and logging it would bury the ones that are; and
+it is counted as a READ in the staff rollup, since summing views with changes
+would let an account that only ever looked outrank the clinicians doing the work.
+
+The answer to "should medical be scoped?" is therefore **no — because the
+alternative is accountability, and now that alternative actually exists.**
 
 ### 3.2 Executive reads named athletes, not just aggregates
 
@@ -92,10 +116,21 @@ It has no write access anywhere, which is the property that matters most, and it
 was granted the individual report deliberately so an executive can follow a
 number down to the case behind it.
 
-**Open question:** is following a number down to a named athlete part of
-oversight, or should executive stop at the aggregate? Narrowing it is a two-line
-change; the cost is that an executive asking "who are these nine red athletes?"
-would have to ask a clinician.
+**Settled: narrowed — the raw record is gone, the report stays.**
+
+Following a figure down to the case *is* oversight, so the individual screening
+report remains open to executive. What went is the raw record endpoint
+(`/athletes/:id`) and the screening-history endpoints, which no executive screen
+ever called — reach nobody used.
+
+The capability is therefore **funnelled, not removed**, and that is the whole
+point. The individual PDF is audited as `report.download`; the JSON endpoint was
+not. An executive following a number to a named athlete now leaves a row in the
+trail either way. Oversight of the institution should itself be visible.
+
+Measured after the change: executive is refused `/athletes/:id`,
+`/screenings/athlete/:id` and `/screenings/:id/full`, and still reaches the
+analytics, the activity log and all three reports.
 
 ### 3.3 Only medical staff have per-account capabilities
 
@@ -107,9 +142,14 @@ tune what they reach.
 In practice each of those roles is narrow enough that there is little to tune,
 which is why it was built this way.
 
-**Open question:** is there a real case for revoking, say, report downloads from
-one particular executive? If not, this stays as it is and the answer in the viva
-is "the capability model exists where capabilities vary".
+**Settled: leave it.** Coach and executive are each narrow enough that there is
+nothing meaningful to tune — a coach sees one squad read-only, an executive sees
+aggregates and reports read-only. Adding a permission surface nobody has asked
+for is complexity that must then be tested, explained and kept correct.
+
+The honest formulation is: **the capability model exists where capabilities
+vary.** Medical staff have a wide surface with genuinely separable parts (view,
+import, edit norms); the other roles do not.
 
 ### 3.4 The medical capabilities are coarse
 
@@ -117,8 +157,17 @@ is "the capability model exists where capabilities vary".
 account can see no athlete at all. There is no "read but not export", no "own
 sport only", no "no PDF downloads".
 
-**Open question:** does ISN need finer capabilities, or is the current
-three-switch model the right size for a department of a handful of clinicians?
+**Settled: leave it, now that the gap it hid is closed.**
+
+The tempting extra switch was "read but not export" — export being the point at
+which data leaves the building. But every export was already audited, and as of
+today every *view* is too, so the distinction the switch would have drawn is now
+drawn in the trail instead: both are recorded, and both are visible to an
+administrator reviewing who looked at what.
+
+Three switches for a department of a handful of clinicians is the right size. A
+fourth would add a state to reason about without adding a decision anybody at ISN
+is waiting to make.
 
 ---
 
@@ -135,6 +184,9 @@ three-switch model the right size for a department of a handful of clinicians?
 - **A scoped role's refusal reveals nothing.** A coach gets the same answer for
   an athlete who does not exist as for one in another sport, so the roster cannot
   be probed for IC numbers.
+- **Opening a clinical record is recorded** (`athlete.view`), counted as a read
+  rather than a change, skipped for an athlete's own record, and never written
+  for a request that was refused.
 - **Clinician notes stay clinical.** `injuryNote`, `injuryBy` and `injuryAt` are
   withheld from coach, executive and athlete; `isInjured` is shared, because it is
   a roster fact a coach needs.

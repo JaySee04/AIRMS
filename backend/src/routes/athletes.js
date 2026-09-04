@@ -456,7 +456,23 @@ router.get('/:id/sport-context', auth, rbac('medical', 'admin'), requirePermissi
   }
 });
 
-router.get('/:id', auth, requirePermission('viewRecords'), async (req, res) => {
+// Executive is deliberately absent from this allow-list.
+//
+// The role is defined as institutional oversight — the admin analytics and the
+// three PDF reports — and a raw clinical record is neither. No executive screen
+// calls this endpoint; the grant was reach nobody used.
+//
+// The capability is not actually lost, it is funnelled: an executive following a
+// figure down to a named case pulls the individual report, which is the same
+// clinical content and is AUDITED as `report.download`. Routing them through the
+// logged path rather than the unlogged one is the point — oversight of the
+// institution should itself be visible.
+//
+// `athlete` IS on this list, and must stay. The self-scope check lives inside
+// the handler, and an rbac() list that omitted athlete would leave it correct
+// and unreachable — which is exactly how isForeignAthleteRequest sat dead for
+// weeks (§ Correct, and unreachable).
+router.get('/:id', auth, rbac('athlete', 'medical', 'admin', 'coach'), requirePermission('viewRecords'), async (req, res) => {
   try {
     if (req.user.role === 'athlete' && req.user.athleteId !== req.params.id) {
       return res.status(403).json({ message: 'Access denied' });
@@ -516,6 +532,37 @@ router.get('/:id', auth, requirePermission('viewRecords'), async (req, res) => {
           matrix: agg.matrix,
         };
       }
+    }
+
+    // Reading a clinical record is itself an act worth recording.
+    //
+    // The trail already logs report DOWNLOADS, for the stated reason that "for a
+    // read-only role reading is the only auditable act" (§ Accountability). The
+    // same argument applies with more force here: this endpoint returns a named
+    // athlete's scores, subitem table, muscle flags and cohort standing, and
+    // until now a clinician could open every record in the institute without
+    // leaving a trace, while downloading one PDF left a permanent row.
+    //
+    // That gap is what makes the answer to "should medical staff be scoped by
+    // sport?" defensible. The answer is accountability rather than restriction —
+    // clinical cover is not organised by sport, and a clinician who cannot see a
+    // history is a worse failure than a colleague who reads one they did not
+    // need. But that argument only holds if the reading is visible, and it was
+    // not.
+    //
+    // Written HERE, after every permission check, so a refused request logs
+    // nothing — the same rule the download audit follows. An athlete opening
+    // their OWN record is skipped: it is not an access anybody needs to review,
+    // and logging it would bury the accesses that are.
+    const isSelf = req.user.role === 'athlete' && req.user.athleteId === athlete.athleteId;
+    if (!isSelf) {
+      recordAudit(req, {
+        action: 'athlete.view',
+        entity: 'athlete',
+        entityId: athlete.athleteId,
+        summary: `Opened ${athlete.name || athlete.athleteId}'s screening record`,
+        meta: { sport: athlete.sport || null },
+      });
     }
 
     res.json(out);

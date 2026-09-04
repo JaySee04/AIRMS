@@ -27,6 +27,8 @@ const ACTION_LABELS = {
   'mail.send': 'Scheduled email sent manually',
   'user.create': 'Account created',
   'user.update': 'Account changed',
+  'athlete.view': 'Opened an athlete record',
+  'user.invite': 'Invited a user',
   'report.download': 'Report downloaded',
   'export.backup': 'Backup exported',
 };
@@ -34,7 +36,11 @@ const ACTION_LABELS = {
 // Actions that are ACCESS rather than work: someone read athlete data out of the
 // system, which is auditable for a different reason than a change is. Split out
 // because the two must not be added together — see `staffActivity`.
-const ACCESS_ACTIONS = new Set(['report.download', 'export.backup']);
+// Reads, kept apart from changes in the Staff activity rollup. Summing them
+// would let an account that only ever looked at records outrank the clinicians
+// doing the work — and now that opening a record is logged, that would happen
+// immediately.
+const ACCESS_ACTIONS = new Set(['report.download', 'export.backup', 'athlete.view']);
 
 // GET /api/audit — newest first, with optional action / actor / date filtering.
 //
