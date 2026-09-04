@@ -12,6 +12,7 @@
 import { tierMeta } from '@/lib/holomotionTiers';
 import { REPORT_RISKS } from '@/lib/screeningAlerts';
 import { riskBand } from '@/lib/screeningAlerts';
+import { toNum } from '@/lib/num';
 
 interface Props {
   athlete: Record<string, unknown>; // flat extracted scores (values read via num())
@@ -32,7 +33,7 @@ const RISKS = REPORT_RISKS;
 
 const RISK_AXIS = 40; // display axis — matches the dashboard strips
 
-const num = (v: unknown): number | null => (v === null || v === undefined || v === '' || Number.isNaN(Number(v)) ? null : Number(v));
+const num = toNum;
 
 // riskBand comes from lib/screeningAlerts.ts. It used to be re-declared here
 // with the thresholds inlined, so the preview an operator checks a report

@@ -3933,3 +3933,96 @@ packages compute a band, and nothing here makes those two computations the same
 — only the vocabulary they express the answer in. That is the right boundary for
 a generator (values are trivially portable, behaviour is not), but it should be
 stated rather than left for somebody to assume.
+
+---
+
+## 54. Seventeen coercions, three contracts, and the zero that isn't a blank (2026-09-04)
+
+Found by asking the §53 question — *what else is written out more than once?* —
+rather than by a bug report. The answer was `num()`, the helper that turns a
+stored value into a number, and it existed **seventeen times**.
+
+MySQL DECIMAL columns arrive as strings (`'72.50'`), JSON columns carry whatever
+the extractor wrote, and either can be null, so nearly every module doing
+arithmetic on a screening needed one. Repetition alone would be untidy. The
+problem is that they did not agree:
+
+| input | 10 files | bodymap / pdfDraw / symmetry | screenings.js | reliability / ScreeningHistory |
+|---|---|---|---|---|
+| `''` | `null` | **`0`** | **`0`** | `null` |
+| `null` | `null` | `null` | **`0`** | `null` |
+| `'abc'` | `null` | `null` | **`NaN`** | `null` |
+| `'Infinity'` | `Infinity` | `Infinity` | `Infinity` | `null` |
+
+### 54.1 Why a zero is worse than a blank
+
+The divergence matters because **a missing reading that becomes 0 is not a
+blank — it is a number, and it gets drawn.**
+
+- On a printed exercise-risk gauge, 0 is the best possible score. An absent
+  reading renders as *no risk found*.
+- On lateral symmetry, 0 is *perfectly balanced*.
+- On a movement score, 0 is the worst possible result.
+- On the body map, 0 paints the region at one extreme of the scale.
+
+Three of those four surfaces are in `pdfDraw.js` and `symmetry.js` — the printed
+report, which is the copy that gets filed and the copy a clinician holds while
+checking a line. None of it looks like an error. It looks like a finding.
+
+`NaN` is worse still, and `screenings.js` produced it for any non-numeric
+string: `NaN < 15` is `false`, so a threshold check silently passes, the bar
+draws at zero width, and `JSON.stringify` turns it into `null` on the way out so
+the frontend never sees what happened either.
+
+### 54.2 One rule, resolving every divergence the same way
+
+`backend/src/utils/num.js` and `frontend/src/lib/num.ts` now hold `toNum`, and
+the rule is: **an unknown value stays unknown.** Null, undefined, empty or blank
+string, a non-number type, and anything not finite all give `null`, so a caller
+has to decide what to draw for "we do not have this" instead of being handed a
+plausible zero.
+
+Non-finite is included deliberately — ten copies returned `Infinity` unchanged,
+which draws off the end of any axis it reaches; the two that already used
+`Number.isFinite` were right.
+
+`numOr(v, fallback)` covers the few places that genuinely need a number. It is
+named so the fabrication is **visible at the call site**: `numOr(v, 0)` says a
+zero may be invented here, which a bare `num(v)` did not.
+
+### 54.3 The one that was allowed to keep differing
+
+`GET /screenings/:id/full` reshapes a Screening into the athlete payload the
+dashboard components take, and that type is all-numeric — so a null genuinely
+has to become a number there. It now calls `numOr(v, 0)` explicitly.
+
+Behaviour unchanged, intent now stated. This is §53's rule applied again: *if a
+value must differ locally, give it a different NAME.* An accidental divergence
+became a deliberate one, and the next reader can see which it is.
+
+### 54.4 The test found a fabricated zero in the fix itself
+
+`num.test.ts` runs one table through **both** packages' implementations, since
+`toNum` is behaviour rather than a fact and so is deliberately not generated
+from `shared/facts.js` (§53.8).
+
+On its first run it failed on `[]`. `Number([])` is `0`, so the first version of
+`toNum` — which only guarded null, undefined and blank strings — turned an empty
+array into a score of zero: exactly the defect the function was written to
+remove, reintroduced inside the removal. Both implementations now reject any
+type that is not `number`, `string` or `bigint` rather than coercing it, because
+JS invents zeros from `[]`, `null` and `false` alike.
+
+Six mutations, all caught: either package dropping the empty-string guard,
+either dropping the type guard, `Number.isFinite` weakened to `Number.isNaN`,
+and `numOr` swallowing a real `0` as though it were missing.
+
+### 54.5 What it did not change
+
+Nothing on the seeded data moves: all five PDFs render, 63/63 browser checks
+pass, and the access matrix is unchanged. That is expected — DECIMAL columns
+return `null` or a numeric string, never `''`, so the divergent branch is
+reachable mainly from the **vision extractor**, whose output is a model's JSON
+and can carry anything. The fix is for data not yet collected, like §45's
+timezone fix before it, and it is worth having for the same reason: the failure
+it prevents is one nobody would see.

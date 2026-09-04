@@ -18,7 +18,7 @@
 
 // Local rather than imported: this module has exactly one numeric concern and a
 // shared numbers util does not exist. Same coercion pdfDraw uses.
-const num = (v) => (v === null || v === undefined || Number.isNaN(Number(v)) ? null : Number(v));
+const { toNum: num } = require('./num');
 
 /**
  * The five regions HoloMotion reports, in the order its own table uses (top of

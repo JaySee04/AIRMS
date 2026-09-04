@@ -279,7 +279,7 @@ router.get('/:id/members', auth, rbac('admin', 'medical'), canEditNorms, async (
     if (!row) return res.status(404).json({ message: 'Cohort not found' });
     const settings = await getSettings();
     const rowKey = cohortKeyOf(row);
-    const num = (v) => (v === null || v === undefined || v === '' || Number.isNaN(Number(v)) ? null : Number(v));
+    const { toNum: num } = require('../utils/num');
     const rows = await latestScreeningsByAthlete();
     const members = rows
       .filter(({ athlete }) => tierKeysFor(athlete).some((k) => cohortKeyOf(k) === rowKey))

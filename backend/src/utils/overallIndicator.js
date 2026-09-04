@@ -20,7 +20,7 @@ const { orientedComponents, COMPONENTS, SHOWN_RISK_KEYS } = require('./cohorts')
 
 const { BANDS } = require('../shared/facts');
 
-const num = (v) => (v === null || v === undefined || v === '' || Number.isNaN(Number(v)) ? null : Number(v));
+const { toNum: num } = require('./num');
 
 // Display labels for the per-indicator escalation factor text.
 const { INDICATOR_LABEL: INDICATOR_LABELS } = require('./riskIndicators');

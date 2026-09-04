@@ -54,7 +54,7 @@ function asymmetryPct(l, r) {
   return (Math.abs(l - r) / better) * 100;
 }
 
-const num = (v) => (v === null || v === undefined || v === '' || Number.isNaN(Number(v)) ? null : Number(v));
+const { toNum: num } = require('./num');
 const mean = (a) => (a.length ? +(a.reduce((x, y) => x + y, 0) / a.length).toFixed(1) : null);
 
 /**

@@ -47,7 +47,7 @@ function ageGroupOf(age) {
   return g ? g.label : null;
 }
 
-const num = (v) => (v === null || v === undefined || v === '' || Number.isNaN(Number(v)) ? null : Number(v));
+const { toNum: num } = require('./num');
 const mean = (vals) => (vals.length ? +(vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1) : null);
 
 // Tally one group of athletes on one indicator.

@@ -66,7 +66,7 @@ function parseJsonReply(text) {
   return JSON.parse(s.slice(start, end + 1));
 }
 
-const num = (v) => (v === null || v === undefined || v === '' || Number.isNaN(Number(v)) ? null : Number(v));
+const { toNum: num } = require('./num');
 
 // Normalise a muscle list into the MuscleFlag shape, dropping unusable rows.
 // Muscle names are Title-Cased because the HoloMotion report prints them

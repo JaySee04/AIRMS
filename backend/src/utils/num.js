@@ -1,0 +1,64 @@
+// Turning a stored value into a number, once.
+//
+// MySQL DECIMAL columns arrive as STRINGS ('72.50'), JSON columns carry whatever
+// the extractor wrote, and either can be null. So almost every module that does
+// arithmetic on a screening needed a coercion helper, and seventeen of them
+// wrote their own. They did not agree:
+//
+//   input        10 files      bodymap/pdfDraw/symmetry   screenings.js
+//   ''           null          0                          0
+//   null         null          null                       0
+//   'abc'        null          null                       NaN
+//   'Infinity'   Infinity      Infinity                   Infinity
+//
+// The disagreement is the defect, and it is the clinical kind. A missing
+// reading that becomes 0 is not a blank — it is a NUMBER, and it is drawn:
+// zero on a printed risk gauge reads as "no risk found", zero asymmetry reads
+// as "perfectly balanced", and zero on a movement score reads as the worst
+// possible result. None of those is what an absent reading means, and none of
+// them looks like an error to the person holding the report.
+//
+// One rule now, and it resolves every divergence the same way: **an unknown
+// value stays unknown.** Null, undefined, empty or blank string, and anything
+// that is not a finite number all give `null`, so a caller has to decide what
+// to draw for "we do not have this" instead of being handed a plausible zero.
+//
+// Non-finite is included deliberately. Ten of the copies returned `Infinity`
+// unchanged, which would draw off the end of any axis it reached; two already
+// used `Number.isFinite` and were right.
+//
+// See DESIGN_DECISIONS.md §54. frontend/src/lib/num.ts is the same function for
+// the other package, and num.test.js runs BOTH over one table.
+
+/**
+ * @param {unknown} v a value from a DECIMAL column, a JSON blob or an API body
+ * @returns {number|null} the number, or null if there isn't one
+ */
+function toNum(v) {
+  // Only the types a stored reading can actually arrive as. Anything else is
+  // rejected rather than coerced, because JS coercion invents zeros from
+  // non-numbers: Number([]) is 0, Number(null) is 0, Number(false) is 0. Each
+  // of those would draw as a real score. (This test caught Number([]) === 0 in
+  // the first version of this very function.)
+  if (typeof v !== 'number' && typeof v !== 'string' && typeof v !== 'bigint') return null;
+  // Number('') and Number('  ') are both 0 — the single most common way an
+  // absent reading turns into a real-looking score.
+  if (typeof v === 'string' && v.trim() === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * `toNum`, but falling back to a caller-chosen number.
+ *
+ * For the few places that genuinely need a number rather than a null — a payload
+ * typed as all-numeric, an accumulator. Named so the fabrication is VISIBLE at
+ * the call site: `numOr(v, 0)` says a zero may be invented here, which
+ * `num(v)` did not.
+ */
+function numOr(v, fallback) {
+  const n = toNum(v);
+  return n === null ? fallback : n;
+}
+
+module.exports = { toNum, numOr };

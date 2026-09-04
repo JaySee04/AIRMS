@@ -30,7 +30,7 @@ const DRIFT_EPSILON = 0.5;
 // comes with them, now defined once in utils/riskIndicators.js.
 const { SHOWN_RISK_KEYS } = require('./riskIndicators');
 
-const num = (v) => (v === null || v === undefined || v === '' || Number.isNaN(Number(v)) ? null : Number(v));
+const { toNum: num } = require('./num');
 
 // Turn a screening row into the oriented component vector (higher = better).
 function orientedComponents(s) {

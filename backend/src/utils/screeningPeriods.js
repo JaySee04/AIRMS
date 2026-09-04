@@ -29,7 +29,7 @@ const { GRAINS, INSTITUTION_TZ } = require('../shared/facts');
 // One step finer, for the composition breakdown a coarse view falls back on.
 const FINER = { year: 'quarter', quarter: 'month', month: null };
 
-const num = (v) => (v === null || v === undefined || v === '' || Number.isNaN(Number(v)) ? null : Number(v));
+const { toNum: num } = require('./num');
 
 // Calendar bucket for a date. `key` sorts lexicographically inside a grain, so
 // it doubles as the ordering value — no separate sort field needed.

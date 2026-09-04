@@ -13,6 +13,7 @@ const { notifyOverrideToCoach } = require('../utils/notifications');
 const { queuePostImport } = require('../utils/postImport');
 const { effectiveBand } = require('../utils/bands');
 const { toIndicator } = require('../utils/indicatorPayload');
+const { numOr } = require('../utils/num');
 const { sendError } = require('../utils/httpError');
 
 const router = express.Router();
@@ -142,7 +143,14 @@ router.get('/:id/full', auth, rbac('athlete', 'medical', 'admin', 'coach'), requ
       return res.status(403).json({ message: 'Coaches can only view athletes in their assigned sport.' });
     }
 
-    const num = (v) => (v == null ? 0 : Number(v));
+    // This endpoint reshapes a Screening into the ATHLETE payload the dashboard
+    // components take, whose type is all-numeric — so a null has to become a
+    // number here, unlike everywhere else. `numOr(v, 0)` says that at the call
+    // site; the bare `num` this used to call looked identical to the sixteen
+    // other `num`s in the codebase and quietly meant something different (it
+    // also returned NaN for a non-numeric string, which JSON serialises as
+    // null and no consumer expected). See utils/num.js.
+    const num = (v) => numOr(v, 0);
     const flags = s.muscleFlags || {};
     res.json({
       ...athlete,

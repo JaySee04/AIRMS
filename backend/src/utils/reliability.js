@@ -39,11 +39,7 @@ const MIN_PAIRS = 20;
 // regresses, and it is now labelled as the assumption it always was.
 const FALLBACK_DEAD_BAND = 2;
 
-const num = (v) => {
-  if (v === null || v === undefined || v === '') return null;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
-};
+const { toNum: num } = require('./num');
 
 /** Sample SD (n-1), matching the cohort scorer's convention. */
 function sd(values) {

@@ -101,10 +101,11 @@ cd backend; npx jest      # 33 suites: cohorts, overallIndicator, permissions, r
                           # httpHardening, codebaseHygiene, reportRoutes, crossPackage,
                           # sharedFacts (the generated shared/facts.js is in sync in BOTH
                           # packages - run `npm run sync:shared` from the root if it fails)
-cd frontend; npx jest     # 13 suites: lib/risk.ts, lib/screeningUploadStore.ts, bodymap-data/muscles.ts,
+cd frontend; npx jest     # 14 suites: lib/risk.ts, lib/screeningUploadStore.ts, bodymap-data/muscles.ts,
                           # components/charts (rendered via react-dom/server — no jsdom needed),
                           # lib/bands.ts, lib/athleteSearch.ts, lib/rank.ts,
                           # lib/screeningAlerts.indicators.ts, lib/cssTokens.ts, lib/periods.ts,
+                          # lib/num.ts (ONE table run through both packages' toNum), 
                           # lib/shared/facts.ts (the generated file matches its source, and
                           # matches the backend's copy), components/layout/DashboardLayout
                           # (jsdom - the access gate; opt in per file with a @jest-environment
@@ -400,6 +401,8 @@ shared/facts.js  --->  backend/src/shared/facts.js       (CommonJS)
 
 Forgetting the sync is the one hazard the design trades for, so **both** test suites regenerate in memory and fail if either committed copy is stale (`backend/tests/sharedFacts.test.js`, `frontend/src/lib/shared/facts.test.ts`) — each checks BOTH files, because a stale copy in either package is the same bug. Hand-editing a generated file fails the same way. The DB columns read the same lists (`Athlete.gender`, `Athlete.program`, both `Screening` band columns), as does the import validator.
 
+**Coercion is behaviour, not a fact, so it is NOT generated** — `backend/src/utils/num.js` and `frontend/src/lib/num.ts` each hold `toNum` / `numOr`, and `frontend/src/lib/num.test.ts` runs ONE table through both (2026-09-04, `DESIGN_DECISIONS.md §54`). It replaced **seventeen** private `num()` helpers carrying three different contracts: `''` was `null` in ten and **`0`** in four, `null` was `0` in one, and a non-numeric string gave **`NaN`** there. The rule is **an unknown value stays unknown** — null/undefined/blank/non-number/non-finite all give `null` — because a missing reading coerced to 0 is not a blank: it is a number and it gets DRAWN, and 0 reads as "no risk found" on a printed gauge and "perfectly balanced" on symmetry. Use `numOr(v, 0)` where a number is genuinely required, so the fabrication is visible at the call site. **Do not add a new local `num()`.**
+
 **What is shared is FACTS, not presentation.** The indicator list's keys, order, region and HoloMotion's printed `reportLabel` are shared; each package's own display wording is not — the backend says `Joint Pain`, the frontend says `Joint pain`, deliberately. Each composes the shared list with its own labels and **throws at require time** if one is missing, because an unlabelled indicator would otherwise print `undefined` on a clinical report.
 
 `backend/tests/crossPackage.test.js` enumerates every SCREAMING_CASE name declared in both packages and demands an answer for each — generated, pinned elsewhere, or explained as a collision. It found `ScreeningHistory.tsx` naming the bands `Green`/`Amber`/`Red` from a **fourth** private map on its first run (see `docs/SILENT_FAILURES.md` 3i).
@@ -422,43 +425,33 @@ Forgetting the sync is the one hazard the design trades for, so **both** test su
 - **The period axis is CONTINUOUS** (`utils/screeningPeriods.js`, 2026-08-11). Buckets are filled between the first and last period that has data, so a quarter with no screening is drawn with zero tests instead of vanishing — for a screening programme that gap IS the finding. Nothing is padded before the first screening. A period after a gap reports NO delta (its predecessor is empty), which replaced comparing across the gap as though the two were consecutive. `grainCounts` ships with every response so the grain buttons can show what each view would draw; one period renders as a summary, not a chart. See `docs/DESIGN_DECISIONS.md §24`
 - **Seasonality** (`seasonality()` in `utils/screeningPeriods.js`, a section in the holistic report) answers Dr Thung's "*which quarter* is the risky one" by pooling every screening by quarter of the year with the year discarded. It **declines to name a season below two years of data** (`yearsCovered` / `sufficient`) and the report draws that caveat *before* the table — with one year, "Q3 is worst" is indistinguishable from "Q3 is when the weaker squads were screened", and this is the one output whose plausible failure is a confidently wrong institutional decision. Ranks by the *share* of flagged screenings, not the count, because throughput differs by quarter
 - **"Is this change real?" has an answer now** (`utils/reliability.js`, 2026-08-12).
-  Every direction-of-travel verdict in AIRMS — the change chart, the
-  between-tests panel, seasonality, the coach's arrows — used one hardcoded
-  `noise = 2`. Nothing derived it, which is the single most-cited weakness of
-  traffic-light systems generally (Robertson et al., *IJSPP* 2017, list
-  "evidence-based guidelines … for the boundaries used for categories" as open
-  work). It now computes the **typical error** (SD of within-athlete differences
-  / √2) and **MDC95** (2.77 × TE) per score from repeat screenings, and uses
-  MDC95 as the dead band. Two honesty properties, both deliberate: the repeats
-  are months apart so they contain real change as well as measurement error,
-  making this an **upper bound** that under-calls change rather than over-calls
-  it; and it **declines** below `MIN_PAIRS` (20) or when a score never moved,
-  falling back to the documented 2 and saying so on screen and in the PDF. On
-  the seeded data it correctly declines — **18 pairs** against the 20 needed
-  (re-measured 2026-09-02; this said 19, and §36 said 18, from the same run). `PERIOD_SCORES` moved to `utils/periodScores.js` to break the
-  require cycle. **Do not "fix" the decline by lowering the floor** — the whole
-  point is that the threshold is earned or labelled as an assumption
+  Every direction-of-travel verdict used one hardcoded `noise = 2`, which nothing
+  derived — the most-cited weakness of traffic-light systems generally (Robertson
+  et al., *IJSPP* 2017). It now computes **typical error** (SD of within-athlete
+  differences / √2) and **MDC95** (2.77 × TE) per score from repeat screenings and
+  uses MDC95 as the dead band. Two deliberate honesty properties: the repeats are
+  months apart so they contain real change as well as measurement error, making
+  this an **upper bound** that under-calls change; and it **declines** below
+  `MIN_PAIRS` (20) or when a score never moved, falling back to the documented 2
+  and saying so on screen and in the PDF. On seeded data it correctly declines —
+  18 pairs against 20. `PERIOD_SCORES` lives in `utils/periodScores.js` to break
+  the require cycle. **Do not "fix" the decline by lowering the floor** — the
+  whole point is that the threshold is earned or labelled as an assumption
 - **Rescreen reminders** (`runReminderOnce` in `utils/scheduler.js`, 2026-08-16).
-  A page only tells you something when somebody opens it, which is the wrong
-  shape for a fact that decays on its own — so the recall list is also emailed to
-  **admin + medical** monthly, with `never screened` listed apart from `overdue`
-  because that one needs a first assessment rather than a call-back. Reports
-  against `rescreen_due_days` and **nothing else**: giving the reminder its own
-  threshold is how an email comes to say "overdue" while the dashboard says
-  "current". Same marker-not-cron design as the digest (`rescreen_reminder_last_sent`,
-  day capped at 28, marked only after a successful send, marked even with no
-  recipients so an all-opted-out institute is not retried hourly), its own
-  try-block on the shared tick so a digest failure cannot cost the reminder its
-  month, and a per-user opt-out (`rescreen_reminder` in `NOTIFY_KEYS`). The admin
-  Settings tile offers the interval as 2/3/4/6/9/12 months. `executive` is
-  deliberately NOT a recipient — oversight, not the worklist. **Coaches get
-  their own sport only** (2026-08-16): the recall is computed ONCE on the full
-  roster and each email is a *slice* of it, so a coach's copy cannot disagree
-  with the institution's about who is overdue; one email per SPORT rather than
-  per coach, so two coaches on one squad get one message; and a coach with
-  nothing to chase is skipped, while the institution-wide copy still sends when
-  empty because "the roster is current" is itself the assurance an administrator
-  wants
+  A page only tells you something when somebody opens it, which is the wrong shape
+  for a fact that decays on its own — so the recall list is emailed to **admin +
+  medical** monthly, `never screened` listed apart from `overdue`. Reports against
+  `rescreen_due_days` and **nothing else**: a reminder with its own threshold is
+  how an email says "overdue" while the dashboard says "current". Marker-not-cron
+  like the digest (`rescreen_reminder_last_sent`, day capped at 28, marked only
+  after a successful send, marked even with no recipients), its own try-block on
+  the shared tick, and a per-user opt-out (`rescreen_reminder`). `executive` is
+  deliberately NOT a recipient — oversight, not the worklist. **Coaches get their
+  own sport only**: the recall is computed ONCE on the full roster and each email
+  is a *slice*, so a coach's copy cannot disagree with the institution's; one
+  email per SPORT, not per coach; a coach with nothing to chase is skipped, while
+  the institution-wide copy still sends when empty because "the roster is current"
+  is itself the assurance
 - **Rescreen recall** (`rescreenRecall` in `utils/programmeActivity.js`,
   2026-08-12). Coverage says whether an athlete was ever tested; recall says
   whether what we hold on them is still current, which is the question a
@@ -476,33 +469,22 @@ Forgetting the sync is the one hazard the design trades for, so **both** test su
   computed cohort-wide and is not on the athlete-scoped payload. The hero now
   reads the cohort standing as a **percentile** (`lib/rank.ts`, mid-rank
   `(r-0.5)/n`) beside the raw rank
-- **Reading a clinical record is an act, and it is logged** (2026-09-04, `DESIGN_DECISIONS.md §51`). `GET /athletes/:id` writes an `athlete.view` row — who opened whose record. Until then the trail logged report DOWNLOADS but not screen reads, so a clinician could read every record in the institute invisibly while downloading one PDF was permanent. That gap mattered because it is the justification for leaving medical staff UNSCOPED: clinical cover is not organised by sport, so the answer is accountability rather than restriction — which only works if the accountability exists. Written after every permission check (a refused request logs nothing), skipped for an athlete reading their OWN record, and counted as a READ in the staff rollup. Separately, `executive` is now refused the raw record endpoints (`/athletes/:id`, `/screenings/athlete/:id`, `/screenings/:id/full`) — no executive screen called them — while keeping the individual PDF, which is the AUDITED path to the same content. **Do not add `executive` back to those rbac lists, and do not remove `athlete` from them**: the self-scope check lives inside the handler and would become unreachable. See `docs/PERMISSIONS.md`
-- **Accountability & transparency (2026-08-10).** These actions write an append-only
-  `AuditLog` row: `screening.import`, `screening.override`, `screening.reinstate`,
-  `athlete.injury`, `norm.restore`, `norm.pin`, `norm.unpin`, `norm.member`,
-  `settings.update`, `user.create`, `user.update`, `report.download`,
-  `export.backup`, `mail.send`. The last three were added **2026-08-11**: the trail recorded
-  only writes, so `coach` and `executive` — who cannot write anything — could
-  never appear in it however much athlete data they pulled. For a read-only role
-  *reading is the only auditable act*, and an individual screening PDF carries a
-  named athlete's clinical scores, so all five report endpoints and the backup
-  export now log (`entityId` = the athlete on an individual report). Downloads are
-  counted **apart from** changes in Staff activity (`ACCESS_ACTIONS` in
-  `routes/audit.js`) — summing them would let an account that only reads outrank
-  the clinicians. Rows are written at the point the response commits to
-  streaming, so a 403 or 404 logs nothing. Surfaced at
-  **Admin → Activity Log** (`/admin/audit`, admin + executive; 403 for medical and
-  coach) with action/date filters, a **Staff activity** rollup, and a PDF export
-  (`GET /api/screening-reports/activity-log.pdf`). Audit writes are
-  **fire-and-forget** — logging must never fail the operation it describes — so a
-  lost row is silent; that is the right trade for transparency logging and the
-  wrong one for anything the institution must *prove*. Provenance already stored
-  on the records themselves (`Screening.importedBy`, `Screening.overrideBy`,
-  `Athlete.injuryBy`) is now displayed in Screening History and the cohort
-  members panel
-- **Cohort norms can be PINNED (2026-08-11).** Saving a norm version was an archive; a **pin** makes one saved set the norms *in force*, and `recomputeCohorts` then HOLDS `stats`/`n` instead of overwriting them, so an import can no longer move the norm every athlete is scored against. `pinned_norm_version_id` in settings is the switch the engine reads; pinning reuses the restore installer so the live `cohort_thresholds` rows genuinely ARE the snapshot and the scorer still reads one table. While pinned, recompute parks what the data *would* say in `fresh_stats`/`fresh_n` and `pinDrift()` surfaces the gap — a frozen norm with no staleness signal would be worse than none. Restoring another version over a pin, and deleting the pinned version, both 409; a cohort first seen after the pin is still created live (`added_since_pin`) because the pin must never leave an athlete unscoreable. `norm.pin` / `norm.unpin` are audited. See `docs/DESIGN_DECISIONS.md §22`
-- **The seeder derives Total Score from the subitems** (2026-08-19, `DESIGN_DECISIONS.md §34`). On a real HoloMotion report Total Score IS the mean of the 25-cell subitem table (residual ≤ 1.2 across three verified reports). The seeder drew it independently, so the four movement components were statistically unrelated in demo data — measured residual **9.9**, with only 11 of 58 athletes obeying the instrument's own arithmetic. It is now `0.4·mob + 0.4·stab + 0.2·sym` (the table's own weighting), residual **0.94**, and the predicted collinearity appeared: `totalScore × rom` 0.05 → **0.70**. Bands moved to 38/9/9 of 56. The seeder has a **second** screening producer — the prior-snapshot block — which was missed by that fix and nudged Total Score while copying the components unchanged; it now nudges the components and derives Total Score, leaving the demonstrated trend identical (§34d). `min_cohort_n` **stays at 5** — raising it pushes cohorts up to sport-only, comparing women against men, which trades sampling variance for systematic bias.
-- **Green is not "Safe", and a stale screening says so** (2026-08-19, `DESIGN_DECISIONS.md §33`). A clinical review of all five dashboards against the screening literature. The green band reads **`No indicators flagged`** (`None flagged` compact): a screen that cannot predict injury cannot certify its absence, and since most athletes are low-risk, green is exactly where false reassurance lands. Implementing it found `BAND_LABEL` in `utils/bands.js` **had no green key at all**, so `pdfDraw.js` and `athlete/squad/page.tsx` had grown private copies saying "Safe" — three definitions, now one. The hero also states the screening's **age and recall state** when not current, classified by `utils/recall.js`, which was **extracted** so the hero and the monthly recall email cannot disagree about who is overdue. Cohorts below 10 peers now caveat themselves (re-measured 2026-09-02: **55 of 56** scored athletes are, min 5 / median 7 / max 10 — the caveat is `size < 10` in `OverallRiskBadge.tsx`, and one athlete sits on exactly 10, so "all 56" was wrong by one). Asymmetry is a **percentage** at the threshold (`NOTABLE_GAP_PCT`) but deliberately NOT in the composite's `balance`, which is z-scored and so already scale-free. **Do not present the seeded band split (38/9/9 of 56, measured 2026-09-02) as calibration evidence** — the seeder randomises the movement components independently, so their real-world collinearity is invisible here.
+- **Reading a clinical record is an act, and it is logged** (2026-09-04, `DESIGN_DECISIONS.md §51`). `GET /athletes/:id` writes an `athlete.view` row. It is the justification for leaving medical staff UNSCOPED — clinical cover is not organised by sport, so the answer is accountability rather than restriction, which only works if the accountability exists. Written after every permission check (a refused request logs nothing), skipped for an athlete reading their OWN record, counted as a READ in the staff rollup. `executive` is refused the raw record endpoints (`/athletes/:id`, `/screenings/athlete/:id`, `/screenings/:id/full`) but keeps the individual PDF, the AUDITED path to the same content. **Do not add `executive` back to those rbac lists, and do not remove `athlete` from them**: the self-scope check lives inside the handler and would become unreachable. See `docs/PERMISSIONS.md`
+- **Accountability & transparency** (2026-08-10/11, `DESIGN_DECISIONS.md §20`). Append-only
+  `AuditLog` rows for: `screening.import`, `screening.override`, `screening.reinstate`,
+  `athlete.injury`, `athlete.view`, `norm.restore`, `norm.pin`, `norm.unpin`, `norm.member`,
+  `settings.update`, `user.create`, `user.update`, `report.download`, `export.backup`,
+  `mail.send`. Reads are logged because for a read-only role *reading is the only auditable
+  act*, and they are counted **apart from** changes in Staff activity (`ACCESS_ACTIONS` in
+  `routes/audit.js`) — summing them would let an account that only reads outrank the
+  clinicians. Rows are written where the response commits to streaming, so a 403 or 404 logs
+  nothing. Surfaced at **Admin → Activity Log** (`/admin/audit`, admin + executive) with
+  filters, a Staff-activity rollup and a PDF export. Audit writes are **fire-and-forget** —
+  logging must never fail the operation it describes — so a lost row is silent: the right
+  trade for transparency logging, the wrong one for anything the institution must *prove*
+- **Cohort norms can be PINNED** (2026-08-11, `DESIGN_DECISIONS.md §22`). A **pin** makes one saved set the norms *in force*; `recomputeCohorts` then HOLDS `stats`/`n`, so an import can no longer move the norm every athlete is scored against. `pinned_norm_version_id` is the switch the engine reads; pinning reuses the restore installer so the live `cohort_thresholds` rows genuinely ARE the snapshot. While pinned, recompute parks what the data *would* say in `fresh_stats`/`fresh_n` and `pinDrift()` surfaces the gap — a frozen norm with no staleness signal would be worse than none. Restoring over a pin and deleting the pinned version both 409; a cohort first seen after the pin is still created live (`added_since_pin`) because the pin must never leave an athlete unscoreable. `norm.pin` / `norm.unpin` are audited
+- **The seeder derives Total Score from the subitems** (2026-08-19, `DESIGN_DECISIONS.md §34`). On a real report Total Score IS the mean of the 25-cell subitem table, so the seeder computes `0.4·mob + 0.4·stab + 0.2·sym` rather than drawing it independently (which had left the four movement components statistically unrelated in demo data). Both of the seeder's screening producers do this — the prior-snapshot block was missed by the first fix (§34d). `min_cohort_n` **stays at 5** — raising it pushes cohorts up to sport-only, comparing women against men, which trades sampling variance for systematic bias
+- **Green is not "Safe", and a stale screening says so** (2026-08-19, `DESIGN_DECISIONS.md §33`). The green band reads **`No indicators flagged`** (`None flagged` compact): a screen that cannot predict injury cannot certify its absence, and since most athletes are low-risk, green is exactly where false reassurance lands. The hero also states the screening's **age and recall state** when not current, classified by `utils/recall.js` — extracted so the hero and the monthly recall email cannot disagree about who is overdue. Cohorts below `SMALL_COHORT` peers caveat themselves. Asymmetry is a **percentage** at the threshold (`NOTABLE_GAP_PCT`) but deliberately NOT in the composite's `balance`, which is z-scored and so already scale-free. **Do not present the seeded band split (38/9/9 of 56, measured 2026-09-02) as calibration evidence** — the seeder randomises the movement components independently, so their real-world collinearity is invisible here
 - **The norms in force are PINNED, and the eligibility floors are off** (2026-08-19). `Pre-viva baseline 2026-08-25` snapshots all 49 cohorts and is pinned on BOTH the local and the hosted database (the 2026-08-19 version was lost to a reseed; a doc asserting a pin the system cannot show is worse than no pin), so an import can no longer move the reference every athlete is scored against; verified by recomputing while pinned — 50 of 50 held, all 50 parked `fresh_stats` for `pinDrift()`. Releasable from the same page. The three `norm_min_*` floors stay **0 (off)** on purpose: excluding low scores from a norm computed on those very scores is selection on the dependent variable — it censors the left tail, biases the mean up, shrinks the SD and over-flags whoever is left. Excluding the *injured* is different and stays, because injury is an external fact about whether a screening represents the athlete at all. See `docs/DESIGN_DECISIONS.md §32`
 - **Norm eligibility is immediate.** Declaring an athlete injured
   (`PATCH /api/athletes/:id/injury`) or clearing their tick

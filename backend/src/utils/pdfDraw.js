@@ -96,7 +96,7 @@ const COMPONENT_LABELS = {
   symmetry: 'Symmetry', riskGood: 'Exercise-risk burden', balance: 'Left/right balance',
 };
 
-const num = (v) => (v === null || v === undefined || Number.isNaN(Number(v)) ? null : Number(v));
+const { toNum: num } = require('./num');
 const fmtDate = (d) => (d ? new Date(d).toISOString().slice(0, 10) : '—');
 
 // One report-naming scheme: AIRMS_<Type>_<who/scope>_<date>.pdf — name-based and

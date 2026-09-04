@@ -142,7 +142,7 @@ router.post('/screening/pdf', auth, rbac('medical', 'admin'), requirePermission(
 
     // Immutable history snapshot of this import (athletes table holds latest;
     // screenings holds every import for progress-over-time + report deltas).
-    const num = (v) => (v === null || v === undefined || v === '' || Number.isNaN(Number(v)) ? null : Number(v));
+    const { toNum: num } = require('../utils/num');
     const screeningRow = {
       athleteId: data.athleteId,
       assessedAt: assessedAt ? new Date(assessedAt) : null,

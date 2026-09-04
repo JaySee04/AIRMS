@@ -671,6 +671,46 @@ found — remove the ability to make a copy, then ask what else the new question
 catches.* The pin tells you about yesterday's bug. The question tells you about
 the ones nobody has looked for.
 
+### 3j. The zero that is not a blank (2026-09-04)
+
+Sub-pattern **A** again (two definitions of one thing), reached by asking the
+question 3i ends on — *what else is written out more than once?* — rather than
+by anybody reporting a fault.
+
+`num()`, the helper that turns a stored value into a number, existed **seventeen
+times** across the two packages, under three different contracts. An empty
+string was `null` in ten of them and **`0`** in four; `null` was `0` in one; a
+non-numeric string was **`NaN`** there.
+
+What makes it this document's business rather than a tidiness note is where the
+disagreeing copies lived: `pdfDraw.js`, `symmetry.js` and `bodymap.js` — the
+printed report and the body figure. **A missing reading that becomes 0 is not a
+blank. It is a number, and it is drawn.** Zero on an exercise-risk gauge is the
+best possible score, so an absent reading prints as *no risk found*. Zero
+lateral symmetry prints as *perfectly balanced*. Neither looks like an error;
+both look like a finding, on the copy that gets filed.
+
+`NaN` is worse. `NaN < 15` is `false`, so a threshold check passes silently, the
+bar draws at zero width, and `JSON.stringify` turns it into `null` on the way
+out, so the frontend cannot tell either.
+
+**The guard.** One `toNum` per package, and `num.test.ts` runs a single table
+through BOTH implementations — coercion is behaviour, not a fact, so it is
+deliberately not generated from `shared/facts.js` (§53.8) and the table is what
+holds the two together instead. The rule it pins is *an unknown value stays
+unknown*.
+
+**The part worth remembering.** The table failed on its first run — against the
+fix, not the old code. `Number([])` is `0`, so the first version of `toNum`
+turned an empty array into a score of zero: the exact defect being removed,
+reintroduced inside the removal, in a function whose entire purpose was to stop
+fabricating numbers. Both implementations now reject any type that is not
+`number`, `string` or `bigint` rather than coercing it.
+
+Writing the table before believing the implementation is what caught it. A
+hand-checked "looks right" would not have — `[]` is not an input anybody thinks
+to try, which is precisely why it belongs in the table.
+
 ### 3c. Three things that cannot be promised
 
 1. **Absence cannot be proved.** Every sweep so far found something. That is

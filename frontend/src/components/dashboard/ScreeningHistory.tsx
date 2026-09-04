@@ -13,6 +13,7 @@ import { api } from '@/lib/api';
 import { Sparkline } from '@/components/charts/Charts';
 import { fmtScreeningDate } from '@/lib/periods';
 import { BAND_BADGE, BAND_LABEL, BAND_SHORT } from '@/lib/bands';
+import { toNum } from '@/lib/num';
 
 interface ScreeningRow {
   id: number;
@@ -60,11 +61,7 @@ const TREND_COLS: Array<{ key: ScoreKey | 'overallIndicator'; label: string; hig
 // printed reports use.
 
 // MySQL DECIMAL columns arrive as strings — normalise before arithmetic.
-function num(v: number | string | null | undefined): number | null {
-  if (v === null || v === undefined || v === '') return null;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
-}
+const num = toNum;
 
 // fmtScreeningDate, like every other screening surface. This printed
 // toISOString().slice(0, 10) — day only, and in UTC — which is wrong twice on

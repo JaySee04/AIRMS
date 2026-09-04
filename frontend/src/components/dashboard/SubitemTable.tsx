@@ -8,6 +8,7 @@
 
 import type { Subitems } from './OverallRiskBadge';
 import { TIER_COLOR, TIER_LABEL, TIER_ORDER, TIER_RANGE, tierMeta } from '@/lib/holomotionTiers';
+import { toNum } from '@/lib/num';
 
 const SUBITEM_REGIONS: Array<[keyof Subitems, string]> = [
   ['neck', 'Neck'], ['shoulder', 'Shoulder & Upper Limbs'], ['torso', 'Torso'],
@@ -17,7 +18,7 @@ const SUBITEM_COLS: Array<[string, string]> = [
   ['romL', 'ROM L'], ['romR', 'ROM R'], ['stabL', 'Stab L'], ['stabR', 'Stab R'], ['sym', 'Sym'],
 ];
 
-const num = (v: unknown): number | null => (v === null || v === undefined || v === '' || Number.isNaN(Number(v)) ? null : Number(v));
+const num = toNum;
 
 // HoloMotion quality tier for the 0–100 subitem scores (higher is better).
 // Shared with the score gauges above this table and the body map beside it —

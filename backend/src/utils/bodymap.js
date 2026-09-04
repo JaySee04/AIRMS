@@ -35,7 +35,7 @@ const SLUG_TO_REGION = Object.fromEntries(
 );
 const SCOPED_SLUGS = new Set(Object.keys(SLUG_TO_REGION));
 
-const num = (v) => (v === null || v === undefined || Number.isNaN(Number(v)) ? null : Number(v));
+const { toNum: num } = require('./num');
 
 // Worst (lower-scoring) of ROM/Stability for one region-side — same rule as
 // the website figure: a region can only carry one colour, so it's judged by
