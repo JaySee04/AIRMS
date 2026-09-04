@@ -221,23 +221,33 @@ describe('pinDrift', () => {
 // from the component when it had been retyped. A comment pointing at another
 // file documents the hazard without preventing it (§31, §42).
 //
-// The backend now has one definition. The frontend keeps its own because there
-// is no shared types package, so this pins them — a cohort hedged on screen and
-// stated flatly in the printed report is the drift this codebase keeps finding,
-// and the report is the copy that gets filed.
+// Both packages now generate it from shared/facts.js, so the pin below reads
+// the value the FRONTEND actually runs on rather than scraping a literal out of
+// a component. A cohort hedged on screen and stated flatly in the printed
+// report is the drift this codebase keeps finding, and the report is the copy
+// that gets filed.
 describe('SMALL_COHORT is not restated anywhere', () => {
   const fs = require('fs');
   const path = require('path');
   const root = path.join(__dirname, '..', '..');
 
-  it('matches the frontend badge that renders the caveat', () => {
+  it('matches the frontend, which renders the caveat', () => {
+    const src = fs.readFileSync(
+      path.join(root, 'frontend', 'src', 'lib', 'shared', 'facts.ts'),
+      'utf8',
+    );
+    const m = src.match(/export const SMALL_COHORT = (\d+)/);
+    expect(m).not.toBeNull();
+    expect(Number(m[1])).toBe(SMALL_COHORT);
+  });
+
+  it('is imported by the badge that hedges, not retyped there', () => {
     const src = fs.readFileSync(
       path.join(root, 'frontend', 'src', 'components', 'dashboard', 'OverallRiskBadge.tsx'),
       'utf8',
     );
-    const m = src.match(/const SMALL_COHORT = (\d+)/);
-    expect(m).not.toBeNull();
-    expect(Number(m[1])).toBe(SMALL_COHORT);
+    expect(src).toMatch(/import \{ SMALL_COHORT \} from '@\/lib\/shared\/facts'/);
+    expect(src).not.toMatch(/const SMALL_COHORT\s*=/);
   });
 
   it('is imported by the report and the script, not retyped', () => {

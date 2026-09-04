@@ -9,6 +9,7 @@ import {
   BANDS, BAND_BG, BAND_COLOR, BAND_GLYPH, BAND_LABEL, type Band,
 } from '@/lib/bands';
 import { ordinal, percentileFromRank } from '@/lib/rank';
+import { SMALL_COHORT } from '@/lib/shared/facts';
 
 // Physical Fitness Subitem Score — 5 body regions × {romL,romR,stabL,stabR,sym}
 // (0–100, higher better). Extracted from the HoloMotion report, stored on the
@@ -277,7 +278,9 @@ export default function OverallRiskBadge({
   // a handful of athletes is unstable, so a small cohort makes the comparison
   // indicative rather than firm. Stating it is the same "say what the data can
   // support" rule the detectable-change threshold and seasonality already follow.
-  const SMALL_COHORT = 10;
+  // SMALL_COHORT comes from shared/facts.js — the printed report hedges on the
+  // same number, and a figure hedged on one surface and stated flatly on the
+  // other is exactly the drift this codebase keeps finding.
   const smallCohort = typeof size === 'number' && size > 0 && size < SMALL_COHORT;
 
   return (

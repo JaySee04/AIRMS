@@ -11,9 +11,14 @@
 //     things, which is worse than either wording alone.
 // Neither would raise an error. See docs/DESIGN_DECISIONS.md §19.
 
-// Ordering for "worse than" comparisons. Higher = worse.
-const BAND_RANK = { green: 0, amber: 1, red: 2 };
+// Both constants now come from shared/facts.js, generated into src/shared —
+// the frontend gets the identical values from the identical source, so the
+// drift described above is no longer possible to introduce by hand.
+const { BAND_RANK, BAND_LABEL } = require('../shared/facts');
 
+// Ordering for "worse than" comparisons. Higher = worse. Derived from the band
+// order in shared/facts.js.
+//
 // Wording shown to humans. Deliberately Title Case, not caps: the earlier
 // 'IMMEDIATE ASSESSMENT' read as shouting, was inconsistent with the
 // dashboards, and is a spam-filter trigger in a subject line. Green has no
@@ -26,11 +31,6 @@ const BAND_RANK = { green: 0, amber: 1, red: 2 };
 // Green was previously absent from this map entirely, which is why
 // utils/pdfDraw.js had grown its own full copy saying 'Safe'.
 // See docs/DESIGN_DECISIONS.md §33.
-const BAND_LABEL = {
-  green: 'No indicators flagged',
-  amber: 'Needs attention',
-  red: 'Immediate assessment',
-};
 
 // The band that actually applies to a screening: a clinician's override wins
 // over the computed band.

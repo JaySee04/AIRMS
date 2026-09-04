@@ -10,26 +10,38 @@
 // of removing it. The failure mode is silent and clinical: an indicator added to
 // six lists of seven, or LDH added to one.
 //
-// One definition per PACKAGE, like utils/bands.js — there is no shared types
-// package (locked). The frontend's lives in lib/screeningAlerts.ts and
-// riskIndicators.test.js pins the two together.
-//
-// Two label vocabularies, deliberately: `label` is the terse UI wording
-// ("Knee"), `reportLabel` is HoloMotion's own printed wording ("Ligament
-// Strain") so a clinician can check a line against the report in hand.
-const RISK_INDICATORS = [
-  { key: 'neckInjuryRisk', label: 'Neck', reportLabel: 'Neck Pain' },
-  { key: 'shoulderInjuryRisk', label: 'Shoulder', reportLabel: 'Shoulder Pain' },
-  { key: 'scoliosis', label: 'Scoliosis', reportLabel: 'Scoliosis' },
-  { key: 'lumbarPelvisInjury', label: 'Lumbar/Pelvis', reportLabel: 'Anterior Pelvic Tilt' },
-  { key: 'jointPain', label: 'Joint Pain', reportLabel: 'Joint Pain' },
-  { key: 'kneeInjuryRisk', label: 'Knee', reportLabel: 'Ligament Strain' },
-  { key: 'ankleInjuryRisk', label: 'Ankle', reportLabel: 'Ankle Sprain' },
-];
+// The KEYS, their ORDER, their body region, HoloMotion's printed wording and
+// the exclusion now come from shared/facts.js and are generated into both
+// packages — see src/shared/facts.js. What stays here is this package's own
+// display wording, which is deliberately NOT shared: the backend says
+// 'Joint Pain' and the frontend says 'Joint pain', and unifying that would be
+// erasing a difference rather than removing a duplication.
+const { RISK_INDICATORS: SHARED_INDICATORS, EXCLUDED_RISK_KEYS } = require('../shared/facts');
 
-// Stored on import, never shown. Named here so the exclusion is a value the
-// tests can assert against, rather than an absence nobody can check.
-const EXCLUDED_RISK_KEYS = ['spinalDiscHerniation'];
+// Terse UI wording, this package's own. `reportLabel` is HoloMotion's printed
+// wording and is not ours to choose; this one is.
+const UI_LABEL = {
+  neckInjuryRisk: 'Neck',
+  shoulderInjuryRisk: 'Shoulder',
+  scoliosis: 'Scoliosis',
+  lumbarPelvisInjury: 'Lumbar/Pelvis',
+  jointPain: 'Joint Pain',
+  kneeInjuryRisk: 'Knee',
+  ankleInjuryRisk: 'Ankle',
+};
+
+// Composed rather than re-listed, and LOUD when incomplete: an indicator added
+// to shared/facts.js without a label here would otherwise render as `undefined`
+// on a clinical report and in an email subject, which is precisely the silent
+// wrongness this module exists to prevent. Failing at require time makes it a
+// dead process instead — caught by any test, and by boot.
+const RISK_INDICATORS = SHARED_INDICATORS.map(({ key, region, reportLabel }) => {
+  const label = UI_LABEL[key];
+  if (!label) {
+    throw new Error(`riskIndicators: no UI label for "${key}" — add one to UI_LABEL in this file`);
+  }
+  return { key, region, label, reportLabel };
+});
 
 const SHOWN_RISK_KEYS = RISK_INDICATORS.map((i) => i.key);
 const INDICATOR_LABEL = Object.fromEntries(RISK_INDICATORS.map((i) => [i.key, i.label]));

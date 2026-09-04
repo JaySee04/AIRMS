@@ -12,19 +12,20 @@
 import { useMemo, useState } from 'react';
 import { INDICATORS } from '@/lib/screeningAlerts';
 
-export const GENDERS = ['Male', 'Female'];
-export const PROGRAMMES = ['PODIUM', 'PELAPIS', 'OTHERS'];
-// Boundaries and labels MUST match backend/src/utils/cohortFocus.js AGE_GROUPS:
-// the dropdown here and the age rows in the focus breakdown and the PDF are the
-// same buckets, and used to disagree ("18–23 (junior)" on screen vs "21-25" in
-// print). ASCII hyphens, because pdfkit's Helvetica has no en-dash.
-export const AGE_GROUPS: Array<{ label: string; min?: number; max?: number }> = [
-  { label: 'All ages' },
-  { label: 'Under 18', max: 17 },
-  { label: '18-23 (junior)', min: 18, max: 23 },
-  { label: '24-29 (senior)', min: 24, max: 29 },
-  { label: '30+ (veteran)', min: 30 },
-];
+// The three slicing vocabularies come from shared/facts.js (generated into both
+// packages) — they are the Athlete columns' own enums and the report's own age
+// buckets, so a dropdown here can no longer offer a value the database rejects
+// or a band the PDF prints differently. The dropdowns used to disagree with the
+// report ("18–23 (junior)" on screen vs "21-25" in print). ASCII hyphens,
+// because pdfkit's Helvetica has no en-dash.
+import { GENDERS, PROGRAMMES, AGE_GROUPS as AGE_BANDS } from '@/lib/shared/facts';
+import type { AgeGroup } from '@/lib/shared/facts';
+
+export { GENDERS, PROGRAMMES };
+
+// "All ages" is a FILTER option, not an age band — which is why it is added
+// here rather than living in the shared source the report also reads.
+export const AGE_GROUPS: AgeGroup[] = [{ label: 'All ages' }, ...AGE_BANDS];
 
 // The focusable indicators, in the canonical order. Read from INDICATORS so
 // the LDH exclusion is inherited — Lumbar Disc Herniation is stored but never

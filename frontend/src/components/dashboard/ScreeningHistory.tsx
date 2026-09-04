@@ -12,6 +12,7 @@ import { ReactNode, useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { Sparkline } from '@/components/charts/Charts';
 import { fmtScreeningDate } from '@/lib/periods';
+import { BAND_BADGE, BAND_LABEL, BAND_SHORT } from '@/lib/bands';
 
 interface ScreeningRow {
   id: number;
@@ -50,8 +51,13 @@ const TREND_COLS: Array<{ key: ScoreKey | 'overallIndicator'; label: string; hig
   { key: 'exerciseRisks', label: 'Ex. Risks', higherBetter: false },
 ];
 
-const BAND_BADGE = { green: 'badge-low', amber: 'badge-moderate', red: 'badge-high' } as const;
-const BAND_LABEL = { green: 'Green', amber: 'Amber', red: 'Red' } as const;
+// This table used to name the bands 'Green' / 'Amber' / 'Red' from its own
+// private map — a FOURTH vocabulary, and the one §33 exists to prevent: a bare
+// colour word says nothing clinical, and "Green" on an athlete's own history
+// reads as "you are fine", which is exactly the reassurance a screening test
+// cannot give. It carried a private BAND_BADGE too. Both now come from
+// lib/bands, which reads the wording from the shared source the emails and the
+// printed reports use.
 
 // MySQL DECIMAL columns arrive as strings — normalise before arithmetic.
 function num(v: number | string | null | undefined): number | null {
@@ -290,9 +296,13 @@ export default function ScreeningHistory({ athleteId, headerAction, canReinstate
                     {band ? (
                       <span
                         className={BAND_BADGE[band]}
-                        title={r.overrideBand ? `Clinician override by ${r.overrideBy ?? 'medical'}` : undefined}
+                        // The full clinical wording is the accessible name; the
+                        // cell shows the compact form because the column is narrow.
+                        title={r.overrideBand
+                          ? `${BAND_LABEL[band]} — clinician override by ${r.overrideBy ?? 'medical'}`
+                          : BAND_LABEL[band]}
                       >
-                        {BAND_LABEL[band]}{r.overrideBand ? ' *' : ''}
+                        {BAND_SHORT[band]}{r.overrideBand ? ' *' : ''}
                       </span>
                     ) : (
                       <span className="text-muted" style={{ fontSize: 'var(--fs-sm)' }}>—</span>

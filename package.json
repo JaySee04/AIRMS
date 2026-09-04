@@ -8,7 +8,8 @@
     "dev:frontend": "npm --prefix frontend run dev",
     "dev": "node scripts/dev.js",
     "install:all": "npm install && npm --prefix backend install && npm --prefix frontend install",
-    "seed": "npm --prefix backend run seed"
+    "seed": "npm --prefix backend run seed",
+    "sync:shared": "node shared/generate.js"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

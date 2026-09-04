@@ -18,15 +18,24 @@ import fs from 'fs';
 import path from 'path';
 import { INSTITUTION_TZ, fmtScreeningDate, GRAINS } from './periods';
 
+/**
+ * What the BACKEND actually runs on, read from the file it imports.
+ *
+ * Both packages now generate their copy from shared/facts.js, so this is no
+ * longer scraping a hand-written literal out of a source file — but it is still
+ * worth asserting end to end. The freshness tests prove each generated file
+ * matches the source; this proves the value the frontend uses is the value the
+ * backend buckets with, which is the property anybody actually cares about.
+ */
+const backendFacts = (): Record<string, unknown> => {
+  const p = path.join(__dirname, '..', '..', '..', 'backend', 'src', 'shared', 'facts.js');
+  expect(fs.existsSync(p)).toBe(true);
+  return require(p);
+};
+
 describe('the institution calendar', () => {
   it('matches the backend, which is the thing that buckets', () => {
-    const backend = fs.readFileSync(
-      path.join(__dirname, '..', '..', '..', 'backend', 'src', 'utils', 'screeningPeriods.js'),
-      'utf8',
-    );
-    const m = backend.match(/const INSTITUTION_TZ = '([^']+)'/);
-    expect(m).not.toBeNull();
-    expect(INSTITUTION_TZ).toBe(m![1]);
+    expect(INSTITUTION_TZ).toBe(backendFacts().INSTITUTION_TZ);
   });
 
   it('is a zone the runtime actually knows', () => {
@@ -78,13 +87,10 @@ describe('fmtScreeningDate', () => {
 
 describe('grain vocabulary', () => {
   it('matches the backend GRAINS list', () => {
-    const backend = fs.readFileSync(
-      path.join(__dirname, '..', '..', '..', 'backend', 'src', 'utils', 'screeningPeriods.js'),
-      'utf8',
-    );
-    const m = backend.match(/const GRAINS = (\[[^\]]+\])/);
-    expect(m).not.toBeNull();
-    const backendGrains: string[] = JSON.parse(m![1].replace(/'/g, '"'));
-    expect(GRAINS.map((g) => g.key)).toEqual(backendGrains);
+    expect(GRAINS.map((g) => g.key)).toEqual(backendFacts().GRAINS);
+  });
+
+  it('gives every grain a label — a missing one renders as blank, not as an error', () => {
+    GRAINS.forEach((g) => expect(g.label).toBeTruthy());
   });
 });

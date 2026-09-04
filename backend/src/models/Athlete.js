@@ -1,5 +1,10 @@
 ﻿const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
+// The column IS the enum. Defined from the shared source so a filter control or
+// a seeder offering a value this column rejects cannot exist — that failure is
+// silent at the top (an empty cohort that looks like nobody qualified) and loud
+// only at the bottom.
+const { GENDERS, PROGRAMMES } = require('../shared/facts');
 
 // Athlete row. The 8 injury-risk indicators are flattened to columns; the
 // API serialiser reassembles them into a nested `risks` object that the
@@ -16,13 +21,13 @@ const Athlete = sequelize.define('Athlete', {
     allowNull: false,
   },
   age: { type: DataTypes.INTEGER, allowNull: true },
-  gender: { type: DataTypes.ENUM('Male', 'Female'), allowNull: true },
+  gender: { type: DataTypes.ENUM(...GENDERS), allowNull: true },
   sex: { type: DataTypes.ENUM('M', 'F'), allowNull: true },
   weight: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
   height: { type: DataTypes.DECIMAL(5, 2), allowNull: true },
   sport: { type: DataTypes.STRING(64), allowNull: false },
   program: {
-    type: DataTypes.ENUM('PODIUM', 'PELAPIS', 'OTHERS'),
+    type: DataTypes.ENUM(...PROGRAMMES),
     allowNull: false,
   },
 

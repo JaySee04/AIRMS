@@ -1,5 +1,8 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
+// The band columns ARE the band vocabulary — same source as every label,
+// comparison and legend (shared/facts.js).
+const { BANDS } = require('../shared/facts');
 
 // Immutable snapshot of one committed HoloMotion import. The `athletes` table
 // still holds the LATEST snapshot (dashboards read it — backward compatible);
@@ -52,7 +55,7 @@ const Screening = sequelize.define('Screening', {
   // Overall risk indicator, computed at commit once a cohort exists (nullable
   // until then). See spec §5.
   overallIndicator: { type: DataTypes.DECIMAL(5, 2), allowNull: true, field: 'overall_indicator' },
-  overallBand: { type: DataTypes.ENUM('green', 'amber', 'red'), allowNull: true, field: 'overall_band' },
+  overallBand: { type: DataTypes.ENUM(...BANDS), allowNull: true, field: 'overall_band' },
   escalations: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
   // Human-readable reasons the athlete escalated (JSON array of strings), so the
   // dashboards can explain WHY a band is amber/red — including which indicator
@@ -80,7 +83,7 @@ const Screening = sequelize.define('Screening', {
 
   // Clinician override (medical staff, after a real assessment). Auto-expires
   // when a newer Screening row is imported.
-  overrideBand: { type: DataTypes.ENUM('green', 'amber', 'red'), allowNull: true, field: 'override_band' },
+  overrideBand: { type: DataTypes.ENUM(...BANDS), allowNull: true, field: 'override_band' },
   overrideNote: { type: DataTypes.TEXT, allowNull: true, field: 'override_note' },
   overrideBy: { type: DataTypes.STRING(120), allowNull: true, field: 'override_by' },
   overrideAt: { type: DataTypes.DATE, allowNull: true, field: 'override_at' },

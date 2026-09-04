@@ -212,6 +212,35 @@ async function visit(browser, route, session) {
       await r.page.close();
     }
 
+    console.log('\n6b. a band is named clinically, never as a bare colour');
+    // §33: a screening test cannot certify the absence of injury, so no surface
+    // may reassure. "Green" in a table cell does exactly that, and the screening
+    // history table did it until 2026-09-04 — from a FOURTH private band map,
+    // which every unit test passed straight over because the wording was
+    // internally consistent within that one file.
+    //
+    // Checked in the BROWSER because that is where the vocabulary is chosen: the
+    // page picks the label, and a component reading the right constant and
+    // rendering the wrong field would satisfy any source-level check.
+    //
+    // /athlete/dashboard is the route that carries the weight — it is the only
+    // one here that mounts ScreeningHistory unconditionally. The coach and
+    // medical dashboards mount it only once an athlete is selected, and
+    // /athlete/history is a different page. Confirmed by restoring the colour
+    // words and watching this fail; it fails on /athlete/dashboard alone, so do
+    // not read the other three as covering that component.
+    for (const [role, route] of [
+      ['athlete', '/athlete/history'], ['athlete', '/athlete/dashboard'],
+      ['coach', '/coach/dashboard'], ['admin', '/admin/dashboard'],
+    ]) {
+      const r = await visit(browser, route, sessions[role]);
+      // Whole words, so "Green" is caught but "background" and a sport called
+      // "Greenfield" are not.
+      const colours = ['Green', 'Amber', 'Red'].filter((c) => new RegExp(`\\b${c}\\b`).test(r.text));
+      check(`${route} names no band by colour alone`, colours.length === 0, colours.join(', '));
+      await r.page.close();
+    }
+
     console.log('\n7. the body map and charts actually draw');
     // The body map is the licensed figure the whole product is built around, and
     // a chart that renders blank looks exactly like a chart with no data. Both

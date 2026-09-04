@@ -33,12 +33,9 @@ const bandOf = (v) => (v > HIGH ? 'high' : v > WATCH ? 'watch' : 'ok');
 // report printed "21-25", so an administrator who filtered on screen and then
 // read the report was looking at different groupings of the same athletes.
 // Labels are ASCII: pdfkit's Helvetica has no en-dash.
-const AGE_GROUPS = [
-  { label: 'Under 18', max: 17 },
-  { label: '18-23 (junior)', min: 18, max: 23 },
-  { label: '24-29 (senior)', min: 24, max: 29 },
-  { label: '30+ (veteran)', min: 30 },
-];
+// One source now: shared/facts.js, generated into both packages, so the filter
+// control and the printed report cannot fall out of step by hand.
+const { AGE_GROUPS, GENDERS, PROGRAMMES } = require('../shared/facts');
 
 function ageGroupOf(age) {
   // Guard '' and null explicitly: Number('') is 0, which would silently bucket
@@ -114,9 +111,9 @@ function focusBreakdown(rows, key, allRows = null) {
     baselineHighShare: baseline && baseline.n ? +(baseline.high / baseline.n).toFixed(3) : null,
     bySlice: {
       sport: sliceBy(rows, key, (r) => r.sport),
-      gender: sliceBy(rows, key, (r) => r.gender, ['Male', 'Female']),
+      gender: sliceBy(rows, key, (r) => r.gender, GENDERS),
       ageGroup: sliceBy(rows, key, (r) => ageGroupOf(r.age), AGE_GROUPS.map((g) => g.label)),
-      programme: sliceBy(rows, key, (r) => r.program, ['PODIUM', 'PELAPIS', 'OTHERS']),
+      programme: sliceBy(rows, key, (r) => r.program, PROGRAMMES),
     },
     // Worst readings, so "who do we look at" is one step from "where is the
     // problem". Ties broken by name for a stable order.

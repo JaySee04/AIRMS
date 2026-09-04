@@ -31,6 +31,10 @@ All commands run from project root (PowerShell on Windows; backtick is the line-
 ```powershell
 # First-time setup
 npm install                # root deps (concurrently)
+npm run sync:shared        # regenerate backend/src/shared/facts.js and
+                           # frontend/src/lib/shared/facts.ts from shared/facts.js.
+                           # Run this after ANY edit to shared/facts.js - both test
+                           # suites fail if a committed copy is stale (DD 53).
 npm run install:all        # installs root + backend + frontend
 npm run seed               # drops + reseeds MySQL with deterministic PRNG (seed=42)
 cd backend; npm run audit:access     # call all 52 endpoints as each non-admin role and print
@@ -76,31 +80,35 @@ cd frontend; npm run lint  # next lint
 
 # Frontend production build
 cd frontend; npm run e2e   # END-TO-END smoke: a real Chrome against the running
-                           # servers (needs `npm run dev`). 59 checks - auth boundaries,
+                           # servers (needs `npm run dev`). 63 checks - auth boundaries,
                            # each role's pages rendering, the readiness tiles accounting
                            # for the squad, the body-map focus ring, no NaN/undefined/
-                           # Invalid Date on any page, and the body map + charts actually
-                           # drawing geometry. Uses puppeteer-core
+                           # Invalid Date on any page, no band named by COLOUR alone
+                           # ("Green" reads as "you are fine" - SILENT_FAILURES 3i), and the
+                           # body map + charts actually drawing geometry. Uses puppeteer-core
                            # with the installed Chrome, so nothing is downloaded.
                            # See docs/SILENT_FAILURES.md 3f.
 
 cd frontend; npm run build
 
 # Unit tests (jest, in both packages — no linter configured for the backend)
-cd backend; npx jest      # 32 suites: cohorts, overallIndicator, permissions, rbac, pdfDraw,
+cd backend; npx jest      # 33 suites: cohorts, overallIndicator, permissions, rbac, pdfDraw,
                           # screeningPeriods, cohortFocus, visionUsage, alerts, scheduler,
                           # bands, mailPrefs, holisticReport, programmeActivity, subitemAggregate,
                           # reliability, rescreenReminder, riskIndicators, recall,
                           # mailSendNow, lock, prescription, settingsChanges, symmetry,
                           # isnDirectory, accountLifecycle, athleteDisclosure, recompute,
-                          # httpHardening, codebaseHygiene, reportRoutes, crossPackage
-cd frontend; npx jest     # 12 suites: lib/risk.ts, lib/screeningUploadStore.ts, bodymap-data/muscles.ts,
+                          # httpHardening, codebaseHygiene, reportRoutes, crossPackage,
+                          # sharedFacts (the generated shared/facts.js is in sync in BOTH
+                          # packages - run `npm run sync:shared` from the root if it fails)
+cd frontend; npx jest     # 13 suites: lib/risk.ts, lib/screeningUploadStore.ts, bodymap-data/muscles.ts,
                           # components/charts (rendered via react-dom/server — no jsdom needed),
                           # lib/bands.ts, lib/athleteSearch.ts, lib/rank.ts,
                           # lib/screeningAlerts.indicators.ts, lib/cssTokens.ts, lib/periods.ts,
-                          # components/layout/DashboardLayout (jsdom - the access gate; opt in
-                          # per file with a @jest-environment docblock, so the node suites are
-                          # untouched)
+                          # lib/shared/facts.ts (the generated file matches its source, and
+                          # matches the backend's copy), components/layout/DashboardLayout
+                          # (jsdom - the access gate; opt in per file with a @jest-environment
+                          # docblock, so the node suites are untouched)
 ```
 
 Jest covers the pure logic: scoring/permissions (`backend/tests/`), the PDF
@@ -379,7 +387,22 @@ deliberately sit outside.
 
 ## Architecture overview
 
-Three-tier monorepo orchestrated by `concurrently` from the root `package.json`. There is no shared types package — frontend and backend each maintain their own type definitions.
+Three-tier monorepo orchestrated by `concurrently` from the root `package.json`. Frontend and backend each maintain their own type definitions, with one exception: the **shared facts** below.
+
+**`shared/facts.js` is the single source for the values both packages must agree on** (2026-09-04, `DESIGN_DECISIONS.md §53`): `INSTITUTION_TZ`, `BANDS`, `BAND_RANK`, `BAND_LABEL`, `GENDERS`, `PROGRAMMES`, `AGE_GROUPS`, `GRAINS`, `RISK_AXIS_MAX`, `EXCLUDED_RISK_KEYS`, `RISK_INDICATORS`, `SMALL_COHORT`. **Edit that file, then run `npm run sync:shared` from the project root**, which generates two COMMITTED files:
+
+```
+shared/facts.js  --->  backend/src/shared/facts.js       (CommonJS)
+                 \-->  frontend/src/lib/shared/facts.ts  (TypeScript, with types)
+```
+
+**It is a generator and not an npm workspace for a deployment reason, which is not negotiable:** Vercel builds `airms-api` with Root Directory `backend` and `airms-web` with Root Directory `frontend`, so a package at the repository ROOT is in *neither* build context — it would resolve locally, pass every test, and fail on deploy. Each package must stay self-contained. **Do not "simplify" this into a workspace or a root-level import.**
+
+Forgetting the sync is the one hazard the design trades for, so **both** test suites regenerate in memory and fail if either committed copy is stale (`backend/tests/sharedFacts.test.js`, `frontend/src/lib/shared/facts.test.ts`) — each checks BOTH files, because a stale copy in either package is the same bug. Hand-editing a generated file fails the same way. The DB columns read the same lists (`Athlete.gender`, `Athlete.program`, both `Screening` band columns), as does the import validator.
+
+**What is shared is FACTS, not presentation.** The indicator list's keys, order, region and HoloMotion's printed `reportLabel` are shared; each package's own display wording is not — the backend says `Joint Pain`, the frontend says `Joint pain`, deliberately. Each composes the shared list with its own labels and **throws at require time** if one is missing, because an unlabelled indicator would otherwise print `undefined` on a clinical report.
+
+`backend/tests/crossPackage.test.js` enumerates every SCREAMING_CASE name declared in both packages and demands an answer for each — generated, pinned elsewhere, or explained as a collision. It found `ScreeningHistory.tsx` naming the bands `Green`/`Amber`/`Red` from a **fourth** private map on its first run (see `docs/SILENT_FAILURES.md` 3i).
 
 **Backend** (`backend/`, Node + Express + Sequelize on MySQL, JWT auth on every protected route):
 - Entry: `backend/src/server.js` mounts routes, connects to MySQL via Sequelize, registers CORS for both `:3000` and `:3001`
@@ -516,7 +539,7 @@ Three-tier monorepo orchestrated by `concurrently` from the root `package.json`.
 - **A failed request reveals nothing it was not asked to, and a query parameter has a SHAPE** (2026-09-02, `DESIGN_DECISIONS.md §48`). 49 handlers returned `err.message` on a 500, so `?from=not-a-date` answered "Incorrect DATETIME value" and `?gender[$ne]=Male` answered "Invalid value { '$ne': 'Male' }". `utils/httpError.js` decides once, on INTENT rather than status: a 4xx keeps its message, an `expose`d error keeps its message (the operator needs "Could not render any pages from the PDF"), everything else gets one generic sentence while the real error goes to stderr with its route. `utils/queryParams.js` rejects the array Express builds from `?p[]=` and the object from `?p[k]=` with a **400** — the array form had been a silent, undocumented multi-select — and `likeTerm` escapes `%` and `_`, which had made a search for `%` return the whole roster. **There is already an `express-rate-limit` on `/api/auth`** (30 failures / 15 min / IP, `skipSuccessfulRequests`) — do not add a second one; its in-memory store and per-IP key are known limitations, recorded in `SILENT_FAILURES.md`
 - **A screening belongs to ISN's calendar, and committing it twice is not a retest** (2026-09-02, `DESIGN_DECISIONS.md §45`). Two latent defects, both found by sweeping rather than by a bug report. Periods bucketed on `getUTC*()` while the frontend dated the same row in the VIEWER's zone — hosted, the API runs UTC and a clinician's browser runs MYT, so a screening between 00:00 and 07:59 local falls on the previous UTC day and, across a month end, is drawn in one column and dated into the next month. Both packages now name one `INSTITUTION_TZ = 'Asia/Kuala_Lumpur'`; re-bucketing all 74 rows in that zone was verified to move **none** of them, so it changes no published number. Separately, the screening commit was an unconditional INSERT against a NON-unique `(athlete_id, assessed_at)` index, so the same report committed twice appended an identical row that `consecutivePairs()` paired as a retest with a difference of **zero on every score** — two such commits take the dead band from the documented fallback of 2, correctly labelled an assumption, to a DERIVED 5.7–11.5. That is the failure `reliability.js` exists to prevent, reached by inflating the numerator rather than lowering the floor, and the demo hands **the same three reports to two people**. Fixed at both layers: the commit is idempotent on `(athleteId, assessedAt)`, and same-instant readings are collapsed before pairing. **Do not "simplify" either back** — and do not add a unique index without an `ALTER TABLE` on both the local and hosted databases
 - **A scoped role's REFUSAL is an answer, and its payload is a grant** (2026-09-02, `DESIGN_DECISIONS.md §43`). Auditing the four non-admin roles by *calling* all 52 endpoints as each of them found the role model sound — every write refused for coach, executive and athlete; `executive` with no write reach anywhere — and two disclosures beneath it. A coach could separate a real IC number from an invented one, because their scope compares `sport` and so cannot refuse before the row is loaded: unknown gave 404, foreign gave 403. `notFoundStatusFor(user)` now returns **403 for coach and athlete** at all three scoped lookups (`/athletes/:id`, `/screening-reports/individual/:id.pdf`, `/screenings/:id/full`) and fails closed on a missing user — the IC encodes date of birth, birth state and sex, which is why `/teammates` withholds it. Separately, both athlete serialisers built their result by SPREADING the row, so `injuryNote` / `injuryBy` / `injuryAt` — the clinician's free text — shipped to coach and executive; they now take a `viewer` and strip those unless it is `medical` or `admin`. **`isInjured` stays for everyone**: it is a roster fact a coach needs and coverage rests on. `viewer` is optional and the omitted case **withholds**, so a forgetful call site under-discloses. Do not "tidy" the 404s back: a bare 404 elsewhere in those files is correct, because nothing a medical-only route looks up is scoped. `tests/athleteDisclosure.test.js` reads the route SOURCE for the wiring — the predicates are pure and pass whether or not anything calls them
-- **Risk band vocabulary has one definition PER PACKAGE** — `utils/bands.js` on the backend and `frontend/src/lib/bands.ts` on the frontend (added 2026-08-11; six frontend files had their own map and the red band was "Immediate assessment" in the risk hero but "Immediate" in the trend legend and admin distribution bar). The frontend module exports BOTH a full `BAND_LABEL` and a compact `BAND_SHORT` deliberately — a legend has no room for the long form — and `lib/bands.test.ts` pins the full labels to the backend's wording, since there is no shared types package to enforce it. Grain labels and the screening-date format live in `lib/periods.ts` for the same reason. Backend: (`BAND_RANK`,
+- **Risk band vocabulary now comes from `shared/facts.js`** and is generated into `utils/bands.js` (backend) and `frontend/src/lib/bands.ts` (frontend) — see the shared-facts note in the architecture overview. Unified 2026-08-11 because six frontend files had their own map and the red band was "Immediate assessment" in the risk hero but "Immediate" in the trend legend and admin distribution bar; moved to one generated source 2026-09-04, which immediately found a **fourth** copy in `ScreeningHistory.tsx` spelling the bands `Green`/`Amber`/`Red`. The frontend module still exports BOTH a full `BAND_LABEL` and a compact `BAND_SHORT` deliberately — a legend has no room for the long form, and `BAND_SHORT` is local because the backend has no legend. Grain labels live in `lib/periods.ts` for the same reason (the grain KEYS are shared, their labels are not). Backend: (`BAND_RANK`,
   `BAND_LABEL`, `effectiveBand`, `atLeastAsBad`). `BAND_RANK` had stood in three
   files and `BAND_LABEL` in two; new code should call `effectiveBand(screening)`
   rather than inline `overrideBand || overallBand`, which is the one expression

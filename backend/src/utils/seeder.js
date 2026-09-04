@@ -64,7 +64,7 @@ const SPORTS = [
   'Karate','Taekwondo','Wushu','Silat','Gymnastics','Weightlifting','Sailing',
   'Shooting','Rugby','Football','Hockey','Netball','Sepak Takraw','Bowls','Pencak Silat',
 ];
-const GENDERS = ['Male', 'Female'];
+const { GENDERS } = require('../shared/facts');
 // CORE = muscles actually observed in HoloMotion output; TAIL = the rest of the
 // body map's vocabulary, kept reachable but rare. See buildFlags above.
 const MUSCLES_DEFICIENCY_CORE = [

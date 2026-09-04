@@ -10,6 +10,7 @@ const { extractFromPdf } = require('../utils/holomotionExtract');
 const { isVisionConfigured, visionConfig } = require('../utils/visionClient');
 const { queuePostImport } = require('../utils/postImport');
 const { sendError } = require('../utils/httpError');
+const { GENDERS, PROGRAMMES } = require('../shared/facts');
 
 // NOTE: the original Excel screening-upload path (multer excel filter,
 // normaliseRow/validateRow, POST /screening/preview + /screening) was retired
@@ -119,11 +120,14 @@ router.post('/screening/pdf', auth, rbac('medical', 'admin'), requirePermission(
     if (!data.athleteId) errors.push('Missing Athlete ID');
     if (!data.name) errors.push('Missing Name');
     if (!data.sport) errors.push('Missing Sport');
-    if (!data.program || !['PODIUM', 'PELAPIS', 'OTHERS'].includes(data.program)) {
-      errors.push('Missing or invalid Program (expected PODIUM / PELAPIS / OTHERS)');
+    // Both lists come from shared/facts.js — the same source as the columns
+    // they are validated against, so this cannot reject a value the database
+    // would have accepted, or accept one it will not.
+    if (!data.program || !PROGRAMMES.includes(data.program)) {
+      errors.push(`Missing or invalid Program (expected ${PROGRAMMES.join(' / ')})`);
     }
-    if (data.gender && !['Male', 'Female'].includes(data.gender)) {
-      errors.push(`Invalid Gender "${data.gender}" (expected Male / Female)`);
+    if (data.gender && !GENDERS.includes(data.gender)) {
+      errors.push(`Invalid Gender "${data.gender}" (expected ${GENDERS.join(' / ')})`);
     }
     if (errors.length) return res.status(400).json({ message: errors.join('; ') });
 

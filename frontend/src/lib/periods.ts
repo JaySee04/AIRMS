@@ -7,13 +7,19 @@
 // divergence would show up as the app disagreeing with itself about what a
 // quarter is called or how a date is written.
 
-export type Grain = 'month' | 'quarter' | 'year';
+// The grain keys and their order come from shared/facts.js (generated into both
+// packages); the LABELS are this package's own, because the backend has no
+// button to put them on.
+import { GRAINS as GRAIN_KEYS, INSTITUTION_TZ } from './shared/facts';
+import type { Grain } from './shared/facts';
 
-export const GRAINS: Array<{ key: Grain; label: string }> = [
-  { key: 'month', label: 'Monthly' },
-  { key: 'quarter', label: 'Quarterly' },
-  { key: 'year', label: 'Yearly' },
-];
+export type { Grain };
+export { INSTITUTION_TZ };
+
+const GRAIN_LABEL: Record<Grain, string> = { month: 'Monthly', quarter: 'Quarterly', year: 'Yearly' };
+
+export const GRAINS: Array<{ key: Grain; label: string }> = GRAIN_KEYS
+  .map((key) => ({ key, label: GRAIN_LABEL[key] }));
 
 /** Grain as a noun, for prose ("only one quarter of screening falls here"). */
 export const GRAIN_NOUN: Record<Grain, string> = { month: 'month', quarter: 'quarter', year: 'year' };
@@ -33,10 +39,10 @@ export const GRAIN_NOUN: Record<Grain, string> = { month: 'month', quarter: 'qua
  * it happened at ISN. A coach opening the same dashboard while abroad should
  * read the same date their colleague in Bukit Jalil does.
  *
- * Must equal INSTITUTION_TZ in backend/src/utils/screeningPeriods.js.
- * periods.test.ts pins them together — there is no shared types package.
+ * Read from shared/facts.js, generated into both packages, so it EQUALS the
+ * zone backend/src/utils/screeningPeriods.js buckets in rather than merely
+ * being checked against it afterwards. Re-exported at the top of this file.
  */
-export const INSTITUTION_TZ = 'Asia/Kuala_Lumpur';
 
 /** A screening's assessed-at, to the minute — two screenings can share a day. */
 export const fmtScreeningDate = (d: string | null | undefined): string => (d

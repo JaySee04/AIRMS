@@ -378,7 +378,9 @@ async function resolveCohortStats(athlete, opts = {}) {
 // codebase keeps finding, and the printed report is the copy that gets filed.
 //
 // Measured 2026-09-02: 55 of 56 scored athletes fall under it.
-const SMALL_COHORT = 10;
+//
+// One source now: shared/facts.js, generated into both packages.
+const { SMALL_COHORT } = require('../shared/facts');
 
 module.exports = {
   COMPONENTS, SHOWN_RISK_KEYS, SMALL_COHORT,

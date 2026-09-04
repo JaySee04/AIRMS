@@ -18,7 +18,7 @@
 
 const { orientedComponents, COMPONENTS, SHOWN_RISK_KEYS } = require('./cohorts');
 
-const BANDS = ['green', 'amber', 'red'];
+const { BANDS } = require('../shared/facts');
 
 const num = (v) => (v === null || v === undefined || v === '' || Number.isNaN(Number(v)) ? null : Number(v));
 

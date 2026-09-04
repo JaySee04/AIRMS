@@ -628,6 +628,49 @@ before any filter is read. Found only by comparing the two environments — whic
 is now worth doing after any change to request handling, because a guard that
 holds where it is tested and not where it runs is worse than no guard at all.
 
+### 3i. A pin can only cover the drift already found (2026-09-04)
+
+Sub-pattern **A** (two definitions of one thing), and the clearest evidence yet
+that the way this project had been fixing it does not scale.
+
+The band vocabulary had been unified three times, each time after somebody found
+a divergence, each time with a hand-written pin over the files then known to
+carry a copy: `BAND_LABEL` with no green key and two call sites saying "Safe"
+(§33); the frontend's six private maps and the red band spelled two ways (§19);
+`SMALL_COHORT` written out three times, one under a comment claiming it was read
+from elsewhere (§49).
+
+Moving the vocabulary to a single generated source (§53) meant asking a
+different question — *is this name re-typed in a file that has never heard of
+the shared source?* — and asking it of the whole codebase rather than of the
+files a previous investigation had visited. It immediately named
+`ScreeningHistory.tsx`, which held a **fourth** band map rendering the bands as
+`Green` / `Amber` / `Red`, plus a private `BAND_BADGE`.
+
+Nothing was going to find that by pinning. Every pin is written after a drift is
+discovered, so it can only ever cover the drift that was discovered. Three
+rounds of them had each been correct and each been too narrow, and the file that
+was wrong was wrong *consistently within itself*, so no test disagreed with it.
+
+The wrongness was also the exact one §33 exists to prevent: a bare colour word
+says nothing clinical, and "Green" on an athlete's own screening history reads
+as *you are fine* — the reassurance a screening test cannot give, on the surface
+where a false reassurance costs most.
+
+**The guard.** `crossPackage.test.js` now enumerates the shared names
+automatically and flags a literal declaration of any of them in a file that does
+not import the shared source. Deriving is allowed and there are real examples
+(`CohortFilters` prepends its filter-only "All ages" entry); re-typing is not.
+`npm run e2e` additionally asserts in the browser that no dashboard names a band
+by colour alone, because the vocabulary is chosen at render time and a component
+reading the right constant and rendering the wrong field would satisfy any
+source-level check.
+
+**The rule.** *When you find a duplicated definition, do not pin the copies you
+found — remove the ability to make a copy, then ask what else the new question
+catches.* The pin tells you about yesterday's bug. The question tells you about
+the ones nobody has looked for.
+
 ### 3c. Three things that cannot be promised
 
 1. **Absence cannot be proved.** Every sweep so far found something. That is

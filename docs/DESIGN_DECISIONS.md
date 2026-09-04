@@ -3749,3 +3749,165 @@ newline before the closing bracket, so every single-line literal like
 `const GENDERS = ['Male', 'Female'];` returned a fragment that failed to parse. A
 reader that quietly returns the wrong span is precisely the defect this file
 exists to catch, so it is now bracket-counted rather than regex-matched.
+
+---
+
+## 53. One source for the shared facts, generated rather than imported (2026-09-04)
+
+JC asked for a real shared types package. I argued for deferring it until after
+the demo; he reaffirmed, so it was built. He was right to, and the reason is in
+§53.4 — it found a live defect on its first run that four rounds of hand-written
+pinning had walked past.
+
+### 53.1 Why not a workspace, which is the textbook answer
+
+The obvious implementation is an npm workspace at the repository root that both
+packages import. It cannot be used here, and the reason is deployment rather
+than taste.
+
+Vercel builds `airms-api` with Root Directory `backend` and `airms-web` with
+Root Directory `frontend`. Each build sees only its own subtree. A package at
+the repository root is in **neither build context**: it would resolve locally,
+pass every test on this machine, and fail on deploy — taking the live instance
+down in the week the stakeholder demo runs on it.
+
+That is not hypothetical. `DEPLOY.md` records four platform faults that all
+present as the same opaque `FUNCTION_INVOCATION_FAILED`, and one of them —
+`mysql2` traced out of the bundle — is exactly this shape: a dependency plainly
+present in the repository and absent from what actually ran.
+
+So the constraint is fixed and the design has to fit it: **the two packages must
+stay self-contained.**
+
+### 53.2 What was built
+
+`shared/facts.js` at the repository root is the single source. `npm run
+sync:shared` generates two committed files from it:
+
+    shared/facts.js  --->  backend/src/shared/facts.js       (CommonJS)
+                     \-->  frontend/src/lib/shared/facts.ts  (TypeScript, typed)
+
+Each package imports its own copy. Nothing at build or run time reaches outside
+its Root Directory, so the deployment is untouched.
+
+**Not yet confirmed against the hosted instance at the time of writing** — this
+had not been pushed. Every local check passes (both suites, `tsc`, `next lint`,
+`npm run audit:access`, `npm run e2e`), and the whole design exists to protect a
+deploy, so the claim that the deploy is safe is the one claim here that a local
+green suite cannot establish. Push, then open the hosted web and API before
+treating this section as settled.
+
+Twelve facts moved in: `INSTITUTION_TZ`, `BANDS`, `BAND_RANK`, `BAND_LABEL`,
+`GENDERS`, `PROGRAMMES`, `AGE_GROUPS`, `GRAINS`, `RISK_AXIS_MAX`,
+`EXCLUDED_RISK_KEYS`, `RISK_INDICATORS` and `SMALL_COHORT`.
+
+`BAND_RANK` is **derived** from the order of `BANDS` rather than restated. It is
+the one value here that could be written backwards and still look right, and a
+hand-written rank map is how "worse than" silently inverts.
+
+### 53.3 What deliberately did NOT move
+
+Facts, not presentation. The indicator list is a fact — its keys, their order,
+their body region, HoloMotion's own printed wording, and which key is excluded.
+The wording each package puts on its own screens is not: the backend labels an
+indicator `Joint Pain` and the frontend labels it `Joint pain`, and the frontend
+additionally needs a terser `axisLabel` for a chart axis. Those differ on
+purpose, and unifying them would be erasing a difference rather than removing a
+duplication.
+
+So each package composes the shared list with its own wording, and **throws at
+require time if a shared indicator has no local label**. An indicator added to
+`shared/facts.js` without a label would otherwise render as `undefined` on a
+clinical report and in an email subject line. A dead process is the correct
+outcome; the error names the key and the file to fix.
+
+`AGE_GROUPS` shows the same line drawn the other way. The shared list holds the
+four age BANDS the report prints; `CohortFilters` prepends its own `All ages`
+entry, because that is a filter option and not a band.
+
+### 53.4 What it found
+
+The guard that replaced the old literal comparisons asks a different question:
+*is one of these names re-typed in a file that has never heard of the shared
+source?* On its first run it named `ScreeningHistory.tsx`, which carried a
+**fourth** band vocabulary — green as `Green`, amber as `Amber`, red as `Red` —
+and a private `BAND_BADGE` beside it.
+
+That is §33 walking back in through a side door. A bare colour word says nothing
+clinical, and "Green" on an athlete's screening history reads as *you are fine*,
+which is precisely the reassurance a screening test cannot give. Every unit test
+passed over it, because the wording was internally consistent within that one
+file. Four previous rounds of hand-written pins had not found it either — each
+pin was written after a drift was discovered, and could only ever cover the
+drift that had already been discovered.
+
+It now renders `BAND_SHORT` with `BAND_LABEL` as the accessible name, and
+`npm run e2e` asserts in the browser that no dashboard names a band by colour
+alone. That check was confirmed by restoring the colour words and watching it
+fail — on `/athlete/dashboard` specifically, which is the only route in the
+check that mounts `ScreeningHistory` unconditionally.
+
+### 53.5 The hazard this trades for, and what covers it
+
+Generating into committed files buys deployment safety at the cost of exactly
+one new failure mode: **somebody edits `shared/facts.js` and forgets to run
+`npm run sync:shared`**, so the packages quietly disagree — which is the whole
+class of defect the change was made to remove.
+
+Both packages therefore regenerate in memory and fail if what is committed
+disagrees, and **each checks BOTH files**, because a developer working on the
+frontend runs the frontend suite and a stale copy in either package is the same
+bug. Editing a generated file by hand fails the same way.
+
+The generated values are also checked against the SOURCE — a renderer that
+dropped an escape would produce a file that is perfectly in sync and carries the
+wrong values — and the facts are checked against their own invariants: age bands
+with no gap and no overlap, no duplicate indicator keys, LDH absent from the
+shown list, and every string restricted to characters pdfkit can actually print
+(§30f: an en-dash typed into a label measures zero width and prints as mojibake
+in three documents, silently).
+
+Thirteen mutations were run and all thirteen were caught: source edited without
+syncing, a generated file hand-edited, only one package synced, a private
+literal returning to `overallIndicator.js`, the colour words returning to
+`ScreeningHistory.tsx`, a missing label in either package, an en-dash in a
+label, a gap in the age bands, LDH added to the shown indicators, and a new
+shared constant appearing in both packages unaccounted for.
+
+Two of those thirteen initially reported as misses. They were not: the module
+refuses to load, so the suite correctly never runs, and the harness's "did the
+suite run" check — added earlier precisely so a parse failure could not count as
+a catch — produced a false negative in the opposite direction. Those two cases
+now assert the diagnostic MESSAGE instead, so a plain syntax error in the same
+file still cannot pass.
+
+### 53.6 The schema reads the same lists
+
+The strongest version of this is that the database columns are now defined from
+it: `Athlete.gender`, `Athlete.program` and both `Screening` band columns take
+their enum values from `shared/facts.js`, and the import validator checks
+against the same arrays it will insert into. A filter offering a value the
+column rejects returns nothing and looks like an empty cohort — loud at the
+bottom of the stack, silent at the top, which is this project's signature shape.
+
+### 53.7 What `crossPackage.test.js` is for now
+
+The per-fact comparisons it used to make would now be asserting that a file
+equals itself, so they are gone. What survives is the half that was always the
+valuable one: it enumerates every SCREAMING_CASE name declared in both packages
+and demands an answer for each — generated from the single source, pinned in a
+named test, or explained as a collision. The recurring problem was never a
+missing assertion. It was that nobody noticed a new shared fact had appeared.
+
+`BAND_LABEL` is the one live collision, and it is recorded as one: the shared
+`BAND_LABEL` is the green/amber/red clinical wording, while
+`lib/screeningAlerts.ts` exports its own for the ok/watch/high risk-strip bands,
+which is a different axis entirely.
+
+### 53.8 What this does NOT solve
+
+The facts agree by construction; the LOGIC that reads them still does not. Both
+packages compute a band, and nothing here makes those two computations the same
+— only the vocabulary they express the answer in. That is the right boundary for
+a generator (values are trivially portable, behaviour is not), but it should be
+stated rather than left for somebody to assume.

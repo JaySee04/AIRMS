@@ -51,7 +51,9 @@ const bandLabel = (b) => BAND_LABEL[b] || '\u2014';
 // Medium band so ISN can act early. AIRMS never says "High": the report reserves
 // that for 56–100, far above anything the instrument produces (ground-truth
 // reports top out at 27).
-const RISK_AXIS_MAX = 40; // display axis, matches the dashboard strips
+// Display axis, and it MUST match the dashboard strips — same source, so it
+// does: shared/facts.js, generated into both packages.
+const { RISK_AXIS_MAX } = require('../shared/facts');
 // Zone tints are the light-theme --risk-*-bg, what the dashboard's strip paints,
 // so printed and on-screen strips are the same picture. `color` fills marks;
 // `onLight` is the same meaning as text on white paper, amber darkened.

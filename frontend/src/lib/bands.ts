@@ -17,18 +17,18 @@
 // status tokens — never reuse them as chart series hues (see --series-* in
 // globals.css for why).
 
-export type Band = 'green' | 'amber' | 'red';
+// The vocabulary itself, its ORDER, its ranking and the clinical wording come
+// from shared/facts.js at the repository root, generated into both packages.
+// "Matches the backend exactly" is no longer a claim a test has to check after
+// the fact — it is the same source.
+//
+// GREEN IS NOT "SAFE" — see the note there and docs/DESIGN_DECISIONS.md §33.
+// The label describes the finding, not the athlete.
+export type { Band } from './shared/facts';
+export { BANDS, BAND_LABEL, BAND_RANK } from './shared/facts';
 
-export const BANDS: Band[] = ['green', 'amber', 'red'];
-
-/** Full clinical wording — matches the backend's BAND_LABEL exactly. */
-// GREEN IS NOT "SAFE" — see the note in backend/src/utils/bands.js and
-// docs/DESIGN_DECISIONS.md §33. The label describes the finding, not the athlete.
-export const BAND_LABEL: Record<Band, string> = {
-  green: 'No indicators flagged',
-  amber: 'Needs attention',
-  red: 'Immediate assessment',
-};
+import type { Band } from './shared/facts';
+import { BANDS, BAND_LABEL } from './shared/facts';
 
 /** Compact wording for legends, chips and narrow table cells. */
 export const BAND_SHORT: Record<Band, string> = {
@@ -82,10 +82,7 @@ export const BAND_BADGE: Record<Band, string> = {
   red: 'badge-high',
 };
 
-/** Ordering for "worse than" comparisons. Higher = worse. Mirrors BAND_RANK. */
-export const BAND_RANK: Record<Band, number> = { green: 0, amber: 1, red: 2 };
-
-export const isBand = (v: unknown): v is Band => v === 'green' || v === 'amber' || v === 'red';
+export const isBand = (v: unknown): v is Band => BANDS.includes(v as Band);
 
 /** Colour for a possibly-absent band, falling back to muted rather than a status hue. */
 export const bandColor = (b: unknown): string => (isBand(b) ? BAND_COLOR[b] : 'var(--text-muted)');

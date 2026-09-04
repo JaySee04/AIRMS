@@ -25,7 +25,7 @@ const { PERIOD_SCORES } = require('./periodScores');
 const { reliability, consecutivePairs } = require('./reliability');
 
 const { BAND_RANK, effectiveBand } = require('./bands');
-const GRAINS = ['month', 'quarter', 'year'];
+const { GRAINS, INSTITUTION_TZ } = require('../shared/facts');
 // One step finer, for the composition breakdown a coarse view falls back on.
 const FINER = { year: 'quarter', quarter: 'month', month: null };
 
@@ -53,9 +53,9 @@ const num = (v) => (v === null || v === undefined || v === '' || Number.isNaN(Nu
 // all sit at 11:00 UTC (19:00 MYT). It is a correctness fix for data not yet
 // collected, not a restatement of the numbers already quoted.
 //
-// frontend/src/lib/periods.ts pins the same zone; periods.test.ts holds them
-// together, there being no shared types package.
-const INSTITUTION_TZ = 'Asia/Kuala_Lumpur';
+// Both packages now read the zone from shared/facts.js, generated into each, so
+// they agree by construction rather than by a test noticing afterwards. It is
+// imported at the top of this file with GRAINS.
 
 // Calendar parts of an instant AS SEEN in the institution's timezone.
 const zonedParts = (d) => {

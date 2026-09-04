@@ -24,7 +24,14 @@ export interface AthleteRisks {
 
 // Body regions used for sport-importance mapping. The 8 indicators collapse
 // into these — two spine indicators (scoliosis, spinal disc) share "Spine".
-export type BodyRegion = 'Neck' | 'Shoulder' | 'Spine' | 'Lumbar/Pelvis' | 'Joint' | 'Knee' | 'Ankle';
+// Derived from the shared indicator list, so a region cannot exist that no
+// indicator maps to, nor an indicator whose region is not a valid one.
+export type { BodyRegion } from './shared/facts';
+
+import type { BodyRegion } from './shared/facts';
+import { RISK_INDICATORS as SHARED_INDICATORS, RISK_AXIS_MAX } from './shared/facts';
+
+export { RISK_AXIS_MAX };
 
 // Each stored indicator → its region + a human label. Exported so screening
 // visualisations share the same region mapping the alert layer uses.
@@ -33,23 +40,30 @@ export type BodyRegion = 'Neck' | 'Shoulder' | 'Spine' | 'Lumbar/Pelvis' | 'Join
 // sport-critical alerts per Dr Thung — ISN's facilities don't support that
 // assessment, so AIRMS must never raise a finding against it. The scoring
 // counterpart is SHOWN_RISK_KEYS in backend/src/utils/cohorts.js.
-// Each entry now also carries the two OTHER wordings this list was being
-// copied out for: `axisLabel` (terser Title Case, for a chart axis) and
-// `reportLabel` (HoloMotion's own printed wording, so a clinician can check a
-// line against the PDF in their hand). They are not synonyms to unify — but
-// they are not reasons to re-declare the KEYS either, which is what they had
-// become. Mirrors backend/src/utils/riskIndicators.js.
+// The KEYS, their ORDER, their region and HoloMotion's printed wording come
+// from shared/facts.js and are generated into both packages. The two wordings
+// below are this package's own and stay here: `label` is the sentence-case UI
+// form ("Joint pain" — the backend says "Joint Pain", deliberately) and
+// `axisLabel` is the terser Title Case a chart axis needs. They are not
+// synonyms to unify — but they were never a reason to re-declare the KEYS,
+// which is what this list had become.
+const UI: Record<string, { label: string; axisLabel: string }> = {
+  neckInjuryRisk: { label: 'Neck', axisLabel: 'Neck' },
+  shoulderInjuryRisk: { label: 'Shoulder', axisLabel: 'Shoulder' },
+  scoliosis: { label: 'Scoliosis', axisLabel: 'Scoliosis' },
+  lumbarPelvisInjury: { label: 'Lumbar / pelvis', axisLabel: 'Lumbar/Pelvis' },
+  jointPain: { label: 'Joint pain', axisLabel: 'Joint Pain' },
+  kneeInjuryRisk: { label: 'Knee', axisLabel: 'Knee' },
+  ankleInjuryRisk: { label: 'Ankle', axisLabel: 'Ankle' },
+};
+
 export const INDICATORS: Array<{
   key: keyof AthleteRisks; region: BodyRegion; label: string; axisLabel: string; reportLabel: string;
-}> = [
-  { key: 'neckInjuryRisk', region: 'Neck', label: 'Neck', axisLabel: 'Neck', reportLabel: 'Neck Pain' },
-  { key: 'shoulderInjuryRisk', region: 'Shoulder', label: 'Shoulder', axisLabel: 'Shoulder', reportLabel: 'Shoulder Pain' },
-  { key: 'scoliosis', region: 'Spine', label: 'Scoliosis', axisLabel: 'Scoliosis', reportLabel: 'Scoliosis' },
-  { key: 'lumbarPelvisInjury', region: 'Lumbar/Pelvis', label: 'Lumbar / pelvis', axisLabel: 'Lumbar/Pelvis', reportLabel: 'Anterior Pelvic Tilt' },
-  { key: 'jointPain', region: 'Joint', label: 'Joint pain', axisLabel: 'Joint Pain', reportLabel: 'Joint Pain' },
-  { key: 'kneeInjuryRisk', region: 'Knee', label: 'Knee', axisLabel: 'Knee', reportLabel: 'Ligament Strain' },
-  { key: 'ankleInjuryRisk', region: 'Ankle', label: 'Ankle', axisLabel: 'Ankle', reportLabel: 'Ankle Sprain' },
-];
+}> = SHARED_INDICATORS.map(({ key, region, reportLabel }) => {
+  const ui = UI[key];
+  if (!ui) throw new Error(`screeningAlerts: no UI wording for "${key}" — add one to UI in this file`);
+  return { key: key as keyof AthleteRisks, region, label: ui.label, axisLabel: ui.axisLabel, reportLabel };
+});
 
 // Radar-axis view of the shown indicators. This used to re-list all seven keys
 // under a comment asserting that "INDICATORS remains the one place deciding
@@ -97,9 +111,11 @@ export function riskRadarSeries(risks: AthleteRisks): number[] {
 export const WATCH_THRESHOLD = 15;
 export const HIGH_THRESHOLD = 25;
 
-// Display axis for the threshold strips + PDF gauges. Real readings sit well
-// inside this; the report's own 56–100 High band is off-axis by design.
-export const RISK_AXIS_MAX = 40;
+// RISK_AXIS_MAX — the display axis for the threshold strips + PDF gauges — is
+// re-exported at the top of this file from shared/facts.js, so the printed
+// report and the screen cannot scale the same score to two lengths. Real
+// readings sit well inside it; the report's own 56–100 High band is off-axis
+// by design.
 
 // The single label set for the three bands. `high` is the internal key kept for
 // back-compat; its user-facing word is "Elevated" (see the note above).
