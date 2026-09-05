@@ -27,19 +27,9 @@
 //
 // Deferred, the failure is contained: everything else serves normally and only
 // an import reports the problem, with a message that names it.
-function loadCanvas() {
-  try {
-    return require('canvas');
-  } catch (err) {
-    const e = new Error(
-      'PDF rendering is unavailable on this host: the native canvas library '
-      + `failed to load (${err.message}). Screening import needs it; the rest of `
-      + 'the system does not.',
-    );
-    e.cause = err;
-    throw e;
-  }
-}
+// One loader, in its own module so this file and redactName.js can both use it
+// without a require cycle — pdfRender already requires redactName.
+const { loadCanvas } = require('./canvasLoader');
 const { redactNameOnCanvas } = require('./redactName');
 
 // How many leading pages to send to the model. The data section spans pages

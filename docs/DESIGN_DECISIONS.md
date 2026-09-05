@@ -4174,3 +4174,89 @@ That last test was itself wrong first: it asserted the enum values appeared as
 pipes inside a markdown table cell must be escaped or they split the row. It now
 asserts the escaped form — matching the bare one would have passed against a
 broken table and failed against a good one.
+
+---
+
+## 57. What escaped the last sweep, and two mistakes made fixing it (2026-09-04)
+
+The §54/§56 sweeps searched for `num` and `median` **by name**. This one
+enumerated every function and const defined in more than one non-test file, and
+asked of each whether it is one concept or several. Fourteen names; most were
+the deliberate per-package pairs. Three were not.
+
+### 57.1 `numOrNull` — the same defect, spelled differently
+
+`indicatorPayload.js` and `BodyMap.tsx` each carried a `numOrNull`:
+
+| input | `indicatorPayload.js` | `BodyMap.tsx` | `toNum` |
+|---|---|---|---|
+| `''` | **`0`** | **`0`** | `null` |
+| `'abc'` | **`NaN`** | `null` | `null` |
+| `'Infinity'` | **`Infinity`** | **`Infinity`** | `null` |
+
+This is §54 exactly, and §54 did not find it, because §54 searched for the name
+`num`. Renaming a helper is all it takes to escape a name-based sweep — which is
+why the guard for these asserts on **behaviour** (`toNum('')` is null) and on
+the absence of the old function BODY, not on the identifier.
+
+It matters where it sat. `indicatorPayload.js` shapes `totalScore` and
+`cohortZ` — the two figures every dashboard hero leads with — so an unread total
+score would have rendered as **0** on the hero, and a non-numeric one as `NaN`,
+which `JSON.stringify` turns into `null` on the way out so the frontend cannot
+tell what happened either. `BodyMap` paints regions, where a fabricated 0 paints
+one end of the scale as though it had been measured.
+
+### 57.2 `mean` — three copies of my own leaving-behind
+
+§56 added `mean` to `utils/num.js` and did not remove the three local copies in
+`cohortFocus.js`, `screeningPeriods.js` and `subitemAggregate.js`, which then
+**shadowed** it. Each was `(vals.length ? +(…).toFixed(1) : null)` — "the mean,
+to one decimal".
+
+Split into `round(mean(vals), 1)`: one mean, which drops unreadable values
+rather than counting them as zero, and the presentation choice visible at the
+call site.
+
+### 57.3 The two mistakes, which are the point of this section
+
+**`round` was very nearly the wrong function.** The obvious body is
+`Math.round(n * 10 ** dp) / (10 ** dp)`. That is *not* `toFixed(dp)`: 77.85 is
+held as 77.8499…, so `toFixed(1)` gives 77.8 and multiplying first gives 77.9.
+Brute-forced over 300,000 random sets, they disagreed on **1.1%** of them.
+
+Every cohort average, period average and subitem cell on every dashboard and
+printed report is rounded here. Shipping that would have moved published numbers
+across the whole system with nothing to attribute the change to — the §45
+class of defect, introduced by a refactor whose entire purpose was to change
+nothing. `round` now uses `toFixed`, and a test runs 20,000 random values
+through both to pin it.
+
+**Unifying `loadCanvas` created a require cycle.** `pdfRender.js` and
+`redactName.js` both loaded the native canvas binding, and `pdfRender` already
+requires `redactName` — so pointing `redactName` at `pdfRender` made a cycle,
+under which the second module receives a half-built exports object,
+`loadCanvas` is `undefined`, and redaction fails with *"loadCanvas is not a
+function"*, which says nothing about canvas. Caught by a Node warning on the
+first `require`, not by any test.
+
+It now lives in `utils/canvasLoader.js`, its own module for the same reason
+`periodScores.js` is one. The shared message names which half of the system
+stops working (screening import) and which does not, and is marked `expose` so
+`httpError` keeps the sentence on a 500.
+
+### 57.4 Proving the refactor changed nothing
+
+An A/B against the hosted instance — still running the old code — showed the
+focus breakdown identical but the period payloads **differing**. That looked
+like a regression for about a minute. It was not: the counts differed
+(`athleteBands` headcounts, which no arithmetic here touches), the totals
+matched at 74 tests and 62 athletes, and the two databases were seeded at
+different times, so screenings fall in different months. **The A/B was
+contaminated by the comparison, not by the change.**
+
+The clean test is old code versus new code against the **same** database, run
+in-process with no server: all three period grains, the focus breakdown and the
+subitem aggregates, 27,945 bytes of JSON, **byte-identical**.
+
+Six mutations, all caught — including the two mistakes above, so both are now
+things the suite refuses rather than things somebody has to remember.

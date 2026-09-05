@@ -18,7 +18,11 @@
 
 // See pdfRender.js: the native canvas binary is loaded on demand so that a
 // host unable to load it still serves everything except PDF import.
-const loadCanvas = () => require('canvas');
+// One loader, shared with pdfRender.js. A bare require('canvas') here failed
+// with a raw MODULE_NOT_FOUND on the same missing dependency; requiring it
+// from pdfRender instead would be a CYCLE, since pdfRender requires this
+// file. Hence its own module. See utils/canvasLoader.js.
+const { loadCanvas } = require('./canvasLoader');
 
 // The name sits in the top-left "Information" block; the score gauges are
 // top-right (from ~0.6·W). OCR only this region — faster, and it keeps the gauge

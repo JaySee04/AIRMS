@@ -15,6 +15,7 @@ import {
   TIER_LABEL, TIER_ORDER, TIER_RANGE, TIER_RANK, tierOf, type TierState,
 } from '@/lib/holomotionTiers';
 import HoverTip, { useHoverTip } from '@/components/ui/HoverTip';
+import { toNum } from '@/lib/num';
 
 export type MuscleSide = 'L' | 'R' | 'B';
 export interface MuscleEntry {
@@ -137,7 +138,9 @@ function aggregateBySlug(
   return result;
 }
 
-const numOrNull = (v: unknown): number | null => (v === null || v === undefined || Number.isNaN(Number(v)) ? null : Number(v));
+// toNum, not a local copy: this one turned '' into 0, which paints a region
+// at one end of the scale as though it had been measured. See lib/num.ts.
+const numOrNull = toNum;
 
 // Region-side tier = the WORSE (lower-scoring) of that region's ROM and
 // Stability reading on that side — mirrors how a single figure region can

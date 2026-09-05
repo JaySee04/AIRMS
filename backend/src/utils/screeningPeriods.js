@@ -29,7 +29,7 @@ const { GRAINS, INSTITUTION_TZ } = require('../shared/facts');
 // One step finer, for the composition breakdown a coarse view falls back on.
 const FINER = { year: 'quarter', quarter: 'month', month: null };
 
-const { toNum: num, median } = require('./num');
+const { toNum: num, median, mean: rawMean, round } = require('./num');
 
 // Calendar bucket for a date. `key` sorts lexicographically inside a grain, so
 // it doubles as the ordering value — no separate sort field needed.
@@ -77,7 +77,8 @@ function periodKeyOf(date, grain) {
   return { key: `${y}-${String(m + 1).padStart(2, '0')}`, label: `${MONTHS[m]} ${y}` };
 }
 
-const mean = (vals) => (vals.length ? +(vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1) : null);
+// One mean (utils/num.js), rounded here for display. See DD 54/56.
+const mean = (vals) => round(rawMean(vals), 1);
 
 // median comes from utils/num.js — see there for why it is EXACT and why the
 // two call sites that want whole days round it themselves.

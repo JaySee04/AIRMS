@@ -47,8 +47,9 @@ function ageGroupOf(age) {
   return g ? g.label : null;
 }
 
-const { toNum: num } = require('./num');
-const mean = (vals) => (vals.length ? +(vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1) : null);
+const { toNum: num, mean: rawMean, round } = require('./num');
+// One mean (utils/num.js), rounded here for display. See DD 54/56.
+const mean = (vals) => round(rawMean(vals), 1);
 
 // Tally one group of athletes on one indicator.
 function tally(rows, key) {

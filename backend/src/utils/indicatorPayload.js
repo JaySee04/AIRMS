@@ -24,7 +24,10 @@ const INDICATOR_ATTRS = [
 ];
 
 const arr = (v) => (Array.isArray(v) ? v : []);
-const numOrNull = (v) => (v === null || v === undefined ? null : Number(v));
+// Was a private coercion that turned '' into 0 and a non-numeric string into
+// NaN — on totalScore and cohortZ, the two numbers every dashboard hero leads
+// with. The num() sweep (DD 54) missed it because it was named differently.
+const { toNum: numOrNull } = require('./num');
 
 // Shape one Screening row into the indicator payload.
 // `dueDays` is the institution's rescreen interval (settings.rescreen_due_days).
