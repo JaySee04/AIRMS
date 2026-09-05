@@ -97,6 +97,25 @@ cd frontend; npm run e2e   # END-TO-END smoke: a real Chrome against the running
                            # body map + charts actually drawing geometry. Uses puppeteer-core
                            # with the installed Chrome, so nothing is downloaded.
                            # See docs/SILENT_FAILURES.md 3f.
+                           #
+                           # AGAINST THE HOSTED INSTANCE (verified 2026-09-06, 63/63):
+                           #   E2E_WEB=https://airms-web.vercel.app `
+                           #   E2E_API=https://airms-api.vercel.app/api `
+                           #   E2E_SETTLE=5000 npm run e2e
+                           # E2E_SETTLE is REQUIRED there and defaults to 1200 for local.
+                           # visit() waits networkidle2 plus a settle, because the panels
+                           # fetch their own data once mounted - the network goes quiet
+                           # BEFORE the page has content. 1200ms suits a local nodemon and
+                           # is too short for a serverless API with a cold start: the first
+                           # hosted run reported 7 failures, of which the giveaway was
+                           # /athlete/dashboard measuring 125 chars in one section while a
+                           # LATER section drew 155 body-map regions on that same route.
+                           # Both cannot be true of the page, so the short read was the
+                           # harness. At 5000ms the hosted content lengths match local
+                           # EXACTLY (coach 5172, athlete 3333, history 3000); only
+                           # /admin/audit differs, correctly, since the two databases hold
+                           # different numbers of audit rows. Do NOT just raise the local
+                           # default - it would add minutes to the run that gates a commit.
 
 cd frontend; npm run build
 

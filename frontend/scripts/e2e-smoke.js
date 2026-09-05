@@ -28,6 +28,9 @@ const fs = require('fs');
 const WEB = process.env.E2E_WEB || 'http://localhost:3000';
 const API = process.env.E2E_API || 'http://localhost:5000/api';
 const PW = process.env.E2E_PW || 'airms2026';
+// How long to wait after networkidle2 before reading the page. See visit().
+// Local default; against the hosted instance use E2E_SETTLE=4000 or more.
+const SETTLE_MS = Number(process.env.E2E_SETTLE) || 1200;
 
 const CHROME_CANDIDATES = [
   process.env.CHROME_PATH,
@@ -85,7 +88,20 @@ async function visit(browser, route, session) {
     await page.evaluate(() => localStorage.clear());
   }
   await page.goto(WEB + route, { waitUntil: 'networkidle2', timeout: 60000 }).catch(() => {});
-  await new Promise((r) => { setTimeout(r, 1200); });
+  // Settle time AFTER networkidle2, because the panels fetch their own data once
+  // mounted — so "the network went quiet" is reached before the page has its
+  // content, and reading innerText too early sees the shell alone.
+  //
+  // 1200ms is right for localhost and WRONG for the hosted instance, which was
+  // found by running this against it (2026-09-06): sections that render the
+  // dashboards reported 125 and 186 characters, while a LATER section opened the
+  // same athlete dashboard and drew 155 body-map regions. Both cannot be true of
+  // the page, so the short read was the harness, not the product. A serverless
+  // API with a cold start does not answer in the time a local nodemon does.
+  //
+  // Configurable rather than simply raised: paying 4s a page against localhost
+  // would add minutes to the run that gates a commit, for nothing.
+  await new Promise((r) => { setTimeout(r, SETTLE_MS); });
   clearInterval(watch);
 
   const url = new URL(page.url()).pathname;

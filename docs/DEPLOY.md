@@ -387,3 +387,42 @@ with a separate GET rather than trusting the POST's own report, and remove it.
 `backend/tests/httpHardening.test.js` carries the checks that kept the last one
 honest — admin-only on every verb, no SQL in the route, mounted and unmounted
 together, and a hard removal deadline.
+
+## Checking the hosted instance with the browser suite (2026-09-06)
+
+`npm run e2e` drives a real Chrome and takes its targets from the environment, so
+it can be pointed at the deployment rather than at localhost:
+
+```powershell
+cd frontend
+$env:E2E_WEB="https://airms-web.vercel.app"
+$env:E2E_API="https://airms-api.vercel.app/api"
+$env:E2E_SETTLE="5000"
+npm run e2e
+```
+
+**`E2E_SETTLE` is not optional here.** `visit()` waits for `networkidle2` and
+then a settle period before reading the page, because the panels fetch their own
+data once mounted — the network goes quiet *before* the page has content. The
+1200 ms default suits a local `nodemon`; a serverless API with a cold start needs
+several times that.
+
+Without it the run reports **7 failures that are not defects**. The giveaway is a
+self-contradiction rather than anything about the product: `/athlete/dashboard`
+measured **125 characters** in the "renders real content" section while a *later*
+section drew **155 body-map regions** on that same route. Both cannot be true of
+the page, so the short read was the harness. Two more failures cascaded from a
+coach-detail page that had not finished opening.
+
+At `E2E_SETTLE=5000` the hosted run is **63/63**, and the content lengths match
+the local run exactly — coach dashboard 5172 characters, athlete dashboard 3333,
+athlete history 3000, body map 155/156 regions. The single legitimate difference
+is `/admin/audit` (6652 hosted against 13144 local), because the two databases
+hold different numbers of audit rows.
+
+**The run writes to the hosted audit trail.** Opening an athlete as coach or
+medical is a `GET /athletes/:id`, which records an `athlete.view` row by design —
+and `AuditLog` is append-only with no delete path anywhere. A hosted e2e run
+therefore leaves a permanent handful of view rows under the demo staff accounts.
+That is the accountability feature working, not a side effect to suppress, but
+know it before running one the day a stakeholder is due to read the Activity Log.
