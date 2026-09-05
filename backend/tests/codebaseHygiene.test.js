@@ -165,3 +165,59 @@ describe('H2 — an export with no caller is either dead or a guard nobody insta
     expect(orphans).toEqual([]);
   });
 });
+
+// ── numbers the docs quote about the code ───────────────────────────────────
+//
+// Five documents said the permission matrix came from "calling all 52 endpoints
+// as every role". The list in scripts/audit-access.js had 46 entries. Both
+// numbers were written by someone reading the other, and neither recomputed.
+//
+// This is the H7 pattern applied to a claim ABOUT the code rather than about the
+// data, and it is the cheaper half to fix: the code can check it. A figure a
+// panel may ask about should not rest on prose agreeing with a list nobody
+// re-counts.
+describe('the docs quote the real endpoint count', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const ROOT = path.join(__dirname, '..', '..');
+
+  const routeCount = () => {
+    const src = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'audit-access.js'), 'utf8');
+    const start = src.indexOf('const ROUTES = [');
+    expect(start).toBeGreaterThan(-1);
+    const end = src.indexOf('\n];', start);
+    expect(end).toBeGreaterThan(start);
+    return src.slice(start, end).split('\n').filter((l) => /^\s*\['/.test(l)).length;
+  };
+
+  const DOCS = [
+    'CLAUDE.md',
+    path.join('docs', 'PERMISSIONS.md'),
+    path.join('docs', 'DESIGN_DECISIONS.md'),
+    path.join('docs', 'SILENT_FAILURES.md'),
+  ];
+
+  it('audit-access.js still has a readable ROUTES list', () => {
+    // A floor, so a parser that stops matching cannot make the check below pass
+    // by comparing zero against zero.
+    expect(routeCount()).toBeGreaterThan(20);
+  });
+
+  it('no document claims a different number of audited endpoints', () => {
+    const n = routeCount();
+    const wrong = [];
+    for (const rel of DOCS) {
+      const file = path.join(ROOT, rel);
+      if (!fs.existsSync(file)) continue;
+      const src = fs.readFileSync(file, 'utf8');
+      // "calling all 46 endpoints" / "call all 46 endpoints" / "calling 46 endpoints"
+      for (const m of src.matchAll(/calling?(?:\s+all)?\s+(\d+)\s+endpoints/g)) {
+        if (Number(m[1]) !== n) wrong.push(`${rel} says ${m[1]} endpoints; audit-access.js drives ${n}`);
+      }
+    }
+    // If this fails, decide which is right FIRST. Adding a route to the audit is
+    // the usual answer; editing the prose to match a shrunken list is only right
+    // when the endpoint genuinely went away.
+    expect(wrong).toEqual([]);
+  });
+});

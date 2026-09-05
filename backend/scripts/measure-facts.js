@@ -24,20 +24,30 @@
 // scripts/verify-holomotion-extract.js.
 require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
 
-const { Athlete } = require('../src/models');
+const { Op } = require('sequelize');
+const {
+  Athlete, Screening, CohortThreshold, CohortNormVersion, AuditLog, User, MuscleFlag,
+} = require('../src/models');
 const { effectiveBand } = require('../src/utils/bands');
 const {
   latestScreeningsByAthlete, resolveCohortStats, SMALL_COHORT,
 } = require('../src/utils/cohorts');
 const { reliability } = require('../src/utils/reliability');
 const { getSettings } = require('../src/utils/settings');
-const { Screening } = require('../src/models');
 const { PERIOD_SCORES } = require('../src/utils/periodScores');
 // median and SMALL_COHORT come from the application, not from a second
 // implementation here: a measurement script that computes its own median or
 // carries its own threshold will eventually report a number the screens do
 // not, which is the exact drift this script exists to detect.
-const { median } = require('../src/utils/screeningPeriods');
+//
+// From utils/num, which is where the ONE median lives (DD 56). This line said
+// `screeningPeriods` until 2026-09-05 and had stopped working: the §56 sweep
+// moved `median` out and re-exported nothing, so the destructure quietly bound
+// `undefined` and the script died at the call with "median is not a function".
+// A dangling NAMED import is not a resolution error — the module resolves fine
+// — so neither `node --check` nor a require() smoke test would have caught it.
+// tests/scriptImports.test.js now checks the names, not just the paths.
+const { median } = require('../src/utils/num');
 
 
 (async () => {
@@ -107,6 +117,68 @@ const { median } = require('../src/utils/screeningPeriods');
   console.log('\nNORMS IN FORCE');
   console.log(`  pinned_norm_version_id          ${JSON.stringify(settings.pinned_norm_version_id)}`);
   console.log(`  rescreen_due_days               ${settings.rescreen_due_days}`);
+  // What the pin actually HOLDS. CLAUDE.md quoted "50 of 50 cohorts held" in the
+  // same sentence as "snapshots all 49" for two weeks: the 50 was a superseded
+  // version that a reseed had destroyed, and prose does not recompute. This is
+  // read-only evidence of the same property — the live table, the snapshot it
+  // was installed from, and how many rows have parked what the data WOULD say.
+  // Deliberately does NOT call recomputeCohorts(): that writes, and a
+  // measurement script must not change the thing it is measuring.
+  const pinnedId = settings.pinned_norm_version_id;
+  if (pinnedId) {
+    const v = await CohortNormVersion.findByPk(pinnedId);
+    let snapRows = null;
+    if (v) {
+      try {
+        const rawSnap = typeof v.snapshot === 'string' ? JSON.parse(v.snapshot) : v.snapshot;
+        snapRows = Array.isArray(rawSnap) ? rawSnap.length : null;
+      } catch (e) { snapRows = null; }
+    }
+    // `label`, not `name` — the column is `label` (models/CohortNormVersion.js).
+    console.log(`  version in force                ${v ? JSON.stringify(v.label) : '(MISSING - pinned id points at nothing)'}`);
+    console.log(`  cohorts in that snapshot        ${snapRows === null ? 'unreadable' : snapRows}`);
+  }
+  console.log(`  live cohort rows                ${await CohortThreshold.count()}`);
+  console.log(`  ...parking fresh_stats          ${await CohortThreshold.count({ where: { freshStats: { [Op.ne]: null } } })}   (so pinDrift has something to show)`);
+  console.log(`  ...added since the pin          ${await CohortThreshold.count({ where: { addedSincePin: true } })}   (created live so nobody is unscoreable)`);
+
+  // The rest of the viva dossier's table. These are here because they are
+  // precisely the rows that rotted: §2 said "11 hosted / 1 local" audit rows and
+  // "382 backend tests" long after both had moved — because the script that
+  // says "re-measure before quoting" covered only half of its own table.
+  console.log('\nSCALE  (the rest of the dossier table)');
+  console.log(`  screenings held                 ${await Screening.count()}`);
+  console.log(`  saved norm versions             ${await CohortNormVersion.count()}`);
+  console.log(`  users                           ${await User.count()}`);
+  console.log(`  muscle flags                    ${await MuscleFlag.count()}`);
+  console.log(`  audit rows                      ${await AuditLog.count()}   (a reseed clears these)`);
+
+  console.log('\nREPOSITORY');
+  const { execSync } = require('child_process');
+  const fs = require('fs');
+  const path = require('path');
+  let commits = 'unavailable';
+  try {
+    commits = execSync('git rev-list --count HEAD', { cwd: __dirname, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+  } catch (e) { /* not a git checkout */ }
+  console.log(`  commits on this branch          ${commits}`);
+  const walk = (d, re, acc = []) => {
+    for (const f of fs.readdirSync(d, { withFileTypes: true })) {
+      const full = path.join(d, f.name);
+      if (f.isDirectory()) walk(full, re, acc);
+      else if (re.test(f.name)) acc.push(full);
+    }
+    return acc;
+  };
+  const countSuites = (dir, re) => { try { return walk(dir, re).length; } catch (e) { return 'unavailable'; } };
+  console.log(`  backend test suites             ${countSuites(path.join(__dirname, '..', 'tests'), /\.test\.js$/)}`);
+  console.log(`  frontend test suites            ${countSuites(path.join(__dirname, '..', '..', 'frontend', 'src'), /\.test\.tsx?$/)}`);
+  // The per-test TOTALS are deliberately NOT computed here. Only a run knows how
+  // many cases a suite contains, and a plausible number obtained by counting
+  // `it(` would be exactly the kind of figure this script exists to stop anyone
+  // quoting. Declining beats inventing — the same rule as reliability.js.
+  console.log('  individual test counts          run `npx jest` in each package - not inferable from the files');
+
   console.log('\n' + '='.repeat(64));
   console.log('Update docs/ and CLAUDE.md from THIS output, not from an older line.');
   process.exit(0);

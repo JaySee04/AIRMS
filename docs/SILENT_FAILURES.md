@@ -711,6 +711,62 @@ Writing the table before believing the implementation is what caught it. A
 hand-checked "looks right" would not have — `[]` is not an input anybody thinks
 to try, which is precisely why it belongs in the table.
 
+### 3k. The import that resolves and still binds nothing (2026-09-05)
+
+A new sub-pattern, because it defeats every check this project already runs.
+
+```js
+// utils/num.js now owns median; screeningPeriods no longer re-exports it
+const { median } = require('../src/utils/screeningPeriods');
+```
+
+The module **resolves**. The destructure **succeeds**. `median` is `undefined`,
+and nothing says so until something calls it — `median is not a function`, which
+names neither the function that moved nor the file that lost it.
+
+Why the existing guards all miss it:
+
+| Check | Why it passes |
+|---|---|
+| `node --check` | syntax only — this is valid syntax |
+| a `require()` smoke test | the module loads fine |
+| the 565-test suite | nothing under `scripts/` is covered by any suite |
+| `npm run map` | it inventories routes and columns, not bindings |
+
+It is a **silent failure of the tooling rather than of the product**, which is a
+category this file had not recorded. The specific instance broke
+`npm run measure:facts` — the command that exists to stop stale numbers being
+quoted in the viva (H7). Nobody runs a measurement script except when they need a
+number, so the discovery moment is the worst possible one.
+
+**The guard:** `backend/tests/scriptImports.test.js` checks every
+`const { … } = require('./relative')` in `src/` and `scripts/` against the names
+the target actually exports. Two properties are deliberate:
+
+- **Static.** It reads both files as text and never `require()`s the target.
+  Several modules here build a Sequelize instance at import time and `seeder.js`
+  used to reseed the database on import — a test that executes arbitrary modules
+  to inspect them is a worse hazard than the one it detects.
+- **It counts what it checked.** Modules whose export shape is not statically
+  readable (a spread, a bare function) are skipped rather than guessed at, and
+  the number of pairs checked is asserted against a floor. Without that, a
+  parser that quietly stopped matching would report "no broken imports" and be
+  believed — the §56.3 failure, where the first route parser found 15 of 59
+  endpoints and rendered a plausible table.
+
+**The generalisation, which is the useful part:** a refactor that moves a
+definition is only as safe as the check that the *old* name is gone. Renaming a
+helper is enough to escape a name-based sweep (§57.1, `numOrNull`); moving one is
+enough to escape a resolution-based check. Both are found by asserting on
+**behaviour and bindings**, never on identifiers.
+
+**And the same shape has a documentation form**, found the same day: the viva
+dossier told its reader to re-measure before quoting, and the rows
+`measure:facts` covered stayed correct while the rows it did not cover drifted
+by up to 300×. *An instruction to re-verify only protects what the tool it points
+at actually verifies.* Every headline number now has a command behind it, or an
+explicit statement that only a run can answer it.
+
 ### 3c. Three things that cannot be promised
 
 1. **Absence cannot be proved.** Every sweep so far found something. That is
@@ -748,7 +804,7 @@ disclosure guards (each caught, failing 1–5 cases), and reintroducing
 Several findings here were *cascade* or *middleware-order* arguments, and this
 project has a poor record on those. The focus-ring defect was confirmed by
 focusing the element in Chrome and reading `getComputedStyle`, not by reasoning
-about specificity; the permission matrix was produced by calling 52 endpoints as
+about specificity; the permission matrix was produced by calling 46 endpoints as
 each role, not by reading `rbac()` calls.
 
 A note on the probes themselves: **more bugs were found in the probes than in the

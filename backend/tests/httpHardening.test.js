@@ -257,6 +257,22 @@ describe('the temporary migration endpoint', () => {
 
   const exists = fs.existsSync(routeFile);
 
+  // REMOVED 2026-09-04, once the hosted index was applied. The three checks
+  // below now early-return, which is the desired end state — but an early
+  // return is INVISIBLE in a green run, and a block of four quietly-skipping
+  // tests looks exactly like a block of four passing ones. So the end state is
+  // asserted here rather than merely reached: this is the test that fails if
+  // the endpoint ever comes back without someone deciding it should.
+  //
+  // The rest are kept, not deleted. They are dormant, and they re-arm the
+  // moment the file reappears: whoever adds it back inherits admin-only on
+  // every verb, the shared migration util instead of inline SQL, and a
+  // deadline. That is worth more than four fewer lines.
+  it('is gone — the endpoint was temporary and the migration is applied', () => {
+    expect({ routeFile: 'src/routes/migrate.js', present: exists })
+      .toEqual({ routeFile: 'src/routes/migrate.js', present: false });
+  });
+
   it('is gone, or has not yet outstayed its welcome', () => {
     if (!exists) return; // removed — which is the desired end state
     // If this fails: delete backend/src/routes/migrate.js, its two lines in

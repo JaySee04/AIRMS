@@ -1,6 +1,6 @@
 # Who can do what in AIRMS
 
-*Measured, not described. Every line below comes from calling all 52 endpoints as
+*Measured, not described. Every line below comes from calling all 46 endpoints as
 each non-administrator role against the running system (`cd backend; npm run
 audit:access`), re-run 2026-09-04. Where this disagrees with any other document,
 this one is right, because the other one was written and this one was executed.*

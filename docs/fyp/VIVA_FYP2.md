@@ -1,11 +1,11 @@
 # AIRMS FYP II — Viva Dossier
 
 > **What this is.** The defence pack for the system as it stands on
-> **2026-08-19**. `VIVA_SCRIPT.md` and `VIVA_ANSWERS.md` are FYP I artefacts,
+> **2026-09-05**. `VIVA_SCRIPT.md` and `VIVA_ANSWERS.md` are FYP I artefacts,
 > deliberately frozen and correctly banner-warned as historical; this file is
 > their FYP II successor, and it describes code that exists.
 >
-> **Every number in §2 was measured against the live database on 2026-08-19**,
+> **Every number in §2 was measured against the live database on 2026-09-05**,
 > not recalled from a document. Three figures quoted elsewhere in the docs were
 > already stale when this was written — which is exactly the failure this file
 > exists to prevent, so **re-measure before you walk in** (§2 carries the
@@ -45,9 +45,20 @@ clinician's time. See §3 Q1.
 
 ---
 
-## 2. Numbers, measured 2026-08-25
+## 2. Numbers, measured 2026-09-05
 
-Re-measure before the viva; these drift with every reseed. Last run **2026-08-25**, against BOTH databases: every roster, screening, band and cohort figure below is identical on the laptop and on the deployed instance, and unchanged from 2026-08-19. Two rows moved — the test counts, and the audit trail, which was reset by a reseed (see the note under the table).
+Re-measure before the viva; these drift with every reseed. Last run **2026-09-05**.
+
+**Run `cd backend; npm run measure:facts`** — it now prints every row of this
+table that a database or the repository can answer, which it did not on
+2026-08-25. That gap is why four rows below had gone stale while the file said
+"re-measure before quoting": the script covered the bands and the cohorts, so
+those stayed right, and said nothing about audit rows, commits or tests, so those
+drifted (324 audit rows against a stated 1; 386 commits against 291; 572 backend
+tests against 382). A re-measurement instruction only protects the quantities the
+tool actually re-measures. See `docs/SILENT_FAILURES.md` H7.
+
+The one-liner below is kept because it is short enough to run in front of a panel.
 
 ```powershell
 cd backend
@@ -61,14 +72,14 @@ node -e "require('dotenv').config();const{sequelize,Athlete,Screening,CohortThre
 | Screenings held | 74 | 56 latest + 18 prior snapshots |
 | Band split (latest per athlete) | **38 green / 9 amber / 9 red** | evidence the pipeline runs, **not** that the model is calibrated (§4 W4) |
 | Cohorts computed | 49 | all pinned, as `Pre-viva baseline 2026-08-25` |
-| Saved norm versions | 1 | the pinned one — **verified**: recompute while pinned returns `pinnedHeld: true`, 49 of 49 held, all parking `fresh_stats` for `pinDrift()` |
+| Saved norm versions | 1 | the pinned one — **re-verified 2026-09-05**: recompute while pinned returns `pinnedHeld: true`, 49 of 49 held, all 49 parking `fresh_stats` for `pinDrift()`. CLAUDE.md said "50 of 50" until that day — the 50 belonged to the version a reseed destroyed |
 | Cohort an athlete is scored against | min 5, **median 7**, max 10 | **all 56 are below 11 peers** (§4 W2) |
 | Repeat pairs available | 18 | below the 20 needed for MDC95 (§5 L2) |
-| Audit rows | 11 hosted / 1 local | **thin on purpose-by-accident: a reseed clears the trail**, and the laptop was reseeded 2026-08-25. All 5 roles ARE represented on the hosted instance (`report.download` x10, `norm.pin` x1) — the §20 property that a read-only role appears at all was re-verified live that day by downloading one report as coach and one as executive |
+| Audit rows | **324 local** | **a reseed clears the trail**, so this number says how much has been done since the last one, not how much the system has ever recorded. It read "11 hosted / 1 local" until 2026-09-05, measured just after a reseed. All 5 roles ARE represented — the §20 property that a read-only role appears at all was verified by downloading one report as coach and one as executive |
 | Users | 10 | across 5 roles — 4 reach a deliverable inbox (§5 L7) |
 | Muscle flags | 336 | |
-| Commits, FYP I → FYP II | **291** | 252 files, +59,805 / −7,679 lines |
-| Tests | 382 backend (24 suites) + 137 frontend (8) | new since 2026-08-24: `symmetry`, `prescription`, and the PeriodChart layout set |
+| Commits, FYP I → FYP II | **386** | on `feat/mysql-migration`; re-count with `git rev-list --count HEAD` |
+| Tests | **572 backend (36 suites) + 261 frontend (15)** | new since 2026-08-25: `numRound`, `systemMap`, `sharedFacts`, `crossPackage`, `scriptImports`, and the first component suite above `lib/` — `OverallRiskBadge`, the hero |
 
 **The settings that decide bands** (`backend/src/utils/settings.js`, live values):
 

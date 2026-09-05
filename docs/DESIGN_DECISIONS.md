@@ -3110,7 +3110,7 @@ the other file documents the hazard without preventing it.
 
 `rbac()` answers "may you call this". It says nothing about what comes back, or
 about what a refusal itself tells you. Auditing the four non-admin roles by
-calling all 52 endpoints as each of them — rather than by reading the guards —
+calling all 46 endpoints as each of them — rather than by reading the guards —
 found the role model sound and two disclosures underneath it.
 
 **The role model itself held.** Every write is refused for coach, executive and
@@ -4260,3 +4260,163 @@ subitem aggregates, 27,945 bytes of JSON, **byte-identical**.
 
 Six mutations, all caught — including the two mistakes above, so both are now
 things the suite refuses rather than things somebody has to remember.
+
+---
+
+## 58. The guard that was missing from the tool that guards everything (2026-09-05)
+
+Five small jobs, done together because four of them turned out to be the same
+job: **a claim that nothing recomputes**.
+
+### 58.1 `npm run measure:facts` was broken, and it is the anti-drift tool
+
+The §56 sweep moved `median` out of `screeningPeriods.js` into `utils/num.js`.
+Fourteen call sites were updated. `scripts/measure-facts.js` was not, and kept:
+
+```js
+const { median } = require('../src/utils/screeningPeriods');
+```
+
+That line is **not a resolution error.** The module resolves, the destructure
+binds `undefined`, and nothing complains until something *calls* it — at which
+point the script dies with `median is not a function`, naming neither the
+function that moved nor the file that lost it.
+
+It survived 565 passing tests for a fortnight, and the reasons matter more than
+the bug:
+
+- `node --check` checks **syntax**; a dangling named import is valid syntax
+- a `require()` smoke test would have loaded the module **fine**
+- nothing under `scripts/` is covered by any suite
+
+And the script it broke is the one whose entire job is to stop stale numbers
+being quoted in the viva (SILENT_FAILURES H7). The guard was absent from exactly
+the tool that guards everything else — and the failure was silent in the way that
+matters, because *nobody runs a measurement script except when they need a
+number*, which is the worst possible moment to discover it does not run.
+
+`tests/scriptImports.test.js` now checks every `const { … } = require('./x')` in
+`src/` and `scripts/` against what `x` actually exports. It works **statically**,
+reading both files as text: several modules here build a Sequelize instance at
+import time and `seeder.js` used to reseed the database on import (§34), so a
+test that executes arbitrary modules to inspect them is a worse hazard than the
+one it detects. Modules whose export shape cannot be read statically are
+**skipped rather than guessed at**, and the number of pairs actually checked is
+asserted against a floor — the §56.3 lesson, where the first route parser found
+15 of 59 endpoints and rendered a plausible table.
+
+Verified by reintroducing the exact bug and watching it fail with a message that
+names the file, the symbol and the module.
+
+### 58.2 A re-measurement instruction only protects what it re-measures
+
+`VIVA_FYP2.md` §2 tells its own reader to re-measure before quoting. Four of its
+rows were stale anyway:
+
+| Row | Said | Measured 2026-09-05 |
+|---|---:|---:|
+| Audit rows | 11 hosted / 1 local | **324** |
+| Commits | 291 | **386** |
+| Backend tests | 382 (24 suites) | **572 (36)** |
+| Frontend tests | 137 (8) | **261 (15)** |
+
+The pattern is exact and worth stating plainly: **the rows `measure:facts`
+covered stayed right, and the rows it did not cover drifted.** Bands, cohort
+sizes, reliability pairs and the roster were all still correct, because a command
+recomputed them. Audit rows, commits and test counts had no command, so they
+aged into prose. An instruction to re-measure is only as good as the coverage of
+the tool it points at.
+
+`measure:facts` now prints every row of that table a database or the repository
+can answer. It deliberately does **not** compute per-test totals by counting
+`it(` — only a run knows how many cases a suite holds, and a plausible number
+obtained by counting call sites is precisely the kind of figure this script
+exists to stop anyone quoting. It declines and says how to get the real one,
+which is the `reliability.js` rule applied to the tooling.
+
+It also does not call `recomputeCohorts()` to check the pin, though that is the
+directest evidence: **a measurement script must not write to the thing it is
+measuring.** It reports the live rows, the snapshot they were installed from and
+how many park `fresh_stats` — read-only evidence of the same property.
+
+### 58.3 Two numbers that were internally contradictory
+
+**CLAUDE.md** claimed the pinned baseline "snapshots all **49** cohorts … verified
+by recomputing while pinned — **50 of 50** held, all 50 parked `fresh_stats`."
+Both halves were true when written and they were never true together: the 50
+belonged to the 2026-08-19 version, which a reseed destroyed. Re-verified:
+`pinnedHeld: true`, **49 of 49**, 49 parking. A sentence that contradicts itself
+in a document a panel may read is worse than a sentence that is simply out of
+date, because it invites the question of which half to trust.
+
+**Five documents** said the permission matrix came from "calling all **52**
+endpoints as every role". `scripts/audit-access.js` has a `ROUTES` list with
+**46** entries. Corrected everywhere. The neighbouring figure — 59 endpoints in
+`SYSTEM_MAP.md` — is a *different* measurement (every route the system defines,
+against the subset the access audit drives) and is correct; the two were never
+in conflict, but nothing said so, which is how a panel finds a contradiction that
+is not one.
+
+### 58.4 The hero got the first test above `lib/`
+
+`OverallRiskBadge` is the panel every role reads first, and it had no test.
+Everything it *displays* was covered only by `npm run e2e`, which needs both
+servers running and so cannot gate a commit — the wrong shape of coverage for
+this component in particular, because several locked clinical decisions are
+properties of the rendered page rather than of any function:
+
+- a **missing** Total Score prints as a dash; a **real zero** prints as `0`
+  (§54/§57 — this is the exact screen a fabricated zero would have reached, and
+  it is why `??` is right here and `||` is not: swapping them passes the first
+  assertion and fails the second)
+- green never reads **"Safe"** (§33), and no band is named by **colour** alone
+  (SILENT_FAILURES 3i)
+- the compact badge differs by **glyph**, not hue — the encoding red/green
+  deficiency destroys, and one a `title` tooltip rescues for neither a screen
+  reader nor a touch device
+- a clinician **override** beats the computed band
+- a **stale** screening states its age; a **historical** one does not, because a
+  past screening is settled rather than overdue
+- the **staff** copy never addresses the reader as the at-risk athlete — a real
+  shipped bug, in which the medical dashboard told a clinician to arrange an
+  assessment with their own medical team
+
+All **nine** mutations were caught, including the `??` → `||` swap and the
+boundary flip on the small-cohort caveat.
+
+### 58.5 The two tests that were wrong, and what they taught
+
+Both failed on the first run, and **both were the test's fault** — worth
+recording, because the reasoning in each looked sound.
+
+**The small-cohort fixture was impossible.** It passed an empty delta list and a
+rank of *12 out of 9*. The caveat renders inside the comparison table, so with no
+deltas there is no table and no caveat; the assertion failed for two reasons,
+neither of which was the property under test.
+
+**The LDH assertion tested an input that cannot exist.** It handed the hero a
+`cohortDelta` for `spinalDiscHerniation`, expecting the component to filter it.
+But `cohortDeltas` is not the indicator list: it is built in
+`overallIndicator.js` from a closed set of **six aggregate components**
+(`totalScore, rom, stability, symmetry, riskGood, balance`), so an indicator
+cannot appear in it at all. Asserting against an impossible payload would have
+added a green tick and no coverage.
+
+That one is left in the file **as a comment explaining why there is no test
+there**, with a pointer to where the exclusion genuinely is pinned
+(`riskIndicators.test.js`, `screeningAlerts.indicators.test.ts`). A test deleted
+in silence teaches nobody; the next person to notice the hero "does not check for
+LDH" deserves to find the reason rather than repeat the work.
+
+### 58.6 A retired guard that was skipping quietly
+
+`httpHardening.test.js` carries four checks on the temporary migration endpoint
+removed on 2026-09-04. Three now early-return — which is the desired end state,
+but **an early return is invisible in a green run**, and four quietly-skipping
+tests look exactly like four passing ones.
+
+The block now **asserts** the end state (`present: false`) rather than merely
+reaching it. The other three are kept rather than deleted: they are dormant, and
+they re-arm the moment the file reappears, so whoever adds it back inherits
+admin-only on every verb, the shared migration util instead of inline SQL, and a
+deadline. That is worth more than four fewer lines.
