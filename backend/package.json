@@ -15,7 +15,8 @@
     "migrate:screening-unique": "node scripts/migrate-screening-unique.js",
     "audit:access": "node scripts/audit-access.js",
     "coverage": "jest --coverage --coverageReporters=text-summary",
-    "migrate:hosted": "node scripts/migrate-hosted.js"
+    "migrate:hosted": "node scripts/migrate-hosted.js",
+    "map": "node scripts/system-map.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

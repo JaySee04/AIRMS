@@ -61,4 +61,45 @@ function numOr(v, fallback) {
   return n === null ? fallback : n;
 }
 
-module.exports = { toNum, numOr };
+/**
+ * Arithmetic mean, or null for an empty set.
+ *
+ * Null rather than 0, for the same reason as `toNum`: the mean of nothing is
+ * not zero, and a zero here would draw as a real average.
+ *
+ * Nulls are dropped rather than counted, so `mean` of a partly-unread set is
+ * the average of what was actually read. Callers that need to know how many
+ * that was should look — `meanSd` in cohorts.js reports `n` for exactly this
+ * reason.
+ */
+function mean(values) {
+  const v = (values || []).map(toNum).filter((x) => x !== null);
+  if (!v.length) return null;
+  return v.reduce((a, b) => a + b, 0) / v.length;
+}
+
+/**
+ * Median, EXACT — the even case averages the two middle values and does not
+ * round.
+ *
+ * There were three of these and they disagreed on precisely that: the two
+ * backend copies rounded (`Math.round((s[m-1] + s[m]) / 2)`) and the chart's
+ * did not. On an even set of [70, 75] the backend said 73 and the scatter plot
+ * said 72.5 — and the scatter's quadrants are SPLIT on the median, so an
+ * athlete sitting between the two answers is drawn in a different quadrant
+ * depending on which copy ran. The docs already recorded the symptom without
+ * the cause: "15 to 17 athletes, depending on how ties on the median are
+ * counted".
+ *
+ * Exact is the correct default. The call sites that want a whole number of
+ * DAYS round it themselves, which keeps every published figure identical and
+ * puts the rounding where somebody can see it — the same reason `numOr` exists.
+ */
+function median(values) {
+  const v = (values || []).map(toNum).filter((x) => x !== null).sort((a, b) => a - b);
+  if (!v.length) return null;
+  const mid = Math.floor(v.length / 2);
+  return v.length % 2 ? v[mid] : (v[mid - 1] + v[mid]) / 2;
+}
+
+module.exports = { toNum, numOr, mean, median };

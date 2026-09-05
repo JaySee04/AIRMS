@@ -11,7 +11,8 @@
 
 const { Op } = require('sequelize');
 const { Screening, Athlete, AthleteDiscipline } = require('../models');
-const { screeningPeriods, median, GRAINS } = require('./screeningPeriods');
+const { screeningPeriods, GRAINS } = require('./screeningPeriods');
+const { median } = require('./num');
 const { getSettings } = require('./settings');
 const { recallState } = require('./recall');
 const { str, date } = require('./queryParams');
@@ -96,7 +97,8 @@ async function rescreenRecall(roster, allRows = null) {
     });
   }
 
-  const medianAgeDays = median(ages);
+  // Whole days, rounded at the call site — see utils/num.js.
+  const medianAgeDays = ages.length ? Math.round(median(ages)) : null;
 
   return {
     dueDays,

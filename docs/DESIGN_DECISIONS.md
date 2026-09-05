@@ -4084,3 +4084,93 @@ roles would otherwise never appear in the audit trail, which the rewrite states
 more briefly; the rule it justifies (reads are logged, and counted apart from
 changes) is intact. That check is the reason this was safe to do at all, and any
 future attempt should start by rerunning it.
+
+---
+
+## 56. Three medians, and a map that reads itself (2026-09-04)
+
+Two pieces of the same request: make the code simpler, and make the system
+legible to whoever maintains it next.
+
+### 56.1 The median that moved a quadrant boundary
+
+Sweeping for the §54 shape again — *what else is one concept written more than
+once?* — turned up `median`. Three implementations, and they disagreed on the
+even case:
+
+| set | `screeningPeriods.js`, `scheduler.js` | `Charts.tsx` |
+|---|---|---|
+| `[70, 75]` | **73** (rounded) | **72.5** |
+| `[71, 72]` | **72** | **71.5** |
+
+The backend copies rounded; the chart's did not. That matters because **the
+risk-vs-movement scatter splits its quadrants on the median** (§25), so an
+athlete sitting between 72.5 and 73 was drawn in a different quadrant depending
+on which implementation produced the boundary. The docs had already recorded the
+symptom — "15 to 17 do, depending on how ties on the median are counted" — for
+weeks, without anybody connecting it to a cause.
+
+One `median` now, in `utils/num.js` / `lib/num.ts` beside `toNum`, and it is
+**exact**. Rounding moved to the two call sites that want a whole number of
+days, which is where somebody can see it — the same reasoning as `numOr`.
+
+**No published figure moved, and that was checked rather than assumed.** The
+retest interval is 35 days with min = max = 35, so every implementation agrees
+on it. The recall median was recomputed against the live database both ways: 58
+either way, because the new code is `Math.round(median(ages))` and the old was
+`Math.round` of the same average — the arithmetic relocated, not changed.
+
+`mean` came along for the ride, with one deliberate property: **unreadable
+values are dropped, not counted as zero.** A zero in the set drags the average
+down and looks like a reading.
+
+Nine mutations, all caught, including the two that matter most — either package
+re-introducing the rounding, and `median` forgetting to sort.
+
+**`pct` was left alone**, deliberately. It appears in ten files and looked like
+the same duplication; reading them showed ten *different* local things — a
+fraction, a percentage, a clamp to an axis. They are correctly named locally,
+and unifying them would have invented a shared concept that does not exist. The
+check was worth running to find that out.
+
+### 56.2 docs/SYSTEM_MAP.md — every attribute, read from the code
+
+`cd backend; npm run map`. One document listing what the system *is*: **9
+models with all 138 columns** (types, nullability and enum VALUES), **59
+endpoints** with their `rbac` allow-list and permission gate, **25 pages** with
+their `allowedRoles`, every institution setting and its default, every audited
+action, every shared fact, every environment variable the backend reads, and
+every npm script.
+
+Generated, not written, and the reason is the one this project keeps relearning:
+a hand-maintained inventory is wrong the first time somebody adds a column, and
+*slightly* wrong is worse than absent — you trust it, and it lies about the one
+row you did not check. Models are introspected; routes, pages and settings are
+parsed from source. It needs **no database**, so it runs on a clean clone.
+
+It is deliberately only the *what*. The why is this file; the measured figures
+are `npm run measure:facts`, which needs the database and changes with it; the
+access model argued in prose is `PERMISSIONS.md`.
+
+### 56.3 The generator's own first draft was quietly wrong
+
+Worth recording, because it is this document's whole thesis in one example.
+
+The first route parser matched middleware with `[^)]*?`, which cannot span
+`rbac('medical', 'admin')`. It found **15 of 59 endpoints** — and rendered a
+clean, plausible, well-formatted table of those fifteen. Nothing in the output
+suggested anything was missing. The only reason it was caught is that 15 looked
+too low against a number I already knew.
+
+So the freshness test does not stop at "the committed file matches the
+generator". Each section is checked against an **independent count of the thing
+it describes**: endpoints against a raw count of `router.<verb>(` across the
+route files, models and columns against the introspected models, pages against
+a filesystem walk. Every row must also name at least one role, since a row whose
+`rbac` failed to parse renders an empty cell that reads as *unrestricted*.
+
+That last test was itself wrong first: it asserted the enum values appeared as
+`PODIUM | PELAPIS | OTHERS`, which fails against a CORRECT document, because
+pipes inside a markdown table cell must be escaped or they split the row. It now
+asserts the escaped form — matching the bare one would have passed against a
+broken table and failed against a good one.

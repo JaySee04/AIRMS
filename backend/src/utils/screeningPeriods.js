@@ -29,7 +29,7 @@ const { GRAINS, INSTITUTION_TZ } = require('../shared/facts');
 // One step finer, for the composition breakdown a coarse view falls back on.
 const FINER = { year: 'quarter', quarter: 'month', month: null };
 
-const { toNum: num } = require('./num');
+const { toNum: num, median } = require('./num');
 
 // Calendar bucket for a date. `key` sorts lexicographically inside a grain, so
 // it doubles as the ordering value — no separate sort field needed.
@@ -79,12 +79,8 @@ function periodKeyOf(date, grain) {
 
 const mean = (vals) => (vals.length ? +(vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1) : null);
 
-function median(vals) {
-  if (!vals.length) return null;
-  const s = [...vals].sort((a, b) => a - b);
-  const mid = Math.floor(s.length / 2);
-  return s.length % 2 ? s[mid] : Math.round((s[mid - 1] + s[mid]) / 2);
-}
+// median comes from utils/num.js — see there for why it is EXACT and why the
+// two call sites that want whole days round it themselves.
 
 // Direction of travel for one score, respecting its orientation. `noise` is a
 // dead band so a rounding-level wobble doesn't read as a real move.
@@ -306,7 +302,10 @@ function bucketBetweenTests(screenings, deadBands) {
   }
 
   out.intervalDays = {
-    median: median(intervals),
+    // Whole days: an interval of 90.5 days is not a thing anybody reports.
+    // The rounding is HERE rather than inside median() so the scatter's
+    // quadrant split keeps its exact value (utils/num.js).
+    median: intervals.length ? Math.round(median(intervals)) : null,
     min: intervals.length ? Math.min(...intervals) : null,
     max: intervals.length ? Math.max(...intervals) : null,
   };
@@ -495,6 +494,6 @@ function screeningPeriods(screenings, { grain = 'quarter', noise } = {}) {
 }
 
 module.exports = {
-  screeningPeriods, seasonality, periodKeyOf, grainCounts, median, PERIOD_SCORES, GRAINS,
+  screeningPeriods, seasonality, periodKeyOf, grainCounts, PERIOD_SCORES, GRAINS,
   INSTITUTION_TZ,
 };

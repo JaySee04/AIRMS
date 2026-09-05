@@ -10,7 +10,7 @@
 // in ten of them and 0 in four, and one returned 0 for null and NaN for a
 // non-numeric string. Every row here is a real disagreement that shipped.
 import path from 'path';
-import { toNum, numOr } from './num';
+import { toNum, numOr, mean, median } from './num';
 
 const be = require(path.join(__dirname, '..', '..', '..', 'backend', 'src', 'utils', 'num.js'));
 
@@ -76,5 +76,58 @@ describe('numOr', () => {
 
   it('agrees with the backend', () => {
     for (const [input] of TABLE) expect(numOr(input, -1)).toBe(be.numOr(input, -1));
+  });
+});
+
+// ── mean / median ───────────────────────────────────────────────────────────
+//
+// There were three medians and they disagreed on the EVEN case: the backend's
+// two rounded, the chart's did not, so [70, 75] was 73 on one side and 72.5 on
+// the other. The scatter's quadrants are split on the median, so an athlete
+// between those two answers was drawn in a different quadrant depending on
+// which copy ran — and the docs had already recorded the symptom ("15 to 17,
+// depending on how ties on the median are counted") without the cause.
+const SETS: Array<[unknown[], number | null, number | null]> = [
+  // values                    mean          median
+  [[], null, null],
+  [[5], 5, 5],
+  [[1, 2, 3], 2, 2],
+  // The even case — the whole reason this is one function now.
+  [[70, 75], 72.5, 72.5],
+  [[71, 72], 71.5, 71.5],
+  [[60, 61, 80, 81], 70.5, 70.5],
+  // Order must not matter to a median.
+  [[81, 60, 80, 61], 70.5, 70.5],
+  // Strings from DECIMAL columns, and unreadable values DROPPED rather than
+  // counted as zero — a zero in the set would drag both statistics down.
+  [['70', '75'], 72.5, 72.5],
+  [[70, null, 75, '', 'abc'], 72.5, 72.5],
+  [[null, undefined, ''], null, null],
+];
+
+describe('mean and median', () => {
+  it.each(SETS)('%p -> mean %p, median %p', (values, m, md) => {
+    expect(mean(values)).toBe(m);
+    expect(median(values)).toBe(md);
+  });
+
+  it('agrees with the backend on every set', () => {
+    for (const [values] of SETS) {
+      expect({ mean: mean(values), median: median(values) })
+        .toEqual({ mean: be.mean(values), median: be.median(values) });
+    }
+  });
+
+  it('does NOT round the even case — that was the divergence', () => {
+    // If this ever reads 73, the rounding has been pushed back inside median()
+    // and the scatter's quadrant boundary has moved with it. The two call sites
+    // that want whole days round it themselves.
+    expect(median([70, 75])).toBe(72.5);
+    expect(Math.round(median([70, 75]) as number)).toBe(73); // what those sites do
+  });
+
+  it('drops unreadable values instead of counting them as zero', () => {
+    expect(mean([10, ''])).toBe(10);
+    expect(mean([10, null])).toBe(10);
   });
 });

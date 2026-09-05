@@ -24,6 +24,7 @@
 import { useEffect, useRef, useState, ReactNode } from 'react';
 import type { MouseEvent as ReactMouseEvent } from 'react';
 import HoverTip, { useHoverTip } from '@/components/ui/HoverTip';
+import { median } from '@/lib/num';
 
 // ── shared helpers ─────────────────────────────────────────────────────────
 const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
@@ -840,12 +841,8 @@ export interface ScatterPoint {
   key: string; label: string; x: number; y: number; color?: string; hint?: string;
 }
 
-const median = (xs: number[]) => {
-  if (!xs.length) return null;
-  const s = [...xs].sort((a, b) => a - b);
-  const m = Math.floor(s.length / 2);
-  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
-};
+// median comes from lib/num — EXACT, and now the same function the backend
+// uses, so a quadrant boundary cannot be drawn at 72.5 here and 73 there.
 
 export function Scatter({
   points, xLabel, yLabel, quadrants, height = 300,

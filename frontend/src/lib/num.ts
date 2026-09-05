@@ -34,3 +34,27 @@ export function numOr(v: unknown, fallback: number): number {
   const n = toNum(v);
   return n === null ? fallback : n;
 }
+
+/** Arithmetic mean of the readable values, or null for none. */
+export function mean(values: unknown[]): number | null {
+  const v = (values || []).map(toNum).filter((x): x is number => x !== null);
+  if (!v.length) return null;
+  return v.reduce((a, b) => a + b, 0) / v.length;
+}
+
+/**
+ * Median, EXACT — the even case averages the two middle values, unrounded.
+ *
+ * There were three of these and they disagreed on exactly that: the backend's
+ * two copies rounded and this one did not, so on [70, 75] one said 73 and the
+ * other 72.5. The scatter plot's quadrants are split on the median, so an
+ * athlete between those answers was drawn in a different quadrant depending on
+ * which copy ran. Call sites wanting a whole number of days round it
+ * themselves. See backend/src/utils/num.js.
+ */
+export function median(values: unknown[]): number | null {
+  const v = (values || []).map(toNum).filter((x): x is number => x !== null).sort((a, b) => a - b);
+  if (!v.length) return null;
+  const mid = Math.floor(v.length / 2);
+  return v.length % 2 ? v[mid] : (v[mid - 1] + v[mid]) / 2;
+}
