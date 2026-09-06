@@ -25,6 +25,10 @@ const {
 } = require('../utils/cohorts');
 const { getSettings } = require('../utils/settings');
 const { effectiveBand } = require('../utils/bands');
+// The Watch boundary, shared. This was a bare `> 15` in the team report's
+// per-athlete "risky" list — a copy invisible to any search for the NAME, which
+// is how `numOrNull` survived the §54 sweep (DD 60).
+const { WATCH_THRESHOLD } = require('../shared/facts');
 
 const { holisticData, drawHolistic } = require('../utils/holisticReport');
 const { programmeActivityData } = require('../utils/programmeActivity');
@@ -425,7 +429,7 @@ router.get('/team.pdf', auth, rbac('medical', 'admin', 'coach', 'executive'), re
       }
       const risky = RISKS
         .map(([k, label]) => ({ label, v: num(m.s[k]) ?? 0 }))
-        .filter((r) => r.v > 15)
+        .filter((r) => r.v > WATCH_THRESHOLD)
         .map((r) => `${r.label} ${r.v}`);
       const b = effectiveBand(m.s);
       doc.fontSize(9).fillColor(bandColor(b)).font('Helvetica-Bold').text('•  ', 50, doc.y, { continued: true })

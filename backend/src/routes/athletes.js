@@ -190,14 +190,14 @@ router.get('/meta/disciplines', auth, rbac('medical', 'admin', 'executive'), req
 //   - per-indicator Low / Watch / Elevated counts (AIRMS bands: ≤15 / ≤25 />25).
 //     The band WORDS live on the frontend (lib/screeningAlerts.ts BAND_LABEL) —
 //     keep the boundaries here in step with that file and with the PDF reports
-//     (routes/screeningReports.js RISK_ZONES). All three describe the same
-//     numbers and must not contradict each other.
+//     (utils/pdfDraw.js RISK_ZONES). All three now read the SAME two numbers
+//     from shared/facts.js, so they agree by construction (DD 60) — this used
+//     to be a comment asking them to.
 //   - cohort averages for the five headline gauges
 //   - most-flagged muscles for each flag type
 router.get('/analytics/screening', auth, rbac('admin', 'executive'), async (req, res) => {
   try {
-    const WATCH = 15;
-    const HIGH = 25;
+    const { WATCH_THRESHOLD: WATCH, HIGH_THRESHOLD: HIGH } = require('../shared/facts');
     const SCORES = ['overallActivityScore', 'injuryRiskIndex', 'mobility', 'stability', 'symmetry'];
 
     // POPULATION filters — who is in the picture.

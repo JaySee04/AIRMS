@@ -44,6 +44,13 @@ const GRAINS = ['month', 'quarter', 'year'];
 /** Display axis for every risk strip, printed and on screen. */
 const RISK_AXIS_MAX = 40;
 
+/**
+ * Low <= WATCH < Watch <= HIGH < Elevated. Strictly greater-than at both edges,
+ * so a value ON a boundary takes the lower band: 15 is Low, 25 is Watch.
+ */
+const WATCH_THRESHOLD = 15;
+const HIGH_THRESHOLD = 25;
+
 /** Stored but NEVER shown, per Dr Thung. Named so it can be asserted. */
 const EXCLUDED_RISK_KEYS = ['spinalDiscHerniation'];
 
@@ -71,6 +78,8 @@ module.exports = {
   AGE_GROUPS,
   GRAINS,
   RISK_AXIS_MAX,
+  WATCH_THRESHOLD,
+  HIGH_THRESHOLD,
   EXCLUDED_RISK_KEYS,
   RISK_INDICATORS,
   SMALL_COHORT,

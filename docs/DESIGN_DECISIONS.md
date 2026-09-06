@@ -4469,3 +4469,88 @@ same reason: this is a fact about how the call site is *written*.
 cannot see a prop computed at runtime, it covers one prop on two components, and
 it is **not** the page-mounting test CLAUDE.md says is still missing. That
 blind spot is narrower now, not closed.
+
+---
+
+## 60. Six copies of one clinical boundary, and the hole in the mechanism meant to prevent that (2026-09-06)
+
+An optimisation pass that started as consolidation and turned into a defect
+report about the consolidation machinery itself.
+
+### 60.1 The duplication
+
+Where an exercise-risk indicator stops being **Low** and stops being **Watch**
+— the two numbers that decide what a clinician is told, on screen and on paper —
+was written out six times:
+
+| Site | Form |
+|---|---|
+| `routes/athletes.js` | `const WATCH = 15; const HIGH = 25;` |
+| `utils/cohortFocus.js` | the same pair again |
+| `utils/pdfDraw.js` | inside `RISK_ZONES`, **and** again inline at the hotspot list |
+| `utils/holisticReport.js` | bare `> 15 && <= 25` / `> 25` |
+| `routes/screeningReports.js` | bare `> 15` |
+| `lib/screeningAlerts.ts` | its own exported pair |
+
+Three carried comments naming the others and asserting they must not
+contradict — a comment doing a test's job, which is §31 exactly.
+
+**The bare-literal copies are the dangerous ones.** A search for the NAME finds
+five of six; `holisticReport.js` and `screeningReports.js` are invisible to it.
+That is precisely how `numOrNull` survived the §54 sweep, and it is why these are
+now guarded by comparing the ANSWERS both packages give rather than by grepping
+for identifiers.
+
+All six were checked before changing anything and all six **agreed** — strictly
+greater-than at both edges, so a value on a boundary takes the lower band. So
+this fixes no live bug. What it removes is the standing opportunity for the
+seventh copy to use `>=` and move a boundary athlete a whole band on one surface
+and not the other.
+
+**What was deliberately NOT unified:** the frontend's sport-tightened thresholds
+(12/20 for a region a sport loads heavily). The dashboards apply them, the PDFs
+print the standard bands and say so on the page, and that divergence is a
+recorded decision awaiting sign-off — duplicating the sport-to-region map
+server-side would drift, which the checklist entry already says. The shared
+constants are the *instrument baseline* that tightening starts from.
+
+### 60.2 The real finding: a single source that silently is not one
+
+Adding the constants to `shared/facts.js` and running `npm run sync:shared`
+printed **`shared: already in sync`**, and neither generated file changed.
+
+`shared/generate.js` renders each package from a **hand-written template that
+names every constant**. Adding a fact to the source and forgetting the template
+is a no-op, and the "in sync" check compares the committed file against that same
+template — so it is comparing the renderer with itself and can never notice.
+
+The backend half was guarded: `backend/tests/sharedFacts.test.js` walks the
+source key by key, so dropping a constant from the backend template fails at
+once. **The frontend half was not.** Its tests import a FIXED list of names, so a
+fact nobody thought to import is a fact nobody checks. Verified by mutation
+rather than by reading:
+
+| Mutation | Result before the fix |
+|---|---|
+| backend template drops `HIGH_THRESHOLD` | **caught** (1 failed) |
+| frontend template drops `HIGH_THRESHOLD` | **caught by nothing** — backend 11/11 green, frontend 19/19 green, constant absent from `facts.ts` |
+
+So a fact could be added to the single source, reach one package, never reach the
+other, and leave every signal a developer looks at — the generator's own message
+and both suites — saying it had worked. **The asymmetry is what made it
+dangerous**: two runtimes disagreeing about a shared value is the one thing the
+mechanism exists to prevent (§53), and this is the mechanism's own blind spot.
+
+`frontend/src/lib/shared/facts.test.ts` now enumerates the source's keys against
+a **namespace import** of the generated module — not a written-down list, which
+is the whole point — and checks name, value, and that nothing extra appears. The
+frontend mutation is caught twice over.
+
+### 60.3 Proving it changed nothing
+
+Every integer from 0 to 45 banded through `bandOf`, `riskZone` and `tally`,
+hashed, on the refactored tree and then on the stashed pre-refactor tree via the
+identical probe: **`1768fadc…` both times**, same tally
+(`ok 16 / watch 10 / high 20`), same boundary answers (15 → Low, 25 → Watch).
+Old code versus new code against one input set, which is the §57.4 method — the
+first A/B in that section was contaminated by comparing two *databases* instead.

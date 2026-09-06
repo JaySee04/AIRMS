@@ -85,6 +85,13 @@ const GRAINS = ${list(F.GRAINS)};
 /** Display axis for every risk strip, printed and on screen. */
 const RISK_AXIS_MAX = ${F.RISK_AXIS_MAX};
 
+/**
+ * Low <= WATCH < Watch <= HIGH < Elevated. Strictly greater-than at both edges,
+ * so a value ON a boundary takes the lower band: 15 is Low, 25 is Watch.
+ */
+const WATCH_THRESHOLD = ${F.WATCH_THRESHOLD};
+const HIGH_THRESHOLD = ${F.HIGH_THRESHOLD};
+
 /** Stored but NEVER shown, per Dr Thung. Named so it can be asserted. */
 const EXCLUDED_RISK_KEYS = ${list(F.EXCLUDED_RISK_KEYS)};
 
@@ -106,6 +113,8 @@ module.exports = {
   AGE_GROUPS,
   GRAINS,
   RISK_AXIS_MAX,
+  WATCH_THRESHOLD,
+  HIGH_THRESHOLD,
   EXCLUDED_RISK_KEYS,
   RISK_INDICATORS,
   SMALL_COHORT,
@@ -178,6 +187,16 @@ export const GRAINS: Grain[] = ${list(F.GRAINS)};
 
 /** Display axis for every risk strip, printed and on screen. */
 export const RISK_AXIS_MAX = ${F.RISK_AXIS_MAX};
+
+/**
+ * Low <= WATCH < Watch <= HIGH < Elevated. Strictly greater-than at both edges,
+ * so a value ON a boundary takes the lower band: 15 is Low, 25 is Watch.
+ *
+ * These are the INSTRUMENT baseline. The sport-tightened thresholds in
+ * lib/screeningAlerts.ts start from them and are deliberately not shared.
+ */
+export const WATCH_THRESHOLD = ${F.WATCH_THRESHOLD};
+export const HIGH_THRESHOLD = ${F.HIGH_THRESHOLD};
 
 /** Stored but NEVER shown, per Dr Thung. Named so it can be asserted. */
 export const EXCLUDED_RISK_KEYS: string[] = ${list(F.EXCLUDED_RISK_KEYS)};

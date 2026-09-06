@@ -120,7 +120,7 @@ cd frontend; npm run e2e   # END-TO-END smoke: a real Chrome against the running
 cd frontend; npm run build
 
 # Unit tests (jest, in both packages — no linter configured for the backend)
-cd backend; npx jest      # 36 suites / 572 tests: cohorts, overallIndicator, permissions, rbac, pdfDraw,
+cd backend; npx jest      # 36 suites / 574 tests: cohorts, overallIndicator, permissions, rbac, pdfDraw,
                           # screeningPeriods, cohortFocus, visionUsage, alerts, scheduler,
                           # bands, mailPrefs, holisticReport, programmeActivity, subitemAggregate,
                           # reliability, rescreenReminder, riskIndicators, recall,
@@ -140,7 +140,7 @@ cd backend; npx jest      # 36 suites / 572 tests: cohorts, overallIndicator, pe
                           # other suite. Static: it reads both files as text and never
                           # require()s the target, because several modules build a Sequelize
                           # instance at import time)
-cd frontend; npx jest     # 16 suites / 265 tests: lib/risk.ts, lib/screeningUploadStore.ts, bodymap-data/muscles.ts,
+cd frontend; npx jest     # 16 suites / 268 tests: lib/risk.ts, lib/screeningUploadStore.ts, bodymap-data/muscles.ts,
                           # components/charts (rendered via react-dom/server — no jsdom needed),
                           # lib/bands.ts, lib/athleteSearch.ts, lib/rank.ts,
                           # lib/screeningAlerts.indicators.ts, lib/cssTokens.ts, lib/periods.ts,
@@ -469,7 +469,11 @@ deliberately sit outside.
 
 Three-tier monorepo orchestrated by `concurrently` from the root `package.json`. Frontend and backend each maintain their own type definitions, with one exception: the **shared facts** below.
 
-**`shared/facts.js` is the single source for the values both packages must agree on** (2026-09-04, `DESIGN_DECISIONS.md §53`): `INSTITUTION_TZ`, `BANDS`, `BAND_RANK`, `BAND_LABEL`, `GENDERS`, `PROGRAMMES`, `AGE_GROUPS`, `GRAINS`, `RISK_AXIS_MAX`, `EXCLUDED_RISK_KEYS`, `RISK_INDICATORS`, `SMALL_COHORT`. **Edit that file, then run `npm run sync:shared` from the project root**, which generates two COMMITTED files:
+**`shared/facts.js` is the single source for the values both packages must agree on** (2026-09-04, `DESIGN_DECISIONS.md §53`): `INSTITUTION_TZ`, `BANDS`, `BAND_RANK`, `BAND_LABEL`, `GENDERS`, `PROGRAMMES`, `AGE_GROUPS`, `GRAINS`, `RISK_AXIS_MAX`, `WATCH_THRESHOLD`, `HIGH_THRESHOLD`, `EXCLUDED_RISK_KEYS`, `RISK_INDICATORS`, `SMALL_COHORT`.
+
+**Adding a fact takes TWO edits, and the second is easy to miss (2026-09-06, `DESIGN_DECISIONS.md §60`).** `shared/generate.js` renders each package from a **hand-written template naming every constant**, so adding a value to `shared/facts.js` alone is a **no-op** — and `npm run sync:shared` reports `already in sync`, because its staleness check compares the committed file against that same template. Add the constant to `shared/facts.js` **and** to both renderers in `shared/generate.js`, then sync. The backend suite has always caught a forgotten backend renderer; the FRONTEND half was unguarded until 2026-09-06 (proven by mutation: dropping a constant from the frontend template left backend 11/11 and frontend 19/19 green with the value missing from `facts.ts`). `frontend/src/lib/shared/facts.test.ts` now enumerates the source's keys against a **namespace import** rather than a written-down list, so both halves fail loudly.
+
+**The risk-band boundaries are shared too** — `WATCH_THRESHOLD` (15) and `HIGH_THRESHOLD` (25), the Low/Watch/Elevated edges. They stood in **six** places, three of them bare `> 15` / `> 25` literals invisible to a name search, each with a comment asserting the others agreed. Comparison is strictly greater-than at both edges, so a boundary value takes the LOWER band (15 is Low, 25 is Watch). The frontend's **sport-tightened** thresholds (12/20) are deliberately NOT shared: dashboards tighten, PDFs print the standard bands and say so, and that divergence is a recorded decision — do not "fix" it by duplicating the sport→region map server-side. **Edit that file, then run `npm run sync:shared` from the project root**, which generates two COMMITTED files:
 
 ```
 shared/facts.js  --->  backend/src/shared/facts.js       (CommonJS)

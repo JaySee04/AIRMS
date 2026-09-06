@@ -59,6 +59,16 @@ export const GRAINS: Grain[] = ['month', 'quarter', 'year'];
 /** Display axis for every risk strip, printed and on screen. */
 export const RISK_AXIS_MAX = 40;
 
+/**
+ * Low <= WATCH < Watch <= HIGH < Elevated. Strictly greater-than at both edges,
+ * so a value ON a boundary takes the lower band: 15 is Low, 25 is Watch.
+ *
+ * These are the INSTRUMENT baseline. The sport-tightened thresholds in
+ * lib/screeningAlerts.ts start from them and are deliberately not shared.
+ */
+export const WATCH_THRESHOLD = 15;
+export const HIGH_THRESHOLD = 25;
+
 /** Stored but NEVER shown, per Dr Thung. Named so it can be asserted. */
 export const EXCLUDED_RISK_KEYS: string[] = ['spinalDiscHerniation'];
 

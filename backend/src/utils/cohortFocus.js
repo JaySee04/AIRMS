@@ -22,10 +22,11 @@
 // definition in utils/riskIndicators.js.
 const { SHOWN_INDICATORS, INDICATOR_LABEL, isShownIndicator } = require('./riskIndicators');
 
-// Band boundaries. Must agree with lib/screeningAlerts.ts (display) and
-// pdfDraw.js RISK_ZONES (print): Low <=15 · Watch 16-25 · Elevated >25.
-const WATCH = 15;
-const HIGH = 25;
+// Band boundaries, from shared/facts.js. These stood here as two literals with
+// a comment asserting they agreed with lib/screeningAlerts.ts and pdfDraw.js
+// RISK_ZONES - a comment doing a test's job, in one of SIX places holding the
+// same pair (DD 60).
+const { WATCH_THRESHOLD: WATCH, HIGH_THRESHOLD: HIGH } = require('../shared/facts');
 const bandOf = (v) => (v > HIGH ? 'high' : v > WATCH ? 'watch' : 'ok');
 
 // ONE set of age buckets, used by the filter control, the breakdown and the

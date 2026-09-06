@@ -29,7 +29,9 @@ export interface AthleteRisks {
 export type { BodyRegion } from './shared/facts';
 
 import type { BodyRegion } from './shared/facts';
-import { RISK_INDICATORS as SHARED_INDICATORS, RISK_AXIS_MAX } from './shared/facts';
+import {
+  RISK_INDICATORS as SHARED_INDICATORS, RISK_AXIS_MAX, WATCH_THRESHOLD, HIGH_THRESHOLD,
+} from './shared/facts';
 
 export { RISK_AXIS_MAX };
 
@@ -92,10 +94,11 @@ export function riskRadarSeries(risks: AthleteRisks): number[] {
 
 // Exercise-risk indicators are 0–40 on AIRMS' display axis, lower is better.
 //
-// BAND VOCABULARY — must agree with the PDF reports (backend/src/routes/
-// screeningReports.js) and the admin cohort analytics (backend/src/routes/
-// athletes.js). All three read the same numbers, so they must say the same
-// words about them.
+// BAND VOCABULARY. The PDF reports (backend/src/routes/screeningReports.js) and
+// the admin cohort analytics (backend/src/routes/athletes.js) now read the SAME
+// two numbers this file does, from shared/facts.js — so they agree by
+// construction rather than by three comments asking them to (DD 60). The WORDS
+// each surface uses are still its own; only the boundaries are shared.
 //
 //   HoloMotion prints:  Low 0–15 │ Medium 16–55        │ High 56–100
 //   AIRMS shows:        Low ≤15  │ Watch 16–25 · Elevated >25
@@ -108,8 +111,11 @@ export function riskRadarSeries(risks: AthleteRisks): number[] {
 // (the two ground-truth reports top out at 27). Calling a 26 "High Risk" — as
 // AIRMS did until 2026-07-16 — directly contradicted the printed report a
 // clinician would be holding, and disagreed with our own PDFs.
-export const WATCH_THRESHOLD = 15;
-export const HIGH_THRESHOLD = 25;
+// Re-exported from shared/facts.js rather than declared here, so the value the
+// dashboards band against and the value the PRINTED report bands against are one
+// number. They were six separate literals until 2026-09-06 (DD 60); this file
+// keeps the name it always had, so nothing downstream changes.
+export { WATCH_THRESHOLD, HIGH_THRESHOLD };
 
 // RISK_AXIS_MAX — the display axis for the threshold strips + PDF gauges — is
 // re-exported at the top of this file from shared/facts.js, so the printed

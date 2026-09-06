@@ -82,6 +82,47 @@ const GRAINS = ['month', 'quarter', 'year'];
 const RISK_AXIS_MAX = 40;
 
 /**
+ * Where an exercise-risk indicator stops being Low and stops being Watch.
+ *
+ *   HoloMotion prints:  Low 0-15 | Medium 16-55        | High 56-100
+ *   AIRMS shows:        Low <=15 | Watch 16-25 | Elevated >25
+ *
+ * AIRMS' Low boundary is the report's exactly; above it AIRMS SUBDIVIDES the
+ * report's broad Medium, because ISN wants to act well before an athlete drifts
+ * toward its top. AIRMS never says "High": the report reserves that for 56-100,
+ * far above anything the instrument produces in practice.
+ *
+ * Shared because these two numbers decide what a clinician is TOLD, on screen
+ * and on paper, and they were written out SIX times: routes/athletes.js and
+ * utils/cohortFocus.js each declared their own WATCH/HIGH pair, pdfDraw.js held
+ * them inside RISK_ZONES and again inline at the hotspot list, holisticReport.js
+ * and screeningReports.js inlined them as bare `> 15` / `> 25`, and the frontend
+ * exported its own pair. Each carried a comment naming the others and asserting
+ * they must agree — which is a comment doing a test's job, and the §31 shape
+ * exactly.
+ *
+ * The bare-literal copies are the dangerous ones: a search for the NAME finds
+ * five of six, which is how `numOrNull` survived the §54 sweep. The guard for
+ * these therefore runs values through both packages' banding functions and
+ * compares the ANSWERS (§57).
+ *
+ * Comparison is strictly greater-than at both edges, so a value exactly on a
+ * boundary takes the LOWER band: 15 is Low and 25 is Watch. All six copies
+ * already agreed on that; writing it down means the next one cannot quietly
+ * disagree by using >=, which would move a boundary athlete a whole band on one
+ * surface and not the other.
+ *
+ * NOT shared, deliberately: the frontend's SPORT-TIGHTENED thresholds (a region
+ * a sport loads heavily is judged ~20% stricter). The dashboards apply them, the
+ * PDFs state the standard bands and say so on the page, and that divergence is a
+ * recorded decision awaiting sign-off - duplicating the sport-to-region map
+ * server-side would drift. These two constants are the INSTRUMENT baseline that
+ * tightening starts from, not the tightened values.
+ */
+const WATCH_THRESHOLD = 15;
+const HIGH_THRESHOLD = 25;
+
+/**
  * Stored but NEVER shown: Dr Thung's instruction that Lumbar Disc Herniation is
  * not scored, charted, printed or named anywhere.
  *
@@ -122,6 +163,8 @@ module.exports = {
   AGE_GROUPS,
   GRAINS,
   RISK_AXIS_MAX,
+  WATCH_THRESHOLD,
+  HIGH_THRESHOLD,
   EXCLUDED_RISK_KEYS,
   RISK_INDICATORS,
   SMALL_COHORT,

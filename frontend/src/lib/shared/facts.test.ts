@@ -17,6 +17,9 @@ import {
   RISK_AXIS_MAX, EXCLUDED_RISK_KEYS, RISK_INDICATORS, INSTITUTION_TZ, SMALL_COHORT,
 } from './facts';
 import type { Band, Grain, RiskKey } from './facts';
+// Namespace import so the arrival check below can enumerate what this package
+// actually received, rather than a list somebody remembered to write down.
+import * as generated from './facts';
 import { INDICATORS } from '../screeningAlerts';
 
 const ROOT = path.join(__dirname, '..', '..', '..', '..');
@@ -32,6 +35,53 @@ describe('generated shared facts are in sync', () => {
 
   it('the committed BACKEND copy is too — syncing one package alone is the bug', () => {
     expect(read(gen.BACKEND_OUT)).toBe(gen.renderBackend());
+  });
+});
+
+describe('every shared fact actually ARRIVES in this package', () => {
+  // THE HOLE THIS CLOSES, found 2026-09-06 by adding a fact and watching nothing
+  // happen. `shared/generate.js` renders each package from a HAND-WRITTEN
+  // template that names every constant. Adding a fact to shared/facts.js and
+  // forgetting the frontend template produced:
+  //
+  //   - `npm run sync:shared` reporting success
+  //   - the backend suite green (11/11)
+  //   - the frontend suite green (19/19)
+  //   - and the constant missing from lib/shared/facts.ts entirely
+  //
+  // The backend was already guarded — its suite walks the source key by key, so
+  // dropping a constant from the backend template fails immediately. This side
+  // was not, because the tests above import a FIXED list of names: a fact nobody
+  // thought to import is a fact nobody checks.
+  //
+  // The asymmetry is what made it dangerous. A fact that reaches one package and
+  // not the other leaves the two runtimes disagreeing, which is the single thing
+  // this whole mechanism exists to prevent (§53) — and it does so while every
+  // signal a developer looks at says the sync worked.
+  const source = require(path.join(ROOT, 'shared', 'facts.js'));
+
+  it('exposes every value the source defines', () => {
+    // Namespace import, NOT a fixed list — that is the entire point.
+    const missing = Object.keys(source).filter((k) => !(k in (generated as Record<string, unknown>)));
+    // If this fails: add the constant to the matching renderer in
+    // shared/generate.js and re-run `npm run sync:shared`. Adding it to
+    // shared/facts.js alone does nothing, which is exactly the trap.
+    expect(missing).toEqual([]);
+  });
+
+  it('carries the same VALUE for each of them, not merely the same name', () => {
+    for (const [k, v] of Object.entries(source)) {
+      expect({ [k]: (generated as Record<string, unknown>)[k] }).toEqual({ [k]: v });
+    }
+  });
+
+  it('exports nothing the source does not define, except what it DERIVES', () => {
+    const derived = ['BAND_RANK'];
+    const extra = Object.keys(generated)
+      .filter((k) => !(k in source) && !derived.includes(k))
+      // Types erase at runtime, so anything left here is a real extra value.
+      .filter((k) => typeof (generated as Record<string, unknown>)[k] !== 'function');
+    expect(extra).toEqual([]);
   });
 });
 

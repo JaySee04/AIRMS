@@ -355,6 +355,8 @@ Generated into both packages from `shared/facts.js` — see DESIGN_DECISIONS §5
 | `AGE_GROUPS` | `[{"label":"Under 18","max":17},{"label":"18-23 (junior)","min":18,"max":23},{"label":"24-29 (senior)","min":24,"max":29},{"label":"30+ (veteran)","min…` |
 | `GRAINS` | `["month","quarter","year"]` |
 | `RISK_AXIS_MAX` | `40` |
+| `WATCH_THRESHOLD` | `15` |
+| `HIGH_THRESHOLD` | `25` |
 | `EXCLUDED_RISK_KEYS` | `["spinalDiscHerniation"]` |
 | `RISK_INDICATORS` | `[{"key":"neckInjuryRisk","region":"Neck","reportLabel":"Neck Pain"},{"key":"shoulderInjuryRisk","region":"Shoulder","reportLabel":"Shoulder Pain"},{"k…` |
 | `SMALL_COHORT` | `10` |

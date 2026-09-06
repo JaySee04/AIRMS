@@ -14,6 +14,9 @@
 const { Screening, Athlete, AthleteDiscipline } = require('../models');
 const { latestScreeningsByAthlete } = require('./cohorts');
 const { effectiveBand } = require('./bands');
+// Band boundaries, shared so the digest's attached PDF cannot band a value
+// differently from the screen it mirrors (DD 60).
+const { WATCH_THRESHOLD, HIGH_THRESHOLD } = require('../shared/facts');
 const { screeningPeriods } = require('./screeningPeriods');
 const {
   focusBreakdown, isShownIndicator, ageGroupOf, SHOWN_INDICATORS, INDICATOR_LABEL,
@@ -242,8 +245,8 @@ function drawHolistic(doc, data, stamp = todayStamp()) {
   riskLegend(doc);
   const hot = RISKS.map(([k, label]) => ({
     label,
-    watch: kept.filter(({ screening }) => (num(screening[k]) ?? 0) > 15 && (num(screening[k]) ?? 0) <= 25).length,
-    elevated: kept.filter(({ screening }) => (num(screening[k]) ?? 0) > 25).length,
+    watch: kept.filter(({ screening }) => (num(screening[k]) ?? 0) > WATCH_THRESHOLD && (num(screening[k]) ?? 0) <= HIGH_THRESHOLD).length,
+    elevated: kept.filter(({ screening }) => (num(screening[k]) ?? 0) > HIGH_THRESHOLD).length,
   })).sort((a, b) => (b.watch + b.elevated) - (a.watch + a.elevated));
   for (const h of hot) hotspotBar(doc, h.label, h.watch, h.elevated, total);
 

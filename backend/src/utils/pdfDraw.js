@@ -53,16 +53,16 @@ const bandLabel = (b) => BAND_LABEL[b] || '\u2014';
 // reports top out at 27).
 // Display axis, and it MUST match the dashboard strips — same source, so it
 // does: shared/facts.js, generated into both packages.
-const { RISK_AXIS_MAX } = require('../shared/facts');
+const { RISK_AXIS_MAX, WATCH_THRESHOLD, HIGH_THRESHOLD } = require('../shared/facts');
 // Zone tints are the light-theme --risk-*-bg, what the dashboard's strip paints,
 // so printed and on-screen strips are the same picture. `color` fills marks;
 // `onLight` is the same meaning as text on white paper, amber darkened.
 const RISK_ZONES = [
-  { max: 15, label: 'Low', color: BAND.green, onLight: bandOnLight('green'), tint: '#e8f5ea' },
-  { max: 25, label: 'Watch', color: BAND.amber, onLight: bandOnLight('amber'), tint: '#fef9e7' },
+  { max: WATCH_THRESHOLD, label: 'Low', color: BAND.green, onLight: bandOnLight('green'), tint: '#e8f5ea' },
+  { max: HIGH_THRESHOLD, label: 'Watch', color: BAND.amber, onLight: bandOnLight('amber'), tint: '#fef9e7' },
   { max: RISK_AXIS_MAX, label: 'Elevated', color: BAND.red, onLight: bandOnLight('red'), tint: '#fdecea' },
 ];
-const riskZone = (v) => RISK_ZONES[v > 25 ? 2 : v > 15 ? 1 : 0];
+const riskZone = (v) => RISK_ZONES[v > HIGH_THRESHOLD ? 2 : v > WATCH_THRESHOLD ? 1 : 0];
 const ELEVATED_THRESHOLD = RISK_ZONES[1].max; // 25 — the radar guide polygon is drawn at this boundary
 // The report's own HoloMotion wording for the seven shown indicators (LDH
 // deliberately absent) — one definition, in utils/riskIndicators.js.
@@ -1215,8 +1215,8 @@ function symmetrySection(doc, subitems) {
 function keyFindings(screening, subitems) {
   const items = [];
   const rated = RISKS.map(([k, label]) => ({ label, v: num(screening[k]) ?? 0 }));
-  const elevated = rated.filter((r) => r.v > 25).sort((a, b) => b.v - a.v);
-  const watch = rated.filter((r) => r.v > 15 && r.v <= 25).sort((a, b) => b.v - a.v);
+  const elevated = rated.filter((r) => r.v > HIGH_THRESHOLD).sort((a, b) => b.v - a.v);
+  const watch = rated.filter((r) => r.v > WATCH_THRESHOLD && r.v <= HIGH_THRESHOLD).sort((a, b) => b.v - a.v);
   if (elevated.length) items.push(`Elevated exercise-risk: ${elevated.map((r) => `${r.label} ${r.v}`).join(', ')} — review before high-load work.`);
   const marked = symmetryFindings(subitems).filter((r) => r.sym < 75).sort((a, b) => a.sym - b.sym);
   if (marked.length) items.push(`Lateral asymmetry: ${marked.slice(0, 2).map((r) => `${r.label} (sym ${r.sym}${r.weaker !== 'Balanced' ? `, ${r.weaker.toLowerCase()} weaker` : ''})`).join(', ')}.`);
