@@ -140,7 +140,7 @@ cd backend; npx jest      # 36 suites / 572 tests: cohorts, overallIndicator, pe
                           # other suite. Static: it reads both files as text and never
                           # require()s the target, because several modules build a Sequelize
                           # instance at import time)
-cd frontend; npx jest     # 15 suites / 261 tests: lib/risk.ts, lib/screeningUploadStore.ts, bodymap-data/muscles.ts,
+cd frontend; npx jest     # 16 suites / 265 tests: lib/risk.ts, lib/screeningUploadStore.ts, bodymap-data/muscles.ts,
                           # components/charts (rendered via react-dom/server — no jsdom needed),
                           # lib/bands.ts, lib/athleteSearch.ts, lib/rank.ts,
                           # lib/screeningAlerts.indicators.ts, lib/cssTokens.ts, lib/periods.ts,
@@ -159,7 +159,17 @@ cd frontend; npx jest     # 15 suites / 261 tests: lib/risk.ts, lib/screeningUpl
                           # the compact badge differs by GLYPH, not hue; a clinician override
                           # beats the computed band; a stale screening states its age but a
                           # historical one does not; the staff copy never addresses the
-                          # reader as the at-risk athlete. All 9 mutations caught)
+                          # reader as the at-risk athlete. All 9 mutations caught),
+                          # app/pageWiring (SOURCE check, added 2026-09-06: every page that
+                          # renders OverallRiskBadge or ScreeningAlertBanner passes the
+                          # `audience` its ROLE requires. The badge suite pins what each
+                          # value renders; nothing pinned that the pages pass the right one
+                          # - and the prop DEFAULTS to 'staff', so omitting it on an athlete
+                          # page reproduces the original shipped bug exactly, in the one
+                          # direction where the words still scan as English. `compact` is
+                          # exempt: it renders no prose. Brace-aware tag scan, because
+                          # `historical={!!picked}` breaks a naive scan to the next '>'.
+                          # All 4 mutations caught, including the OMITTED-prop case)
 ```
 
 Jest covers the pure logic: scoring/permissions (`backend/tests/`), the PDF
@@ -211,9 +221,16 @@ counts coincide between opposite renderings; assert on the fill **colour**.
 tests (`cd frontend; npm run e2e`, 63 checks) and now two jsdom component suites
 — `DashboardLayout` (the access gate) and `OverallRiskBadge` (the hero). What
 there is still **none** of is a test that mounts a `page.tsx`: every suite either
-renders one component with a hand-built payload or drives the whole app through a
-real browser, with nothing in between. So a page that wires the right component
-to the wrong prop is caught by `npm run e2e` or by nobody. Adding a page test
+renders one component with a hand-built payload, reads page SOURCE, or drives the
+whole app through a real browser, with nothing in between.
+
+The "right component, wrong prop" case is now partly covered by
+`app/pageWiring.test.ts`, which reads the pages as text and checks the `audience`
+wiring — the same technique `backend/tests/athleteDisclosure.test.js` uses, and
+chosen because mounting `medical/dashboard` (900 lines, many fetches) is a large
+brittle investment to assert one prop. **It is not a substitute for mounting a
+page**: it cannot see a prop computed at runtime, and it covers one prop on two
+components. Any *other* mis-wiring is still caught by `npm run e2e` or by nobody. Adding a page test
 means mocking `next/navigation` and `@/lib/api` — the pattern is in
 `DashboardLayout.test.tsx`, including the trap that a router stub returning a
 fresh object each render loops for ever.

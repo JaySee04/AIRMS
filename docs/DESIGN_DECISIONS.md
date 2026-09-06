@@ -4420,3 +4420,52 @@ reaching it. The other three are kept rather than deleted: they are dormant, and
 they re-arm the moment the file reappears, so whoever adds it back inherits
 admin-only on every verb, the shared migration util instead of inline SQL, and a
 deadline. That is worth more than four fewer lines.
+
+---
+
+## 59. The prop whose default is the bug (2026-09-06)
+
+`OverallRiskBadge` and `ScreeningAlertBanner` are shared by the athlete, coach
+and medical pages. They were once second-person only, so the medical dashboard
+told a clinician that **they** were among the athletes most in need of attention
+and should arrange an assessment with their own medical team (§20j). Nobody
+reported it; it reads perfectly until you notice who is holding the screen.
+
+The `audience` prop fixed that, and moved the failure rather than removing it.
+The prop **defaults to `'staff'`** — a sensible default for a component used
+mostly by staff — which means **forgetting it on an athlete page reproduces the
+original bug exactly**, in the one direction where the sentences still scan as
+English. A default that is correct for the majority of call sites is a trap for
+the minority, and the minority here is the athlete's own dashboard.
+
+`OverallRiskBadge.test.tsx` (§58.4) pins what each *value* renders. Nothing
+pinned that the pages pass the right one, and that is a different property: one
+is about the component, the other about eight call sites in four files.
+
+`frontend/src/app/pageWiring.test.ts` now reads the pages as text and requires
+that every render of either component declares the `audience` its role directory
+implies. Three details are load-bearing:
+
+- **The missing case is tested separately from the wrong case.** Because of the
+  default, absence *is* a failure and not merely an omission. Both mutations were
+  run; both fail.
+- **`compact` is exempt.** The compact badge returns a glyph, a number and an
+  accessible name — no sentence addressed to anybody — so requiring `audience`
+  there would be a false positive on a correct line
+  (`coach/dashboard/page.tsx:829`). Checking the real call sites first is what
+  found that; a rule written from the principle alone would have flagged it.
+- **The tag scan is brace-aware.** These props span lines and carry expressions:
+  `historical={!!picked}` contains no `>`, but an arrow function would, and a
+  naive scan to the next `>` truncates the tag and loses the prop it is looking
+  for — a check that silently examines half a tag and reports all clear.
+
+**Why source and not a mounted page.** Mounting `medical/dashboard` means
+standing up `next/navigation`, `@/lib/api` and a dozen fetches for a 900-line
+page, to assert one prop. Reading the source is what
+`backend/tests/athleteDisclosure.test.js` already does for route wiring, for the
+same reason: this is a fact about how the call site is *written*.
+
+**What it does not do**, stated because the gap is easy to overclaim away: it
+cannot see a prop computed at runtime, it covers one prop on two components, and
+it is **not** the page-mounting test CLAUDE.md says is still missing. That
+blind spot is narrower now, not closed.
