@@ -206,6 +206,9 @@ async function visit(browser, route, session) {
     // project's whole defect class, they cost nothing to check, and no unit test
     // sees them because each one is produced by data meeting a template.
     const JUNK = ['NaN', 'undefined', 'Invalid Date', '[object Object]', 'null%', 'Infinity'];
+    // Whole words, so "Green" is caught but "background" and a sport called
+    // "Greenfield" are not. Shared with 6b so the two cannot drift apart.
+    const COLOUR_WORDS = ['Green', 'Amber', 'Red'];
     for (const [role, route] of [
       ['admin', '/admin/dashboard'], ['admin', '/admin/activity'],
       ['admin', '/admin/audit'], ['admin', '/admin/reports'],
@@ -225,6 +228,17 @@ async function visit(browser, route, session) {
       // A page that rendered its shell and nothing else is also a failure, and
       // reads as an ordinary empty state.
       check(`${route} rendered real content`, r.text.length > 400, `${r.text.length} chars`);
+      // The colour-word check rides along on this SAME page load rather than
+      // getting its own loop (§33 / SILENT_FAILURES 3i). It used to cover four
+      // routes; this covers all twelve for no extra page visits and no extra
+      // runtime, which is the cheapest coverage increase available here.
+      //
+      // 6b below still visits its four separately and deliberately — see the
+      // note there: /athlete/dashboard is the only route that mounts
+      // ScreeningHistory unconditionally, so it is the one that actually guards
+      // that component. This pass is the wider net, not a replacement.
+      const bare = COLOUR_WORDS.filter((c) => new RegExp(`\\b${c}\\b`).test(r.text));
+      check(`${route} names no band by colour alone`, bare.length === 0, bare.join(', '));
       await r.page.close();
     }
 
@@ -250,9 +264,10 @@ async function visit(browser, route, session) {
       ['coach', '/coach/dashboard'], ['admin', '/admin/dashboard'],
     ]) {
       const r = await visit(browser, route, sessions[role]);
-      // Whole words, so "Green" is caught but "background" and a sport called
-      // "Greenfield" are not.
-      const colours = ['Green', 'Amber', 'Red'].filter((c) => new RegExp(`\\b${c}\\b`).test(r.text));
+      // COLOUR_WORDS, shared with the wider pass in section 6 — two lists of
+      // band colours would be a fifth private band map, which is the very thing
+      // SILENT_FAILURES 3i is about.
+      const colours = COLOUR_WORDS.filter((c) => new RegExp(`\\b${c}\\b`).test(r.text));
       check(`${route} names no band by colour alone`, colours.length === 0, colours.join(', '));
       await r.page.close();
     }

@@ -4770,3 +4770,97 @@ is the most portable thing in these two sections:
 Both §62 and §63 were found by asking the same question — *which decisions has
 this codebase already made and only partly applied?* — which has now outperformed
 searching for duplication three times running.
+
+---
+
+## 64. A broad survey: seven dimensions measured, two worth acting on (2026-09-06)
+
+Asked to look for improvements beyond the seam the last several passes worked,
+this one deliberately measured dimensions that had never been examined together,
+rather than sweeping for duplication a ninth time. **Most of it found nothing**,
+and that is recorded here in full — an audit whose negative results are discarded
+is an audit that gets repeated.
+
+### 64.1 What was measured, and what it said
+
+| Dimension | Result |
+|---|---|
+| Security middleware | `helmet`, `cors` with an origin allow-list, `express-rate-limit` on `/api/auth`, `express.json()` at its 100 KB default — **complete** |
+| Upload hardening | `multer` with `fileSize: 20 MB` **and** a `fileFilter` — bounded |
+| API latency | **4–38 ms** across nine representative endpoints; payloads 1.0–79.2 KB. §49's conclusion holds: there is no performance problem to fix |
+| Database indexes | 22 indexes; every filtered column covered. One redundancy (§64.3) |
+| Error / empty / loading states | Handled. Four pages initially looked bare and all four were false positives — two thin compositions, one six-line re-export, one delegating to `ProfileShell`, which has `statsError`, `prefsError` and catch blocks |
+| Accessibility of the heatmap | Already exemplary: every cell carries its VALUE as text beside its colour, `scope` on both header axes, a `title` with full context, and a comment stating the colour-blind rationale |
+| Guard coverage | One real gap (§64.2) |
+
+Five of seven dimensions needed no change. That is consistent with §37 and §39,
+which reached the same conclusion about dead code and CSS — and the useful part
+of saying so is that it stops the next person paying for the same measurement.
+
+**The four false positives are the point of the row about them.** A crude probe
+counted `loading`/`error`/`empty` keywords per page and flagged four pages with
+zero of each. Reading them showed all four were correct. Fixing what a probe
+reports without opening the file is how a cleanup pass breaks working code (§37,
+where five automated findings were false and one would have deleted live Module 1
+styling).
+
+### 64.2 The one guard gap: colour-word coverage was 4 routes of 12
+
+SILENT_FAILURES 3i established that no surface may name a band by its colour —
+"Green" reads to an athlete as reassurance a screening test cannot give. The
+browser check enforced it on **four** routes, and its own comment said so
+honestly, explaining that `/athlete/dashboard` is the one that actually guards
+`ScreeningHistory`.
+
+Section 6 of the same suite already visits **twelve** routes for the
+non-answer check. Folding the colour check into that existing loop triples
+coverage for **no extra page loads and no extra runtime** — the cheapest coverage
+increase available anywhere in this project. 63 checks became 75.
+
+Proven by planting `Amber` on `/admin/personnel`, a page the old four-route pass
+could not see: the run fails at 74/75 and names it. The narrow 6b pass is KEPT
+rather than replaced, for the reason its comment gives, and both now read one
+shared `COLOUR_WORDS` — two lists of band colours would be the fifth private band
+map, which is exactly what 3i is about.
+
+### 64.3 The one thing found and deliberately NOT done
+
+`screenings` carries two indexes on identical columns in identical order:
+
+```
+UNIQ screenings_athlete_assessed_unique   athlete_id, assessed_at
+idx  screenings_athlete_id_assessed_at    athlete_id, assessed_at
+```
+
+The unique index fully subsumes the non-unique one; the second is dead weight on
+every insert. It is a leftover: the model declares **only** the unique index, so
+`npm run seed` produces a clean schema and any fresh database is already correct.
+`sequelize.sync()` does not drop indexes, so existing databases kept it when §45
+added the unique key.
+
+**Not dropped, on purpose.** The gain at 74 rows is unmeasurable; the change would
+have to be applied to BOTH the local and the hosted database to avoid a schema
+divergence; and the hosted credentials are write-only in Vercel and not readable
+from this machine (DEPLOY.md), so "both" cannot be done in one sitting from here.
+Making a schema change to the demo system days before it is shown, for no
+measurable benefit, is a bad trade. Recorded so it is a decision rather than an
+oversight:
+
+```sql
+-- when convenient, on BOTH databases:
+ALTER TABLE screenings DROP INDEX screenings_athlete_id_assessed_at;
+```
+
+### 64.4 What this pass suggests about where value now is
+
+Three consecutive passes (§62, §63, §64) found more by asking *"which decisions
+has this codebase made and only partly applied?"* than by asking *"what is
+duplicated?"*. The duplication seam is close to exhausted — nineteen coercions,
+six band boundaries, four band maps, three medians and one indicator list have
+all been unified — while half-applied decisions keep turning up: a timezone fixed
+for bucketing but not display, a behaviour-not-names rule stated but implemented
+as a file list, a colour rule enforced on a third of the pages it applies to.
+
+The lens generalises: **find a decision the codebase already believes in, then
+check every surface it should reach.** The gap is never in the decision; it is in
+the surfaces nobody enumerated.
