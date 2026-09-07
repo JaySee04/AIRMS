@@ -4554,3 +4554,68 @@ identical probe: **`1768fadc…` both times**, same tally
 (`ok 16 / watch 10 / high 20`), same boundary answers (15 → Low, 25 → Watch).
 Old code versus new code against one input set, which is the §57.4 method — the
 first A/B in that section was contaminated by comparing two *databases* instead.
+
+---
+
+## 61. A launch checklist, triaged against what this system actually is (2026-09-06)
+
+JC passed over a generic "20 things before you launch a website" list. Most of it
+does not apply, and saying which and why is the useful part — AIRMS is an
+invitation-only clinical tool for one institute, not a public site with an
+audience to win.
+
+**Already true, verified rather than assumed:** HTTPS is forced (the hosted
+instance answers `http://` with a 308 to `https://`); no secrets reach the
+frontend (the only `NEXT_PUBLIC_*` is the API base URL, which is public by
+design); every `<img>` carries `alt`; images are 50-60 KB, so there is nothing to
+compress; no broken internal links (all five `href="/…"` targets resolve to real
+routes); page load was measured in §49; mobile layout in §28; colour contrast in
+§19 and §33; form validation and the `/api/auth` rate limiter already exist.
+
+**Does not apply.** Terms & conditions, a social preview image, and "one clear
+call to action" are all for a site persuading strangers. There are no strangers:
+there is no self-registration and never will be, and every route is behind a
+login. A cookie consent banner has nothing to consent to — the session token
+lives in `localStorage` and there is no tracking cookie.
+
+**Deliberately refused: analytics.** A third-party script on a page that renders
+a named athlete's clinical scores would send athlete-associated data to a party
+with no relationship to ISN, to answer a question nobody has asked. The audit
+trail (§20) already records who read what, and it does so inside the institution.
+This is a non-goal, not an omission.
+
+**A privacy policy is a real question and it is not mine to answer.** The system
+does hold personal health data under an identifier that encodes date of birth,
+birth state and sex (§43). But the controller is ISN, the lawful basis is theirs,
+and a policy page written by a student and pasted into their system would be
+worse than none. Raised for Dr Thung; the §18 redaction design and the §43
+disclosure work are the parts that were in scope.
+
+**Three were genuinely missing, and one of them inverts.**
+
+1. **`robots.txt` — to BLOCK, not to promote.** Measured: the hosted instance
+   served no robots.txt (404) and no `X-Robots-Tag`, so it was crawlable. The
+   practical exposure is small — protected routes bounce to sign-in and the API
+   answers 401 — but "small" is not the standard for a system holding clinical
+   records. `app/robots.ts` disallows everything, and `metadata.robots` adds
+   `noindex, nofollow` so a crawler that fetched anyway still will not index.
+   The two fail independently; neither is a security control, and the API's auth
+   remains the actual boundary. **No `sitemap.ts`** — a sitemap advertises
+   routes, which is the opposite of the intent here.
+
+2. **A custom 404.** Next's stock page is unstyled, speaks in the framework's
+   voice and names the framework. It is also one of the few AIRMS screens
+   reachable *without a session*, so it must say nothing about what exists behind
+   the login: it reads identically for a typo, a stale bookmark and a probe. It
+   links to `/` and nowhere else, because an unauthenticated visitor has no role
+   and guessing a dashboard would be wrong. Verified to return a real **404
+   status**, not a 200 with 404-shaped content.
+
+3. **A favicon.** Reuses the existing `logo1.png` (279×312, near enough square)
+   as `app/icon.png` rather than adding an asset. Polish, not necessity — stated
+   as such — but a broken-document icon in the tab during a stakeholder demo
+   reads as unfinished.
+
+Verified after: 268 frontend tests, tsc and lint clean, and **63/63 e2e**, which
+matters here because `not-found.tsx` is app-level routing and the auth-boundary
+checks are exactly what a bad interaction would break.
