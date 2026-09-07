@@ -430,8 +430,19 @@ prevention-insight card and the composite-risk-hero reuse, both removed
 - ✅ **HoloMotion screening embedded in the per-athlete view** — the same shared [`ScreeningPanel`](../frontend/src/components/dashboard/ScreeningPanel.tsx) the athlete sees (gauges + threshold strips + muscle-flag chips) renders inside the selected-athlete pane, so the clinician reads the report in the same context as the injury picture. The former `/medical/screening` page was folded in here
 
 **Deferred (not blocking system use):**
-- **Watchlist / starred athletes** — designed in prototype, not built
-- **Team-level summary card** ("5 athletes high-risk, 3 with active injuries") — not built
+- **Watchlist / starred athletes** — designed in prototype, not built. Needs
+  persistence (a table or a user column) plus endpoints, so it is the larger of
+  the two and is the one still outstanding
+- ~~**Team-level summary card**~~ — **BUILT 2026-09-06** (`DESIGN_DECISIONS.md §65`).
+  The injured/roster/screened half already existed as stat tiles; what was
+  missing was the **cohort verdict at roster level**. The landing pane ranked by
+  HoloMotion's printed Exercise Risks score and its own subtitle told the
+  clinician to open an athlete one at a time for the actual band — the wrong way
+  round for the role whose job is deciding who to see next. `GET /athletes` now
+  carries `latestBand` (the EFFECTIVE band, overrides applied) and
+  `lastScreenedAt`, and the pane shows the split with a worst-first shortlist.
+  Verified against `npm run measure:facts`: 38 green / 9 amber / 9 red, the same
+  numbers every other surface reports
 - **Direct screening edit** — medical reads screening data; editing is via Module 3 re-upload only
 
 **Removed 2026-07-20** (both consumed data only Activity Tracking produced, and were retired alongside it): the **Prevention insight card** (`buildPreventionInsight()`), the **recovery baseline** card, and the **Recent Activity** table. See `MASTER_CLARIFICATIONS.md §4`.

@@ -84,7 +84,15 @@ function serializeAthlete(instance, viewer) {
   }, viewer);
 }
 
-function serializeAthleteList(rows, viewer) {
+/**
+ * @param rows      Athlete rows
+ * @param viewer    req.user — decides whether the clinician's notes travel (§43)
+ * @param bandByAthlete optional Map(athleteId -> { band, assessedAt }). When
+ *   given, each row gains `latestBand` and `lastScreenedAt`. OPTIONAL on purpose:
+ *   the only caller that needs it is the roster list, and an endpoint that does
+ *   not pay for the extra query keeps the payload it always had.
+ */
+function serializeAthleteList(rows, viewer, bandByAthlete = null) {
   // List view omits the heavy muscle arrays anyway, so just collapse risks.
   return rows.map((r) => {
     const plain = plainOf(r);
@@ -108,6 +116,18 @@ function serializeAthleteList(rows, viewer) {
         ankleInjuryRisk: Number(ankleInjuryRisk) || 0,
       },
       ...(Array.isArray(disciplineRows) ? { disciplines: disciplineRows.map((d) => d.discipline) } : {}),
+      // The band a roster row is IN, so a list can be summarised without asking
+      // for each athlete in turn. `latestBand` is the EFFECTIVE band — a
+      // clinician's override beats the computed one, the same rule every other
+      // surface uses (utils/bands.js effectiveBand). Absent when this serialiser
+      // was not given a band map, and null for an athlete never screened, which
+      // is a distinct state from any band and is counted as such.
+      ...(bandByAthlete
+        ? {
+          latestBand: bandByAthlete.get(rest.athleteId)?.band ?? null,
+          lastScreenedAt: bandByAthlete.get(rest.athleteId)?.assessedAt ?? null,
+        }
+        : {}),
     }, viewer);
   });
 }

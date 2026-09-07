@@ -185,6 +185,36 @@ async function visit(browser, route, session) {
       /screened athlete|never been screened|have a screening on record/i.test(cd.text));
     await cd.page.close();
 
+    console.log('\n4b. the medical roster verdict agrees with the institution');
+    // Module 6 shipped without a roster-level cohort verdict: the landing pane
+    // ranked by HoloMotion's printed Exercise Risks score and told the clinician
+    // to open an athlete one at a time for the actual band. The band counts are
+    // now on the roster, and the thing worth checking is not that they RENDER
+    // but that they AGREE — a second surface computing the same split slightly
+    // differently is this project's whole defect class.
+    //
+    // Read from the API rather than the DOM, because the property under test is
+    // the payload the page reads; the page rendering it is covered by section 6.
+    {
+      const res = await fetch(`${API}/athletes`, { headers: { Authorization: `Bearer ${sessions.medical.token}` } });
+      const list = await res.json();
+      const c = { red: 0, amber: 0, green: 0, never: 0 };
+      for (const a of list) {
+        if (a.latestBand === 'red' || a.latestBand === 'amber' || a.latestBand === 'green') c[a.latestBand] += 1;
+        else c.never += 1;
+      }
+      const banded = c.red + c.amber + c.green;
+      check('the roster carries an effective band per athlete', banded > 0, JSON.stringify(c));
+      // Every athlete is in exactly one bucket, including the never-screened —
+      // the §33 rule that "not screened" is a state, not a quiet green.
+      check('every athlete is accounted for exactly once', banded + c.never === list.length,
+        `${banded} banded + ${c.never} never = ${list.length}`);
+      // A never-screened athlete must NOT be given a band. Counting them green
+      // is the reassurance failure §33 exists to prevent.
+      const falseGreen = list.filter((a) => a.latestBand && a.overallActivityScore == null).length;
+      check('a never-screened athlete carries no band', falseGreen === 0, `${falseGreen} with a band but no screening`);
+    }
+
     console.log('\n5. keyboard focus is visible where focus was removed once');
     const fp = await visit(browser, '/athlete/dashboard', sessions.athlete);
     const ring = await fp.page.evaluate(() => {

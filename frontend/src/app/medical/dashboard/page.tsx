@@ -27,6 +27,9 @@ import MarkedText from '@/components/ui/MarkedText';
 import { disciplinesForSport } from '@/lib/disciplines';
 import { getInitials } from '@/lib/name';
 import TagCombobox from '@/components/ui/TagCombobox';
+// Band vocabulary and colours from the ONE generated source (DD 53/60), so the
+// roster summary cannot spell a band differently from the athlete's own page.
+import { BAND_BG, BAND_COLOR, BAND_GLYPH, BAND_LABEL, BAND_SHORT } from '@/lib/bands';
 
 interface AthleteListItem {
   athleteId: string;
@@ -44,6 +47,12 @@ interface AthleteListItem {
   injuryRiskIndex?: number | null;
   overallActivityScore?: number | null;
   isInjured?: boolean;
+  // The EFFECTIVE band this athlete is currently in — a clinician's override
+  // beats the computed one, decided server-side so this list cannot disagree
+  // with the athlete's own dashboard. Null means never screened, which is a
+  // distinct state from any band and is counted separately.
+  latestBand?: 'green' | 'amber' | 'red' | null;
+  lastScreenedAt?: string | null;
 }
 
 interface AthleteFull extends AthleteListItem {
@@ -317,12 +326,38 @@ export default function MedicalDashboard() {
       const vs = screened.map(pick).filter((v): v is number => typeof v === 'number' && Number.isFinite(v));
       return vs.length ? vs.reduce((x, y) => x + y, 0) / vs.length : null;
     };
+    // THE COHORT VERDICT, at roster level.
+    //
+    // "Highest exercise risk" below ranks by HoloMotion's printed Exercise Risks
+    // score and says so — it is the instrument's reading. Until now that was the
+    // only roster-wide view, and its own subtitle told the clinician to open an
+    // athlete to get the cohort verdict, one at a time. For the role whose job is
+    // deciding who to see next, that is the wrong way round.
+    //
+    // `latestBand` is the EFFECTIVE band from the server, so this cannot disagree
+    // with the athlete's own dashboard, the coach's table or the printed report.
+    const byBand = { red: [] as AthleteListItem[], amber: [] as AthleteListItem[], green: [] as AthleteListItem[] };
+    for (const a of athletes) {
+      if (a.latestBand === 'red' || a.latestBand === 'amber' || a.latestBand === 'green') {
+        byBand[a.latestBand].push(a);
+      }
+    }
+    // Worst first, and inside a band the higher instrument reading first, so the
+    // order is stable and the top of the list is always the strongest case.
+    const rank = (a: AthleteListItem) => (a.injuryRiskIndex ?? -1);
+    for (const k of ['red', 'amber', 'green'] as const) {
+      byBand[k].sort((x, y) => rank(y) - rank(x) || x.name.localeCompare(y.name));
+    }
+    const needsClinician = [...byBand.red, ...byBand.amber].slice(0, 6);
+
     return {
       screened: screened.length,
       unscreened: athletes.length - screened.length,
       injured: athletes.filter((a) => a.isInjured).length,
       bySport,
       topRisk,
+      bandCounts: { red: byBand.red.length, amber: byBand.amber.length, green: byBand.green.length },
+      needsClinician,
       avgTotal: mean((a) => a.overallActivityScore),
       avgRisks: mean((a) => a.injuryRiskIndex),
     };
@@ -587,6 +622,61 @@ export default function MedicalDashboard() {
                       </button>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {/* The cohort verdict for the whole roster. Above "Highest
+                  exercise risk" deliberately: that card is the instrument's
+                  reading, this is the system's answer, and the answer is what a
+                  clinician acts on. */}
+              {!loadingList && (roster.bandCounts.red + roster.bandCounts.amber + roster.bandCounts.green) > 0 && (
+                <div className="card">
+                  <h3 className="quick-heading">Who the cohort verdict flags</h3>
+                  <p className="text-muted quick-sub">
+                    Each athlete&rsquo;s band against their own comparison group, clinician
+                    overrides applied — the same verdict their dashboard and printed report
+                    show. Never-screened athletes are counted apart, above.
+                  </p>
+                  <div className="band-summary">
+                    {(['red', 'amber', 'green'] as const).map((b) => (
+                      <span key={b} className="band-summary-item">
+                        <span aria-hidden="true" className="band-summary-glyph" style={{ color: BAND_COLOR[b] }}>
+                          {BAND_GLYPH[b]}
+                        </span>
+                        <strong>{roster.bandCounts[b]}</strong>
+                        {' '}
+                        {BAND_LABEL[b]}
+                      </span>
+                    ))}
+                  </div>
+                  {roster.needsClinician.length > 0 ? (
+                    <ul className="quick-list" style={{ marginTop: 12 }}>
+                      {roster.needsClinician.map((a) => (
+                        <li key={a.athleteId}>
+                          <button type="button" onClick={() => setSelectedId(a.athleteId)}>
+                            <span className="quick-list-name">{a.name}</span>
+                            <span className="quick-list-meta">
+                              {a.sport}
+                              {a.isInjured ? ' · flagged injured' : ''}
+                            </span>
+                            <span
+                              className="quick-list-score"
+                              style={{ background: BAND_BG[a.latestBand as 'red' | 'amber'], color: BAND_COLOR[a.latestBand as 'red' | 'amber'] }}
+                            >
+                              {BAND_SHORT[a.latestBand as 'red' | 'amber']}
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-muted" style={{ margin: '12px 0 0', fontSize: 'var(--fs-sm)' }}>
+                      {/* Not "all clear": §33 — a screening cannot certify the absence
+                          of injury, so the wording reports the finding, not the athlete. */}
+                      No athlete is currently above the low band. This says nothing was
+                      flagged, not that nobody is at risk.
+                    </p>
+                  )}
                 </div>
               )}
 

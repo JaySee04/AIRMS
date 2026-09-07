@@ -89,7 +89,7 @@ cd frontend; npm run lint  # next lint
 
 # Frontend production build
 cd frontend; npm run e2e   # END-TO-END smoke: a real Chrome against the running
-                           # servers (needs `npm run dev`). 75 checks - auth boundaries,
+                           # servers (needs `npm run dev`). 78 checks - auth boundaries,
                            # each role's pages rendering, the readiness tiles accounting
                            # for the squad, the body-map focus ring, no NaN/undefined/
                            # Invalid Date on any page, no band named by COLOUR alone
@@ -221,7 +221,7 @@ counting paint ops is a trap — the dead-band *zone* is itself a fill, so fill
 counts coincide between opposite renderings; assert on the fill **colour**.
 
 **Frontend coverage, stated accurately (2026-09-05).** There are end-to-end
-tests (`cd frontend; npm run e2e`, 75 checks) and now two jsdom component suites
+tests (`cd frontend; npm run e2e`, 78 checks) and now two jsdom component suites
 — `DashboardLayout` (the access gate) and `OverallRiskBadge` (the hero). What
 there is still **none** of is a test that mounts a `page.tsx`: every suite either
 renders one component with a hand-built payload, reads page SOURCE, or drives the
@@ -268,6 +268,17 @@ as a physiologist would rather than by reading the backlog:
   stated objection. The objection shaped it: at 5–10 peers a per-CELL standard
   deviation is unstable, so the cells carry the group MEAN and nothing else — no
   tier, no z-score. `§33c` applies with more force at cell level, not less.
+- **The medical roster answers the question the role exists to ask** (2026-09-06,
+  `DESIGN_DECISIONS.md §65`). The clinician's landing pane ranked the roster by
+  HoloMotion's printed Exercise Risks score and its own subtitle said "the
+  instrument's reading, not the cohort verdict — open an athlete for that". So
+  the system's own verdict was reachable one athlete at a time, for the role
+  whose job is deciding who to see next. `GET /athletes` now carries
+  `latestBand` (the EFFECTIVE band, overrides applied, resolved SERVER-side so it
+  cannot disagree with the athlete's own dashboard) and `lastScreenedAt`; the
+  pane shows the split and a worst-first shortlist. Never-screened is counted
+  APART from any band — collapsing them is the §33 reassurance failure, and an
+  e2e check refuses it. Costs one light query: median 8 ms, payload 40.4 -> 44.2 KB.
 - **The coach sees the recall they are already emailed about.** AIRMS mails each
   coach a monthly overdue list and the dashboard showed no trace of it, while
   rendering readiness in the present tense over months-old screenings. The data

@@ -3514,3 +3514,28 @@ textarea:focus-visible,
   font-size: var(--fs-sm);
   color: var(--text-muted);
 }
+
+/* Roster-level band summary on the medical landing pane.
+   Counts read as text beside a per-band GLYPH, never colour alone — the same
+   rule the compact risk badge follows (SILENT_FAILURES 3i): the shape carries
+   the meaning in greyscale and under a red-green deficiency, and the band's
+   clinical wording is present as words rather than as a hue. */
+.band-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-md);
+  align-items: baseline;
+}
+.band-summary-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+.band-summary-item strong {
+  font-size: var(--fs-xl);
+  color: var(--text);
+  line-height: 1;
+}
+.band-summary-glyph { font-size: var(--fs-2xs); line-height: 1; }

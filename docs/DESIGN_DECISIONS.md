@@ -4864,3 +4864,85 @@ as a file list, a colour rule enforced on a third of the pages it applies to.
 The lens generalises: **find a decision the codebase already believes in, then
 check every surface it should reach.** The gap is never in the decision; it is in
 the surfaces nobody enumerated.
+
+---
+
+## 65. The roster could not answer the question the role exists to ask (2026-09-06)
+
+Asked to find what the system LACKS rather than what could be tidied, the honest
+place to start was the project's own record of it. `MODULES_STATUS.md` lists
+three deferred items; this is the one worth building.
+
+### 65.1 What was actually missing
+
+The medical landing pane already had more than the deferred note suggested:
+roster size, screened, never-screened, **flagged injured**, institute averages, a
+by-sport breakdown, and a "Highest exercise risk" shortlist. The "3 with active
+injuries" half of the deferred example existed.
+
+What was missing is sharper than "a summary card", and the existing code said so
+itself. The shortlist ranks by HoloMotion's printed Exercise Risks score, and its
+subtitle reads:
+
+> the instrument's reading, not the cohort verdict. **Open an athlete for that.**
+
+That is an accurate disclaimer and a description of the gap. The only roster-wide
+view was the instrument's raw reading, and the system's own verdict — the
+cohort-normed band, which is what §21 made the headline everywhere else — was
+reachable only one athlete at a time. For the role whose entire job is deciding
+who to see next, that is the wrong way round.
+
+**Not a duplicate of the coach's readiness tiles.** Coach is sport-scoped and
+reads readiness (Full-Go / Observation / Restricted); medical is unscoped and
+reads the clinical band across the whole institute. Different population,
+different vocabulary, same underlying screening.
+
+### 65.2 How it was built, and what it cost
+
+`GET /athletes` now returns `latestBand` and `lastScreenedAt` per row.
+`latestBand` is the **effective** band — a clinician's override beats the computed
+one — resolved server-side, so this list cannot disagree with the athlete's own
+dashboard, the coach's table or the printed report. That is the whole reason it
+is not derived in the browser from `injuryRiskIndex`: a second surface computing
+the band slightly differently is this codebase's defect class.
+
+One extra query, deliberately not `latestScreeningsByAthlete()` — that helper
+re-fetches every athlete and every screening including heavy columns, duplicating
+the query the endpoint already makes. Four columns, ordered, first row per
+athlete wins. **Measured over 8 runs: min 7 ms, median 8 ms, max 13 ms; payload
+40.4 KB → 44.2 KB.** The same steady state as before.
+
+The serialiser's third argument is optional and absent by default, so the only
+endpoint that pays for the band is the one that needs it.
+
+### 65.3 The clinical decisions it inherits rather than reinvents
+
+- **Never screened is not a band.** It is counted apart, because "no screening"
+  and "nothing flagged" are different facts and collapsing them is the §33
+  reassurance failure. An e2e check asserts no athlete carries a band without a
+  screening; the mutation that defaults them to green fails it with "6 with a
+  band but no screening".
+- **Counts are read by GLYPH and word, never hue.** ■ / ▲ / ● beside the count
+  and the band's clinical wording, so the row survives greyscale and a red-green
+  deficiency — the compact badge's rule (SILENT_FAILURES 3i) applied to a
+  summary.
+- **Empty is not "all clear".** With nothing above the low band the card says
+  *"No athlete is currently above the low band. This says nothing was flagged,
+  not that nobody is at risk."*
+- **The vocabulary comes from the generated source**, so this pane cannot spell a
+  band differently from the page it links to.
+
+### 65.4 Verification, including one harness fault
+
+The band split from the new payload is **38 green / 9 amber / 9 red**, identical
+to `npm run measure:facts` and to every other surface. 62 = 56 banded + 6 never.
+
+Three e2e checks were added (78 total) and the mutation above proves they catch.
+
+One diagnostic detour worth recording, because it looked like a product bug: a
+scratch probe reported the card missing and the page at 586 characters. The cause
+was the probe loading the page from `127.0.0.1:3000` while CORS allows
+`localhost:3000`, so the browser blocked every API call and the pane rendered
+zeros. The page was correct; the harness was not — the same shape as the hosted
+e2e settle-time fault, and the second time in two days that a "failure" was the
+measurement.
