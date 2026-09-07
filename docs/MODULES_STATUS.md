@@ -430,9 +430,14 @@ prevention-insight card and the composite-risk-hero reuse, both removed
 - ✅ **HoloMotion screening embedded in the per-athlete view** — the same shared [`ScreeningPanel`](../frontend/src/components/dashboard/ScreeningPanel.tsx) the athlete sees (gauges + threshold strips + muscle-flag chips) renders inside the selected-athlete pane, so the clinician reads the report in the same context as the injury picture. The former `/medical/screening` page was folded in here
 
 **Deferred (not blocking system use):**
-- **Watchlist / starred athletes** — designed in prototype, not built. Needs
-  persistence (a table or a user column) plus endpoints, so it is the larger of
-  the two and is the one still outstanding
+- ~~**Watchlist / starred athletes**~~ — **BUILT 2026-09-06**
+  (`DESIGN_DECISIONS.md §66`). Medical and admin only: `coach` was in the allowed
+  roles until `npm run audit:access` failed with "a read-only role completed a
+  write", and the locked read-only property was kept in preference to the
+  feature. Stored in the existing `settings` table keyed `watchlist:<userId>`
+  rather than a new column, because a User attribute would break `/auth/login` on
+  any database lacking it and the hosted credentials are write-only. Not audited:
+  it is a working note about the reader, not an act on the institution's data
 - ~~**Team-level summary card**~~ — **BUILT 2026-09-06** (`DESIGN_DECISIONS.md §65`).
   The injured/roster/screened half already existed as stat tiles; what was
   missing was the **cohort verdict at roster level**. The landing pane ranked by

@@ -804,7 +804,7 @@ disclosure guards (each caught, failing 1–5 cases), and reintroducing
 Several findings here were *cascade* or *middleware-order* arguments, and this
 project has a poor record on those. The focus-ring defect was confirmed by
 focusing the element in Chrome and reading `getComputedStyle`, not by reasoning
-about specificity; the permission matrix was produced by calling 46 endpoints as
+about specificity; the permission matrix was produced by calling every endpoint as
 each role, not by reading `rbac()` calls.
 
 A note on the probes themselves: **more bugs were found in the probes than in the

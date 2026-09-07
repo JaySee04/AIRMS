@@ -215,6 +215,43 @@ async function visit(browser, route, session) {
       check('a never-screened athlete carries no band', falseGreen === 0, `${falseGreen} with a band but no screening`);
     }
 
+    console.log('\n4c. the personal watchlist is personal, and refuses the read-only roles');
+    // Module 6's last deferred item. The properties worth checking in a live
+    // system are the BOUNDARIES, not that a star renders: a watchlist is the
+    // first per-user mutable state in AIRMS, so "whose is it" and "who may have
+    // one" are the questions.
+    {
+      const call = async (token, method, path) => {
+        const r = await fetch(`${API}${path}`, {
+          method,
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          ...(method === 'POST' ? { body: '{}' } : {}),
+        });
+        return r.status;
+      };
+      // coach and athlete are read-only roles; a watchlist is a write, and the
+      // audit's headline property is that no read-only role completes one.
+      check('a coach is refused a watchlist', await call(sessions.coach.token, 'GET', '/watchlist') === 403);
+      check('an athlete is refused a watchlist', await call(sessions.athlete.token, 'GET', '/watchlist') === 403);
+
+      const roster = await (await fetch(`${API}/athletes`, { headers: { Authorization: `Bearer ${sessions.medical.token}` } })).json();
+      const target = roster[0].athleteId;
+      const before = await (await fetch(`${API}/watchlist`, { headers: { Authorization: `Bearer ${sessions.medical.token}` } })).json();
+      await call(sessions.medical.token, 'POST', `/watchlist/${target}`);
+      // Twice, because a double-click must not produce two rows.
+      await call(sessions.medical.token, 'POST', `/watchlist/${target}`);
+      const after = await (await fetch(`${API}/watchlist`, { headers: { Authorization: `Bearer ${sessions.medical.token}` } })).json();
+      check('starring twice adds one entry', after.athletes.length === before.athletes.length + 1,
+        `${before.athletes.length} -> ${after.athletes.length}`);
+      // The admin has their own account, so their list must be unaffected.
+      const adminList = await (await fetch(`${API}/watchlist`, { headers: { Authorization: `Bearer ${sessions.admin.token}` } })).json();
+      check('another account does not see it', !adminList.athletes.some((a) => a.athleteId === target));
+
+      await call(sessions.medical.token, 'DELETE', `/watchlist/${target}`);
+      const cleaned = await (await fetch(`${API}/watchlist`, { headers: { Authorization: `Bearer ${sessions.medical.token}` } })).json();
+      check('unstarring removes it, leaving no residue', cleaned.athletes.length === before.athletes.length);
+    }
+
     console.log('\n5. keyboard focus is visible where focus was removed once');
     const fp = await visit(browser, '/athlete/dashboard', sessions.athlete);
     const ring = await fp.page.evaluate(() => {

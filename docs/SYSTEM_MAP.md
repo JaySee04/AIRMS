@@ -12,7 +12,7 @@ This is the *what*. The **why** is [`DESIGN_DECISIONS.md`](DESIGN_DECISIONS.md),
 the measured figures are `npm run measure:facts` (which needs the database),
 and the access model argued in prose is [`PERMISSIONS.md`](PERMISSIONS.md).
 
-Counts: **9 models**, **138 columns**, **59 endpoints**, **25 pages**.
+Counts: **9 models**, **138 columns**, **62 endpoints**, **25 pages**.
 
 ## 1. Data model
 
@@ -266,6 +266,9 @@ refused inside the handler — see PERMISSIONS.md for what each role actually re
 | PATCH | `/api/users/:id` | PUBLIC |  | backend/src/routes/users.js |
 | POST | `/api/users/:id/invite` | PUBLIC |  | backend/src/routes/users.js |
 | GET | `/api/users/permission-meta` | PUBLIC |  | backend/src/routes/users.js |
+| GET | `/api/watchlist` | ...ROLES |  | backend/src/routes/watchlist.js |
+| DELETE | `/api/watchlist/:athleteId` | ...ROLES |  | backend/src/routes/watchlist.js |
+| POST | `/api/watchlist/:athleteId` | ...ROLES |  | backend/src/routes/watchlist.js |
 
 ## 3. Pages
 

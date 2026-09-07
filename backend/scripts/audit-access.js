@@ -49,6 +49,15 @@ const ROUTES = [
   ['GET', '/athletes/teammates'],
   ['GET', '/audit'],
   ['GET', '/audit/staff'],
+  // The personal watchlist. A WRITE, but to the caller's own preference
+  // rather than to institutional data - the same shape as a notification
+  // opt-out. medical and admin ONLY: coach was removed after this very audit
+  // flagged it, because coach is read-only by a locked decision and the
+  // property worth keeping is that no read-only role completes ANY write.
+  // Probed for every role so the matrix shows the refusals.
+  ['GET', '/watchlist'],
+  ['POST', '/watchlist/__nope__', {}],
+  ['DELETE', '/watchlist/__nope__', null],
   ['GET', '/coach/readiness'],
   ['GET', '/cohorts'],
   ['GET', '/cohorts/versions'],

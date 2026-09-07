@@ -3539,3 +3539,14 @@ textarea:focus-visible,
   line-height: 1;
 }
 .band-summary-glyph { font-size: var(--fs-2xs); line-height: 1; }
+
+/* Watch toggle on the clinician's athlete header. The explanatory line sits
+   beside the control rather than under it, so the claim it makes — that this is
+   private and not part of the record — is read WITH the button, not after. */
+.watch-toggle-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-sm);
+  margin-bottom: var(--sp-md);
+}

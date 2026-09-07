@@ -98,11 +98,44 @@ export default function MedicalDashboard() {
 
   // Inline "edit events" on the athlete header — set an athlete's disciplines
   // without a fresh HoloMotion import (PATCH /athletes/:id).
+  // The clinician's personal watchlist (Module 6). Ids only in state; the rows
+  // for the landing group come from the API, which filters by SCOPE on the way
+  // out so a reassigned coach cannot keep reading names they may no longer see.
+  const [watchIds, setWatchIds] = useState<string[]>([]);
+  const [watchRows, setWatchRows] = useState<Array<{ athleteId: string; name: string; sport: string; isInjured: boolean }>>([]);
+  const [watchBusy, setWatchBusy] = useState(false);
+
   const [editingEvents, setEditingEvents] = useState(false);
   const [eventDraft, setEventDraft] = useState<string[]>([]);
   const [eventsSaving, setEventsSaving] = useState(false);
 
   useEffect(() => { setPicked(null); }, [selectedId]);
+
+  async function loadWatchlist() {
+    try {
+      const r = await api.get<{ athletes: Array<{ athleteId: string; name: string; sport: string; isInjured: boolean }> }>('/watchlist');
+      setWatchRows(r.athletes);
+      setWatchIds(r.athletes.map((a) => a.athleteId));
+    } catch {
+      // A personal shortcut must never be why the dashboard looks broken. An
+      // unreachable watchlist is an empty one until the next load.
+      setWatchRows([]); setWatchIds([]);
+    }
+  }
+
+  async function toggleWatch(athleteId: string) {
+    const watching = watchIds.includes(athleteId);
+    setWatchBusy(true);
+    try {
+      if (watching) await api.delete(`/watchlist/${athleteId}`);
+      else await api.post(`/watchlist/${athleteId}`, {});
+      await loadWatchlist();
+    } catch (e) {
+      setPdfError(e instanceof Error ? e.message : 'Could not update the watchlist');
+    } finally {
+      setWatchBusy(false);
+    }
+  }
 
   async function saveEvents() {
     if (!selectedAthlete) return;
@@ -165,6 +198,9 @@ export default function MedicalDashboard() {
         const [list, sportsList] = await Promise.all([
           api.get<AthleteListItem[]>('/athletes'),
           api.get<string[]>('/athletes/meta/sports').catch(() => [] as string[]),
+          // Not awaited into the destructure: the watchlist is a convenience and
+          // must not delay or fail the roster it sits beside.
+          loadWatchlist(),
         ]);
         if (!cancelled) {
           setAthletes(list);
@@ -625,6 +661,36 @@ export default function MedicalDashboard() {
                 </div>
               )}
 
+              {/* The clinician's own watchlist. FIRST among the quick groups:
+                  everything else on this pane is the system telling the reader
+                  who to look at, and this is the reader's own answer to that
+                  question. It is only rendered when they have starred somebody —
+                  an empty card explaining a feature nobody is using is clutter
+                  on the screen a clinician opens every day. */}
+              {watchRows.length > 0 && (
+                <div className="card">
+                  <h3 className="quick-heading">Your watchlist</h3>
+                  <p className="text-muted quick-sub">
+                    Athletes you are keeping an eye on. Private to your account, and
+                    not part of anyone&rsquo;s record.
+                  </p>
+                  <ul className="quick-list">
+                    {watchRows.map((a) => (
+                      <li key={a.athleteId}>
+                        <button type="button" onClick={() => setSelectedId(a.athleteId)}>
+                          <span className="quick-list-name">{a.name}</span>
+                          <span className="quick-list-meta">
+                            {a.sport}
+                            {a.isInjured ? ' · flagged injured' : ''}
+                          </span>
+                          <span className="quick-list-score" aria-hidden="true">{'★'}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
               {/* The cohort verdict for the whole roster. Above "Highest
                   exercise risk" deliberately: that card is the instrument's
                   reading, this is the system's answer, and the answer is what a
@@ -835,6 +901,30 @@ export default function MedicalDashboard() {
                   onSaved={reloadSelectedAthlete}
                 />
               )}
+              {/* Watch toggle. Sits with the clinician's other affordances rather
+                  than in the athlete rail, because a row there is itself a
+                  <button> and nesting one inside it is invalid markup and
+                  unreachable by keyboard. */}
+              <div className="watch-toggle-row">
+                <button
+                  type="button"
+                  className={`btn btn-sm ${watchIds.includes(selectedAthlete.athleteId) ? 'btn-primary' : 'btn-outline'}`}
+                  onClick={() => toggleWatch(selectedAthlete.athleteId)}
+                  disabled={watchBusy}
+                  aria-pressed={watchIds.includes(selectedAthlete.athleteId)}
+                >
+                  <span aria-hidden="true">{watchIds.includes(selectedAthlete.athleteId) ? '★' : '☆'}</span>
+                  {' '}
+                  {watchIds.includes(selectedAthlete.athleteId) ? 'On your watchlist' : 'Add to watchlist'}
+                </button>
+                <span className="text-muted" style={{ fontSize: 'var(--fs-sm)' }}>
+                  {/* Says what it is NOT, because a star on a clinical record
+                      invites the reading that it means something about the
+                      athlete. It is a private note about the reader. */}
+                  Your own shortcut list — private to you, and not part of the athlete&rsquo;s record.
+                </span>
+              </div>
+
               <InjuryStatusControl
                 athleteId={selectedAthlete.athleteId}
                 isInjured={selectedAthlete.isInjured}

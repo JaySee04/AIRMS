@@ -3110,7 +3110,7 @@ the other file documents the hazard without preventing it.
 
 `rbac()` answers "may you call this". It says nothing about what comes back, or
 about what a refusal itself tells you. Auditing the four non-admin roles by
-calling all 46 endpoints as each of them — rather than by reading the guards —
+calling every endpoint as each of them (46 at the time) - rather than by reading the guards -
 found the role model sound and two disclosures underneath it.
 
 **The role model itself held.** Every write is refused for coach, executive and
@@ -4946,3 +4946,102 @@ was the probe loading the page from `127.0.0.1:3000` while CORS allows
 zeros. The page was correct; the harness was not — the same shape as the hosted
 e2e settle-time fault, and the second time in two days that a "failure" was the
 measurement.
+
+---
+
+## 66. The watchlist, and two decisions it forced (2026-09-06)
+
+Module 6's last deferred item: "Watchlist / starred athletes — designed in
+prototype, not built." Built. Two things about it were harder than the feature.
+
+### 66.1 Where per-user state lives, when the database cannot be migrated
+
+The natural home is a `users.watchlist` JSON column beside `permissions` and
+`notify_prefs` — same shape, same idea, and the project has done this three times
+before.
+
+It is not there, for a deployment reason. Adding an attribute to the User model
+makes Sequelize select it on **every** user query, including the one behind
+`/auth/login`. Until the column exists, every login on that database fails with
+`Unknown column`. The hosted credentials are Sensitive in Vercel and **write-only
+— they cannot be read from this machine** (DEPLOY.md), so the migration cannot be
+applied in the same change that needs it. Shipping the column would break the
+deployed instance between the deploy and a migration nobody here can run, days
+before it is demonstrated.
+
+So the rows live in the existing `settings` table, keyed `watchlist:<userId>`.
+That table already exists everywhere, is key/value with a JSON value, and — the
+property that makes this safe rather than merely convenient — **the institution's
+settings reader ignores unknown keys by construction**: `getSettings()` keeps only
+keys present in `DEFAULTS`, and `setSetting()` refuses to write anything else. The
+admin Settings page therefore cannot see or edit these, which is correct, because
+they are not institution settings.
+
+The trade is recorded rather than hidden: a key/value table is holding per-user
+data. If the schema is ever migrated with access to both databases,
+`users.watchlist` is the better home and `utils/watchlist.js` is the only file
+that changes.
+
+### 66.2 The coach was removed from it, by the audit, on purpose
+
+`coach` was in the allowed roles — it is the squad-monitoring role, so a
+watchlist seems to belong there. `npm run audit:access` failed:
+
+```
+1 WRITE REACHED BY A READ-ONLY ROLE:
+  coach reached DELETE /watchlist/__nope__ — expected 403, got 200
+```
+
+The distinction is real: a watchlist writes to the caller's own preference, not
+to institutional data — the same category as a notification opt-out, which coach
+already has. The audit script has no such category, because it has never needed
+one.
+
+**Adding the category was the wrong call and the feature lost instead.** Coach is
+read-only by a **locked decision** (`MASTER_CLARIFICATIONS §12`), and the audit's
+headline property — *no read-only role completed a write* — is worth more than
+the convenience. It is one unqualified sentence in a viva; introducing its first
+exemption would replace it with a paragraph about which writes count. That is a
+bad trade for a shortcut list, made days before the system is shown.
+
+Medical and admin have it. Extending to coach is one line in `routes/watchlist.js`
+plus a preference-write category in the audit script — left as a decision for JC,
+because it changes what a locked role means, which is not a change to make while
+implementing something else.
+
+### 66.3 The smaller decisions, which are all the same decision
+
+- **It is not audited.** `AuditLog` records acts on the institution's data (§20).
+  Starring changes nothing an athlete or the institute would recognise. Opening
+  the record is still logged (`athlete.view`, §51), unchanged — the watchlist is a
+  shortcut to records whose opening is audited exactly as before.
+- **No account can read or edit another's**, exactly like `notify_prefs`. An
+  administrator editing a clinician's list would change what that clinician sees
+  without telling them.
+- **Scope is filtered on the way OUT, not only on the way in.** A coach
+  reassigned to another sport would otherwise keep rows naming athletes they may
+  no longer see. (Moot while coach has no watchlist, and kept because the
+  filtering is the correct shape regardless of who is currently allowed.)
+- **DELETE checks nothing.** Removing an id from your own list cannot disclose
+  anything, and someone who can no longer see an entry must still be able to
+  clear it.
+- **An absent or malformed list reads as empty, never as a failure.** A personal
+  shortcut must never be why a clinician's dashboard fails to load.
+- **The UI says what it is not**: "Your own shortcut list — private to you, and
+  not part of the athlete's record." A star on a clinical record otherwise
+  invites the reading that it means something about the athlete.
+
+### 66.4 Verification
+
+18 unit tests on the list logic with `Setting` mocked (no database): duplicates,
+order preservation, the cap refusing rather than silently dropping, malformed
+storage, and per-user separation. Five e2e checks covering the boundaries rather
+than the rendering — coach and athlete refused, double-starring adding one row,
+another account not seeing it, unstarring leaving no residue. 78 → **83 checks**.
+`npm run audit:access` passes with the matrix showing every refusal. Endpoints
+46 → 49 in the audit, 59 → **62** in the system map.
+
+The star was also driven in a real browser: toggle, reload, and the athlete
+appears in the landing group. Test rows were then removed from `settings`, since
+the seeder creates none and a reseed would otherwise silently change what the
+demo shows.
