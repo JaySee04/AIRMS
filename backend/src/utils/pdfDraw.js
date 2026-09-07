@@ -97,14 +97,19 @@ const COMPONENT_LABELS = {
 };
 
 const { toNum: num } = require('./num');
-const fmtDate = (d) => (d ? new Date(d).toISOString().slice(0, 10) : '—');
+// Dates print in ISN's calendar, not the server's. This was
+// `new Date(d).toISOString().slice(0, 10)` — UTC unconditionally — so on the
+// hosted instance (which runs UTC) a screening assessed between 00:00 and 07:59
+// Malaysian time printed as the PREVIOUS DAY on the filed report, while the
+// period chart bucketed it correctly. See utils/dates.js and DD 62.
+const { isnDay: fmtDate, isnToday } = require('./dates');
 
 // One report-naming scheme: AIRMS_<Type>_<who/scope>_<date>.pdf — name-based and
 // accurate to the actual athlete/filters so a saved file is self-describing.
 // The Content-Disposition this sets is honoured by the frontend downloader
 // (CORS exposes the header), so this is the single source of truth for names.
 const fileSlug = (s) => String(s ?? '').trim().replace(/[^\w.-]+/g, '_').replace(/_{2,}/g, '_').replace(/^_+|_+$/g, '') || 'report';
-const todayStamp = () => new Date().toISOString().slice(0, 10);
+const todayStamp = isnToday;
 
 // ── document plumbing ────────────────────────────────────────────────────────
 // How a single first-vs-last change reads: its text and its colour.

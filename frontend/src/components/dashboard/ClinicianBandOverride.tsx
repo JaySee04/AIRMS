@@ -9,6 +9,7 @@
 
 import { useState } from 'react';
 import { api } from '@/lib/api';
+import { isnDay } from '@/lib/dates';
 
 export type Band = 'green' | 'amber' | 'red';
 
@@ -25,10 +26,8 @@ const CHOICES: { band: Band; label: string; action: string; cls: string }[] = [
 ];
 const LABEL = (b: Band) => CHOICES.find((c) => c.band === b)!.label;
 
-function formatDate(iso?: string | null) {
-  const d = iso ? new Date(iso) : null;
-  return d && !Number.isNaN(d.getTime()) ? d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
-}
+// The date a clinician set the band, in ISN's calendar (DD 62).
+const formatDate = (iso?: string | null) => isnDay(iso, '');
 
 export default function ClinicianBandOverride({
   screeningId, systemBand, effectiveBand, overrideBand, overrideNote, overrideBy, overrideAt, onSaved,

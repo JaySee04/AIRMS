@@ -24,4 +24,8 @@ module.exports = createJestConfig({
   // setupFilesAfterEnv, not setupFiles: the jest-dom matchers register onto
   // `expect`, which only exists once the test framework is installed.
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
+  // Pins the whole run to UTC before the workers fork. See jest.globalSetup.js:
+  // the machine's own zone is the institution's, which made the date tests pass
+  // for the wrong reason until mutation testing said so.
+  globalSetup: '<rootDir>/jest.globalSetup.js',
 });

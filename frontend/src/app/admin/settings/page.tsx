@@ -13,6 +13,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { api } from '@/lib/api';
+import { isnDateTime } from '@/lib/dates';
 
 interface SettingsResp { settings: Record<string, number | boolean | string>; defaults: Record<string, number | boolean | string>; }
 interface SendResult {
@@ -45,7 +46,7 @@ function AttemptLine({ raw }: { raw: unknown }) {
     >
       <strong>{o.ok ? 'Last attempt' : 'Last attempt FAILED'}</strong>
       {' \u00b7 '}
-      {Number.isNaN(when.getTime()) ? o.at : when.toLocaleString('en-GB')}
+      {Number.isNaN(when.getTime()) ? o.at : isnDateTime(when)}
       {' \u2014 '}
       {o.detail}
     </div>

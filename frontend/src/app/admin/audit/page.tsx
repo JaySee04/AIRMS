@@ -11,6 +11,7 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import { api } from '@/lib/api';
 import StaffActivity from '@/components/admin/StaffActivity';
 import AthleteSearchSelect, { PickableAthlete } from '@/components/ui/AthleteSearchSelect';
+import { isnDateTime } from '@/lib/dates';
 
 interface Entry {
   _id: string;
@@ -57,10 +58,10 @@ const ACTION_TONE: Record<string, string> = {
   'export.backup': 'badge-moderate',
 };
 
-function fmt(at: string): string {
-  const d = new Date(at);
-  return `${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-}
+// ISN's calendar, not the reader's. An audit row is a record of when the
+// INSTITUTION did something; rendering it in the viewer's zone put evening
+// actions on the wrong day for anyone outside Malaysia (DD 62).
+const fmt = isnDateTime;
 
 // Tokens are the only meta worth surfacing inline — it answers "what does an
 // import cost?" without opening anything.

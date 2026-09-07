@@ -17,6 +17,7 @@ import { api } from '@/lib/api';
 import { tierMeta } from '@/lib/holomotionTiers';
 import { getSession } from '@/lib/auth';
 import { BAND_COLOR } from '@/lib/bands';
+import { isnDay } from '@/lib/dates';
 
 interface Stat { mean: number; sd: number; n?: number; }
 interface Cohort {
@@ -569,7 +570,7 @@ export default function CohortThresholdsPage() {
                                         {m.isInjured && m.injuryBy && (
                                           <div className="text-muted" style={{ fontSize: 'var(--fs-xs)' }}>
                                             injured by {m.injuryBy}
-                                            {m.injuryAt ? ` · ${new Date(m.injuryAt).toLocaleDateString()}` : ''}
+                                            {m.injuryAt ? ` · ${isnDay(m.injuryAt)}` : ''}
                                             {m.injuryNote ? ` · ${m.injuryNote}` : ''}
                                           </div>
                                         )}
@@ -632,7 +633,7 @@ export default function CohortThresholdsPage() {
                 {versions.map((v) => (
                   <tr key={v.id}>
                     <td><strong>{v.label}</strong>{v.note && <div className="text-muted" style={{ fontSize: 'var(--fs-sm)' }}>{v.note}</div>}</td>
-                    <td className="text-muted" style={{ fontSize: 'var(--fs-sm)' }}>{new Date(v.createdAt).toLocaleDateString()}{v.createdBy ? ` · ${v.createdBy}` : ''}</td>
+                    <td className="text-muted" style={{ fontSize: 'var(--fs-sm)' }}>{isnDay(v.createdAt)}{v.createdBy ? ` · ${v.createdBy}` : ''}</td>
                     <td style={{ textAlign: 'center' }}>{v.cohorts}</td>
                     <td style={{ textAlign: 'center' }}>
                       {v.pinned

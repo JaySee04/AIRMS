@@ -4625,3 +4625,83 @@ in one line — request `/icon.png` and look at the status.
 Verified after: 268 frontend tests, tsc and lint clean, and **63/63 e2e**, which
 matters here because `not-found.tsx` is app-level routing and the auth-boundary
 checks are exactly what a bad interaction would break.
+
+---
+
+## 62. The half of §45 that was never applied, and a test that passed for the wrong reason (2026-09-06)
+
+Asked to optimise the whole system, the first job was deciding whether there was
+anything left worth doing. §31, §49, §52, §54, §56, §57 and §60 have each swept
+for duplication and the returns are visibly diminishing. So this pass looked for
+a different thing: a decision the codebase has already MADE and only partly
+applied.
+
+### 62.1 §45 fixed bucketing and left display alone
+
+§45 established that a screening belongs to ISN's calendar, named
+`INSTITUTION_TZ`, and fixed period **bucketing**. Date **display** is a separate
+code path and was never converted:
+
+| Path | Zone |
+|---|---|
+| `screeningPeriods.js` bucketing | `Asia/Kuala_Lumpur` ✓ |
+| `lib/periods.ts` labels | `Asia/Kuala_Lumpur` ✓ |
+| `pdfDraw.js` `fmtDate` / `todayStamp` | **UTC**, via `toISOString()` |
+| 8 frontend display sites | **the viewer's zone**, via bare `toLocaleDateString()` |
+
+`fmtDate` prints the assessment date on the individual report — the document a
+clinician files and checks against the HoloMotion PDF — and names the downloaded
+file. On the hosted instance the API runs UTC, so any screening between 00:00 and
+07:59 Malaysian time printed the previous day, while the period chart placed it
+correctly. That is the same window §45 identified, left open on the display half.
+
+### 62.2 The measurement corrected the claim
+
+The prediction was that this was latent: all 74 `assessedAt` values sit at 19:10
+MYT, the same date in both zones, so **0 of 74** screenings are affected. That
+part held.
+
+Rendering *every* stored instant through both rules told a different story:
+**45 of 537 differ**. The movers are `createdAt`, `injuryAt` and audit
+timestamps — real clock events in the Malaysian evening. `2026-08-24T19:31:02Z`
+is 03:31 on the **25th** in Kuala Lumpur, and was displayed as the 24th.
+
+So the defect was **live, not latent**, on exactly the columns nobody had
+checked, and the "no impact" conclusion came from measuring one column and
+generalising. The 45 differences are the fix working: the audit trail now dates
+an action to the institution day on which it happened.
+
+### 62.3 The test passed for the wrong reason, and mutation said so
+
+`utils/dates.js` + `lib/dates.ts` render in `INSTITUTION_TZ`, with one table run
+through both packages (the `num.test.ts` shape). Sixteen assertions, all green.
+
+Mutation testing then showed three of six mutations **uncaught** — including the
+two that matter most, deleting `timeZone: INSTITUTION_TZ` from either formatter,
+which is the precise defect the module exists to prevent.
+
+The reason is the sharpest thing in this section: **the development machine's own
+zone is `Asia/Kuala_Lumpur`.** A formatter that falls back to the system default
+produces byte-identical output there. "The zone is stated explicitly" and "the
+zone happens to match" are indistinguishable on that machine, so every assertion
+was green for a reason unrelated to what it claimed to check — and would have
+stayed green until the code ran on a UTC host, which is where it runs.
+
+Two attempts to fix the harness, and the first failed instructively:
+
+- Setting `process.env.TZ` **inside the test file** does nothing. Jest resolves
+  the environment before the test module is evaluated, so the assignment lands
+  too late. This looked correct and was not.
+- `jest.globalSetup.js` runs in the main process before the workers fork, so the
+  variable is inherited. All 17 frontend suites pass under UTC, which also
+  establishes that nothing else depended on the developer's location.
+
+The suite now carries a **meta-assertion** — that it is running in a zone which
+is *not* the institution's, and that the ambient formatter genuinely disagrees
+with the explicit one on the boundary case. Without it the file is theatre. It is
+what caught the failed first attempt. All six mutations are now caught.
+
+**The general rule this earns:** a test for environment-dependent behaviour must
+first prove the environment can expose the bug. Otherwise it is asserting that
+the machine is configured the way the code hopes — which is not a property of the
+code at all.

@@ -13,6 +13,7 @@
 
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { isnDayIso } from '@/lib/dates';
 
 interface Staff {
   actor: string;
@@ -35,7 +36,7 @@ interface Payload {
   staff: Staff[];
 }
 
-const day = (s: string | null | undefined) => (s ? new Date(s).toLocaleDateString() : '—');
+const day = (s: string | null | undefined) => isnDayIso(s);
 
 export default function StaffActivity({
   from, to, onPickActor, selectedActor,

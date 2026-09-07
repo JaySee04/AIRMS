@@ -6,6 +6,10 @@ const { sequelize, Screening, Athlete, MuscleFlag } = require('../models');
 const auth = require('../middleware/auth');
 const { reliability } = require('../utils/reliability');
 const { PERIOD_SCORES } = require('../utils/periodScores');
+// Audit summaries name a DATE, so they use ISN's calendar rather than the
+// server's 2014 an audit line saying a screening was replaced on the wrong day is
+// an accountability defect, not a cosmetic one (DD 62).
+const { isnDay } = require('../utils/dates');
 const rbac = require('../middleware/rbac');
 const requirePermission = require('../middleware/permission');
 const { notFoundStatusFor } = require('../utils/permissions');
@@ -306,8 +310,8 @@ router.post('/:id/reinstate', auth, rbac('medical', 'admin'), requirePermission(
       entity: 'screening',
       entityId: row.id,
       summary: `Reinstated ${athlete.name || row.athleteId}'s screening of `
-        + `${row.assessedAt ? new Date(row.assessedAt).toISOString().slice(0, 10) : 'unknown date'}`
-        + ` as current${latest ? `, replacing ${latest.assessedAt ? new Date(latest.assessedAt).toISOString().slice(0, 10) : 'the newest'}` : ''}`,
+        + `${isnDay(row.assessedAt, 'unknown date')}`
+        + ` as current${latest ? `, replacing ${isnDay(latest.assessedAt, 'the newest')}` : ''}`,
       meta: {
         reinstatedScreeningId: row.id,
         replacedScreeningId: latest ? latest.id : null,

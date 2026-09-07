@@ -12,6 +12,7 @@ import { api } from '@/lib/api';
 import { ISN_SPORTS } from '@/lib/sports';
 import SportSelect from '@/components/ui/SportSelect';
 import { passwordRules, validatePassword, PASSWORD_MIN_LENGTH } from '@/lib/passwordPolicy';
+import { isnDay } from '@/lib/dates';
 
 /**
  * What each role is, in the words an administrator needs to grant it correctly.
@@ -255,7 +256,7 @@ export default function AdminPersonnelPage() {
         </span>
       );
     }
-    if (u.lastLoginAt) return `Last login ${new Date(u.lastLoginAt).toLocaleDateString()}`;
+    if (u.lastLoginAt) return `Last login ${isnDay(u.lastLoginAt)}`;
     return 'Never signed in';
   };
 

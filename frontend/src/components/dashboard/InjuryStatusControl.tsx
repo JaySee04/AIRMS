@@ -10,6 +10,7 @@
 import { useState } from 'react';
 import { api } from '@/lib/api';
 import { useNormChangeNotice } from '@/components/admin/NormChangeNotice';
+import { isnDay } from '@/lib/dates';
 
 interface Props {
   athleteId: string;
@@ -51,7 +52,7 @@ export default function InjuryStatusControl({ athleteId, isInjured, injuryNote, 
         <span className={isInjured ? 'badge-high' : 'badge-low'}>{isInjured ? 'Injured' : 'Not injured'}</span>
         {isInjured && injuryNote && <span style={{ fontSize: 'var(--fs-md)' }}>{injuryNote}</span>}
         {isInjured && injuryBy && (
-          <span className="text-muted" style={{ fontSize: 'var(--fs-sm)' }}>· {injuryBy}{injuryAt ? ` · ${new Date(injuryAt).toLocaleDateString()}` : ''}</span>
+          <span className="text-muted" style={{ fontSize: 'var(--fs-sm)' }}>· {injuryBy}{injuryAt ? ` · ${isnDay(injuryAt)}` : ''}</span>
         )}
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {isInjured ? (
