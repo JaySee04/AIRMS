@@ -4591,7 +4591,7 @@ and a policy page written by a student and pasted into their system would be
 worse than none. Raised for Dr Thung; the §18 redaction design and the §43
 disclosure work are the parts that were in scope.
 
-**Three were genuinely missing, and one of them inverts.**
+**Two were genuinely missing, and one of them inverts.**
 
 1. **`robots.txt` — to BLOCK, not to promote.** Measured: the hosted instance
    served no robots.txt (404) and no `X-Robots-Tag`, so it was crawlable. The
@@ -4611,10 +4611,16 @@ disclosure work are the parts that were in scope.
    and guessing a dashboard would be wrong. Verified to return a real **404
    status**, not a 200 with 404-shaped content.
 
-3. **A favicon.** Reuses the existing `logo1.png` (279×312, near enough square)
-   as `app/icon.png` rather than adding an asset. Polish, not necessity — stated
-   as such — but a broken-document icon in the tab during a stakeholder demo
-   reads as unfinished.
+**And one I got wrong, recorded because the mistake is instructive.** I reported
+a missing favicon and "added" one by copying `logo1.png` to `app/icon.png`. That
+file was already committed in `03dcd3f`, byte-identical — same blob hash — so
+the copy produced no diff at all. The check that misled me was `find . -name
+"favicon*"`, which looks for the OLD convention; Next's App Router uses the
+`app/icon.png` file convention instead, and the name never contains "favicon".
+Searching for the implementation's name rather than the capability is the same
+error as §54's sweep for `num`, in a smaller key: **ask what the system DOES, not
+what a file is called.** The correct check is the one that would have settled it
+in one line — request `/icon.png` and look at the status.
 
 Verified after: 268 frontend tests, tsc and lint clean, and **63/63 e2e**, which
 matters here because `not-found.tsx` is app-level routing and the auth-boundary
