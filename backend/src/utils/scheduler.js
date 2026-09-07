@@ -17,6 +17,7 @@
 // mail:tick` runs one tick and exits for an OS scheduler; set MAIL_SCHEDULER=off
 // there so both do not tick (wasteful rather than wrong, given the lock).
 
+const { isnMonth } = require('./dates');
 const { Op } = require('sequelize');
 const { Athlete, Screening } = require('../models');
 const { User } = require('../models');
@@ -94,7 +95,7 @@ async function buildDigest(now, { attached = false } = {}) {
   const prev = periods[periods.length - 2] || null;
 
   const lines = [
-    `AIRMS monthly summary — ${now.toLocaleString('en-GB', { month: 'long', year: 'numeric' })}`,
+    `AIRMS monthly summary — ${isnMonth(now)}`,
     '',
     `Athletes on the roster: ${rostered}`,
     `Screened at least once: ${rows.length}`,
@@ -140,7 +141,7 @@ async function buildDigest(now, { attached = false } = {}) {
   );
 
   return {
-    subject: `AIRMS monthly summary — ${now.toLocaleString('en-GB', { month: 'long', year: 'numeric' })}`,
+    subject: `AIRMS monthly summary — ${isnMonth(now)}`,
     text: lines.join('\n'),
   };
 }
@@ -279,7 +280,7 @@ async function buildReminder(now, { sport = null, recall = null, roster = null }
   const months = `${m.toFixed(fullRecall.dueDays % 30 ? 1 : 0)} ${m === 1 ? 'month' : 'months'}`;
   const L = [];
   L.push(`Rescreen status for ${sport ? `${sport} - ` : ''}`
-    + `${now.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}.`);
+    + `${isnMonth(now)}.`);
   L.push('');
   L.push(`A screening counts as current for ${plural(fullRecall.dueDays, 'day', 'days')} (about ${months}), `
     + 'which is an ISN setting rather than a clinical standard - an administrator can change it in Settings.');

@@ -5045,3 +5045,75 @@ The star was also driven in a real browser: toggle, reload, and the athlete
 appears in the landing group. Test rows were then removed from `settings`, since
 the seeder creates none and a reseed would otherwise silently change what the
 demo shows.
+
+---
+
+## 67. Checking the things today's own changes could have broken (2026-09-06)
+
+Asked what had not been checked, the honest answer was: the surfaces most exposed
+to the changes made hours earlier. Two were unexamined, and one of them was a
+fix I had half-applied to myself.
+
+### 67.1 §62 reached the screens and stopped short of the mail
+
+§62 moved date DISPLAY onto `INSTITUTION_TZ` — `pdfDraw`, the audit summary and
+eight frontend sites. It did not reach four producers, found by asking the same
+question a second time rather than trusting that the first sweep was complete:
+
+| Site | Was | Consequence |
+|---|---|---|
+| `scheduler.js` ×2 | `now.toLocaleString('en-GB', { month, year })` | the monthly digest's **subject line** |
+| `scheduler.js` | same | the rescreen reminder's opening sentence |
+| `export.js` | `toISOString().slice(0, 10)` | the backup filename's date |
+
+The digest one is the one that matters. It ticks hourly and sends when the month
+marker turns over, so the send lands whenever that happens to be — and 03:00 on 1
+September in Kuala Lumpur is 19:00 on 31 August in UTC, which is what the hosted
+process runs. **A monthly summary was subject-lined with the previous month**:
+wrong in the one field a reader files it by, wrong exactly once a month, and
+therefore in the pattern least likely to be noticed and most likely to confuse
+the record later.
+
+`isnMonth()` now renders it in ISN's calendar. Verified against the boundary —
+`2026-08-31T19:00:00Z` gives *September 2026* where the server clock gives
+*August 2026* — and against a year boundary. It returns an empty string for an
+unparseable value rather than `Invalid Date`, because this lands in an email
+**subject**.
+
+**The general point, and the reason this section exists:** §62 was a sweep, it
+was careful, and it still stopped at the surfaces I happened to be looking at.
+"I already fixed that" is not a measurement. The same question asked twice found
+four more sites.
+
+### 67.2 The reports, which the same change could have broken
+
+`fmtDate` is used by every PDF and by every downloaded filename, and §62 changed
+it. The unit tests passed, but they assert on drawing primitives, not on a
+rendered document — and §30 established that a report's defects are properties of
+the page rather than of the values.
+
+All five were rendered against the live database and read back through pdfjs:
+
+| Report | Pages | Dates | Junk |
+|---|---:|---|---|
+| Individual | 3 | 2026-06-14 | none |
+| Holistic | 4 | 2026-09-07 | none |
+| Team | 3 | 2026-09-07 | none |
+| Activity log | 13 | a real range | none |
+| Programme activity | 3 | 2026-09-07 | none |
+
+No `NaN`, no `undefined`, no `Invalid Date`, no U+FFFD. Filenames carry the
+institution's date.
+
+That last row is worth stating plainly: the run happened while UTC was still
+2026-09-06 and Malaysia was already the 7th, so **the filenames demonstrate the
+fix rather than merely passing a test**. Before §62 they would have said the 6th.
+
+### 67.3 What this pass did not do
+
+`npm run mail:tick` was deliberately NOT run. It is marker-based and would
+usually be a no-op, but "usually" is doing real work in that sentence, and the
+recipients are live inboxes including the stakeholder-facing ones. Sending an
+unexpected monthly digest to demonstrate that a subject line is correct is not a
+trade worth making; the boundary is covered by tests, and `scheduler.test.js`
+covers the tick.

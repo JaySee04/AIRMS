@@ -54,4 +54,25 @@ function isnToday() {
   return DAY.format(new Date());
 }
 
-module.exports = { isnDay, isnToday, INSTITUTION_TZ };
+// `September 2026`, in ISN's calendar.
+//
+// For the MONTHLY digest and the rescreen reminder, which name the period they
+// cover in their subject line and opening sentence. This mattered more than it
+// looks: the digest ticks hourly and sends when the month marker turns over, so
+// the send can land in the small hours Malaysian time — 03:00 on 1 September is
+// 19:00 on 31 August in UTC, and the hosted process runs UTC. A monthly summary
+// subject-lined with the previous month is wrong in the one field a reader
+// files it by, and it is wrong exactly once a month, which is the pattern
+// least likely to be noticed and most likely to confuse the record later.
+const MONTH = new Intl.DateTimeFormat('en-GB', {
+  timeZone: INSTITUTION_TZ, month: 'long', year: 'numeric',
+});
+
+function isnMonth(value = new Date()) {
+  const d = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(d.getTime()) ? '' : MONTH.format(d);
+}
+
+module.exports = {
+  isnDay, isnToday, isnMonth, INSTITUTION_TZ,
+};

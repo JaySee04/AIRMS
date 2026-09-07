@@ -101,6 +101,41 @@ describe('an absent date stays absent', () => {
   });
 });
 
+describe('the monthly mail names the institution\'s month', () => {
+  // Backend-only: the frontend has no reason to name a month for an
+  // institutional email, so `isnMonth` lives on that side alone.
+  //
+  // This is the tail of the §62 fix that was MISSED on the first pass. The
+  // digest ticks hourly and sends when the month marker turns over, so the send
+  // can land in the small hours Malaysian time. 03:00 on 1 September is 19:00 on
+  // 31 August in UTC, and the hosted process runs UTC — so a monthly summary was
+  // subject-lined with the PREVIOUS month, wrong in the one field a reader files
+  // it by, exactly once a month.
+  it.each([
+    ['2026-08-31T19:00:00Z', 'September 2026', 'the digest sends 03:00 MYT on 1 Sep'],
+    ['2026-08-31T15:59:59Z', 'August 2026', '23:59 MYT on 31 Aug is still August'],
+    ['2026-12-31T16:00:00Z', 'January 2027', 'the boundary moves the year too'],
+  ])('%s -> %s (%s)', (iso, expected) => {
+    expect(be.isnMonth(iso)).toBe(expected);
+  });
+
+  it('differs from what the server clock would have said', () => {
+    // The control. Under this suite's UTC, the ambient answer is August and the
+    // institution's is September; if these ever match, the zone has stopped
+    // being applied and every assertion above is unguarded.
+    const instant = '2026-08-31T19:00:00Z';
+    const ambient = new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'numeric' }).format(new Date(instant));
+    expect(ambient).toBe('August 2026');
+    expect(be.isnMonth(instant)).toBe('September 2026');
+  });
+
+  it('returns an empty string rather than "Invalid Date" for a bad value', () => {
+    // This lands in an email SUBJECT. "AIRMS monthly summary — Invalid Date" is
+    // the version of this failure that reaches an inbox.
+    expect(be.isnMonth('not a date')).toBe('');
+  });
+});
+
 describe('the human forms stay readable', () => {
   it('renders a prose day and a timestamp in the institution zone', () => {
     // The DAY and the YEAR are asserted exactly; the month ABBREVIATION is not.

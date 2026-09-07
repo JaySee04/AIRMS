@@ -2,6 +2,7 @@
 // Excel workbook so the Excel-era statistics and data are preserved now that
 // ingestion is moving to HoloMotion PDFs. Read-only; uses the already-present
 // `xlsx` dependency and builds the workbook in memory (no temp files).
+const { isnToday } = require('../utils/dates');
 const express = require('express');
 const XLSX = require('xlsx');
 const { Athlete, MuscleFlag } = require('../models');
@@ -26,7 +27,10 @@ router.get('/backup.xlsx', auth, rbac('admin'), async (req, res) => {
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(flags), 'MuscleFlags');
 
     const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
-    const stamp = new Date().toISOString().slice(0, 10);
+    // ISN's calendar, not the server's: a backup taken at 07:00 Malaysian time
+    // was named with the previous day's date on the hosted instance, which runs
+    // UTC (DD 62).
+    const stamp = isnToday();
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="airms-backup-${stamp}.xlsx"`);
     // The single largest data egress in the system — every athlete row and every

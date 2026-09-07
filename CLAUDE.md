@@ -140,7 +140,7 @@ cd backend; npx jest      # 37 suites / 593 tests: cohorts, overallIndicator, pe
                           # other suite. Static: it reads both files as text and never
                           # require()s the target, because several modules build a Sequelize
                           # instance at import time)
-cd frontend; npx jest     # 17 suites / 286 tests (the run is pinned to UTC by
+cd frontend; npx jest     # 17 suites / 291 tests (the run is pinned to UTC by
                           # jest.globalSetup.js - this machine sits IN the institution
                           # zone, which made the date tests pass for the wrong reason
                           # until mutation testing said so; see DD 62): lib/risk.ts, lib/screeningUploadStore.ts, bodymap-data/muscles.ts,
