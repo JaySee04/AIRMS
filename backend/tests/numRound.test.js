@@ -44,9 +44,17 @@ describe('round', () => {
 });
 
 describe('the coercions that were named differently', () => {
-  // indicatorPayload and BodyMap both had a `numOrNull` that the `num` sweep
-  // did not see. Both now delegate to toNum; these pin the behaviour that
-  // differed, so re-introducing either private copy fails here.
+  // THE SWEEP THAT KEEPS MISSING ONE. §54 searched for the name `num` and missed
+  // `numOrNull` (§57). This guard was then written naming the TWO files that had
+  // one — which is the same mistake one level up, and it duly missed a THIRD:
+  // routes/coach.js declared `numOrZero` and shipped the eight risk indicators
+  // and five headline scores through it.
+  //
+  // So the file list is gone. The scan below reads EVERY non-test source file in
+  // both packages and looks for the SHAPE of a private coercion — a function
+  // body that calls Number() with a null/undefined guard around it — wherever it
+  // appears and whatever it is called. A nineteenth copy under a nineteenth name
+  // fails here without anyone having to think of the name first.
   const fs = require('fs');
   const path = require('path');
 
@@ -62,6 +70,71 @@ describe('the coercions that were named differently', () => {
     const src = fs.readFileSync(p, 'utf8');
     expect(src).toMatch(/from '@\/lib\/num'/);
     expect(src).not.toMatch(/Number\.isNaN\(Number\(v\)\) \? null : Number\(v\)/);
+  });
+
+  it('no source file declares its own Number()-based coercion', () => {
+    const ROOT = path.join(__dirname, '..', '..');
+    const walk = (dir, acc = []) => {
+      if (!fs.existsSync(dir)) return acc;
+      for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+        if (e.name === 'node_modules' || e.name === '.next') continue;
+        const full = path.join(dir, e.name);
+        if (e.isDirectory()) walk(full, acc);
+        else if (/\.(js|ts|tsx)$/.test(e.name) && !/\.test\.[jt]sx?$/.test(e.name)) acc.push(full);
+      }
+      return acc;
+    };
+    const files = [
+      ...walk(path.join(ROOT, 'backend', 'src')),
+      ...walk(path.join(ROOT, 'frontend', 'src')),
+    // `[\\/]` covers both separators — on Windows these are absolute paths with
+    // backslashes, so a `/`-only class would fail to exempt the real helpers and
+    // report them as offenders against themselves.
+    ].filter((f) => !/[\\/](num\.js|num\.ts)$/.test(f));
+
+    // A floor, so a broken walk cannot pass by scanning nothing.
+    expect(files.length).toBeGreaterThan(80);
+
+    // The pattern lives in a STRING, and the canary below proves it works.
+    //
+    // The first version of this scan was a regex literal, and it was inert: the
+    // editing pass that produced it turned the `\b` word boundaries into literal
+    // BACKSPACE bytes (0x08). A regex containing a raw backspace matches a
+    // literal backspace, which never occurs in source — so the pattern could not
+    // match anything, the guard reported "no offenders", and it was green while
+    // two real offenders sat in the tree.
+    //
+    // It is invisible in every tool that would normally show it: `grep`, `sed`
+    // and an editor all render 0x08 as nothing or as `\b`, identical to the
+    // intended escape. It took `od -c` to see.
+    //
+    // Hence the canary: a synthetic line the scanner MUST flag. A pattern that
+    // has been broken — by mangling, by a bad edit, by a rewrite that no longer
+    // matches anything — fails there rather than passing silently. Same
+    // principle as the timezone suite's meta-assertion (§62): a scanner must
+    // first prove it can find what it is looking for.
+    const COERCION_SHAPE = '=>\\s*\\(?[^;{]*(?:==\\s*null|===\\s*null|===\\s*undefined|isNaN)[^;{]*Number\\s*\\(';
+
+    const CANARY = 'const numOrZero = (v) => (v == null ? 0 : Number(v));';
+    expect({ canaryDetected: new RegExp(COERCION_SHAPE).test(CANARY) })
+      .toEqual({ canaryDetected: true });
+    // And something innocuous must NOT trip it, or the scan is just noise.
+    expect(new RegExp(COERCION_SHAPE).test('const total = numOr(v, 0) + 1;')).toBe(false);
+
+    const offenders = [];
+    for (const f of files) {
+      const src = fs.readFileSync(f, 'utf8')
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+      // Shape-based rather than name-based - that is the whole point: an arrow
+      // whose body guards null/undefined and then calls Number(), whatever it
+      // happens to be called.
+      if (new RegExp(COERCION_SHAPE).test(src)) offenders.push(path.relative(ROOT, f));
+    }
+    // If this fails: use toNum for "unknown stays unknown", or numOr(v, 0) where
+    // a number is genuinely required so the fabrication is visible. Do not add a
+    // local helper, whatever you call it.
+    expect(offenders).toEqual([]);
   });
 
   it('the behaviour they used to get wrong', () => {

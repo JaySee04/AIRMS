@@ -6,6 +6,7 @@
  */
 require('dotenv').config({ path: require('path').join(__dirname, '../../.env') });
 
+const { toNum } = require('./num');
 const { sequelize, User, Athlete, MuscleFlag, AthleteDiscipline, Screening, CohortThreshold } = require('../models');
 const fs = require('fs');
 const path = require('path');
@@ -574,7 +575,10 @@ async function seed() {
     // arithmetic the instrument cannot produce. 0.4n + 0.4n + 0.2n = n, so the
     // demonstrated trend is unchanged and a retest differs in what a retest
     // measures.
-    const bump = (v) => (v == null ? null : clamp100(Number(v) + nudge));
+    // toNum, not a private Number() guard: this is the nineteenth coercion the
+    // shape-scan in tests/numRound.test.js would otherwise flag, and the rule is
+    // the same everywhere - an unknown value stays unknown (DD 54).
+    const bump = (v) => { const n = toNum(v); return n === null ? null : clamp100(n + nudge); };
     const pRom = bump(s.rom);
     const pStab = bump(s.stability);
     const pSym = bump(s.symmetry);

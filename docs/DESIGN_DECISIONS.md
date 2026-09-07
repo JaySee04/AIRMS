@@ -4705,3 +4705,68 @@ what caught the failed first attempt. All six mutations are now caught.
 first prove the environment can expose the bug. Otherwise it is asserting that
 the machine is configured the way the code hopes — which is not a property of the
 code at all.
+
+---
+
+## 63. The eighteenth coercion, the nineteenth, and the guard that was inert (2026-09-06)
+
+§54 unified seventeen private `num()` helpers. §57 found an eighteenth spelled
+`numOrNull` and concluded that guards must assert on behaviour rather than on
+names. This pass applied that conclusion and found it had not been applied.
+
+### 63.1 Two more, both found by shape rather than by name
+
+`routes/coach.js` declared `numOrZero = (v) => (v == null ? 0 : Number(v))` and
+shipped the eight risk indicators and five headline scores through it.
+`utils/seeder.js` had `bump`, the same shape.
+
+The contracts diverged where it matters: `'abc'` gave **NaN**, `'Infinity'` gave
+**Infinity**, and both get DRAWN — the §54 clinical argument exactly. Measured,
+those inputs are unreachable today (MySQL DECIMAL yields null or a numeric
+string), so this is **preventive like §60, not a live bug**, and the coach payload
+was verified byte-identical across all 806 values on real data.
+
+One thing the measurement did change: 30 real NULLs exist, all five headline
+scores on the 6 never-screened athletes. Those already took a `?? undefined`
+path, so they were correct — but it is worth stating that the null case here is
+live while the coercion divergence is not.
+
+### 63.2 The guard against this was itself the defect
+
+The obvious fix is a scan for the SHAPE of a private coercion anywhere in either
+package, replacing the previous guard that named two files — which was §54's
+name-based mistake one level up, and had duly missed both of the above.
+
+The scan was written, ran over all 159 source files, and reported **no
+offenders** while two sat in the tree.
+
+Its pattern was a regex literal whose `\b` word boundaries had become literal
+**BACKSPACE bytes (0x08)** during editing. A regex containing a raw backspace
+matches a literal backspace, which never appears in source, so it could not match
+anything. `grep`, `sed` and an editor all render 0x08 identically to the intended
+`\b`; the file parsed and linted. `od -c` on one line was what showed it.
+
+What actually produced the diagnosis was a contradiction: the same pattern built
+via `new RegExp(<string>)` in a scratch file matched, while the literal did not,
+on identical-looking source. Two results that cannot both be right are worth more
+than any amount of re-reading.
+
+### 63.3 The fix is a canary, and it generalises
+
+The scan now proves it works before it is trusted: it must flag a synthetic
+offending line, and must NOT flag an innocuous one, before scanning anything.
+A pattern broken by any means fails there rather than reporting all-clear.
+
+Three mutations, all caught — reintroducing each private coercion, and corrupting
+the pattern itself.
+
+Together with §62's timezone meta-assertion this gives the general rule, and it
+is the most portable thing in these two sections:
+
+> **A check must first demonstrate that it can fail.** Files scanned, tests
+> passed and rules written are not evidence of coverage. The only evidence is
+> having watched the check catch something.
+
+Both §62 and §63 were found by asking the same question — *which decisions has
+this codebase already made and only partly applied?* — which has now outperformed
+searching for duplication three times running.

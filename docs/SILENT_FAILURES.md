@@ -814,3 +814,50 @@ asserting a redirect to `/login` when the login page is `/`, and testing a coach
 against an out-of-sport athlete so that a `403` masqueraded as a passing
 assertion. Treat a probe that reports "clean" on the first run as suspect until
 its control case has been seen to fail.
+
+### 3l. The guard whose pattern could not match anything (2026-09-06)
+
+The worst instance of this file's own subject matter found so far, because the
+thing that failed silently was **a guard against silent failure**.
+
+A scan was written to find private `Number()`-based coercions anywhere in either
+package — the §57 lesson generalised, since §54 missed `numOrNull` by searching
+for a name and the follow-up guard then missed `numOrZero` by naming two files.
+The scan was correct in structure, ran over all 159 source files, and reported
+**no offenders**. Two were sitting in the tree at the time.
+
+The pattern was a regex literal. The editing pass that produced it had turned the
+`\b` word boundaries into **literal BACKSPACE bytes (0x08)**. A regex containing a
+raw backspace matches a literal backspace, which never occurs in source code, so
+the pattern could not match anything at all.
+
+**Every tool that would normally reveal this shows nothing.** `grep`, `sed`, the
+editor and a `Read` all render 0x08 as either nothing or as `\b` — visually
+identical to the intended escape. The file parsed, linted and passed. It took
+`od -c` on one line to see it:
+
+```
+\   s   *   \   (   ?   [   ^   ;   {   ]   *  \b   (   ?   :   =   =
+                                               ^^ this is 0x08, not backslash-b
+```
+
+The diagnosis only happened because the same pattern, built with
+`new RegExp(<string>)` in a scratch file, DID match — identical source text,
+different result. That contradiction is what pointed at the bytes.
+
+**The standing fix is a canary, not a better regex.** The scan now asserts, before
+scanning anything, that it flags a synthetic offending line and does *not* flag an
+innocuous one. A pattern broken by any means — mangling, a bad edit, a rewrite
+that no longer matches — fails there instead of reporting all-clear. Proven by
+mutation: corrupting the pattern fails the canary.
+
+This is the same shape as §62's timezone meta-assertion, and the pair of them
+give the rule its general form: **a check must first demonstrate that it can
+fail.** Coverage counted in files scanned, tests passed, or rules written is not
+evidence; the only evidence is having watched the thing catch something.
+
+Three separate defects this session came from one mechanical cause — a heredoc
+turning `\n` into a newline twice and `\b` into a backspace once — so the working
+note is also practical: **do not write regexes through a shell heredoc.** Use an
+editor tool that writes bytes literally, and prefer a pattern held in a string
+where the escaping is visible.

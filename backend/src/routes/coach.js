@@ -6,6 +6,7 @@
 // and screeningReports.js. No clinical notes, no injury records, no uploads.
 // Readiness derives from the cohort-normed HoloMotion band, the same indicator
 // the athlete and medical views report.
+const { toNum, numOr } = require('../utils/num');
 const express = require('express');
 const { Op } = require('sequelize');
 const { Athlete, MuscleFlag, Screening, AthleteDiscipline } = require('../models');
@@ -69,7 +70,18 @@ router.get('/readiness', auth, rbac('coach'), async (req, res) => {
     }
 
 
-    const numOrZero = (v) => (v == null ? 0 : Number(v));
+    // From utils/num, not a local helper. This line WAS
+    // `const numOrZero = (v) => (v == null ? 0 : Number(v))` — the eighteenth
+    // private coercion, and it survived the §54 sweep for the same reason
+    // `numOrNull` did (§57): it was spelled differently. Its contract diverged on
+    // exactly the inputs that matter — 'abc' gave NaN and 'Infinity' gave
+    // Infinity, both of which get DRAWN on a risk gauge.
+    //
+    // `numOr(v, 0)` rather than `toNum`, deliberately: the coach payload is
+    // typed all-numeric and the frontend indexes these directly, so a number is
+    // genuinely required here. The point of the name is that the fabrication is
+    // visible at the call site (§54).
+    const numOrZero = (v) => numOr(v, 0);
     const rows = athletes.map((a) => {
       const flags = a.muscleFlags || [];
       return {
@@ -93,11 +105,15 @@ router.get('/readiness', auth, rbac('coach'), async (req, res) => {
           ankleInjuryRisk: numOrZero(a.ankleInjuryRisk),
         },
         // Headline screening scores (profile context on the coach board):
-        overallActivityScore: a.overallActivityScore == null ? undefined : Number(a.overallActivityScore),
-        injuryRiskIndex: a.injuryRiskIndex == null ? undefined : Number(a.injuryRiskIndex),
-        mobility: a.mobility == null ? undefined : Number(a.mobility),
-        stability: a.stability == null ? undefined : Number(a.stability),
-        symmetry: a.symmetry == null ? undefined : Number(a.symmetry),
+        // `?? undefined` rather than a zero: 6 of the 62 athletes have never been
+        // screened and carry NULL here, and a 0 on a movement score is the WORST
+        // possible reading, not a missing one. Absent stays absent and the panel
+        // omits the row.
+        overallActivityScore: toNum(a.overallActivityScore) ?? undefined,
+        injuryRiskIndex: toNum(a.injuryRiskIndex) ?? undefined,
+        mobility: toNum(a.mobility) ?? undefined,
+        stability: toNum(a.stability) ?? undefined,
+        symmetry: toNum(a.symmetry) ?? undefined,
         myodynamia: flags.filter((f) => f.flagType === 'myodynamia').map(({ muscle, side }) => ({ muscle, side })),
         tension: flags.filter((f) => f.flagType === 'tension').map(({ muscle, side }) => ({ muscle, side })),
         // HoloMotion overall risk indicator (cohort-normed), for squad comparison.
