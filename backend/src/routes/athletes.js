@@ -15,6 +15,7 @@ const { effectiveBand } = require('../utils/bands');
 const { INDICATOR_ATTRS, toIndicator } = require('../utils/indicatorPayload');
 const { getSettings } = require('../utils/settings');
 const { sendError } = require('../utils/httpError');
+const { toNum } = require('../utils/num');
 const {
   focusBreakdown, isShownIndicator, SHOWN_INDICATORS, tally, bandOf,
 } = require('../utils/cohortFocus');
@@ -317,10 +318,16 @@ router.get('/analytics/screening', auth, rbac('admin', 'executive'), async (req,
           athleteId: sc.athleteId,
           name: a.name || sc.athleteId,
           sport: a.sport || null,
-          totalScore: sc.totalScore === null || sc.totalScore === undefined ? null : Number(sc.totalScore),
-          exerciseRisks: sc.exerciseRisks === null || sc.exerciseRisks === undefined ? null : Number(sc.exerciseRisks),
-          indicator: sc.overallIndicator === null || sc.overallIndicator === undefined ? null : Number(sc.overallIndicator),
+          // toNum, not a private null-guard-then-Number: '' became 0 and a
+          // non-numeric string became NaN, on the three values the scatter and
+          // the histogram PLOT (DD 54/57).
+          totalScore: toNum(sc.totalScore),
+          exerciseRisks: toNum(sc.exerciseRisks),
+          indicator: toNum(sc.overallIndicator),
           band: effectiveBand(sc),
+          // The athlete's programme, so the analytics page can compare PODIUM
+          // against PELAPIS without a second request (DD 68).
+          programme: a.program || null,
         };
       });
     }
@@ -458,7 +465,7 @@ router.get('/:id/sport-context', auth, rbac('medical', 'admin'), requirePermissi
     // characteristic problem leads rather than this athlete's worst reading.
     const indicators = SHOWN_INDICATORS.map(({ key, label }) => {
       const t = tally(squad, key);
-      const mine = me[key] === null || me[key] === undefined ? null : Number(me[key]);
+      const mine = toNum(me[key]);
       return {
         key,
         label,

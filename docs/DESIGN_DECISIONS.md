@@ -5117,3 +5117,92 @@ recipients are live inboxes including the stakeholder-facing ones. Sending an
 unexpected monthly digest to demonstrate that a subject line is correct is not a
 trade worth making; the boundary is covered by tests, and `scheduler.test.js`
 covers the tick.
+
+---
+
+## 68. The last deferred item, and the scan that was too narrow to find its neighbours (2026-09-06)
+
+Module 5's "PODIUM vs PELAPIS comparison view" was the last deferred item across
+all six modules. Building it required one field on the analytics payload, and
+adding that field is where the more interesting finding was.
+
+### 68.1 The guard from §63 was narrower than it claimed
+
+§63 replaced a file-list guard with a shape scan and said a nineteenth private
+coercion "fails here without anyone having to think of the name first". That was
+overstated, and asking the question a second time — the §67 habit — showed why.
+
+The pattern required an `=>` and stopped at `{`, so it matched a private HELPER
+and missed the identical coercion written **inline**: in an object literal, or
+inside a block-bodied arrow. `routes/athletes.js` had four and `routes/cohorts.js`
+a fifth, sitting in the tree while the guard reported clear. Three of them shape
+`totalScore`, `exerciseRisks` and `indicator` — **the three values the scatter and
+the histogram plot**.
+
+Widening it naively produced three FALSE positives, and they are the useful part:
+
+| Idiom | Verdict |
+|---|---|
+| `Number.isNaN(Number(d))` in a guard clause | correct — tests, does not produce |
+| `Number.isFinite(Number(p))` | correct — same |
+| `while ((m = RE.exec(s)) !== null) … Number(m[1])` | correct — the exec-loop idiom |
+
+So the shape is now what a defect actually **is**: a null/undefined guard that
+*produces* a value through `? … : Number(…)`. The test carries both halves of the
+calibration — two strings it must catch, four it must not — so a pattern widened
+until it flags correct code fails just as loudly as one broken until it flags
+nothing. Verified by restoring an inline coercion and watching it fail.
+
+**The pattern:** each of §57, §63 and this section found the same defect one
+level further out, and each time the previous guard was written against the
+example rather than the class. A scan that matches the instance you just fixed is
+not yet a scan.
+
+### 68.2 A pair that had silently drifted
+
+`round()` was added to `backend/src/utils/num.js` in §57 and never to
+`frontend/src/lib/num.ts`, a pair this project keeps deliberately in step and
+tests with one shared table. Nothing noticed for two days because nothing on the
+frontend had needed it — this panel is the first thing that did.
+
+Added, matching `toFixed` exactly, and `num.test.ts` now runs `round` through
+both packages. Had it been written locally instead, a panel would have rounded
+77.85 to 77.9 while every figure it sits beside rounds to 77.8 (§57).
+
+### 68.3 The panel, and the sentence that makes it defensible
+
+Computed from `points`, which the payload already carried for the scatter and the
+histogram, so the comparison costs **no extra request** — one field (`programme`)
+was added to each point.
+
+**The caveat is the feature.** Athletes are *selected* into PODIUM, so any gap
+between programmes reflects who was chosen at least as much as anything the
+programmes did. "PODIUM scores better, therefore PODIUM works" is a causal claim
+this data cannot support — the same selection error §32 refuses when it keeps the
+norm floors off. It is printed **above** the table, because a caveat underneath is
+read after the conclusion has formed.
+
+The seeded data makes the point unusually well: **PODIUM 74.8, PELAPIS 74.4** —
+close enough that anyone hoping for a programme effect would have to argue for a
+0.4-point difference across 34 and 19 athletes. `OTHERS` (n=3) self-caveats as
+indicative, below `SMALL_COHORT`.
+
+Averages cover athletes with a screening; never-screened are not counted as
+zeros, the rule the institute headline already follows.
+
+### 68.4 Verification, and a mistake in the middle of it
+
+The split reconciles with the figure printed beside it: the institute mean
+recomputed from the same points is **74.9**, identical to the headline's
+`overallActivityScore`, and the groups sum to 56 = the screened count. Three e2e
+checks assert exactly that (83 → **86**), because a split that does not add up to
+its own headline is the two-surfaces disagreement this codebase keeps finding.
+
+The mistake: a scripted edit sliced the file between two marker strings, and the
+second marker also appeared **inside a comment in the text being inserted**, so
+the indices inverted and the slice deleted a span of JSX. `tsc` caught it
+immediately, the file was restored from git, and the edit was redone with the
+editor rather than index arithmetic. Recorded because it is the fourth
+string-manipulation failure of the day and they share one cause: **editing code
+by matching text is fragile in exactly the cases where the text is about the
+code.**

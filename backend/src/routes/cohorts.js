@@ -3,6 +3,7 @@
 // `editCohortNorms` capability; the tunable settings + queue governance stay
 // admin-only.
 const express = require('express');
+const { toNum } = require('../utils/num');
 const { recordAudit } = require('../utils/audit');
 const { recomputeAll } = require('../utils/recompute');
 const { CohortThreshold, Athlete, CohortNormVersion } = require('../models');
@@ -94,7 +95,8 @@ router.get('/versions', auth, rbac('admin', 'medical'), canEditNorms, async (_re
     ]);
     const pinnedId = settings.pinned_norm_version_id ?? null;
     res.json({
-      pinnedId: pinnedId === null ? null : Number(pinnedId),
+      // toNum: an empty setting became 0, which is a version id that cannot exist.
+      pinnedId: toNum(pinnedId),
       versions: rows.map((r) => {
         const s = r.get({ plain: true });
         return {

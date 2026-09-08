@@ -215,6 +215,32 @@ async function visit(browser, route, session) {
       check('a never-screened athlete carries no band', falseGreen === 0, `${falseGreen} with a band but no screening`);
     }
 
+    console.log('\n4d. the programme comparison splits the institute rather than restating it');
+    // Module 5's last deferred item. What is worth checking is not that a table
+    // renders, but that its parts SUM to the whole the page states beside them —
+    // a split that does not reconcile with its own headline is the two-surfaces
+    // disagreement this project keeps finding.
+    {
+      const res = await fetch(`${API}/athletes/analytics/screening`, { headers: { Authorization: `Bearer ${sessions.admin.token}` } });
+      const c = await res.json();
+      const pts = c.points || [];
+      check('every analytics point carries its programme', pts.length > 0 && pts.every((p) => 'programme' in p),
+        `${pts.length} points`);
+
+      const groups = {};
+      for (const p of pts) { const k = p.programme || '(none)'; (groups[k] = groups[k] || []).push(p); }
+      const summed = Object.values(groups).reduce((n, rows) => n + rows.length, 0);
+      check('the programme groups account for every screened athlete', summed === c.screened,
+        `${summed} grouped vs ${c.screened} screened`);
+
+      // The institute mean recomputed from the same points must equal the
+      // headline the page prints above the split.
+      const all = pts.map((p) => p.totalScore).filter((v) => typeof v === 'number');
+      const mean = all.length ? +(all.reduce((a, b) => a + b, 0) / all.length).toFixed(1) : null;
+      check('the split reconciles with the institute headline', mean === c.averages.overallActivityScore,
+        `points mean ${mean} vs headline ${c.averages.overallActivityScore}`);
+    }
+
     console.log('\n4c. the personal watchlist is personal, and refuses the read-only roles');
     // Module 6's last deferred item. The properties worth checking in a live
     // system are the BOUNDARIES, not that a star renders: a watchlist is the

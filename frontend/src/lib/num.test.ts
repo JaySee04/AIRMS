@@ -10,7 +10,7 @@
 // in ten of them and 0 in four, and one returned 0 for null and NaN for a
 // non-numeric string. Every row here is a real disagreement that shipped.
 import path from 'path';
-import { toNum, numOr, mean, median } from './num';
+import { toNum, numOr, mean, median, round } from './num';
 
 const be = require(path.join(__dirname, '..', '..', '..', 'backend', 'src', 'utils', 'num.js'));
 
@@ -129,5 +129,42 @@ describe('mean and median', () => {
   it('drops unreadable values instead of counting them as zero', () => {
     expect(mean([10, ''])).toBe(10);
     expect(mean([10, null])).toBe(10);
+  });
+});
+
+describe('round agrees across the packages', () => {
+  // `round` lived only on the backend from §57 until 2026-09-06, when a panel
+  // needed it on this side. That gap IS the finding: a pair this project keeps
+  // deliberately in step had drifted, and nothing noticed because nothing on the
+  // frontend had asked for it yet. Now both exist, this pins them together
+  // before they can diverge.
+  const CASES: Array<[number, number, number]> = [
+    // [value, dp, expected] — the toFixed answer, which is NOT the
+    // multiply-and-round answer. 77.85 is held as 77.8499…
+    [77.85, 1, 77.8],
+    [42.55, 1, 42.5],
+    [72.5, 0, 73],
+    [72.4, 0, 72],
+    [0.5, 0, 1],
+    [-1.25, 1, -1.3],
+  ];
+
+  it.each(CASES)('round(%p, %p) === %p in both packages', (v, dp, want) => {
+    expect({ frontend: round(v, dp), backend: be.round(v, dp) })
+      .toEqual({ frontend: want, backend: want });
+  });
+
+  it('is toFixed and not multiply-and-round, on both sides', () => {
+    // The assertion that would fail if either copy were "simplified".
+    expect(Math.round(77.85 * 10) / 10).toBe(77.9); // the rule NOT used
+    expect(round(77.85, 1)).toBe(77.8);
+    expect(be.round(77.85, 1)).toBe(77.8);
+  });
+
+  it('preserves an unknown value rather than inventing 0, on both sides', () => {
+    for (const v of [null, undefined, '', 'abc', NaN]) {
+      expect({ frontend: round(v as never, 1), backend: be.round(v, 1) })
+        .toEqual({ frontend: null, backend: null });
+    }
   });
 });

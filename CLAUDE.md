@@ -89,7 +89,7 @@ cd frontend; npm run lint  # next lint
 
 # Frontend production build
 cd frontend; npm run e2e   # END-TO-END smoke: a real Chrome against the running
-                           # servers (needs `npm run dev`). 83 checks - auth boundaries,
+                           # servers (needs `npm run dev`). 86 checks - auth boundaries,
                            # each role's pages rendering, the readiness tiles accounting
                            # for the squad, the body-map focus ring, no NaN/undefined/
                            # Invalid Date on any page, no band named by COLOUR alone
@@ -140,7 +140,7 @@ cd backend; npx jest      # 37 suites / 593 tests: cohorts, overallIndicator, pe
                           # other suite. Static: it reads both files as text and never
                           # require()s the target, because several modules build a Sequelize
                           # instance at import time)
-cd frontend; npx jest     # 17 suites / 291 tests (the run is pinned to UTC by
+cd frontend; npx jest     # 17 suites / 299 tests (the run is pinned to UTC by
                           # jest.globalSetup.js - this machine sits IN the institution
                           # zone, which made the date tests pass for the wrong reason
                           # until mutation testing said so; see DD 62): lib/risk.ts, lib/screeningUploadStore.ts, bodymap-data/muscles.ts,
@@ -221,7 +221,7 @@ counting paint ops is a trap — the dead-band *zone* is itself a fill, so fill
 counts coincide between opposite renderings; assert on the fill **colour**.
 
 **Frontend coverage, stated accurately (2026-09-05).** There are end-to-end
-tests (`cd frontend; npm run e2e`, 83 checks) and now two jsdom component suites
+tests (`cd frontend; npm run e2e`, 86 checks) and now two jsdom component suites
 — `DashboardLayout` (the access gate) and `OverallRiskBadge` (the hero). What
 there is still **none** of is a test that mounts a `page.tsx`: every suite either
 renders one component with a hand-built payload, reads page SOURCE, or drives the

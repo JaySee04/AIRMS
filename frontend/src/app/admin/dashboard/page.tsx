@@ -26,6 +26,10 @@ import DistributionBar from '@/components/admin/DistributionBar';
 import { DotPlot, Heatmap, Histogram, RankedBars, Ring, Scatter } from '@/components/charts/Charts';
 import { TIER_COLOR, TIER_LABEL, TIER_ORDER, TIER_RANGE, tierOf } from '@/lib/holomotionTiers';
 import { BAND_COLOR, bandSegments } from '@/lib/bands';
+// PROGRAMMES and SMALL_COHORT from the generated shared source (DD 53), so a
+// programme this page compares cannot be one the database column rejects.
+import { PROGRAMMES, SMALL_COHORT } from '@/lib/shared/facts';
+import { round } from '@/lib/num';
 import { api } from '@/lib/api';
 import HeadlineScores from '@/components/dashboard/HeadlineScores';
 
@@ -62,6 +66,7 @@ interface ScreeningCohort {
     athleteId: string; name: string; sport: string | null;
     totalScore: number | null; exerciseRisks: number | null; indicator: number | null;
     band: 'green' | 'amber' | 'red' | null;
+    programme: string | null;
   }>;
   trend: {
     comparable: number;
@@ -207,6 +212,40 @@ export default function AdminDashboard() {
     myodynamia: (cohort?.topMyodynamia ?? []).map((m) => ({ muscle: m.muscle, side: 'B' as const })),
     tension: (cohort?.topTension ?? []).map((m) => ({ muscle: m.muscle, side: 'B' as const })),
   }), [cohort]);
+
+  // PODIUM vs PELAPIS — Module 5's last deferred item.
+  //
+  // Computed from `points`, which the payload already carries for the scatter
+  // and the histogram, so this costs no extra request. Each programme is
+  // summarised only over athletes who HAVE a reading: an unscreened athlete has
+  // no score, and counting them as zero would drag a programme's average toward
+  // a number nobody measured — the rule the institute headline already follows.
+  const programmeCompare = useMemo(() => {
+    const pts = cohort?.points ?? [];
+    const groups = PROGRAMMES.map((prog) => {
+      const rows = pts.filter((p) => p.programme === prog);
+      const avg = (pick: (p: (typeof rows)[number]) => number | null) => {
+        const vs = rows.map(pick).filter((v): v is number => typeof v === 'number' && Number.isFinite(v));
+        return vs.length ? round(vs.reduce((a, b) => a + b, 0) / vs.length, 1) : null;
+      };
+      const bands = { green: 0, amber: 0, red: 0 };
+      for (const r of rows) if (r.band && r.band in bands) bands[r.band] += 1;
+      const banded = bands.green + bands.amber + bands.red;
+      return {
+        programme: prog,
+        n: rows.length,
+        totalScore: avg((p) => p.totalScore),
+        exerciseRisks: avg((p) => p.exerciseRisks),
+        bands,
+        flaggedShare: banded ? Math.round(((bands.amber + bands.red) / banded) * 100) : null,
+        // Below this a mean is unstable enough that a gap between programmes
+        // says more about who happened to be screened than about the programmes.
+        small: rows.length > 0 && rows.length < SMALL_COHORT,
+      };
+    }).filter((g) => g.n > 0);
+    // One programme is not a comparison.
+    return groups.length >= 2 ? groups : null;
+  }, [cohort]);
 
   const scatterPoints = useMemo(() => (cohort?.points ?? [])
     .filter((p) => p.totalScore !== null && p.exerciseRisks !== null)
@@ -386,6 +425,79 @@ export default function AdminDashboard() {
           Previously four flat stat tiles and a separate distribution card, which
           gave the page no dominant element — the reader's eye had nothing to land
           on and every panel competed at the same weight. */}
+      {/* Programme comparison — Module 5's last deferred item. Sits directly
+          above the institute headline because it SPLITS that figure rather than
+          replacing it. */}
+      {programmeCompare && (
+        <div className="card" style={{ marginTop: 20 }}>
+          <div className="card-header"><div>
+            <h2 className="card-title" style={{ marginBottom: 0 }}>Programme comparison</h2>
+            <span className="card-sub">
+              The headline figures split by development programme, over the current filters
+            </span>
+          </div></div>
+
+          {/* THE CAVEAT COMES FIRST, and it is what makes this panel defensible
+              rather than misleading.
+
+              Athletes are SELECTED into PODIUM. A difference between programmes
+              therefore reflects who was chosen at least as much as anything the
+              programmes did, and reading "PODIUM scores better, so PODIUM works"
+              off this table is a causal claim the data cannot support. It is the
+              same selection error §32 refuses when it keeps the norm floors off.
+              Placed ABOVE the numbers, because a caveat under a table is read
+              after the conclusion has already formed. */}
+          <p className="text-muted" style={{ fontSize: 'var(--fs-sm)', margin: '0 0 var(--sp-md)', maxWidth: '72ch' }}>
+            <strong>Read this as a description, not an evaluation.</strong>
+            {' '}
+            Athletes are selected into PODIUM, so a gap between programmes reflects who
+            was chosen as much as what the programme did. This table cannot show that a
+            programme caused an outcome, and should not be quoted as if it could.
+          </p>
+
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ minWidth: 560 }}>
+              <thead>
+                <tr>
+                  <th>Programme</th>
+                  <th style={{ textAlign: 'right' }}>Screened</th>
+                  <th style={{ textAlign: 'right' }}>Avg Total Score</th>
+                  <th style={{ textAlign: 'right' }}>Avg Exercise Risks</th>
+                  <th style={{ textAlign: 'right' }}>Flagged</th>
+                  <th>Band split</th>
+                </tr>
+              </thead>
+              <tbody>
+                {programmeCompare.map((g) => (
+                  <tr key={g.programme}>
+                    <td>
+                      {g.programme}
+                      {/* The instability warning goes on the ROW, so it stays
+                          attached to the number it applies to. */}
+                      {g.small && (
+                        <span className="text-muted" style={{ display: 'block', fontSize: 'var(--fs-2xs)' }}>
+                          under {SMALL_COHORT} — indicative only
+                        </span>
+                      )}
+                    </td>
+                    <td style={{ textAlign: 'right' }}>{g.n}</td>
+                    <td style={{ textAlign: 'right' }}>{g.totalScore ?? '—'}</td>
+                    <td style={{ textAlign: 'right' }}>{g.exerciseRisks ?? '—'}</td>
+                    <td style={{ textAlign: 'right' }}>{g.flaggedShare === null ? '—' : `${g.flaggedShare}%`}</td>
+                    <td style={{ minWidth: 160 }}><DistributionBar segments={bandSegments(g.bands)} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-muted" style={{ fontSize: 'var(--fs-2xs)', margin: '10px 0 0' }}>
+            Averages cover athletes with a screening on record; one who has never been
+            screened has no score and is not counted as a zero. &ldquo;Flagged&rdquo; is the
+            share needing attention or immediate assessment.
+          </p>
+        </div>
+      )}
+
       <div className="card" style={{ marginTop: 20 }}>
         <div className="card-header"><div>
           <h2 className="card-title" style={{ marginBottom: 0 }}>Where the squad stands</h2>

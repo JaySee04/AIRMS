@@ -401,8 +401,13 @@ removed with the `Injury` model by the HoloMotion-only cut.
   MuscleFlags sheets
 
 **Deferred (not blocking system use):**
-- **PODIUM vs PELAPIS comparison view** — backend supports both via filters; an
-  explicit side-by-side page is not built
+- ~~**PODIUM vs PELAPIS comparison view**~~ — **BUILT 2026-09-06**
+  (`DESIGN_DECISIONS.md §68`). A panel on Screening Analytics splitting the
+  headline figures by programme, computed from the `points` already on the
+  payload so it costs no request. Leads with the caveat that athletes are
+  SELECTED into PODIUM, so a gap reflects who was chosen as much as what the
+  programme did — the panel describes, it does not evaluate. **This was the last
+  deferred item across all six modules.**
 
 **Prototype reference:** [airms-prototype/admin/dashboard.html](../airms-prototype/admin/dashboard.html), [airms-prototype/admin/reports.html](../airms-prototype/admin/reports.html) — *both predate the screening pivot; treat as layout reference only*
 

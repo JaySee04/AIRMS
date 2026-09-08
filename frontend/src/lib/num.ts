@@ -58,3 +58,26 @@ export function median(values: unknown[]): number | null {
   const mid = Math.floor(v.length / 2);
   return v.length % 2 ? v[mid] : (v[mid - 1] + v[mid]) / 2;
 }
+
+/**
+ * Round to `dp` decimals, preserving null. The mirror of `round` in
+ * backend/src/utils/num.js, and it must stay the mirror.
+ *
+ * `toFixed`, NOT `Math.round(n * 10 ** dp) / 10 ** dp`. Those are different
+ * functions: 77.85 is held as 77.8499…, so `toFixed(1)` gives 77.8 while
+ * multiplying first gives 77.9, and they disagree on about 1.1% of values
+ * (§57). Every cohort, period and subitem average on every dashboard and
+ * printed report is rounded through the backend's copy — a frontend panel
+ * rounding the same figure the other way would print a different number for the
+ * same data, on the same screen as the value it came from.
+ *
+ * It arrived here later than the backend's, which is itself the finding: §57
+ * added `round` to one half of a pair this project keeps deliberately in step,
+ * and nothing noticed until a page needed it. num.test.ts runs one table
+ * through both.
+ */
+export function round(v: unknown, dp = 0): number | null {
+  const n = toNum(v);
+  if (n === null) return null;
+  return +n.toFixed(dp);
+}

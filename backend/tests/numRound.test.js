@@ -113,13 +113,38 @@ describe('the coercions that were named differently', () => {
     // matches anything — fails there rather than passing silently. Same
     // principle as the timezone suite's meta-assertion (§62): a scanner must
     // first prove it can find what it is looking for.
-    const COERCION_SHAPE = '=>\\s*\\(?[^;{]*(?:==\\s*null|===\\s*null|===\\s*undefined|isNaN)[^;{]*Number\\s*\\(';
+    // WIDENED 2026-09-06, because the first version was too narrow and said so
+    // only when asked a second time. It required an `=>` and stopped at `{`, so
+    // it caught a private HELPER (`const f = (v) => (v == null ? 0 : Number(v))`)
+    // and missed the same coercion written inline — in an object literal, or in
+    // a block-bodied arrow. `routes/athletes.js` had four of those and
+    // `routes/cohorts.js` a fifth, sitting in the tree while this reported clear.
+    //
+    // The shape is now what a defect actually IS: a null/undefined guard that
+    // PRODUCES a value through `? … : Number(…)`. That deliberately excludes the
+    // guard idioms, which are correct code and must not be flagged —
+    // `Number.isNaN(Number(x))`, `Number.isFinite(Number(x))`, and the
+    // `exec(…) !== null` loop. Each of those was a false positive of the naive
+    // widening, and calibrating against them is why the list below is trustworthy
+    // rather than merely long.
+    const COERCION_SHAPE = '(?:==\\s*null|===\\s*null|===\\s*undefined)[^;\\n]{0,120}?\\?[^;\\n]{0,40}?:\\s*Number\\s*\\(';
 
-    const CANARY = 'const numOrZero = (v) => (v == null ? 0 : Number(v));';
-    expect({ canaryDetected: new RegExp(COERCION_SHAPE).test(CANARY) })
-      .toEqual({ canaryDetected: true });
-    // And something innocuous must NOT trip it, or the scan is just noise.
-    expect(new RegExp(COERCION_SHAPE).test('const total = numOr(v, 0) + 1;')).toBe(false);
+    // The canary, both ways. A pattern that has been broken fails the first; a
+    // pattern widened until it flags correct code fails the rest.
+    const MUST_CATCH = [
+      'const numOrZero = (v) => (v == null ? 0 : Number(v));',
+      'totalScore: sc.totalScore === null || sc.totalScore === undefined ? null : Number(sc.totalScore),',
+    ];
+    const MUST_NOT_CATCH = [
+      'const total = numOr(v, 0) + 1;',
+      "if (d === null || d === undefined || d === '' || Number.isNaN(Number(d))) return;",
+      "const ok = p !== null && p !== '' && Number.isFinite(Number(p));",
+      'while ((m = RE.exec(s)) !== null) marks.push({ day: Number(m[1]) });',
+    ];
+    expect({
+      catches: MUST_CATCH.map((c) => new RegExp(COERCION_SHAPE).test(c)),
+      ignores: MUST_NOT_CATCH.map((c) => new RegExp(COERCION_SHAPE).test(c)),
+    }).toEqual({ catches: [true, true], ignores: [false, false, false, false] });
 
     const offenders = [];
     for (const f of files) {
