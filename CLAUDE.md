@@ -120,7 +120,7 @@ cd frontend; npm run e2e   # END-TO-END smoke: a real Chrome against the running
 cd frontend; npm run build
 
 # Unit tests (jest, in both packages — no linter configured for the backend)
-cd backend; npx jest      # 37 suites / 593 tests: cohorts, overallIndicator, permissions, rbac, pdfDraw,
+cd backend; npx jest      # 38 suites / 597 tests: cohorts, overallIndicator, permissions, rbac, pdfDraw,
                           # screeningPeriods, cohortFocus, visionUsage, alerts, scheduler,
                           # bands, mailPrefs, holisticReport, programmeActivity, subitemAggregate,
                           # reliability, rescreenReminder, riskIndicators, recall,
@@ -827,6 +827,28 @@ This repo has a sibling clean-snapshot repo at `..\AIRMS-submission\` for academ
 - [`SUBMISSION_WORKFLOW.md`](SUBMISSION_WORKFLOW.md) — full how-to, the safety-net warning behaviour, and when to patch the script vs. hand-edit the submission.
 
 Commit cadences are independent — JC will commit many times in this repo between each submission sync. Never push to the submission repo without explicit instruction; treat that as a destructive-by-default action.
+
+9. **Do NOT edit code by matching or slicing text through a shell heredoc.** Four
+   separate defects on 2026-09-06 came from this one habit, and every one of them
+   produced a file that parsed, linted and passed:
+   - `\n` inside a heredoc became a real NEWLINE, splitting a regex across two
+     lines (twice).
+   - `\b` became a literal **BACKSPACE byte (0x08)**, so a guard's pattern could
+     not match anything and reported "all clear" while two real defects sat in
+     the tree. Invisible to `grep`, `sed`, an editor and a file read — `od -c` on
+     the line was the only thing that showed it (`SILENT_FAILURES.md` 3l).
+   - Slicing a file between two marker strings, where the second marker **also
+     appeared inside the text being inserted**, so the indices inverted and a
+     span of JSX was deleted (`DESIGN_DECISIONS.md` §68.4).
+   - Quotes inside a `git commit -m "…"` message terminated the argument and git
+     read the prose as pathspecs.
+
+   Use the Edit/Write tools, which write bytes literally. Where a script is
+   genuinely the right shape, hold patterns in a **string** (`new RegExp(SRC)`)
+   rather than a literal, and never anchor a slice on text that also occurs in
+   what you are inserting. `git commit -F <file>`, never `-m` with prose.
+   `backend/tests/sourceHygiene.test.js` catches the invisible-character half of
+   this in under a second, naming the file, line and character.
 
 ## Working norms for this repo
 

@@ -1,4 +1,4 @@
-﻿const jwt = require('jsonwebtoken');
+const jwt = require('jsonwebtoken');
 const { User } = require('../models');
 
 // JWT verify + populate req.user with the matching User row. RBAC + route

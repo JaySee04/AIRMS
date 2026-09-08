@@ -1,4 +1,4 @@
-﻿const { DataTypes } = require('sequelize');
+const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
 // The column IS the enum. Defined from the shared source so a filter control or
 // a seeder offering a value this column rejects cannot exist — that failure is

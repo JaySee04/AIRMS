@@ -5206,3 +5206,48 @@ editor rather than index arithmetic. Recorded because it is the fourth
 string-manipulation failure of the day and they share one cause: **editing code
 by matching text is fragile in exactly the cases where the text is about the
 code.**
+
+---
+
+## 69. Making the day's own failure mode impossible to repeat (2026-09-06)
+
+Four defects on one day shared a single cause: editing code by matching or
+slicing text through a shell heredoc. Each produced a file that parsed, linted
+and passed its tests.
+
+| What was written | What landed | How it surfaced |
+|---|---|---|
+| `\n` in a pattern | a real newline, splitting the regex | test suite failed to parse |
+| `\n` again | same | same |
+| `\b` word boundary | **literal BACKSPACE (0x08)** | nothing — the guard went green while two defects sat in the tree |
+| a slice between two markers | the second marker occurred inside the inserted text, so the indices inverted and JSX was deleted | `tsc` |
+| quotes in `git commit -m` | the shell ended the argument and git read prose as pathspecs | git errored |
+
+Only one of those was caught by a tool. The backspace was found by noticing that
+the same pattern, built with `new RegExp(<string>)`, matched where the literal
+did not — a contradiction, not an inspection.
+
+**The durable fixes are two.**
+
+`backend/tests/sourceHygiene.test.js` scans both packages for characters that
+should never appear in source and fails in under a second naming file, line and
+character. It carries its own canary, because a scanner that cannot find what it
+looks for is exactly what 3l was about. Verified by planting a backspace in
+`utils/recall.js`: the file still parses, and the test still fails.
+
+CLAUDE.md **gotcha 9** states the rule — use the editor tools, hold patterns in a
+string rather than a literal when a script really is the right shape, never
+anchor a slice on text that also appears in what is being inserted, and
+`git commit -F` rather than `-m` with prose.
+
+**What the first run found**, which is the argument for having written it: four
+stray BOMs in `middleware/auth.js`, `models/Athlete.js`, `models/MuscleFlag.js`
+and `models/User.js` — invisible, inconsistent with 227 other files, and
+pre-dating today entirely.
+
+**And what it did not find**, which is the argument for measuring before ruling:
+`pdfDraw.js` contains a no-break space and a BOM on purpose, as regex literals in
+`WIN_ANSI_SUBS` — the table that strips exactly these characters before they
+reach pdfkit (§30f). The file that solves the problem is the one file allowed to
+contain it, and the exemption asserts that table still exists so it cannot
+outlive its reason.

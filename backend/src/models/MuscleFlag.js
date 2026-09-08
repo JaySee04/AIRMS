@@ -1,4 +1,4 @@
-﻿const { DataTypes } = require('sequelize');
+const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
 
 // One table for both myodynamia (weakness) and tension flags, discriminated

@@ -861,3 +861,38 @@ turning `\n` into a newline twice and `\b` into a backspace once — so the work
 note is also practical: **do not write regexes through a shell heredoc.** Use an
 editor tool that writes bytes literally, and prefer a pattern held in a string
 where the escaping is visible.
+
+### 3m. The character you cannot see, caught in half a second (2026-09-06)
+
+3l recorded a guard whose regex contained literal BACKSPACE bytes and could
+therefore match nothing, while reporting all-clear. The diagnosis took a long
+time because every ordinary tool renders 0x08 as nothing, or as `\b` — identical
+to the intended escape. `od -c` on one line was what showed it.
+
+`backend/tests/sourceHygiene.test.js` is the cheap version of that diagnosis. It
+scans both packages for characters that should never appear in source — control
+bytes, BOM, no-break space, soft hyphen, zero-width and directional marks — and
+fails naming the file, the line and the character. Planting the exact byte in
+`utils/recall.js` fails it in **0.4 seconds**, and the file still parses, which
+is the whole point.
+
+**Found on the first run:** four stray UTF-8 BOMs at the head of
+`middleware/auth.js`, `models/Athlete.js`, `models/MuscleFlag.js` and
+`models/User.js`. Harmless to Node, which strips them — but invisible,
+inconsistent with the other 227 files, and exactly what makes a byte-level
+comparison lie. Removed.
+
+**And one false positive, which is why the rule was measured before it was
+written.** `utils/pdfDraw.js` legitimately contains a no-break space and a BOM:
+they are regex literals in `WIN_ANSI_SUBS`, the table that strips characters
+pdfkit's Helvetica cannot render (§30f). The file that solves this problem is the
+one file allowed to contain it. The exemption is written to **invalidate
+itself** — a further assertion requires that `WIN_ANSI_SUBS` and `winAnsiSafe`
+still exist, so if that table ever goes the exemption must be re-argued rather
+than silently covering a real defect.
+
+The wider rule, now recorded as CLAUDE.md gotcha 9: **do not edit code by
+matching or slicing text through a shell heredoc.** Four defects in one day came
+from that habit — `\n` becoming a newline twice, `\b` becoming a backspace, and a
+slice anchored on a marker that also occurred in the inserted text — and every
+one produced a file that parsed, linted and passed.
