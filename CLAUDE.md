@@ -47,7 +47,7 @@ cd backend; npm run coverage         # 79.6% statements / 67.8% branches. Route 
                                      # gap (screeningReports 7%, audit 19%); tests/reportRoutes.test.js
                                      # took them to 44% / 42% by driving the real routers with
                                      # supertest. The remaining blind spot is the FRONTEND: it has
-                                     # e2e (93 checks) and two jsdom component suites, but nothing
+                                     # e2e (99 checks) and three jsdom component suites, but nothing
                                      # that mounts a page.tsx. Coverage needed a missing
                                      # transitive dep (fs.realpath) before it would run at all.
 cd backend; npm run map              # regenerate docs/SYSTEM_MAP.md - the inventory of every
@@ -89,7 +89,7 @@ cd frontend; npm run lint  # next lint
 
 # Frontend production build
 cd frontend; npm run e2e   # END-TO-END smoke: a real Chrome against the running
-                           # servers (needs `npm run dev`). 93 checks - auth boundaries,
+                           # servers (needs `npm run dev`). 99 checks - auth boundaries,
                            # each role's pages rendering, the readiness tiles accounting
                            # for the squad, the body-map focus ring, no NaN/undefined/
                            # Invalid Date on any page, no band named by COLOUR alone
@@ -122,7 +122,7 @@ cd frontend; npm run e2e   # END-TO-END smoke: a real Chrome against the running
 cd frontend; npm run build
 
 # Unit tests (jest, in both packages — no linter configured for the backend)
-cd backend; npx jest      # 39 suites / 606 tests: cohorts, overallIndicator, permissions, rbac, pdfDraw,
+cd backend; npx jest      # 40 suites / 617 tests: cohorts, overallIndicator, permissions, rbac, pdfDraw,
                           # screeningPeriods, cohortFocus, visionUsage, alerts, scheduler,
                           # bands, mailPrefs, holisticReport, programmeActivity, subitemAggregate,
                           # reliability, rescreenReminder, riskIndicators, recall,
@@ -223,7 +223,7 @@ counting paint ops is a trap — the dead-band *zone* is itself a fill, so fill
 counts coincide between opposite renderings; assert on the fill **colour**.
 
 **Frontend coverage, stated accurately (2026-09-05).** There are end-to-end
-tests (`cd frontend; npm run e2e`, 93 checks) and now two jsdom component suites
+tests (`cd frontend; npm run e2e`, 99 checks) and now three jsdom component suites
 — `DashboardLayout` (the access gate) and `OverallRiskBadge` (the hero). What
 there is still **none** of is a test that mounts a `page.tsx`: every suite either
 renders one component with a hand-built payload, reads page SOURCE, or drives the

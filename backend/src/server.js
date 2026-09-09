@@ -41,7 +41,7 @@ const ALLOWED_ORIGINS = (process.env.FRONTEND_URL || 'http://localhost:3000,http
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 // Expose Content-Disposition so the frontend PDF downloader can read the
 // server-set report filename (the single source of truth for report naming).
-app.use(cors({ origin: ALLOWED_ORIGINS, credentials: true, exposedHeaders: ['Content-Disposition'] }));
+app.use(cors({ origin: ALLOWED_ORIGINS, credentials: true, exposedHeaders: ['Content-Disposition', 'X-Total-Count'] }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

@@ -33,6 +33,8 @@
 // nothing happened: an operator who reports "it said try again" is more useful
 // than one who reports "it just didn't work".
 
+const logger = require('./logger');
+
 const GENERIC = 'Something went wrong on our side. Please try again — if it keeps happening, tell an administrator.';
 
 /**
@@ -63,8 +65,17 @@ function sendError(res, err, context) {
     // The only copy of the real error. Never dropped: an unlogged 500 is a
     // fault nobody can fix, and this file is the one place that decides the
     // caller will not see it.
-    // eslint-disable-next-line no-console
-    console.error(`[${context || 'request'}] ${err && err.stack ? err.stack : err}`);
+    //
+    // Structured since 2026-09-09. This is the highest-value line in the
+    // codebase to make machine-readable: it is where every unshareable failure
+    // in every route converges, so `level:"error"` here is the alert condition
+    // for the whole API. The stack stays intact; only the framing changed.
+    logger.error('request.failed', {
+      context: context || 'request',
+      status,
+      err: err && err.message,
+      stack: err && err.stack,
+    });
   }
 
   return res.status(status).json({ message: shareable ? err.message : GENERIC });

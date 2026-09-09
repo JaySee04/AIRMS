@@ -5583,3 +5583,87 @@ returned six hits, all of them prose beginning with a keyword.
 **A third heredoc-escaping failure happened during this pass** (`\$&` arriving
 as `\$&`, an invalid regex), which is now three in two days from the same
 shortcut. Gotcha 9 is not advice; scripts get written with the editor tool.
+
+## 73. Operational readiness, and a finding I got wrong (2026-09-09)
+
+An assessment of whether AIRMS would hold up in a large sport enterprise named
+five gaps. Acting on them found that **one of the five did not exist**, and the
+correction matters more than the work.
+
+### 73.1 The health endpoint was already there, and better than the one proposed
+
+`GET /api/health` has existed at `server.js` throughout: `SELECT 1` rather than a
+model query, **503 rather than 500** so an uptime monitor reads a sleeping
+database as down, and the driver error deliberately logged rather than returned
+because the endpoint is unauthenticated. It exists because Aiven's free tier
+powers the database off when idle.
+
+The scan reported it missing because it grepped for `'/health'`, `'/healthz'`
+and `'/readyz'` — and the route is registered as `'/api/health'`. **A scan is a
+claim about the code, and it inherits the blind spots of its pattern.** Third
+time this week: `\b` becoming a backspace, the CSS scan calling 25 live classes
+dead, and now a route missed by a prefix. Recorded rather than quietly dropped.
+
+### 73.2 Structured logging — `utils/logger.js`
+
+63 `console.*` calls and no logger. On a laptop a human reads the terminal; on
+the hosted instance the API is serverless and its output lands in a platform
+viewer where nothing can be filtered by severity, grouped by route, or alerted
+on. The failure mode is not a missing message, it is a message nobody can find.
+
+**No new dependency** — pino or winston would each add a tree to a project whose
+shape is deliberately self-contained packages. One JSON line per event is the
+part that matters and it is forty lines.
+
+**The important part is what it refuses to write.** A log is not an audit row:
+the audit trail is deliberate and access-controlled, a log lands in a third-party
+viewer with weaker access control and longer retention. So `redact()` drops
+athlete names, IC numbers, clinician notes, bands, scores, tokens and request
+bodies — by key, and by value shape for anything credential-looking — and **fails
+closed**: an object it does not positively recognise becomes `[object]` rather
+than being serialised, so `logger.error('failed', { athlete })` cannot leak a
+roster row. Nine tests, and the two guards that carry the weight were checked by
+mutation: serialising nested objects fails the "handed a row whole" case, and
+dropping the key filter fails three.
+
+Wired at the **error boundary** (`sendError`) rather than mass-replacing 63
+calls: that is where every unshareable failure in every route converges, so
+`level:"error"` there is the alert condition for the whole API.
+
+Timestamps are **UTC**, deliberately diverging from `INSTITUTION_TZ` — logs
+correlate against platform timestamps, screening *dates* belong to ISN's calendar.
+
+### 73.3 Server-side paging on the roster — opt-in on purpose
+
+`GET /athletes` was unbounded, and the roster UIs filter client-side, so the
+whole active roster travels on every load. Measured: **45.3 KB for 62 athletes**,
+730 bytes each — about 3.5 MB at 5,000 and 14 MB at 20,000. Fine for ISN, and
+the first wall this API meets at institutional scale.
+
+`limit` / `offset` are now accepted, validated (400 outside 1–`MAX_PAGE`=500),
+and `X-Total-Count` **always** carries the unpaged total so a caller cannot be
+paged without being told what it did not receive.
+
+**The default is deliberately unchanged.** Four pages consume this endpoint as a
+plain array and filter it themselves; silently returning the first N would show a
+physiotherapist a roster that looks complete and is not — this project's whole
+defect class, applied to the list a clinician decides from. So the capability
+exists and is tested, and **migrating the UI to use it is a separate, visible
+step that has not been taken.** Do not "finish" this by adding a default cap
+without also moving the filtering server-side.
+
+Verified live: default 62 rows uncapped, `limit=10` returns a true **prefix** of
+the default ordering (so paging cannot drop or repeat an athlete), filters
+compose, tail pages work, and a page is 7.3 KB against 45.3 KB. Six e2e checks
+(section 4f, 93 → 99).
+
+### 73.4 What was assessed and deliberately not built
+
+Named so the omissions are decisions. **No multi-tenancy** — no `orgId` on any
+model, and cohort norms are institution-governed by design, so this is one
+institution by construction rather than by oversight. **No SSO/OIDC or MFA.**
+**Audit writes remain fire-and-forget**, which the project already records as the
+right trade for transparency logging and the wrong one for anything that must be
+proven. **The rate limiter is still in-memory and per-IP.** Each is an addition
+rather than a fix, and each is JC's call — the first two are the difference
+between a strong single-institution tool and an enterprise product.

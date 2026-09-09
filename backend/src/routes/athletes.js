@@ -71,7 +71,11 @@ const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
 const requirePermission = require('../middleware/permission');
 const { notFoundStatusFor } = require('../utils/permissions');
-const { str, likeTerm, assertPlainQuery } = require('../utils/queryParams');
+const { str, num: numParam, likeTerm, assertPlainQuery } = require('../utils/queryParams');
+
+// Paging ceiling. Above this the response stops being a list and becomes a
+// download, and the caller should be filtering server-side instead.
+const MAX_PAGE = 500;
 const { recomputeAll } = require('../utils/recompute');
 const { serializeAthlete, serializeAthleteList } = require('../utils/serialize');
 const { cleanDisciplineList } = require('../utils/disciplines');
@@ -132,11 +136,46 @@ router.get('/', auth, rbac('medical', 'admin', 'executive'), requirePermission('
     // List view omits muscle flags for payload size; disciplines are cheap and
     // drive the roster filters, so they're included (separate query, no join
     // row-multiplication).
+    // Server-side paging, added 2026-09-09 and deliberately OPT-IN.
+    //
+    // This query was unbounded, and the roster UIs filter client-side — so the
+    // whole active roster travels on every load. Measured at 62 athletes that is
+    // 44.2 KB; the per-athlete cost is ~713 bytes, which is ~3.5 MB at 5,000 and
+    // ~14 MB at 20,000. Fine for ISN today, and the first wall this API would
+    // hit at institutional scale.
+    //
+    // WHY OPT-IN RATHER THAN A DEFAULT CAP. Four pages consume this endpoint as
+    // a plain array and filter it themselves. Silently returning the first N
+    // would leave those pages showing a roster that looks complete and is not —
+    // which is this project's whole defect class, applied to the clinical list a
+    // physiotherapist decides from. So the default is unchanged, the capability
+    // exists and is tested, and MIGRATING THE UI IS A SEPARATE, VISIBLE STEP.
+    //
+    // `X-Total-Count` always carries the unpaged total, so a caller can never be
+    // paged without being told how much it did not receive.
+    const limit = numParam(req.query.limit, 'limit');
+    const offset = numParam(req.query.offset, 'offset');
+    if (limit !== undefined && (!Number.isInteger(limit) || limit < 1 || limit > MAX_PAGE)) {
+      return res.status(400).json({ message: `"limit" must be a whole number between 1 and ${MAX_PAGE}` });
+    }
+    if (offset !== undefined && (!Number.isInteger(offset) || offset < 0)) {
+      return res.status(400).json({ message: '"offset" must be a whole number of 0 or more' });
+    }
+
     const rows = await Athlete.findAll({
       where,
       order: [['name', 'ASC']],
       include: [{ model: AthleteDiscipline, as: 'disciplines', attributes: ['discipline'], separate: true }],
+      ...(limit !== undefined ? { limit } : {}),
+      ...(offset !== undefined ? { offset } : {}),
     });
+    // Counted with the SAME `where`, so the total describes this filtered view
+    // rather than the institute. Only paid for when paging is actually used.
+    res.set('X-Total-Count', String(
+      limit === undefined && offset === undefined
+        ? rows.length
+        : await Athlete.count({ where }),
+    ));
     // One extra lightweight query for the band each athlete is currently in, so
     // the roster can be summarised without a request per athlete.
     //

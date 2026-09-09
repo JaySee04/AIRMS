@@ -241,6 +241,40 @@ async function visit(browser, route, session) {
         `points mean ${mean} vs headline ${c.averages.overallActivityScore}`);
     }
 
+    console.log('\n4f. the roster endpoint pages on request and NOT by default');
+    // Added 2026-09-09 with server-side paging. The property that matters is the
+    // DEFAULT: four pages consume this endpoint as a plain array and filter it
+    // client-side, so a silent cap would show a clinician a roster that looks
+    // complete and is not. Paging is opt-in, and this asserts it stays that way.
+    {
+      const hdrs = { Authorization: `Bearer ${sessions.admin.token}` };
+      const full = await fetch(`${API}/athletes`, { headers: hdrs });
+      const all = await full.json();
+      const total = Number(full.headers.get('X-Total-Count'));
+      check('default returns the whole roster, uncapped', Array.isArray(all) && all.length === total,
+        `${all.length} rows, X-Total-Count ${total}`);
+
+      const pageRes = await fetch(`${API}/athletes?limit=10`, { headers: hdrs });
+      const page = await pageRes.json();
+      check('limit caps the rows', page.length === Math.min(10, all.length), `${page.length} rows`);
+      // The total must describe the whole filtered set, not the page — otherwise
+      // a caller cannot tell how much it did not receive.
+      check('X-Total-Count still reports the unpaged total',
+        Number(pageRes.headers.get('X-Total-Count')) === total);
+      // Deterministic order, or paging silently drops and repeats athletes.
+      check('a page is a true prefix of the default order',
+        JSON.stringify(page.map((a) => a._id)) === JSON.stringify(all.slice(0, 10).map((a) => a._id)));
+
+      const filtered = await fetch(`${API}/athletes?sport=Badminton&limit=5`, { headers: hdrs });
+      const fRows = await filtered.json();
+      check('filters compose with paging', fRows.length <= 5 && fRows.every((a) => a.sport === 'Badminton'),
+        `${fRows.length} rows`);
+
+      // A bad page is a 400, not a 500 and not a silent full response.
+      const bad = await fetch(`${API}/athletes?limit=99999`, { headers: hdrs });
+      check('an out-of-range limit is refused', bad.status === 400, `HTTP ${bad.status}`);
+    }
+
     console.log('\n4e. seasonality reaches the screen, and refuses to name a season it cannot support');
     // Added 2026-09-09. Seasonality sat on this page's payload from the day it
     // was built and only the PDF ever drew it, which broke the stated property
