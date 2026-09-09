@@ -2112,14 +2112,34 @@ athlete sitting exactly on the interval.
 ### 33c. Small cohorts now say they are small
 
 The fallback ladder resolves to the most specific cohort meeting
-`min_cohort_n = 5`, and in practice **49 of 58 athletes are scored against fewer
-than eleven peers** — re-measured after the §34c reseed, it is now **all 56 of
-56**, min 5, median 7, max 10, so the caveat fires for every scored athlete. An SD estimated from five observations is unstable, and the
+`min_cohort_n = 5`, and in practice **every scored athlete is compared against
+fewer than eleven peers** — 49 of 58 when this was written, and re-measured on
+2026-09-09 it is **all 56 of 56**, min 5, median 7, max 10, so the caveat fires
+for everyone. (`npm run measure:facts` reports *55* of 56 for the same roster
+because it counts "below 10" while this counts "fewer than 11"; both are correct
+and the difference is the athlete whose cohort is exactly 10.) An SD estimated
+from five observations is unstable, and the
 below-mean escalation fires at −0.5 SD, which sits inside the sampling error of
 such an estimate. The comparison header now carries `n=`, and below ten peers a
 caveat states that the group mean and spread are themselves uncertain — the same
 "say what the data can support" rule as the detectable-change threshold and
 seasonality.
+
+> **The sharpest form of this objection, added 2026-09-09 — volunteer it rather
+> than defend it.** The normative-testing literature holds that comparing an
+> individual against a normative sample by **z-score** becomes unreliable at
+> small n, and that below roughly n=50 the correct instrument is a **t-based
+> comparison** (Crawford & Howell's method) rather than a z. AIRMS computes
+> `cohortZ` against a median of **seven** peers.
+>
+> This is not a defect and the mitigation is already in place and visible: every
+> cohort in the database sits at or below `SMALL_COHORT`, so the caveat fires on
+> **every** athlete's hero, and the indicator drives triage rather than a
+> diagnosis. But it is the strongest methodological challenge an examiner with a
+> statistics background can make, and the honest answer is the short one — the z
+> is computed against seven peers, every cohort says so on screen, and a t-based
+> comparison is the correct refinement if the roster does not grow. See
+> `docs/fyp/REFERENCES.md` §7.2.
 
 `min_cohort_n` is deliberately unchanged. Raising it trades an unstable comparison
 for a less specific one, and that is an institutional judgement about whether ISN

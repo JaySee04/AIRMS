@@ -211,17 +211,17 @@ is complete, not because their details are confirmed.
 | Sprouse et al. (2024) | ✅ | IIS framework, injury data variables | **No** — same |
 | Waldén et al. (2023) | ✅ | football extension of the IOC consensus | **No** — same |
 | Yang et al. (2024) | ✅ | sRPE physiological correspondence | **No** — sRPE retired |
-| Inoue et al. (2022) | ⚠️ **2022 exactly** | sRPE scale reliability | **No** — same |
+| ~~Inoue et al. (2022)~~ | ❌ **dropped 2026-09-09** | sRPE scale reliability | Sat exactly on the "after 2022" boundary and carried a claim Yang (2024) already carries. Removed rather than argued over |
 | Impellizzeri (2020) | ❌ | ACWR methodological critique | **No** — FYP I artefact |
 | Andrade et al. (2020), Bahr et al. (2020) | ❌ | superseded in the 2026-06-04 refresh | — |
 
-**Two flags for JC.** `Inoue et al. (2022)` sits exactly on the boundary — if
-"after 2022" means 2023 onward, it needs replacing or dropping, and `Yang (2024)`
-already carries the sRPE claim. `Impellizzeri (2020)` is pre-2022 but is the
-**strongest thing available to volunteer**: a documented methodological critique
-of the very method this project chose not to ship. Losing it costs more than it
-saves; it appears only in the frozen FYP I `VIVA_ANSWERS.md`, so it may not need
-to appear in the FYP II reference list at all.
+**`Impellizzeri (2020)` is the one judgement call left here.** It is pre-2022 but
+is the **strongest thing available to volunteer**: a documented methodological
+critique of the very method this project chose not to ship. It appears only in
+the frozen FYP I `VIVA_ANSWERS.md`, so under the post-2022 rule it simply does
+not need to enter the FYP II reference list — the point it makes can be made in
+the viva without a formal citation. Left in place rather than deleted from a
+frozen artefact.
 
 ---
 
@@ -280,13 +280,57 @@ licence violation.** It stays.
 Named so they are not mistaken for oversights. Each can be argued from first
 principles; a citation is optional rather than owed. Any added must be post-2022.
 
-| Decision | Claim | Worth citing? |
+**Searched 2026-09-09.** One closed, two left open with the search recorded so
+nobody repeats it, and one that turned out to be more than a citation gap.
+
+### 7.1 CLOSED — the IC number is personal data under current Malaysian law
+
+> Personal Data Protection (Amendment) Act 2024 (**Act A1727**), Malaysia.
+> Amends the Personal Data Protection Act 2010. Official text and commencement
+> notices: Jabatan Perlindungan Data Peribadi, https://www.pdp.gov.my
+
+**Supports `§43`** — the coach's 403-not-404 on scoped lookups, and `/teammates`
+withholding the IC entirely. An identity-card (MyKad) number is personal data
+under the amended Act, and the AIRMS IC additionally encodes date of birth,
+birth state and sex, so exposing it discloses more than an identifier.
+
+**Post-2022 and the right jurisdiction** — this is Malaysian law governing a
+Malaysian institution, which is stronger than a generic privacy reference. The
+amendment was passed in 2024 with obligations commencing through 2025.
+
+### 7.2 OPEN — and this one is not only a citation gap
+
+`§33c` withholds a tier and a z-score from individual subitem **cells** at
+n=5–10 peers, on small-sample grounds. That reasoning is sound. What the search
+surfaced is that it applies with some force **one level up**, to a headline
+number the system does display.
+
+The normative-testing literature holds that a z-score against a normative sample
+becomes unreliable at small n, and the standard remedy below roughly n=50 is a
+**t-based comparison** (Crawford & Howell's method) rather than a z. **AIRMS
+computes `cohortZ` against cohorts of 5–10 peers** — `min_cohort_n` is 5, and
+the measured spread is min 5 / median 7 / max 10.
+
+**This is not a defect, and the project already mitigates it** — every cohort in
+the database sits at or below `SMALL_COHORT` (10), so **every** athlete's hero
+carries the small-cohort caveat, and `§33` made that caveat explicit. The
+indicator also drives triage rather than a diagnosis. But it is the strongest
+methodological challenge available to an examiner with a statistics background,
+and it should be **volunteered rather than defended**: "the z is computed against
+a median of seven peers, every one of them is labelled as a small cohort on
+screen, and a t-based comparison would be the correct refinement if the roster
+does not grow."
+
+No clean post-2022 primary source was found for the n<50 rule itself; the
+canonical one is pre-2022. Recorded rather than papered over.
+
+### 7.3 OPEN — no post-2022 source found
+
+| Decision | Claim | Search outcome |
 |---|---|---|
-| `§32` norm floors stay off | Excluding low scores from a norm computed on those scores censors the left tail, biases the mean up, shrinks the SD | **Yes** — a recent methods source on selection/truncation bias would close it |
-| `§40` per-athlete denominator | Clinical reporting counts patients, not observations | Possibly — a reporting-standards source |
-| `§20` seasonality declines below 2 years | One year cannot separate season from who was screened | Self-contained; optional |
-| `§33c` cell means without z-scores at n=5–10 | Small-sample instability | **Yes**, if pressed on why the tier is withheld per cell |
-| IC withheld from coach (`§43`) | The IC encodes DOB, birth state and sex | **Yes** — Malaysia's PDPA 2010 is the natural citation and appears nowhere yet. Note the Act itself is pre-2022; a recent commentary would satisfy the rule |
+| `§32` norm floors stay off | Excluding low scores from a norm computed on those scores censors the left tail, biases the mean up, shrinks the SD | Searched; the good sources on selection/truncation bias are pre-2022. The argument is self-contained and can be made from first principles — a truncated sample selects on the regression error, which is standard econometrics |
+| `§40` per-athlete denominator | Clinical reporting counts patients, not observations | Not searched in depth; a reporting-standards source would close it |
+| `§20` seasonality declines below 2 years | One year cannot separate season from who was screened | Self-contained confounding argument; a citation adds little |
 
 ---
 
