@@ -17,6 +17,7 @@
 // mail:tick` runs one tick and exits for an OS scheduler; set MAIL_SCHEDULER=off
 // there so both do not tick (wasteful rather than wrong, given the lock).
 
+const { pruneRateLimits } = require('./rateLimitStore');
 const { isnMonth } = require('./dates');
 const { Op } = require('sequelize');
 const { Athlete, Screening } = require('../models');
@@ -471,6 +472,16 @@ async function tick() {
     console.error('[scheduler] rescreen reminder failed:', e.message);
     await recordOutcome('rescreen_reminder_last_result', false, e.message);
     out.reminder = { sent: false, reason: e.message, failed: true };
+  }
+  // Housekeeping, in its own try for the same reason the two mails are: a
+  // failure to tidy expired rate-limit counters must not cost either of them
+  // their month. Done here rather than on the request path because a login is
+  // the wrong moment to pay for a table scan.
+  try {
+    out.pruned = await pruneRateLimits();
+  } catch (e) {
+    console.error('[scheduler] rate-limit prune failed:', e.message);
+    out.pruned = 0;
   }
   return out;
 }

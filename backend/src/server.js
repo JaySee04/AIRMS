@@ -11,6 +11,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const { SettingsRateLimitStore } = require('./utils/rateLimitStore');
 const { connectDB, sequelize } = require('./config/db');
 require('./models'); // register models + associations
 
@@ -29,6 +30,22 @@ const screeningReportRoutes = require('./routes/screeningReports');
 const isnRoutes = require('./routes/isn');
 
 const app = express();
+
+// TRUST ONE PROXY HOP. Found 2026-09-10 while making the rate-limit store
+// persistent, and it is a fault the old in-memory store was HIDING.
+//
+// Without this, `req.ip` is the immediate socket address. Hosted on Vercel every
+// request arrives through the platform's proxy, so that address is the same for
+// everybody — which means the auth limiter keys every user in the world into ONE
+// bucket. With the old per-invocation Map that rarely filled and nobody noticed;
+// with a shared, persistent counter it becomes "30 failed logins by anyone locks
+// out the whole institution".
+//
+// `1` rather than `true`: trusting every hop lets a caller spoof its own address
+// through X-Forwarded-For and side-step the limiter entirely. One hop takes the
+// address Vercel itself appended, which the caller cannot forge. Locally there is
+// no proxy, so req.ip stays 127.0.0.1 and the loopback skip below applies.
+app.set('trust proxy', 1);
 
 const ALLOWED_ORIGINS = (process.env.FRONTEND_URL || 'http://localhost:3000,http://localhost:3001')
   .split(',')
@@ -57,12 +74,34 @@ app.use(express.urlencoded({ extended: true }));
 // 15 min / IP leaves room for the odd fat-fingered password while still
 // stopping automated guessing. Trust the proxy hop count via app config if this
 // ever sits behind one (none in the current single-host setup).
+// The STORE is database-backed since 2026-09-10 (utils/rateLimitStore.js). The
+// default in-process Map was near-useless on the hosted instance, where each
+// serverless invocation has its own memory and every cold start empties the
+// count — so the documented limit was, in practice, per-instance. Same policy,
+// same numbers; only the place the counter lives changed. The store hashes the
+// address and fails OPEN with a loud log, because a settings-table hiccup must
+// not become "nobody at ISN can sign in".
+// LOOPBACK IS NOT RATE-LIMITED, and this is a workflow fix with a real reason.
+//
+// `npm run audit:access` calls every endpoint as four roles and EXPECTS most of
+// them to be refused; `npm run e2e` signs in repeatedly. Both are deliberate
+// streams of 4xx from the same machine, and with a persistent store those now
+// accumulate across runs instead of dying with the process — so the two commands
+// that gate a commit would lock the developer out of their own API. A request
+// from 127.0.0.1 is this machine talking to itself, not a remote attacker.
+//
+// Hosted, requests arrive through Vercel's proxy and never appear as loopback,
+// so this exempts nothing in production.
+const LOOPBACK = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
+
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 30,
   skipSuccessfulRequests: true,
+  skip: (req) => LOOPBACK.has(req.ip),
   standardHeaders: 'draft-7',
   legacyHeaders: false,
+  store: new SettingsRateLimitStore(),
   message: { message: 'Too many failed attempts. Please wait a few minutes and try again.' },
 });
 

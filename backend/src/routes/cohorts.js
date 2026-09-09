@@ -4,7 +4,7 @@
 // admin-only.
 const express = require('express');
 const { toNum } = require('../utils/num');
-const { recordAudit } = require('../utils/audit');
+const { recordAudit, auditFailures } = require('../utils/audit');
 const { recomputeAll } = require('../utils/recompute');
 const { CohortThreshold, Athlete, CohortNormVersion } = require('../models');
 const auth = require('../middleware/auth');
@@ -390,7 +390,12 @@ router.post('/settings/mail/:kind/send-now', auth, rbac('admin'), async (req, re
 // to render); WRITING settings stays admin-only below.
 router.get('/settings/all', auth, rbac('admin', 'medical'), canEditNorms, async (_req, res) => {
   try {
-    res.json({ settings: await getSettings(), defaults: DEFAULTS });
+    // `auditHealth` is null unless an audit write has actually failed, so the
+    // tile stays absent rather than showing a permanently-green badge nobody
+    // reads. Audit writes are non-blocking by design (utils/audit.js) — this is
+    // what stops a dropped row being SILENT, which matters because the trail is
+    // the stated justification for leaving medical staff unscoped (§51).
+    res.json({ settings: await getSettings(), defaults: DEFAULTS, auditHealth: auditFailures() });
   } catch (err) { sendError(res, err, 'cohorts.js'); }
 });
 

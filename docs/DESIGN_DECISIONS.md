@@ -5667,3 +5667,102 @@ right trade for transparency logging and the wrong one for anything that must be
 proven. **The rate limiter is still in-memory and per-IP.** Each is an addition
 rather than a fix, and each is JC's call — the first two are the difference
 between a strong single-institution tool and an enterprise product.
+
+## 74. The four enterprise gaps, argued and settled (2026-09-10)
+
+§73 named four things AIRMS lacks for enterprise use. JC: *"debate yourself then
+do them."* Two were built. Two are refusals with reasons, because building them
+would have damaged the artefact rather than improved it.
+
+### 74.1 Multi-tenancy — REFUSED
+
+**For:** it is the single blocker to serving more than one institution, and §73
+named it first.
+
+**Against, and decisive:** three separate reasons, any one sufficient.
+
+1. It contradicts a locked decision. Cohort norms are **institution-governed** —
+   approved, versioned, pinned as one set (`MASTER_CLARIFICATIONS §12`). AIRMS is
+   one institution *by construction*, not by omission. Tenancy is not a column,
+   it is a different governance model.
+2. **The hosted database cannot be migrated from here.** The Aiven credentials
+   are write-only in Vercel (`DEPLOY.md`, 2026-09-04). An `orgId` on nine models
+   is an `ALTER TABLE` on both databases, and one of them is unreachable — so the
+   change would deploy code the hosted schema cannot satisfy.
+3. It is outside the six-module FDD, which CLAUDE.md sets as the scope ceiling.
+
+**What is honest instead:** say in the viva that AIRMS is single-institution by
+design, and that tenancy is the first thing a second customer would require.
+
+### 74.2 SSO / OIDC and MFA — REFUSED
+
+**For:** enterprise procurement usually mandates both.
+
+**Against:** there is no identity provider to integrate with. ISN has not offered
+one, so an OIDC client would be written against a hypothetical endpoint and
+**could not be tested against anything** — untested integration code in a graded
+artefact is worse than a documented absence. MFA is more tractable (TOTP), but is
+a whole enrolment, recovery-code and reset surface, and is equally outside the
+FDD.
+
+**What was done instead:** the adjacent thing that *is* testable — the login
+throttle it shares a threat model with (§74.4).
+
+### 74.3 Audit durability — BUILT, but not the way it was framed
+
+The obvious move is to await the audit write inside the caller's transaction.
+**Rejected.** A broken audit table would then take down the clinical read it
+describes, and refusing a physiotherapist an athlete's record because a logging
+table is full is a worse failure than an incomplete trail — and it is the one
+that happens at 8am before a session.
+
+But the *silence* was indefensible, because `athlete.view` logging is the stated
+justification for leaving medical staff unscoped (§51): "any clinician may open
+any record because every open is recorded" only holds if the recording happens.
+
+So the non-blocking property stays and the silence goes. Failures are counted
+in-process (the only counter that still works when the database is what broke),
+persisted best-effort, logged as `audit.write_failed` so they can be alerted on,
+and surfaced on the admin settings payload as `auditHealth` — **null unless
+something has actually failed**, because a permanently-green badge teaches people
+not to read it. Same shape as §35's scheduled-mail outcomes.
+
+Seven tests. The dead-export guard (`codebaseHygiene` H2) caught the first
+attempt: `auditFailures` was exported and wired to nothing, which is the
+`winAnsiSafe` pattern exactly — a guard nobody installed. It is now on a route.
+
+### 74.4 Rate limiting — BUILT, and it exposed an older fault
+
+`express-rate-limit`'s default store is a Map in the process. Hosted, the API is
+serverless: concurrent invocations each get their own memory and every cold start
+empties the counter, so "30 failures / 15 min / IP" was really a limit on how
+fast one instance could be hit. Now backed by the `settings` table — the same
+place `utils/lock.js` already keeps cross-process state. **The address is hashed
+with an HMAC keyed on `JWT_SECRET`**, because an IP is personal data under the
+PDPA and a limiter needs to know only that it is the *same* address.
+
+It **fails open** with a loud log: a settings-table hiccup must not become
+"nobody at ISN can sign in".
+
+**THE OLDER FAULT.** Making the counter shared exposed that `trust proxy` was
+never set, so `req.ip` is the socket address — which on Vercel is the platform's
+proxy, *the same for every user*. The in-memory store hid this by rarely filling.
+A shared persistent counter would have turned it into **"30 failed logins by
+anyone locks out the whole institution"**. Fixed with `app.set('trust proxy', 1)`
+— one hop, not `true`, because trusting every hop lets a caller forge
+`X-Forwarded-For` and skip the limiter.
+
+Verified against the running server, which is the only way this could have been
+caught: 30 failures from one forwarded client return 429 at the 31st, **a second
+forwarded client is unaffected** (the property that was broken), and loopback is
+exempt.
+
+**Loopback is skipped deliberately.** `npm run audit:access` calls every endpoint
+as four roles and *expects* refusals; `npm run e2e` signs in repeatedly. With a
+persistent store those accumulate across runs, so the two commands that gate a
+commit locked the developer out of the API — which is exactly what happened
+mid-verification. Hosted, requests arrive through the proxy and never appear as
+loopback, so this exempts nothing in production.
+
+Expired counters are pruned on the scheduler's existing hourly tick, in its own
+try-block: housekeeping must not cost the digest its month.
