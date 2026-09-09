@@ -21,12 +21,26 @@ const RESET_CODE_TTL_MIN = 10;
  * meeting, or on leave. Ten minutes would produce an invitation that is
  * expired before it is read.
  *
- * Seven days is the ceiling NIST SP 800-63A sets for an enrollment code, and
- * it is a ceiling rather than a target — the standing exposure of a live code
- * is the cost being paid for the convenience. What makes six digits acceptable
- * across that window is not the digits, it is MAX_ATTEMPTS below: five guesses
- * against a million values is a 1-in-200,000 chance before the code burns,
- * and it burns whether or not the attacker is the intended recipient.
+ * SEVEN DAYS IS A DELIBERATE DEVIATION FROM NIST SP 800-63A, NOT COMPLIANCE
+ * WITH IT. This comment said the opposite until 2026-09-09, when the standard
+ * was actually read: §4.4.1.6 caps an enrollment code by DELIVERY CHANNEL, and
+ * for one sent to an email address of record the maximum is 24 HOURS. The
+ * 7-day figure in that section belongs to a code handed to the subscriber in
+ * person. AIRMS emails it, so this window is 7x the applicable maximum.
+ *
+ * Kept, and argued rather than hidden: the code is single-use, it burns on
+ * five wrong attempts, and it grants no access on its own — until it is used
+ * the account has no working password at all, so the exposure is an ENROLLMENT
+ * risk, not an authentication one. The cost being bought is that a clinician
+ * invited on a Friday can still act on it on Monday.
+ *
+ * What makes six digits acceptable across that window is not the digits, it is
+ * MAX_ATTEMPTS below: five guesses against a million values is a 1-in-200,000
+ * chance before the code burns, and it burns whether or not the attacker is
+ * the intended recipient.
+ *
+ * Changing this to 24h to align with the standard is JC's decision — the
+ * trade-off is written up in docs/fyp/REFERENCES.md §4.
  */
 const INVITE_CODE_TTL_MIN = 7 * 24 * 60;
 

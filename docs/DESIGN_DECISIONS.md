@@ -2046,6 +2046,21 @@ most athletes are low-risk, the green band is precisely where a false reassuranc
 would land — 43 of 58 athletes carried it. The label now describes the FINDING
 (`No indicators flagged`, `None flagged` in legends) rather than the ATHLETE.
 
+**The citation for this, added 2026-09-09** (`docs/fyp/REFERENCES.md` A1) — the
+premise was argued from first principles here for three weeks without one, and it
+is the most defensible position in the project, so it should be sourced:
+
+> Bahr, R. (2016). Why screening tests to predict injury do not work — and
+> probably never will…: a critical review. *British Journal of Sports Medicine*,
+> 50(13), 776–780.
+
+Bahr sets out the three validation steps a screening test must clear before it
+can claim to predict injury, and shows that none in the literature has. AIRMS
+ingests exactly such an instrument. This decision is that argument expressed as
+an interface rule, and it is the answer to the hardest question available in the
+viva — *"does your system predict injury?"* It does not, and the wording of the
+green band is where that honesty is most visible.
+
 Implementing it found something worse than the wording. `BAND_LABEL` in
 `utils/bands.js` — the file whose entire purpose is to be the single band
 vocabulary — **had no green key at all**. `utils/pdfDraw.js` had quietly grown a

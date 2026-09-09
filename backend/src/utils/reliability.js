@@ -11,9 +11,27 @@
 // Robertson, Bartlett & Gastin (IJSPP 2017) list "the boundaries used for
 // categories" as open work.
 //
-// Standard method (Hopkins; the MSK reliability literature):
+// Standard method, and the two papers it comes from — named in full here on
+// 2026-09-09, having previously been credited only as "Hopkins; the MSK
+// reliability literature", which is not a citation anybody can check:
+//
+//   Hopkins, W. G. (2000). Measures of Reliability in Sports Medicine and
+//   Science. Sports Medicine, 30(1), 1-15. doi:10.2165/00007256-200030010-00001
+//     -> the typical error as the standard measure of within-subject variation.
+//
+//   Weir, J. P. (2005). Quantifying test-retest reliability using the
+//   intraclass correlation coefficient and the SEM. Journal of Strength and
+//   Conditioning Research, 19(1), 231-240.
+//     -> turning that error into the minimal difference needed to be confident
+//        a real change occurred, for an INDIVIDUAL rather than a group.
+//
 //   TE    = SD of within-athlete differences / sqrt(2)
 //   MDC95 = 2.77 * TE     (1.96 * sqrt(2) * TE)
+//
+// MIN_PAIRS is not arbitrary either: Hopkins asks for roughly 50 participants
+// and at least 3 trials for a usable reliability estimate. AIRMS has neither,
+// which is exactly why this module DECLINES rather than deriving a threshold
+// from 18 pairs. See docs/fyp/REFERENCES.md A2/A3.
 // Below MDC95 a change cannot be told from measurement noise at 95% confidence.
 //
 // The caveat, which errs the safe way: a true test-retest needs measurements

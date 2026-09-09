@@ -370,11 +370,23 @@ would actually run.
 **If pushed — why not a link, and why six digits for seven days?** The mechanism
 is the password-reset flow unchanged, sharing one definition of what a one-time
 code is (`utils/resetCodes.js`), so an invitation cannot end up weaker than a
-reset without anyone deciding it should be. Seven days is the ceiling NIST SP
-800-63A sets for an enrollment code; what makes six digits acceptable across
-that window is the five-attempt limit rather than the digit count — five guesses
-against a million values, and the code burns whether or not the attacker is the
-intended recipient.
+reset without anyone deciding it should be.
+
+**Volunteer the deviation before you are asked.** This dossier previously said
+seven days was "the ceiling NIST SP 800-63A sets for an enrollment code". It is
+not. §4.4.1.6 sets the ceiling **by delivery channel**, and for a code sent to an
+*email address of record* it is **24 hours**; the 7-day figure applies to a code
+handed to the subscriber **in person**. AIRMS emails the code, so its window is
+seven times the applicable maximum. Say so plainly, then give the reasoning: the
+code is single-use, it burns on five wrong attempts, and it grants no access by
+itself — until it is used the account has no working password at all, so what is
+at risk is enrollment, not authentication. The usability cost of 24 hours on an
+invitation to a clinician who may not open email that day is what buys the
+deviation. Checked against the standard 2026-09-09; full note in
+`docs/fyp/REFERENCES.md` §4.
+
+Five guesses against a million values is what makes six digits acceptable across
+that window — the attempt limit, not the digit count.
 
 **Volunteer the weakness:** invitations currently send from a personal Gmail
 account. A clinician receiving an unexplained six-digit code from a personal
