@@ -374,10 +374,13 @@ reset without anyone deciding it should be.
 
 **Volunteer the deviation before you are asked.** This dossier previously said
 seven days was "the ceiling NIST SP 800-63A sets for an enrollment code". It is
-not. §4.4.1.6 sets the ceiling **by delivery channel**, and for a code sent to an
-*email address of record* it is **24 hours**; the 7-day figure applies to a code
-handed to the subscriber **in person**. AIRMS emails the code, so its window is
-seven times the applicable maximum. Say so plainly, then give the reasoning: the
+not. **SP 800-63-4** (July 2025, superseding the 2017 Rev 3) sets the ceiling
+**by delivery channel** in Vol. A §3.8, and for a code sent to a *validated email
+address* it is **24 hours**. The 7-day figure came from Rev 3 and applied to a
+code handed over **in person** — Rev 4 does not specify an in-person period at
+all, so the number originally cited no longer exists in the standard it was
+attributed to. AIRMS emails the code, so its window is seven times the
+applicable maximum. Say so plainly, then give the reasoning: the
 code is single-use, it burns on five wrong attempts, and it grants no access by
 itself — until it is used the account has no working password at all, so what is
 at risk is enrollment, not authentication. The usability cost of 24 hours on an

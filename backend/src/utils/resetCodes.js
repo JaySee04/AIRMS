@@ -21,12 +21,15 @@ const RESET_CODE_TTL_MIN = 10;
  * meeting, or on leave. Ten minutes would produce an invitation that is
  * expired before it is read.
  *
- * SEVEN DAYS IS A DELIBERATE DEVIATION FROM NIST SP 800-63A, NOT COMPLIANCE
+ * SEVEN DAYS IS A DELIBERATE DEVIATION FROM NIST SP 800-63, NOT COMPLIANCE
  * WITH IT. This comment said the opposite until 2026-09-09, when the standard
- * was actually read: §4.4.1.6 caps an enrollment code by DELIVERY CHANNEL, and
- * for one sent to an email address of record the maximum is 24 HOURS. The
- * 7-day figure in that section belongs to a code handed to the subscriber in
- * person. AIRMS emails it, so this window is 7x the applicable maximum.
+ * was actually read. SP 800-63-4 (July 2025, superseding the 2017 Rev 3) caps a
+ * confirmation code by DELIVERY CHANNEL in Vol. A section 3.8: 21 days by post
+ * within the contiguous US, 30 days outside it, 10 minutes by SMS or voice, and
+ * 24 HOURS to a validated email address. AIRMS emails it, so this window is 7x
+ * the applicable maximum. The 7-day figure came from Rev 3, where it applied to
+ * a code handed over IN PERSON — and Rev 4 does not specify an in-person period
+ * at all, so the number originally cited no longer exists in the standard.
  *
  * Kept, and argued rather than hidden: the code is single-use, it burns on
  * five wrong attempts, and it grants no access on its own — until it is used

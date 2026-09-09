@@ -398,10 +398,11 @@ The mechanism is the password-reset flow, unchanged. `utils/resetCodes.js` was
 extracted from `routes/auth.js` so both share ONE definition of what a one-time
 code is; two definitions is how an invitation ends up weaker than a reset
 without anybody deciding it should be. What differs is deliberate: a 7-day TTL
-(**a deliberate deviation from NIST SP 800-63A, not compliance with it** — §4.4.1.6
-caps an enrollment code sent to an *email address of record* at **24 hours**; the
-7-day figure in that section applies to a code handed to the subscriber **in
-person**. Corrected 2026-09-09, having been documented as "the NIST ceiling" —
+(**a deliberate deviation from NIST SP 800-63, not compliance with it** — SP
+800-63-4 (July 2025) Vol. A §3.8 caps a confirmation code sent to a *validated
+email address* at **24 hours**; the 7-day figure came from the superseded Rev 3
+and applied to a code handed over **in person**, which Rev 4 no longer specifies
+at all. Corrected 2026-09-09, having been documented as "the NIST ceiling" —
 see `docs/fyp/REFERENCES.md` §4, which sets out the two options and recommends
 keeping 7 days and citing the deviation honestly. **Changing the TTL is JC's
 call.** What makes the window survivable is that the code is single-use, grants

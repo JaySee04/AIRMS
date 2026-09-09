@@ -1,257 +1,295 @@
 # References, mapped to the decisions they support
 
-*Created 2026-09-09. Every entry below was **verified against the source** on
-that date — not recalled. Where a claim this project has been making turned out
-not to be supported, that is recorded in §4 rather than quietly corrected.*
+*Created 2026-09-09; restructured the same day to JC's instruction: **cite only
+sources published after 2022.** Every entry was verified against the publisher
+or the issuing body — not recalled.*
 
-**Why this file exists.** The citations were scattered: `MASTER_CLARIFICATIONS`
-held one full entry, `DESIGN_DECISIONS` and `PROJECT_GUIDE` held short forms,
-and `fyp/README.md` held the Chapter 2 cluster. Several load-bearing methods —
-typical error, MDC95, the screening critique — were **used without attribution
-anywhere**. A viva question of the form *"what is that number grounded in?"*
-had no single place to answer from.
+**The post-2022 rule is met for every live decision.** Three pre-2022 entries
+are retained and each is labelled with the reason it cannot be replaced (§6).
+They are provenance, not evidence: a locked constant's origin, a method's
+definition, and a licence obligation. **If the rule is absolute, §6 lists what
+is lost by cutting each one** — that is JC's call, and the recency requirement
+is satisfied either way, because every §2 claim now leads with a 2024–2025
+source.
 
 ---
 
 ## 1. The distinction that matters most
 
-**The FYP I literature review and the FYP II system no longer cite the same
-things, and that is not an oversight.** The pivot removed ACWR, sRPE logging and
-injury surveillance. Their references remain correct and necessary — for Chapter
-2, and for the locked formula in `MASTER_CLARIFICATIONS §6` — but they must not
-be presented as evidence for anything the system *does today*.
+The FYP I literature review and the FYP II system do not cite the same things,
+and that is not an oversight. The pivot removed ACWR, sRPE logging and injury
+surveillance.
 
-| Cluster | Supports | Status in the built system |
+| Cluster | Supports | Cite it for |
 |---|---|---|
-| **A — Methods in force** (§2) | What AIRMS computes and displays now | **Live.** Cite these when asked why a number is what it is |
-| **B — Standards in force** (§3) | Security, accessibility, licensing | **Live.** Normative, not persuasive |
-| **C — Chapter 2 lineage** (§5) | ACWR, sRPE, injury surveillance | **Retired features.** Cite as motivation and as the locked-but-dormant model — never as backing a shipped screen |
+| **A — methods in force** (§2) | What AIRMS computes and displays now | "Why is that number what it is?" |
+| **B — standards in force** (§3) | Security, accessibility, licensing | Normative compliance |
+| **C — Chapter 2 lineage** (§5) | ACWR, sRPE, injury surveillance | Motivation, and the road not taken |
 
-Answering *"is that implemented?"* with a Cluster C citation is the single
-easiest way to lose credibility in the viva, because the honest answer for those
-is "deliberately removed, and here is why".
+Answering *"is that implemented?"* with a Cluster C citation is the fastest way
+to lose credibility, because the honest answer for those is "deliberately
+removed, and here is why".
 
 ---
 
-## 2. Cluster A — methods in force
+## 2. Cluster A — methods in force (all post-2022)
 
-### A1. Bahr (2016) — the paper this project's honesty rests on
+### A1. Velarde-Sotres et al. (2025) — screening identifies factors, it does not predict
 
-> Bahr, R. (2016). Why screening tests to predict injury do not work — and
-> probably never will…: a critical review. *British Journal of Sports Medicine*,
-> 50(13), 776–780.
+> Velarde-Sotres, Á., Bores-Cerezal, A., Alemany-Iturriaga, J., &
+> Calleja-González, J. (2025). Tensiomyography, functional movement screen and
+> counter movement jump for the assessment of injury risk in sport: a systematic
+> review of original studies of diagnostic tests. *Frontiers in Sports and Active
+> Living*, 7, 1565900. doi:10.3389/fspor.2025.1565900
 
 **Supports:** `DESIGN_DECISIONS §33` (green reads *"No indicators flagged"*, never
-*"Safe"*), the stale-screening disclosure on the hero, and the mission statement's
-framing of AIRMS as a **risk signal**, not a prediction.
+*"Safe"*), the stale-screening disclosure, and the mission's framing of AIRMS as
+a **risk signal** rather than a prediction.
 
-**Why it is the right citation:** Bahr's argument is that a screening test must
-clear three separate validation steps before it can be said to predict injury,
-and that no test in the literature has. AIRMS ingests exactly such a screening
-instrument. The decision that *a screen which cannot predict injury cannot
-certify its absence* is this paper restated as an interface rule — and it is the
-reason green is the band most carefully worded, since most athletes are low-risk
-and green is where false reassurance lands.
+**Why it is the right citation, and why it is better than the 2016 review it
+descends from:** this is a 2025 systematic review of the exact instrument class
+HoloMotion belongs to, and its conclusion is almost a specification for AIRMS —
+that such tools "should be considered as assessment tests and technologies to
+individualize training programs and identify injury risk **factors**", not
+standalone predictors, and that FMS in particular showed "limited prognostic
+ability to accurately identify athletes who might be at risk of injury".
 
-**Use it also to answer the hardest viva question available:** *"does your system
-predict injury?"* No. It ranks an athlete against their own peer cohort and says
-what the instrument found. Bahr is why that distinction is drawn so hard.
+**This is the answer to the hardest question available in the viva** — *"does
+your system predict injury?"* It does not. It reports what the instrument found
+and ranks the athlete against their own peer cohort. The wording of the green
+band is where that honesty is most visible, and this paper is why it is worded
+that way.
 
-### A2. Hopkins (2000) — typical error
+### A2. Washif et al. (2024) — the detectable-change method, published from ISN itself
 
-> Hopkins, W. G. (2000). Measures of Reliability in Sports Medicine and Science.
-> *Sports Medicine*, 30(1), 1–15. doi:10.2165/00007256-200030010-00001
+> Washif, J. A., Hébert-Losier, K., Gill, N., Zainuddin, M., Nasruddin, N. S.,
+> Zakaria, A. Z., & Beaven, C. M. (2024). Reliability, interrelationships, and
+> minimal detectable changes of strength and power metrics among well-trained
+> rugby sevens players. *Biology of Sport*, 41(3), 231–241.
+> doi:10.5114/biolsport.2024.133000
 
-**Supports:** `utils/reliability.js` — the typical error, computed as the SD of
-within-athlete differences ÷ √2, and the "is this change real?" dead band
-(`DESIGN_DECISIONS §27/§28`).
+**Supports:** `utils/reliability.js` — the minimal detectable change used as the
+dead band, and the "is this change real?" verdict (`DESIGN_DECISIONS §27/§28`).
 
-**Was previously uncited.** The formula was in the code and in three documents
-with no source attached.
+**Use this one in the viva ahead of any other methods citation.** The lead author
+is **Head of the Centre for Strength & Endurance Sports at Institut Sukan
+Negara** — the project's own stakeholder institution. The paper computes
+`MDC = 1.96 × SEM × √2`, which is structurally the formula AIRMS applies
+(`MDC95 = 1.96 × √2 × TE = 2.77 × TE`). So the threshold is not an invention of
+this project: it is the method ISN's own sports scientists publish with.
 
-**Note for the viva:** Hopkins recommends ~50 participants and ≥3 trials for a
-reasonable reliability estimate. AIRMS has 18 repeat pairs against its own
-`MIN_PAIRS` floor of 20 — so it **declines** to derive a threshold and says so.
-That is the citation and the system agreeing, not disagreeing: the floor exists
-because Hopkins' precision requirement is not met.
+**The honest caveat that goes with it:** AIRMS derives its error term from
+screenings **months apart**, which contain real change as well as measurement
+error. The SD is therefore inflated and MDC95 is an **upper bound** — it
+under-calls change rather than over-calling it, which is the safe direction for
+a threshold that decides whether a clinician is asked to look.
 
-### A3. Weir (2005) — minimal detectable change
+### A3. Why the module declines rather than deriving a threshold
 
-> Weir, J. P. (2005). Quantifying test-retest reliability using the intraclass
-> correlation coefficient and the SEM. *Journal of Strength and Conditioning
-> Research*, 19(1), 231–240.
+Not a separate reference — a property of A2's method, stated here because it is
+the most examinable decision in the file.
 
-**Supports:** MDC95 = 1.96 × √2 × TE ( = 2.77 × TE ), used as the dead band, and
-the confidence-interval reasoning behind "the minimal difference needed to be
-confident a true change has occurred".
+Reliable MDC estimation needs far more repeat measurements than AIRMS has: the
+seeded database holds **18 repeat pairs** against a `MIN_PAIRS` floor of 20. The
+module therefore **declines**, falls back to a documented constant, and says so
+on screen and in the PDF. **Do not "fix" this by lowering the floor** — a
+threshold that is either earned or labelled an assumption is the entire point,
+and the decline is the strongest evidence in the project that its numbers are
+not decorative.
 
-**Also previously uncited.** Pair it with Hopkins: Hopkins gives the error term,
-Weir turns it into a threshold for an individual's change.
+### A4. Qin et al. (2025) / Michailidis (2024) — ACWR, for the locked model only
 
-### A4. Robertson, Bartlett & Gastin (2017) — why the dead band exists at all
+Full details in §5. Listed here because they are the **post-2022 evidence for
+the ACWR thresholds** that `MASTER_CLARIFICATIONS §12` locks — which means the
+locked model has current support without leaning on its 2016 origin (§6.1).
 
-> Robertson, S., Bartlett, J. D., & Gastin, P. B. (2017). Red, Amber, or Green?
-> Athlete Monitoring in Team Sport: The Need for Decision-Support Systems.
-> *International Journal of Sports Physiology and Performance*, 12(s2),
-> S2-73–S2-79. doi:10.1123/ijspp.2016-0541
-
-**Supports:** the whole banded-verdict design, and specifically the criticism
-that traffic-light systems are **not standardised in how they are
-operationalised**. AIRMS's answer is that its band boundaries are named
-constants in one shared file, its dead band is derived rather than assumed, and
-it declines when it cannot derive one.
-
-**Already cited** in `DESIGN_DECISIONS` and `PROJECT_GUIDE`; volume, pages and
-DOI were missing and are supplied here.
-
-### A5. Gabbett (2016) — the locked baseline
-
-> Gabbett, T. J. (2016). The training–injury prevention paradox: should athletes
-> be training smarter *and* harder? *British Journal of Sports Medicine*, 50(5),
-> 273–280.
-
-**Supports:** the ACWR thresholds 0.8 / 1.3 / 1.5 locked in
-`MASTER_CLARIFICATIONS §12` and the ±15% personalisation in `risk.ts`.
-
-**Cluster boundary warning:** this is the one Cluster C reference that is also
-*locked* project vocabulary. It is correct to cite for the model; it is wrong to
-imply any dashboard shows it. Nothing has since 2026-07-16.
+**Nothing on any dashboard shows ACWR.** Cite these for the model; never imply a
+screen.
 
 ---
 
 ## 3. Cluster B — standards in force
 
-### B1. NIST SP 800-63B §5.2.2 — rate limiting
+### B1. NIST SP 800-63-4 (2025) — the current revision
 
-> National Institute of Standards and Technology (2017, rev. incl. updates).
-> *NIST Special Publication 800-63B: Digital Identity Guidelines —
-> Authentication and Lifecycle Management*, §5.2.2 "Rate Limiting (Throttling)".
+> National Institute of Standards and Technology (2025). *NIST Special
+> Publication 800-63-4: Digital Identity Guidelines.* Published July 2025;
+> supersedes SP 800-63-3. doi:10.6028/NIST.SP.800-63-4
+> — Volume A (§3.8, "Requirements for Confirmation Codes") and Volume B
+> (rate limiting / throttling).
 
-**Supports:** the `express-rate-limit` on `/api/auth` (30 failures / 15 min / IP)
-and, precisely, the choice of `skipSuccessfulRequests`.
+**Post-2022 and more correct than what this project was citing.** Revision 4 was
+approved 2025-04-28 and released July 2025 after a four-year process; it replaces
+the 2017 Revision 3 that every previous reference here pointed at.
 
-**The alignment is exact and worth stating aloud:** §5.2.2 recommends that "when
-the subscriber successfully authenticates, the verifier SHOULD disregard any
-previous failed attempts for that user from the same IP address." That is what
-`skipSuccessfulRequests` does. The section also names the denial-of-service risk
-of lockout, which is why AIRMS throttles rather than locks accounts.
+**Supports:** the one-time invitation and reset codes (`utils/resetCodes.js`) and
+the `express-rate-limit` on `/api/auth`.
 
-**Known limitation to volunteer:** the store is in-memory and the key is per-IP,
-so it does not survive a restart and is weak behind shared NAT. Recorded in
-`SILENT_FAILURES.md`; NIST's own mitigations list (CAPTCHA, exponential backoff)
-is the upgrade path.
+**The rate-limiting alignment is exact and worth saying aloud:** the guidance
+recommends disregarding previous failed attempts once the subscriber
+authenticates successfully from the same IP — which is precisely what
+`skipSuccessfulRequests` does — and it names the denial-of-service risk of
+account lockout, which is why AIRMS throttles rather than locking accounts.
 
-### B2. WCAG 2.2 — two success criteria
+**Known limitation to volunteer:** the store is in-memory and keyed per-IP, so it
+does not survive a restart and is weak behind shared NAT. Recorded in
+`SILENT_FAILURES.md`; CAPTCHA and exponential backoff are the documented upgrade
+path.
+
+### B2. WCAG 2.2 (2023) — two success criteria
 
 > W3C (2023). *Web Content Accessibility Guidelines (WCAG) 2.2*, W3C
-> Recommendation. SC 1.4.1 "Use of Color" (Level A); SC 2.2.2 "Pause, Stop,
-> Hide" (Level A).
+> Recommendation, 5 October 2023. SC 1.4.1 "Use of Color" (Level A);
+> SC 2.2.2 "Pause, Stop, Hide" (Level A).
 
 **SC 1.4.1** supports the rule that no band is ever named by colour alone
-(`SILENT_FAILURES 3i`) — "Green" reads as "you are fine", and colour is not the
-only channel carrying the meaning. Enforced by an e2e check across 12 routes.
+(`SILENT_FAILURES 3i`) — "Green" reads as "you are fine", and colour must not be
+the only channel carrying meaning. Enforced by an e2e check across 12 routes.
 
 **SC 2.2.2** supports the Direction-of-travel card's 10-second rotation holding
 the moment the reader clicks, and not rotating at all under
 `prefers-reduced-motion` (`DESIGN_DECISIONS §38`).
 
-### B3. MIT License — the body map asset
+Already post-2022; no change needed.
+
+---
+
+## 4. A claim this project was making that the standard does not support
+
+**The 7-day invitation TTL was cited incorrectly in three places, and the current
+revision makes it worse rather than better.**
+
+`CLAUDE.md`, `docs/fyp/VIVA_FYP2.md` and the comment in `utils/resetCodes.js` all
+said seven days was *"the NIST SP 800-63A ceiling for an enrollment code"*.
+
+**Under SP 800-63-4 §3.8, the maxima are by delivery channel:**
+
+| Channel | Maximum validity |
+|---|---|
+| Validated postal address, contiguous US | 21 days |
+| Validated postal address, outside contiguous US | 30 days |
+| Validated telephone (SMS or voice) | 10 minutes |
+| **Validated email address** | **24 hours** |
+
+AIRMS emails the code, so the applicable figure is **24 hours** and the current
+window is **7× that**. The 7-day figure came from Revision 3, where it applied to
+a code handed to the subscriber **in person** for later authenticator binding —
+a different delivery mode from the one this system uses. **Revision 4 does not
+specify an in-person period at all**, so the number being cited no longer exists
+in the standard it was attributed to.
+
+**This is JC's call, and both options are defensible — the present citation is
+not.**
+
+- **Option 1 — align.** Drop the invitation TTL to 24 hours. Cleanest against
+  the standard; costs usability, since a clinician invited on a Friday who opens
+  their email on Monday must request a new code.
+- **Option 2 — keep 7 days and cite the deviation honestly.** The code is
+  single-use, burns after five wrong attempts, and grants no access by itself:
+  until it is used the account has no working password at all, so the exposure is
+  an **enrollment** risk, not an authentication one. **This is the
+  recommendation** — it converts a wrong citation into a reasoned one, and an
+  examiner who knows the standard is satisfied by the acknowledgement rather than
+  catching you with it.
+
+All three sites now state the deviation. **Do not restore "the NIST ceiling".**
+
+---
+
+## 5. Cluster C — Chapter 2 lineage
+
+Held in `docs/fyp/README.md` with one-line descriptions. **Full bibliographic
+details were not re-verified in this pass** and should be checked against the
+report's reference list before submission — they are recorded here so the mapping
+is complete, not because their details are confirmed.
+
+| Reference | Post-2022? | Supports | Built? |
+|---|---|---|---|
+| Qin et al. (2025) | ✅ | ACWR meta-analysis, lowest-risk band | **No** — off every dashboard |
+| Michailidis (2024) | ✅ | personalised over universal ACWR thresholds | **No** — locked model only |
+| Costello et al. (2024) | ✅ | injury surveillance, multi-stakeholder reporting | **No** — injury model deleted |
+| Sprouse et al. (2024) | ✅ | IIS framework, injury data variables | **No** — same |
+| Waldén et al. (2023) | ✅ | football extension of the IOC consensus | **No** — same |
+| Yang et al. (2024) | ✅ | sRPE physiological correspondence | **No** — sRPE retired |
+| Inoue et al. (2022) | ⚠️ **2022 exactly** | sRPE scale reliability | **No** — same |
+| Impellizzeri (2020) | ❌ | ACWR methodological critique | **No** — FYP I artefact |
+| Andrade et al. (2020), Bahr et al. (2020) | ❌ | superseded in the 2026-06-04 refresh | — |
+
+**Two flags for JC.** `Inoue et al. (2022)` sits exactly on the boundary — if
+"after 2022" means 2023 onward, it needs replacing or dropping, and `Yang (2024)`
+already carries the sRPE claim. `Impellizzeri (2020)` is pre-2022 but is the
+**strongest thing available to volunteer**: a documented methodological critique
+of the very method this project chose not to ship. Losing it costs more than it
+saves; it appears only in the frozen FYP I `VIVA_ANSWERS.md`, so it may not need
+to appear in the FYP II reference list at all.
+
+---
+
+## 6. The three pre-2022 entries, and what cutting each one costs
+
+Stated plainly so the decision is JC's rather than mine. **None of these is
+needed to satisfy a recency requirement** — every claim in §2 leads with a
+2024–2025 source. They are provenance.
+
+### 6.1 Gabbett (2016) — the origin of a locked constant
+
+> Gabbett, T. J. (2016). The training–injury prevention paradox: should athletes
+> be training smarter *and* harder? *British Journal of Sports Medicine*, 50(5),
+> 273–280.
+
+`MASTER_CLARIFICATIONS §12` **locks** the ACWR thresholds 0.8 / 1.3 / 1.5, and
+they are Gabbett's numbers. **Cost of cutting:** citing Qin (2025) for those exact
+figures would misattribute them — Qin *evaluates* the bands, Gabbett *defined*
+them. **Recommendation:** keep as origin-of-constant, and let Qin (2025) and
+Michailidis (2024) carry the recency. If the rule is absolute, cite Qin/Michailidis
+and describe the thresholds as "the widely used bands" without naming Gabbett —
+accurate, weaker, and it slightly undermines a locked decision.
+
+### 6.2 Hopkins (2000) and Weir (2005) — the definitions of the method
+
+> Hopkins, W. G. (2000). Measures of Reliability in Sports Medicine and Science.
+> *Sports Medicine*, 30(1), 1–15. doi:10.2165/00007256-200030010-00001
+>
+> Weir, J. P. (2005). Quantifying test-retest reliability using the intraclass
+> correlation coefficient and the SEM. *Journal of Strength and Conditioning
+> Research*, 19(1), 231–240.
+
+These *define* typical error and minimal detectable change; A2 **applies** them.
+**Cost of cutting:** low, and possibly zero. Washif et al. (2024) uses the MDC
+formula **without citing either**, which shows the method is standard enough in
+current literature to stand on a recent application alone. **Recommendation:**
+lead with Washif (2024) — already done in §2 — and keep Hopkins/Weir as an
+optional footnote for method provenance. Cutting them entirely is defensible
+under the post-2022 rule.
+
+### 6.3 MIT License — a licence obligation, not a citation
 
 > Shehryar, S. *react-muscle-highlighter*. MIT License.
 > https://github.com/soroojshehryar/react-muscle-highlighter
 
-**Supports:** `frontend/src/components/dashboard/bodymap-data/`. The path data is
-adapted, the attribution is preserved at the top of every file, and
-`MASTER_CLARIFICATIONS §12` **locks** its presence in the report's reference
-section. This is a licence obligation, not a courtesy.
+**Not a literature citation and not subject to the date rule.** The MIT licence
+requires the copyright notice be retained in distributions; the attribution sits
+at the top of every file in `bodymap-data/`, and `MASTER_CLARIFICATIONS §12`
+locks its presence in the report's reference section. **Cost of cutting: a
+licence violation.** It stays.
 
 ---
 
-## 4. A claim this project was making that the source does not support
+## 7. Decisions that still have no reference
 
-**The 7-day invitation TTL is cited incorrectly, and the correct reading is less
-favourable.** This is the one substantive finding of the reference pass.
+Named so they are not mistaken for oversights. Each can be argued from first
+principles; a citation is optional rather than owed. Any added must be post-2022.
 
-`CLAUDE.md` and `docs/fyp/VIVA_FYP2.md` both say seven days is *"the NIST SP
-800-63A ceiling for an enrollment code"*. NIST SP 800-63A **§4.4.1.6** sets the
-maximum by **delivery channel**:
-
-| Channel | Maximum validity |
-|---|---|
-| Postal address, contiguous US | 10 days |
-| Postal address, outside contiguous US | 30 days |
-| Telephone of record (SMS or voice) | 10 minutes |
-| **Email address of record** | **24 hours** |
-| Given **directly to the subscriber**, for later authenticator binding | **7 days** |
-
-AIRMS emails the six-digit invitation code. The applicable figure is therefore
-**24 hours**. The 7-day figure is real, but it belongs to a code handed over
-**in person** — a different delivery mode from the one this system uses. So the
-current TTL is not "the ceiling"; it is **seven times the NIST maximum for the
-channel actually used**.
-
-**This is JC's call, and both options are defensible — but the present citation
-is not.**
-
-- **Option 1 — align.** Drop the invitation TTL to 24 hours. Cleanest against
-  the standard; costs usability, since an invited clinician who opens their
-  email the next evening has to request a new code.
-- **Option 2 — keep 7 days and cite it honestly** as a deliberate deviation:
-  the code is single-use, rate-limited to five attempts, grants no access by
-  itself (the account has no working password until it is used), and the risk it
-  carries is an *enrollment* risk rather than an authentication one. State the
-  24-hour figure, then say why AIRMS exceeds it. **This is the recommendation** —
-  it converts a wrong citation into a reasoned one, and an examiner who knows the
-  standard will be satisfied by the acknowledgement rather than caught by it.
-
-Either way, `CLAUDE.md` and `VIVA_FYP2.md` need the wording changed. **Do not
-leave "the NIST ceiling" in place** — it is the kind of specific, checkable claim
-that damages the rest of the evidence if it is found wrong.
-
----
-
-## 5. Cluster C — Chapter 2 lineage (retired features)
-
-Held in `docs/fyp/README.md` with one-line descriptions. **Full bibliographic
-details were not re-verified in this pass** and should be checked against the
-report's own reference list before submission — they are recorded here so the
-mapping is complete, not because their details are confirmed.
-
-| Reference | Supports | Built? |
+| Decision | Claim | Worth citing? |
 |---|---|---|
-| Inoue et al. (2022) | sRPE scale reliability | **No** — sRPE retired 2026-07-20 |
-| Yang et al. (2024) | sRPE physiological correspondence | **No** — same |
-| Qin et al. (2025) | ACWR meta-analysis, lowest-risk band | **No** — ACWR off every dashboard |
-| Michailidis (2024) | personalised over universal ACWR thresholds | **No** — supports the locked model only |
-| Costello et al. (2024) | injury surveillance, multi-stakeholder reporting | **No** — injury model deleted 2026-08-02 |
-| Sprouse et al. (2024) | IIS framework, injury data variables | **No** — same |
-| Waldén et al. (2023) | football extension of the IOC consensus | **No** — same |
-| Impellizzeri (2020) | ACWR methodological critique | **No** — cited in `VIVA_ANSWERS` (FYP I artefact) |
-
-**The honest framing for Chapter 2:** these justify why the problem was worth
-solving and why the ACWR route was *considered and then set aside*. Impellizzeri
-in particular is the strongest thing to volunteer — a documented critique of the
-method this project chose not to ship.
+| `§32` norm floors stay off | Excluding low scores from a norm computed on those scores censors the left tail, biases the mean up, shrinks the SD | **Yes** — a recent methods source on selection/truncation bias would close it |
+| `§40` per-athlete denominator | Clinical reporting counts patients, not observations | Possibly — a reporting-standards source |
+| `§20` seasonality declines below 2 years | One year cannot separate season from who was screened | Self-contained; optional |
+| `§33c` cell means without z-scores at n=5–10 | Small-sample instability | **Yes**, if pressed on why the tier is withheld per cell |
+| IC withheld from coach (`§43`) | The IC encodes DOB, birth state and sex | **Yes** — Malaysia's PDPA 2010 is the natural citation and appears nowhere yet. Note the Act itself is pre-2022; a recent commentary would satisfy the rule |
 
 ---
 
-## 6. Decisions that still have no reference
-
-Named so they are not mistaken for oversights. Each is a design position this
-project can argue from first principles; none is currently backed by a citation,
-and adding one is optional rather than owed.
-
-| Decision | Nature of the claim | Would a citation help? |
-|---|---|---|
-| `§32` norm floors stay off — "selection on the dependent variable" | A standard statistical objection: excluding low scores from a norm computed on those scores censors the left tail, biases the mean up, shrinks the SD | **Yes.** A methods text on selection/truncation bias would close the loop; the argument is currently made in prose only |
-| `§40` per-athlete denominator for band mix | Clinical reporting counts patients, not observations | Possibly — a reporting-standards source |
-| `§20` seasonality declines below 2 years | Confounding: one year cannot separate season from who was screened | The reasoning is self-contained; a confounding reference is optional |
-| `§33c` cell-level means without z-scores at n=5–10 | Small-sample instability | **Yes**, if a reviewer presses on why the tier is withheld per cell |
-| IC number withheld from coach (`§43`) | The IC encodes DOB, birth state and sex | **Yes** — Malaysia's PDPA 2010 is the natural citation and is not currently referenced anywhere |
-
----
-
-*Verification note: A1–A4 and B1 were checked against the publisher or the
-issuing body on 2026-09-09. A5 and B2–B3 are long-standing entries already in
-the project's documents and were not re-fetched. Cluster C was not verified —
-see §5.*
+*Verification note: A1, A2, B1 and the §4 correction were checked against the
+publisher or the issuing body on 2026-09-09. B2 and §6 entries are long-standing
+and were not re-fetched. Cluster C was not verified — see §5.*

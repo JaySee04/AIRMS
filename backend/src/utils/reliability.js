@@ -11,27 +11,34 @@
 // Robertson, Bartlett & Gastin (IJSPP 2017) list "the boundaries used for
 // categories" as open work.
 //
-// Standard method, and the two papers it comes from — named in full here on
-// 2026-09-09, having previously been credited only as "Hopkins; the MSK
-// reliability literature", which is not a citation anybody can check:
+// Standard method. Attributed in full here on 2026-09-09, having previously
+// been credited only as "Hopkins; the MSK reliability literature", which is not
+// a citation anybody can check:
 //
-//   Hopkins, W. G. (2000). Measures of Reliability in Sports Medicine and
-//   Science. Sports Medicine, 30(1), 1-15. doi:10.2165/00007256-200030010-00001
-//     -> the typical error as the standard measure of within-subject variation.
+//   Washif, J. A., Hebert-Losier, K., Gill, N., Zainuddin, M., Nasruddin, N. S.,
+//   Zakaria, A. Z., & Beaven, C. M. (2024). Reliability, interrelationships, and
+//   minimal detectable changes of strength and power metrics among well-trained
+//   rugby sevens players. Biology of Sport, 41(3), 231-241.
+//   doi:10.5114/biolsport.2024.133000
 //
-//   Weir, J. P. (2005). Quantifying test-retest reliability using the
-//   intraclass correlation coefficient and the SEM. Journal of Strength and
-//   Conditioning Research, 19(1), 231-240.
-//     -> turning that error into the minimal difference needed to be confident
-//        a real change occurred, for an INDIVIDUAL rather than a group.
+// That is the citation to lead with, for two reasons: it is current, and its
+// lead author is Head of the Centre for Strength & Endurance Sports at INSTITUT
+// SUKAN NEGARA — this project's own stakeholder institution. It computes
+// MDC = 1.96 * SEM * sqrt(2), structurally the formula below. So the threshold
+// is not an invention of this project; it is the method ISN publishes with.
 //
 //   TE    = SD of within-athlete differences / sqrt(2)
 //   MDC95 = 2.77 * TE     (1.96 * sqrt(2) * TE)
 //
-// MIN_PAIRS is not arbitrary either: Hopkins asks for roughly 50 participants
-// and at least 3 trials for a usable reliability estimate. AIRMS has neither,
-// which is exactly why this module DECLINES rather than deriving a threshold
-// from 18 pairs. See docs/fyp/REFERENCES.md A2/A3.
+// Method provenance, optional and pre-2022: Hopkins (2000), Sports Medicine
+// 30(1):1-15 defines the typical error; Weir (2005), JSCR 19(1):231-240 turns it
+// into a minimal detectable change for an individual. Washif et al. use the
+// formula without citing either, which is a fair indication it is now standard.
+//
+// MIN_PAIRS is not arbitrary: a usable reliability estimate needs far more
+// repeat measurements than AIRMS has (18 pairs against a floor of 20), which is
+// exactly why this module DECLINES rather than deriving a threshold it has not
+// earned. See docs/fyp/REFERENCES.md A2/A3.
 // Below MDC95 a change cannot be told from measurement noise at 95% confidence.
 //
 // The caveat, which errs the safe way: a true test-retest needs measurements

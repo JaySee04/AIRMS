@@ -2033,7 +2033,17 @@ association, adequate test properties in the population, and evidence that
 intervening on screen-identified athletes beats intervening on everyone (Bahr,
 *BJSM* 2016) — and no published screening test has cleared all three. The best
 known threshold in the field, an FMS composite of 14 or below, is not
-significantly associated with injury risk once studies are pooled. Scoring against
+significantly associated with injury risk once studies are pooled.
+
+> **Which reference to cite for this (2026-09-09).** The three-step argument
+> above is Bahr's, and it is named here because it is the argument's origin. But
+> the project cites **post-2022 sources only**, so the reference for the report
+> and the viva is **Velarde-Sotres et al. (2025)** — a systematic review of this
+> exact instrument class reaching the same conclusion on current evidence, and
+> reporting FMS's "limited prognostic ability" directly. Full entry and the
+> reasoning: `docs/fyp/REFERENCES.md` A1 and §6.
+
+Scoring against
 a real peer cohort rather than a published cut-off avoids inheriting that failure,
 and the escalation COUNT (requiring two independent rules to agree before red) is
 the standard defence against the false-positive rates that make flagging systems
@@ -2050,16 +2060,23 @@ would land — 43 of 58 athletes carried it. The label now describes the FINDING
 premise was argued from first principles here for three weeks without one, and it
 is the most defensible position in the project, so it should be sourced:
 
-> Bahr, R. (2016). Why screening tests to predict injury do not work — and
-> probably never will…: a critical review. *British Journal of Sports Medicine*,
-> 50(13), 776–780.
+> Velarde-Sotres, Á., Bores-Cerezal, A., Alemany-Iturriaga, J., &
+> Calleja-González, J. (2025). Tensiomyography, functional movement screen and
+> counter movement jump for the assessment of injury risk in sport: a systematic
+> review of original studies of diagnostic tests. *Frontiers in Sports and Active
+> Living*, 7, 1565900. doi:10.3389/fspor.2025.1565900
 
-Bahr sets out the three validation steps a screening test must clear before it
-can claim to predict injury, and shows that none in the literature has. AIRMS
-ingests exactly such an instrument. This decision is that argument expressed as
-an interface rule, and it is the answer to the hardest question available in the
-viva — *"does your system predict injury?"* It does not, and the wording of the
-green band is where that honesty is most visible.
+A 2025 systematic review of the exact instrument class HoloMotion belongs to,
+whose conclusion reads almost as a specification for AIRMS: such tools "should be
+considered as assessment tests and technologies to individualize training
+programs and identify injury risk **factors**", not standalone predictors — and
+FMS specifically showed "limited prognostic ability to accurately identify
+athletes who might be at risk of injury".
+
+This decision is that finding expressed as an interface rule, and it is the
+answer to the hardest question available in the viva — *"does your system predict
+injury?"* It does not, and the wording of the green band is where that honesty is
+most visible.
 
 Implementing it found something worse than the wording. `BAND_LABEL` in
 `utils/bands.js` — the file whose entire purpose is to be the single band
