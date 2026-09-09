@@ -241,6 +241,58 @@ async function visit(browser, route, session) {
         `points mean ${mean} vs headline ${c.averages.overallActivityScore}`);
     }
 
+    console.log('\n4e. seasonality reaches the screen, and refuses to name a season it cannot support');
+    // Added 2026-09-09. Seasonality sat on this page's payload from the day it
+    // was built and only the PDF ever drew it, which broke the stated property
+    // that the screen and the document cannot quote different KPIs off the same
+    // util. The generalised lesson (SILENT_FAILURES 3n) is that a suite which
+    // only asserts the ABSENCE of wrongness cannot tell a working panel from a
+    // missing one — so this asserts PRESENCE, on the page, as the user sees it.
+    {
+      // /analytics/periods — the endpoint the page itself calls. The PDF is the
+      // one named "programme-activity"; the JSON is not.
+      const res = await fetch(`${API}/athletes/analytics/periods?grain=quarter`, {
+        headers: { Authorization: `Bearer ${sessions.admin.token}` },
+      });
+      const data = await res.json();
+      const season = data.seasonality;
+      check('the activity payload carries seasonality', Boolean(season && season.buckets));
+
+      const r = await visit(browser, '/admin/activity', sessions.admin);
+      check('the seasonality card is on the page', /Seasonality/i.test(r.text));
+
+      if (season) {
+        // The refusal is the feature. Below two years a named "worst quarter" is
+        // indistinguishable from the quarter the weaker squads were screened in,
+        // and acting on it would move ISN's screening calendar for nothing.
+        if (!season.sufficient) {
+          check('it states plainly that this is not yet a seasonal reading',
+            /not yet a seasonal reading/i.test(r.text));
+          check('it names no worst quarter while insufficient',
+            season.worst === null && !/highest flagged share/i.test(r.text));
+          // The caveat must be READ FIRST. Underneath the table it arrives after
+          // the reader has already picked a quarter out of the numbers.
+          const low = r.text.toLowerCase();
+          const caveatAt = low.indexOf('not yet a seasonal reading');
+          const tableAt = low.indexOf('flagged share');
+          check('the caveat is above the numbers, not below them',
+            caveatAt > -1 && tableAt > -1 && caveatAt < tableAt, `caveat@${caveatAt} table@${tableAt}`);
+        }
+        // A quarter nobody screened in is not a quarter with no risk. Rendering
+        // it as 0% would invent a reassuring reading out of an absence.
+        const empty = season.buckets.filter((b) => b.tests === 0);
+        if (empty.length) {
+          check('quarters with no screening are not drawn as 0% risk', /not screened/i.test(r.text),
+            `${empty.length} empty quarter(s)`);
+        }
+        // The screen must quote the same shares the util computed.
+        const withData = season.buckets.filter((b) => b.flaggedShare !== null);
+        const shown = withData.filter((b) => r.text.includes(`${Math.round(b.flaggedShare * 1000) / 10}%`));
+        check('every computed share appears on the page', shown.length === withData.length,
+          `${shown.length} of ${withData.length}`);
+      }
+    }
+
     console.log('\n4c. the personal watchlist is personal, and refuses the read-only roles');
     // Module 6's last deferred item. The properties worth checking in a live
     // system are the BOUNDARIES, not that a star renders: a watchlist is the

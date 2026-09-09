@@ -5353,3 +5353,103 @@ the defect, and reverting it turns 5 of `ScreeningPanel.test.tsx`'s 10 red.
 - `frontend/src/components/dashboard/ScreeningPanel.test.tsx` — 10 cases
   asserting each card renders **from the shape the API actually sends**. This is
   the assertion the whole stack was missing.
+
+## 71. The same sweep, run over the rest of the site (2026-09-09)
+
+JC: *"Now do the same for the other parts of the website as well."*
+
+§70 found three cards drawing nothing. This is that hunt generalised: what else
+is computed, sent or built, and never reaches a reader?
+
+### 71.1 The scan that had to be checked before it was believed
+
+The first version reported **364 of 379** payload keys as never used by the
+frontend — including `cohortZ` and `effectiveBand`, which the hero obviously
+reads. That was the tell. Its matcher was ``new RegExp(`\b${k}\b`)``: inside a
+template literal `\b` is a **backspace character**, not a word boundary, so the
+pattern matched nothing and everything looked dark.
+
+**That is SILENT_FAILURES 3l reproduced exactly, in the sweep written to find
+silent failures** — and by the same mechanism CLAUDE.md gotcha 9 warns about,
+since `\b` typed into a shell heredoc arrives as `\b`. Rewritten with the
+editor tool, holding the pattern as a string, and given a **canary**: the script
+now refuses to report anything until it has found four keys known to be present.
+Every scan in this project should carry one.
+
+Corrected, it reported 24 candidates against 284 keys.
+
+### 71.2 What was actually dark: seasonality
+
+`seasonality` is computed by `utils/screeningPeriods.js`, shipped on
+`GET /athletes/analytics/periods`, and drawn **only by the PDF** (`seasonTable`).
+The Programme Activity page received it on every load and rendered nothing.
+
+That contradicts this project's own stated property, which CLAUDE.md puts in
+writing: the KPI report is *"drawn from the same `utils/programmeActivity.js`
+the page reads **so the screen and the document cannot quote different KPIs**"*.
+They did. The document had a section the screen did not.
+
+It also answers a **named stakeholder question** — Dr Thung's "which quarter is
+the risky one" — which made it the most expensive thing on the list to leave
+hidden.
+
+**The refusal is the feature, and it is drawn more prominently than any finding
+the card can produce.** On the current data the panel declines twice over:
+`sufficient: false` (all 74 screenings fall in 2026), and the two quarters with
+data sit 0.4 points apart, well inside the dead band. So it says *"Not yet a
+seasonal reading"*, explains that a worst quarter here is indistinguishable from
+the quarter the weaker squads happened to be screened in, and names nothing.
+
+Three properties mirror `seasonTable` deliberately, because the two must not
+read differently: ranked by **share** not count (throughput differs by quarter);
+the caveat printed **above** the numbers (§68's rule — underneath, it is read
+after the reader has already picked a quarter); and a quarter with no screening
+shown as **"not screened"**, never as 0%, which would invent a reassuring
+reading out of an absence.
+
+Bars are never band-coloured. A red bar would read as a verdict on that quarter,
+which is the exact claim the card refuses to make without two years of data.
+
+### 71.3 The one-time code stated its own expiry from memory
+
+`/verify-otp` printed *"The code expires in 10 minutes"* as a literal, while the
+server was already sending `expiresInMinutes` on the response nobody read. The
+two agreed on the day — `RESET_CODE_TTL_MIN` is 10 — so this is a latent defect,
+not a live one: a number stated in two places, in the one flow where being wrong
+locks a clinician out of their own account.
+
+Now carried from the server and refreshed by a resend, which issues a new code
+with a fresh clock. When it was not told a TTL (a direct navigation), the page
+**makes no claim at all** rather than falling back to a second hardcoded 10.
+
+### 71.4 What the sweep cleared, and why that is worth recording
+
+Reported honestly, because "we looked and it was fine" is a result:
+
+- **No dead components.** The four with no JSX call site are a hook
+  (`NormChangeNotice`), a module of named exports (`Charts`), and the two ACWR
+  components retained by a documented decision.
+- **`notifyPrefs`, `freshStats`, `minN`, `fallbackEnabled`** — false positives.
+  The first two reach the UI under different wire names (`preferences`,
+  `drift`); the last two are function arguments, not payload.
+- **`BodyMap.interaction`** — flagged as never passed, and it is: BodyMap builds
+  it internally and passes it as a positional argument. The focus ring works and
+  its e2e check is honest.
+- **`autoRotate`** — never passed because it **defaults to true**, which is the
+  documented §38 behaviour. Absence is correct here.
+- **`Charts.reference` / `referenceLabel`** — a genuine unused capability: a
+  chart can draw a reference marker and nothing asks it to. Left alone. It
+  withholds no data, so adding a caller would be a new feature rather than a
+  fix, and that is JC's call.
+
+### 71.5 Guard
+
+`npm run e2e` gained section **4e** (86 → 93 checks): the card is on the page,
+it states the refusal while insufficient, it names no quarter, the caveat is
+**above** the table, empty quarters read "not screened", and every share the
+util computed appears on screen. Mutation-verified — hiding the card fails 5 of
+the 7.
+
+This is §70's standing rule applied rather than restated: **presence is asserted
+where a reader would notice its absence, because a suite that only looks for
+wrongness cannot see a missing panel.**

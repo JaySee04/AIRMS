@@ -47,7 +47,7 @@ cd backend; npm run coverage         # 79.6% statements / 67.8% branches. Route 
                                      # gap (screeningReports 7%, audit 19%); tests/reportRoutes.test.js
                                      # took them to 44% / 42% by driving the real routers with
                                      # supertest. The remaining blind spot is the FRONTEND: it has
-                                     # e2e (63 checks) and two jsdom component suites, but nothing
+                                     # e2e (93 checks) and two jsdom component suites, but nothing
                                      # that mounts a page.tsx. Coverage needed a missing
                                      # transitive dep (fs.realpath) before it would run at all.
 cd backend; npm run map              # regenerate docs/SYSTEM_MAP.md - the inventory of every
@@ -89,7 +89,7 @@ cd frontend; npm run lint  # next lint
 
 # Frontend production build
 cd frontend; npm run e2e   # END-TO-END smoke: a real Chrome against the running
-                           # servers (needs `npm run dev`). 86 checks - auth boundaries,
+                           # servers (needs `npm run dev`). 93 checks - auth boundaries,
                            # each role's pages rendering, the readiness tiles accounting
                            # for the squad, the body-map focus ring, no NaN/undefined/
                            # Invalid Date on any page, no band named by COLOUR alone
@@ -98,7 +98,9 @@ cd frontend; npm run e2e   # END-TO-END smoke: a real Chrome against the running
                            # with the installed Chrome, so nothing is downloaded.
                            # See docs/SILENT_FAILURES.md 3f.
                            #
-                           # AGAINST THE HOSTED INSTANCE (verified 2026-09-06, 63/63):
+                           # AGAINST THE HOSTED INSTANCE (verified 2026-09-06, 63/63 —
+                           # that was the whole suite AT THAT DATE; it is 93 locally now,
+                           # and the hosted run has not been repeated since):
                            #   E2E_WEB=https://airms-web.vercel.app `
                            #   E2E_API=https://airms-api.vercel.app/api `
                            #   E2E_SETTLE=5000 npm run e2e
@@ -120,7 +122,7 @@ cd frontend; npm run e2e   # END-TO-END smoke: a real Chrome against the running
 cd frontend; npm run build
 
 # Unit tests (jest, in both packages — no linter configured for the backend)
-cd backend; npx jest      # 38 suites / 597 tests: cohorts, overallIndicator, permissions, rbac, pdfDraw,
+cd backend; npx jest      # 39 suites / 606 tests: cohorts, overallIndicator, permissions, rbac, pdfDraw,
                           # screeningPeriods, cohortFocus, visionUsage, alerts, scheduler,
                           # bands, mailPrefs, holisticReport, programmeActivity, subitemAggregate,
                           # reliability, rescreenReminder, riskIndicators, recall,
@@ -140,7 +142,7 @@ cd backend; npx jest      # 38 suites / 597 tests: cohorts, overallIndicator, pe
                           # other suite. Static: it reads both files as text and never
                           # require()s the target, because several modules build a Sequelize
                           # instance at import time)
-cd frontend; npx jest     # 17 suites / 299 tests (the run is pinned to UTC by
+cd frontend; npx jest     # 19 suites / 325 tests (the run is pinned to UTC by
                           # jest.globalSetup.js - this machine sits IN the institution
                           # zone, which made the date tests pass for the wrong reason
                           # until mutation testing said so; see DD 62): lib/risk.ts, lib/screeningUploadStore.ts, bodymap-data/muscles.ts,
@@ -221,7 +223,7 @@ counting paint ops is a trap — the dead-band *zone* is itself a fill, so fill
 counts coincide between opposite renderings; assert on the fill **colour**.
 
 **Frontend coverage, stated accurately (2026-09-05).** There are end-to-end
-tests (`cd frontend; npm run e2e`, 86 checks) and now two jsdom component suites
+tests (`cd frontend; npm run e2e`, 93 checks) and now two jsdom component suites
 — `DashboardLayout` (the access gate) and `OverallRiskBadge` (the hero). What
 there is still **none** of is a test that mounts a `page.tsx`: every suite either
 renders one component with a hand-built payload, reads page SOURCE, or drives the
@@ -550,7 +552,7 @@ Forgetting the sync is the one hazard the design trades for, so **both** test su
 - **~~Sparse grains get their own chart type~~ — superseded 2026-08-25, see the Direction of travel bullet below** (2026-08-11). Two periods draw a **change chart** — one diverging bar per metric on a shared DELTA axis, so "ROM fell 5.2 while stability rose 2.6" is visible where two headcount columns showed only headcount. This started as a slopegraph and was unusable: a shared VALUE scale needs commensurable metrics, and these cluster at 72–78 (movement), ~50 (indicator) and ~18 inverted (risks), so four lines collapsed into overlapping pixels — the §23 flattening mistake, reintroduced. The values cannot share a scale; the changes can. Bar direction is the ORIENTED gain (right is always better) while the printed number keeps its true sign. Line colour comes from the API's `direction`, never the sign of the delta, because exercise risks improve by going DOWN. One period shows its **composition** (the same rows one grain finer: year → quarters, quarter → months) rather than a number and an apology. See `docs/DESIGN_DECISIONS.md §26`
 - **Direction of travel draws BOTH readings of a column, on two labelled axes** (2026-08-25, `DESIGN_DECISIONS.md §38`). The card used to render **four** different graphics depending on how many periods the filter produced — on the seeded data, Monthly/Quarterly/Yearly gave columns, a change chart and a block of text — because it switched idiom on a property of the FILTER rather than the data. Columns now serve every selection with something to compare, and §26's change chart is drawn BENEATH them rather than instead. Column height offers two scalings via a toggle: **counts** (how much screening happened) and **band mix %** (how the mix is moving). Neither alone works — a count stack squashes a 4-athlete month into a sliver where the mix cannot be read, a share stack draws that month as tall as a 33-athlete one — so it rotates every 10s and **holds the moment the reader clicks** (WCAG 2.2.2; no rotation under `prefers-reduced-motion`). The average-score line is back OVER the columns with its own **labelled right-hand axis**, inked in the line's colour: the original fault was never that two series shared a plot, it was that the second had no axis, so its slope was an artefact of a scale nobody could see. Gridlines use a round-number step, not `max/4`. **Do not "simplify" this back to one chart type per grain** — that is the defect, not the design
 - **The period axis is CONTINUOUS** (`utils/screeningPeriods.js`, 2026-08-11). Buckets are filled between the first and last period that has data, so a quarter with no screening is drawn with zero tests instead of vanishing — for a screening programme that gap IS the finding. Nothing is padded before the first screening. A period after a gap reports NO delta (its predecessor is empty), which replaced comparing across the gap as though the two were consecutive. `grainCounts` ships with every response so the grain buttons can show what each view would draw; one period renders as a summary, not a chart. See `docs/DESIGN_DECISIONS.md §24`
-- **Seasonality** (`seasonality()` in `utils/screeningPeriods.js`, a section in the holistic report) answers Dr Thung's "*which quarter* is the risky one" by pooling every screening by quarter of the year with the year discarded. It **declines to name a season below two years of data** (`yearsCovered` / `sufficient`) and the report draws that caveat *before* the table — with one year, "Q3 is worst" is indistinguishable from "Q3 is when the weaker squads were screened", and this is the one output whose plausible failure is a confidently wrong institutional decision. Ranks by the *share* of flagged screenings, not the count, because throughput differs by quarter
+- **Seasonality** (`seasonality()` in `utils/screeningPeriods.js`, a section in the holistic report **and, since 2026-09-09, a panel on Programme Activity** — `DESIGN_DECISIONS.md §71`) answers Dr Thung's "*which quarter* is the risky one" by pooling every screening by quarter of the year with the year discarded. It had been on the page's payload since it was built and only the PDF drew it, which broke the stated property that the screen and the document cannot quote different KPIs off the same util. The panel mirrors `seasonTable`: ranked by SHARE not count, caveat **above** the numbers, a quarter with no screening drawn as "not screened" rather than 0%, and bars never band-coloured. Guarded by e2e section 4e. It **declines to name a season below two years of data** (`yearsCovered` / `sufficient`) and the report draws that caveat *before* the table — with one year, "Q3 is worst" is indistinguishable from "Q3 is when the weaker squads were screened", and this is the one output whose plausible failure is a confidently wrong institutional decision. Ranks by the *share* of flagged screenings, not the count, because throughput differs by quarter
 - **"Is this change real?" has an answer now** (`utils/reliability.js`, 2026-08-12).
   Every direction-of-travel verdict used one hardcoded `noise = 2`, which nothing
   derived — the most-cited weakness of traffic-light systems generally (Robertson

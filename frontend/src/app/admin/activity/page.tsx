@@ -72,6 +72,33 @@ interface PeriodsPayload {
       lastScreened: string | null; ageDays: number | null; status: string;
     }>;
   };
+  /**
+   * Which part of the year carries the risk — every screening pooled by quarter
+   * with the year discarded. Answers Dr Thung's "which quarter is the risky one".
+   *
+   * It has been on this page's payload since seasonality was built, and only the
+   * PDF drew it (`seasonTable`), which broke the stated property that the screen
+   * and the document cannot quote different KPIs off the same util.
+   *
+   * `sufficient` is the load-bearing field: below two years of data a "worst
+   * quarter" is indistinguishable from the quarter the weaker squads happened to
+   * be screened in, so `worst` stays null and the caveat is shown INSTEAD of a
+   * finding, not underneath one.
+   */
+  seasonality?: {
+    grain: 'quarter' | 'month';
+    yearsCovered: number;
+    years: number[];
+    sufficient: boolean;
+    worst: string | null;
+    buckets: Array<{
+      key: string; label: string; pos: number;
+      tests: number; athletes: number; years: number;
+      bands: { green: number; amber: number; red: number };
+      /** Share of flagged screenings — a share, not a count, because throughput differs by quarter. */
+      flaggedShare: number | null;
+    }>;
+  } | null;
   betweenTests: {
     athletesWithRetest: number;
     pairs: number;
@@ -179,6 +206,7 @@ export default function AdminActivity() {
   }, [f.query, grain]);
 
   const bt = data?.betweenTests;
+  const season = data?.seasonality;
   // Scores that were byte-identical across every retest pair. Called out by name
   // because an all-zero column is far more often an ingestion gap than a squad
   // that genuinely did not budge on a single measurement.
@@ -461,6 +489,11 @@ export default function AdminActivity() {
         )}
       </div>
 
+      {/* Seasonality — on this payload since it was built, drawn only in the PDF
+          until 2026-09-09. The caveat is ABOVE the bars on purpose: a reader who
+          has already picked a worst quarter does not un-pick it. */}
+      {season && <SeasonalityCard season={season} />}
+
       {/* Within-athlete pairs: each athlete is their own control, which is the
           only reading that can claim athletes improved rather than the tested
           population having changed. */}
@@ -605,5 +638,126 @@ export default function AdminActivity() {
       </div>
 
     </DashboardLayout>
+  );
+}
+
+// Seasonality — "which part of the year carries the risk".
+//
+// The one output on this page whose plausible failure mode is a confidently
+// wrong INSTITUTIONAL decision: told that Q3 is the risky quarter, ISN would
+// move its screening calendar. So the refusal is the feature, and it is drawn
+// with more prominence than any finding this card can produce.
+//
+// It mirrors `seasonTable` in utils/pdfDraw.js deliberately — same data, same
+// caveat, same ranking by SHARE rather than count — because the screen and the
+// document are generated from one util and must not read differently.
+function SeasonalityCard({ season }: { season: NonNullable<PeriodsPayload['seasonality']> }) {
+  const present = season.buckets.filter((b) => b.tests > 0);
+  const named = season.sufficient && season.worst
+    ? season.buckets.find((b) => b.key === season.worst) ?? null
+    : null;
+  // Scale the bars to the largest share present, not to 100%: every share here
+  // sits well under half, and a 0-100 axis would render real differences as
+  // indistinguishable stubs.
+  const maxShare = Math.max(...present.map((b) => b.flaggedShare ?? 0), 0.01);
+
+  return (
+    <div className="card" style={{ marginBottom: 20 }}>
+      <div className="card-header"><div>
+        <h2 className="card-title" style={{ marginBottom: 0 }}>Seasonality</h2>
+        <span className="card-sub">
+          Every screening pooled by quarter of the year, with the year discarded — ranked by the
+          SHARE of screenings flagged, not the count, because ISN does not screen the same number
+          of athletes each quarter.
+        </span>
+      </div></div>
+
+      {/* THE CAVEAT, ABOVE THE NUMBERS. Below them it would be read after the
+          reader had already chosen a worst quarter. */}
+      {season.sufficient ? (
+        <p className="card-sub" style={{ marginTop: 0 }}>
+          Pooled across {season.yearsCovered} years ({season.years.join(', ')}). A quarter is only
+          worth acting on if it repeats.
+        </p>
+      ) : (
+        <div className="alert alert-warning" style={{ marginBottom: 14 }}>
+          <strong>Not yet a seasonal reading.</strong>{' '}
+          All screenings on record fall in{' '}
+          {season.yearsCovered === 1 ? `a single year (${season.years.join(', ')})` : 'no complete year'},
+          so a quarter that looks worst below is indistinguishable from the quarter in which the
+          weaker squads happened to be screened. Shown for completeness — it becomes a seasonal
+          reading once a second year of screening exists.
+        </div>
+      )}
+
+      {present.length === 0 ? (
+        <div className="text-muted" style={{ fontSize: 'var(--fs-md)' }}>
+          No screenings on record for this population.
+        </div>
+      ) : (
+        <>
+          <table className="cohort-profile-table">
+            <thead>
+              <tr>
+                <th scope="col">Quarter</th>
+                <th scope="col">Flagged share</th>
+                <th scope="col" className="num">Screenings</th>
+                <th scope="col" className="num">Athletes</th>
+                <th scope="col" className="num">Years seen</th>
+              </tr>
+            </thead>
+            <tbody>
+              {season.buckets.map((b) => {
+                const pct = b.flaggedShare === null ? null : Math.round(b.flaggedShare * 1000) / 10;
+                return (
+                  <tr key={b.key}>
+                    <td><strong>{b.label}</strong></td>
+                    <td>
+                      {pct === null ? (
+                        // A quarter with no screening is not 0% risk — it is a
+                        // quarter ISN did not screen in, and for a screening
+                        // programme that gap is itself the finding. Same rule as
+                        // the continuous period axis.
+                        <span className="text-muted">not screened</span>
+                      ) : (
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span
+                            aria-hidden="true"
+                            style={{
+                              display: 'inline-block',
+                              height: 10,
+                              borderRadius: 'var(--r-xs)',
+                              width: `${Math.max(2, ((b.flaggedShare ?? 0) / maxShare) * 100)}%`,
+                              maxWidth: 160,
+                              // Never band-coloured: a red bar would read as a
+                              // verdict on the quarter, which is exactly the
+                              // claim this card refuses to make without two years.
+                              background: named && named.key === b.key ? 'var(--brand-navy)' : 'var(--text-muted)',
+                              opacity: named && named.key === b.key ? 1 : 0.5,
+                            }}
+                          />
+                          <span style={{ fontVariantNumeric: 'tabular-nums' }}>{pct}%</span>
+                        </span>
+                      )}
+                    </td>
+                    <td className="num">{b.tests}</td>
+                    <td className="num">{b.athletes}</td>
+                    <td className="num">{b.years}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+
+          <p className="card-sub" style={{ marginTop: 12, marginBottom: 0 }}>
+            {named
+              ? <>Highest flagged share: <strong>{named.label}</strong>. It leads the next quarter by more than the dead band, and it repeats across {season.yearsCovered} years.</>
+              : season.sufficient
+                ? <>No quarter is named: the leaders sit within the dead band of each other, which is a coin toss rather than a season.</>
+                : <>No quarter is named, and none will be until a second year of screening exists.</>}
+          </p>
+        </>
+      )}
+    </div>
   );
 }

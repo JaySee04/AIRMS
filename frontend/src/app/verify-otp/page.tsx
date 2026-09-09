@@ -22,6 +22,15 @@ function VerifyOtpContent() {
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
   const [loading, setLoading] = useState(false);
+  // How long the code is good for, AS THE SERVER REPORTED IT. This page used to
+  // state "10 minutes" as a literal, which was correct only while nobody changed
+  // RESET_CODE_TTL_MIN — a number stated in two places, in the one flow where
+  // being wrong locks a clinician out of their account. Null when we were not
+  // told (a direct navigation), and then the sentence is simply not made.
+  const ttlFromUrl = Number(searchParams.get('ttl'));
+  const [ttlMinutes, setTtlMinutes] = useState<number | null>(
+    Number.isFinite(ttlFromUrl) && ttlFromUrl > 0 ? ttlFromUrl : null,
+  );
 
   // Bounce back to step 1 if we landed here without an email, which means
   // the user navigated directly rather than via /forgot-password.
@@ -56,8 +65,12 @@ function VerifyOtpContent() {
     setError('');
     setInfo('');
     setLoading(true);
-    api.post('/auth/forgot-password', { email })
-      .then(() => setInfo(`A new code has been sent to ${email}.`))
+    api.post<{ expiresInMinutes?: number }>('/auth/forgot-password', { email })
+      .then((resp) => {
+        // A resend issues a NEW code with a fresh clock, so take its TTL too.
+        if (typeof resp?.expiresInMinutes === 'number') setTtlMinutes(resp.expiresInMinutes);
+        setInfo(`A new code has been sent to ${email}.`);
+      })
       .catch((err: unknown) => setError(err instanceof Error ? err.message : 'Request failed'))
       .finally(() => setLoading(false));
   }
@@ -71,7 +84,8 @@ function VerifyOtpContent() {
           <div className="login-form-wrap">
             <h1 className="login-heading">Enter your code</h1>
             <p className="login-subtext">
-              We sent a 6-digit code to <strong>{email}</strong>. Enter it below to continue. The code expires in 10 minutes.
+              We sent a 6-digit code to <strong>{email}</strong>. Enter it below to continue.
+              {ttlMinutes !== null && ` The code expires in ${ttlMinutes} minute${ttlMinutes === 1 ? '' : 's'}.`}
             </p>
             <form onSubmit={handleSubmit}>
               {error && <div className="alert alert-error">{error}</div>}

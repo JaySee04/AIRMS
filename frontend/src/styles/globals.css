@@ -2351,6 +2351,11 @@ tr.row-flash > td { animation: row-flash 1.6s ease-out; }
 .alert-error { background: var(--risk-high-bg); color: var(--risk-high); border: 1px solid var(--risk-high); }
 .alert-success { background: var(--risk-low-bg); color: var(--risk-low); border: 1px solid var(--risk-low); }
 .alert-info { background: var(--risk-undertrained-bg); color: var(--risk-undertrained); border: 1px solid var(--risk-undertrained); }
+/* The missing fourth state (2026-09-09): nothing has failed, but the reader is
+   about to draw a conclusion the data cannot support. `alert-info` under-weights
+   that and `alert-error` claims a fault. Built from the existing amber tokens,
+   so it themes with everything else and adds no new literal. */
+.alert-warning { background: var(--risk-moderate-bg); color: var(--risk-moderate); border: 1px solid var(--risk-moderate); }
 
 /* ── Risk Badges ────────────────────────────────────────────────────────────── */
 .badge-low    { background: var(--risk-low-bg);   color: var(--risk-low);   padding: 2px 8px; border-radius: var(--r-lg); font-size: var(--fs-sm); font-weight: 600; }

@@ -21,11 +21,16 @@ export default function ForgotPasswordPage() {
     setError('');
     setLoading(true);
     try {
-      await api.post('/auth/forgot-password', { email });
+      // The server tells us how long the code is good for. Carried through to
+      // the next page rather than restated there: the page used to hardcode
+      // "10 minutes", which is right only for as long as nobody changes
+      // RESET_CODE_TTL_MIN. Not sensitive — the same number is in the email.
+      const resp = await api.post<{ expiresInMinutes?: number }>('/auth/forgot-password', { email });
+      const ttl = typeof resp?.expiresInMinutes === 'number' ? `&ttl=${resp.expiresInMinutes}` : '';
       // Navigate to the OTP entry page regardless of whether the email
       // matched an account — the backend's silent-failure policy means
       // we cannot tell the user any different from here.
-      router.push(`/verify-otp?email=${encodeURIComponent(email)}`);
+      router.push(`/verify-otp?email=${encodeURIComponent(email)}${ttl}`);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Request failed');
     } finally {
