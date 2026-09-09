@@ -15,7 +15,16 @@
 > nothing else records. Read a use case here for its *description*; take its
 > *number* from `REPORT_TABLE_4-1.md`.
 >
-> Everything about Modules 2 and 5's injury half below describes deleted code.
+> Everything about Modules 2 and 5's injury half below describes deleted code —
+> **and so does part of Module 6**, which this banner missed until 2026-09-09.
+> UC-41 names a "chronological injury history" and a `+ Log Injury` deep link,
+> and UC-43 an entire "Sport-Level Context" use case built on injury case counts.
+> All three went with the 2026-08-02 cut. This matters more here than in Modules
+> 2 and 5, because the banner directs a reader to take *descriptions* from this
+> file — so an uncorrected Module 6 description is the one that would be copied
+> forward. Take Module 6 from `REPORT_TABLE_4-1.md` UC-43–47 instead, where the
+> clinical overview correctly reads "injury **status**", the single surviving
+> clinician-set flag.
 >
 > ---
 >

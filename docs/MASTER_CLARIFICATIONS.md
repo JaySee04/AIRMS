@@ -138,7 +138,7 @@ set across a fresh six**. The current module set:
 | 3 | Screening Data Ingestion | admin + medical | 🟢 functional — vision-AI PDF ingestion (batch + on-device name redaction + filename/roster attach). Excel *import* retired 2026-07-12 (archived in `archive/excel-upload/`) |
 | 4 | Cohort Norms & Governance | admin | 🟢 functional — norm engine (incl. the discipline `spgd` tier), membership resolver, versioning, alerts, settings, backup |
 | 5 | Analytics & Reporting | admin + coach | 🟢 functional — screening-derived only; the injury analytics half went with the 2026-08-02 cut. Three cohort-normed PDFs via pdfkit |
-| 6 | Clinical & Squad Monitoring | medical + coach | 🟢 functional, watchlist deferred |
+| 6 | Clinical & Squad Monitoring | medical + coach | 🟢 functional — the landing pane leads with the roster's cohort verdict (§65), and each clinician keeps a private watchlist (§66). **No module carries a deferred item as of 2026-09-06** |
 
 Detailed status and per-module specs: [MODULES_STATUS.md](MODULES_STATUS.md).
 Full use-case model with the old→new module/UC mapping: `docs/fyp/FYP2_MODULES_USECASES.md` (Appendix A/B).
