@@ -2053,7 +2053,10 @@ unusable in practice.
 
 A screen that cannot predict injury cannot certify its absence either, and because
 most athletes are low-risk, the green band is precisely where a false reassurance
-would land — 43 of 58 athletes carried it. The label now describes the FINDING
+would land — 43 of 58 athletes carried it when this was written on 2026-08-19,
+and **38 of 56 when re-measured on 2026-09-09** (`npm run measure:facts`). The
+roster and the seeder have both changed since; the proportion has not, which is
+the point. The label now describes the FINDING
 (`No indicators flagged`, `None flagged` in legends) rather than the ATHLETE.
 
 **The citation for this, added 2026-09-09** (`docs/fyp/REFERENCES.md` A1) — the

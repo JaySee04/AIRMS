@@ -952,3 +952,60 @@ page*, the check must be that it appears. A suite that only asserts the absence
 of wrongness cannot tell a working feature from a missing one — and this project
 now has two instances (3f, 3n) where the missing thing was shipped, documented
 and believed in for weeks.
+
+### 3o. The audit that said "all", and covered 49 of 62 (2026-09-09)
+
+Found by fact-checking the documents against the code rather than by any failure.
+
+`docs/PERMISSIONS.md` opened by claiming every line came from calling **all 49**
+endpoints as every role. `CLAUDE.md` said 49 in two places and **59 in a third**.
+`docs/SYSTEM_MAP.md`, which is generated from the code and checked against an
+independent count, said **62**.
+
+*(The figures above are written with emphasis marks on purpose: the hygiene test
+described below scans these documents for an endpoint count in prose, and a
+verbatim quotation of the old sentence would trip it. Guard working — the first
+draft of this section duly failed the suite.)*
+
+So the file the project treats as its authority on access control described a
+sweep of 49 endpoints across a surface of 62. The word doing the damage is
+**"all"** — without it the sentence is merely incomplete; with it, it is false.
+
+**Ten endpoints had never been probed by any role**, and two of them are routes
+`DESIGN_DECISIONS §43/§51` argues about explicitly: `GET /screenings/:id/full`
+(where `executive` is deliberately refused so the capability is funnelled through
+the audited PDF path) and the scoped record lookups. **The matrix was silent on
+precisely the access decisions the project most wants to defend.** Also unprobed:
+all three norm-governance writes — create, update and restore a norm version —
+the controls that move the reference every athlete is scored against.
+
+**Why the existing guard did not catch it, which is the interesting part.**
+There *was* a test: `codebaseHygiene.test.js` asserted that no document quotes a
+different endpoint count. It passed, because it compared the prose against the
+**probe list** rather than against the routes. Both sides were the same
+hand-maintained number, so the check was true by construction: as the audit fell
+behind the code, the docs were kept in step with the audit and the guard
+confirmed the two stale numbers agreed with each other. **A consistency check
+between two copies of the same mistake reports success.**
+
+Fixed in three places, and the order matters:
+
+1. `audit-access.js` now reads the route table from the **same parser that
+   generates `SYSTEM_MAP.md`**, compares its probes against it, and **exits
+   non-zero** naming any endpoint that is neither probed nor explicitly exempt.
+   Seven auth routes are exempt with a stated reason (unauthenticated by design,
+   or self-scoped with no role boundary).
+2. The ten missing probes were added. The role model **held** — no read-only
+   role completed a write on any of them.
+3. The hygiene test now checks the prose against the **route parser**, not the
+   probe list, so the two numbers can no longer drift together.
+
+**Four wrong answers before the right one.** The scanner used to find this
+reported 31 uncovered, then 20, then 22, then 11, then 10 — each correction a
+normalisation the first pass missed: template-literal probes evaluated to
+concrete ids, `{SELF}`/`{OTHER}` placeholders, a `:kind` route probed with a
+concrete kind, and a file extension after an id (`/individual/{SELF}.pdf`). Every
+intermediate answer was confidently wrong and would have sent somebody to
+"fix" endpoints that were already carefully covered. **A coverage number is
+worthless until the tool producing it has been checked against known-covered
+cases** — which is the same lesson as 3l and 3n, arriving through a third door.

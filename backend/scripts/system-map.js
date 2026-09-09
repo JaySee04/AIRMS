@@ -271,7 +271,7 @@ function render() {
   return `${L.join('\n')}\n`;
 }
 
-module.exports = { render, OUT };
+module.exports = { render, OUT, routes };
 
 if (require.main === module) {
   const md = render();

@@ -38,6 +38,72 @@ const ACCOUNTS = {
 };
 const ROLES = ['medical', 'coach', 'executive', 'athlete'];
 
+// Endpoints deliberately outside this audit, each with the reason. This is a
+// ROLE-boundary audit; these routes have no role boundary to test.
+//
+// Kept as an explicit list rather than a pattern, so adding one is a decision
+// somebody makes rather than a silence somebody inherits.
+const EXEMPT = new Map([
+  // Unauthenticated by design — they are how a session is obtained, and every
+  // role reaches them because nobody is a role yet.
+  ['POST /api/auth/login', 'unauthenticated by design'],
+  ['POST /api/auth/forgot-password', 'unauthenticated by design'],
+  ['POST /api/auth/verify-otp', 'unauthenticated by design'],
+  ['POST /api/auth/reset-password', 'unauthenticated by design'],
+  // Self-scoped: no id in the path, addresses req.user only. Every role may
+  // read and write its OWN, which is the point (see routes/auth.js).
+  ['POST /api/auth/change-password', 'self-scoped, no role boundary'],
+  ['GET /api/auth/notification-preferences', 'self-scoped, no role boundary'],
+  ['PUT /api/auth/notification-preferences', 'self-scoped, no role boundary'],
+]);
+
+// The route table, read from the parser that generates docs/SYSTEM_MAP.md.
+// One definition of "what endpoints exist", shared with the map.
+const { routes: declaredRoutes } = require('./system-map');
+
+// Normalise both sides to `VERB /api/path/:p`: the probe list uses concrete
+// ids, {SELF}/{OTHER} placeholders and query strings; the map uses :params.
+// NOTE the template-literal probes (`/athletes/${BOGUS}/injury`) are already
+// EVALUATED by the time this runs, so the sentinel and any concrete id have to
+// be normalised by value, not by syntax. Missing that reported 22 endpoints as
+// unprobed on the first run when most of them are probed carefully.
+const ID_SEGMENT = new RegExp(
+  '/(?:' + [
+    BOGUS,                    // the deliberate not-found id
+    '\\{[A-Z_]+\\}',          // {SELF} / {OTHER} placeholders
+    '\\d{3,}',                // numeric ids and IC numbers
+    'digest', 'rescreen_reminder', // concrete :kind values for the mail route
+  // Lookahead allows a FILE EXTENSION after the id: the individual report is
+  // probed as `/screening-reports/individual/{SELF}.pdf` and declared as
+  // `/individual/:id.pdf`. Anchoring on `/` alone left that pair unmatched and
+  // reported a carefully-probed route as a coverage gap.
+  ].join('|') + ')(?=[./]|$)',
+  'g',
+);
+
+function key(method, p) {
+  const path = (p.startsWith('/api') ? p : `/api${p}`)
+    .split('?')[0]
+    .replace(ID_SEGMENT, '/:p')
+    .replace(/:[A-Za-z]+/g, ':p')
+    .replace(/\/$/, '');
+  return `${method} ${path}`;
+}
+
+// Endpoints the parser found that no probe and no exemption accounts for.
+function coverageGap() {
+  const probed = new Set(ROUTES.map(([m, p]) => key(m, p)));
+  const exempt = new Set([...EXEMPT.keys()].map((k) => {
+    const [m, ...rest] = k.split(' ');
+    return key(m, rest.join(' '));
+  }));
+  return declaredRoutes()
+    .map((r) => key(r.method, r.path))
+    .filter((k, i, a) => a.indexOf(k) === i)
+    .filter((k) => !probed.has(k) && !exempt.has(k))
+    .sort();
+}
+
 // [method, path, body?, onlyProbeTheseRoles?]
 const ROUTES = [
   ['GET', '/auth/me'],
@@ -77,6 +143,28 @@ const ROUTES = [
   ['GET', '/screening-reports/individual/{OTHER}.pdf'],
   ['GET', '/screening-reports/team.pdf?sport={MYSPORT}'],
   ['GET', '/screening-reports/team.pdf?sport={OTHERSPORT}'],
+  // ── Added 2026-09-09, when the coverage check below was introduced and found
+  // these ten had never been probed at all. Two of them are routes
+  // DESIGN_DECISIONS §43/§51 reason about explicitly — the scoped record
+  // lookup, and the raw screening executive is deliberately refused — so the
+  // matrix was silent on precisely the access decisions the project argues.
+  ['GET', '/screenings/{SELF}/full'],
+  ['GET', '/screenings/{OTHER}/full'],
+  ['GET', '/athletes/{OTHER}/sport-context'],
+  ['GET', '/athletes/meta/disciplines'],
+  ['GET', '/cohorts/999/members'],
+  ['GET', '/isn/athletes/000000000000'],
+  ['GET', '/users/permission-meta'],
+  // Norm-governance writes. All three were unprobed, which meant no role was
+  // ever tested against the controls that move the norms every athlete is
+  // scored against.
+  ['POST', '/cohorts/versions', { name: 'audit probe' }],
+  ['PATCH', `/cohorts/versions/${BOGUS}`, { name: 'audit probe' }],
+  ['POST', `/cohorts/versions/${BOGUS}/restore`, {}],
+  // The import PREVIEW. The commit step was probed and this was not, though it
+  // is the half that spends vision-provider tokens.
+  ['POST', '/upload/screening/pdf/preview', {}],
+
   ['PATCH', `/athletes/${BOGUS}`, { name: 'x' }],
   ['DELETE', `/athletes/${BOGUS}`],
   ['PATCH', `/athletes/${BOGUS}/injury`, { isInjured: false }],
@@ -162,6 +250,29 @@ async function login(email) {
   }
 
   console.log('');
+
+  // ── Is this audit still complete? ────────────────────────────────────────
+  //
+  // Added 2026-09-09. ROUTES above is HAND-MAINTAINED, and it had drifted: the
+  // docs described this script as calling "all 49 endpoints" while the system
+  // had grown to 62. A permission matrix that silently covers less of the
+  // surface than it claims is the project's own recurring defect class — a
+  // guard that looks complete and is not.
+  //
+  // The route table is now read from the SAME parser that generates
+  // docs/SYSTEM_MAP.md, so "what exists" has one definition and this list
+  // cannot fall behind it again without saying so.
+  const uncovered = coverageGap();
+  if (uncovered.length) {
+    console.error(`${uncovered.length} ENDPOINT(S) EXIST BUT ARE NEVER PROBED:`);
+    uncovered.forEach((e) => console.error(`  ${e}`));
+    console.error('');
+    console.error('Add a probe to ROUTES, or add it to EXEMPT with the reason.');
+    console.error('An unprobed endpoint is one this matrix makes no claim about.');
+    process.exit(1);
+  }
+  console.log(`coverage: every endpoint in the route table is probed.`);
+
   if (violations.length) {
     console.error(`${violations.length} WRITE REACHED BY A READ-ONLY ROLE:`);
     violations.forEach((v) => console.error(`  ${v}`));

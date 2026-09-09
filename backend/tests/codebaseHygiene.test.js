@@ -181,7 +181,8 @@ describe('the docs quote the real endpoint count', () => {
   const path = require('path');
   const ROOT = path.join(__dirname, '..', '..');
 
-  const routeCount = () => {
+  // Counts PROBE ENTRIES in the audit's hand-written list.
+  const probeCount = () => {
     const src = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'audit-access.js'), 'utf8');
     const start = src.indexOf('const ROUTES = [');
     expect(start).toBeGreaterThan(-1);
@@ -189,6 +190,21 @@ describe('the docs quote the real endpoint count', () => {
     expect(end).toBeGreaterThan(start);
     return src.slice(start, end).split('\n').filter((l) => /^\s*\['/.test(l)).length;
   };
+
+  // Counts ENDPOINTS THAT EXIST, from the parser that generates SYSTEM_MAP.md.
+  //
+  // CHANGED 2026-09-09, and the change is the point. This check used to compare
+  // the prose against the PROBE COUNT, which made "calling all N endpoints"
+  // true-by-construction: a hand-written list that had fallen behind the routes
+  // simply lowered N, and the docs followed it down. That is what happened —
+  // the docs read 49 while the system had 62, and three files disagreed
+  // (CLAUDE.md said both 49 and 59).
+  //
+  // The prose says ENDPOINTS, so it is now checked against endpoints. The
+  // audit's own completeness is enforced where it belongs: audit-access.js
+  // compares its probe list to this same parser at run time and exits non-zero
+  // on any endpoint that is neither probed nor explicitly exempt.
+  const endpointCount = () => require('../scripts/system-map').routes().length;
 
   const DOCS = [
     'CLAUDE.md',
@@ -200,11 +216,25 @@ describe('the docs quote the real endpoint count', () => {
   it('audit-access.js still has a readable ROUTES list', () => {
     // A floor, so a parser that stops matching cannot make the check below pass
     // by comparing zero against zero.
-    expect(routeCount()).toBeGreaterThan(20);
+    expect(probeCount()).toBeGreaterThan(20);
+  });
+
+  it('the route parser still finds routes', () => {
+    // The same floor for the other side of the comparison.
+    expect(endpointCount()).toBeGreaterThan(20);
+  });
+
+  it('the audit probes at least as many entries as there are endpoints to cover', () => {
+    // Not an equality: some endpoints are probed twice (as SELF and as OTHER)
+    // and seven are exempt from role-boundary testing, so the two numbers are
+    // not meant to match. What would be alarming is the probe list falling far
+    // BELOW the endpoint count, which is exactly the drift this section missed
+    // for weeks. audit:access enforces the precise version at run time.
+    expect(probeCount()).toBeGreaterThanOrEqual(endpointCount() - 10);
   });
 
   it('no document claims a different number of audited endpoints', () => {
-    const n = routeCount();
+    const n = endpointCount();
     const wrong = [];
     for (const rel of DOCS) {
       const file = path.join(ROOT, rel);
@@ -212,7 +242,7 @@ describe('the docs quote the real endpoint count', () => {
       const src = fs.readFileSync(file, 'utf8');
       // "calling all 46 endpoints" / "call all 46 endpoints" / "calling 46 endpoints"
       for (const m of src.matchAll(/calling?(?:\s+all)?\s+(\d+)\s+endpoints/g)) {
-        if (Number(m[1]) !== n) wrong.push(`${rel} says ${m[1]} endpoints; audit-access.js drives ${n}`);
+        if (Number(m[1]) !== n) wrong.push(`${rel} says ${m[1]} endpoints; the code declares ${n}`);
       }
     }
     // If this fails, decide which is right FIRST. Adding a route to the audit is
