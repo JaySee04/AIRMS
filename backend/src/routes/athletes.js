@@ -12,7 +12,7 @@ const { notifyInjuryToCoach } = require('../utils/notifications');
 const { programmeActivityData } = require('../utils/programmeActivity');
 const { aggregateSubitems } = require('../utils/subitemAggregate');
 const { effectiveBand } = require('../utils/bands');
-const { INDICATOR_ATTRS, toIndicator } = require('../utils/indicatorPayload');
+const { INDICATOR_ATTRS, DETAIL_ATTRS, toIndicator } = require('../utils/indicatorPayload');
 const { getSettings } = require('../utils/settings');
 const { sendError } = require('../utils/httpError');
 const { toNum } = require('../utils/num');
@@ -39,7 +39,9 @@ async function latestIndicator(athleteId) {
   const { rescreen_due_days: dueDays } = await getSettings();
   const s = await Screening.findOne({
     where: { athleteId },
-    attributes: INDICATOR_ATTRS,
+    // DETAIL_ATTRS, not INDICATOR_ATTRS: this is the ONE-athlete path, so it can
+    // afford HoloMotion's summary text. latestIndicatorsFor() below stays lean.
+    attributes: DETAIL_ATTRS,
     order: [['assessedAt', 'DESC'], ['id', 'DESC']],
     raw: true,
   });

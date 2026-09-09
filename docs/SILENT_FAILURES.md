@@ -896,3 +896,59 @@ matching or slicing text through a shell heredoc.** Four defects in one day came
 from that habit — `\n` becoming a newline twice, `\b` becoming a backspace, and a
 slice anchored on a marker that also occurred in the inserted text — and every
 one produced a file that parsed, linted and passed.
+
+### 3n. The card that was built, tested, documented — and never given data (2026-09-09)
+
+The purest instance of this defect class yet found, because **every layer was
+correct and the feature still did not exist.**
+
+`ScreeningPanel` renders three cards from the report's own content: HoloMotion's
+written Summary, its two-week Training Prescription, and Lateral Symmetry (which
+side is weaker, and by how much). The API sends all three. The components render
+all three. Both were built on 2026-08-23, are described as shipped in
+`CLAUDE.md`, and Lateral Symmetry's own source comment says it exists because
+the weaker side "was reachable only by downloading a PDF".
+
+**It still was.** The API puts per-report detail on a `screening` sub-object and
+leaves the flat athlete row alone. All four pages that render the panel lifted
+exactly one field across by hand — `subitems` — which is the one field this
+panel does not read. So `prescription` and `lateralSymmetry` arrived
+`undefined` on every dashboard, for every role, for seventeen days, and the two
+cards drew nothing.
+
+**Why nothing caught it, layer by layer.** This is the part worth keeping:
+
+- **Component tests passed** — the components are correct. A pure component is
+  correct whether or not anybody passes it data, the same property that let
+  `winAnsiSafe` ship exported, tested and never called (3d).
+- **Backend tests passed** — the payload is correct. It carried the fields.
+- **`tsc` passed** — every field involved is *optional*. A missing optional prop
+  is not a type error; it is a card that silently does not appear. Making them
+  required would have caught it, and would also break the narrowed objects the
+  coach page builds on purpose.
+- **`npm run e2e` passed** — 86 checks, and none of them says "this card is on
+  this page". It asserts pages render, that no `NaN`/`undefined`/`Invalid Date`
+  reaches the screen, and that geometry is drawn. A card that renders *nothing*
+  produces none of those symptoms. **Absence is invisible to every check that
+  looks for wrongness.**
+- **Reading the code did not catch it either.** The hand-lift looked like it was
+  doing work. It was cargo — copied to four call sites, ignored by the callee.
+
+**How it was actually found:** by adding a fourth field of the same kind
+(`summaryText`), and then *driving a real browser to look at the page* rather
+than trusting a green suite. The card did not appear. The unit tests for it were
+green at that moment, which is the whole lesson.
+
+**The fix is structural, not local.** The panel now resolves the three fields
+from `.screening` itself, so a field added to the payload cannot go dark because
+somebody forgot one of four call sites. An explicit top-level value still wins,
+so deliberately narrowed callers are unaffected.
+
+`ScreeningPanel.test.tsx` pins presence from the shape the API actually sends —
+verified by mutation: reverting the resolution turns 5 of its 10 red.
+
+**The standing rule this adds:** when a change makes something *appear on a
+page*, the check must be that it appears. A suite that only asserts the absence
+of wrongness cannot tell a working feature from a missing one — and this project
+now has two instances (3f, 3n) where the missing thing was shipped, documented
+and believed in for weeks.

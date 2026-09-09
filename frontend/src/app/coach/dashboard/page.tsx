@@ -410,6 +410,15 @@ export default function CoachDashboard() {
       symmetry: view.symmetry,
       risks: view.risks,
       subitems: view.screening?.subitems,
+      // Passed whole so the panel can resolve the report's own summary,
+      // prescription and lateral symmetry — see ScreeningPanel. This page
+      // builds a NARROWED object on purpose, so it does not inherit the
+      // resolution automatically the way the spread-based pages do.
+      //
+      // No new reach: a coach can already download the individual report for
+      // an athlete in their own sport, and that PDF has always printed all
+      // three. This only removes the need to open it.
+      screening: view.screening,
     };
     return (
       <DashboardLayout allowedRoles={['coach']} title="Squad Readiness">

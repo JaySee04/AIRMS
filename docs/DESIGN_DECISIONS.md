@@ -5251,3 +5251,105 @@ pre-dating today entirely.
 reach pdfkit (§30f). The file that solves the problem is the one file allowed to
 contain it, and the exemption asserts that table still exists so it cannot
 outlive its reason.
+
+## 70. The instrument's own words, and the three cards that had no data (2026-09-09)
+
+JC: *"Find things to upgrade on the dashboards. MAKE THE MOST OF THE DATA FROM
+THE HOLOMOTION PDF."*
+
+### 70.1 What the PDF holds that the dashboards did not show
+
+Swept every field the extractor asks for against every surface that renders it.
+Exactly one was dark: **`summaryText`** — the numbered comment HoloMotion writes
+under "Summary" on page 1, in its own words, about this athlete.
+
+It was extracted (`utils/holomotionExtract.js` asks for it verbatim), asserted by
+the ground-truth script (`summary read`, non-empty, >20 chars), stored in
+`screenings.summary_text` — and rendered on **one** surface: the individual PDF
+report. So the only way to read the instrument's own verdict was to download a
+PDF, which contradicts the mission statement directly: *turn these reports into
+something each role can act on **without any of them needing to read a PDF**.*
+
+Everything else checked out. Posture is **not** a gap — it was deliberately cut
+on 2026-08-01 and sits in the `MASTER_CLARIFICATIONS` non-goals table ("do not
+revive without discussion"), so it stays cut.
+
+### 70.2 Carried on the detail payload only
+
+`DETAIL_ATTRS = [...INDICATOR_ATTRS, 'summaryText']`, used by the single-athlete
+paths. The roster query keeps `INDICATOR_ATTRS`: it fetches one screening **per
+athlete**, and `summary_text` is a TEXT column no roster renders.
+
+`toIndicator` omits the key entirely when the row does not carry the column, so
+a roster payload is **byte-identical** to before — verified against the live
+database, not assumed. Three states are kept distinct because they are different
+facts: absent (this payload does not carry summaries), `null` (the report had no
+Summary section — true of the compact layout), a string (the instrument's words).
+
+### 70.3 Reproduced, never paraphrased
+
+The card names HoloMotion as the author, exactly as the Training Prescription
+card does. Restating somebody else's clinical hedge in our own words would make
+it ours.
+
+`lib/reportSummary.ts` splits the joined text back into the printed numbered
+points, under one rule: **if the pieces do not rejoin to the original, we did not
+understand the text and it is rendered whole instead.** The marker pattern
+requires whitespace after the period, which is what keeps "12.5 degrees" and
+"1.5 months" intact — a decimal has no space after its point.
+
+**No new disclosure.** Every role that sees this panel — athlete (own record),
+coach (own sport), medical, admin — can already download the individual report,
+which has always printed this text. What changes is that reading it no longer
+requires opening a PDF.
+
+**The seeder does not fabricate one.** All 74 seeded screenings have `null`, and
+that is deliberate: inventing clinical prose for demo data is the silent-failure
+class itself. The card appears when a real report is imported — which is the
+demo, and the three ISN reports carry it.
+
+### 70.4 What the browser check found, which no test could
+
+The card did not render. Every unit test was green and the payload was correct.
+
+The four pages each hand-lifted **one** field from `.screening` — `subitems`,
+the one field this panel does not read — so `prescription` and
+`lateralSymmetry` had been arriving `undefined` **on every dashboard since they
+were built on 2026-08-23**. Two cards described in `CLAUDE.md` as shipped
+clinical surfaces had never once rendered, and Lateral Symmetry's own comment
+claimed it had fixed the very "PDF-only" problem it was still suffering from.
+
+Nothing caught it because every field is optional (no type error), the
+components are correct in isolation (component tests pass), the payload is
+correct (backend tests pass), and e2e asserts the *absence of wrongness* — a
+card that renders nothing produces no `NaN`, no `undefined`, no missing
+geometry. Full analysis: `SILENT_FAILURES.md` **3n**.
+
+Fixed structurally: the panel resolves the three fields from `.screening`
+itself, so a field cannot go dark by somebody forgetting one of four call sites.
+An explicit top-level value still wins, so the coach page's deliberately
+narrowed object keeps working — and that page now passes `screening` through,
+adding no reach it did not already have via its sport-scoped PDF download.
+
+**Do not "tidy" the resolution back to reading only the flat props.** That is
+the defect, and reverting it turns 5 of `ScreeningPanel.test.tsx`'s 10 red.
+
+### 70.5 Guards added
+
+- `frontend/src/lib/reportSummary.test.ts` — 16 cases, mostly about what the
+  splitter must **refuse**. Mutation-checked: relaxing the marker's trailing
+  `\s+` fails the decimal cases; dropping the ordered or rejoin checks each
+  fails one.
+- Three of the first draft's four guards proved **individually unreachable** —
+  disabling any one changed no result. They were deleted rather than kept as
+  reassurance, which left the rejoin check genuinely load-bearing. A guard that
+  cannot fire still reads as protection, and this project has already been
+  bitten by one that matched nothing (`SILENT_FAILURES` 3l). One test was also
+  renamed: it claimed to cover an empty point, and an empty point turned out to
+  be unreachable.
+- `backend/tests/reportSummaryPayload.test.js` — 9 cases pinning both halves of
+  the contract, including that the roster JSON never contains the string
+  `summaryText`. Mutation: always emitting the key fails 3.
+- `frontend/src/components/dashboard/ScreeningPanel.test.tsx` — 10 cases
+  asserting each card renders **from the shape the API actually sends**. This is
+  the assertion the whole stack was missing.

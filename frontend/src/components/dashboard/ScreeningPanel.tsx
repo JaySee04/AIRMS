@@ -26,6 +26,7 @@ import {
   RegionThresholds, thresholdsFor, bandFor, criticalRegionsFor, riskBand,
 } from '@/lib/screeningAlerts';
 import { buildTrainingFocus } from '@/lib/trainingFocus';
+import { splitSummaryPoints } from '@/lib/reportSummary';
 import type { Subitems } from './OverallRiskBadge';
 
 export interface ScreeningData {
@@ -49,6 +50,25 @@ export interface ScreeningData {
   // HoloMotion's own training programme, read from the report's text layer.
   // Null when the report carried none (the compact layout does not print one).
   prescription?: Prescription | null;
+  // HoloMotion's own written comment on this screening, verbatim.
+  //
+  // THREE STATES, and they are different facts (see backend
+  // utils/indicatorPayload.js): `undefined` means this payload does not carry
+  // summaries at all — the roster query omits the column deliberately — while
+  // `null` means the report itself carried no Summary section, which is true of
+  // the compact HoloMotion layout. Only a string renders anything.
+  summaryText?: string | null;
+  /**
+   * The API's per-report sub-object. The panel reads `prescription`,
+   * `lateralSymmetry` and `summaryText` from here when they are not passed
+   * flat — see the resolution block in the component for why.
+   */
+  screening?: {
+    prescription?: Prescription | null;
+    lateralSymmetry?: SymmetryRow[] | null;
+    summaryText?: string | null;
+    subitems?: Subitems | null;
+  } | null;
 }
 
 export interface Prescription {
@@ -168,6 +188,33 @@ function IndicatorStrip({ label, value, t }: { label: string; value: number; t: 
 export default function ScreeningPanel({
   athlete, showTrainingFocus = true, historical = false,
 }: { athlete: ScreeningData; showTrainingFocus?: boolean; historical?: boolean }) {
+  // THE FIELDS THAT LIVE ON `.screening`, RESOLVED HERE RATHER THAN AT EVERY
+  // CALL SITE. This is a bug fix, and the bug was silent for weeks.
+  //
+  // The API puts the per-report detail on a `screening` sub-object and leaves
+  // the flat athlete row alone (see backend utils/indicatorPayload.js). The
+  // four pages that render this panel each lifted `subitems` across by hand —
+  // and only `subitems`. So `prescription` and `lateralSymmetry` arrived
+  // `undefined` on every page, and the two cards below them had NEVER rendered
+  // anywhere, despite both being built, documented as shipped on 2026-08-23,
+  // and unit-tested. The components were correct; nothing gave them data.
+  //
+  // Discovered 2026-09-09 while adding `summaryText`, whose card did not appear
+  // in a browser check even though the payload carried it and every test passed.
+  //
+  // Resolving inside the component means a field added to the payload cannot go
+  // dark again by somebody forgetting one of four call sites. An explicit
+  // top-level value still wins, so a caller that deliberately narrows the object
+  // (the coach page does) keeps working unchanged.
+  // Note `subitems` is deliberately NOT resolved here: this component never
+  // reads it. The four call sites lift it across anyway, which is how the
+  // pattern misled — the one field being hand-lifted was the one field this
+  // panel ignores, so the lift looked like it was doing work it was not.
+  // (BodyMap takes subitems as its own prop, separately, and does render them.)
+  const prescription = athlete.prescription ?? athlete.screening?.prescription ?? null;
+  const lateralSymmetry = athlete.lateralSymmetry ?? athlete.screening?.lateralSymmetry ?? null;
+  const summaryText = athlete.summaryText ?? athlete.screening?.summaryText ?? null;
+
   const scores = [athlete.overallActivityScore, athlete.injuryRiskIndex, athlete.mobility, athlete.stability, athlete.symmetry];
   const hasReport = scores.some((v) => v !== undefined && v !== null);
   const criticalSet = new Set(criticalRegionsFor(athlete.sport));
@@ -255,9 +302,12 @@ export default function ScreeningPanel({
       {/* Training focus — AIRMS' counterpart of the report's closing Training
           Prescription: corrective exercises for the regions that breached
           their sport thresholds, worst first. */}
-      {athlete.prescription && <TrainingPrescription prescription={athlete.prescription} />}
-      {athlete.lateralSymmetry && athlete.lateralSymmetry.length > 0 && (
-        <LateralSymmetry rows={athlete.lateralSymmetry} />
+      {/* The instrument's own written verdict. FIRST of the three reproduced
+          blocks, because on the report it is page 1 and it frames the rest. */}
+      {summaryText && <ReportSummary text={summaryText} historical={historical} />}
+      {prescription && <TrainingPrescription prescription={prescription} />}
+      {lateralSymmetry && lateralSymmetry.length > 0 && (
+        <LateralSymmetry rows={lateralSymmetry} />
       )}
       {showTrainingFocus && <TrainingFocus athlete={athlete} historical={historical} />}
     </>
@@ -293,6 +343,52 @@ export default function ScreeningPanel({
 // the instrument's own caveat about how long it stands is reproduced verbatim
 // rather than paraphrased — restating somebody else's clinical hedge in our own
 // words would make it ours.
+// HoloMotion's Summary section, reproduced verbatim.
+//
+// This was dark data until 2026-09-09. The instrument writes a short numbered
+// comment on every athlete it screens; AIRMS extracted it, the ground-truth
+// script asserted it was read, the database stored it — and the ONLY way to
+// read it was to download the individual PDF. That is the same fault the
+// Lateral Symmetry card above was built to fix, and it contradicts the stated
+// mission directly: turn these reports into something each role can act on
+// "without any of them needing to read a PDF".
+//
+// NOT PARAPHRASED, NOT SUMMARISED, NOT RE-ORDERED. The heading says whose
+// words these are, exactly as the Training Prescription card does, because a
+// clinical judgement rendered in AIRMS's voice becomes AIRMS's judgement. The
+// numbered points are split back out only when the split provably loses
+// nothing (lib/reportSummary.ts); otherwise the original string is shown whole.
+//
+// DISCLOSURE: this adds no reach. Every role that can see this panel — athlete
+// (own record), coach (own sport), medical, admin — can already download the
+// individual report, which has printed this same text since the report existed.
+// What changes is that reading it no longer requires opening a PDF.
+function ReportSummary({ text, historical }: { text: string; historical?: boolean }) {
+  const points = splitSummaryPoints(text);
+  return (
+    <div className="card" style={{ marginBottom: 20 }}>
+      <div className="card-header">
+        <h3 className="card-title">Report summary</h3>
+      </div>
+      <p className="card-sub" style={{ marginTop: 0 }}>
+        HoloMotion&rsquo;s own comment on this screening, reproduced word for word
+        {historical ? ' — from the assessment shown, not the latest one' : ''}.
+      </p>
+      {points.length > 0 ? (
+        <ol className="report-summary-points">
+          {points.map((p) => (
+            <li key={p.marker}>{p.text}</li>
+          ))}
+        </ol>
+      ) : (
+        // The split declined, so the text is shown exactly as stored. This is
+        // the safe branch, not the broken one.
+        <p className="report-summary-prose">{text}</p>
+      )}
+    </div>
+  );
+}
+
 function TrainingPrescription({ prescription }: { prescription: Prescription }) {
   const total = prescription.days.reduce((n, d) => n + d.exercises.length, 0);
   if (!total) return null;

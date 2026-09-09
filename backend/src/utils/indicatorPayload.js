@@ -23,6 +23,15 @@ const INDICATOR_ATTRS = [
   'subitems', 'prescription', 'overrideBand', 'overrideNote', 'overrideBy', 'overrideAt',
 ];
 
+// The single-athlete variant: everything above plus HoloMotion's written summary.
+//
+// Kept as a SEPARATE list rather than adding the column to INDICATOR_ATTRS,
+// because the two lists answer different questions. INDICATOR_ATTRS is fetched
+// once per athlete on a roster query; summary_text is a TEXT column of a few
+// hundred characters, and on a 56-athlete roster that is payload nobody reads —
+// the roster renders bands and names, never prose. A detail view fetches one row.
+const DETAIL_ATTRS = [...INDICATOR_ATTRS, 'summaryText'];
+
 const arr = (v) => (Array.isArray(v) ? v : []);
 // Was a private coercion that turned '' into 0 and a non-numeric string into
 // NaN — on totalScore and cohortZ, the two numbers every dashboard hero leads
@@ -60,6 +69,20 @@ function toIndicator(s, dueDays = null) {
     subitems: s.subitems || null,
     // HoloMotion's own prescribed programme, when the report carried one.
     prescription: s.prescription || null,
+    // HoloMotion's own written comment on this athlete — the numbered points
+    // under "Summary" on page 1, verbatim.
+    //
+    // ONLY PRESENT WHEN THE ROW CARRIES IT, and that is the whole design. The
+    // roster query fetches one of these per athlete and must stay lean, so it
+    // selects INDICATOR_ATTRS (no summary_text) and this key is simply absent.
+    // The single-athlete paths select DETAIL_ATTRS and get it. `undefined`
+    // drops out of JSON, so a roster payload is byte-identical to before.
+    //
+    // Distinguish the three states downstream, because they are different
+    // facts: absent = this payload does not carry summaries; null = the report
+    // carried none (the compact HoloMotion layout has no Summary section);
+    // a string = the instrument's words. Only the last renders a panel.
+    ...(s.summaryText === undefined ? {} : { summaryText: s.summaryText || null }),
     // Lateral symmetry, derived here rather than in the client.
     //
     // The subitems are already on this payload, so the frontend COULD compute
@@ -88,4 +111,4 @@ function toIndicator(s, dueDays = null) {
   };
 }
 
-module.exports = { INDICATOR_ATTRS, toIndicator };
+module.exports = { INDICATOR_ATTRS, DETAIL_ATTRS, toIndicator };

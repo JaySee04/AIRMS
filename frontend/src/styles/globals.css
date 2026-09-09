@@ -3433,6 +3433,24 @@ textarea:focus-visible,
   .risk-hero-stat { justify-self: start; }
 }
 
+/* HoloMotion's Summary section, reproduced (2026-09-09).
+   Someone else's clinical text, so it is set to READ rather than to decorate:
+   a measure that stops well short of the card edge, and line-height above the
+   body default. The left rule marks the whole block as quoted material — the
+   same job a blockquote does, without inheriting a style used elsewhere. */
+.report-summary-points,
+.report-summary-prose {
+  margin: 0;
+  max-width: 70ch;
+  font-size: var(--fs-md);
+  line-height: 1.6;
+  border-left: 2px solid var(--border);
+  padding-left: var(--sp-md);
+}
+.report-summary-points { padding-left: calc(var(--sp-md) + var(--sp-lg)); }
+.report-summary-points li { padding: var(--sp-xs) 0; }
+.report-summary-points li::marker { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+
 /* HoloMotion's training prescription — a day per column, wrapping.
    auto-fit with a floor means six days sit in two or three rows on a laptop and
    stack on a phone, without a breakpoint per screen size. */

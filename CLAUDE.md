@@ -257,6 +257,22 @@ as a physiologist would rather than by reading the backlog:
   no dashboard did, and the body map's own rule paints the WORSE of L/R, which
   discards the side. Computed server-side and shipped as `lateralSymmetry`, not
   `symmetry` — that key is already the athlete's scalar score on the same object.
+  **It was not actually on screen until 2026-09-09.** All four pages hand-lifted
+  only `subitems` from the `.screening` sub-object, so this card and the Training
+  Prescription card received `undefined` and drew nothing on every dashboard for
+  seventeen days, while being documented here as shipped. `ScreeningPanel` now
+  resolves those fields itself. See `DESIGN_DECISIONS.md §70.4` and
+  `SILENT_FAILURES.md 3n` — **do not revert the resolution to flat props only.**
+- **HoloMotion's own written Summary is on screen** (2026-09-09,
+  `DESIGN_DECISIONS.md §70`). The numbered comment the instrument writes about
+  each athlete was extracted, ground-truth-asserted and stored since the pipeline
+  existed, and rendered only in the individual PDF — so the instrument's own
+  verdict was reachable only by reading a PDF, which is the thing the mission
+  statement exists to remove. Carried on the DETAIL payload only
+  (`DETAIL_ATTRS`); the roster query is byte-identical to before. Reproduced
+  verbatim and attributed, never paraphrased; `lib/reportSummary.ts` splits it
+  into its printed points only when the pieces provably rejoin to the original.
+  The seeder does **not** fabricate one — all 74 seeded rows are null on purpose.
 - **The history calls its own changes** (`GET /screenings/reliability`). It drew
   six sparklines and refused to name any, because the detectable-change
   threshold was not on an athlete-scoped payload. Its own endpoint now, because
