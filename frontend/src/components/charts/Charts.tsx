@@ -51,22 +51,19 @@ function niceStep(span: number, target = 4): number {
 export interface DotRow { label: string; value: number | null; hint?: string }
 
 export function DotPlot({
-  rows, min = 0, max = 100, unit = '', reference, referenceLabel,
+  rows, min = 0, max = 100, unit = '',
 }: {
   rows: DotRow[];
   /** Hard bounds of the underlying scale — the zoom never exceeds these. */
   min?: number;
   max?: number;
   unit?: string;
-  /** Optional comparison line, e.g. the institute average. */
-  reference?: number | null;
-  referenceLabel?: string;
 }) {
   const vals = rows.map((r) => r.value).filter((v): v is number => v !== null);
   if (!vals.length) return <p className="text-muted" style={{ fontSize: 'var(--fs-md)' }}>No data for this selection.</p>;
 
-  const lo = Math.min(...vals, ...(reference != null ? [reference] : []));
-  const hi = Math.max(...vals, ...(reference != null ? [reference] : []));
+  const lo = Math.min(...vals);
+  const hi = Math.max(...vals);
   // Pad by a quarter of the spread so dots never touch the ends, with a floor so
   // a single value (spread 0) still gets a sane window instead of a zero-width axis.
   const pad = Math.max((hi - lo) * 0.35, 2);
@@ -89,14 +86,6 @@ export function DotPlot({
               {ticks.map((t) => (
                 <span key={t} className="dotplot-grid" style={{ left: `${pos(t)}%` }} aria-hidden />
               ))}
-              {reference != null && (
-                <span
-                  className="dotplot-ref"
-                  style={{ left: `${pos(reference)}%` }}
-                  title={`${referenceLabel ?? 'Reference'}: ${fmt(reference)}${unit}`}
-                  aria-hidden
-                />
-              )}
               {r.value !== null && (
                 <>
                   {/* A stem from the axis floor to the dot: with four rows the
@@ -122,7 +111,6 @@ export function DotPlot({
       <p className="chart-note">
         Axis zoomed to {fmt(axisLo)}–{fmt(axisHi)}{unit} of {min}–{max}. Read the printed
         values for absolute level.
-        {reference != null && ` Dashed line = ${referenceLabel ?? 'reference'} (${fmt(reference)}${unit}).`}
       </p>
     </div>
   );

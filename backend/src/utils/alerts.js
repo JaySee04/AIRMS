@@ -166,11 +166,8 @@ async function alertMany(athleteIds) {
   return results;
 }
 
-// Single-athlete form (kept for direct callers/scripts). Same contract as
-// before: non-fatal, returns a small summary.
-async function alertIfNeeded(athleteId) {
-  const [result] = await alertMany([athleteId]);
-  return result || { sent: false, reason: 'no athlete id' };
-}
-
-module.exports = { alertIfNeeded, alertMany, groupByRecipient };
+// Removed 2026-09-09: `alertIfNeeded(id)`, a one-athlete wrapper kept "for
+// direct callers/scripts". Nothing in src, tests or scripts ever called it, so
+// the callers it was kept for were never written. `alertMany([id])` is the
+// replacement and returns the same per-athlete result object.
+module.exports = { alertMany, groupByRecipient };

@@ -5453,3 +5453,78 @@ the 7.
 This is §70's standing rule applied rather than restated: **presence is asserted
 where a reader would notice its absence, because a suite that only looks for
 wrongness cannot see a missing panel.**
+
+## 72. Hunting fodder, and finding almost none (2026-09-09)
+
+JC: *"remove the fodder code and elements throughout the website"*.
+
+The result is mostly a **negative** one, and it is worth recording as such: after
+scanning five categories, two things were removed. A codebase that has shed the
+Excel import, the injury model, ACWR, Activity Tracking and Posture Evaluation
+could reasonably be full of stumps. It is not — those cuts were made properly,
+with code archived or deliberately retained and labelled.
+
+### 72.1 The scan nearly deleted 25 live CSS classes
+
+The first dead-CSS run reported 28 unused selectors. **Twenty-five were live**,
+in two distinct ways the scanner could not see:
+
+1. **Modifiers built from a variable.** `const base = 'bodymap-region'` then
+   `` `${base}--${state}` ``. The literal `bodymap-region--weak` appears nowhere,
+   and all 17 body-map state classes were listed as dead. Deleting them would
+   have broken the body map — Module 1, the component CLAUDE.md calls audit-fixed
+   and asks to be touched with the smallest possible surface.
+2. **A class followed by a template interpolation.** `` `app-shell${navOpen ? ' nav-open' : ''}` ``
+   — the trailing delimiter set omitted `$`, so 8 more live classes read as dead,
+   including `.sidebar-link` and `.upload-dropzone`.
+
+Both were caught by checking candidates against the source by hand *before*
+deleting anything, which is the only reason this section is not a bug report.
+Corrected, the answer is **0 dead classes out of 534**.
+
+The scanner was then **mutation-tested**: a planted `.zzz-definitely-dead-canary`
+is found. A planted `.card--zzz-dead-modifier` is **not** — the base-is-used rule
+excuses it. So the honest claim is not "the stylesheet is provably clean" but
+"no plain dead class remains, and 47 modifier classes are excused by a rule that
+cannot distinguish a live modifier from a dead one." That blind spot is stated
+rather than hidden.
+
+### 72.2 What was actually removed
+
+- **`DotPlot`'s `reference` / `referenceLabel`** — a comparison-line capability
+  no caller ever used: two props, the marker span, a sentence of legend copy, and
+  the `.dotplot-ref` rule. Removed rather than wired, because wiring it would be
+  a new feature and this instruction was to remove, not to add.
+- **`alertIfNeeded(id)`** — a one-athlete wrapper whose comment said it was
+  "kept for direct callers/scripts". Nothing in `src`, `tests` or `scripts` ever
+  called it: the callers it was kept for were never written. `alertMany([id])`
+  returns the same object.
+
+### 72.3 What was deliberately NOT removed
+
+- **`AcwrGauge.tsx`, `WorkloadChart.tsx`, `risk.ts`** — unrendered and
+  unimported, and **locked**. CLAUDE.md: *"do not delete `risk.ts` either."* The
+  ACWR rebuild path (`docs/fyp/ACWR_REBUILD.md`) depends on them. Their CSS
+  (`.acwr-gauge-band--*`) stays with them: removing the styles of a retained
+  component leaves it broken on the day it is restored, which is worse than an
+  unused rule.
+- **`ScreeningData.subitems`** — the panel never reads it and four call sites
+  pass it (the cargo noted in §70.4). Removing it forces every caller to strip a
+  field it legitimately holds, and broke the coach page's narrowed object at the
+  type level. The comment explaining the quirk is worth more than the deletion.
+- **`fs.realpath`** — the one backend dependency nothing imports, and it is the
+  documented transitive `npm run coverage` needs to run at all.
+- **57 unreferenced exports** — almost all TypeScript `interface`/`type`
+  exports, which are a component's public surface whether or not this repo
+  consumes them, plus constants used inside their own module. Churn, not fodder.
+
+### 72.4 Everything else came back clean
+
+0 dead CSS classes, 0 orphan source files (the four candidates are a directory
+import, an ambient `.d.ts`, and the two locked ACWR components), 0 unused
+dependencies, and no commented-out code — the `^\s*// *(const|return|if…)` sweep
+returned six hits, all of them prose beginning with a keyword.
+
+**A third heredoc-escaping failure happened during this pass** (`\$&` arriving
+as `\$&`, an invalid regex), which is now three in two days from the same
+shortcut. Gotcha 9 is not advice; scripts get written with the editor tool.
