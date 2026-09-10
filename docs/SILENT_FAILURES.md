@@ -1183,3 +1183,42 @@ recreated the four-copies problem the band vocabulary had.
 `AWAITING_CONTROL` is now empty, and the note above it says what it is for: a
 deliberate, reviewable act — not a place to put a scanner nobody felt like
 verifying.
+
+### 4d. What the derivation still excludes, and why that is not settled (2026-09-10)
+
+Asked to look for guards not yet touched, the honest answer is that the
+derivation rule in 4b — *enumerates a directory* — matched the **instance** more
+than the **class**, which is the mistake this document records four times
+already.
+
+Widening it to *reads project source and asserts no offenders* finds **nine
+more**, none with a control:
+
+`accountLifecycle`, `athleteDisclosure`, `cohorts`, `recompute`, `reliability`,
+`riskIndicators`, `sharedFacts`, `symmetry`, and `frontend/src/lib/shared/facts`.
+
+I assumed four of those were ordinary logic tests whose `readFileSync` was
+incidental. **They are not** — every one reads project source and asserts a
+property of it. Checking beat assuming, again.
+
+**But they are not the same risk, and the difference is worth naming**, because
+it is the reason the narrower rule was defensible without my having articulated
+it. There are two ways a guard passes vacuously:
+
+1. **The corpus came back empty.** A directory walk that matches nothing reports
+   no offenders. This is the `readdirSync` class, and a floor on the corpus size
+   is the specific defence. Every one of the nine reads a **known file**, so a
+   missing or unreadable file throws rather than passing.
+2. **The pattern stopped matching.** `\b` becomes a backspace and the scan is
+   inert (3l). This risk applies to **both** classes, and a canary is the only
+   defence.
+
+So the corpus scanners carried both risks and now have both defences. The nine
+carry risk 2 only. That makes them lower priority, **not** safe — `athleteDisclosure`
+greps route source for a predicate name, and if that name changes the check goes
+quietly inert while continuing to report that no clinician note leaks to a coach.
+
+**This is recorded as unfinished rather than shipped as a register.** The last
+attempt to hold this kind of gap in a list lasted an hour before it was correctly
+called deferral dressed as design (4c). Nine canaries is a real pass of work; the
+right form is to do them, not to enumerate them somewhere comfortable.
