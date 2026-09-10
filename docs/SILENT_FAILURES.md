@@ -1274,3 +1274,34 @@ this file contain the word canary") measures a convention, not a property. The
 six it wrongly accused were better protected than some of the files it passed.
 A derived rule is still worth having — it found the three — but its output is a
 list of files to **look at**, not a verdict.
+
+### 4f. Checking the claim instead of asserting it (2026-09-10)
+
+4e concluded that six guards were already safe because they carried a
+"bracketing positive". **That conclusion was reached by reading them** — the one
+form of evidence this document repeatedly shows to be worthless.
+
+Four of the six are now in the mutation registry, and the mutations break the
+**guarded property** rather than the detector, which is the stronger check:
+
+| Registered mutation | Result |
+|---|---|
+| add `'executive'` to the `/:id` rbac list | caught |
+| empty `EXCLUDED_RISK_KEYS` (un-exclude LDH) | caught |
+| add `'athlete'` to `INVITABLE_ROLES` | caught |
+| replace the `SMALL_COHORT` import with a local const | caught — **on the second attempt** |
+
+That second attempt is the useful part. The entry was first registered against
+the frontend facts suite, which does not look at that file, and the runner
+reported **SURVIVED**. A misregistered guard is indistinguishable from an absent
+one, and it is the failure mode a registry was always most likely to have. The
+runner found it on its own registry.
+
+The remaining two of the six — `symmetry` and `reliability` — are **not scanners
+at all**. Their `toEqual([])` is the expected *result* of a direct call on
+controlled garbage input, asserted alongside positive cases on real input. There
+is no corpus to come back empty and no pattern to stop matching, so there is
+nothing a mutation entry would add.
+
+**12 of 12 mutations now caught**, and every mutated file verified restored
+afterwards with `git status`.

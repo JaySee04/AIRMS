@@ -94,6 +94,59 @@ const MUTATIONS = [
     replace: '  const summaryText = athlete.summaryText ?? null;',
     test: 'src/components/dashboard/ScreeningPanel.test.tsx',
   },
+  // ── The six I claimed were safe BY READING THEM (2026-09-10) ─────────────
+  //
+  // SILENT_FAILURES 4e argued that these six already had a "bracketing positive"
+  // — a negative assertion sandwiched between assertions that the scan found its
+  // subject. That argument was made by eye, which is the one form of evidence
+  // this project has repeatedly shown to be worthless. So each is registered
+  // here and the claim is now checked rather than asserted.
+  //
+  // Note these mutate the GUARDED PROPERTY, not the guard: they make the real
+  // defect the test exists to catch, which is a stronger check than breaking
+  // the detector.
+  {
+    guard: 'athleteDisclosure: executive stays off the raw record endpoint',
+    why: '§51 — executive is funnelled through the AUDITED individual PDF instead',
+    pkg: 'backend',
+    file: 'src/routes/athletes.js',
+    find: "router.get('/:id', auth, rbac('athlete', 'medical', 'admin', 'coach')",
+    replace: "router.get('/:id', auth, rbac('athlete', 'medical', 'admin', 'coach', 'executive')",
+    test: 'tests/athleteDisclosure.test.js',
+  },
+  {
+    guard: 'riskIndicators: LDH is excluded from every derived view',
+    why: "Dr Thung's instruction — ISN cannot support the assessment, so it is never shown",
+    pkg: 'backend',
+    file: 'src/shared/facts.js',
+    find: "const EXCLUDED_RISK_KEYS = ['spinalDiscHerniation'];",
+    replace: 'const EXCLUDED_RISK_KEYS = [];',
+    test: 'tests/riskIndicators.test.js',
+  },
+  {
+    guard: 'accountLifecycle: athlete is not an invitable role',
+    why: 'an athlete account also needs a roster record to attach to',
+    pkg: 'backend',
+    file: 'src/routes/users.js',
+    find: "const INVITABLE_ROLES = ['medical', 'coach', 'admin', 'executive'];",
+    replace: "const INVITABLE_ROLES = ['medical', 'coach', 'admin', 'executive', 'athlete'];",
+    test: 'tests/accountLifecycle.test.js',
+  },
+  {
+    guard: 'cohorts: SMALL_COHORT comes from shared facts, not a local copy',
+    why: 'a fifth private copy is how the band vocabulary drifted four ways',
+    // Registered against the wrong test on the first attempt (the frontend
+    // facts suite, which does not look at this file) and duly reported
+    // SURVIVED. That is the runner doing its job on its own registry — a
+    // misregistered guard is indistinguishable from an absent one, and this is
+    // the failure mode the registry was always most likely to have.
+    pkg: 'backend',
+    from: ROOT,
+    file: 'frontend/src/components/dashboard/OverallRiskBadge.tsx',
+    find: "import { SMALL_COHORT } from '@/lib/shared/facts';",
+    replace: 'const SMALL_COHORT = 10;',
+    test: 'tests/cohorts.test.js',
+  },
   {
     guard: 'report summary: refuses a split that loses text',
     why: "a rearranged version of a clinician's report is worse than a paragraph",
