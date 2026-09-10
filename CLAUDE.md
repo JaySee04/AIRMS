@@ -50,6 +50,20 @@ cd backend; npm run coverage         # 79.6% statements / 67.8% branches. Route 
                                      # e2e (99 checks) and three jsdom component suites, but nothing
                                      # that mounts a page.tsx. Coverage needed a missing
                                      # transitive dep (fs.realpath) before it would run at all.
+cd backend; npm run mutate           # BREAK each registered guard on purpose and prove its
+                                     # test fails. A surviving mutation exits non-zero: the
+                                     # test is not testing what it claims. 8 guards across
+                                     # both packages. NOT part of `npx jest` — it spawns a
+                                     # jest run per mutation (tens of seconds). Run it before
+                                     # committing a change to a guard, and add an entry when
+                                     # you write a new one. Four defects (SILENT_FAILURES
+                                     # 3l/3n/3o/3p) were a check and its own test agreeing
+                                     # while both were wrong; this is the standing answer.
+                                     # The runner is itself verified: a control mutation that
+                                     # edits only a comment reports SURVIVED, a stale registry
+                                     # entry errors rather than passing, and guard files are
+                                     # restored in a finally (checked with `git status` after
+                                     # a deliberately failing run).
 cd backend; npm run map              # regenerate docs/SYSTEM_MAP.md - the inventory of every
                                      # model column, endpoint+roles, page, setting, audit action,
                                      # shared fact, env var and script, READ FROM THE CODE. Needs

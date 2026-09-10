@@ -1054,3 +1054,54 @@ yourself.
 
 It was caught only by running the guard against the real situation — and it had
 already been written, tested, and committed-adjacent by then.
+
+---
+
+## 4. The standing mutation check (2026-09-10)
+
+Four entries in this document now share one shape: **a check and its own test
+agreeing with each other while both were wrong.**
+
+| | The check | Its test | Jointly |
+|---|---|---|---|
+| 3l | a guard whose `\b` was a backspace byte | asserted "no offenders found" | agreed, found nothing |
+| 3n | components correct in isolation | rendered with hand-built payloads | agreed, drew nothing on a page |
+| 3o | an access audit listing 49 endpoints | prose compared to *that same list* | agreed on a stale number |
+| 3p | a port probe that bound loopback | a fixture that held loopback | agreed both ports were free |
+
+The remedy has been stated in this repo since the `winAnsiSafe` incident and it
+is the right one: **break the thing the test guards and confirm the test fails.**
+It has also been **entirely manual** every single time. Which means the guarantee
+was never "this guard can fail" — it was "somebody remembered to check that this
+guard can fail, once, on the day it was written".
+
+`backend/scripts/mutation-check.js` (`cd backend; npm run mutate`) makes it run.
+Each entry names a guard, a mutation that must break it, and the test that must
+notice. **A surviving mutation is a failure** and exits non-zero: the test is not
+testing what it claims.
+
+Eight guards are registered, spanning both packages — the port preflight, the
+logger's two redaction rules, the rate-limit counter, the roster payload
+exclusion, the audit failure counter, `ScreeningPanel`'s field resolution, and
+the report-summary rejoin check. All eight are currently caught.
+
+**The runner was itself verified the way it demands of others**, because a
+mutation checker nobody has seen report a survivor is exactly the thing this
+section is about:
+
+- a **control mutation** that edits only a comment is reported `SURVIVED`, and
+  the process exits **1** — so the runner is capable of failing;
+- a **stale registry entry**, whose target text no longer exists, is reported as
+  an error rather than silently applying nothing and passing;
+- guard files are **restored in a `finally`**, verified clean via `git status`
+  after a deliberately failing run — a crashed check that leaves a mutated guard
+  in the tree would be worse than never running it.
+
+It is deliberately outside `npx jest`: it spawns a jest run per mutation and
+costs tens of seconds. It is the gate before committing a change to a guard.
+
+**What it does not solve.** It only covers guards somebody registered. A new
+guard with no entry is exactly as unverified as before — the registry is a list,
+and a list is the thing that went stale in 3o. The honest scope is: it makes the
+known guards provably fallible, and it makes adding a new one to that set a
+one-line act rather than a remembered ritual.

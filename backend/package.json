@@ -16,7 +16,8 @@
     "audit:access": "node scripts/audit-access.js",
     "coverage": "jest --coverage --coverageReporters=text-summary",
     "migrate:hosted": "node scripts/migrate-hosted.js",
-    "map": "node scripts/system-map.js"
+    "map": "node scripts/system-map.js",
+    "mutate": "node scripts/mutation-check.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
