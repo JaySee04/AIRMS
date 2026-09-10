@@ -5834,3 +5834,81 @@ only remedy is `next@16` — a **major** framework upgrade. `MASTER_CLARIFICATIO
 locks the tech stack, `CLAUDE.md` forbids proposing a stack swap without
 discussion, and Next 14 → 16 days before submission would put every page at risk
 to fix a build-time CSS tool. **Not done, and not a close call.**
+
+## 76. Best available fix for each remaining advisory (2026-09-10)
+
+§75 left three problems marked "not fixed". Asked for the best solution to each,
+the answer turned out to be different for all three — and two of them were
+fixable without the breaking change npm proposed.
+
+### 76.1 Frontend: override the transitive, do not upgrade the framework
+
+`npm audit` offered exactly one remedy for all three frontend advisories:
+`next@16`, a major framework upgrade. That is not the remedy for two of them.
+
+`postcss` (high, 4 advisories) and `nanoid` (high) are **transitive** — Next
+merely depends on them, and both have patched releases. An `overrides` block
+pins them without touching Next:
+
+```json
+"overrides": { "postcss": "^8.5.28", "nanoid": "^3.3.18" }
+```
+
+postcss 8.4.31 → **8.5.28**, nanoid → **3.3.18**. Frontend went **3 → 1**, and
+`npm run build` succeeds with the whole route table intact.
+
+**The remaining critical is Next itself**, and it is worth knowing what it is
+rather than carrying it as a number. The four advisories are: SSRF in **rewrites**,
+disclosure of **Server Function** endpoints, RCE on **Windows-hosted** servers,
+and RCE in the **Image Optimization API via AVIF**. Measured against this app:
+
+| Advisory | Reachable here? |
+|---|---|
+| SSRF via rewrites | **No** — `next.config` defines no rewrites |
+| Server Function disclosure | **No** — no `'use server'` anywhere |
+| Windows-host RCE | **No** — production is Vercel (Linux) |
+| Image Optimization AVIF RCE | **No** — the only two `next/image` uses are local PNGs, and no `remotePatterns`/`domains` is configured, so remote images are refused by default |
+
+So the critical is real upstream and unreachable in this deployment. `next@16`
+before submission would risk 25 pages to close it.
+
+### 76.2 Backend: the major upgrade was safe, and testing said so
+
+`nodemailer` needed a major (8 → 10). §75 declined it on risk. That was a guess,
+and the empirical answer is better:
+
+- AIRMS's entire surface is `createTransport` + `sendMail({to, subject, text, attachments})`.
+- Node 22 here, nodemailer 10 requires ≥20.
+- After upgrading: **653 tests pass**, the console-fallback transport renders a
+  correct reset email, and — the decisive check — **a real Gmail SMTP handshake
+  verifies** (`transport.verify()` against the live credentials).
+
+Taken. Five advisories closed, including two highs.
+
+The reachability analysis is kept because it is the viva answer if asked why it
+mattered less than it looked: all five needed either an API AIRMS never calls
+(`raw`, `resolveContent`, domain allow-lists) or an **attacker-controlled
+recipient address** — and there is no such path. `forgot-password` accepts an
+email but sends to `user.email`, the *stored* address, using the submitted one
+only as a lookup key.
+
+### 76.3 What remains, and the honest recommendation
+
+**Backend 13 → 5** (4 moderate, 1 high). **Frontend 3 → 1.** Both criticals gone.
+
+The last high is `xlsx`, still with no npm fix. Two real options, neither taken
+unilaterally:
+
+- **Swap to `exceljs`.** The surface is four calls — `book_new`,
+  `json_to_sheet`, `book_append_sheet`, `write` — so the change is contained to
+  `routes/export.js`. Removes the advisory outright, from npm, with no CDN.
+- **Install SheetJS's own 0.20.x tarball** from `cdn.sheetjs.com`, which is the
+  vendor's published fix. It works, but adds a **build-time dependency on a
+  non-npm host** — and `DEPLOY.md` already records four separate deploy faults
+  that each presented as one opaque error.
+
+**Recommendation: the `exceljs` swap, but not this week.** The advisory is
+parse-side and AIRMS only ever calls `XLSX.write` on its own database rows
+(§75.3), so the gain is a clean audit rather than closed exposure — worth having
+before an examiner runs `npm audit`, not worth churning a working export days
+before a viva. **JC's call.**

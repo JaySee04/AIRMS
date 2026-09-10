@@ -1305,3 +1305,39 @@ nothing a mutation entry would add.
 
 **12 of 12 mutations now caught**, and every mutated file verified restored
 afterwards with `git status`.
+
+### 3q. "634 passed, 0 failed" — with a whole suite that never ran (2026-09-10)
+
+Caught during the dependency work, and it is the cleanest example in this file of
+a green result that is not a green result.
+
+`npm audit fix --omit=dev` **prunes devDependencies from `node_modules`** while
+it rewrites the tree. `supertest` disappeared, so `tests/reportRoutes.test.js`
+could not even be imported. Jest then printed:
+
+```
+Test Suites: 1 failed, 43 passed, 44 total
+Tests:       634 passed, 634 total
+```
+
+**The `Tests:` line has no failure on it, because a suite that fails to LOAD
+contributes zero tests.** Its 19 tests are not counted as failing — they are not
+counted at all. Anyone reading the line that names "tests" sees an unbroken pass.
+
+It was caught only by comparing 634 against the 653 from ten minutes earlier.
+Nothing in the output said "19 tests vanished".
+
+**Two rules from it:**
+
+1. **Read the `Test Suites:` line, not the `Tests:` line.** A load failure only
+   ever appears on the first one. This is why `CLAUDE.md` records both counts —
+   the suite total is the half that catches a suite going missing, and quoting
+   "653 tests" without "44 suites" would not have caught this.
+2. **Never run `npm audit fix --omit=dev` in a working tree.** It is not a
+   read-only filter; it changes what is installed. Use plain `npm audit fix`, or
+   `npm install` immediately afterwards to restore the dev tree.
+
+The general shape is one this document keeps returning to: a count that only
+includes what succeeded cannot report what disappeared. It is the same reasoning
+as the corpus floors in §4b — an empty scan and a clean scan look identical
+unless something asserts the scan happened.
