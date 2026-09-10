@@ -1009,3 +1009,48 @@ intermediate answer was confidently wrong and would have sent somebody to
 "fix" endpoints that were already carefully covered. **A coverage number is
 worthless until the tool producing it has been checked against known-covered
 cases** — which is the same lesson as 3l and 3n, arriving through a third door.
+
+### 3p. The suite that tested the previous build, and the guard that could not see it (2026-09-10)
+
+Two failures in one, and the second is the sharper lesson.
+
+**The original.** `next dev` bumps to :3001 when :3000 is taken, in one line of a
+startup banner. The backend refuses outright. So starting a second `npm run dev`
+over a running one gives: backend dead, new frontend on :3001, and **the stale
+frontend still answering :3000** — which is exactly where `npm run e2e` and every
+browser probe point. On 2026-09-09 a probe duly reported **nine failures for a
+panel that worked**, because it was reading a build made before the change.
+
+That is the worst shape of this defect class. The suite does not error. It passes,
+against code nobody is shipping. `CLAUDE.md` gotcha 1 had described the symptom
+for months as a CORS nuisance; the testing-integrity half went unnoticed.
+
+`scripts/preflight-ports.js` now stops `npm run dev` when either port is held,
+naming the port, the PID and the reason — so the state cannot be reached rather
+than merely being documented.
+
+**Then the guard failed the same way it was built to prevent.** Its first
+implementation asked "can I bind this port?" and treated `EADDRINUSE` as the
+signal. Run against **both dev servers actually running**, it reported both ports
+**free**: `next dev` binds `0.0.0.0`, and Windows grants a second socket
+`127.0.0.1:3000` alongside it.
+
+And the test agreed with it — because the test held the port on `127.0.0.1`, the
+same address the check probed. **A fixture that mimics the wrong holder proves
+nothing.** Both the check and its test were self-consistent and jointly wrong,
+which is the identical structure as 3o, where a hygiene test compared prose
+against a probe list that was itself stale.
+
+Fixed by asking the question that actually matters — *is something already
+answering here?* — with a connect probe, which is independent of the interface
+the holder bound. The test now binds `0.0.0.0` as `next dev` does; reverting the
+probe to the bind-based version fails two of its three cases.
+
+**The rule this adds:** when a check tests an environment rather than a pure
+function, the fixture must reproduce the REAL actor, not a convenient stand-in.
+Binding loopback because it is easy, when the thing you are detecting binds all
+interfaces, is the environment-level version of asserting on a payload you built
+yourself.
+
+It was caught only by running the guard against the real situation — and it had
+already been written, tested, and committed-adjacent by then.

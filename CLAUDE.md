@@ -122,7 +122,7 @@ cd frontend; npm run e2e   # END-TO-END smoke: a real Chrome against the running
 cd frontend; npm run build
 
 # Unit tests (jest, in both packages — no linter configured for the backend)
-cd backend; npx jest      # 42 suites / 639 tests: cohorts, overallIndicator, permissions, rbac, pdfDraw,
+cd backend; npx jest      # 43 suites / 642 tests: cohorts, overallIndicator, permissions, rbac, pdfDraw,
                           # screeningPeriods, cohortFocus, visionUsage, alerts, scheduler,
                           # bands, mailPrefs, holisticReport, programmeActivity, subitemAggregate,
                           # reliability, rescreenReminder, riskIndicators, recall,
@@ -816,7 +816,7 @@ NEXT_PUBLIC_API_URL=http://localhost:5000/api
 
 ## Known dev-environment gotchas
 
-1. **Stale Next.js process holds port 3000** → new instance auto-bumps to 3001 → CORS blocks API calls. Backend allows both as a safety net, but the cleaner fix is `Stop-Process -Id <pid> -Force` and restart `npm run dev`. Never edit CORS as a workaround.
+1. **Stale Next.js process holds port 3000** → new instance auto-bumps to 3001 → CORS blocks API calls. **`npm run dev` now REFUSES to start in this state** (`scripts/preflight-ports.js`, 2026-09-10): it names the port, the PID and the command to free it. That is not tidiness — the old behaviour left the *stale* frontend answering `:3000`, which is exactly where `npm run e2e` and every browser probe point, so the suite would test the **previous build and pass**. It cost a false nine-failure report on 2026-09-09. Never edit CORS as a workaround; free the port.
 2. **MySQL password with special characters** (`#`, `$`, `%`, `^`) must be wrapped in single quotes in `backend/.env` so `dotenv` doesn't interpret them.
 3. **Seeder enum errors** — the classic offender (`Injury` enums) went with the model. The live enums to check seed data against are:
    - `User.role` — `athlete` | `medical` | `admin` | `coach` | `executive` (adding a value needs an `ALTER TABLE users MODIFY COLUMN role ENUM(...)` on an existing dev DB; a fresh clone gets it from `npm run seed`)
@@ -868,6 +868,17 @@ Commit cadences are independent — JC will commit many times in this repo betwe
      span of JSX was deleted (`DESIGN_DECISIONS.md` §68.4).
    - Quotes inside a `git commit -m "…"` message terminated the argument and git
      read the prose as pathspecs.
+
+   Two more of the same family, added 2026-09-10:
+   - `\\$&` in a heredoc arrived as `\$&`, producing an invalid regex — so the
+     rule is not "heredocs mangle backslashes sometimes", it is **every**
+     backslash in a heredoc is one layer away from meaning something else.
+   - `curl -d '{\"email\":\"…\"}'` inside single quotes sends LITERAL
+     backslashes. `express.json()` then rejects the body and the endpoint
+     answers **500 before any of your code runs** — which reads as a server bug
+     you just introduced. Put the JSON in a variable first
+     (`B='{"email":"…"}'; curl -d "$B"`), which is unambiguous and lets you echo
+     what you actually sent.
 
    Use the Edit/Write tools, which write bytes literally. Where a script is
    genuinely the right shape, hold patterns in a **string** (`new RegExp(SRC)`)
