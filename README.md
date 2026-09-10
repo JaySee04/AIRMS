@@ -32,7 +32,7 @@ Then open <http://localhost:3000>.
 
 ## Stack
 
-- **Frontend:** Next.js 14 (App Router) · TypeScript · Chart.js · plain CSS with variables
+- **Frontend:** Next.js 15 (App Router) · TypeScript · Chart.js · plain CSS with variables
 - **Backend:** Node.js · Express · Sequelize · JWT auth
 - **Database:** MySQL 8.x (local, matches ISN's production target)
 - **Body map:** path data from [`react-muscle-highlighter`](https://github.com/soroojshehryar/react-muscle-highlighter) (MIT, by Sorooj Shehryar), aggregated to ISN regions
@@ -81,7 +81,7 @@ Why this matters: [`docs/DESIGN_DECISIONS.md §2`](docs/DESIGN_DECISIONS.md#2-co
 ├── docs/                     Project documentation (start here)
 │   ├── stakeholder/          Meeting transcripts
 │   └── data-samples/         ISN data samples
-├── frontend/                 Next.js 14 app (TypeScript)
+├── frontend/                 Next.js 15 app (TypeScript)
 ├── reports/                  FYP I report + future submissions
 └── README.md                 You are here
 ```

@@ -433,6 +433,49 @@ complete and is wrong, and nothing downstream could detect it.
 
 ---
 
+### Q15 · "You upgraded the framework days before submission — why risk that?"
+
+Fair question, and the honest answer is that **not** upgrading was the bigger
+risk.
+
+> Next 14 carries **seventeen** published security advisories, two of them
+> unauthenticated remote code execution. I checked each against this app first —
+> no rewrites, no Server Actions, images are two local PNGs with no remote
+> patterns — so most are genuinely unreachable here, and I had already decided
+> to stay on 14 on that basis.
+>
+> What changed my mind was reading the advisory data rather than the tool's
+> summary. `npm audit` reports one aggregate and proposes **Next 16**, two major
+> versions, because its resolver picks the latest release rather than the
+> earliest that fixes. Broken out, every one of the seventeen is fixed by
+> **15.5.24** — one major.
+>
+> Then three things made that migration small, and I checked each rather than
+> assuming: Next 15 still accepts **React 18**, so React did not move; nothing in
+> the codebase calls `cookies()`, `headers()` or the async `params` APIs that
+> changed; and the app is 57 client components across 25 pages, so the App Router
+> server-side changes do not touch it.
+>
+> It is verified end-to-end, not just installed: type-check, lint, 328 unit
+> tests, a full production build of all 25 routes, and **99 of 99 browser checks**
+> driving every role through every page — the body map still draws its 155
+> regions and the charts still carry geometry.
+
+**If pressed on the lock:** `MASTER_CLARIFICATIONS §2` locks the *stack* — the
+framework, the router, the language. None of those changed. A version bump
+inside a locked choice, taken to close two RCEs and verified against the whole
+browser suite, is maintenance of the lock rather than a departure from it.
+Swapping Next for something else would still need discussion.
+
+**What NOT to claim:** that the app was vulnerable in production. It was
+deployed behind features the advisories do not reach. The upgrade removes a
+class of risk that was mostly latent — say that, rather than overselling it.
+
+*Backing: `DESIGN_DECISIONS.md §78`; `npm audit --omit=dev` on `frontend/`
+reports **found 0 vulnerabilities**.*
+
+---
+
 ## 4. Where the design argues against itself
 
 Volunteer these. Each is a place a sharp examiner can land a hit, and each lands

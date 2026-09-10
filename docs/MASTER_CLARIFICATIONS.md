@@ -81,7 +81,7 @@ the clinician, the coach and the administrator."**
 
 | Layer | Choice |
 |---|---|
-| Frontend framework | **Next.js 14 (App Router)** with TypeScript |
+| Frontend framework | **Next.js 15 (App Router)** with TypeScript — **was 14 until 2026-09-10.** The framework, the router and the language are unchanged; only the version moved, and it moved for a reason recorded in [DESIGN_DECISIONS.md §78](DESIGN_DECISIONS.md): every one of seventeen security advisories against Next 14 is fixed at **15.5.24**, and staying would have meant shipping two known RCEs. **React stays at 18.3.1** — Next 15 does not require 19. This is a patch to a locked choice, not a change of it; swapping the framework itself still needs discussion |
 | Backend framework | **Node.js + Express** |
 | Database | **MySQL 8.x** via **Sequelize**. See [DESIGN_DECISIONS.md §5](DESIGN_DECISIONS.md#5-mysql-with-sequelize-single-persistence-layer); the prior MongoDB stack is preserved on the `main` branch and documented in [MONGO_RECOVERY.md](MONGO_RECOVERY.md). |
 | Authentication | **JWT** stored in `localStorage` |

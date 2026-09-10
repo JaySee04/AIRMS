@@ -204,9 +204,16 @@ The `athletes` table and the normalised `muscle_flags` / `recovery_baselines` ta
 
 ---
 
-## 6. Next.js 14 App Router (frontend)
+## 6. Next.js App Router (frontend)
 
-**Decision:** Next.js 14 with the App Router (`app/` directory), TypeScript, no separate SPA build step.
+> **Version moved 2026-09-10: 14 → 15.5.24.** Everything this section argues is
+> unchanged — the framework, the App Router, TypeScript, no SPA build step, and
+> the last bullet below (client components carry the interactivity, SSR is
+> unused) is precisely *why* the move was cheap. It was taken for security, not
+> for features: seventeen advisories against 14, including two RCEs, all clear at
+> 15.5.24. React stays at **18.3.1**. See **§78**.
+
+**Decision:** Next.js with the App Router (`app/` directory), TypeScript, no separate SPA build step. Originally 14; now 15.
 
 **Why:**
 - Filesystem routing maps cleanly to the role-based URL structure (`app/athlete/dashboard/page.tsx` → `/athlete/dashboard`)

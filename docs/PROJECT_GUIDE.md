@@ -15,7 +15,7 @@ AIRMS (JC FYP)/
 ├── backend/                  # Node.js / Express / MySQL API (Sequelize)
 ├── docs/                     # All project documentation (this folder)
 │   └── stakeholder/          # Meeting transcripts
-├── frontend/                 # Next.js 14 app (App Router, TypeScript)
+├── frontend/                 # Next.js 15 app (App Router, TypeScript)
 ├── reports/                  # FYP submitted reports
 ├── node_modules/             # Root deps (concurrently)
 ├── CLAUDE.md                 # Auto-loaded by Claude Code; pointer to docs/ + commands + locked decisions
@@ -136,7 +136,7 @@ All Sequelize models. The `index.js` registers them and wires up associations �
 
 ## 3. Frontend — `frontend/`
 
-Next.js 14 App Router, TypeScript, plain CSS.
+Next.js 15 App Router, TypeScript, plain CSS.
 
 ### Environment
 
