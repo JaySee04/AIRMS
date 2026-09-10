@@ -156,6 +156,27 @@ describe('wiring — nothing recomputes outside the lock', () => {
     expect(code).toMatch(/require\('\.\.?\/(utils\/)?recompute'\)/);
   });
 
+  // THE CANARY (2026-09-10). The require assertion above proves the file was
+  // really read; it does NOT prove the two `not.toMatch` patterns can match
+  // anything. A typo in either would report "calls no recompute directly" for
+  // ever, which is the shape of SILENT_FAILURES 3l. So they are run against a
+  // planted call, and against the comment case they must ignore.
+  it('can detect a direct recompute call — the planted case it exists to find', () => {
+    const DIRECT_COHORTS = /\brecomputeCohorts\s*\(/;
+    const DIRECT_INDICATORS = /\brecomputeIndicators\s*\(/;
+
+    expect(DIRECT_COHORTS.test('  await recomputeCohorts();')).toBe(true);
+    expect(DIRECT_INDICATORS.test('  await recomputeIndicators({ x: 1 });')).toBe(true);
+
+    // A word boundary, so a longer name is not a false hit.
+    expect(DIRECT_COHORTS.test('await queueRecomputeCohortsLater();')).toBe(false);
+    // And the comment-stripping the scan does first is what keeps prose safe —
+    // asserted here so the two halves cannot drift apart.
+    const commented = '// recomputeCohorts() is called by recomputeAll\n'
+      .replace(/\/\/[^\n]*/g, '');
+    expect(DIRECT_COHORTS.test(commented)).toBe(false);
+  });
+
   it('the import queue re-queues its batch when the lock is held', () => {
     // Dropping the batch would be silent: the import succeeded, the norms are
     // fresh, and the flagged athlete is simply never emailed about.

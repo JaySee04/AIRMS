@@ -58,6 +58,20 @@ describe('the generated module carries the source values', () => {
     }
   });
 
+  // THE FLOOR (2026-09-10), the twin of the one in the frontend's facts test.
+  // Every check here iterates keys — of the source, or of the generated file. A
+  // module that came back with no keys would make an empty filter `[]` and a
+  // loop over nothing assert nothing, so all of them would pass while the two
+  // packages drifted. The generator renders from a hand-written template
+  // (DESIGN_DECISIONS §60), which is exactly the drift this file exists to see.
+  it('is reading populated modules on both sides', () => {
+    expect(Object.keys(source).length).toBeGreaterThan(10);
+    expect(Object.keys(facts).length).toBeGreaterThan(10);
+    // Named anchors as well as counts, so ten unrelated exports could not pass.
+    expect(Object.keys(source)).toContain('INSTITUTION_TZ');
+    expect(Object.keys(facts)).toContain('INSTITUTION_TZ');
+  });
+
   it('exports nothing the source does not define, except what it DERIVES', () => {
     const derived = ['BAND_RANK'];
     const extra = Object.keys(facts).filter((k) => !(k in source) && !derived.includes(k));

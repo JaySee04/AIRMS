@@ -60,6 +60,22 @@ describe('every shared fact actually ARRIVES in this package', () => {
   // signal a developer looks at says the sync worked.
   const source = require(path.join(ROOT, 'shared', 'facts.js'));
 
+  // THE FLOOR (2026-09-10). Every check in this describe iterates the SOURCE's
+  // keys — `missing`, the per-value comparison, and `extra`. If `source` ever
+  // came back with no keys, all three would pass: an empty filter is `[]`, and
+  // a loop over nothing asserts nothing.
+  //
+  // That is not hypothetical for this pair. `shared/generate.js` renders from a
+  // hand-written template, so a mis-shaped require here would leave every check
+  // green while the two packages drifted apart — which is precisely the failure
+  // this file was added to catch (CLAUDE.md, DESIGN_DECISIONS §60).
+  it('is reading a populated source module', () => {
+    expect(Object.keys(source).length).toBeGreaterThan(10);
+    // A named anchor as well as a count, so a module that somehow exported ten
+    // unrelated things could not satisfy the floor.
+    expect(Object.keys(source)).toContain('INSTITUTION_TZ');
+  });
+
   it('exposes every value the source defines', () => {
     // Namespace import, NOT a fixed list — that is the entire point.
     const missing = Object.keys(source).filter((k) => !(k in (generated as Record<string, unknown>)));

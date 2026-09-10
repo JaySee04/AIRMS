@@ -1222,3 +1222,55 @@ quietly inert while continuing to report that no clinician note leaks to a coach
 attempt to hold this kind of gap in a list lasted an hour before it was correctly
 called deferral dressed as design (4c). Nine canaries is a real pass of work; the
 right form is to do them, not to enumerate them somewhere comfortable.
+
+### 4e. Nine turned out to be three, and the reason matters (2026-09-10)
+
+4d named nine guards as having no positive control. **Six of them already had
+one** — my marker regex simply could not see the shape.
+
+The shape is a **bracketing positive assertion**: a negative claim sandwiched
+between assertions that the scan found its subject at all.
+
+```js
+const at = src.indexOf(route);
+expect(at).toBeGreaterThan(-1);        // the route WAS found
+expect(decl).toMatch(/rbac\(/);        // the slice IS a real rbac call
+expect(decl).not.toMatch(/'executive'/); // …and only now, the negative
+```
+
+That cannot pass vacuously: if the scan finds nothing, the first two fail. It is
+a positive control written inline rather than as a separate canary — and it is
+arguably the better form, because it guards the *specific* slice the negative
+claim is about rather than a synthetic one.
+
+Six were already safe this way:
+
+| Guard | What brackets its negative |
+|---|---|
+| `athleteDisclosure` | route index found, slice contains `rbac(` |
+| `riskIndicators` | `EXCLUDED_RISK_KEYS` asserted to CONTAIN LDH before five views are asserted not to |
+| `accountLifecycle` | `INVITABLE_ROLES` asserted to equal all four roles before `not.toContain('athlete')` |
+| `cohorts` | `toMatch(/import { SMALL_COHORT }/)` before `not.toMatch(/const SMALL_COHORT/)` |
+| `symmetry` | not a scan at all — direct calls on controlled garbage, with positive assertions on real input |
+| `reliability` | same: `toEqual([])` is the expected RESULT for a controlled input |
+
+**Three were genuinely exposed, and two of those were the same hole:**
+
+- `frontend/src/lib/shared/facts.test.ts` and `backend/tests/sharedFacts.test.js`
+  both iterate the keys of the shared-facts module. **If that module ever
+  exported nothing, every check would pass** — an empty filter is `[]` and a loop
+  over nothing asserts nothing. These are the two tests whose entire job is to
+  catch the `shared/generate.js` template drift described in `DESIGN_DECISIONS
+  §60`, so a vacuous pass there is the specific failure they exist to prevent.
+  Both now assert a key-count floor **and** a named anchor, so ten unrelated
+  exports could not satisfy it. Verified by emptying `shared/facts.js`: 6 backend
+  and 4 frontend assertions fail where all previously passed.
+- `recompute` had a bracketing positive proving the file was read, but nothing
+  proving its two `not.toMatch` patterns could match. Both now run against a
+  planted call, a longer name they must ignore, and the comment case.
+
+**The lesson is about the rule, not the guards.** A marker-based check ("does
+this file contain the word canary") measures a convention, not a property. The
+six it wrongly accused were better protected than some of the files it passed.
+A derived rule is still worth having — it found the three — but its output is a
+list of files to **look at**, not a verdict.
