@@ -5978,3 +5978,60 @@ The advisories are parse-side and unreachable here, so the security gain is
 genuinely near zero; the gain is an examiner running `npm audit` and seeing no
 high. That was not worth a 14 MB dependency swap (A), but it *is* worth a pinned
 tarball that changes no code and no behaviour (B).
+
+## 78. Next 15, not Next 16 — npm proposed the wrong upgrade (2026-09-10)
+
+§76.1 declined the Next upgrade because npm said the only fix was `next@16`, two
+majors ahead, and the advisories looked unreachable. **npm was proposing the
+wrong version, and that changed the answer.**
+
+### 78.1 The aggregate range hid the real boundaries
+
+`npm audit` reports one aggregate — `9.5.0 - 15.5.23` — and one remedy,
+`next@16.3.4`, because its resolver picks **latest**, not the minimum that fixes.
+Broken out, all **seventeen** advisories have a 15.5.x boundary:
+
+```
+>=13.4.0  <15.5.24   RCE, Windows-hosted
+>=10.0.0  <15.5.24   RCE, Image Optimization API (AVIF)
+>=12.0.0  <15.5.21   SSRF in rewrites
+>=13.4.0  <15.5.16   XSS in App Router
+…and thirteen more, none above 15.5.24
+```
+
+**`15.5.24` clears every one.** One major, not two.
+
+### 78.2 Three facts made the migration small
+
+The reasons Next 14 → 15 is usually painful do not apply here, and each was
+checked rather than assumed:
+
+| Usual blocker | Here |
+|---|---|
+| Next 15 needs React 19 | **No** — its peer range is `^18.2.0 \|\| ^19.0.0`; React stays at 18.3.1 |
+| `cookies()` / `headers()` / `params` became async | **No such call anywhere** in `src` |
+| App Router server-component churn | **57 `use client` files across 25 pages** — the app is client-rendered |
+
+### 78.3 Verified, in this order
+
+`npm audit --omit=dev` → **found 0 vulnerabilities**. Then `tsc` clean, `next
+lint` clean, **328 unit tests**, a full `next build` producing all 25 routes as
+static — and finally the check that actually settles it: **`npm run e2e`, 99/99**,
+a real Chrome driving every role through every page, including the body map
+(155/156 regions) and the charts.
+
+Frontend production advisories: **3 → 0**, including the critical.
+
+### 78.4 Backend tail: override what is safe, refuse what is not
+
+`qs` was still moderate at 6.15.3 — the top of its own vulnerable range — pinned
+there by Express 4. An override to `^6.16.0` clears it and Express with it,
+without an Express 5 major.
+
+**`uuid` was deliberately left.** npm's proposed "fix" is
+`sequelize@3.30.0` — a *downgrade* from 6.37.8, which is nonsense — and forcing
+`uuid@11+` would hand Sequelize 6 an ESM-only package with a different API to
+close a moderate in an internal id generator. Refused, and recorded rather than
+carried silently.
+
+**Backend production: 13 → 2 moderate, 0 high, 0 critical.**
