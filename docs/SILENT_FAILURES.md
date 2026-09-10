@@ -1105,3 +1105,53 @@ guard with no entry is exactly as unverified as before — the registry is a lis
 and a list is the thing that went stale in 3o. The honest scope is: it makes the
 known guards provably fallible, and it makes adding a new one to that set a
 one-line act rather than a remembered ritual.
+
+### 4b. Deriving the set, so the registry cannot go stale (2026-09-10)
+
+§4's mutation runner has one weakness, and it is the weakness of every list in
+this document: **it only verifies the guards somebody registered.** A new guard
+with no entry is exactly as unverified as before — and a hand-kept list is
+precisely what rotted in 3o.
+
+`backend/tests/guardCanaries.test.js` does not keep a list. It **derives** the
+set:
+
+> a test that **enumerates a directory** and asserts its **offender list is
+> empty** is a corpus scanner — and a corpus scanner that has never been shown
+> finding an offender is indistinguishable from one that cannot.
+
+That second clause is 3l stated as a rule. Because the set is computed, a scanner
+written next month is covered on the day it is written, by nobody remembering
+anything. **Verified by planting one**: a throwaway test that enumerates a
+directory and asserts emptiness is reported as missing a control immediately,
+registered nowhere.
+
+**The definition took three attempts, and the failures are the useful part.**
+"Asserts absence anywhere" matched **53 of 62** test files — a rule that broad
+becomes a ritual, and a ritual gets suppressed, which this document already warns
+about. "Reads a file and asserts absence" still pulled in ordinary logic tests
+whose `toBe(0)` was a legitimate count. Only *enumerates a directory* isolates the
+scan-a-corpus-and-report-nothing shape, and it lands on **9 files**.
+
+**A corpus floor is not a positive control.** `codebaseHygiene` asserts it walked
+more than 150 files; that proves the walk works, not that the detector does.
+`sourceHygiene` is the model — a floor **and** a canary that runs the real
+predicate over a planted backspace.
+
+**Six of the nine had no control at all**, which is the finding. They could each
+report "all clear" with nothing anywhere proving they could report anything else.
+`scriptImports` now has one — it plants a module exporting `realThing`, an
+importer asking for `realThing` and `movedAway`, and asserts the real parsers
+report the dangling name. The remaining five are a **debt register** inside the
+test, and it is safe in the way a hand-kept list normally is not:
+
+- it may only shrink;
+- a new scanner is not on it, so it fails immediately;
+- an entry that has become untrue — the file gained a control, was renamed, or
+  stopped being a scanner — **fails the register's own accuracy test**, so it
+  cannot quietly outlive its reason. Verified by putting a since-fixed file back
+  on the list and watching it fail.
+
+**The honest limit.** This proves a scanner *can* detect something; it does not
+prove it detects the right things. A canary is a floor under vacuity, not a
+substitute for thinking about what the scanner should catch.

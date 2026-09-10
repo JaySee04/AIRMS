@@ -33,6 +33,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 
 const ROOT = path.join(__dirname, '..');
 const SCAN_DIRS = [path.join(ROOT, 'src'), path.join(ROOT, 'scripts')];
@@ -157,6 +158,41 @@ describe('destructured requires name real exports', () => {
     // home and update the import — do not re-export it from the old module to
     // silence this, which would recreate the second definition the move removed.
     expect(broken).toEqual([]);
+  });
+
+  // THE CANARY. Added 2026-09-10 under the rule in guardCanaries.test.js: a
+  // scanner that only ever asserts "found nothing" is indistinguishable from one
+  // that cannot find anything. This scan is exactly the shape that failed in
+  // SILENT_FAILURES 3l — a corpus walk reporting all-clear while its pattern
+  // matched nothing at all.
+  //
+  // It runs the REAL detectors over a planted pair, rather than re-implementing
+  // them, so a change that breaks the parsers breaks this too.
+  it('can detect a dangling import — the planted case it exists to find', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'airms-canary-'));
+    try {
+      const target = path.join(dir, 'target.js');
+      const importer = path.join(dir, 'importer.js');
+      fs.writeFileSync(target, 'const realThing = 1;\nmodule.exports = { realThing };\n');
+      fs.writeFileSync(importer, "const { realThing, movedAway } = require('./target');\n");
+
+      const exported = exportedNames(target);
+      expect(exported).not.toBeNull();
+      // The parser must see what IS exported …
+      expect([...exported]).toEqual(['realThing']);
+
+      // … and the import parser must see both names asked for …
+      const [pair] = destructuredRequires(importer);
+      expect(pair.keys.sort()).toEqual(['movedAway', 'realThing']);
+
+      // … so the comparison the suite actually makes reports the dangling one.
+      // `movedAway` resolves fine at require time and binds `undefined`; it only
+      // dies at the call, which is why nothing else in this project sees it.
+      const missing = pair.keys.filter((k) => !exported.has(k));
+      expect(missing).toEqual(['movedAway']);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it('reports what it could not check, so the skips stay visible', () => {
