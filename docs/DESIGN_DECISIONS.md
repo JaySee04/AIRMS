@@ -5766,3 +5766,71 @@ loopback, so this exempts nothing in production.
 
 Expired counters are pruned on the scheduler's existing hourly tick, in its own
 try-block: housekeeping must not cost the digest its month.
+
+## 75. Dependency audit — one upgrade removed five of seven (2026-09-10)
+
+A whole-project scan for upgrades found the genuinely unexamined area:
+**`npm audit` had never been run this session, and the production tree carried a
+critical.**
+
+### 75.1 The finding, and its single root
+
+Backend: **13 vulnerabilities — 6 moderate, 6 high, 1 critical.** Five of the
+seven high/critical traced to **one** package:
+
+```
+pdfjs-dist@4.0.379
+  └── canvas@2.11.2            ← the REAL node-canvas
+      └── @mapbox/node-pre-gyp
+          └── tar@6.2.1        ← the critical
+```
+
+The irony is worth stating: `package.json` aliases `"canvas":
+"npm:@napi-rs/canvas"` precisely so AIRMS never builds node-canvas (gotcha 6) —
+but `pdfjs-dist` declared its own nested copy, so it was in the tree anyway,
+dragging a critical `tar` behind it.
+
+**`pdfjs-dist@4.10.38` has no dependencies at all** — upstream dropped both
+`canvas` and `path2d`. And it sits **inside the existing `^4.0.379` range**, so
+this is a lockfile move, not a version-range decision.
+
+Result: **13 → 8, and 6 high + 1 critical → 2 high + 0 critical.** Real
+node-canvas is gone from the tree; only the `@napi-rs` alias remains, which is
+what the design always intended.
+
+### 75.2 Verified by rendering, not by the suite passing
+
+PDF rendering is the one thing this upgrade could plausibly break, and no unit
+test covers the pdfjs path (`pdfDraw.test.js` exercises **pdfkit**, the writing
+side). So it was checked against both real HoloMotion layouts, before and after:
+
+| | before | after |
+|---|---|---|
+| thung.pdf p1 / p2 / p3 | 459650 / 527924 / 460831 bytes | **identical** |
+| nazwan.pdf (38pp, expanded) | — | pages 1, 4, 6 render; `renderForExtraction` returns 1–6 |
+
+**Byte-identical output on every page.** The `Cannot polyfill Path2D` warning is
+also gone, because pdfjs no longer attempts it — one less alarming line in the
+import log that was never actually a fault here.
+
+### 75.3 The two that remain, and why neither is being fixed
+
+- **`xlsx` (high, no fix available).** SheetJS prototype pollution and ReDoS.
+  **Both are parsing-side**, and AIRMS never parses a spreadsheet: the only use
+  is `XLSX.write` in `routes/export.js`, generating the backup from its own
+  database. The Excel *import* was retired on 2026-07-12 and archived. So the
+  advisory is real and **unreachable in this codebase** — which is the answer to
+  give if an examiner greps the audit output, rather than a shrug.
+- **`nodemailer` (high, fix is a MAJOR to 10.x).** Not taken. A major version of
+  the mail client, days from a viva, against a documented SMTP setup that
+  already has a stated deliverability caveat, is a poor trade for a
+  vulnerability in a path that sends institution-authored text to fixed
+  recipients. **JC's call**, recorded rather than silently skipped.
+
+### 75.4 The frontend is deliberately untouched
+
+3 vulnerabilities (2 high, 1 critical), all in **`postcss`**, and `npm audit`'s
+only remedy is `next@16` — a **major** framework upgrade. `MASTER_CLARIFICATIONS`
+locks the tech stack, `CLAUDE.md` forbids proposing a stack swap without
+discussion, and Next 14 → 16 days before submission would put every page at risk
+to fix a build-time CSS tool. **Not done, and not a close call.**
