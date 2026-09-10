@@ -1155,3 +1155,31 @@ test, and it is safe in the way a hand-kept list normally is not:
 **The honest limit.** This proves a scanner *can* detect something; it does not
 prove it detects the right things. A canary is a floor under vacuity, not a
 substitute for thinking about what the scanner should catch.
+
+### 4c. The debt register lasted about an hour (2026-09-10)
+
+§4b shipped with six scanners on a debt register and one worked example. That was
+deferral dressed as design — JC said so, and was right. A register that makes a
+gap *visible* is only worth having while somebody is closing it; left standing it
+becomes the exemption list this document warns about twice.
+
+All six now have controls, and each runs the scanner's **own** predicate over a
+planted offender rather than a re-implementation of it:
+
+| Scanner | What it now proves it can find |
+|---|---|
+| `crossPackage` | a planted `SCREAMING_CASE` constant in each package's dialect — and that it ignores indented and lower-case declarations |
+| `pageWiring` | a missing `audience` prop, a present one, the **brace-aware** case (`n={a > b}` must not end the tag early), and a longer component name it must not match |
+| `cssTokens` | an undefined token used without a fallback — and that a use *with* a fallback is correctly skipped, which is the distinction the whole check turns on |
+| `httpHardening` | both leaking forms of `res.status(500)…message: err.message`, and that a 4xx or a `GENERIC` message is left alone |
+| `systemMap` | a document differing by a trailing line, and by **one digit inside a count** |
+| `codebaseHygiene` | `catch(() => [])`, `catch(() => ({}))`, `catch(() => null)` — and that an empty **handler** `catch(() => {})` does not match, the distinction that made the first version fire eleven times and find nothing |
+
+Two of them needed the pattern lifted out of the scan into a named constant
+(`LEAKS_ON_500`, `TOKEN_DEFINITION` / `VAR_USE`) so the control exercises the
+same regex the scan does. Writing the pattern out twice in the canary would have
+recreated the four-copies problem the band vocabulary had.
+
+`AWAITING_CONTROL` is now empty, and the note above it says what it is for: a
+deliberate, reviewable act — not a place to put a scanner nobody felt like
+verifying.

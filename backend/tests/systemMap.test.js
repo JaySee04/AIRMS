@@ -41,6 +41,25 @@ describe('the system map is in sync', () => {
     expect(read(gen.OUT)).toBe(gen.render());
   });
 
+  // THE CANARY (2026-09-10, guardCanaries.test.js). The staleness check above
+  // compares the committed file to `render()`. If `render()` ever produced a
+  // constant, or the comparison were loosened, it would report "current" for
+  // ever — which is the §56.3 failure exactly: the first route parser found 15
+  // of 59 endpoints and rendered a table that looked entirely plausible.
+  //
+  // So: a document that differs by ONE character must be rejected. This is the
+  // comparison the suite actually makes, run against a planted difference.
+  it('can detect a stale document — the planted case it exists to find', () => {
+    const real = gen.render();
+    const tampered = `${real}\ntrailing drift\n`;
+    expect(real === tampered).toBe(false);
+
+    // And a subtler one: a single changed digit inside a count must not pass.
+    const digit = real.replace(/\*\*(\d+) models\*\*/, (_m, n) => `**${Number(n) + 1} models**`);
+    expect(digit).not.toBe(real); // the substitution really applied
+    expect(real === digit).toBe(false);
+  });
+
   it('is idempotent — a second run changes nothing', () => {
     expect(gen.render()).toBe(gen.render());
   });

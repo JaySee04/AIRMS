@@ -78,6 +78,30 @@ describe('H1 — a catch must not turn a failure into an empty success', () => {
     expect(found).toEqual([]);
   });
 
+  // THE CANARY (2026-09-10, guardCanaries.test.js). The scan above reports "no
+  // unexplained swallow-to-empty" across every source file. A floor on the
+  // corpus size proves the walk works; nothing proved the PATTERN does. If it
+  // stopped matching, this would report all-clear while another `getSettings()`
+  // turned a database error into a complete, plausible settings object and
+  // silently released a pinned norm.
+  //
+  // The distinction the pattern turns on is asserted too, because getting it
+  // wrong is what made the first version fire eleven times and find nothing.
+  it('can detect a swallow-to-empty — the planted case it exists to find', () => {
+    const pattern = /catch\s*\(\s*\(?[a-z]*\)?\s*=>\s*(\[\]|\(\{\}\)|null|0|''|"")\s*\)/g;
+    const matches = (s) => new RegExp(pattern.source).test(s);
+
+    // Values that stand in for data nobody fetched — the dangerous shape.
+    expect(matches('const rows = await q().catch(() => []);')).toBe(true);
+    expect(matches('const cfg = await q().catch((e) => ({}));')).toBe(true);
+    expect(matches('const v = await q().catch(() => null);')).toBe(true);
+
+    // An empty HANDLER is a different thing and must NOT match: best-effort
+    // cleanup on a teardown path, where a failure must not mask the outcome
+    // being reported. All three in this codebase are that.
+    expect(matches('await conn.close().catch(() => {});')).toBe(false);
+  });
+
   it('is looking at a real corpus', () => {
     // Without this, a broken walker would make the check above pass vacuously —
     // which is the same defect shape it exists to find.

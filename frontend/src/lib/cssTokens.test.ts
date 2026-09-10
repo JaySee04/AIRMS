@@ -33,10 +33,16 @@ function walk(dir: string, out: string[] = []): string[] {
 }
 
 /** Custom properties DEFINED anywhere in the stylesheet, at any selector. */
+// The two patterns this whole file rests on, named so the canary at the bottom
+// can exercise THESE rather than a copy of them. A second copy that agreed on
+// the day it was written is how the band vocabulary ended up defined four times.
+const TOKEN_DEFINITION = /(--[a-zA-Z0-9-]+)\s*:/g;
+const VAR_USE = /var\(\s*(--[a-zA-Z0-9-]+)\s*([,)])/g;
+
 function definedTokens(): Set<string> {
   const css = fs.readFileSync(CSS, 'utf8');
   const names = new Set<string>();
-  for (const m of css.matchAll(/(--[a-zA-Z0-9-]+)\s*:/g)) names.add(m[1]);
+  for (const m of css.matchAll(TOKEN_DEFINITION)) names.add(m[1]);
   return names;
 }
 
@@ -55,7 +61,7 @@ function unguardedUses(): Array<[string, string, number]> {
       // why they were removed, and a comment styles nothing.
       const t = line.trim();
       if (t.startsWith('//') || t.startsWith('*') || t.startsWith('/*')) return;
-      for (const m of line.matchAll(/var\(\s*(--[a-zA-Z0-9-]+)\s*([,)])/g)) {
+      for (const m of line.matchAll(VAR_USE)) {
         if (m[2] === ',') continue; // has a fallback
         uses.push([m[1], path.relative(SRC, file), i + 1]);
       }
@@ -71,6 +77,28 @@ describe('CSS custom properties', () => {
     // Reported with file and line, because "some token is missing" is not
     // actionable and this test exists to be actioned.
     expect(missing.map(([t, f, l]) => `${t} used at ${f}:${l}`)).toEqual([]);
+  });
+
+  // THE CANARY (2026-09-10, backend/tests/guardCanaries.test.js). The check
+  // above reports "no undefined tokens" across the whole corpus. If VAR_USE
+  // stopped matching it would report the same thing while nine hover states
+  // silently rendered with nothing — which is exactly what §E of
+  // SILENT_FAILURES records happening. So both patterns are run against planted
+  // input, including the distinction the checker turns on.
+  it('can detect an undefined token — the planted case it exists to find', () => {
+    const defs = [...':root { --real-token: #fff; }'.matchAll(TOKEN_DEFINITION)].map((m) => m[1]);
+    expect(defs).toEqual(['--real-token']);
+
+    const uses = [...'color: var(--made-up-token);'.matchAll(VAR_USE)];
+    expect(uses).toHaveLength(1);
+    expect(uses[0][1]).toBe('--made-up-token');
+    // `)` means NO fallback — the case that can invalidate the declaration.
+    expect(uses[0][2]).toBe(')');
+
+    // A use WITH a fallback is the case the scanner must skip: it cannot
+    // invalidate anything, and flagging it would fill the report with noise.
+    const guarded = [...'color: var(--made-up-token, #000);'.matchAll(VAR_USE)];
+    expect(guarded[0][2]).toBe(',');
   });
 
   it('finds a real corpus — the walker is not silently matching nothing', () => {

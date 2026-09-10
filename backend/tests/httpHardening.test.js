@@ -20,6 +20,11 @@
 const fs = require('fs');
 const path = require('path');
 const { sendError, expose, GENERIC } = require('../src/utils/httpError');
+
+// The leak pattern, lifted out of the scan below and named so the canary can
+// exercise THIS one rather than a second copy that agreed on the day it was
+// written. Held as a literal here deliberately — it is read by eye often.
+const LEAKS_ON_500 = /res\s*\.?\s*status\(\s*(500|err\.status \|\| 500)\s*\)[^\n]*message:\s*(err|e)\.message/;
 const {
   str, num, date, likeTerm, badRequest, assertPlainQuery,
 } = require('../src/utils/queryParams');
@@ -156,11 +161,31 @@ describe('wiring', () => {
     const offenders = [];
     for (const f of fs.readdirSync(dir).filter((x) => x.endsWith('.js'))) {
       const src = fs.readFileSync(path.join(dir, f), 'utf8');
-      if (/res\s*\.?\s*status\(\s*(500|err\.status \|\| 500)\s*\)[^\n]*message:\s*(err|e)\.message/.test(src)) {
-        offenders.push(f);
-      }
+      if (LEAKS_ON_500.test(src)) offenders.push(f);
     }
     expect(offenders).toEqual([]);
+  });
+
+  // THE CANARY (2026-09-10, guardCanaries.test.js). The scan above reports
+  // "no route leaks" across every router. If the pattern stopped matching it
+  // would report the same thing while `?from=not-a-date` answered with
+  // "Incorrect DATETIME value" again — the §48 defect, which was in 49 handlers.
+  // So the pattern is run against the shape it was written from.
+  it('can detect a leaking handler — the planted case it exists to find', () => {
+    expect(LEAKS_ON_500.test(
+      "    return res.status(500).json({ message: err.message });",
+    )).toBe(true);
+    expect(LEAKS_ON_500.test(
+      "    res.status(err.status || 500).json({ message: e.message });",
+    )).toBe(true);
+
+    // And it must leave the correct forms alone, or the check gets suppressed.
+    expect(LEAKS_ON_500.test(
+      "    return res.status(500).json({ message: GENERIC });",
+    )).toBe(false);
+    expect(LEAKS_ON_500.test(
+      "    return res.status(400).json({ message: err.message });",
+    )).toBe(false);
   });
 
   it('every route file that can fail uses the boundary', () => {

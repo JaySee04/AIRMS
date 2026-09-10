@@ -132,4 +132,33 @@ describe('the shared dashboard components are told who is reading', () => {
     // role is reading about somebody else.
     expect(wrong).toEqual([]);
   });
+
+  // THE CANARY (2026-09-10, backend/tests/guardCanaries.test.js). Both checks
+  // above report "nothing wrong" over a corpus of page sources. If `openingTags`
+  // stopped matching — a JSX shape it cannot parse, a renamed component — they
+  // would report exactly the same thing while an athlete page addressed the
+  // clinician as the at-risk athlete again. So the extractor is run against
+  // planted markup covering the three shapes that actually occur.
+  it('can detect the wiring cases it exists to find', () => {
+    // A missing prop: the ORIGINAL bug, because `audience` defaults to 'staff'.
+    const missingProp = openingTags('<OverallRiskBadge screening={s} />', 'OverallRiskBadge');
+    expect(missingProp).toHaveLength(1);
+    expect(/\baudience=/.test(missingProp[0])).toBe(false);
+
+    // A present prop, read back correctly.
+    const present = openingTags('<OverallRiskBadge audience="self" />', 'OverallRiskBadge');
+    expect(present[0]).toMatch(/audience="self"/);
+
+    // The brace-aware case this parser was written for: a prop containing `>`
+    // inside an expression must not end the tag early, or the audience that
+    // follows it becomes invisible and the tag reads as missing one.
+    const braced = openingTags(
+      '<OverallRiskBadge historical={!!picked} n={a > b} audience="staff" />',
+      'OverallRiskBadge',
+    );
+    expect(braced[0]).toMatch(/audience="staff"/);
+
+    // And it must not match a longer component name that merely starts the same.
+    expect(openingTags('<OverallRiskBadgeCompact audience="self" />', 'OverallRiskBadge')).toEqual([]);
+  });
 });

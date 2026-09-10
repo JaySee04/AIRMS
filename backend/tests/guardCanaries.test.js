@@ -90,14 +90,14 @@ describe('every corpus scanner can be shown finding something', () => {
   // day it is written. Removing an entry requires adding a real control, and
   // the test below refuses an entry that has become untrue — so the list cannot
   // quietly outlive its reason, which is how the 3o endpoint count rotted.
-  const AWAITING_CONTROL = [
-    'backend/tests/codebaseHygiene.test.js',
-    'backend/tests/crossPackage.test.js',
-    'backend/tests/httpHardening.test.js',
-    'backend/tests/systemMap.test.js',
-    'frontend/src/app/pageWiring.test.ts',
-    'frontend/src/lib/cssTokens.test.ts',
-  ];
+  // EMPTY as of 2026-09-10. It was six entries for about an hour, which is the
+  // right lifetime for a debt register: it existed to make the gap visible, not
+  // to make it comfortable. Every corpus scanner in the project now has a
+  // control that runs its real predicate over a planted offender.
+  //
+  // Adding an entry here is a deliberate, reviewable act. It is not a place to
+  // put a scanner you did not feel like verifying.
+  const AWAITING_CONTROL = [];
 
   it('the debt register is still accurate', () => {
     const byRel = new Map(scanners.map((s) => [rel(s.f), s.src]));

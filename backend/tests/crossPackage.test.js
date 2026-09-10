@@ -184,6 +184,24 @@ describe('the list of shared facts is complete', () => {
     expect(unaccounted).toEqual([]);
   });
 
+  // THE CANARY (2026-09-10, guardCanaries.test.js). This suite reports "nothing
+  // unaccounted for" over a corpus of both packages; if `declared()` ever
+  // stopped matching, it would report exactly the same thing while every shared
+  // fact drifted unnoticed. That is SILENT_FAILURES 3l. So the extractor is run
+  // against a planted constant in each package's dialect.
+  it('can detect a constant — the planted case it exists to find', () => {
+    const be = declared('const PLANTED_BE_NAME = 1;\n', '(?:module\\.exports\\s*=\\s*)?');
+    expect([...be]).toContain('PLANTED_BE_NAME');
+
+    const fe = declared('export const PLANTED_FE_NAME = 1;\n', 'export ');
+    expect([...fe]).toContain('PLANTED_FE_NAME');
+
+    // And it must NOT match things that are not top-level SCREAMING constants,
+    // or the "unaccounted" list would fill with noise and get suppressed.
+    expect([...declared('  const INDENTED_NOT_TOP_LEVEL = 1;\n', '')]).toEqual([]);
+    expect([...declared('const lowerCase = 1;\n', '')]).toEqual([]);
+  });
+
   it('finds a real corpus — the walker is not silently matching nothing', () => {
     // Without this, a broken walk() would make the check above pass vacuously,
     // which is the failure mode this whole file exists to prevent.
