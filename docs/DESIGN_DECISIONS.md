@@ -5912,3 +5912,69 @@ parse-side and AIRMS only ever calls `XLSX.write` on its own database rows
 (§75.3), so the gain is a clean audit rather than closed exposure — worth having
 before an examiner runs `npm audit`, not worth churning a working export days
 before a viva. **JC's call.**
+
+## 77. The xlsx decision, argued three ways (2026-09-10)
+
+§76.3 left this as JC's call with a recommendation. Asked to settle it, the
+recommendation turned out to be **wrong**, and the evidence that overturned it
+came from a question asked two messages earlier about Vercel storage.
+
+### 77.1 Option A — swap to `exceljs`. REJECTED on measurement.
+
+The plan in §76.3. Four call sites, contained to one file. Then the numbers:
+
+| | unpacked | direct deps |
+|---|---|---|
+| `xlsx` | **7.5 MB** | bundled |
+| `exceljs` | **21.8 MB** | **9** |
+
+Those nine include `saxes@^5`, `archiver@^5` and `unzipper@^0.10` — all pinned to
+majors behind current (6.x, 8.x, 0.12.x) — and `uuid@^8.3.0`, *the same uuid
+already flagged moderate through Sequelize*. Swapping would import a fresh
+advisory surface to close one.
+
+And the decisive part: the Vercel free tier is at **75% of its 10 GB Function
+Storage**, with roughly 44 deploys a week. Adding **+14 MB to every backend
+deployment** to fix an advisory that cannot be reached would make a live problem
+worse in exchange for a cosmetic one. Rejected.
+
+### 77.2 Option B — SheetJS's own 0.20.3. TAKEN.
+
+npm reports `xlsx` as `range: *, fixAvailable: false`, which reads as "nothing
+can be done". That is an artefact of SheetJS having left npm at 0.18.5. The
+**individual advisories have real boundaries**:
+
+- Prototype Pollution — vulnerable `<0.19.3`
+- ReDoS — vulnerable `<0.20.2`
+
+So **0.20.3 is outside both**, and the vendor publishes it on their own CDN.
+Installed from there, with **zero code change** — the four calls AIRMS makes
+(`book_new`, `json_to_sheet`, `book_append_sheet`, `write`) are unchanged.
+
+Verified rather than assumed, because a backup that writes without error and
+does not open is precisely the §F failure: the real workbook was generated from
+the live database **and read back** — 2 sheets, **62 athlete rows and 336 muscle
+flags**, matching `measure:facts` exactly.
+
+**Production audit: 4 moderate, 0 high, 0 critical.** From 13 (6 high, 1 critical)
+at the start of this pass.
+
+### 77.3 The cost, accepted with eyes open
+
+This adds a **build-time dependency on a non-npm host**. It is documented in
+`DEPLOY.md` as the fifth way a build can fail, with the one-line rollback.
+
+Two things make it acceptable where the CDN risk would otherwise have decided it:
+
+1. It fails **loudly and at build time**, with npm naming the URL — unlike the
+   four faults in `DEPLOY.md`, which all present as one opaque runtime error.
+2. `package-lock.json` pins the **integrity hash**, so the bytes are verified
+   even though the registry is not npm's. A substituted tarball fails to install
+   rather than shipping.
+
+### 77.4 Option C — leave it. Rejected, but it was close.
+
+The advisories are parse-side and unreachable here, so the security gain is
+genuinely near zero; the gain is an examiner running `npm audit` and seeing no
+high. That was not worth a 14 MB dependency swap (A), but it *is* worth a pinned
+tarball that changes no code and no behaviour (B).

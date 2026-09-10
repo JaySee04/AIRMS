@@ -426,3 +426,36 @@ and `AuditLog` is append-only with no delete path anywhere. A hosted e2e run
 therefore leaves a permanent handful of view rows under the demo staff accounts.
 That is the accountability feature working, not a side effect to suppress, but
 know it before running one the day a stakeholder is due to read the Activity Log.
+
+## A fifth thing that can fail a build: the SheetJS tarball (2026-09-10)
+
+`backend/package.json` installs `xlsx` from **SheetJS's own CDN**, not from npm:
+
+```json
+"xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
+```
+
+**Why**, in one line: SheetJS stopped publishing to npm at 0.18.5, which carries
+a prototype-pollution and a ReDoS advisory; their 0.20.x fixes both and exists
+only on that CDN. See `DESIGN_DECISIONS.md §77`.
+
+**What it means for a deploy.** `npm install` on Vercel now fetches one file from
+`cdn.sheetjs.com`. If that host is unreachable, **the build fails** — with a
+plain npm fetch error naming the URL, not with the opaque
+`FUNCTION_INVOCATION_FAILED` the four faults above produce. That is the reason it
+was judged acceptable: it fails loudly, at build time, with the cause in the
+message.
+
+`package-lock.json` pins the **integrity hash**, so the bytes are verified even
+though the source is not npm. A tampered or substituted tarball fails the install
+rather than shipping.
+
+**If a build ever fails on this**, the one-line rollback is:
+
+```
+cd backend; npm install xlsx@0.18.5
+```
+
+That restores the npm version and the two advisories with it — acceptable for an
+emergency deploy, because AIRMS only ever calls `XLSX.write` on its own database
+rows and never parses a spreadsheet (the Excel *import* was retired 2026-07-12).

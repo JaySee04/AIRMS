@@ -35,7 +35,7 @@
     "pdfkit": "^0.18.0",
     "sequelize": "^6.37.8",
     "tesseract.js": "^5.1.1",
-    "xlsx": "^0.18.5"
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
     "fs.realpath": "^1.0.0",
