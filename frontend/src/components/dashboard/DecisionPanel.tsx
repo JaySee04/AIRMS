@@ -20,6 +20,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, isAuthError } from '@/lib/api';
 import { BAND_LABEL } from '@/lib/bands';
+import CompareAthletes from './CompareAthletes';
 
 export interface WorklistEntry {
   athleteId: string;
@@ -194,6 +195,8 @@ export default function DecisionPanel({
           review is of one assessment, not of a person.
         </p>
       )}
+
+      {open.length >= 2 && <CompareAthletes entries={open} />}
 
       {data.changes.length > 0 && (
         <div className="decision-changes">
