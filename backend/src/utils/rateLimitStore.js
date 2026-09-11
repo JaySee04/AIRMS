@@ -23,6 +23,7 @@
 // reversed to an address, nor matched against a list of candidate addresses by
 // anyone without the secret.
 const crypto = require('crypto');
+const { ipKeyGenerator } = require('express-rate-limit');
 const { Setting } = require('../models');
 const logger = require('./logger');
 
@@ -131,4 +132,49 @@ async function pruneRateLimits(now = Date.now()) {
   }
 }
 
-module.exports = { SettingsRateLimitStore, pruneRateLimits, keyFor, PREFIX };
+/**
+ * The throttle key, defined ONCE and shared by the limiter and the reset.
+ *
+ * Two definitions is how a reset ends up clearing a counter nobody reads — it
+ * would forgive nothing, silently, while the sign-in it was meant to reward
+ * still counted against the caller. It lives here rather than in server.js
+ * because routes/auth.js needs it too, and requiring server.js from a route
+ * would close a cycle.
+ *
+ * `ipKeyGenerator` is the library's own helper: it normalises IPv6 to a subnet,
+ * so a caller holding a /64 cannot buy 30 fresh attempts per address.
+ */
+const authThrottleKey = (req) => ipKeyGenerator(req.ip);
+
+/**
+ * Clear the throttle counter for one key, AWAITED by the caller.
+ *
+ * This is how a successful sign-in forgives the failures before it, and it
+ * exists because the obvious mechanism does not survive serverless.
+ *
+ * `skipSuccessfulRequests` works by decrementing from a `res.on('finish')`
+ * handler — that is, AFTER the response has been flushed. On a long-lived
+ * process the write completes; on Vercel the instance is frozen once the
+ * response is out, so the decrement is issued and never lands. Measured against
+ * the hosted API on 2026-09-11: five consecutive SUCCESSFUL logins took
+ * `remaining` 28 → 27 → 26 → 25 → 24 and it never recovered. The documented
+ * policy said "30 failures / 15 min"; the deployed behaviour was "30 requests",
+ * and a clinic behind one NAT address would have locked itself out.
+ *
+ * Doing the work inside the request instead — awaited, before the response —
+ * depends on nothing the platform may decline to run.
+ */
+async function clearRateLimit(key) {
+  try {
+    await Setting.destroy({ where: { key: keyFor(key) } });
+  } catch (e) {
+    // Fails open like every other path here: a settings-table hiccup must not
+    // become "nobody at ISN can sign in". The cost of failing is that earlier
+    // failures are not forgiven yet, which is the safe direction.
+    logger.error('ratelimit.store_unavailable', { op: 'clearRateLimit', err: e.message });
+  }
+}
+
+module.exports = {
+  SettingsRateLimitStore, pruneRateLimits, keyFor, clearRateLimit, authThrottleKey, PREFIX,
+};

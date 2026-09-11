@@ -112,9 +112,10 @@ cd frontend; npm run e2e   # END-TO-END smoke: a real Chrome against the running
                            # with the installed Chrome, so nothing is downloaded.
                            # See docs/SILENT_FAILURES.md 3f.
                            #
-                           # AGAINST THE HOSTED INSTANCE (verified 2026-09-06, 63/63 —
-                           # that was the whole suite AT THAT DATE; it is 93 locally now,
-                           # and the hosted run has not been repeated since):
+                           # AGAINST THE HOSTED INSTANCE (re-verified 2026-09-11, 110/110 —
+                           # the WHOLE suite, matching the local run exactly. The previous
+                           # figure here was 63/63 on 2026-09-06, which was the whole suite
+                           # at THAT date; it is quoted as a count, so it dates itself):
                            #   E2E_WEB=https://airms-web.vercel.app `
                            #   E2E_API=https://airms-api.vercel.app/api `
                            #   E2E_SETTLE=5000 npm run e2e

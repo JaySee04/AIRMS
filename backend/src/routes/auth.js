@@ -8,6 +8,7 @@ const { sendMail, buildResetEmail } = require('../utils/mailer');
 const { validatePassword } = require('../utils/passwordPolicy');
 const { prefsForUser, sanitizePrefs } = require('../utils/mailPrefs');
 const { sendError } = require('../utils/httpError');
+const { clearRateLimit, authThrottleKey } = require('../utils/rateLimitStore');
 
 const router = express.Router();
 
@@ -58,6 +59,21 @@ router.post('/login', async (req, res) => {
 
     user.lastLoginAt = new Date();
     await user.save();
+
+    // A successful sign-in forgives the failed attempts before it.
+    //
+    // This is the auth throttle's "skipSuccessfulRequests" half, moved INSIDE
+    // the request. The library does it from a `res.on('finish')` handler, which
+    // never completes on a serverless host — measured on the hosted API, five
+    // successful logins took `remaining` 28 → 27 → 26 → 25 → 24 and it never
+    // recovered, so the deployed limiter counted every REQUEST while the header
+    // and the docs both said "failures". A clinic behind one NAT address would
+    // have locked itself out with correct passwords.
+    //
+    // Awaited on purpose: the whole point is that it does not depend on the
+    // platform running anything after the response goes out. It fails open, so
+    // a settings-table hiccup costs forgiveness rather than access.
+    await clearRateLimit(authThrottleKey(req));
 
     const token = signToken(user.id);
     res.json({

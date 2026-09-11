@@ -32,6 +32,12 @@ jest.mock('../src/models', () => ({
       return [{ update: async ({ value }) => mockRows.set(where.key, value) }, true];
     }),
     destroy: jest.fn(async ({ where }) => {
+      // Honours the write-fail mode like findOrCreate does. Without this the
+      // "fails OPEN" test for clearRateLimit passed VACUOUSLY — destroy never
+      // threw, so the resolves-without-throwing assertion was true whether or
+      // not the code caught anything. Confirmed by making clearRateLimit
+      // rethrow and watching the test still pass.
+      if (mockFailMode === 'write') throw new Error('settings table unreachable');
       const keys = Array.isArray(where.key) ? where.key : [where.key];
       keys.forEach((k) => mockRows.delete(k));
     }),
@@ -39,7 +45,9 @@ jest.mock('../src/models', () => ({
   },
 }));
 
-const { SettingsRateLimitStore, pruneRateLimits, keyFor, PREFIX } = require('../src/utils/rateLimitStore');
+const {
+  SettingsRateLimitStore, pruneRateLimits, keyFor, clearRateLimit, authThrottleKey, PREFIX,
+} = require('../src/utils/rateLimitStore');
 
 beforeEach(() => { mockRows.clear(); mockFailMode = null; });
 
@@ -181,5 +189,78 @@ describe('housekeeping', () => {
   it('treats a malformed row as prunable rather than crashing', async () => {
     mockRows.set(`${PREFIX}garbage`, 'not-an-object');
     await expect(pruneRateLimits()).resolves.toBe(1);
+  });
+});
+
+// A SUCCESSFUL SIGN-IN FORGIVES THE FAILURES BEFORE IT.
+//
+// This replaced express-rate-limit's `skipSuccessfulRequests` on 2026-09-11,
+// and the reason is the whole point of these tests. That option decrements from
+// a `res.on('finish')` handler — after the response is flushed — which never
+// completes on a serverless host. Measured against the deployed API: five
+// consecutive SUCCESSFUL logins took `remaining` 28 → 27 → 26 → 25 → 24 and it
+// never recovered. The limiter was counting every REQUEST while its own
+// RateLimit header, this file's header comment and the docs all said
+// "30 failures". A clinic behind one NAT address would have locked itself out
+// while typing the correct password, and nothing would have said why.
+//
+// Every suite here passed throughout, because the store was never the broken
+// part — the thing that was wrong lived in WHEN the un-counting ran. So these
+// assert the forgiveness as an awaited, in-request act.
+describe('forgiving a successful sign-in', () => {
+  it('clears the counter for that key', async () => {
+    const store = new SettingsRateLimitStore();
+    store.init({ windowMs: 60_000 });
+    for (let i = 0; i < 5; i += 1) await store.increment('203.0.113.9');
+    expect((await store.increment('203.0.113.9')).totalHits).toBe(6);
+
+    await clearRateLimit('203.0.113.9');
+
+    // Back to a fresh window, not merely one lower.
+    expect((await store.increment('203.0.113.9')).totalHits).toBe(1);
+  });
+
+  it('forgives ONLY that caller', async () => {
+    // The counter is per key. Clearing one must not hand an attacker on another
+    // address a fresh 30 because somebody legitimate signed in.
+    const store = new SettingsRateLimitStore();
+    store.init({ windowMs: 60_000 });
+    await store.increment('203.0.113.9');
+    await store.increment('198.51.100.4');
+    await store.increment('198.51.100.4');
+
+    await clearRateLimit('203.0.113.9');
+
+    expect((await store.increment('198.51.100.4')).totalHits).toBe(3);
+  });
+
+  it('fails OPEN when the settings table is unreachable', async () => {
+    // The safe direction: the cost of failing is that earlier failures are not
+    // forgiven yet. Throwing here would turn a database hiccup into a failed
+    // login on a correct password.
+    mockFailMode = 'write';
+    await expect(clearRateLimit('203.0.113.9')).resolves.toBeUndefined();
+  });
+
+  it('resets the SAME key the limiter counts on', async () => {
+    // Two definitions of the key is how a reset clears a counter nobody reads:
+    // it would forgive nothing, silently, and every test above would still
+    // pass. So the reset is driven through the shared key function here, the
+    // way routes/auth.js drives it.
+    const store = new SettingsRateLimitStore();
+    store.init({ windowMs: 60_000 });
+    const req = { ip: '203.0.113.9' };
+
+    await store.increment(authThrottleKey(req));
+    await store.increment(authThrottleKey(req));
+    await clearRateLimit(authThrottleKey(req));
+
+    expect((await store.increment(authThrottleKey(req))).totalHits).toBe(1);
+  });
+
+  it('normalises an IPv6 caller to a subnet, so a /64 is not 30 attempts per address', async () => {
+    const a = authThrottleKey({ ip: '2001:db8:1234:5678:1:2:3:4' });
+    const b = authThrottleKey({ ip: '2001:db8:1234:5678:9:a:b:c' });
+    expect(a).toBe(b);
   });
 });
