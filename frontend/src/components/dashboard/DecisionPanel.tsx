@@ -17,10 +17,66 @@
 // rather than on faith — and "reviewed" means "I have looked at this", never "I
 // have cleared this athlete", which is the band override and is audited.
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, isAuthError } from '@/lib/api';
+import { getSession } from '@/lib/auth';
 import { BAND_LABEL } from '@/lib/bands';
 import CompareAthletes from './CompareAthletes';
+
+// "Since you last looked" — remembered HERE, in the reader's browser.
+//
+// The obvious place for this marker is a per-user row on the server, and that
+// is what the first design assumed. It cannot be: storing it is a WRITE, and
+// `coach` is read-only by a locked decision (MASTER_CLARIFICATIONS §12). The
+// watchlist hit exactly that wall, `npm run audit:access` failed with "a
+// read-only role completed a write", and the lock was kept in preference to the
+// feature. A server-side marker would therefore have worked for medical and
+// admin and been silently absent for coach — giving the role that most needs a
+// squad summary the worst version of it.
+//
+// So the caller remembers instead and the server only filters. No write
+// anywhere, and every role gets the same feature.
+//
+// The honest cost, stated in the manual (§22.4): it is per-DEVICE, and clearing
+// browser storage forgets it. That failure direction is deliberate — a
+// forgotten marker falls back to the rolling window and shows MORE than
+// necessary, where the opposite would hide a change nobody ever saw.
+const SEEN_KEY_PREFIX = 'airms_decisions_seen:';
+
+/**
+ * Per-user, because a shared clinic machine is the normal case at ISN and one
+ * reader's "seen" must not silence another's changes.
+ *
+ * `user.id` and not `_id`: the auth routes return `id` on the session object
+ * (unlike the serialiser's `_id` alias used for records), and a key built from
+ * `undefined` would collide across every account on the machine.
+ */
+function seenKey(): string | null {
+  const id = getSession()?.user?.id;
+  return id ? `${SEEN_KEY_PREFIX}${id}` : null;
+}
+
+function readSeen(): string | undefined {
+  try {
+    const key = seenKey();
+    if (!key) return undefined;
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return undefined;
+    // A corrupt store must not be able to empty a clinical panel, so anything
+    // unparseable is dropped here and the server falls back to the window.
+    return Number.isFinite(new Date(raw).getTime()) ? raw : undefined;
+  } catch {
+    // Private mode, disabled storage, quota — all mean "no marker", not an error.
+    return undefined;
+  }
+}
+
+function writeSeen(at: string): void {
+  try {
+    const key = seenKey();
+    if (key) window.localStorage.setItem(key, at);
+  } catch { /* see readSeen */ }
+}
 
 export interface WorklistEntry {
   athleteId: string;
@@ -48,6 +104,9 @@ interface BandChange {
 interface DecisionPayload {
   scope: string | null;
   windowDays: number;
+  /** What the change list covers — reported by the server, not inferred here. */
+  changesBasis: 'since' | 'clamped' | 'window';
+  changesFrom: string;
   canMarkReviewed: boolean;
   headline: { verb: string; count: number; parts: string[] } | null;
   worklist: WorklistEntry[];
@@ -80,9 +139,27 @@ export default function DecisionPanel({
   const [busy, setBusy] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
 
+  // The marker is read ONCE per mount and held here, so that a reload triggered
+  // by ticking an athlete off still asks the same question. Re-reading it each
+  // time would be harmless today and a trap later: the moment anything advances
+  // the marker, every subsequent reload would return an empty change list and
+  // the panel would look correct while showing nothing.
+  const sinceRef = useRef<string | undefined>(undefined);
+  // Whether the reader has pressed "mark as read" DURING THIS VIEW — not
+  // whether a marker exists in storage.
+  //
+  // Wiring it to the stored marker was the first version and it was wrong in a
+  // way only a real browser showed: a returning reader arrives with a marker
+  // already set, so the button greeted them reading "Marked as read" over a
+  // list of changes they had not yet read. The control has to describe THEIR
+  // action, not the presence of state.
+  const [justMarked, setJustMarked] = useState(false);
+
   const load = useCallback(async () => {
     try {
-      setData(await api.get<DecisionPayload>('/decisions'));
+      const since = sinceRef.current;
+      const qs = since ? `?since=${encodeURIComponent(since)}` : '';
+      setData(await api.get<DecisionPayload>(`/decisions${qs}`));
       setError(null);
     } catch (e) {
       // A refusal and an outage need opposite handling, and a bare Error
@@ -94,7 +171,28 @@ export default function DecisionPanel({
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    sinceRef.current = readSeen();
+    load();
+  }, [load]);
+
+  /**
+   * Advance the marker — on an explicit click, never automatically.
+   *
+   * Advancing on render would be the tidier code and the wrong behaviour: a
+   * reader who opens the dashboard, is interrupted, and comes back tomorrow
+   * would have "seen" a worsening they never read, and it would never be shown
+   * again. Requiring the click means the list can only grow stale in the
+   * direction that shows too much.
+   *
+   * The current list stays on screen after the click — it clears on the NEXT
+   * visit — because emptying the panel under the reader's cursor destroys the
+   * thing they just asked to keep a record of having read.
+   */
+  function markChangesSeen() {
+    writeSeen(new Date().toISOString());
+    setJustMarked(true);
+  }
 
   async function toggleReviewed(entry: WorklistEntry) {
     if (!data?.canMarkReviewed) return;
@@ -200,7 +298,26 @@ export default function DecisionPanel({
 
       {data.changes.length > 0 && (
         <div className="decision-changes">
-          <h3 className="quick-heading">Moved in the last {data.windowDays} days</h3>
+          <h3 className="quick-heading">
+            {/* Named from what the SERVER did, not from whether we sent a
+                marker — the two can differ, and the difference is exactly what
+                a clinician would be misled about. */}
+            {data.changesBasis === 'since' ? 'Moved since you last looked'
+              : data.changesBasis === 'clamped' ? 'Moved in the last 90 days'
+                : `Moved in the last ${data.windowDays} days`}
+          </h3>
+          {data.changesBasis === 'clamped' && (
+            <p className="card-sub" style={{ marginTop: 0 }}>
+              It has been a while — this is capped at 90 days, so there may be
+              older changes not listed here.
+            </p>
+          )}
+          {data.changesBasis === 'window' && (
+            <p className="card-sub" style={{ marginTop: 0 }}>
+              A fixed window, not &ldquo;since you last looked&rdquo; — this browser has no
+              record of your last visit.
+            </p>
+          )}
           <ul className="decision-reasons">
             {data.changes.slice(0, 6).map((c) => (
               <li key={`${c.athleteId}-${c.at}`}>
@@ -211,6 +328,23 @@ export default function DecisionPanel({
               </li>
             ))}
           </ul>
+          <div className="decision-actions">
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              onClick={markChangesSeen}
+              // The distinction is the whole point of the control, so it is
+              // said rather than implied.
+              title="Remembers, in this browser, that you have read these. It records nothing about the athletes and is not a clinical decision."
+            >
+              {justMarked ? 'Marked as read' : 'Mark these as read'}
+            </button>
+            <span className="card-sub">
+              {justMarked
+                ? 'Next visit on this browser starts from here.'
+                : 'Kept in this browser only — nothing is written to an athlete’s record.'}
+            </span>
+          </div>
         </div>
       )}
     </div>

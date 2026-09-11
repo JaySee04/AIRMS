@@ -6,7 +6,7 @@
 // decision rather than an implementation detail.
 
 const {
-  rankRoster, changesSince, headline, PRIORITY,
+  rankRoster, changesSince, resolveCutoff, headline, PRIORITY, MAX_LOOKBACK_MS,
 } = require('../src/utils/decisionSupport');
 
 const daysAgo = (n) => new Date(Date.now() - n * 24 * 60 * 60 * 1000).toISOString();
@@ -180,5 +180,81 @@ describe('what changed', () => {
   it('survives an empty or missing input', () => {
     expect(changesSince([])).toEqual([]);
     expect(changesSince(null)).toEqual([]);
+  });
+});
+
+// "Since you last looked", with the marker held by the CALLER.
+//
+// It is the caller's because storing it server-side is a write and `coach` is
+// read-only by a locked decision — so these tests pin the properties that make
+// accepting a client-supplied timestamp safe, and the failure directions that
+// keep a bad one from hiding a clinical change.
+describe('the caller-held "since" marker', () => {
+  const NOW = Date.parse('2026-09-11T00:00:00.000Z');
+  const ago = (days) => new Date(NOW - days * 24 * 60 * 60 * 1000).toISOString();
+
+  it('honours the caller\'s marker over the window', () => {
+    const { cutoff, basis } = resolveCutoff({ windowDays: 7, since: ago(30), now: NOW });
+    expect(basis).toBe('since');
+    expect(cutoff).toBe(Date.parse(ago(30)));
+  });
+
+  it('reaches further back than the window when asked to', () => {
+    // The point of the feature: a reader away for a fortnight still sees the
+    // fortnight, where the 7-day window would have silently dropped half of it.
+    const pairs = [
+      { athleteId: 'a', name: 'Recent', previous: { assessedAt: ago(99), overallBand: 'green' }, latest: { assessedAt: ago(2), overallBand: 'red' } },
+      { athleteId: 'b', name: 'Older', previous: { assessedAt: ago(99), overallBand: 'green' }, latest: { assessedAt: ago(14), overallBand: 'red' } },
+    ];
+    expect(changesSince(pairs, { windowDays: 7, now: NOW }).map((c) => c.name)).toEqual(['Recent']);
+    expect(changesSince(pairs, { windowDays: 7, since: ago(30), now: NOW }).map((c) => c.name))
+      .toEqual(['Recent', 'Older']);
+  });
+
+  it('CLAMPS a stale marker to the 90-day floor rather than reading everything', () => {
+    // A browser store that has sat untouched for two years must not turn one
+    // request into a full-history scan.
+    const { cutoff, basis } = resolveCutoff({ since: ago(900), now: NOW });
+    expect(basis).toBe('clamped');
+    expect(cutoff).toBe(NOW - MAX_LOOKBACK_MS);
+  });
+
+  it('falls back to the window on a garbage marker instead of throwing or emptying', () => {
+    // The failure direction matters: a corrupt store must show MORE than
+    // needed, never less. An exception would take the panel down; treating the
+    // value as "now" would blank a clinical list and look correct doing it.
+    for (const bad of ['not a date', '', '   ', null, undefined, 'NaN']) {
+      const { basis, cutoff } = resolveCutoff({ windowDays: 7, since: bad, now: NOW });
+      expect(basis).toBe('window');
+      expect(cutoff).toBe(NOW - 7 * 24 * 60 * 60 * 1000);
+    }
+  });
+
+  it('does not let a FUTURE marker hide a change', () => {
+    // A machine with a wrong clock sends tomorrow's timestamp. That must not
+    // silence today's worsening — which is what a naive `>= since` would do.
+    const pairs = [{
+      athleteId: 'a', name: 'Worsened',
+      previous: { assessedAt: ago(99), overallBand: 'green' },
+      latest: { assessedAt: ago(1), overallBand: 'red' },
+    }];
+    const out = changesSince(pairs, { windowDays: 7, since: ago(-5), now: NOW });
+    expect(out.map((c) => c.name)).toEqual(['Worsened']);
+    // ...and the panel is told the window was used, so it cannot print "moved
+    // since you last looked" over a list the marker never touched.
+    expect(resolveCutoff({ windowDays: 7, since: ago(-5), now: NOW }).basis).toBe('window');
+  });
+
+  it('treats the marker as inclusive of its own instant', () => {
+    // Off-by-one at the boundary is invisible and directional: excluding the
+    // instant would drop a screening committed in the same second the reader
+    // pressed "mark as read".
+    const at = ago(3);
+    const out = changesSince([{
+      athleteId: 'a', name: 'Exactly then',
+      previous: { assessedAt: ago(99), overallBand: 'green' },
+      latest: { assessedAt: at, overallBand: 'red' },
+    }], { since: at, now: NOW });
+    expect(out.map((c) => c.name)).toEqual(['Exactly then']);
   });
 });

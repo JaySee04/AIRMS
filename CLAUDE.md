@@ -47,12 +47,12 @@ cd backend; npm run coverage         # 79.6% statements / 67.8% branches. Route 
                                      # gap (screeningReports 7%, audit 19%); tests/reportRoutes.test.js
                                      # took them to 44% / 42% by driving the real routers with
                                      # supertest. The remaining blind spot is the FRONTEND: it has
-                                     # e2e (110 checks) and three jsdom component suites, but nothing
+                                     # e2e (110 checks) and four jsdom component suites, but nothing
                                      # that mounts a page.tsx. Coverage needed a missing
                                      # transitive dep (fs.realpath) before it would run at all.
 cd backend; npm run mutate           # BREAK each registered guard on purpose and prove its
                                      # test fails. A surviving mutation exits non-zero: the
-                                     # test is not testing what it claims. 8 guards across
+                                     # test is not testing what it claims. 18 guards across
                                      # both packages. NOT part of `npx jest` — it spawns a
                                      # jest run per mutation (tens of seconds). Run it before
                                      # committing a change to a guard, and add an entry when
@@ -136,7 +136,9 @@ cd frontend; npm run e2e   # END-TO-END smoke: a real Chrome against the running
 cd frontend; npm run build
 
 # Unit tests (jest, in both packages — no linter configured for the backend)
-cd backend; npx jest      # 44 suites / 653 tests: cohorts, overallIndicator, permissions, rbac, pdfDraw,
+cd backend; npx jest      # 45 suites / 678 tests: cohorts, overallIndicator, permissions, rbac, pdfDraw,
+                          # decisionSupport (the worklist ranking AND the caller-held
+                          # "since you last looked" marker - DD 79),
                           # screeningPeriods, cohortFocus, visionUsage, alerts, scheduler,
                           # bands, mailPrefs, holisticReport, programmeActivity, subitemAggregate,
                           # reliability, rescreenReminder, riskIndicators, recall,
@@ -156,7 +158,7 @@ cd backend; npx jest      # 44 suites / 653 tests: cohorts, overallIndicator, pe
                           # other suite. Static: it reads both files as text and never
                           # require()s the target, because several modules build a Sequelize
                           # instance at import time)
-cd frontend; npx jest     # 19 suites / 328 tests (the run is pinned to UTC by
+cd frontend; npx jest     # 20 suites / 337 tests (the run is pinned to UTC by
                           # jest.globalSetup.js - this machine sits IN the institution
                           # zone, which made the date tests pass for the wrong reason
                           # until mutation testing said so; see DD 62): lib/risk.ts, lib/screeningUploadStore.ts, bodymap-data/muscles.ts,
@@ -188,7 +190,22 @@ cd frontend; npx jest     # 19 suites / 328 tests (the run is pinned to UTC by
                           # direction where the words still scan as English. `compact` is
                           # exempt: it renders no prose. Brace-aware tag scan, because
                           # `historical={!!picked}` breaks a naive scan to the next '>'.
-                          # All 4 mutations caught, including the OMITTED-prop case)
+                          # All 4 mutations caught, including the OMITTED-prop case),
+                          # components/dashboard/DecisionPanel (jsdom, added 2026-09-11:
+                          # what the "what moved" list CLAIMS to cover. The heading has
+                          # three forms and the server says which applies (`changesBasis`);
+                          # printing "since you last looked" over a 7-day window converts
+                          # "I have not shown you five weeks" into "there was nothing to
+                          # show". A jsdom suite and NOT an e2e check for a measured
+                          # reason: on seeded data nothing has moved inside the default
+                          # window - 0 changes at 7 days, 36 at 90 - so e2e never renders
+                          # the section and reports green past it. Also pins that the
+                          # marker is keyed per USER (a shared clinic terminal would hand
+                          # one reader's "seen" to the next) and that "Marked as read"
+                          # reflects the CLICK rather than the presence of stored state -
+                          # that last one was found in a real browser, not here, and the
+                          # test was written afterwards. All 3 mutations caught. See
+                          # DESIGN_DECISIONS 79)
 ```
 
 Jest covers the pure logic: scoring/permissions (`backend/tests/`), the PDF
@@ -237,8 +254,12 @@ counting paint ops is a trap — the dead-band *zone* is itself a fill, so fill
 counts coincide between opposite renderings; assert on the fill **colour**.
 
 **Frontend coverage, stated accurately (2026-09-05).** There are end-to-end
-tests (`cd frontend; npm run e2e`, 110 checks) and now three jsdom component suites
-— `DashboardLayout` (the access gate) and `OverallRiskBadge` (the hero). What
+tests (`cd frontend; npm run e2e`, 110 checks) and now FOUR jsdom component suites
+— `DashboardLayout` (the access gate), `OverallRiskBadge` (the hero),
+`ScreeningPanel` (§70.4's field resolution) and `DecisionPanel` (what the change
+list CLAIMS to cover — DD 79.4, and it is a jsdom test rather than an e2e check
+for a stated reason: on seeded data the section never renders, so e2e walks past
+it and reports green). What
 there is still **none** of is a test that mounts a `page.tsx`: every suite either
 renders one component with a hand-built payload, reads page SOURCE, or drives the
 whole app through a real browser, with nothing in between.

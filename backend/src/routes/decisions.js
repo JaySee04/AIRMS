@@ -16,11 +16,13 @@ const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
 const requirePermission = require('../middleware/permission');
 const { INDICATOR_ATTRS, toIndicator } = require('../utils/indicatorPayload');
-const { rankRoster, changesSince, headline } = require('../utils/decisionSupport');
+const {
+  rankRoster, changesSince, resolveCutoff, headline,
+} = require('../utils/decisionSupport');
 const { getReviewed, markReviewed, clearReviewed, isReviewed } = require('../utils/reviewed');
 const { getSettings } = require('../utils/settings');
 const { sendError } = require('../utils/httpError');
-const { num: numParam, assertPlainQuery } = require('../utils/queryParams');
+const { num: numParam, str, assertPlainQuery } = require('../utils/queryParams');
 
 const router = express.Router();
 
@@ -61,6 +63,16 @@ router.get('/', auth, rbac(...VIEW_ROLES), requirePermission('viewRecords'), asy
     if (!Number.isInteger(windowDays) || windowDays < 1 || windowDays > MAX_WINDOW_DAYS) {
       return res.status(400).json({ message: `"windowDays" must be a whole number between 1 and ${MAX_WINDOW_DAYS}` });
     }
+
+    // The caller's own "I last looked" moment, held in THEIR browser.
+    //
+    // Remembering it server-side would be a write, and `coach` is read-only by a
+    // locked decision — the watchlist hit that wall and lost. Letting the caller
+    // hold it means every role gets the feature, including the read-only one.
+    // Filtering only: it narrows a set they could already request in full.
+    const since = str(req.query.since, 'since');
+    const now = Date.now();
+    const { cutoff, basis } = resolveCutoff({ windowDays, since, now });
 
     const { where, label } = await scopeFor(req.user);
     if (!where) return res.json({ scope: null, headline: null, worklist: [], changes: [] });
@@ -114,7 +126,7 @@ router.get('/', auth, rbac(...VIEW_ROLES), requirePermission('viewRecords'), asy
           athleteId: r.athleteId, name: r.name, latest: pair[0] || null, previous: pair[1] || null,
         };
       }),
-      { windowDays },
+      { windowDays, since, now },
     );
 
     // The headline describes what is still OPEN, so working the queue empties
@@ -123,6 +135,14 @@ router.get('/', auth, rbac(...VIEW_ROLES), requirePermission('viewRecords'), asy
     res.json({
       scope: label,
       windowDays,
+      // What the change list ACTUALLY covers, reported rather than left for the
+      // page to infer. 'since' honoured the caller's marker, 'clamped' pulled a
+      // stale one forward to the 90-day floor, 'window' means no usable marker
+      // and the rolling window applied. The panel prints a different sentence
+      // for each — a page that guessed would eventually tell a clinician it was
+      // showing "everything since you last looked" when it was not.
+      changesBasis: basis,
+      changesFrom: new Date(cutoff).toISOString(),
       canMarkReviewed: MARK_ROLES.includes(req.user.role),
       headline: headline(open, req.user.role),
       worklist,

@@ -82,7 +82,7 @@ answers "who do I see next" rather than making you work it out from a roster.
 **why** each athlete is on it: the rules that fired, taken from that athlete's
 own screening record, so you can disagree with the ordering on the evidence.
 
-Four things about it are deliberate and worth knowing:
+Five things about it are deliberate and worth knowing:
 
 - **It does not predict injury.** It orders who is worth your time. The panel
   says so on itself, because the ordering is easy to mistake for a forecast.
@@ -96,6 +96,14 @@ Four things about it are deliberate and worth knowing:
 - **Below the list you can compare** any two to five athletes side by side. Use
   it to decide who to look at first. It compares *readings*, not readiness: a
   better score does not mean a lower chance of injury.
+- **"What moved" tells you which question it answered.** The heading reads either
+  *since you last looked* or *in the last N days* — they mean different things,
+  and it says which applies rather than leaving you to assume. Your browser
+  remembers when you last pressed **Mark these as read**; the system stores
+  nothing about it, which is why coaches get the feature too despite being
+  read-only. The cost is that it is per device: read the changes on the ward PC
+  and they will still be new on your laptop. When the browser has no record, it
+  falls back to the fixed window and says so.
 
 Beneath the worklist the pane shows the older entry points: roster counts,
 athletes currently flagged as injured, your watchlist, and recent activity.

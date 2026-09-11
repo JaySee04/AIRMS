@@ -104,24 +104,79 @@ function rankRoster(rows, { dueDays = null, now = Date.now() } = {}) {
     });
 }
 
+// How far back a caller may reach, however stale their stored marker is.
+const MAX_LOOKBACK_MS = 90 * 24 * 60 * 60 * 1000;
+
 /**
- * What moved, over a rolling window.
+ * Resolve the "what changed" cutoff, and say WHICH rule produced it.
  *
- * A ROLLING WINDOW, NOT A PER-USER "SINCE YOU LAST LOOKED" MARKER, and that is
- * a deliberate design choice rather than a shortcut:
+ * The basis is returned rather than inferred by the caller, because the panel
+ * prints a different sentence for each ("moved since you last looked" vs "moved
+ * in the last 7 days") and a page that guessed would eventually claim the
+ * marker was honoured on a request where it was not — a clinician reading
+ * "since you last looked" over a fixed window is being told something false
+ * about what they are and are not seeing.
  *
- *   `coach` is read-only by a LOCKED decision (MASTER_CLARIFICATIONS §12), and
- *   stamping "you have now seen this" is a write. The watchlist already hit
- *   exactly this wall — `npm run audit:access` failed with "a read-only role
- *   completed a write", and the lock was kept in preference to the feature.
- *
- * A per-user marker would therefore have to work for medical and admin and be
- * silently absent for coach, giving the role that most needs a squad summary
- * the worst version of it. A window every role can see needs no write at all,
- * and answers nearly the same question.
+ * Three outcomes:
+ *   'since'   — the caller's marker was used as given
+ *   'clamped' — the marker was older than MAX_LOOKBACK_MS and was pulled forward
+ *   'window'  — no usable marker; the rolling window applied
  */
-function changesSince(pairs, { windowDays = 7, now = Date.now() } = {}) {
-  const cutoff = now - windowDays * 24 * 60 * 60 * 1000;
+function resolveCutoff({ windowDays = 7, since = null, now = Date.now() } = {}) {
+  const asked = since === null || since === undefined ? NaN : new Date(since).getTime();
+  // Unusable markers fall back to the window rather than throwing or being
+  // taken at face value, because a corrupt browser store must not be able to
+  // EMPTY a clinical panel. Two kinds are unusable:
+  //
+  //   * unparseable — cleared storage, a half-written value, a hand edit;
+  //   * in the FUTURE — a machine with a wrong clock, which is common enough on
+  //     shared terminals. Trusting it would set the cutoff ahead of every real
+  //     screening, so the panel would report "nothing moved" while an athlete
+  //     went red today. That is the silent-failure shape exactly: a confident
+  //     empty list that looks like good news.
+  //
+  // Both resolve toward showing MORE than necessary. That direction is chosen:
+  // a noisy panel is a nuisance, a quiet one is a missed athlete.
+  if (!Number.isFinite(asked) || asked > now) {
+    return { cutoff: now - windowDays * 24 * 60 * 60 * 1000, basis: 'window' };
+  }
+  const floor = now - MAX_LOOKBACK_MS;
+  if (asked < floor) return { cutoff: floor, basis: 'clamped' };
+  return { cutoff: asked, basis: 'since' };
+}
+
+/**
+ * What moved — since the caller last looked, or over a rolling window.
+ *
+ * THE PROBLEM THIS SOLVES, and the first version did not.
+ *
+ * "Since you last looked" needs somebody to remember when that was, and
+ * remembering it server-side is a WRITE. `coach` is read-only by a LOCKED
+ * decision (MASTER_CLARIFICATIONS §12) — the watchlist hit exactly this wall,
+ * `npm run audit:access` failed with "a read-only role completed a write", and
+ * the lock was kept in preference to the feature.
+ *
+ * So the first version shipped a fixed window for everybody, and said so
+ * honestly: a per-user marker would have worked for medical and admin and been
+ * silently absent for coach, giving the role that most needs a squad summary
+ * the worst version of it.
+ *
+ * The resolution is that the marker does not have to live on the server at all.
+ * **The caller remembers it** — the browser holds the timestamp per user and
+ * sends it — and the server only filters by it. No write anywhere, so every
+ * role gets a genuine "since you last looked", including the read-only one the
+ * compromise was penalising.
+ *
+ * The trade is honest and stated in the manual: it is per-DEVICE, and clearing
+ * browser storage forgets it. The window remains the fallback, so the panel
+ * degrades to its old behaviour rather than to nothing.
+ */
+function changesSince(pairs, { windowDays = 7, since = null, now = Date.now() } = {}) {
+  // `since` is the caller's OWN "I last looked at this" moment, and it wins over
+  // the window when supplied. Accepting a timestamp from the client discloses
+  // nothing: it only NARROWS a set the caller can already request in full with
+  // `windowDays`, and the scope is still derived from their session.
+  const { cutoff } = resolveCutoff({ windowDays, since, now });
   const moved = [];
   for (const { athleteId, name, previous, latest } of pairs || []) {
     if (!latest || !latest.assessedAt) continue;
@@ -170,5 +225,5 @@ function headline(worklist, role) {
 }
 
 module.exports = {
-  PRIORITY, rankRoster, changesSince, headline, reasonsFor,
+  PRIORITY, MAX_LOOKBACK_MS, rankRoster, resolveCutoff, changesSince, headline, reasonsFor,
 };

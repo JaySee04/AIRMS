@@ -694,17 +694,41 @@ A tick is a bookmark in your own list. **A new screening returns the athlete to
 your worklist**, because new information has not been reviewed — a review is of
 one assessment, not of a person.
 
-### 22.4 What moved recently
+### 22.4 What moved — since you last looked
 
-Beneath the worklist, any athlete whose **band changed** in the last 7 days,
-worsening first. A first screening is shown as *new* rather than as an
-improvement, because there was nothing to improve from.
+Beneath the worklist, any athlete whose **band changed**, worsening first. A
+first screening is shown as *new* rather than as an improvement, because there
+was nothing to improve from.
 
-*Why a rolling window rather than "since you last logged in":* remembering that
-you have seen something is a **write**, and the coach role is read-only by a
-locked decision. A per-user marker would work for clinicians and be silently
-missing for coaches — giving the role that most needs a squad summary the worst
-version of it. A window needs no write, and every role gets the same feature.
+**Read the heading — it tells you what the list actually covers.** There are
+three, and they do not mean the same thing:
+
+| Heading | What it covers |
+|---|---|
+| *Moved since you last looked* | Everything since you last pressed **Mark these as read** on this browser. |
+| *Moved in the last 7 days* | A fixed window. This browser has no record of your last visit. |
+| *Moved in the last 90 days* | Your last visit was longer ago than that. **There may be older changes not listed** — the panel says so above the list. |
+
+**Mark these as read** moves your starting point forward. It records nothing
+about any athlete, writes nothing to the system, and is not a clinical decision
+— it is a bookmark. The list stays on screen after you click; it clears on your
+next visit.
+
+*Why your browser remembers and not the server:* storing "this person has seen
+this" is a **write**, and the coach role is read-only by a locked decision — the
+clinician's watchlist hit that same wall and the lock was kept in preference to
+the feature. A server-side marker would therefore have worked for clinicians and
+been silently missing for coaches, giving the role that most needs a squad
+summary the worst version of it. Letting your browser hold the timestamp and
+sending it with the request needs no write anywhere, so **every role gets the
+real feature, including the read-only ones.**
+
+*What that costs you, stated plainly:* the marker is **per device**. Read the
+changes on the ward PC and they will still be new on your laptop, and clearing
+your browser data forgets the marker entirely. When that happens the panel falls
+back to the 7-day window and **says so in the heading** rather than pretending.
+Both failures point the same way — you see more than you needed, never less.
+A missed worsening is the one outcome this panel exists to prevent.
 
 ### 22.5 Comparing athletes
 

@@ -6042,3 +6042,107 @@ close a moderate in an internal id generator. Refused, and recorded rather than
 carried silently.
 
 **Backend production: 13 → 2 moderate, 0 high, 0 critical.**
+
+---
+
+## 79. Decision support, and how a read-only role got a stateful feature (2026-09-11)
+
+Four things were asked for — name the next action, show what changed, work a
+triage queue, compare athletes. They are **four views of one ranking**, so the
+ranking lives once in `utils/decisionSupport.js` and every surface reads it.
+Built separately they would each grow their own idea of "worst first", and this
+project has already paid that bill twice: the band vocabulary ended up defined
+four ways, `SMALL_COHORT` five.
+
+### 79.1 The refusals, which are the load-bearing part
+
+- **It does not predict injury. It ORDERS a worklist.** The wording throughout
+  is *"see this athlete next"*, never *"this athlete will be injured"* — §33
+  applied to a recommendation rather than to a badge.
+- **It never invents a reason.** Every entry carries the rules that put it
+  there, read from the screening's own persisted `factors`, so the worklist
+  cannot disagree with the record it points at and a clinician can dispute the
+  ordering on evidence rather than on faith.
+- **Never-screened is ranked, but never AS A BAND.** `PRIORITY.never` sits
+  *above* green: an athlete nobody has assessed is unknown, not low risk.
+  Collapsing those is the §33 reassurance failure, and the mutation registry
+  carries an entry that breaks this on purpose.
+- **"Reviewed" means "I have looked at this", never "I have cleared this
+  athlete."** Clearing an athlete is the band override, and that is audited.
+  The tick is keyed on the **screening**, not the athlete, so a new import
+  returns them to the worklist — a tick taken in July must not silence a
+  September red.
+
+### 79.2 The marker problem, and why the obvious answer was wrong
+
+"What changed **since you last looked**" needs somebody to remember when that
+was. The obvious home is a per-user row on the server — and it cannot be, because
+storing it is a **write**, and `coach` is read-only by a locked decision
+(`MASTER_CLARIFICATIONS §12`). The watchlist (§66) hit this exact wall:
+`npm run audit:access` failed with *"a read-only role completed a write"*, and
+the lock was kept in preference to the feature.
+
+So the first version shipped a fixed 7-day window for everyone and said so
+honestly. That was defensible and still wrong in effect: a server-side marker
+would have worked for medical and admin and been silently absent for coach,
+giving **the role that most needs a squad summary the worst version of it**.
+
+The resolution is that the marker does not have to live on the server at all.
+**The caller remembers it** — the browser holds the timestamp, keyed per user id
+because a shared clinic terminal is the normal case at ISN — and sends it as
+`?since=`. The server only *filters* by it. No write anywhere, so every role
+gets the real feature, including the read-only one the compromise was penalising.
+
+Accepting a timestamp from the client discloses nothing: it **narrows** a set the
+caller can already request in full via `windowDays`, and the scope is still
+derived from `req.user`, never from the query.
+
+### 79.3 Every failure of the marker points the same way
+
+A client-supplied value has failure modes, and each was resolved toward showing
+**more** than necessary rather than less. A noisy panel is a nuisance; a quiet
+one is a missed athlete, which is the single outcome this panel exists to
+prevent.
+
+| Input | Result | Why |
+|---|---|---|
+| Valid, recent | used as given (`basis: 'since'`) | the feature working |
+| Older than 90 days | pulled forward to the floor (`'clamped'`) | an untouched store must not turn one request into a full-history scan |
+| Unparseable | falls back to the window (`'window'`) | a corrupt store must not be able to **empty a clinical panel** |
+| In the **future** | falls back to the window (`'window'`) | a shared terminal with a wrong clock would otherwise set the cutoff past every real screening and report *"nothing moved"* over an athlete who went red today |
+
+The future-clock case was **not** in the first implementation. It was found by a
+test whose name promised one behaviour while its assertion pinned the opposite —
+the name was right and the code was wrong, so the code changed.
+
+### 79.4 The server reports which rule it applied
+
+`GET /api/decisions` returns `changesBasis` and `changesFrom`, and the panel
+renders its heading from those — never from whether it happened to send a marker.
+The two can differ (clamped, or rejected), and the difference is precisely what a
+reader would be misled about: *"Moved since you last looked"* printed over a
+7-day window converts **"I have not shown you five weeks"** into **"there was
+nothing to show"**.
+
+That is this project's defect class in one sentence, so it is guarded rather than
+commented. `DecisionPanel.test.tsx` pins the three headings to the three bases,
+and two mutation entries break them.
+
+**Why a jsdom test and not an e2e check:** the change list only renders when
+something moved, and on the seeded data nothing has moved inside the default
+window — measured 2026-09-11, **0 changes at 7 days and 36 at 90**. `npm run e2e`
+walks straight past the entire section and reports green. The one thing worth
+guarding here is invisible to the suite that would otherwise cover it.
+
+### 79.5 The marker advances on a click, not on render
+
+Advancing it automatically is tidier code and worse behaviour: a reader who opens
+the dashboard, is interrupted, and returns tomorrow would have "seen" a worsening
+they never read, and it would never be shown again. **Mark these as read** is
+explicit, and the list stays on screen after the click — clearing the panel under
+the reader's cursor destroys the thing they just asked to keep a record of having
+read.
+
+The honest cost is in the manual (§22.4): the marker is **per device**, and
+clearing browser data forgets it. Both of those degrade to the window, which
+shows more.
