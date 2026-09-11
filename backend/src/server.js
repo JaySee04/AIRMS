@@ -27,6 +27,8 @@ const { startScheduler, stopScheduler } = require('./utils/scheduler');
 const screeningRoutes = require('./routes/screenings');
 const screeningReportRoutes = require('./routes/screeningReports');
 const isnRoutes = require('./routes/isn');
+// TEMPORARY — see routes/diag.js. Revert with the commit that added it.
+const diagRoutes = require('./routes/diag');
 
 const app = express();
 
@@ -136,6 +138,7 @@ app.use('/api/isn', isnRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/watchlist', watchlistRoutes);
 app.use('/api/decisions', decisionRoutes);
+app.use('/api/diag', diagRoutes);
 
 app.use((err, _req, res, _next) => {
   console.error(err.stack);
