@@ -20,9 +20,9 @@ The project ships its own extensive docs. Treat these as the source of truth —
 4. [`docs/PROJECT_GUIDE.md`](docs/PROJECT_GUIDE.md) — file-level map (models, routes, components, pages)
 5. [`docs/DESIGN_DECISIONS.md`](docs/DESIGN_DECISIONS.md) — read before suggesting "improvements" that may have already been considered and rejected
 6. [`docs/FYP_RUBRICS.md`](docs/FYP_RUBRICS.md) — current rubric weighting + pre-viva punch list
-7. [`docs/PERMISSIONS.md`](docs/PERMISSIONS.md) — **who can actually do what**, measured by calling all 68 endpoints as every role rather than described. Read before touching RBAC, and before answering a viva question about access. Its §3 records four things that **were** open and how each was settled — they are decided, not pending
+7. [`docs/PERMISSIONS.md`](docs/PERMISSIONS.md) — **who can actually do what**, measured by calling all 65 endpoints as every role rather than described. Read before touching RBAC, and before answering a viva question about access. Its §3 records four things that **were** open and how each was settled — they are decided, not pending
 8. [`docs/SILENT_FAILURES.md`](docs/SILENT_FAILURES.md) — **the defect class this project keeps producing** (a wrong answer that looks like a right one), its six sub-patterns, the hypotheses that sweep for each, and the standing guards. Read before an audit or a bug hunt; add to it when a new instance is found
-9. [`docs/SYSTEM_MAP.md`](docs/SYSTEM_MAP.md) — **every attribute of the system, GENERATED from the code**: 9 models with all 138 columns and their enum values, 68 endpoints with their rbac list and permission gate, 25 pages with their allowedRoles, every setting and default, audited action, shared fact, env var and npm script. Regenerate with `cd backend; npm run map`. This is the *what*; DESIGN_DECISIONS is the *why*
+9. [`docs/SYSTEM_MAP.md`](docs/SYSTEM_MAP.md) — **every attribute of the system, GENERATED from the code**: 9 models with all 138 columns and their enum values, 65 endpoints with their rbac list and permission gate, 25 pages with their allowedRoles, every setting and default, audited action, shared fact, env var and npm script. Regenerate with `cd backend; npm run map`. This is the *what*; DESIGN_DECISIONS is the *why*
 10. [`docs/fyp/VIVA_FYP2.md`](docs/fyp/VIVA_FYP2.md) — **the FYP II viva dossier**: the thesis, the fifteen hard questions with citations, the weaknesses to volunteer, the demo landmines, and every headline number measured against the live database rather than quoted from a doc. `VIVA_SCRIPT.md` / `VIVA_ANSWERS.md` are frozen FYP I artefacts — this is their successor. Re-measure §2 before quoting it.
 
 ## Commands
@@ -38,7 +38,7 @@ npm run sync:shared        # regenerate backend/src/shared/facts.js and
                            # suites fail if a committed copy is stale (DD 53).
 npm run install:all        # installs root + backend + frontend
 npm run seed               # drops + reseeds MySQL with deterministic PRNG (seed=42)
-cd backend; npm run audit:access     # call all 68 endpoints as each non-admin role and print
+cd backend; npm run audit:access     # call all 65 endpoints as each non-admin role and print
                                      # the matrix. Needs `npm run dev` running. FAILS if any
                                      # read-only role REACHES a write (403 expected, not 404 -
                                      # a 404 means it got past the guard). See DESIGN_DECISIONS
