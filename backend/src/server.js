@@ -24,6 +24,7 @@ const coachRoutes = require('./routes/coach');
 const cohortRoutes = require('./routes/cohorts');
 const auditRoutes = require('./routes/audit');
 const watchlistRoutes = require('./routes/watchlist');
+const decisionRoutes = require('./routes/decisions');
 const { startScheduler, stopScheduler } = require('./utils/scheduler');
 const screeningRoutes = require('./routes/screenings');
 const screeningReportRoutes = require('./routes/screeningReports');
@@ -173,6 +174,7 @@ app.use('/api/screening-reports', screeningReportRoutes);
 app.use('/api/isn', isnRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/watchlist', watchlistRoutes);
+app.use('/api/decisions', decisionRoutes);
 
 app.use((err, _req, res, _next) => {
   console.error(err.stack);

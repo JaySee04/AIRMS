@@ -12,7 +12,7 @@ This is the *what*. The **why** is [`DESIGN_DECISIONS.md`](DESIGN_DECISIONS.md),
 the measured figures are `npm run measure:facts` (which needs the database),
 and the access model argued in prose is [`PERMISSIONS.md`](PERMISSIONS.md).
 
-Counts: **9 models**, **138 columns**, **62 endpoints**, **25 pages**.
+Counts: **9 models**, **138 columns**, **65 endpoints**, **25 pages**.
 
 ## 1. Data model
 
@@ -245,6 +245,9 @@ refused inside the handler — see PERMISSIONS.md for what each role actually re
 | POST | `/api/cohorts/versions/:id/pin` | admin |  | backend/src/routes/cohorts.js |
 | POST | `/api/cohorts/versions/:id/restore` | admin |  | backend/src/routes/cohorts.js |
 | POST | `/api/cohorts/versions/unpin` | admin |  | backend/src/routes/cohorts.js |
+| GET | `/api/decisions` | ...VIEW_ROLES | viewRecords | backend/src/routes/decisions.js |
+| DELETE | `/api/decisions/reviewed/:athleteId` | ...MARK_ROLES | viewRecords | backend/src/routes/decisions.js |
+| POST | `/api/decisions/reviewed/:athleteId` | ...MARK_ROLES | viewRecords | backend/src/routes/decisions.js |
 | GET | `/api/export/backup.xlsx` | admin |  | backend/src/routes/export.js |
 | GET | `/api/isn/athletes` | medical, admin |  | backend/src/routes/isn.js |
 | GET | `/api/isn/athletes/:ic` | medical, admin |  | backend/src/routes/isn.js |
