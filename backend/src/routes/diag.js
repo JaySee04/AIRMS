@@ -87,6 +87,38 @@ router.get('/deferred', auth, rbac('admin'), async (req, res) => {
   } catch (err) { sendError(res, err, 'diag.js'); }
 });
 
+// ── Reproducing 3r in isolation, on the host ────────────────────────────────
+//
+// The three markers above disproved both of my candidate causes: on the hosted
+// API a `res.on('finish')` handler fires PROMPTLY and its database write
+// completes (measured 3ms after the request), so the decrement was neither
+// frozen out nor un-fired. The remaining possibility is that
+// `skipSuccessfulRequests` never CALLED it.
+//
+// This is its own limiter, with its own key prefix and a high limit, wired
+// exactly as the auth limiter was before 2026-09-11. Hitting it repeatedly with
+// SUCCESSFUL requests answers the question directly: if `remaining` holds
+// steady the decrement works and 3r had a different cause; if it slides down,
+// this reproduces the defect in isolation and the cause is in this wiring.
+const rateLimit = require('express-rate-limit');
+const { SettingsRateLimitStore } = require('../utils/rateLimitStore');
+
+const probeLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  limit: 1000, // high on purpose: this must never actually refuse anything
+  skipSuccessfulRequests: true,
+  keyGenerator: () => 'diag-skip-success-probe',
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  store: new SettingsRateLimitStore(),
+});
+
+router.get('/skip-success', auth, rbac('admin'), probeLimiter, (req, res) => {
+  // A plain 200. `requestWasSuccessful` defaults to `statusCode < 400`, so this
+  // is precisely the case skipSuccessfulRequests is supposed to un-count.
+  res.json({ ok: true, at: new Date().toISOString() });
+});
+
 // Remove the three rows, so the experiment leaves nothing behind.
 router.delete('/deferred', auth, rbac('admin'), async (req, res) => {
   try {
