@@ -9,8 +9,22 @@ const { validatePassword } = require('../utils/passwordPolicy');
 const { prefsForUser, sanitizePrefs } = require('../utils/mailPrefs');
 const { sendError } = require('../utils/httpError');
 const { clearRateLimit, authThrottleKey } = require('../utils/rateLimitStore');
+const { authThrottle } = require('../utils/authThrottle');
 
 const router = express.Router();
+
+// Brute-force throttle for the UNAUTHENTICATED endpoints below — /login,
+// /forgot-password, /verify-otp, /reset-password. The ones behind
+// `authMiddleware` are exempt: they already demand a signed token, so capping
+// them protects nothing and rations ordinary use. `/auth/me` runs on EVERY page
+// mount (DashboardLayout confirms the session with the server), and while it
+// counted, thirty page views in fifteen minutes locked a clinician out of their
+// own session. See utils/authThrottle.js and SILENT_FAILURES 3r.
+//
+// Applied here rather than at the `app.use('/api/auth', ...)` mount so that the
+// mount stays in the plain form `npm run map` can parse — wrapping it in an
+// inline arrow made the endpoint inventory silently drop all eight auth routes.
+router.use(authThrottle);
 
 const signToken = (id) =>
   jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '7d' });

@@ -210,6 +210,24 @@ const MUTATIONS = [
     replace: '    sinceRef.current = readSeen(); setJustMarked(Boolean(readSeen()));',
     test: 'src/components/dashboard/DecisionPanel.test.tsx',
   },
+  {
+    guard: 'auth throttle: /auth/me is exempt, so navigation is not rationed',
+    why: 'DashboardLayout calls it per page mount — 30 page views locked a clinician out',
+    pkg: 'backend',
+    file: 'src/utils/authThrottle.js',
+    find: "  '/me',\n",
+    replace: '',
+    test: 'tests/authThrottle.test.js',
+  },
+  {
+    guard: 'auth throttle: an unauthenticated route cannot be exempted',
+    why: 'exempting /login would remove brute-force protection with nothing saying so',
+    pkg: 'backend',
+    file: 'src/utils/authThrottle.js',
+    find: "  '/change-password',",
+    replace: "  '/change-password',\n  '/login',",
+    test: 'tests/authThrottle.test.js',
+  },
 ];
 
 function pkgDir(pkg) {
