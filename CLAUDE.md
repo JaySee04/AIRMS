@@ -52,7 +52,7 @@ cd backend; npm run coverage         # 79.6% statements / 67.8% branches. Route 
                                      # transitive dep (fs.realpath) before it would run at all.
 cd backend; npm run mutate           # BREAK each registered guard on purpose and prove its
                                      # test fails. A surviving mutation exits non-zero: the
-                                     # test is not testing what it claims. 21 guards across
+                                     # test is not testing what it claims. 23 guards across
                                      # both packages. NOT part of `npx jest` — it spawns a
                                      # jest run per mutation (tens of seconds). Run it before
                                      # committing a change to a guard, and add an entry when
@@ -77,6 +77,30 @@ cd backend; npm run measure:facts    # print the headline numbers MEASURED from 
                                      # the report or the viva - the docs have carried four
                                      # different band splits, all true when written. See
                                      # docs/SILENT_FAILURES.md H7.
+cd backend; npm run verify:claims    # check the OPERATIONAL claims against a RUNNING instance and
+                                     # print the measured number for each. Needs `npm run dev`.
+cd backend; npm run verify:claims -- --hosted   # ...against the deployed API (10/10 on 2026-09-11)
+                                     # Every other guard checks the CODE - jest, `npm run map`,
+                                     # `npm run mutate`, `npm run audit:access` all run against the
+                                     # source or a local process. A whole class of claim is
+                                     # invisible to all of them because it is only true or false of
+                                     # a DEPLOYED system: SILENT_FAILURES 3r is the worked example,
+                                     # where the login throttle was configured to count failures,
+                                     # its own RateLimit header said failures, every test passed,
+                                     # and the hosted instance counted REQUESTS for weeks. Reading
+                                     # the code could never have said so; one request did.
+                                     # Covers: the throttle counts failures and a success forgives
+                                     # them; /auth/me is outside it; an athlete.view audit row
+                                     # actually lands (§51 leans on that); the change marker is
+                                     # honoured / clamped / falls back on garbage / cannot be
+                                     # hidden by a future clock; and coach gets the feature while
+                                     # still being refused the write. PACED deliberately - probing
+                                     # the hosted API in a burst tripped Vercel's bot protection on
+                                     # 2026-09-11 and locked this machine out for ~20 minutes;
+                                     # VERIFY_PACE_MS raises the gap (use 1500 for hosted). The
+                                     # throttle claims SKIP locally, because loopback is exempt
+                                     # from the limiter by design and a green tick there would
+                                     # mean nothing.
 cd backend; npm run mail:tick        # ONE scheduled-mail pass, then exit (§36). This is what an
                                      # OS scheduler runs; `npm run dev`'s in-process ticker does the
                                      # same thing hourly. MAIL_SCHEDULER=off disables the in-process
@@ -137,7 +161,7 @@ cd frontend; npm run e2e   # END-TO-END smoke: a real Chrome against the running
 cd frontend; npm run build
 
 # Unit tests (jest, in both packages — no linter configured for the backend)
-cd backend; npx jest      # 46 suites / 690 tests: cohorts, overallIndicator, permissions, rbac, pdfDraw,
+cd backend; npx jest      # 47 suites / 700 tests: cohorts, overallIndicator, permissions, rbac, pdfDraw,
                           # decisionSupport (the worklist ranking AND the caller-held
                           # "since you last looked" marker - DD 79),
                           # screeningPeriods, cohortFocus, visionUsage, alerts, scheduler,
@@ -146,6 +170,25 @@ cd backend; npx jest      # 46 suites / 690 tests: cohorts, overallIndicator, pe
                           # mailSendNow, lock, prescription, settingsChanges, symmetry,
                           # isnDirectory, accountLifecycle, athleteDisclosure, recompute,
                           # httpHardening, codebaseHygiene, reportRoutes, crossPackage, numRound,
+                          # serverlessLifecycle (WORK SCHEDULED FOR AFTER THE RESPONSE,
+                          # guarded as a CLASS rather than as the one instance.
+                          # SILENT_FAILURES 3r was a correct component wired to a
+                          # lifecycle hook the platform does not promise to run - only
+                          # a deployed request can show it, so it is found late or
+                          # never. Pins: no res.on('finish'/'close') anywhere;
+                          # skipSuccessfulRequests is not re-enabled; post-import work
+                          # is done IN-REQUEST where deferring is unsafe (asserted by
+                          # BEHAVIOUR under both platforms, not by grepping for the
+                          # constant), is BOUNDED rather than looping while another
+                          # process holds the recompute lock, and is AWAITED at every
+                          # call site. The line it draws, measured on the hosted API:
+                          # work STARTED before the response survives (recordAudit's
+                          # unawaited create lands), work SCHEDULED for after it may
+                          # not (the rate-limit decrement did not). NOTE its comment
+                          # stripper normalises \r\n FIRST - `.` does not match \r, so
+                          # the first version was silently inert on every CRLF file in
+                          # the repo while its own canary passed, because the canary
+                          # checked a file written that day in LF),
                           # authThrottle (WHICH auth endpoints the brute-force limiter
                           # covers - reads routes/auth.js as TEXT and pins the exempt
                           # list to it in BOTH directions. An authenticated route

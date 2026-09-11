@@ -303,7 +303,9 @@ router.post('/:id/reinstate', auth, rbac('medical', 'admin'), requirePermission(
 
     // Same rescore path an import takes — the cohort indicator is derived from
     // the flat columns, so it is stale until this runs.
-    queuePostImport(row.athleteId);
+    // Awaited: on a serverless host deferred work is not guaranteed to run,
+    // so the recompute this rescore depends on would silently never happen.
+    await queuePostImport(row.athleteId);
 
     recordAudit(req, {
       action: 'screening.reinstate',

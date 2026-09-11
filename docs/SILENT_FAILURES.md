@@ -1420,3 +1420,47 @@ without it 20 pass.
 Same standing lesson as 3l/3n/3o/3p: a guard is worth what its test has been
 *seen* to catch, and a mock that cannot produce the failure makes the test a
 statement of intent.
+
+### 3s. The control that only exercised the format it was written in (2026-09-11)
+
+A one-line sequel to **3r**, found while building the guard for it.
+
+`tests/serverlessLifecycle.test.js` scans the backend for post-response work. It
+strips comments first, so that a file *discussing* `res.on('finish')` is not
+reported as an instance of it. The stripper was:
+
+```js
+.split('\n').map((l) => l.replace(/^\s*\/\/.*$/, ''))
+```
+
+In JavaScript `.` matches any character **except a line terminator**, and `\r` is
+one. This repository holds mixed line endings — files committed earlier are CRLF,
+files written this session are LF — so after `split('\n')` every CRLF line still
+ends in `\r`, the anchored `$` could not be reached, and **no comment in any
+pre-existing file was stripped**.
+
+The scan therefore reported `routes/auth.js` as an offender for a line that reads
+*"the library does it from a `res.on('finish')` handler"* — a comment explaining
+the hazard.
+
+#### The part worth keeping
+
+The file already had a canary, written precisely to catch a stripper that stopped
+working. It passed. It checked `utils/authThrottle.js` — **a file written that
+same day, in LF: the one format where the stripper worked.**
+
+A control that only exercises the happy path is not a control. This is 3l seen
+from one level out: there, a guard's pattern silently matched nothing; here, the
+guard was fine and its *verification* picked the wrong subject. Choosing a
+fixture you just created is the natural thing to do and the worst possible
+choice, because it shares every property of the code you are testing — including
+the ones you have not thought about.
+
+The control now checks a CRLF file and an LF file, and separately asserts the
+stripper still leaves real code behind — because a stripper aggressive enough to
+remove the comments could also remove the statements, and then every check in the
+file passes by finding nothing.
+
+The three pre-existing strippers in this repo (`codebaseHygiene`,
+`scriptImports`, `recompute`) were run against a CRLF sample: all three are safe,
+because none of them anchor with `$`. Recorded as a checked negative.

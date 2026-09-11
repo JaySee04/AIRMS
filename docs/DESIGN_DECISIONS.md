@@ -6242,3 +6242,102 @@ measuring rather than reviewing.
 
 Registered in `npm run mutate` (21 guards): restoring the array dependency fails
 the test.
+
+---
+
+## 81. Future-proofing: guarding a defect CLASS, and backing claims that only a deployed system can settle (2026-09-11)
+
+Two problems, and they are the same problem seen from either end.
+
+§79 and §80 fixed specific things. `SILENT_FAILURES` 3r was not really a specific
+thing: it was **a correct component wired to a lifecycle hook the platform does
+not promise to run**. Unit tests assert the component, integration tests assert
+the wiring, and *neither asserts the host is still alive when the callback
+fires*. Nothing in this repository could have caught it, because everything in
+this repository reads the code or runs it locally.
+
+### 81.1 The line between safe and unsafe, measured rather than reasoned
+
+Two pieces of unawaited work, both looking equally careless in a review, behave
+differently on the hosted API:
+
+| | shape | lands on Vercel? |
+|---|---|---|
+| `recordAudit()` | `AuditLog.create(...)` issued **during** the handler | **yes** — measured, rows 5 → 6 |
+| rate-limit decrement | scheduled on **`res.finish`** | **no** — `remaining` 28→27→26→25→24 |
+
+**Work STARTED before the response survives; work SCHEDULED for after it may
+not.** That distinction is not pedantry — it is the difference between the audit
+trail §51 leans on being intact and being full of invisible holes, and it was
+settled by asking the deployed system rather than by reading Vercel's docs.
+
+`tests/serverlessLifecycle.test.js` now guards the class: no `res.on('finish')`
+anywhere, `skipSuccessfulRequests` not re-enabled, and `recordAudit` not
+"made reliable" by converting it into a post-response hook.
+
+### 81.2 The one the sweep found, and its evidence status
+
+`utils/postImport.js` queues the cohort recompute *and* the at-risk alert email
+behind `setTimeout(flush, 1500)` — **`.unref()`ed**, which explicitly asks Node
+not to stay alive for it — while the commit route responds immediately. On a
+serverless host that is strictly more exposed than the thing that already failed.
+If it never runs, an import reports success having refreshed no norms and
+emailed nobody.
+
+**Stated honestly: this was NOT measured.** No import has ever run on the hosted
+instance (0 `screening.import` audit rows, checked 2026-09-11), so there is no
+forensic trace either way, and committing one of the three demo reports to find
+out would spend an athlete's first-screening moment that belongs to Dr Thung and
+Dr Hoo. The hazard is **unmeasured, not demonstrated**.
+
+It is fixed anyway, because the cost of being wrong is asymmetric: awaiting costs
+**50–200 ms** (a full local recompute, measured three times), and not awaiting
+costs a silent clinical failure discovered — if ever — in front of the
+stakeholder. Where deferring is unsafe the work runs inside the request; on a
+long-lived process the debounce survives untouched, so N commits are still ONE
+recompute. Both halves are asserted by **behaviour under both platforms**, not by
+grepping for the constant, and the in-request path is **bounded**: `flush()`
+re-queues when another process holds the recompute lock, so an unbounded drain
+loop would hang an HTTP request for as long as somebody else's recompute lasted.
+
+### 81.3 `npm run verify:claims`
+
+Every other guard here checks the code. This one asks a **running instance** and
+prints the number it got:
+
+```
+cd backend; npm run verify:claims              # local  (8/8, 1 not measurable)
+cd backend; npm run verify:claims -- --hosted  # deployed (10/10, 2026-09-11)
+```
+
+It covers exactly the claims that a code reading cannot settle: the throttle
+counts failures and a success forgives them; `/auth/me` is outside it; an
+`athlete.view` row actually lands; the change marker is honoured, clamped, falls
+back on garbage, and cannot be hidden by a wrong clock; and `coach` gets the
+feature while still being refused the write.
+
+Two properties are deliberate. It **skips** the throttle claims locally rather
+than passing them — loopback is exempt from the limiter by design, so a green
+tick there would be meaningless, and a guard that reports success where it cannot
+measure is the exact failure this document is about. And it is **paced**:
+verifying a rate limiter by hammering the host is how this machine tripped
+Vercel's bot protection and locked itself out for twenty minutes.
+
+### 81.4 The scanner that was silently inert, again
+
+The new lifecycle scanner stripped comments with `^\s*//.*$` per line. In
+JavaScript `.` does not match `\r`, and this repository holds **mixed line
+endings** — files committed earlier are CRLF, files written this session are LF.
+So the stripper matched nothing on every pre-existing file, and the scan reported
+`routes/auth.js` as an offender for a line that is a *comment about* the hazard.
+
+The canary did not catch it. The canary checked `utils/authThrottle.js` — a file
+written that same day, in LF, the single format where the stripper worked. **A
+control that only exercises the happy path is not a control**, which is
+`SILENT_FAILURES` 3l one layer out: the guard was fine, its *verification* picked
+the wrong subject. The control now checks one CRLF file and one LF file, and
+asserts the stripper still leaves real code behind.
+
+The three pre-existing strippers (`codebaseHygiene`, `scriptImports`,
+`recompute`) were checked against a CRLF sample and are all safe — they do not
+anchor with `$`. Recorded as a checked negative so nobody re-audits them.

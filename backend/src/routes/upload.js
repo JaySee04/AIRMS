@@ -215,7 +215,10 @@ router.post('/screening/pdf', auth, rbac('medical', 'admin'), requirePermission(
     // immediately instead of waiting seconds. Non-fatal by the same contract
     // as before — a failed recompute is corrected by the next import or the
     // admin "Recompute" button.
-    queuePostImport(data.athleteId);
+    // Awaited: see utils/postImport.js. On a long-lived process this returns
+    // immediately and the work is still debounced; on a serverless host it is
+    // the difference between the norms refreshing and silently not.
+    await queuePostImport(data.athleteId);
 
     recordAudit(req, {
       action: 'screening.import',

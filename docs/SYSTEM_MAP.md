@@ -369,7 +369,7 @@ Generated into both packages from `shared/facts.js` — see DESIGN_DECISIONS §5
 
 ## 7. Environment variables the backend reads
 
-`AUDIT_API` · `AUDIT_PW` · `BACKEND_DIR` · `FRONTEND_URL` · `JWT_EXPIRES_IN` · `JWT_SECRET` · `MAILER_DRY_RUN` · `MAIL_SCHEDULER` · `MYSQL_DATABASE` · `MYSQL_HOST` · `MYSQL_PASSWORD` · `MYSQL_POOL_MAX` · `MYSQL_PORT` · `MYSQL_SSL` · `MYSQL_SSL_CA` · `MYSQL_SSL_INSECURE` · `MYSQL_USER` · `PORT` · `SMTP_FROM` · `SMTP_HOST` · `SMTP_PASS` · `SMTP_PORT` · `SMTP_SECURE` · `SMTP_USER` · `SQL_LOG` · `SQL_SYNC` · `TESSERACT_CACHE_PATH` · `VERCEL` · `VISION_API_KEY` · `VISION_BASE_URL` · `VISION_MAX_PAGES` · `VISION_MODEL` · `VISION_PROVIDER` · `VISION_RENDER_SCALE`
+`AUDIT_API` · `AUDIT_PW` · `BACKEND_DIR` · `FRONTEND_URL` · `JWT_EXPIRES_IN` · `JWT_SECRET` · `MAILER_DRY_RUN` · `MAIL_SCHEDULER` · `MYSQL_DATABASE` · `MYSQL_HOST` · `MYSQL_PASSWORD` · `MYSQL_POOL_MAX` · `MYSQL_PORT` · `MYSQL_SSL` · `MYSQL_SSL_CA` · `MYSQL_SSL_INSECURE` · `MYSQL_USER` · `PORT` · `SMTP_FROM` · `SMTP_HOST` · `SMTP_PASS` · `SMTP_PORT` · `SMTP_SECURE` · `SMTP_USER` · `SQL_LOG` · `SQL_SYNC` · `TESSERACT_CACHE_PATH` · `VERCEL` · `VERIFY_PACE_MS` · `VERIFY_PW` · `VISION_API_KEY` · `VISION_BASE_URL` · `VISION_MAX_PAGES` · `VISION_MODEL` · `VISION_PROVIDER` · `VISION_RENDER_SCALE`
 
 ## 8. npm scripts
 
@@ -395,6 +395,7 @@ Generated into both packages from `shared/facts.js` — see DESIGN_DECISIONS §5
 | backend | `migrate:hosted` | `node scripts/migrate-hosted.js` |
 | backend | `map` | `node scripts/system-map.js` |
 | backend | `mutate` | `node scripts/mutation-check.js` |
+| backend | `verify:claims` | `node scripts/verify-claims.js` |
 | frontend | `dev` | `next dev` |
 | frontend | `build` | `next build` |
 | frontend | `start` | `next start` |

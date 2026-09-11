@@ -17,7 +17,8 @@
     "coverage": "jest --coverage --coverageReporters=text-summary",
     "migrate:hosted": "node scripts/migrate-hosted.js",
     "map": "node scripts/system-map.js",
-    "mutate": "node scripts/mutation-check.js"
+    "mutate": "node scripts/mutation-check.js",
+    "verify:claims": "node scripts/verify-claims.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
