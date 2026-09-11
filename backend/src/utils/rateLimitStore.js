@@ -70,7 +70,14 @@ class SettingsRateLimitStore {
     return { totalHits: hits, resetTime: new Date(resetAt) };
   }
 
-  // Called by skipSuccessfulRequests when a request turns out to have succeeded.
+  // Part of the Store interface express-rate-limit expects, and CURRENTLY
+  // UNWIRED — it is only ever called by `skipSuccessfulRequests`, which this
+  // project stopped using on 2026-09-11 because it fires after the response and
+  // a serverless host never completes the write (see clearRateLimit below).
+  //
+  // Kept because the interface declares it and a store missing a method would
+  // throw if the option were ever switched back on. Said plainly rather than
+  // left to look load-bearing: nothing in AIRMS calls this today.
   async decrement(key) {
     const row = await this.read(key);
     if (!row) return;

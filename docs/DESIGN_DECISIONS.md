@@ -3548,7 +3548,11 @@ built a per-account throttle for it. The finding was wrong and the fix was worse
 `server.js` already mounts `express-rate-limit` across `/api/auth`: 30 failed
 attempts per 15 minutes per IP, `skipSuccessfulRequests: true`, commented with
 the reasoning that a demo signs in and out repeatedly and successfully and must
-never be throttled. **My probe made 25 attempts against a limit of 30** — it was
+never be throttled. (That option was **removed on 2026-09-11** — it un-counts
+from a post-response hook a serverless host never runs, so the deployed limiter
+was counting successes. The policy is unchanged; a successful sign-in now
+forgives the failures before it, awaited inside the request. See
+`SILENT_FAILURES.md` 3r. The account below is left as it was written.) **My probe made 25 attempts against a limit of 30** — it was
 incapable of producing a positive result, and I read its silence as a finding.
 
 The throttle I wrote then demonstrated the hazard it was supposed to avoid: its

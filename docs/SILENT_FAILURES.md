@@ -338,7 +338,10 @@ wrong.
 `server.js` already mounts `express-rate-limit` on all of `/api/auth` — 30
 failed attempts per 15 minutes per IP, `skipSuccessfulRequests: true`, with a
 comment explaining that a demo signs in and out many times *successfully* and
-must never be throttled. **My probe made 25 attempts. The limit is 30.** I
+must never be throttled. (`skipSuccessfulRequests` was removed on 2026-09-11:
+on a serverless host it un-counted nothing, so the deployed limiter counted
+successes — **3r** below. The policy and the numbers are unchanged; this
+account is left as written.) **My probe made 25 attempts. The limit is 30.** I
 concluded "no limiter" from a probe that stopped short of the threshold, and my
 grep missed it because the exclusion filter I used to remove reset-code noise
 also removed the limiter.
@@ -1341,3 +1344,79 @@ The general shape is one this document keeps returning to: a count that only
 includes what succeeded cannot report what disappeared. It is the same reasoning
 as the corpus floors in §4b — an empty scan and a clean scan look identical
 unless something asserts the scan happened.
+
+### 3r. The limiter that counted successes, on the host where it mattered (2026-09-11)
+
+**Found by being locked out of the deployed API while running `npm run e2e`
+against it** — not by a test, and not by any local run.
+
+`/api/auth` is throttled at 30 failures / 15 minutes / IP. The mechanism was
+`express-rate-limit`'s `skipSuccessfulRequests: true`, which un-counts a request
+that turned out to succeed. On the hosted instance it un-counted nothing:
+
+```
+five consecutive SUCCESSFUL logins against airms-api.vercel.app
+  remaining=28 -> 27 -> 26 -> 25 -> 24      and it never recovered
+```
+
+So the deployed policy was **"30 requests / 15 min"** while the `RateLimit`
+response header, the comment above the limiter, `CLAUDE.md`, `MODULES_STATUS.md`
+and this file all said **"30 failures"**. ISN sits behind one NAT address:
+thirty sign-ins in fifteen minutes — correct passwords, an ordinary demo
+morning — and the whole clinic is refused for the rest of the window, with
+nothing anywhere explaining why.
+
+#### Why every test passed
+
+`skipSuccessfulRequests` decrements from a `res.on('finish')` handler, i.e.
+**after the response has been flushed**. With the old in-process Map that
+decrement was a synchronous mutation and completed. The 2026-09-10 move to a
+database-backed store (§ the entry above, and `DESIGN_DECISIONS` §75) turned it
+into an awaited query — and Vercel freezes the instance once the response is
+out, so the write is issued and never lands.
+
+Nothing local could see it. A nodemon process lives long enough to finish the
+write, so the store worked correctly on this machine, its unit suite passed,
+and the local e2e signed in dozens of times without a 429. **The store was
+never the broken part.** What was wrong lived in *when* the un-counting ran,
+which only a deployed request can show.
+
+This is the sub-pattern worth naming: **a correct component, wired to a
+lifecycle hook the platform does not guarantee.** Unit tests assert the
+component; integration tests assert the wiring; neither asserts that the host
+will still be running when the callback fires. The only instrument that sees it
+is the deployed system answering a real request.
+
+#### The fix, and why it is shaped this way
+
+The forgiveness moved **inside** the request: a successful sign-in awaits
+`clearRateLimit()` before responding, so it depends on nothing the platform may
+decline to run afterwards. Same policy and same numbers; the counter resets on
+success rather than decrementing.
+
+The key comes from one exported `authThrottleKey`, shared by the limiter and the
+reset. Two definitions would be this document's favourite failure in miniature —
+a reset that clears a counter nobody reads, forgiving nothing, silently, with
+every test still green.
+
+Verified by re-running the measurement that found it:
+
+```
+failure #1 -> remaining=29     failure #3 -> remaining=27
+failure #2 -> remaining=28     failure #4 -> remaining=26
+SUCCESS     -> remaining=25    (increments, then clears)
+next req    -> remaining=29, reset=899   <- a full window again
+```
+
+#### And a vacuous test, found while writing its replacement
+
+The suite's `Setting.destroy` mock ignored the write-fail mode, so a new
+*"fails OPEN when the settings table is unreachable"* case passed without ever
+exercising a failure — it resolved without throwing whether or not the code
+caught anything. Caught by making `clearRateLimit` rethrow and watching the test
+**still pass**. The mock now honours the mode; with the rethrow it fails, and
+without it 20 pass.
+
+Same standing lesson as 3l/3n/3o/3p: a guard is worth what its test has been
+*seen* to catch, and a mock that cannot produce the failure makes the test a
+statement of intent.
