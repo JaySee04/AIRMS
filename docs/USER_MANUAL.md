@@ -52,6 +52,27 @@ Split-card layout on a cream gradient background.
 
 There is no role selector — you just enter your email and password. After successful login the system reads your role from the JWT and redirects to that role's landing page.
 
+**If sign-in says "Too many failed attempts".** The login page is throttled to
+**30 failed attempts per 15 minutes from one internet address**, to stop
+automated password guessing. Two things about it are worth knowing, because ISN
+sits behind a single shared address and the limit is counted for the *building*,
+not for one person:
+
+- **Only failures count**, and **a successful sign-in clears the tally** — so
+  normal use, including signing in and out across several accounts during a
+  demonstration, never approaches it.
+- **Using the system does not count at all.** Moving between pages, opening
+  athletes and running reports are outside the throttle entirely; only the
+  sign-in and password-reset pages are inside it. This was not always true —
+  until 2026-09-11 ordinary navigation quietly spent the same budget, so about
+  thirty page views in a quarter of an hour could lock everybody out while
+  everyone was typing the correct password.
+
+If you do see it, wait a few minutes and try again — there is nothing to reset
+and no account has been suspended. If a whole office sees it at once, somebody
+is likely to have been mistyping in a loop, or an automated tool is pointed at
+the sign-in page.
+
 ### Sidebar
 
 A 256px navy sidebar visible on every authenticated page:

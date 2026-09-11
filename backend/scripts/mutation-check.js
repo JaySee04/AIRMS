@@ -211,6 +211,15 @@ const MUTATIONS = [
     test: 'src/components/dashboard/DecisionPanel.test.tsx',
   },
   {
+    guard: 'DashboardLayout: the session is confirmed once, not once per render',
+    why: 'an array-identity dep made /auth/me fire 3x per page load in production',
+    pkg: 'frontend',
+    file: 'src/components/layout/DashboardLayout.tsx',
+    find: '  }, [rolesKey, router]);',
+    replace: '  }, [allowedRoles, router]);',
+    test: 'src/components/layout/DashboardLayout.test.tsx',
+  },
+  {
     guard: 'auth throttle: /auth/me is exempt, so navigation is not rationed',
     why: 'DashboardLayout calls it per page mount — 30 page views locked a clinician out',
     pkg: 'backend',

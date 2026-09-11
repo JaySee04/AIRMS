@@ -269,6 +269,13 @@ Staff accounts, and what each may do.
   immediately, the feature disappears from that user's sidebar, and the backend
   refuses the call regardless.
 - Activate / deactivate an account.
+- **"Too many failed attempts" on the sign-in page** is not a suspended account
+  and nothing needs resetting. Sign-in is capped at 30 *failed* attempts per 15
+  minutes per internet address — and because ISN shares one address, that cap is
+  counted for the building rather than for a person. A successful sign-in clears
+  the tally, and using the system afterwards does not count toward it at all, so
+  normal work never approaches the limit. Waiting a few minutes is the whole
+  remedy.
 
 ### Activity Log (`/admin/audit`)
 

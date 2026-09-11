@@ -31,9 +31,34 @@ export default function DashboardLayout({ children, allowedRoles, title, require
   // sideways. Desktop is unchanged; this only governs the narrow layout.
   const [navOpen, setNavOpen] = useState(false);
 
+  // The allowed roles as a VALUE, not as an array identity.
+  //
+  // Every page passes this prop as a literal — `allowedRoles={['medical',
+  // 'admin']}` — so React builds a new array on every render of that page. With
+  // the array itself in the effect's dependency list, the session check re-ran
+  // on every parent re-render, and a dashboard re-renders several times as its
+  // panels' data arrives.
+  //
+  // Measured against a PRODUCTION build (dev is not the number that matters —
+  // StrictMode double-invokes effects on purpose): `GET /auth/me` fired THREE
+  // times on /medical/dashboard, three on /athlete/dashboard and twice on
+  // /coach/dashboard, for one page load each. Three identical round trips to
+  // confirm one session, on a serverless API where each one can be a cold
+  // start.
+  //
+  // Comparing by value fixes it without weakening the gate: if a page ever did
+  // change which roles it allows, the string changes and the check re-runs.
+  // This is the same trap DashboardLayout.test.tsx already warns about for its
+  // router stub — "a router mock returning a fresh object each render loops for
+  // ever" — reached here through an ordinary prop instead of a mock.
+  const rolesKey = allowedRoles.join('|');
+
   useEffect(() => {
+    // Derived from the string rather than closed over the array, so the effect
+    // genuinely has no dependency on the prop's identity.
+    const roles = rolesKey.split('|') as Role[];
     const session = getSession();
-    if (!session || !allowedRoles.includes(session.user.role)) {
+    if (!session || !roles.includes(session.user.role)) {
       router.replace('/');
       return;
     }
@@ -60,7 +85,7 @@ export default function DashboardLayout({ children, allowedRoles, title, require
     // revoked mid-session, which is why this call already existed for medical.
     api.get<{ user: SessionUser }>('/auth/me')
       .then(({ user: fresh }) => {
-        if (!allowedRoles.includes(fresh.role)) { router.replace('/'); return; }
+        if (!roles.includes(fresh.role)) { router.replace('/'); return; }
         saveSession(session.token, fresh);
         setUser(fresh);
       })
@@ -70,7 +95,7 @@ export default function DashboardLayout({ children, allowedRoles, title, require
         // page the moment the API blinked.
         if (isAuthError(err)) { clearSession(); router.replace('/'); }
       });
-  }, [allowedRoles, router]);
+  }, [rolesKey, router]);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);

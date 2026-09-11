@@ -6150,3 +6150,95 @@ read.
 The honest cost is in the manual (§22.4): the marker is **per device**, and
 clearing browser data forgets it. Both of those degrade to the window, which
 shows more.
+
+---
+
+## 80. The optimisation pass, and the two places it did NOT find anything (2026-09-11)
+
+Measured before changed, and most of what was measured turned out to be fine.
+Recording the negatives matters as much as the fix: a future pass should not
+re-audit these from scratch, and "we looked and it was already good" is a
+finding.
+
+### 80.1 Latency told us nothing, and query COUNT was the right question
+
+Every endpoint answers in 3–10 ms locally:
+
+| endpoint | median | payload |
+|---|---|---|
+| `/coach/readiness` | 10 ms | 42.8 KB |
+| `/decisions` | 9 ms | 15.0 KB |
+| `/athletes?limit=100` | 9 ms | 44.2 KB |
+| `/cohorts` | 7 ms | 79.2 KB |
+| `/audit?limit=50` | 5 ms | 16.9 KB |
+
+That figure is close to meaningless: MySQL is on loopback here. Hosted, the
+database is Aiven across a network and the API is serverless, so what a request
+costs is roughly **how many round trips it makes**, not how fast each runs on
+this machine — and a stopwatch on a laptop cannot see it.
+
+Counted by hooking Sequelize's own `query` rather than by reading the code,
+because an N+1 hides in a loop nobody reads as a loop:
+
+```
+5  /api/decisions          5  /api/coach/readiness
+5  /api/athletes           4  /api/cohorts
+```
+
+**No N+1 anywhere.** Every route already batches: one roster query, one ordered
+screening fetch keyed by `IN (...)`, settings, and the auth middleware's user
+re-read. Nothing to fix, and that is the answer.
+
+**A false positive, caught by being suspicious of the instrument.** The first
+run truncated each statement to 90 characters and reported `/api/decisions`
+reading the settings table **twice**. It does not: one is `getSettings()`'s
+`findAll`, the other is `reviewed.js`'s `findByPk` for a single key, and the
+`WHERE` clause that distinguishes them sat past the cut. Re-run at 240
+characters they are plainly different queries. A measurement tool has a
+resolution, and a duplicate that only exists below it is the same silent failure
+this project keeps finding, one level up in the toolchain.
+
+### 80.2 The real finding was on the client, and dev could not show it
+
+A browser probe against the **dev** server showed four identical `/decisions`
+requests per dashboard load. That number is an artefact: React StrictMode
+double-invokes effects in development on purpose and not in a production build.
+Optimising against it would have been chasing the tooling.
+
+Measured properly against `next start` — a real production bundle, following
+gotcha 8's stop-dev → clear `.next` → build order — `/decisions` fires **once**.
+But something else did not:
+
+```
+                     BEFORE            AFTER
+/medical/dashboard   7 calls, me x3    5 calls, no repeats
+/athlete/dashboard   6 calls, me x3    4 calls, no repeats
+/coach/dashboard     4 calls, me x2    3 calls, no repeats
+```
+
+`DashboardLayout`'s session check listed **`allowedRoles` — an array prop — in
+its effect dependencies**. Every page passes it as a literal
+(`allowedRoles={['medical', 'admin']}`), so React builds a fresh array on each
+render and the effect re-ran on every parent re-render; a dashboard re-renders
+several times as its panels' data arrives. Three identical round trips to
+confirm one session, on a serverless API where each can be a cold start — and on
+the very endpoint whose budget ordinary navigation was spending (§3r in
+`SILENT_FAILURES.md`).
+
+Fixed by comparing the roles **by value** (`allowedRoles.join('|')`) and
+deriving the array back inside the effect, so it has no dependency on the prop's
+identity at all. The gate is not weakened: if a page genuinely changes which
+roles it admits, the string changes and the check re-runs — pinned by a test
+that asserts exactly that, alongside one asserting an equal-but-new array does
+not.
+
+**This is the same trap `DashboardLayout.test.tsx` already warned about at the
+top of the file** — "a router stub returning a fresh object each render loops
+for ever" — reached through an ordinary prop instead of a mock. The mock version
+was caught immediately because it hung the test suite; the prop version was
+invisible, because its symptom was merely *doing the work three times*. A
+correctness bug announces itself. A waste bug does not, which is why it needs
+measuring rather than reviewing.
+
+Registered in `npm run mutate` (21 guards): restoring the array dependency fails
+the test.

@@ -52,7 +52,7 @@ cd backend; npm run coverage         # 79.6% statements / 67.8% branches. Route 
                                      # transitive dep (fs.realpath) before it would run at all.
 cd backend; npm run mutate           # BREAK each registered guard on purpose and prove its
                                      # test fails. A surviving mutation exits non-zero: the
-                                     # test is not testing what it claims. 18 guards across
+                                     # test is not testing what it claims. 21 guards across
                                      # both packages. NOT part of `npx jest` — it spawns a
                                      # jest run per mutation (tens of seconds). Run it before
                                      # committing a change to a guard, and add an entry when
@@ -137,7 +137,7 @@ cd frontend; npm run e2e   # END-TO-END smoke: a real Chrome against the running
 cd frontend; npm run build
 
 # Unit tests (jest, in both packages — no linter configured for the backend)
-cd backend; npx jest      # 45 suites / 678 tests: cohorts, overallIndicator, permissions, rbac, pdfDraw,
+cd backend; npx jest      # 46 suites / 690 tests: cohorts, overallIndicator, permissions, rbac, pdfDraw,
                           # decisionSupport (the worklist ranking AND the caller-held
                           # "since you last looked" marker - DD 79),
                           # screeningPeriods, cohortFocus, visionUsage, alerts, scheduler,
@@ -146,6 +146,12 @@ cd backend; npx jest      # 45 suites / 678 tests: cohorts, overallIndicator, pe
                           # mailSendNow, lock, prescription, settingsChanges, symmetry,
                           # isnDirectory, accountLifecycle, athleteDisclosure, recompute,
                           # httpHardening, codebaseHygiene, reportRoutes, crossPackage, numRound,
+                          # authThrottle (WHICH auth endpoints the brute-force limiter
+                          # covers - reads routes/auth.js as TEXT and pins the exempt
+                          # list to it in BOTH directions. An authenticated route
+                          # missing from the list rations ordinary navigation; an
+                          # UNAUTHENTICATED one added to it silently removes
+                          # brute-force protection. See SILENT_FAILURES 3r),
                           # systemMap (docs/SYSTEM_MAP.md is current AND its sections are
                           # checked against independent counts - run `npm run map`),
                           # sharedFacts (the generated shared/facts.js is in sync in BOTH
@@ -159,7 +165,7 @@ cd backend; npx jest      # 45 suites / 678 tests: cohorts, overallIndicator, pe
                           # other suite. Static: it reads both files as text and never
                           # require()s the target, because several modules build a Sequelize
                           # instance at import time)
-cd frontend; npx jest     # 20 suites / 337 tests (the run is pinned to UTC by
+cd frontend; npx jest     # 20 suites / 339 tests (the run is pinned to UTC by
                           # jest.globalSetup.js - this machine sits IN the institution
                           # zone, which made the date tests pass for the wrong reason
                           # until mutation testing said so; see DD 62): lib/risk.ts, lib/screeningUploadStore.ts, bodymap-data/muscles.ts,
@@ -170,7 +176,11 @@ cd frontend; npx jest     # 20 suites / 337 tests (the run is pinned to UTC by
                           # lib/shared/facts.ts (the generated file matches its source, and
                           # matches the backend's copy), components/layout/DashboardLayout
                           # (jsdom - the access gate; opt in per file with a @jest-environment
-                          # docblock, so the node suites are untouched),
+                          # docblock, so the node suites are untouched. Also pins that the
+                          # session is confirmed ONCE per load, not once per render: the
+                          # effect listed `allowedRoles` - an ARRAY PROP every page passes
+                          # as a literal - so /auth/me fired 3x per production page load.
+                          # Compared by VALUE now; DD 80.2),
                           # components/dashboard/OverallRiskBadge (jsdom - THE HERO, added
                           # 2026-09-05. The first test above `lib/`, and it pins the locked
                           # CLINICAL decisions that are properties of the rendered page

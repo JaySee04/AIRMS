@@ -20,7 +20,7 @@
 // Runs under jsdom via the docblock above, so the existing node-environment
 // suites are untouched.
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, act } from '@testing-library/react';
 import DashboardLayout from './DashboardLayout';
 import { ApiError } from '@/lib/api';
 
@@ -206,5 +206,67 @@ describe('a revoked capability', () => {
 
     expect(await screen.findByText(/roster and clinical scores/)).toBeInTheDocument();
     expect(replace).not.toHaveBeenCalled();
+  });
+});
+
+// ONE session check per page load, not one per render.
+//
+// The gate's effect used to list `allowedRoles` — an ARRAY PROP — in its
+// dependencies. Every page passes it as a literal (`allowedRoles={['medical',
+// 'admin']}`), so React builds a fresh array each render and the effect re-ran
+// on every parent re-render. A dashboard re-renders several times as its panels'
+// data arrives.
+//
+// Measured against a PRODUCTION build, one page load each:
+//
+//   /medical/dashboard   GET /auth/me x3      (7 API calls total)
+//   /athlete/dashboard   GET /auth/me x3      (6 API calls total)
+//   /coach/dashboard     GET /auth/me x2      (4 API calls total)
+//
+// Three identical round trips to confirm one session, on a serverless API where
+// each can be a cold start — and on the endpoint whose budget a clinician's
+// ordinary navigation was spending (SILENT_FAILURES 3r). After comparing the
+// roles by VALUE: 5, 4 and 3 calls, with nothing repeated.
+//
+// This is the same trap the router-stub note at the top of this file warns
+// about, reached through an ordinary prop rather than a mock — which is why it
+// survived into production while the mock version was caught immediately.
+describe('the session is confirmed once, not once per render', () => {
+  it('does not re-ask the server when the parent re-renders with an equal roles array', async () => {
+    signedInAs(ADMIN);
+    const { rerender } = render(
+      <DashboardLayout allowedRoles={['admin']} title="T">{SECRET}</DashboardLayout>,
+    );
+    expect(await screen.findByText(/roster and clinical scores/)).toBeInTheDocument();
+    const afterMount = mockGet.mock.calls.filter(([p]) => p === '/auth/me').length;
+    expect(afterMount).toBe(1);
+
+    // A NEW array with the SAME contents — exactly what a re-rendering page
+    // produces. Depending on identity, this re-ran the whole check.
+    await act(async () => {
+      rerender(<DashboardLayout allowedRoles={['admin']} title="T">{SECRET}</DashboardLayout>);
+      rerender(<DashboardLayout allowedRoles={['admin']} title="T2">{SECRET}</DashboardLayout>);
+    });
+
+    const total = mockGet.mock.calls.filter(([p]) => p === '/auth/me').length;
+    expect(total).toBe(1);
+  });
+
+  it('DOES re-ask when the allowed roles actually change', async () => {
+    // The optimisation must not become "check once and never again". Comparing
+    // by value has to stay a comparison — if the page genuinely changes which
+    // roles it admits, the gate re-runs.
+    signedInAs(ADMIN);
+    const { rerender } = render(
+      <DashboardLayout allowedRoles={['admin']} title="T">{SECRET}</DashboardLayout>,
+    );
+    await waitFor(() => expect(mockGet).toHaveBeenCalledWith('/auth/me'));
+
+    await act(async () => {
+      rerender(<DashboardLayout allowedRoles={['admin', 'medical']} title="T">{SECRET}</DashboardLayout>);
+    });
+
+    const total = mockGet.mock.calls.filter(([p]) => p === '/auth/me').length;
+    expect(total).toBe(2);
   });
 });
