@@ -3569,3 +3569,39 @@ textarea:focus-visible,
   gap: var(--sp-sm);
   margin-bottom: var(--sp-md);
 }
+
+/* ── Decision panel (2026-09-10) ─────────────────────────────────────────────
+   The worklist that opens medical, coach and admin dashboards. Built from the
+   existing scale — no new literals. */
+.decision-list { list-style: none; margin: 0 0 var(--sp-md); padding: 0; }
+.decision-item {
+  padding: var(--sp-sm) 0;
+  border-bottom: 1px dashed var(--border);
+}
+.decision-item:last-child { border-bottom: 0; }
+.decision-item-main {
+  display: flex; align-items: center; gap: var(--sp-sm); flex-wrap: wrap;
+}
+.decision-name { font-size: var(--fs-md); }
+.decision-age { font-size: var(--fs-xs); }
+/* Band chips carry a WORD, never colour alone (WCAG 1.4.1 / SILENT_FAILURES 3i);
+   the tint is a second channel, not the only one. */
+.decision-band {
+  font-size: var(--fs-2xs); font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.04em; padding: 2px var(--sp-xs); border-radius: var(--r-xs);
+  border: 1px solid var(--border); white-space: nowrap;
+}
+.decision-band--red { color: var(--risk-high); background: var(--risk-high-bg); border-color: var(--risk-high); }
+.decision-band--amber { color: var(--risk-moderate); background: var(--risk-moderate-bg); border-color: var(--risk-moderate); }
+.decision-band--green { color: var(--risk-low); background: var(--risk-low-bg); border-color: var(--risk-low); }
+/* Never-screened is deliberately NEUTRAL, not green and not red: it is an
+   absence of information, and colouring it as a band would make it read as a
+   clinical finding. */
+.decision-band--never { color: var(--text-muted); background: transparent; }
+.decision-flag { font-size: var(--fs-2xs); color: var(--risk-moderate); }
+.decision-reasons {
+  margin: var(--sp-xs) 0 0; padding-left: var(--sp-lg);
+  font-size: var(--fs-sm); color: var(--text-muted); line-height: 1.5;
+}
+.decision-actions { display: flex; gap: var(--sp-xs); margin-top: var(--sp-xs); }
+.decision-changes { margin-top: var(--sp-md); border-top: 1px solid var(--border); padding-top: var(--sp-md); }

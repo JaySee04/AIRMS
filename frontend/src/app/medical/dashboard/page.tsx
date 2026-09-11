@@ -16,6 +16,7 @@ const BodyMap = dynamic(() => import('@/components/dashboard/BodyMap'), { ssr: f
 const RiskRadar = dynamic(() => import('@/components/dashboard/RiskRadar'), { ssr: false, loading: () => <div style={{ height: 300 }} /> });
 import ScreeningAlertBanner from '@/components/dashboard/ScreeningAlertBanner';
 import ScreeningHistory from '@/components/dashboard/ScreeningHistory';
+import DecisionPanel from '@/components/dashboard/DecisionPanel';
 import ScreeningPanel from '@/components/dashboard/ScreeningPanel';
 import SportContext from '@/components/dashboard/SportContext';
 import ScreeningDatePicker, { FullScreening } from '@/components/dashboard/ScreeningDatePicker';
@@ -612,6 +613,13 @@ export default function MedicalDashboard() {
                     + `${roster.unscreened ? ` · ${roster.unscreened} never screened` : ''}`}
                 />
               )}
+
+              {/* The worklist comes FIRST on the landing pane: the clinician's
+                  question is "who do I see next", and the roster groups below
+                  answer "who is there". Opening an entry selects the athlete,
+                  so the panel hands off to the existing detail view rather than
+                  becoming a second one. */}
+              <DecisionPanel onOpenAthlete={(id) => setSelectedId(id)} />
 
               <div className="card medical-empty-hero">
                 <h2 style={{ margin: 0 }}>Pick an athlete to begin</h2>

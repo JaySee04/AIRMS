@@ -30,6 +30,7 @@ import {
 import OverallRiskBadge, { ScreeningIndicator } from '@/components/dashboard/OverallRiskBadge';
 import ScreeningAlertBanner from '@/components/dashboard/ScreeningAlertBanner';
 import ScreeningHistory from '@/components/dashboard/ScreeningHistory';
+import DecisionPanel from '@/components/dashboard/DecisionPanel';
 import ScreeningPanel from '@/components/dashboard/ScreeningPanel';
 import ScreeningDatePicker, { FullScreening } from '@/components/dashboard/ScreeningDatePicker';
 
@@ -538,6 +539,11 @@ export default function CoachDashboard() {
             + `${counts.unscored ? ` · ${counts.unscored} not yet screened` : ''}`}
         />
       )}
+
+      {/* A coach's decision is a selection decision, so the worklist opens the
+          page — but the verb and the scope come from the server, and a coach
+          cannot tick anything (read-only, locked). */}
+      <DecisionPanel onOpenAthlete={(id) => setSelectedId(id)} />
 
       <div className="card" style={{ marginBottom: 20 }}>
         <div className="card-header">

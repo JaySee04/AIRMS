@@ -122,6 +122,7 @@ async function visit(browser, route, session) {
       coach: await login('coach@isn.gov.my'),
       medical: await login('medical@isn.gov.my'),
       athlete: await login('athlete@isn.gov.my'),
+      executive: await login('executive@isn.gov.my'),
     };
   } catch (e) {
     console.error(`${e.message}\nAre both servers running (npm run dev) and the database seeded?`);
@@ -239,6 +240,52 @@ async function visit(browser, route, session) {
       const mean = all.length ? +(all.reduce((a, b) => a + b, 0) / all.length).toFixed(1) : null;
       check('the split reconciles with the institute headline', mean === c.averages.overallActivityScore,
         `points mean ${mean} vs headline ${c.averages.overallActivityScore}`);
+    }
+
+    console.log('\n4g. the decision worklist ranks, explains, and refuses to overclaim');
+    // Added 2026-09-10 with the decision panel. The clinical properties here are
+    // the same ones §33 and Bahr protect, moved from a badge onto a
+    // recommendation — so they are asserted on the RENDERED page, which is where
+    // a reader meets them (SILENT_FAILURES 3n).
+    for (const [role, route] of [['medical', '/medical/dashboard'], ['coach', '/coach/dashboard']]) {
+      const r = await visit(browser, route, sessions[role]);
+      check(`${role}: the worklist panel is on the page`,
+        /See next:|Review before selecting:|Nothing waiting on you/.test(r.text));
+      // The claim it must never make.
+      check(`${role}: says plainly it does not predict injury`,
+        /does not predict injury/i.test(r.text));
+      // An entry without a reason is an instruction a clinician cannot check.
+      check(`${role}: every entry carries a reason`,
+        /below cohort average|never screened|overdue|override in force|flagged by the cohort/i.test(r.text));
+      // Marking is a WRITE; coach is read-only by a locked decision.
+      const buttons = await r.page.evaluate(
+        () => [...document.querySelectorAll('.decision-actions button')].map((b) => b.textContent.trim()),
+      );
+      if (role === 'coach') {
+        check('coach is offered no way to mark an entry reviewed', !buttons.includes('Mark reviewed'));
+      } else {
+        check('a clinician can mark an entry reviewed', buttons.includes('Mark reviewed'));
+      }
+      await r.page.close();
+    }
+    {
+      // Never-screened must never be rendered as a clinical band — it is an
+      // absence of information, and collapsing it into green is the §33
+      // reassurance failure.
+      const res = await fetch(`${API}/decisions`, { headers: { Authorization: `Bearer ${sessions.medical.token}` } });
+      const d = await res.json();
+      const never = d.worklist.filter((w) => w.band === 'never');
+      const green = d.worklist.filter((w) => w.band === 'green');
+      check('never-screened athletes are ranked, and not as a band',
+        never.every((w) => !['green', 'amber', 'red'].includes(w.band)), `${never.length} never-screened`);
+      if (never.length && green.length) {
+        const firstNever = d.worklist.findIndex((w) => w.band === 'never');
+        const firstGreen = d.worklist.findIndex((w) => w.band === 'green');
+        check('never-screened outrank green — unknown is not low risk', firstNever < firstGreen,
+          `never at ${firstNever}, green at ${firstGreen}`);
+      }
+      check('executive is refused the worklist (§51)',
+        (await fetch(`${API}/decisions`, { headers: { Authorization: `Bearer ${sessions.executive?.token ?? ''}` } })).status !== 200);
     }
 
     console.log('\n4f. the roster endpoint pages on request and NOT by default');
