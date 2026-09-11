@@ -633,4 +633,124 @@ are refused server-side, and every download is written to the Activity Log
 
 ---
 
-*Last updated: 2026-08-18 — **brought back in step with the app after four months of drift.** This manual had been describing pages that no longer exist: `/athlete/injury-report`, `/medical/injury-log` and `/medical/review-reports` (all removed by the HoloMotion-only cut on 2026-08-02) had full sections, `/admin/staff` and `/admin/coaches` were cited as live routes, and §9 documented an Injury Analytics page whose KPIs and three charts had gone with the same cut. Those are corrected or replaced with dated removal records rather than deleted silently. Added: the five-role demo table (`coach` and `executive` were missing entirely), the IC number as the athlete key (it still said `ATH0001`), the rewritten §9 Screening Analytics, and §21 covering six surfaces that existed in the app but had never been written up — Programme Activity, the Activity Log, Settings, Cohort Norms, athlete History/My Squad and coach reports — plus the rescreen reminders, the monthly digest and the per-user email opt-out in §20. Previous: 2026-07-20 (later same day) — **the six FDD modules restructured** after Activity Tracking's removal (below): rather than leave a hole at "Module 1" or drop to five modules, the surviving feature set was redistributed across a fresh six (old Data Management split into Screening Data Ingestion and Cohort Norms & Governance). Module numbers used elsewhere in this manual's prose now refer to the **new** numbering — see `docs/fyp/FYP2_MODULES_USECASES.md` Appendix B if you're holding an older reference. Previous (2026-07-20, earlier same day): **Activity Tracking (then Module 1) removed entirely.** §3 rewritten as a retirement notice; §4.5 (Recent Activity table) removed from the athlete dashboard; §8 (medical dashboard) loses its Recent Activity table, Recovery baseline card, and Prevention insight card — all consumed data only that module produced. `risk.ts` (composite model, §6/§16 machinery) is unchanged code-wise but now has no live callers. Previous: 2026-07-16 — **ACWR removed from every dashboard.** §4 rewritten: the cohort-normed indicator is now the single risk verdict (§4.1 hero, paired with the §4.2 radar); the composite ACWR hero, load stat tiles and Workload Trend chart are gone from athlete + medical, and the coach's readiness now derives from the HoloMotion band (§20). Lumbar Disc Herniation removed from the radar, threshold strips, cohort chart and alerts (it was being shown against Dr Thung's requirement). Previous: 2026-07-14 — FYP II screening-centred redesign: §16 (cohort-normed overall indicator), §17 (admin cohort thresholds + settings), §18 (clinician override), §19 (three screening PDF reports), §20 (import-commit email alerts + coach view). Earlier: 2026-07-06 — §14 dashboard-embedded screening panel; §15 permission revocations vanish features; five-step injury intake. 2026-06-28 (HoloMotion PDF import, backup, staff permissions).*
+---
+
+## 22. Decision support (added 2026-09-10)
+
+Everything before this section tells you **what is true**. This section is the
+part that tells you **what to do about it** — and it is one feature wearing four
+faces, all reading a single ranking, so the headline can never disagree with the
+list beneath it.
+
+It appears on the **Medical** and **Coach** dashboards. It is deliberately **not**
+shown to the executive: a per-athlete worklist is a clinical record in list form,
+and executive oversight is the analytics and the three PDF reports.
+
+### 22.1 The worklist — "who do I see next"
+
+A ranked list of everyone in your scope, **worst first**, each with the reasons
+that put them there.
+
+**How the order is decided**, in this priority:
+
+| Rank | Group | Why it sits there |
+|---|---|---|
+| 1 | Red band | Two independent rules agreed — the strongest signal the system produces |
+| 2 | Amber band | One rule fired |
+| 3 | **Never screened** | **Unknown, not low risk.** Ranked above green on purpose |
+| 4 | Green band | No indicator flagged |
+
+Within a group, the **older** screening comes first — between two equal athletes,
+you know least about the one you have seen least recently.
+
+**Reasons are never invented.** Each line is a rule that actually fired, read
+from that athlete's stored screening, so it is the same evidence the athlete's
+own page shows. If you disagree with the ordering, you can disagree with it on
+the evidence.
+
+**A clinician override beats the computed band.** If you have seen an athlete and
+cleared them, the worklist stops handing them back.
+
+### 22.2 What it will not tell you
+
+> **It does not predict injury.** It orders who is worth a clinician's time.
+
+This is the same limit that applies everywhere else in AIRMS (§16), stated on the
+panel itself because an ordered list is easy to mistake for a forecast. Nobody on
+this list is predicted to be injured, and nobody absent from it is safe.
+
+### 22.3 Marking an entry reviewed — and what that does NOT mean
+
+**Medical and admin only.** Coaches are read-only and are not shown the control.
+
+| | "Mark reviewed" | Band override (§18) |
+|---|---|---|
+| Means | *I have looked at this screening* | *My clinical decision about this athlete* |
+| Visible to | Only you | Everyone, on every surface |
+| Audited | No | **Yes**, with your name and a required note |
+| Expires | When a new screening arrives | When the next import supersedes it |
+
+A tick is a bookmark in your own list. **A new screening returns the athlete to
+your worklist**, because new information has not been reviewed — a review is of
+one assessment, not of a person.
+
+### 22.4 What moved recently
+
+Beneath the worklist, any athlete whose **band changed** in the last 7 days,
+worsening first. A first screening is shown as *new* rather than as an
+improvement, because there was nothing to improve from.
+
+*Why a rolling window rather than "since you last logged in":* remembering that
+you have seen something is a **write**, and the coach role is read-only by a
+locked decision. A per-user marker would work for clinicians and be silently
+missing for coaches — giving the role that most needs a squad summary the worst
+version of it. A window needs no write, and every role gets the same feature.
+
+### 22.5 Comparing athletes
+
+Pick **two to five** to see side by side: band, screening age, recall state, and
+why each is flagged.
+
+> **It compares readings, not readiness.** Two athletes in the same band are not
+> interchangeable, and a better score does not mean a lower chance of injury. Use
+> it to decide who to look at **first**, not who to select.
+
+The caveat is printed **above** the table on purpose. Underneath, it would be read
+after you had already formed a view.
+
+---
+
+## 23. Other features added since 2026-08-18
+
+Short entries for surfaces documented in full elsewhere.
+
+- **Report summary card** (all dashboards, §14). HoloMotion's own written comment
+  on the screening, reproduced **word for word** and attributed to the
+  instrument — never paraphrased. It appears only when the report carried one;
+  the compact HoloMotion layout has no Summary section, and the seeded demo data
+  deliberately has none, so this card appears once a real report is imported.
+- **Lateral symmetry and training prescription** (all dashboards, §14). Both were
+  built on 2026-08-23 and, until 2026-09-09, drew nothing at all on any page
+  because the data never reached them. They now show which side is weaker and by
+  how much, and HoloMotion's own two-week programme where the report includes one.
+- **Roster cohort verdict** (medical landing pane). The split of the whole roster
+  by effective band, with never-screened counted **apart** from any band, and a
+  worst-first shortlist.
+- **Watchlist** (medical + admin). Your own shortlist of athletes, private to you,
+  toggled from the athlete header. Not audited — it is a working note, and opening
+  the record is still recorded.
+- **Seasonality panel** (`/admin/activity`). Which quarter of the year carries the
+  risk, ranked by the **share** of flagged screenings rather than the count. It
+  **refuses to name a quarter** below two years of data, because one year cannot
+  separate a season from the quarter the weaker squads happened to be screened in.
+  A quarter with no screening reads "not screened", never 0%.
+- **Programme comparison** (`/admin/dashboard`). PODIUM against PELAPIS, with the
+  caveat above the table: athletes are **selected into** PODIUM, so a gap reflects
+  who was chosen at least as much as what the programme did.
+- **Roster paging** (API). `GET /athletes` accepts `limit` and `offset` and always
+  reports the true total, so a caller can never be given a partial roster without
+  being told. The dashboards still request the whole roster; nothing on screen
+  changed.
+
+
+*Last updated: 2026-09-10 — **§22 and §23 added.** §22 documents the decision-support panel now on the Medical and Coach dashboards: the ranked worklist and how its order is decided, the claim it deliberately refuses to make, the difference between "mark reviewed" (a private bookmark) and a band override (an audited clinical decision), the rolling window and why it is not a per-user marker, and the compare table with the caveat that it compares readings rather than readiness. §23 covers seven surfaces built since the last revision that had no entry here: the report summary card, lateral symmetry and training prescription (both of which drew nothing on any page until 2026-09-09), the roster cohort verdict, the watchlist, the seasonality panel, the PODIUM/PELAPIS comparison and roster paging. Previous: 2026-08-18 — **brought back in step with the app after four months of drift.** This manual had been describing pages that no longer exist: `/athlete/injury-report`, `/medical/injury-log` and `/medical/review-reports` (all removed by the HoloMotion-only cut on 2026-08-02) had full sections, `/admin/staff` and `/admin/coaches` were cited as live routes, and §9 documented an Injury Analytics page whose KPIs and three charts had gone with the same cut. Those are corrected or replaced with dated removal records rather than deleted silently. Added: the five-role demo table (`coach` and `executive` were missing entirely), the IC number as the athlete key (it still said `ATH0001`), the rewritten §9 Screening Analytics, and §21 covering six surfaces that existed in the app but had never been written up — Programme Activity, the Activity Log, Settings, Cohort Norms, athlete History/My Squad and coach reports — plus the rescreen reminders, the monthly digest and the per-user email opt-out in §20. Previous: 2026-07-20 (later same day) — **the six FDD modules restructured** after Activity Tracking's removal (below): rather than leave a hole at "Module 1" or drop to five modules, the surviving feature set was redistributed across a fresh six (old Data Management split into Screening Data Ingestion and Cohort Norms & Governance). Module numbers used elsewhere in this manual's prose now refer to the **new** numbering — see `docs/fyp/FYP2_MODULES_USECASES.md` Appendix B if you're holding an older reference. Previous (2026-07-20, earlier same day): **Activity Tracking (then Module 1) removed entirely.** §3 rewritten as a retirement notice; §4.5 (Recent Activity table) removed from the athlete dashboard; §8 (medical dashboard) loses its Recent Activity table, Recovery baseline card, and Prevention insight card — all consumed data only that module produced. `risk.ts` (composite model, §6/§16 machinery) is unchanged code-wise but now has no live callers. Previous: 2026-07-16 — **ACWR removed from every dashboard.** §4 rewritten: the cohort-normed indicator is now the single risk verdict (§4.1 hero, paired with the §4.2 radar); the composite ACWR hero, load stat tiles and Workload Trend chart are gone from athlete + medical, and the coach's readiness now derives from the HoloMotion band (§20). Lumbar Disc Herniation removed from the radar, threshold strips, cohort chart and alerts (it was being shown against Dr Thung's requirement). Previous: 2026-07-14 — FYP II screening-centred redesign: §16 (cohort-normed overall indicator), §17 (admin cohort thresholds + settings), §18 (clinician override), §19 (three screening PDF reports), §20 (import-commit email alerts + coach view). Earlier: 2026-07-06 — §14 dashboard-embedded screening panel; §15 permission revocations vanish features; five-step injury intake. 2026-06-28 (HoloMotion PDF import, backup, staff permissions).*

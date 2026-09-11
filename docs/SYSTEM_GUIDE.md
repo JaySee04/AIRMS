@@ -75,8 +75,30 @@ the name in either order ("faris ahmad" finds "Ahmad Faris") and IC numbers type
 with the punctuation printed on a form. Where two athletes share a name, the
 result is marked as ambiguous — only the IC and the sport separate them.
 
-*Before you select anyone*, the pane shows entry points: roster counts, athletes
-currently flagged as injured, and recent activity.
+*Before you select anyone*, the pane opens with **the worklist** — the panel that
+answers "who do I see next" rather than making you work it out from a roster.
+
+**The worklist** ranks everyone you are responsible for, worst first, and shows
+**why** each athlete is on it: the rules that fired, taken from that athlete's
+own screening record, so you can disagree with the ordering on the evidence.
+
+Four things about it are deliberate and worth knowing:
+
+- **It does not predict injury.** It orders who is worth your time. The panel
+  says so on itself, because the ordering is easy to mistake for a forecast.
+- **Athletes nobody has screened are ranked ABOVE those in the green band**, and
+  are never given a band. Somebody unassessed is *unknown*, not low risk.
+- **"Mark reviewed" is a note to yourself** — it means "I have looked at this
+  screening", never "I have cleared this athlete". Recording a clinical decision
+  is the band override, which is attributed to you, needs a note, and is audited.
+  A new screening brings the athlete back onto your list, because new information
+  has not been reviewed.
+- **Below the list you can compare** any two to five athletes side by side. Use
+  it to decide who to look at first. It compares *readings*, not readiness: a
+  better score does not mean a lower chance of injury.
+
+Beneath the worklist the pane shows the older entry points: roster counts,
+athletes currently flagged as injured, your watchlist, and recent activity.
 
 *Once selected*, the athlete's full picture:
 
@@ -118,6 +140,13 @@ force, so a clinician can see what an athlete is being compared against.
 **Squad Readiness** (`/coach/dashboard`). Read-only, and scoped to the coach's
 own sport: a coach sees their squad and no one else's.
 
+- **The worklist opens the page**, ranked worst first with the reason for each —
+  the same panel and the same ranking the clinical view uses, scoped to your
+  sport. The heading reads *"Review before selecting"* rather than *"See next"*,
+  because your decision is a selection decision.
+- **A coach cannot mark anything reviewed.** The tick is a clinical working note
+  and the coach role is read-only throughout; the button is not shown to you at
+  all, rather than shown and refused.
 - Each athlete's current band, their movement scores, and a trend arrow against
   their previous screening.
 - **The arrow only calls a change real when it exceeds the detectable-change
