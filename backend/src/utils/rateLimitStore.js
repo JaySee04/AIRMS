@@ -161,8 +161,10 @@ const authThrottleKey = (req) => ipKeyGenerator(req.ip);
  *
  * `skipSuccessfulRequests` works by decrementing from a `res.on('finish')`
  * handler — that is, AFTER the response has been flushed. On a long-lived
- * process the write completes; on Vercel the instance is frozen once the
- * response is out, so the decrement is issued and never lands. Measured against
+ * process the write completes. On Vercel it is DEFERRED until the instance is
+ * thawed by a later request, so it lands eventually and never in time — the
+ * next request has already read the un-decremented count, and this store's
+ * read-modify-write then writes over the late decrement. Measured against
  * the hosted API on 2026-09-11: five consecutive SUCCESSFUL logins took
  * `remaining` 28 → 27 → 26 → 25 → 24 and it never recovered. The documented
  * policy said "30 failures / 15 min"; the deployed behaviour was "30 requests",

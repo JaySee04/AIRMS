@@ -20,29 +20,32 @@ const DEBOUNCE_MS = 1500; // > the uploader's inter-file spacing is NOT needed �
                           // any burst that outruns the window just flushes twice.
 const BUSY_BACKOFF_MS = 5000; // another process holds the recompute lock
 
-// DOES WORK SCHEDULED FOR AFTER THE RESPONSE ACTUALLY RUN?
+// WHEN DOES WORK SCHEDULED FOR AFTER THE RESPONSE ACTUALLY RUN?
 //
-// On a long-lived process, yes — the event loop keeps going and the debounce
-// below is free efficiency. On a serverless host the invocation can be frozen
-// the moment the response is flushed, and `schedule()` uses a 1.5s timer that
-// is additionally `.unref()`ed, which explicitly tells Node not to stay alive
-// for it. So everything this queue does — the cohort recompute AND the
-// at-risk alert email — could simply never happen, with the import reporting
-// success either way.
+// On a long-lived process, immediately — the event loop keeps going and the
+// debounce below is free efficiency.
 //
-// That is the defect class of SILENT_FAILURES 3r, where the rate limiter's
-// post-response decrement was issued on this very host and never landed. This
-// one is strictly more exposed: 3r's write was scheduled on `res.finish`, and
-// an unref'd timer is weaker than that.
+// On the hosted serverless API it runs WHEN THE INSTANCE IS NEXT THAWED BY
+// ANOTHER REQUEST. Measured 2026-09-11 with a temporary diagnostic endpoint
+// (added, measured, reverted): an unref'd `setTimeout(…, 1500)` scheduled
+// during a request landed **7.25 seconds** later, on the next call — not 1.5s,
+// and not never. Deferred, by an unbounded amount, to an event outside this
+// system's control.
 //
-// HONESTY ABOUT THE EVIDENCE: 3r was measured. THIS was not — no import has
-// ever run on the hosted instance (0 `screening.import` audit rows, checked
-// 2026-09-11), so there is no forensic trace to read either way. The hazard is
-// UNMEASURED, not demonstrated. It is fixed anyway, because the cost of being
-// wrong is asymmetric: awaiting costs ~50-200ms (a full local recompute,
-// measured), and not awaiting costs a norm that never refreshed and a flagged
-// athlete nobody was emailed about — discovered, if ever, in front of the
-// stakeholder.
+// That is what makes this queue unsafe there, and the reason is worse than
+// "the work is lost". A cohort recompute and an at-risk alert email that run
+// "whenever somebody next happens to call the API" are not a queue, they are a
+// coin toss: on a quiet evening after the last import of the day, the next
+// request may be tomorrow — and the clinician who should have been emailed
+// about a red athlete was not, while the import reported success.
+//
+// It was the earlier, WRONG explanation of SILENT_FAILURES 3r that made this
+// look merely theoretical. 3r's decrement does not vanish either; it arrives
+// after the next request has already read the old count. Same mechanism, and
+// on this queue the window is seconds-to-hours rather than milliseconds.
+//
+// COST OF THE FIX, measured: a full local recompute is 50-200ms (three runs).
+// That is what the hosted commit now pays to be correct.
 //
 // `process.env.VERCEL` is already this codebase's platform test (config/db.js).
 const DEFERRED_WORK_SURVIVES = !process.env.VERCEL;

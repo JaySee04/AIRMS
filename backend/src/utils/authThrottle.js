@@ -83,8 +83,10 @@ const LOOPBACK = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
 //
 // WHY NOT `skipSuccessfulRequests` (removed 2026-09-11). It decrements from a
 // `res.on('finish')` handler — after the response is flushed. On a long-lived
-// process that write completes; on Vercel the instance freezes once the
-// response is out, so the decrement is issued and never lands. Measured against
+// process that write completes. On Vercel it is DEFERRED until the instance is
+// thawed by a later request — so it lands eventually, and never in time: the
+// next request reads the counter first, and the store's read-modify-write then
+// writes over the late decrement. Measured against
 // the hosted API: five consecutive SUCCESSFUL logins took `remaining` 28 → 27 →
 // 26 → 25 → 24, never recovering. The deployed limiter was therefore
 // "30 REQUESTS / 15 min" while its own RateLimit header and every doc said

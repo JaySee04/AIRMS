@@ -6261,15 +6261,29 @@ this repository reads the code or runs it locally.
 Two pieces of unawaited work, both looking equally careless in a review, behave
 differently on the hosted API:
 
-| | shape | lands on Vercel? |
+| scheduled from | lands on Vercel? | when |
 |---|---|---|
-| `recordAudit()` | `AuditLog.create(...)` issued **during** the handler | **yes** — measured, rows 5 → 6 |
-| rate-limit decrement | scheduled on **`res.finish`** | **no** — `remaining` 28→27→26→25→24 |
+| during the handler, unawaited (`recordAudit`) | **yes** | immediately — already in flight |
+| `res.on('finish')` | **yes** | **3 ms** after the request |
+| `setTimeout(…, 1500).unref()` | **yes** | **7.25 s** later, on the *next* request |
 
-**Work STARTED before the response survives; work SCHEDULED for after it may
-not.** That distinction is not pedantry — it is the difference between the audit
-trail §51 leans on being intact and being full of invisible holes, and it was
-settled by asking the deployed system rather than by reading Vercel's docs.
+**Corrected 2026-09-11.** This section first said the instance is *frozen and
+the work discarded*. Measured with a temporary diagnostic (added, measured,
+reverted), that is wrong: post-response work is **deferred until the instance is
+thawed by another request**, not lost. See `SILENT_FAILURES.md` 3r (continued).
+
+Deferred is the worse failure, because it looks healthy. Anything that must be
+ready **before the next request** is reliably too late — that request reads the
+old value first, and the store's read-modify-write then writes over the late
+update. Reproduced in isolation on the host, six successful requests through a
+`skipSuccessfulRequests` limiter three seconds apart:
+
+```
+local    999 999 999 999 999 999     decrement always in time
+hosted   999 998 997 997 996 995     mostly too late
+```
+
+Same code, same store; the only variable is the host.
 
 `tests/serverlessLifecycle.test.js` now guards the class: no `res.on('finish')`
 anywhere, `skipSuccessfulRequests` not re-enabled, and `recordAudit` not
@@ -6284,16 +6298,25 @@ serverless host that is strictly more exposed than the thing that already failed
 If it never runs, an import reports success having refreshed no norms and
 emailed nobody.
 
-**Stated honestly: this was NOT measured.** No import has ever run on the hosted
-instance (0 `screening.import` audit rows, checked 2026-09-11), so there is no
-forensic trace either way, and committing one of the three demo reports to find
-out would spend an athlete's first-screening moment that belongs to Dr Thung and
-Dr Hoo. The hazard is **unmeasured, not demonstrated**.
+**It was unmeasured when first written, and is now measured.** The original note
+said so honestly — no import has ever run on the hosted instance (0
+`screening.import` audit rows), there is no forensic trace either way, and
+committing one of the three demo reports to find out would spend an athlete's
+first-screening moment belonging to Dr Thung and Dr Hoo.
 
-It is fixed anyway, because the cost of being wrong is asymmetric: awaiting costs
-**50–200 ms** (a full local recompute, measured three times), and not awaiting
-costs a silent clinical failure discovered — if ever — in front of the
-stakeholder. Where deferring is unsafe the work runs inside the request; on a
+The temporary diagnostic settled it without touching clinical data. An unref'd
+`setTimeout(…, 1500)` scheduled during a hosted request landed **7.25 seconds
+later, on the next request** — so the timer is not discarded, it is *deferred
+until something else thaws the instance*.
+
+**That makes the case stronger, not weaker.** "The work is lost" would at least
+be consistent; "the work happens whenever somebody next calls the API" is a
+queue whose latency is set by unrelated traffic. After the last import of a
+Friday afternoon, the next call may be Monday — and the alert email about a red
+athlete waits with it, while the import reports success.
+
+Fixed for that reason, and the cost is small and measured: awaiting is
+**50–200 ms** (a full local recompute, three runs). Where deferring is unsafe the work runs inside the request; on a
 long-lived process the debounce survives untouched, so N commits are still ONE
 recompute. Both halves are asserted by **behaviour under both platforms**, not by
 grepping for the constant, and the in-request path is **bounded**: `flush()`

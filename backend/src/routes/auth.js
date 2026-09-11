@@ -77,12 +77,17 @@ router.post('/login', async (req, res) => {
     // A successful sign-in forgives the failed attempts before it.
     //
     // This is the auth throttle's "skipSuccessfulRequests" half, moved INSIDE
-    // the request. The library does it from a `res.on('finish')` handler, which
-    // never completes on a serverless host — measured on the hosted API, five
-    // successful logins took `remaining` 28 → 27 → 26 → 25 → 24 and it never
-    // recovered, so the deployed limiter counted every REQUEST while the header
-    // and the docs both said "failures". A clinic behind one NAT address would
-    // have locked itself out with correct passwords.
+    // the request. The library does it from a `res.on('finish')` handler, and
+    // on a serverless host that work is DEFERRED until the instance is thawed
+    // by another request — so it lands eventually and never in time. The next
+    // login has already read the un-decremented count, and the store's
+    // read-modify-write then writes over the late decrement.
+    //
+    // Measured on the hosted API: five successful logins took `remaining`
+    // 28 → 27 → 26 → 25 → 24 and never recovered, so the deployed limiter
+    // counted every REQUEST while the header and the docs both said "failures".
+    // A clinic behind one NAT address would have locked itself out with correct
+    // passwords. The same limiter on a long-lived process holds flat.
     //
     // Awaited on purpose: the whole point is that it does not depend on the
     // platform running anything after the response goes out. It fails open, so

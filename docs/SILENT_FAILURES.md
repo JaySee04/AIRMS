@@ -1464,3 +1464,65 @@ file passes by finding nothing.
 The three pre-existing strippers in this repo (`codebaseHygiene`,
 `scriptImports`, `recompute`) were run against a CRLF sample: all three are safe,
 because none of them anchor with `$`. Recorded as a checked negative.
+
+### 3r (continued). What actually caused it — measured, after three documents asserted otherwise (2026-09-11)
+
+3r recorded the symptom correctly and **guessed the mechanism**, and the guess
+went into `authThrottle.js`, `rateLimitStore.js`, `routes/auth.js`,
+`serverlessLifecycle.test.js`, `DESIGN_DECISIONS §81` and this file, each stated
+as fact:
+
+> *"on Vercel the instance is frozen once the response is out, so the decrement
+> is issued and never lands."*
+
+**That is wrong.** It was settled with a temporary admin-only diagnostic endpoint
+(added, measured, reverted in the same sitting), which scheduled one database
+write by each mechanism and reported which reached the table:
+
+| scheduled from | landed | when |
+|---|---|---|
+| during the handler, unawaited | yes | immediately (this is `recordAudit`'s shape) |
+| `res.on('finish')` | **yes** | **3 ms** after the request |
+| `setTimeout(…, 1500).unref()` | **yes** | **7.25 s** later — on the *next* request |
+
+So post-response work is **not discarded**. The hook fires, its I/O completes,
+and even an unref'd timer runs. What happens is that the instance is **frozen
+and thawed by the next invocation**, so the work is *deferred by an unbounded
+amount*.
+
+#### Why that still broke the limiter
+
+Deferred is worse than lost here, because it looks healthy. Anything whose value
+depends on being ready **before the next request** is reliably too late: that
+request reads the counter first, and the store's read-modify-write then writes
+over the late decrement when it finally arrives.
+
+Reproduced in isolation on the host — a throwaway limiter with
+`skipSuccessfulRequests`, its own key, limit 1000, six *successful* requests
+three seconds apart:
+
+```
+local    remaining  999  999  999  999  999  999     decrement always in time
+hosted   remaining  999  998  997  997  996  995     mostly too late (#4 caught up)
+```
+
+Same code, same store, same option — the only variable is the host. That control
+is what turns "I think it is the platform" into a finding.
+
+#### What it changes, and what it does not
+
+The fixes were right for the wrong reason, which is luck rather than method:
+
+- **the throttle** — forgiving inside the request is correct either way;
+- **`postImport`** — this makes the case *stronger*, not weaker. Its 1.5s unref'd
+  timer carries the cohort recompute and the at-risk alert email, and "runs when
+  somebody next happens to call the API" is not a queue. After the last import of
+  the day, the next call may be tomorrow;
+- **`recordAudit`** — unchanged, and now explained rather than merely observed:
+  it issues its write *during* the handler, so it is already in flight.
+
+The standing lesson is the one this document keeps paying for, one level up: a
+symptom was measured, a cause was *inferred*, and the inference propagated into
+six places in the voice of a measurement. **Write down which sentences you
+measured and which you reasoned to** — the diagnostic that settled this took
+under an hour, and the wrong explanation had already been committed three times.

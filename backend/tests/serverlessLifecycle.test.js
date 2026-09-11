@@ -3,9 +3,26 @@
 // SILENT_FAILURES 3r was one instance: `express-rate-limit`'s
 // `skipSuccessfulRequests` un-counts a success from a `res.on('finish')`
 // handler, i.e. after the response is flushed. On a long-lived process that
-// write completes. On the hosted serverless API the instance is frozen once the
-// response is out, so it was issued and never landed — and the deployed limiter
-// counted successes for weeks while its own header said otherwise.
+// write completes. On the hosted serverless API it did not, and the deployed
+// limiter counted successes for weeks while its own header said otherwise.
+//
+// THE MECHANISM, measured 2026-09-11 with a temporary diagnostic endpoint and
+// then reverted. It is NOT "the work is discarded", which is what three
+// documents here asserted before anybody checked:
+//
+//   Post-response work is DEFERRED until the instance is thawed by a later
+//   request. It runs eventually; it does not run in time.
+//
+// Which is worse than losing it, because it looks fine in a log. Anything that
+// must be visible to the NEXT request is reliably too late: that request reads
+// the counter before the previous decrement has been applied, and the store's
+// read-modify-write then writes over it.
+//
+// The control that settles it — same limiter, same store, same code, six
+// successful requests three seconds apart:
+//
+//   local   remaining 999 999 999 999 999 999   (decrement always in time)
+//   hosted  remaining 999 998 997 997 996 995   (mostly too late; #4 caught up)
 //
 // The specific bug is fixed and separately tested. What THIS file guards is the
 // SHAPE, because the shape is what will come back: a correct component wired to
@@ -21,13 +38,21 @@
 // API 2026-09-11:
 //
 //   * `recordAudit()` fires `AuditLog.create(...)` WITHOUT awaiting — and the
-//     row LANDS. It is started DURING the handler, before the response, so the
-//     query is already in flight when the reply goes out.
-//   * the rate-limit decrement was scheduled ON `res.finish` — strictly after —
-//     and did NOT land.
+//     row LANDS, promptly. It is started DURING the handler, so the query is
+//     already in flight when the reply goes out.
+//   * a write issued from a `res.on('finish')` handler also landed — 3ms after
+//     the request. So the hook fires and its I/O completes.
+//   * an unref'd `setTimeout(…, 1500)` landed 7.25 SECONDS later, when the next
+//     request thawed the instance. Not lost — late, by an unbounded amount.
 //
-// Work STARTED before the response survives; work SCHEDULED for after it may
-// not. That is the line these checks draw.
+// So the line is about WHEN, not whether: work started before the response is
+// in flight and completes; work that needs the event loop AFTER the response
+// waits for the next invocation. Anything whose value depends on being ready
+// before the next request cannot be scheduled that way.
+//
+// That is why `postImport`'s 1.5s timer had to go: a cohort recompute and an
+// at-risk alert email that run "whenever somebody next calls the API" are not
+// a queue, they are a coin toss.
 const fs = require('fs');
 const path = require('path');
 
@@ -112,9 +137,10 @@ describe('nothing waits for the response to finish before doing its work', () =>
       const src = code(f);
       if (/\bres(?:ponse)?\s*\.\s*on\s*\(\s*['"](finish|close)['"]/.test(src)) offenders.push(rel(f));
     }
-    // If a future change genuinely needs one, it must ALSO ensure the work
-    // completes on a frozen instance — and this test is where that reasoning
-    // gets written down, not silently added.
+    // If a future change genuinely needs one, it must ALSO ensure the work is
+    // complete BEFORE the next request needs its result — deferral to the next
+    // thaw is the measured behaviour, not loss — and this test is where that
+    // reasoning gets written down, rather than silently added.
     expect(offenders).toEqual([]);
   });
 
