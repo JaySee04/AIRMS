@@ -28,7 +28,7 @@
 // Works with any supported provider — e.g. Gemini via its OpenAI-compatible
 // endpoint (see CLAUDE.md env reference).
 
-require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
+require('dotenv').config({ path: require('path').join(__dirname, '../.env') , quiet: true });
 const fs = require('fs');
 
 const { extractFromPdf, mapToAthlete } = require('../src/utils/holomotionExtract');

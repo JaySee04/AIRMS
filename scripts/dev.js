@@ -12,11 +12,21 @@ const preflight = spawnSync(
 );
 if (preflight.status !== 0) process.exit(preflight.status ?? 1);
 
+// Ask the package where its executable is, rather than hardcoding the path.
+//
+// This used to point straight at `dist/bin/concurrently.js`, and concurrently 10
+// renamed it to `dist/bin/index.js` — so `npm run dev` died with a bare
+// MODULE_NOT_FOUND naming a file inside an installed package, which reads like a
+// broken install rather than a renamed entry point. The `bin` field is the
+// package's own declaration and survives that kind of move.
 const concurrentlyPkg = require.resolve('concurrently/package.json');
-const concurrentlyBin = path.join(
-  path.dirname(concurrentlyPkg),
-  'dist/bin/concurrently.js'
-);
+const pkg = require(concurrentlyPkg);
+const declaredBin = typeof pkg.bin === 'string' ? pkg.bin : (pkg.bin && pkg.bin.concurrently);
+if (!declaredBin) {
+  console.error('concurrently does not declare a `bin` — cannot start the dev servers.');
+  process.exit(1);
+}
+const concurrentlyBin = path.join(path.dirname(concurrentlyPkg), declaredBin);
 
 const child = spawn(
   process.execPath,

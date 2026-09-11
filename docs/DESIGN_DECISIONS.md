@@ -6364,3 +6364,114 @@ asserts the stripper still leaves real code behind.
 The three pre-existing strippers (`codebaseHygiene`, `scriptImports`,
 `recompute`) were checked against a CRLF sample and are all safe — they do not
 anchor with `$`. Recorded as a checked negative so nobody re-audits them.
+
+---
+
+## 82. The dependency upgrade pass — and the four refusals it earned (2026-09-12)
+
+Every package was considered. What shipped is everything that could be **shown
+still to work**; what did not ship is recorded here with the measurement that
+stopped it, because "we are on an old version of X" is a viva question and
+"nobody tried" is a bad answer.
+
+### 82.1 The fingerprint that made the risky half decidable
+
+The PDF pipeline has no unit test that can see it — it needs a real report, a
+real canvas and a real OCR pass. So a baseline was taken **before** anything
+moved, from two genuine HoloMotion reports:
+
+| | render | OCR redaction box | prescription |
+|---|---|---|---|
+| `thung.pdf` | 1191×1684 @2 | `ocr {144, 258, 96, 20}` | `null` (compact layout) |
+| `nazwan.pdf` | 1192×1686 @2 | `ocr {233, 576, 415, 29}` | 48 exercises |
+
+Those numbers are the instrument. Every upgrade below was judged by whether they
+came back identical — and the prescription figures match the ground truth
+CLAUDE.md has carried since the parser was written.
+
+### 82.2 Upgraded
+
+**In-range across all three packages** (`npm update`), then these majors:
+
+| package | from → to | what it cost |
+|---|---|---|
+| `express` | 4.22 → **5.2** | nothing. Every route pattern here is simple — no wildcards, optionals or regex — which is where Express 5 breaks. Both query-shape guards (§48) still answer 400. |
+| `multer` | 1.4.5-lts → **2.3** | nothing. Verified with a real multipart upload of a 12-page report. |
+| `pdfjs-dist` | 4.10 → **6.3** | one API change, below. |
+| `@napi-rs/canvas` | 0.1.100 → **1.0.9** | see the coupling, below. |
+| `bcryptjs` | 2.4 → **3.0** | nothing. New hashes are `$2b$`; **6/6 existing `$2a$` hashes in the database still verify**, which is the only question that mattered — a failure there locks out every account. |
+| `pdfkit` | 0.18 → **0.20** | one resolution fix, below. |
+| `dotenv` | 16 → **17** | a promotional banner on every load, silenced with `quiet: true` at all seven call sites. |
+| `concurrently` | 8 → **10** | one path fix, below. |
+
+**pdfjs and canvas are COUPLED, and neither can move alone.** Upgrading either
+one by itself **segfaults** the render path — a hard native crash, not an
+exception. Together they work and reproduce the baseline exactly. Anyone
+bisecting these must move both.
+
+pdfjs 6 also removed `doc.destroy()`; teardown is now `loadingTask.destroy()`.
+Fixed at all three call sites and wrapped in `try/finally`, which the old code
+was not — `prescriptionFromPdf` released nothing at all, so every import leaked a
+document, and under 6 that is a worker process each time.
+
+**The end-to-end proof.** A real report through the live API on the new stack:
+the name comes back `██████`, every value matches, and
+`npm run verify:vision` reports **GROUND TRUTH REPRODUCED** — all scalars, all
+25 subitem cells, muscle flags and the summary.
+
+### 82.3 Refused, with the measurement
+
+- **`tesseract.js` 5 → 6 or 7.** Breaks name redaction. The OCR stops finding the
+  name and the code falls back to blanking a large region:
+  `method "ocr" box {144,258,96,20}` becomes
+  `method "fallback:name-not-found" box {0,101,691,758}`.
+  It still reports `redacted: true` — a naive check passes — but a 691×758
+  blackout covers the gauges the vision model reads, so extraction would degrade
+  while redaction *looked* fine. Both 6 and 7 do it; 5.1.1 is exact.
+
+- **`@napi-rs/canvas` 1.0.9 alone** and **`pdfjs-dist` 6 alone** — segfault, as
+  above. Only the pair is viable, and the pair shipped.
+
+- **Next 15 → 16** (and the `eslint` 9 + flat-config migration it forces).
+  Next 16 builds, type-checks and passes all 339 frontend tests. It was still
+  refused, on what comes next: `eslint-config-next@16` requires ESLint ≥9, and
+  its new `react-hooks` rules report **38 errors across 19 files** — 24
+  `set-state-in-effect`, 14 `refs`. These are new opinions, not newly found bugs,
+  and the prescribed fix does not fit this app: the flagged effects read
+  `localStorage`, which is unavailable during SSR, so the lazy-initialiser form
+  the rule wants would break hydration. **14 of the 38 are in `BodyMap.tsx`** —
+  Module 1, audit-fixed, "touch with the smallest possible surface". Refactoring
+  it for a style rule, days before a viva, against a version that fixes no
+  vulnerability and adds no feature we need, is a bad trade.
+  Next 15.5.25 is current, supported and clean on `npm audit`.
+  *If it is ever revisited:* Next 15.5 already warns that `images.qualities` must
+  be configured for 16 — that is a real prerequisite, not a guess.
+
+- **`uuid` 11 / `sequelize`'s 2 moderate advisories** — unchanged and still
+  refused for the reason in §76: it would hand Sequelize 6 an ESM-only package
+  with a different API, to close a moderate in an internal id generator.
+
+### 82.4 Two breakages that looked like corrupt installs
+
+Both were absolute paths into `node_modules`, and both failed with a bare
+`MODULE_NOT_FOUND` naming a file that plainly exists — which reads as a broken
+install rather than a moved entry point, and costs ten minutes each time.
+
+- `guide-to-pdf.js` required pdfkit by **absolute directory path**. pdfkit 0.20
+  dropped `main` for `exports`, and Node does not consult `exports` for absolute
+  paths. Now the bare specifier.
+- `scripts/dev.js` hardcoded `concurrently/dist/bin/concurrently.js`;
+  concurrently 10 renamed it to `index.js`. Now read from the package's own `bin`
+  field, which survives a rename.
+
+The `npm ci` that followed also re-triggered **gotcha 7** — OneDrive dehydrating
+`node_modules` into reparse points, presenting as `errno -4094 UNKNOWN read` from
+the ESM loader. The documented fix (`npm ci` in the affected package) cleared it.
+
+### 82.5 Where it ended
+
+```
+backend 47 suites / 700 tests · frontend 20 / 339 · 23 mutations caught
+audit:access clean · verify:claims 8/8 · e2e 110/110 · guide:pdf clean
+verify:vision GROUND TRUTH REPRODUCED · npm audit: frontend 0, backend 2 moderate (§76)
+```

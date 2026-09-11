@@ -153,14 +153,22 @@ const prescriptionSize = (p) => (p && p.days ? p.days.reduce((n, d) => n + d.exe
  */
 async function prescriptionFromPdf(buffer) {
   const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
-  const doc = await pdfjs.getDocument({ data: new Uint8Array(buffer), useSystemFonts: true }).promise;
-  let text = '';
-  for (let p = 1; p <= doc.numPages; p += 1) {
-    // eslint-disable-next-line no-await-in-loop
-    const content = await (await doc.getPage(p)).getTextContent();
-    text += ` ${content.items.map((i) => i.str).join(' ')}`;
+  const task = pdfjs.getDocument({ data: new Uint8Array(buffer), useSystemFonts: true });
+  // This released NOTHING before pdfjs 6 made teardown explicit — every call
+  // leaked its document, and under 6 that is a worker process per import. The
+  // finally is the point: a malformed report must not leak one either.
+  try {
+    const doc = await task.promise;
+    let text = '';
+    for (let p = 1; p <= doc.numPages; p += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      const content = await (await doc.getPage(p)).getTextContent();
+      text += ` ${content.items.map((i) => i.str).join(' ')}`;
+    }
+    return parsePrescription(text);
+  } finally {
+    await task.destroy();
   }
-  return parsePrescription(text);
 }
 
 module.exports = { parsePrescription, prescriptionSize, prescriptionFromPdf };

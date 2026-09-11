@@ -6,7 +6,7 @@
 // Every response goes through utils/serialize.js, which aliases Sequelize's
 // numeric `id` to a string `_id` for frontend consumers and reassembles the
 // Athlete nested risks/myodynamia/tension shape.
-require('dotenv').config();
+require('dotenv').config({ quiet: true });
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');

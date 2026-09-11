@@ -58,28 +58,41 @@ function renderScale() {
 // Render full pages of a PDF buffer to base64 PNG strings.
 // Returns [{ page, base64, mediaType }]. `scale` 2 keeps gauge digits legible
 // for the model while holding each page well under typical image-size limits.
+// TEARDOWN IS ON THE LOADING TASK, NOT THE DOCUMENT (pdfjs 6, 2026-09-12).
+//
+// pdfjs 4 exposed `doc.destroy()`. In 6 that is gone — `PDFDocumentProxy` has
+// `cleanup()`, and releasing the worker is `loadingTask.destroy()`. The old call
+// threw "doc.destroy is not a function" AFTER a page had rendered, so the render
+// itself looked fine and only the release failed.
+//
+// Wrapped in try/finally at every site, which the previous code was not: a
+// render error used to leak the worker, and under pdfjs 6 each leak holds a
+// child process.
 async function renderPdfPages(buffer, pages = DATA_PAGES, scale = renderScale()) {
   const pdfjs = await getPdfjs();
   const data = new Uint8Array(buffer);
-  const doc = await pdfjs.getDocument({ data }).promise;
-
-  const wanted = pages.filter((p) => p >= 1 && p <= doc.numPages);
-  const out = [];
-  for (const pageNum of wanted) {
-    const page = await doc.getPage(pageNum);
-    const viewport = page.getViewport({ scale });
-    const canvas = loadCanvas().createCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
-    const ctx = canvas.getContext('2d');
-    await page.render({ canvasContext: ctx, viewport }).promise;
-    out.push({
-      page: pageNum,
-      base64: canvas.toBuffer('image/png').toString('base64'),
-      mediaType: 'image/png',
-    });
-    page.cleanup();
+  const task = pdfjs.getDocument({ data });
+  try {
+    const doc = await task.promise;
+    const wanted = pages.filter((p) => p >= 1 && p <= doc.numPages);
+    const out = [];
+    for (const pageNum of wanted) {
+      const page = await doc.getPage(pageNum);
+      const viewport = page.getViewport({ scale });
+      const canvas = loadCanvas().createCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
+      const ctx = canvas.getContext('2d');
+      await page.render({ canvasContext: ctx, viewport }).promise;
+      out.push({
+        page: pageNum,
+        base64: canvas.toBuffer('image/png').toString('base64'),
+        mediaType: 'image/png',
+      });
+      page.cleanup();
+    }
+    return out;
+  } finally {
+    await task.destroy();
   }
-  await doc.destroy();
-  return out;
 }
 
 // Render the data section of a HoloMotion report for vision extraction:
@@ -89,35 +102,39 @@ async function renderPdfPages(buffer, pages = DATA_PAGES, scale = renderScale())
 async function renderForExtraction(buffer, scale = renderScale()) {
   const pdfjs = await getPdfjs();
   const data = new Uint8Array(buffer);
-  const doc = await pdfjs.getDocument({ data }).promise;
-  const total = doc.numPages;
-  const n = Math.min(maxPages(), total);
+  const task = pdfjs.getDocument({ data });
+  try {
+    const doc = await task.promise;
+    const total = doc.numPages;
+    const n = Math.min(maxPages(), total);
 
-  const out = [];
-  for (let pageNum = 1; pageNum <= n; pageNum++) {
-    const page = await doc.getPage(pageNum);
-    const viewport = page.getViewport({ scale });
-    const canvas = loadCanvas().createCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
-    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
-    // Page 1 is the only page carrying the athlete's name (verified against both
-    // HoloMotion layouts). Redact it locally BEFORE the image is serialised, so
-    // the identity never reaches the vision model — fails closed on OCR trouble.
-    if (pageNum === 1) {
-      const r = await redactNameOnCanvas(canvas);
-      if (!r.method.startsWith('ocr')) {
-        console.warn(`[redact] page 1 name redacted via ${r.method}${r.error ? ` (${r.error})` : ''}`);
+    const out = [];
+    for (let pageNum = 1; pageNum <= n; pageNum++) {
+      const page = await doc.getPage(pageNum);
+      const viewport = page.getViewport({ scale });
+      const canvas = loadCanvas().createCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
+      await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+      // Page 1 is the only page carrying the athlete's name (verified against both
+      // HoloMotion layouts). Redact it locally BEFORE the image is serialised, so
+      // the identity never reaches the vision model — fails closed on OCR trouble.
+      if (pageNum === 1) {
+        const r = await redactNameOnCanvas(canvas);
+        if (!r.method.startsWith('ocr')) {
+          console.warn(`[redact] page 1 name redacted via ${r.method}${r.error ? ` (${r.error})` : ''}`);
+        }
       }
+      out.push({
+        page: pageNum,
+        label: `HoloMotion report page ${pageNum} of ${total}`,
+        base64: canvas.toBuffer('image/png').toString('base64'),
+        mediaType: 'image/png',
+      });
+      page.cleanup();
     }
-    out.push({
-      page: pageNum,
-      label: `HoloMotion report page ${pageNum} of ${total}`,
-      base64: canvas.toBuffer('image/png').toString('base64'),
-      mediaType: 'image/png',
-    });
-    page.cleanup();
+    return out;
+  } finally {
+    await task.destroy();
   }
-  await doc.destroy();
-  return out;
 }
 
 module.exports = { renderPdfPages, renderForExtraction, DATA_PAGES };

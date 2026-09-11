@@ -11,7 +11,7 @@
 // with `npm run verify:vision` on the SAME file: after redaction the vision
 // pass should reproduce every score + the timestamp but return an EMPTY name.
 
-require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
+require('dotenv').config({ path: require('path').join(__dirname, '../.env') , quiet: true });
 const fs = require('fs');
 const path = require('path');
 const { createCanvas } = require('canvas');
@@ -26,7 +26,9 @@ const { redactNameOnCanvas } = require('../src/utils/redactName');
 
   const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
   const data = new Uint8Array(fs.readFileSync(pdfPath));
-  const doc = await pdfjs.getDocument({ data }).promise;
+  // pdfjs 6 moved teardown to the loading task; `doc.destroy` is gone.
+  const task = pdfjs.getDocument({ data });
+  const doc = await task.promise;
   const page = await doc.getPage(1);
   const scale = Number(process.env.VISION_RENDER_SCALE) || 2;
   const viewport = page.getViewport({ scale });
@@ -45,6 +47,6 @@ const { redactNameOnCanvas } = require('../src/utils/redactName');
   console.log(`page 1: ${canvas.width}x${canvas.height} @scale ${scale}`);
   console.log(`redaction: ${JSON.stringify(result)}  (${((Date.now() - t0) / 1000).toFixed(1)}s)`);
   console.log(`wrote before/after PNGs to ${outDir}`);
-  await doc.destroy();
+  await task.destroy();
   process.exit(0);
 })().catch((e) => { console.error(e.message || e); process.exit(1); });

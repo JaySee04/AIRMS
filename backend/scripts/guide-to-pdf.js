@@ -24,7 +24,15 @@ const path = require('path');
 // Defaults to this package, so the script runs with no environment set up.
 const B = process.env.BACKEND_DIR || path.join(__dirname, '..');
 module.paths.unshift(path.join(B, 'node_modules'));
-const PDFDocument = require(path.join(B, 'node_modules/pdfkit'));
+// The BARE specifier, resolved through the module.paths entry above.
+//
+// This used to be `require(path.join(B, 'node_modules/pdfkit'))`, and pdfkit
+// 0.20 broke it: the package dropped its `main` field in favour of `exports`,
+// and Node does not consult `exports` when you require an absolute directory
+// path — so the old form failed with a bare "Cannot find module" naming a
+// directory that plainly exists, which reads like a corrupt install rather than
+// a resolution rule. `require('pdfkit')` goes through `exports` and works.
+const PDFDocument = require('pdfkit');
 
 const NAVY = '#0f2747';
 const GOLD = '#b8892b';

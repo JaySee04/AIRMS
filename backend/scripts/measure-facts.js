@@ -22,7 +22,7 @@
 // .env before the models: requiring them builds the Sequelize instance from
 // process.env, so a later dotenv call is too late. Same pattern as
 // scripts/verify-holomotion-extract.js.
-require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
+require('dotenv').config({ path: require('path').join(__dirname, '../.env') , quiet: true });
 
 const { Op } = require('sequelize');
 const {

@@ -25,7 +25,7 @@
 //   1  an attempt failed (the month is NOT marked, so the next tick retries)
 //   2  could not reach the database at all
 
-require('dotenv').config();
+require('dotenv').config({ quiet: true });
 
 const { sequelize } = require('./models');
 const { tick } = require('./utils/scheduler');

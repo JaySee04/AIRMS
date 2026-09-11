@@ -36,7 +36,7 @@
 //   * NULL assessed_at is exempt by MySQL's own rule that NULLs are distinct in
 //     a unique index — which is the behaviour wanted, since an undated screening
 //     matches nothing and must always insert.
-require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
+require('dotenv').config({ path: require('path').join(__dirname, '../.env') , quiet: true });
 
 const { QueryTypes, Sequelize } = require('sequelize');
 const mysql2 = require('mysql2');

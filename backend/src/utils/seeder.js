@@ -4,7 +4,7 @@
  * Run once: npm run seed
  * Safe to re-run: drops + recreates the schema before inserting.
  */
-require('dotenv').config({ path: require('path').join(__dirname, '../../.env') });
+require('dotenv').config({ path: require('path').join(__dirname, '../../.env') , quiet: true });
 
 const { toNum } = require('./num');
 const { sequelize, User, Athlete, MuscleFlag, AthleteDiscipline, Screening, CohortThreshold } = require('../models');
