@@ -6949,7 +6949,80 @@ own relay, or a controlled domain with SPF and DKIM, is what real use needs.
 This is configuration, not code.
 ```
 
+### 85f. Checking my own work found three wrong rows, two of them mine
+
+JC: *"rIGHT, CHECK EM FOR ME"*. The eleven use-case descriptions were verified
+claim by claim against the code rather than re-read. Most held —
+`PRIORITY.never: 2` really does sit above `green: 3`; `ACCESS_ACTIONS` really
+does count `athlete.view` as a read; the `isSelf` skip is really there; the
+summary panel really is `{summaryText && …}`; the tick boxes really are in the
+programme-activity route. **Three were wrong.**
+
+**UC-65 named an Administrator as an actor on the watchlist, and an
+administrator cannot reach it.** `routes/watchlist.js` permits `['medical',
+'admin']`, so I read the rbac call and wrote both down. The only UI is on
+`medical/dashboard`, gated `allowedRoles={['medical']}`. The capability is real,
+permitted, and unreachable for one of the two roles I credited — in a graded
+document.
+
+That is **§42's shape exactly**: `POST /api/users` accepted four roles while the
+Personnel form offered two, so an administrator could not create a colleague
+without editing the database. The asymmetry is the whole point — *accepted but
+not offered* is invisible, while the reverse crashes.
+
+**UC-49 said the code "expires after seven days"** — in the same commit that
+changed the window to 24 hours (§85b). The table was revised and the one row
+describing the thing being revised was not.
+
+**UC-49 also listed "Athlete" as able to activate an account.** No athlete
+account can ever be invited: `INVITABLE_ROLES` excludes it deliberately (JC,
+2026-08-23), because an athlete account also needs a roster record to attach to.
+That error predates this revision by five weeks; it is fixed here because it is
+the same shape as the one I made a row away.
+
+**Three guards, because all three are machine-checkable and I had just proved a
+human misses them.** `reportTable.test.js` now pins the window stated in the
+table to `INVITE_CODE_TTL_MIN`, and UC-49's actors to `INVITABLE_ROLES` in both
+directions. `surfaceReach.test.js` resolves, per capability, the roles an
+endpoint permits against the roles that can open a page reaching it — with every
+gap **declared and given a reason**, so the next person writing an actor column
+reads the list instead of the rbac call.
+
+It is not an argument that every permitted role needs a screen. Three gaps stand
+and are now written down: `admin` and `athlete` on the worklist, `admin` on
+mark-reviewed, `admin` on the watchlist. **The worklist one is JC's call** — the
+endpoint would serve an admin worklist today, and whether Dr Thung's
+institutional role should carry a clinical queue is a scope question, not a
+layout accident. The athlete one is almost certainly correct as it stands: an
+athlete's worklist is a list containing themselves, which their dashboard
+already is.
+
+**Two things went wrong while writing that guard, both caught by the project's
+own machinery rather than by me.**
+
+The first version resolved a surface by looking for a `<Watchlist>` component
+tag. There is no such component — the watchlist is written inline on the medical
+dashboard. The per-capability floor (`hosts.length > 0`) fired instead of the
+scan silently reporting every permitted role as a declared gap. It resolves by
+**endpoint path** now, one level through components.
+
+Then `guardCanaries.test.js` failed it. That meta-guard derives the set of
+corpus scanners rather than keeping a list — *"a corpus scanner that has never
+been shown finding an offender is indistinguishable from one that cannot"* — so
+a scanner written today is covered today, by nobody remembering anything. It was
+right: the file walked a corpus, asserted an empty offender list, and had no
+positive control. There is now a canary that runs the real resolver over a
+planted corpus and requires it to name the two roles that cannot get there.
+
+Both mutations registered and caught: widening the watchlist's role list
+produces an undeclared gap, and each of the two Chapter 4 claims fails when
+broken.
+
 ```
-backend 51 suites / 736 tests · frontend 21 / 346 · 36 mutations caught
+backend 52 suites / 745 tests · frontend 21 / 346 · 39 mutations caught
+```
+
+```
+backend 52 suites / 745 tests · frontend 21 / 346 · 39 mutations caught
 audit:access clean incl. the anonymous phase · e2e 110/110 · tsc + lint clean
 ```

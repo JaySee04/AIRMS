@@ -385,6 +385,33 @@ const MUTATIONS = [
     replace: '  return `${Math.round(m / (60 * 24))} days`;',
     test: 'tests/accountLifecycle.test.js',
   },
+  {
+    guard: 'surface reach: a permitted role with no page is DECLARED',
+    why: 'the watchlist named admin as an actor in Chapter 4 and admin cannot open it',
+    pkg: 'backend',
+    file: 'src/routes/watchlist.js',
+    find: "const ROLES = ['medical', 'admin'];",
+    replace: "const ROLES = ['medical', 'admin', 'executive'];",
+    test: 'tests/surfaceReach.test.js',
+  },
+  {
+    guard: 'Chapter 4: the invitation window it states is the one the code uses',
+    why: 'UC-49 said "seven days" in the commit that changed the window to 24 hours',
+    pkg: 'backend',
+    file: '../docs/fyp/REPORT_TABLE_4-1.md',
+    find: 'The code is single-use, expires after 24 hours,',
+    replace: 'The code is single-use, expires after 7 days,',
+    test: 'tests/reportTable.test.js',
+  },
+  {
+    guard: 'Chapter 4: no actor named who cannot reach the use case',
+    why: 'UC-49 credited Athlete with activating an account; athlete is not invitable',
+    pkg: 'backend',
+    file: '../docs/fyp/REPORT_TABLE_4-1.md',
+    find: 'themselves rather than asking an administrator. | Medical Staff, Administrator, Coach, Executive |',
+    replace: 'themselves rather than asking an administrator. | Athlete, Medical Staff, Administrator, Coach, Executive |',
+    test: 'tests/reportTable.test.js',
+  },
 ];
 
 function pkgDir(pkg) {

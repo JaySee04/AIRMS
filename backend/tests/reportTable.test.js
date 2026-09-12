@@ -95,6 +95,55 @@ describe('Chapter 4 use-case table', () => {
     expect(src).not.toMatch(/\*\*Four roles ship\*\*/);
   });
 
+  // ── Claims in the prose that the CODE can settle ────────────────────────
+  //
+  // Added after checking my own work on 2026-09-12 and finding two of these
+  // wrong in the same commit that introduced them. Nothing can verify a
+  // use-case description in general; these two are exceptions, because the
+  // document states a number and a role list that exist as constants.
+
+  it('states the invitation window the code actually uses', () => {
+    // UC-49 said "expires after seven days" in the SAME COMMIT that changed the
+    // window to 24 hours (§85b). The table was revised and the row describing
+    // the thing that changed was not.
+    const { INVITE_CODE_TTL_MIN } = require('../src/utils/resetCodes');
+    const row = ucRows().find((r) => r.title === 'Activate Account');
+    expect(row).toBeDefined();
+    const section = tableSection();
+    const line = section.split('\n').find((l) => l.includes('| Activate Account |'));
+    expect(line).toBeDefined();
+    const m = line.match(/expires after (\d+) (hours|days)/);
+    expect(m).not.toBeNull();
+    const statedMinutes = Number(m[1]) * (m[2] === 'days' ? 24 * 60 : 60);
+    expect(statedMinutes).toBe(INVITE_CODE_TTL_MIN);
+  });
+
+  it('does not name an actor who cannot reach the use case', () => {
+    // UC-49 listed "Athlete" as able to activate an account, and no athlete
+    // account can ever be invited — `INVITABLE_ROLES` excludes it deliberately
+    // (JC, 2026-08-23) because an athlete account also needs a roster record.
+    // That one predates this revision by five weeks; it is pinned here because
+    // it is the same shape as the error I made one row away.
+    // Read from the route SOURCE, not required — `routes/users.js` builds a
+    // router and pulls in the models, which is why accountLifecycle.test.js
+    // parses it the same way.
+    const routeSrc = fs.readFileSync(
+      path.join(__dirname, '..', 'src', 'routes', 'users.js'), 'utf8',
+    );
+    const declared = routeSrc.match(/const INVITABLE_ROLES = (\[[^\]]+\])/);
+    expect(declared).not.toBeNull();
+    const INVITABLE_ROLES = JSON.parse(declared[1].replace(/'/g, '"'));
+    expect(INVITABLE_ROLES.length).toBeGreaterThan(1); // floor
+
+    const line = tableSection().split('\n').find((l) => l.includes('| Activate Account |'));
+    const actors = line.split('|').filter(Boolean).pop().trim();
+    expect(actors.length).toBeGreaterThan(0); // floor: the column was found
+    const label = { medical: 'Medical Staff', admin: 'Administrator', coach: 'Coach', executive: 'Executive' };
+    INVITABLE_ROLES.forEach((r) => expect(actors).toContain(label[r]));
+    // And the reverse, which is the direction that was wrong.
+    if (!INVITABLE_ROLES.includes('athlete')) expect(actors).not.toContain('Athlete');
+  });
+
   // Actors are what the report is read for, so a role that reaches nothing is
   // either a documentation gap or a role nobody needed.
   it('every shipped role is the actor on at least one use case', () => {

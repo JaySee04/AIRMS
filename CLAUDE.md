@@ -65,7 +65,7 @@ cd backend; npm run coverage         # 79.6% statements / 67.8% branches. Route 
                                      # a missing transitive dep (fs.realpath) before it would run.
 cd backend; npm run mutate           # BREAK each registered guard on purpose and prove its
                                      # test fails. A surviving mutation exits non-zero: the
-                                     # test is not testing what it claims. 36 guards across
+                                     # test is not testing what it claims. 39 guards across
                                      # both packages. NOT part of `npx jest` — it spawns a
                                      # jest run per mutation (tens of seconds). Run it before
                                      # committing a change to a guard, and add an entry when
@@ -174,7 +174,7 @@ cd frontend; npm run e2e   # END-TO-END smoke: a real Chrome against the running
 cd frontend; npm run build
 
 # Unit tests (jest, in both packages — no linter configured for the backend)
-cd backend; npx jest      # 51 suites / 736 tests: cohorts, overallIndicator, permissions, rbac, pdfDraw,
+cd backend; npx jest      # 52 suites / 745 tests: cohorts, overallIndicator, permissions, rbac, pdfDraw,
                           # authHardening (two properties of the RUNNING process, not of any
                           # function: the JWT verifier NAMES its algorithm rather than
                           # inheriting the restriction from the key's type - not a live hole,
