@@ -7026,3 +7026,85 @@ backend 52 suites / 745 tests · frontend 21 / 346 · 39 mutations caught
 backend 52 suites / 745 tests · frontend 21 / 346 · 39 mutations caught
 audit:access clean incl. the anonymous phase · e2e 110/110 · tsc + lint clean
 ```
+
+---
+
+## 86. A tidying pass on the dashboards, measured rather than eyeballed (2026-09-12)
+
+JC: *"mAKE THE DASHBOARDS LOOK CLEANER"*. "Cleaner" is the kind of request that
+invites redecorating, so the four dashboards were screenshotted and then
+**audited in the browser** — distinct rendered font sizes, radii, card paddings
+and inter-card gaps per page — and only measured inconsistencies were changed.
+§29 put the interface on a type/radius/spacing scale; this asked what had since
+drifted off it.
+
+### What the audit found
+
+| | before | after |
+|---|---|---|
+| distinct radii, admin | **9** (incl. `2px`) | 8 |
+| distinct radii, medical | 5 | **5, none off-scale** |
+| distinct radii, coach | 7 (incl. `7px`) | **6, none off-scale** |
+| off-scale card paddings | `12px 16px`, `24px` | on the spacing scale |
+| medical page height | 2726px | **2577px** |
+
+The radius scale is 3/6/8/12px plus the pill, so `2px` (two legend swatches) and
+`7px` (the coach readiness bar) were the only strays. `7px` was half of a
+hard-coded 14px height written out as a literal — it stops being a pill the
+moment the height changes, so it is `999px` now.
+
+**What was deliberately LEFT.** `46.5px` on the two headline scores is
+`clamp(2.2rem, 5vw, 3.1rem)` — a responsive hero, consistent on all three staff
+pages, not a stray. The partial radii (`3px 3px 0 0` on chart columns,
+`6px 0 0 6px` on the athlete threshold strips) are one-sided corners built from
+tokens on the sides that matter. `15px` on an `.sr-only` paragraph is never
+painted. An audit that "fixed" those would be redecorating.
+
+### Three visible changes on the medical pane
+
+**The orphan stat tile.** Four tiles in `repeat(auto-fit, minmax(220px, 1fr))`
+rendered three across and one alone on the next row. The first fix assumed the
+pane was about 640px and set a 260px floor; **measured, it is 840px**, so that
+still gave three columns and still orphaned the fourth. Auto-fit on an even
+count is always one width away from going ragged, and guessing the breakpoint is
+what produced the bug — it is a fixed two-column grid now, balanced at every
+width, collapsing to one below 700px. Scoped to a modifier class so no other
+`.stat-grid` in the app moves.
+
+**"Pick an athlete to begin" was a hero and is now a hint.** A full card at 24px
+padding — the only 24px card among six at 18px — with a bare `<h2>` at 22.5px, a
+size that is not on the scale at all. It also sat BELOW the worklist, so the page
+explained how to begin *after* showing where to start. Same words, a slim strip,
+on the scale.
+
+**The compare picker was 27 buttons.** It rendered up to 40 chips and the seeded
+institution-wide worklist has 24 — four rows of buttons, the busiest block on the
+pane, sitting directly above the table they feed. Collapsed to ten with a
+**"Show all 24"** worded and shaped exactly like the worklist's own control a few
+pixels above, so the page has one idiom for "there is more of this". Entries are
+already worst-first, so the ones behind the fold are the least urgent. Anything
+PICKED stays visible whatever the cap — a chip that vanished while still counting
+toward the five would be unexplainable.
+
+### What was NOT touched, and why
+
+**The coach's three "who to look at" chip rows**, about 26 buttons and the
+obvious next target. Those names ARE the content: the card exists to say who to
+look at, and each chip opens that athlete. Hiding them would be a content
+regression dressed as a cleanup. The coach page was also already the tidiest of
+the three staff pages by every measure above.
+
+**The admin dashboard's 14-card stack** (5290px). Every card is internally
+consistent; what it lacks is grouping, and adding section hierarchy to the
+flagship analytics page is a design change rather than a tidy — JC's call, not a
+side effect of this pass.
+
+**One thing found and deliberately not fixed:** the medical dashboard's topbar
+and sidebar both read **"Athlete Dashboard"**. CLAUDE.md describes the medical
+view as "the athlete dashboard with a clinician's affordances added", so this may
+be intended — but as the title of a clinician's roster pane it reads like the
+wrong page. Renaming a navigation item is a naming decision.
+
+```
+frontend 21 suites / 346 tests · backend 52 / 745 · e2e 110/110 · tsc + lint clean
+```

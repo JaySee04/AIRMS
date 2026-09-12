@@ -232,7 +232,9 @@ export default function TrendStrip({ query }: { query: string }) {
               {BAND_TOKENS.map((t) => (
                 <span key={t.key}>
                   <i style={{
-                    display: 'inline-block', width: 9, height: 9, borderRadius: 2,
+                    // var(--r-xs), not a bare 2: the two legend swatches in this
+                    // app were the only 2px corners anywhere (§29).
+                    display: 'inline-block', width: 9, height: 9, borderRadius: 'var(--r-xs)',
                     background: t.color, marginRight: 5,
                   }} />
                   {t.label} <strong>{bandsOf(latest)[t.key]}</strong>

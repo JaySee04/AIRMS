@@ -622,13 +622,13 @@ export default function MedicalDashboard() {
               <DecisionPanel onOpenAthlete={(id) => setSelectedId(id)} />
 
               <div className="card medical-empty-hero">
-                <h2 style={{ margin: 0 }}>Pick an athlete to begin</h2>
-                <p className="text-muted" style={{ margin: '6px 0 0' }}>
+                <h2 className="medical-empty-hero-title">Pick an athlete to begin</h2>
+                <p className="text-muted medical-empty-hero-hint">
                   Search the rail on the left, or jump in via the quick-access groups below.
                 </p>
               </div>
 
-              <div className="stat-grid" style={{ marginTop: 16 }}>
+              <div className="stat-grid stat-grid--pairs">
                 <div className="stat-tile">
                   <div className="stat-tile-label">Athletes on roster</div>
                   <div className="stat-tile-value">{loadingList ? '…' : athletes.length}</div>

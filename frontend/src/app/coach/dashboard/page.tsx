@@ -613,7 +613,11 @@ export default function CoachDashboard() {
                     </div>
                   ))}
                 </div>
-                <div style={{ display: 'flex', height: 14, borderRadius: 7, overflow: 'hidden', marginTop: 6 }}>
+                {/* 999px, not 7 — this is a pill, and 7 was half of the height
+                    written out as a literal, which stops being a pill the moment
+                    the height changes. It was also the only 7px corner on the
+                    page (§29 keeps radii on four steps plus the pill). */}
+                <div style={{ display: 'flex', height: 14, borderRadius: '999px', overflow: 'hidden', marginTop: 'var(--sp-xs)' }}>
                   {(['full', 'observation', 'restricted'] as Band[]).map((b) =>
                     counts[b] > 0 ? (
                       <div key={b} style={{ width: `${pct(b)}%`, background: BAND_META[b].color }} title={`${BAND_META[b].label}: ${counts[b]}`} />

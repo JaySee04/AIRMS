@@ -111,7 +111,7 @@ export default function SubitemTable({ subitems, cohort }: {
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 8 }}>
         {TIER_ORDER.map((t) => (
           <span key={t} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 'var(--fs-xs)', color: 'var(--text-muted)' }}>
-            <span style={{ width: 9, height: 9, borderRadius: 2, background: TIER_COLOR[t] }} />{TIER_LABEL[t]} {TIER_RANGE[t]}
+            <span style={{ width: 9, height: 9, borderRadius: 'var(--r-xs)', background: TIER_COLOR[t] }} />{TIER_LABEL[t]} {TIER_RANGE[t]}
           </span>
         ))}
       </div>

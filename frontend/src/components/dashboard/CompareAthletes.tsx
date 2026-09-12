@@ -23,6 +23,8 @@ import { BAND_LABEL } from '@/lib/bands';
 import type { WorklistEntry } from './DecisionPanel';
 
 const MAX_COMPARE = 5;
+/** Chips shown before the picker collapses — about one row at the pane's width. */
+const PICKER_SHOWN = 10;
 
 function label(band: string): string {
   if (band === 'never') return 'Never screened';
@@ -32,8 +34,17 @@ function label(band: string): string {
 
 export default function CompareAthletes({ entries }: { entries: WorklistEntry[] }) {
   const [picked, setPicked] = useState<string[]>([]);
+  const [showAll, setShowAll] = useState(false);
 
   const rows = entries.filter((e) => picked.includes(e.athleteId));
+
+  // The 40 cap stays: it is the "a picker nobody can scan is not a picker"
+  // limit, and it is separate from the collapse below.
+  const pickable = entries.slice(0, 40);
+  const visible = showAll
+    ? pickable
+    : pickable.filter((e, i) => i < PICKER_SHOWN || picked.includes(e.athleteId));
+  const hidden = pickable.length - visible.length;
 
   function toggle(id: string) {
     setPicked((cur) => {
@@ -63,8 +74,19 @@ export default function CompareAthletes({ entries }: { entries: WorklistEntry[] 
         it to decide who to look at first, not who to select.
       </div>
 
+      {/* COLLAPSED BY DEFAULT (2026-09-12). It rendered up to 40 chips, and on
+          the seeded institution-wide worklist that is 24 — four rows of buttons,
+          which was the busiest block on the clinician's landing pane and made
+          the table underneath it easy to miss.
+          `PICKER_SHOWN` is one row at the medical pane's width. The control is
+          worded and shaped like the worklist's own "Show all 24" directly above,
+          so the page has one idiom for "there is more of this" rather than two.
+          Entries are already worst-first, so the ones behind the fold are the
+          least urgent — the cut is not arbitrary.
+          Anything PICKED stays visible whatever the cap: a chip that vanished
+          while still counting toward the five would be unexplainable. */}
       <div className="compare-picker">
-        {entries.slice(0, 40).map((e) => (
+        {visible.map((e) => (
           <button
             key={e.athleteId}
             type="button"
@@ -76,6 +98,15 @@ export default function CompareAthletes({ entries }: { entries: WorklistEntry[] 
             {e.name ?? e.athleteId}
           </button>
         ))}
+        {(hidden > 0 || showAll) && pickable.length > PICKER_SHOWN && (
+          <button
+            type="button"
+            className="btn btn-outline btn-sm"
+            onClick={() => setShowAll(!showAll)}
+          >
+            {showAll ? 'Show fewer' : `Show all ${pickable.length}`}
+          </button>
+        )}
       </div>
 
       {rows.length >= 2 && (

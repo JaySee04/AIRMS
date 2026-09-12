@@ -1754,12 +1754,16 @@ label:has(> input[type='radio']) {
    common view is the whole institute. They collapse now — but the ACTIVE state
    never does, because every number on these pages is cohort-relative and a
    forgotten filter would silently rescope the lot. */
-.cohort-filters { padding: 12px 16px; }
-.cohort-filters.is-open { padding: 16px; }
+/* Deliberately tighter than a content card — it is a control strip, not a
+   panel — but ON the spacing scale now rather than at 12/16px, which were the
+   only two off-scale paddings on the page (§29). It is still visibly slimmer
+   than the 18px cards beneath it, which is the whole point. */
+.cohort-filters { padding: var(--sp-sm) var(--sp-md); }
+.cohort-filters.is-open { padding: var(--sp-md); }
 .cohort-filters-bar {
   display: flex;
   align-items: center;
-  gap: 10px 12px;
+  gap: var(--sp-sm) var(--sp-md);
   flex-wrap: wrap;
   min-width: 0;
 }
@@ -1928,9 +1932,46 @@ tr.is-selected-actor { background: var(--bg); }
 
 /* Right pane and empty-state hero */
 .medical-pane { min-width: 0; }
+/* A HINT, NOT A HERO (2026-09-12).
+   This was a full card at 24px padding with a bare <h2> — the only 24px card on
+   the page among six at 18px, and the only text at 22.5px, which is off the type
+   scale entirely (§29: the markup had stopped using the steps). It also sat
+   BELOW the worklist, so the page told the reader how to begin after it had
+   already shown them where to start.
+   Now a slim strip on the scale: same guidance, a fifth of the vertical space,
+   and it no longer competes with the cards either side of it. */
 .medical-empty-hero {
   background: linear-gradient(135deg, rgba(15, 44, 74, 0.04), rgba(245, 197, 24, 0.06));
-  padding: 24px;
+  padding: var(--sp-sm) var(--sp-lg);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--sp-xs) var(--sp-sm);
+}
+.medical-empty-hero-title {
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: 700;
+}
+.medical-empty-hero-hint {
+  margin: 0;
+  font-size: var(--fs-sm);
+}
+
+/* Four tiles in an auto-fit grid left one orphaned on its own row.
+   TWO COLUMNS, FIXED — not another auto-fit minmax. The first attempt at this
+   used `minmax(min(100%, 260px), 1fr)` on the assumption the medical pane was
+   about 640px wide; measured, it is 840px, so that still resolved to three
+   columns and still orphaned the fourth tile. Auto-fit on an even count is
+   always one viewport width away from going ragged again, and guessing the
+   breakpoint is what produced the bug. A fixed pair grid is balanced at every
+   width, and the narrow-layout rule below collapses it to one column.
+   Scoped to this modifier so no other .stat-grid in the app changes. */
+.stat-grid--pairs {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@media (max-width: 700px) {
+  .stat-grid--pairs { grid-template-columns: 1fr; }
 }
 
 /* ── Key-value grid (athlete profile summary) ──────────────────────────────── */
