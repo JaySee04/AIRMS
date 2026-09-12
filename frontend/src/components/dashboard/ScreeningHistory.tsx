@@ -43,13 +43,19 @@ const COLS: Array<{ key: ScoreKey; label: string }> = [
 
 // The trend strip covers the same scores as the table plus the indicator, since
 // the indicator is what the band and the ranking are actually built from.
+//
+// Key order MUST match backend/src/utils/periodScores.js. The indicator led this
+// list until 2026-09-12, which put AIRMS's own unverifiable score first on the
+// athlete's own history — above the Total Score printed on the report in their
+// hand. Labels stay this package's compact ones ("Ex. Risks"); only the order is
+// shared, and `backend/tests/scoreOrder.test.js` pins it.
 const TREND_COLS: Array<{ key: ScoreKey | 'overallIndicator'; label: string; higherBetter: boolean }> = [
-  { key: 'overallIndicator', label: 'Indicator', higherBetter: true },
   { key: 'totalScore', label: 'Total', higherBetter: true },
+  { key: 'exerciseRisks', label: 'Ex. Risks', higherBetter: false },
   { key: 'rom', label: 'ROM', higherBetter: true },
   { key: 'stability', label: 'Stability', higherBetter: true },
   { key: 'symmetry', label: 'Symmetry', higherBetter: true },
-  { key: 'exerciseRisks', label: 'Ex. Risks', higherBetter: false },
+  { key: 'overallIndicator', label: 'Indicator', higherBetter: true },
 ];
 
 // This table used to name the bands 'Green' / 'Amber' / 'Red' from its own

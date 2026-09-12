@@ -490,11 +490,21 @@ describe('MetricDeltas — what changed between two periods', () => {
     expect(html).toContain('Q2 2026 → Q3 2026');
   });
 
-  it('orders by the SIZE of the change, not by metric order', () => {
+  // 2026-09-12: this used to assert the OPPOSITE — biggest mover first. Sorting
+  // by magnitude put Total Score, the one figure a clinician can check against
+  // the printed report and the headline of every other panel (§21/§50), wherever
+  // the arithmetic happened to drop it. The order is now a property of the
+  // measure (backend/src/utils/periodScores.js) and every caller supplies it.
+  //
+  // The input below is deliberately in NON-magnitude order, so a reintroduced
+  // sort cannot agree with it by accident.
+  it('keeps the caller\'s order rather than ranking by size of move', () => {
     const html = render(<MetricDeltas metrics={metrics} fromLabel="A" toLabel="B" />);
-    // ROM moved 5.2, stability 2.6, risks 2.3, symmetry 0.3.
-    expect(html.indexOf('ROM')).toBeLessThan(html.indexOf('Stability'));
-    expect(html.indexOf('Stability')).toBeLessThan(html.indexOf('Symmetry'));
+    // ROM moved 5.2, stability 2.6, risks 2.3, symmetry 0.3 — by magnitude this
+    // would read ROM, Stability, Exercise risks, Symmetry.
+    const at = [...metrics].map((m) => html.indexOf(`>${m.label}<`));
+    at.forEach((i) => expect(i).toBeGreaterThanOrEqual(0)); // all four rendered
+    expect([...at].sort((a, b) => a - b)).toEqual(at);
   });
 
   it('draws BETTER to the right on every row, including the inverted one', () => {
@@ -561,13 +571,18 @@ describe('MetricDeltas — what changed between two periods', () => {
     expect(html).not.toContain('mdelta-arrow');
   });
 
-  it('still ranks a supplied delta by size', () => {
+  // The within-athlete panel supplies its rows pre-computed, and it must be
+  // ordered by the same rule as the two-period one — the two are drawn on the
+  // same page in Programme Activity, and ordering the same six scores two
+  // different ways on one screen is the inconsistency this change exists to fix.
+  it('keeps the caller\'s order for a supplied delta too', () => {
     const html = render(<MetricDeltas
       metrics={[
         { key: 'small', label: 'Small mover', from: null, to: null, delta: 0.2, direction: 'steady' },
         { key: 'big', label: 'Big mover', from: null, to: null, delta: -4.4, direction: 'declining' },
       ]} />);
-    expect(html.indexOf('Big mover')).toBeLessThan(html.indexOf('Small mover'));
+    expect(html.indexOf('Small mover')).toBeGreaterThanOrEqual(0);
+    expect(html.indexOf('Small mover')).toBeLessThan(html.indexOf('Big mover'));
   });
 
   it('says so when nothing is comparable', () => {

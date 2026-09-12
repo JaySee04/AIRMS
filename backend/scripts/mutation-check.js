@@ -255,6 +255,70 @@ const MUTATIONS = [
     replace: "  '/change-password',\n  '/login',",
     test: 'tests/authThrottle.test.js',
   },
+  {
+    guard: 'change bars (PDF): rows are drawn in the caller\'s order',
+    why: 'sorting by size buried Total Score, the one figure checkable against the report',
+    pkg: 'backend',
+    file: 'src/utils/pdfDraw.js',
+    find: '    .map((d) => ({ ...d, gain: d.higherBetter === false ? -d.avgDelta : d.avgDelta }));',
+    replace: '    .map((d) => ({ ...d, gain: d.higherBetter === false ? -d.avgDelta : d.avgDelta }))\n'
+      + '    .sort((a, b) => Math.abs(b.gain) - Math.abs(a.gain));',
+    test: 'tests/pdfDraw.test.js',
+  },
+  {
+    guard: 'MetricDeltas: rows render in the caller\'s order',
+    why: 'the screen and the document must not order the same six scores differently',
+    pkg: 'frontend',
+    file: 'src/components/charts/Charts.tsx',
+    // Single-line anchor: Charts.tsx is CRLF, so a `find` spanning two lines
+    // matches nothing and `applyMutation` reports a stale registry rather than
+    // a healthy guard. (It reports it LOUDLY, which is how this was caught —
+    // see the same trap in SILENT_FAILURES 3s.)
+    find: '  const max = Math.max(...rows.map((r) => Math.abs(r.gain)), 1);',
+    replace: '  rows.sort((a, b) => Math.abs(b.gain) - Math.abs(a.gain));'
+      + '  const max = Math.max(...rows.map((r) => Math.abs(r.gain)), 1);',
+    test: 'src/components/charts/Charts.test.tsx',
+  },
+  {
+    guard: 'score order: the frontend copies cannot drift from periodScores.js',
+    why: 'three copies of one reading order, in two packages that cannot import each other',
+    pkg: 'backend',
+    file: '../frontend/src/components/admin/TrendStrip.tsx',
+    // Puts the derived indicator back near the top, which is the drift this
+    // guards against and the layout JC rejected. Single-line `find` (CRLF file),
+    // and the insert keeps the list six long on purpose — so what fails is the
+    // ORDER assertion and not merely the length floor beneath it.
+    find: "  ['exerciseRisks', 'Exercise Risks', false],",
+    replace: "  ['exerciseRisks', 'Exercise Risks', false],\r\n  ['overallIndicator', 'Overall indicator', true],",
+    test: 'tests/scoreOrder.test.js',
+  },
+  {
+    guard: 'score wording: one measure cannot have two names on two admin screens',
+    why: '"Exercise risks" here and "Exercise Risks" on /admin/activity — §33 in miniature',
+    pkg: 'backend',
+    file: '../frontend/src/components/admin/TrendStrip.tsx',
+    find: "  ['exerciseRisks', 'Exercise Risks', false],",
+    replace: "  ['exerciseRisks', 'Exercise risks', false],",
+    test: 'tests/scoreOrder.test.js',
+  },
+  {
+    guard: 'score wording: a compact label may abbreviate, never rename',
+    why: 'shorter is not the test — "Injury Risk" is shorter and is a different measure',
+    pkg: 'backend',
+    file: '../frontend/src/components/dashboard/ScreeningHistory.tsx',
+    find: "  { key: 'exerciseRisks', label: 'Ex. Risks', higherBetter: false },",
+    replace: "  { key: 'exerciseRisks', label: 'Injury Risk', higherBetter: false },",
+    test: 'tests/scoreOrder.test.js',
+  },
+  {
+    guard: 'score wording: HoloMotion\'s printed scores keep HoloMotion\'s spelling',
+    why: '§21 rests on laying the screen beside the PDF and reading the same words',
+    pkg: 'backend',
+    file: 'src/utils/periodScores.js',
+    find: "  ['totalScore', 'Total Score', true],",
+    replace: "  ['totalScore', 'Total score', true],",
+    test: 'tests/scoreOrder.test.js',
+  },
 ];
 
 function pkgDir(pkg) {

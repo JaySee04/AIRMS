@@ -352,6 +352,41 @@ describe('pdfDraw toolkit', () => {
     expect(mixed.length).toBeGreaterThan(1000);
   });
 
+  // THE ROWS COME OUT IN THE ORDER THEY WENT IN (2026-09-12).
+  //
+  // changeBars used to sort biggest-mover-first, which put Total Score — the one
+  // figure a clinician can check against the printed report — wherever the
+  // arithmetic dropped it. The order is now a property of the measure
+  // (utils/periodScores.js) and both the screen and the document honour it.
+  //
+  // Asserted on the DRAWN TEXT rather than by grepping this file for `.sort(`:
+  // the rows are drawn label-first down the page, so reading them back off the
+  // page is the only thing that proves what the reader actually sees. The input
+  // is deliberately in NON-magnitude order, so a reintroduced sort could not
+  // agree with it by accident.
+  it('draws change bars in the caller\'s order, not by size of move', async () => {
+    const rows = [
+      { label: 'Total Score', avgDelta: 1.6, higherBetter: true, direction: 'steady', deadBand: 2 },
+      { label: 'Exercise risks', avgDelta: -1.4, higherBetter: false, direction: 'steady', deadBand: 2 },
+      { label: 'ROM', avgDelta: 4.6, higherBetter: true, direction: 'improving', deadBand: 2 },
+      { label: 'Stability', avgDelta: -2.7, higherBetter: true, direction: 'declining', deadBand: 2 },
+      { label: 'Symmetry', avgDelta: 4.8, higherBetter: true, direction: 'improving', deadBand: 2 },
+      { label: 'Overall indicator', avgDelta: -0.8, higherBetter: true, direction: 'steady', deadBand: 2 },
+    ];
+    const { strings } = await textOf((doc) => { D.changeBars(doc, rows, { note: 'x' }); });
+    // Exact string match, not a substring search of the whole page: each row
+    // label is its own `doc.text` call, and the explanatory note underneath
+    // mentions some of these words in prose.
+    const at = (label) => strings.indexOf(label);
+    // Every label reached the page — without this the index comparisons below
+    // would all be -1 < -1 and the test would pass on an empty document.
+    rows.forEach((r) => expect(at(r.label)).toBeGreaterThanOrEqual(0));
+    const drawn = rows.map((r) => at(r.label));
+    expect([...drawn].sort((a, b) => a - b)).toEqual(drawn);
+    // And specifically: the biggest mover (Symmetry, +4.8) is NOT first.
+    expect(at('Total Score')).toBeLessThan(at('Symmetry'));
+  });
+
   // Rows with no dead band at all (the threshold declined and nothing was
   // passed) must still draw rather than divide by a missing number.
   it('draws change bars when no dead band is supplied', async () => {

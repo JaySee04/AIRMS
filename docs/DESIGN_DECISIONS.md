@@ -1383,10 +1383,12 @@ for the delta arrows (see the `Move` component's comment on the activity page).
 The API also classifies small moves as "steady", so noise does not get painted as
 a finding.
 
-Rows are sorted biggest-mover-first, because the reader wants what changed rather
-than the metric list in schema order. The throughput rows stay underneath as
-context: the changes say WHAT moved, the rows say how many athletes it was
-measured on, and 22 athletes is a materially weaker basis than 43.
+~~Rows are sorted biggest-mover-first, because the reader wants what changed
+rather than the metric list in schema order.~~ **Superseded 2026-09-12 — see §83.**
+Rows are drawn in the fixed order declared by `utils/periodScores.js`, headline
+first. The throughput rows stay underneath as context: the changes say WHAT
+moved, the rows say how many athletes it was measured on, and 22 athletes is a
+materially weaker basis than 43.
 
 ### 26b. Exactly one period → what it is made of
 
@@ -6474,4 +6476,140 @@ the ESM loader. The documented fix (`npm ci` in the affected package) cleared it
 backend 47 suites / 700 tests · frontend 20 / 339 · 23 mutations caught
 audit:access clean · verify:claims 8/8 · e2e 110/110 · guide:pdf clean
 verify:vision GROUND TRUTH REPRODUCED · npm audit: frontend 0, backend 2 moderate (§76)
+```
+
+---
+
+## 83. One reading order for the six scores (2026-09-12)
+
+JC, on seeing the Q2 → Q3 change chart: *"I thought I asked for different
+prioritization for this bar no? Total score on top, the supporting elements on
+the bottom"*.
+
+He had. **§50, "The two scores lead every dashboard"**, put HoloMotion's Total
+Score and Exercise Risks at the top of the admin, medical and coach dashboards,
+for the reason §21 gives: Total Score is the headline *because* it is the one
+figure a clinician can check against the printed report in their hand. The change
+chart had not been included in that change, and §26 had independently decided to
+sort it **biggest-mover-first**.
+
+### What that produced
+
+On the seeded Q2 → Q3 pair, ordering by magnitude read:
+
+```
+Symmetry +4.8 · ROM +4.6 · Stability -2.7 · Total Score +1.6 · Exercise risks -1.4 · Indicator -0.8
+```
+
+Total Score fourth of six, underneath three of its own components — because on a
+real report Total Score **is** the mean of the subitem table (§34), so ROM,
+Stability and Symmetry are not peers of it, they are what it is made of. The
+layout said the opposite of the arithmetic, and of every other panel in the app.
+
+### The decision
+
+**The order is a property of the measure, not of this period's arithmetic.**
+`backend/src/utils/periodScores.js` declares it once:
+
+| | | why |
+|---|---|---|
+| 1 | `totalScore` | HoloMotion's printed headline — checkable against the PDF (§21) |
+| 2 | `exerciseRisks` | the report's other printed score; the pair that leads every dashboard (§50) |
+| 3-5 | `rom`, `stability`, `symmetry` | what Total Score is the mean of — they explain the line above them |
+| 6 | `overallIndicator` | AIRMS's own derived, cohort-normed score — last, precisely because §21 demoted it from the headline: it is the one score nobody can check against anything |
+
+Both renderers stopped sorting: `MetricDeltas` (`frontend/src/components/charts/Charts.tsx`)
+and `changeBars` (`backend/src/utils/pdfDraw.js`). The screen and the document
+must not order the same six rows differently — the same rule that put the
+holistic report's charts and the dashboard's on one util (§30).
+
+### What the old sort was actually buying, and whether it is lost
+
+Nothing that the chart does not still give. **Bars share one scale**, so the
+biggest move is still the longest bar and is found at a glance — magnitude was
+never carried by position. What sorting *cost* was a stable reading order: the
+list rearranged itself every time the filter changed, so a reader looking for one
+score had to re-find it in a new place each time.
+
+### The same list, in three more places
+
+`PERIOD_SCORES` could not simply be imported by the frontend — the two packages
+are deliberately self-contained because Vercel builds them from different roots
+(the reason `shared/facts.js` is a generator and not a workspace, §53). So the
+order existed as copies: `COMPARED_METRICS` in `TrendStrip.tsx` and `TREND_COLS`
+in `ScreeningHistory.tsx`, **both of which led with the indicator** — putting
+AIRMS's unverifiable score first on the athlete's own history, above the Total
+Score printed on the report in their hand. Both reordered.
+
+The labels stay per-package and are deliberately different — `Total score` /
+`Total Score` / `Total`, the last because that column is narrow. That is
+CLAUDE.md's standing rule that *what is shared is FACTS, not presentation*, so
+only the **keys** are pinned.
+
+`backend/tests/scoreOrder.test.js` reads each copy as text and pins its key order
+to the backend's. It asserts the number of keys it found **before** comparing the
+order, because a scan that matches nothing otherwise reports a perfect empty
+agreement — SILENT_FAILURES 3l, the defect this project keeps producing.
+
+### Three guards, all mutation-checked
+
+| guard | mutation | result |
+|---|---|---|
+| `changeBars` draws in caller order | reinstate the `.sort` | caught |
+| `MetricDeltas` renders in caller order | reinstate the `.sort` | caught |
+| the frontend copies cannot drift | move the indicator to third in `TrendStrip` | caught |
+
+The PDF guard asserts on the **drawn page** — it reads the row labels back off
+the document through `textOf` rather than grepping `pdfDraw.js` for `.sort(`,
+because what the reader sees is the only thing worth pinning. The frontend one
+reads them out of the rendered markup for the same reason.
+
+Registering the frontend mutation **failed first**, usefully: `Charts.tsx` is
+CRLF, so a two-line `find` matched nothing. `applyMutation` reported *"the
+registry is stale"* and exited non-zero rather than reporting a healthy guard —
+which is exactly the behaviour that entry was given after SILENT_FAILURES 3s. The
+anchors are single-line now.
+
+### 83b. And then the same six rows said different words
+
+Reading the order off both rendered pages to confirm the fix showed the next
+thing:
+
+```
+/admin/dashboard   Total Score  Exercise risks  ROM  Stability  Symmetry  Indicator
+/admin/activity    Total score  Exercise Risks  ROM  Stability  Symmetry  Overall indicator
+```
+
+Two admin screens, the same six rows, the same six numbers, **four different
+words**. Counted across both packages, `Total Score` appears 69 times and
+`Exercise Risks` 33, against 2 and 8 for the lower-case forms — so this was two
+outlying definitions, not a house style.
+
+**Decided:** the two printed scores are spelled **as HoloMotion prints them** —
+`Total Score`, `Exercise Risks`. They are proper nouns off the report, not
+descriptions AIRMS invented, and §21's entire argument is that a clinician can
+lay the screen beside the PDF and check them; renaming the line weakens exactly
+that. `Overall indicator` keeps sentence case because it **is** ours and appears
+on no printed report.
+
+**ScreeningHistory keeps its compact labels** — `Total`, `Ex. Risks`,
+`Indicator` — for the reason `BAND_SHORT` exists alongside `BAND_LABEL`: the
+sparkline cells are narrow. That exception is now **asserted rather than
+assumed**, and named string by string. The obvious rule — *a compact label must
+be shorter than the full one* — was written first and then rejected: it waves
+through `Injury Risk`, which is shorter than `Exercise Risks` **and a different
+measure**. The mutation proving the guard uses precisely that string.
+
+| guard | mutation | result |
+|---|---|---|
+| one measure, one name across the two admin screens | `Exercise Risks` → `Exercise risks` in TrendStrip | caught |
+| a compact label may abbreviate, never rename | `Ex. Risks` → `Injury Risk` | caught |
+| the printed scores keep HoloMotion's spelling | `Total Score` → `Total score` | caught |
+
+Confirmed the same way the ordering was — off the rendered page, both screens now
+reading `Total Score · Exercise Risks · ROM · Stability · Symmetry · Overall
+indicator`.
+
+```
+backend 48 suites / 708 tests · frontend 20 / 339 · 29 mutations caught
 ```

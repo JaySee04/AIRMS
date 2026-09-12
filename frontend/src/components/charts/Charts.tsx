@@ -576,9 +576,21 @@ export function MetricDeltas({
       // Positive gain = better, whichever way the raw scale runs.
       const gain = (m.higherBetter ?? true) ? delta : -delta;
       return { ...m, delta, gain };
-    })
-    // Biggest movers first: the reader wants what changed, not the metric order.
-    .sort((a, b) => Math.abs(b.gain) - Math.abs(a.gain));
+    });
+  // RENDERED IN THE CALLER'S ORDER. This used to sort biggest-mover-first, on
+  // the reasoning that "the reader wants what changed, not the metric order".
+  // That was wrong in one specific way: it put Total Score — the one figure a
+  // clinician can check against the printed report, and the headline of every
+  // other panel in the app (§21, §50) — wherever the arithmetic happened to
+  // drop it, which on the seeded Q2→Q3 pair was fourth of six, under three of
+  // its own components.
+  //
+  // Magnitude is not lost by this: the bars share one scale, so the biggest
+  // move is still the longest bar and is seen at a glance. What ordering by
+  // magnitude DID cost was a stable reading order — the list rearranged itself
+  // every time the filter changed, so the reader had to re-find the score they
+  // came for. Order is now a property of the measure, not of this period's
+  // noise; see backend/src/utils/periodScores.js for the order and why.
 
   if (!rows.length) return <p className="text-muted" style={{ fontSize: 'var(--fs-md)' }}>Not enough data to compare these periods.</p>;
 

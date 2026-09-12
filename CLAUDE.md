@@ -52,7 +52,7 @@ cd backend; npm run coverage         # 79.6% statements / 67.8% branches. Route 
                                      # transitive dep (fs.realpath) before it would run at all.
 cd backend; npm run mutate           # BREAK each registered guard on purpose and prove its
                                      # test fails. A surviving mutation exits non-zero: the
-                                     # test is not testing what it claims. 23 guards across
+                                     # test is not testing what it claims. 29 guards across
                                      # both packages. NOT part of `npx jest` — it spawns a
                                      # jest run per mutation (tens of seconds). Run it before
                                      # committing a change to a guard, and add an entry when
@@ -161,7 +161,23 @@ cd frontend; npm run e2e   # END-TO-END smoke: a real Chrome against the running
 cd frontend; npm run build
 
 # Unit tests (jest, in both packages — no linter configured for the backend)
-cd backend; npx jest      # 47 suites / 700 tests: cohorts, overallIndicator, permissions, rbac, pdfDraw,
+cd backend; npx jest      # 48 suites / 708 tests: cohorts, overallIndicator, permissions, rbac, pdfDraw,
+                          # scoreOrder (ONE reading order AND ONE VOCABULARY for the six
+                          # tracked scores, across both packages - headline first: Total
+                          # Score and Exercise Risks, then the three components Total
+                          # Score is the mean of, then AIRMS's own derived indicator
+                          # LAST. periodScores.js declares both; TrendStrip.tsx and
+                          # ScreeningHistory.tsx each keep a copy because the two
+                          # packages cannot import each other, and this reads both as
+                          # text. Both renderers stopped sorting biggest-mover-first,
+                          # which had buried Total Score at 4 of 6 under three of its
+                          # own components. The two printed scores are spelled as
+                          # HOLOMOTION prints them - 21 rests on laying the screen
+                          # beside the PDF. ScreeningHistory's compact labels ("Ex.
+                          # Risks") are an exception asserted STRING BY STRING: the
+                          # obvious rule "a short label must be shorter than the full
+                          # one" waves through "Injury Risk", which is shorter AND a
+                          # different measure. See DD 83),
                           # decisionSupport (the worklist ranking AND the caller-held
                           # "since you last looked" marker - DD 79),
                           # screeningPeriods, cohortFocus, visionUsage, alerts, scheduler,

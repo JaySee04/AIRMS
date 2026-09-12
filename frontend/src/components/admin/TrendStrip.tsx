@@ -64,13 +64,28 @@ interface PeriodsResponse {
 // Falls back to the per-screening tally if the API predates athleteBands.
 const bandsOf = (p: Period): BandCounts => p.athleteBands ?? p.bands;
 
+// Key order MUST match backend/src/utils/periodScores.js — the two printed
+// HoloMotion scores lead, then what Total Score is made of, then AIRMS's own
+// derived indicator. This is a copy of the ORDER rather than of the list,
+// because the two packages cannot import each other;
+// `backend/tests/scoreOrder.test.js` reads this file as text and fails if the
+// keys drift.
+//
+// The LABELS are a copy too, and they are now spelled the same as the backend's
+// on purpose. This card and the one on /admin/activity draw the same six rows
+// from the same six numbers, and they said "Exercise risks" / "Indicator" here
+// and "Exercise Risks" / "Overall indicator" there — one measure with two names
+// on two admin screens, which is §33's band-vocabulary failure in a smaller
+// place. Where a label legitimately differs it is because the SPACE differs, and
+// it is compact by intent: ScreeningHistory's sparkline cells say "Total" and
+// "Ex. Risks" the way BAND_SHORT exists alongside BAND_LABEL.
 const COMPARED_METRICS: Array<[string, string, boolean]> = [
-  ['overallIndicator', 'Indicator', true],
   ['totalScore', 'Total Score', true],
+  ['exerciseRisks', 'Exercise Risks', false],
   ['rom', 'ROM', true],
   ['stability', 'Stability', true],
   ['symmetry', 'Symmetry', true],
-  ['exerciseRisks', 'Exercise risks', false],
+  ['overallIndicator', 'Overall indicator', true],
 ];
 
 

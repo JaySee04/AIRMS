@@ -785,8 +785,11 @@ function throughputChart(doc, periods, opts = {}) {
 function changeBars(doc, deltas, opts = {}) {
   const rows = (deltas || [])
     .filter((d) => d && d.avgDelta !== null && d.avgDelta !== undefined)
-    .map((d) => ({ ...d, gain: d.higherBetter === false ? -d.avgDelta : d.avgDelta }))
-    .sort((a, b) => Math.abs(b.gain) - Math.abs(a.gain));
+    // Caller's order, which is PERIOD_SCORES order: the two printed scores, then
+    // Total Score's components, then the derived indicator. It used to sort
+    // biggest-mover-first here too, and the screen and the document must not
+    // order the same six rows differently. See utils/periodScores.js.
+    .map((d) => ({ ...d, gain: d.higherBetter === false ? -d.avgDelta : d.avgDelta }));
   if (!rows.length) return;
 
   const W = doc.page.width - 100;
