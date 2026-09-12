@@ -7108,3 +7108,111 @@ wrong page. Renaming a navigation item is a naming decision.
 ```
 frontend 21 suites / 346 tests · backend 52 / 745 · e2e 110/110 · tsc + lint clean
 ```
+
+---
+
+## 87. One name per page, everywhere it is written (2026-09-13)
+
+JC: *"Fix it. On that thought, go through the entire website and provide more
+consistent and professional naming"* — "it" being the medical dashboard titled
+"Athlete Dashboard", flagged at the end of §86.
+
+All twenty authenticated pages were inventoried across the three places a page
+name is written: the **sidebar entry**, the **topbar title**, and the **user
+manual's per-role navigation table**. All three disagreed.
+
+### The rules, and what each one caught
+
+**1. Every entry is headed by a noun.** "Data Uploading" was the only gerund
+among fourteen labels, and it named a mechanism rather than a subject. The page
+imports HoloMotion screening reports → **Screening Import**.
+
+**2. One concept, one name.** Report downloading was **"PDF Reports"** for admin
+and executive and **"Reports"** for coach. One feature, two names, and "PDF" is a
+file format rather than a subject → **Reports** everywhere. This is §33's
+band-vocabulary rule applied to navigation.
+
+**3. A label names its own audience's view.** `/medical/dashboard` was **"Athlete
+Dashboard"**. The athlete's own page is "My Dashboard", so the clinician's
+worklist-and-roster pane was named after somebody else's screen.
+
+Rule 3's first fix was *"Clinical Dashboard"* — and that **broke rule 2**. This
+role is "Medical Staff" in the topbar, in Chapter 4's actor column and in the
+role enum, and the user manual already had a "Medical Dashboard" section for
+this page. A third word for one role is the defect, not the cure. It is
+**Medical Dashboard**, which is what the manual had been calling it all along.
+
+**Not renamed, deliberately:** "Athlete Dashboard & Overall Risk Indicator" is
+**Module 1's** name in the FDD and Chapter 4. Modules are not renamed here
+(CLAUDE.md). Only the page label changed.
+
+### The manual's navigation table described the FYP I system
+
+The worst of it was not a wording choice. The per-role table listed **Injury
+Reporting, Injury Logging, Self-Report Review, Injury Analytics** and **Staff
+Permissions** — five features deleted by the HoloMotion-only cut on 2026-08-02 —
+and had **three columns**, omitting coach and executive entirely, though coach
+became first-class on 2026-07-19 and executive was added on 2026-08-08.
+
+A table a month stale is not a typo; it is a copy with nothing holding it to the
+original. `backend/tests/navigationNames.test.js` now pins all three copies
+together: every sidebar entry's head word is a noun, a route reached from two
+roles carries one label, report and norm labels are each single-valued, the
+topbar title equals the sidebar entry on every page, the manual's table equals
+the sidebar role for role, and the five deleted features are named so they
+cannot return.
+
+Two of its own assertions were wrong first and are worth recording:
+
+- **The gerund rule matched the whole label**, so it rejected "Screening
+  History", "Screening Analytics" and "Screening Import", where *screening* is an
+  ordinary noun modifying the head. A rule that rejects three correct labels to
+  catch one wrong one is not the rule; it tests the **head word** now.
+- **The manual-table parser ran past the table**, sliced to end of file and
+  filtered for lines starting with `|` — sweeping in every later table and
+  reporting 16 entries for a 3-entry role.
+
+### A generated inventory that was confidently wrong
+
+Regenerating `SYSTEM_MAP.md` to pick up the renames showed
+**`/medical/cohort-norms | public`**. That page is one line — `export { default }
+from '../../admin/thresholds/page'` — so its gate and title live in the file it
+points at, and the parser, reading only the local source, found no
+`allowedRoles` and published a norms-editing screen as reachable by anybody in
+the document whose entire job is to say who reaches what.
+
+Nothing was open: the re-exported component carries its own gate. **The map was
+wrong**, which is §56.3 for the third time — a plausible table rendered by a
+parser that quietly matched nothing. It follows one re-export hop now and reports
+`admin, medical`. One hop, deliberately: that is the depth this codebase uses,
+and a page re-exporting a re-export still reports `public`, which is visibly odd
+rather than confidently wrong.
+
+### The browser tab title: attempted, measured, removed
+
+All twenty pages share one tab title from the root `metadata`, so three tabs open
+on the roster, an athlete's record and the norms are indistinguishable.
+
+The obvious fix — `document.title = ...` in an effect in `DashboardLayout`, where
+the title prop already is — **does not work, and it was measured rather than
+assumed.** The effect body runs (it logged) and `document.title` still reads the
+metadata value at 0, 500, 1500 and 3000ms afterwards: Next's App Router renders
+metadata as part of the tree and re-applies it after client effects commit. A
+manual `document.title = 'PROBE'` from the console sticks, which is what proves
+it is the framework and not the page. A clean dev restart with `.next` deleted
+ruled out staleness.
+
+**It was removed rather than left in.** An effect that runs, reviews as correct
+and changes nothing is this project's signature defect — `winAnsiSafe` shipped
+defined, exported, unit-tested and never called. A commented-out intention is
+worth more than a silent no-op.
+
+Doing it properly needs a server `layout.tsx` beside each client page exporting
+`metadata: { title }`, since a client component cannot export metadata at all.
+That is about twenty small files and a second copy of every page name — **JC's
+call**, not a side effect of a naming pass.
+
+```
+backend 53 suites / 752 tests · frontend 21 / 346 · 43 mutations caught
+e2e 110/110 · guide:pdf clean · npm run map current · tsc + lint clean
+```

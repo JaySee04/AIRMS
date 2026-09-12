@@ -6,7 +6,7 @@ import DataBackupCard from '@/components/upload/DataBackupCard';
 
 export default function AdminDataUploadPage() {
   return (
-    <DashboardLayout allowedRoles={['admin']} title="Data Uploading">
+    <DashboardLayout allowedRoles={['admin']} title="Screening Import">
       <PdfScreeningUpload />
       <div style={{ height: 28 }} />
       <DataBackupCard />

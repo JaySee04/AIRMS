@@ -82,12 +82,28 @@ A 256px navy sidebar visible on every authenticated page:
 
 Per-role nav:
 
-| Athlete | Medical | Admin |
-|---|---|---|
-| My Dashboard | Athlete Dashboard | Injury Analytics |
-| Injury Reporting | Injury Logging | PDF Reports |
-|  | Self-Report Review | Staff Permissions |
-|  | Data Uploading | Data Uploading |
+All five roles, matching `components/layout/Sidebar.tsx` exactly.
+`backend/tests/navigationNames.test.js` pins this table to that file, because
+the version it replaces described the FYP I system for over a month: it listed
+*Injury Reporting*, *Injury Logging*, *Self-Report Review*, *Injury Analytics*
+and *Staff Permissions* — five features deleted by the HoloMotion-only cut of
+2026-08-02 — and omitted the coach and executive roles entirely, though coach
+became first-class on 2026-07-19 and executive was added on 2026-08-08.
+
+| Athlete | Medical | Admin | Coach | Executive |
+|---|---|---|---|---|
+| My Dashboard | Medical Dashboard | Screening Analytics | Squad Readiness | Screening Analytics |
+| Screening History | Cohort Norms | Programme Activity | Reports | Programme Activity |
+| My Squad | Screening Import | Reports |  | Reports |
+|  |  | Cohort Norms |  | Activity Log |
+|  |  | Personnel |  |  |
+|  |  | Screening Import |  |  |
+|  |  | Activity Log |  |  |
+|  |  | Settings |  |  |
+
+The executive list is the admin's two analytics surfaces plus reports and the
+activity log, and **nothing that writes** — no Cohort Norms, no Personnel, no
+Screening Import. The absence of those three entries is the role.
 
 Medical nav links are hidden individually when an admin has revoked that capability for the staff member (see §15).
 
@@ -96,7 +112,7 @@ Medical nav links are hidden individually when an admin has revoked that capabil
 ### Topbar
 
 60px sticky top bar visible on every authenticated page:
-- **Left**: page title (e.g. "My Dashboard", "Injury Reporting")
+- **Left**: page title (e.g. "My Dashboard", "Medical Dashboard") — always the same words as that page's sidebar entry, pinned by `backend/tests/navigationNames.test.js`
 - **Right**:
   - Stacked "Signed in as" + bold role name
   - Theme toggle (rounded-rectangle button, sun/moon icon, persists to `localStorage`)
@@ -130,7 +146,7 @@ training-load input: [`docs/fyp/ACWR_REBUILD.md`](fyp/ACWR_REBUILD.md).
 
 ---
 
-## 4. Athlete Dashboard — `/athlete/dashboard` (Athlete only)
+## 4. My Dashboard — `/athlete/dashboard` (Athlete only)
 
 The athlete's home page. Vertical sections from top to bottom:
 
@@ -359,7 +375,7 @@ and why they are named what they are named.
 
 ---
 
-## 10. PDF Reports (Admin) — `/admin/reports`
+## 10. Reports (Admin) — `/admin/reports`
 
 **Two-column live PDF generator.**
 
@@ -411,7 +427,7 @@ Accessed from the topbar avatar dropdown's "My Profile" link. Both pages share t
 
 ---
 
-## 12. Data Uploading — `/admin/data-upload` and `/medical/data-upload`
+## 12. Screening Import — `/admin/data-upload` and `/medical/data-upload`
 
 Screening data enters AIRMS one way: **importing HoloMotion report PDFs** — the artefact Dr Thung's real workflow produces. HoloMotion reports are image-only PDFs (no text layer), so the system renders their pages and a vision model reads them. *(The original Excel import was retired 2026-07-12; its code is archived in `archive/excel-upload/`. The Excel backup **export** in §12.2 is unaffected.)*
 
@@ -459,7 +475,7 @@ The athlete's latest HoloMotion screening lives directly on the **athlete dashbo
 
 ---
 
-## 15. Personnel & Staff Permissions (Admin) — `/admin/personnel`
+## 15. Personnel (Admin) — `/admin/personnel`
 
 > **Route renamed.** This page was `/admin/staff` in earlier builds; that URL no
 > longer exists. It also now manages **all** staff accounts (create, edit,
@@ -500,7 +516,7 @@ So an athlete with a decent raw score who is nonetheless below their peers and a
 
 ---
 
-## 17. Cohort Thresholds & Settings (Admin) — `/admin/thresholds`
+## 17. Cohort Norms & Settings (Admin) — `/admin/thresholds`
 
 Where the admin approves the reference norms every indicator is measured against.
 
@@ -520,7 +536,7 @@ After a medical staffer **actually assesses** an athlete, they can override the 
 
 ---
 
-## 19. Screening PDF Reports (Admin) — on `/admin/reports`
+## 19. Screening Reports (Admin) — on `/admin/reports`
 
 A **Screening Reports** card offers three cohort-normed PDFs (separate from the injury-analytics report in [§10](#10-pdf-reports-admin--adminreports)):
 

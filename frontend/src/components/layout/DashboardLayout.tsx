@@ -102,6 +102,32 @@ export default function DashboardLayout({ children, allowedRoles, title, require
     localStorage.setItem('airms_theme', theme);
   }, [theme]);
 
+  // NO PER-PAGE BROWSER TAB TITLE HERE, AND THE ATTEMPT IS WORTH RECORDING.
+  //
+  // All twenty authenticated pages share one tab title, from app/layout.tsx's
+  // `metadata`: "AIRMS — Athlete Injury Risk Management System". Three tabs open
+  // on the roster, an athlete's record and the norms are indistinguishable,
+  // which is the same as having no title at all.
+  //
+  // The obvious fix — `useEffect(() => { document.title = ... }, [title])` right
+  // here, where the title prop already is — was written, and it DOES NOT WORK.
+  // Measured, not assumed: the effect body runs (it logged), and
+  // `document.title` still reads the metadata value at 0, 500, 1500 and 3000ms
+  // afterwards. Next's App Router renders metadata as part of the tree and
+  // re-applies it after client effects commit, so the assignment lands and is
+  // immediately overwritten. A manual `document.title = 'PROBE'` from the
+  // console sticks, which is what proves it is the framework and not the page.
+  //
+  // It was REMOVED rather than left in, because an effect that runs, looks
+  // correct in review and changes nothing is this project's signature defect —
+  // `winAnsiSafe` shipped defined, exported, unit-tested and never called.
+  //
+  // Doing it properly needs a server `layout.tsx` beside each client page,
+  // exporting `metadata: { title }`, since a client component cannot export
+  // metadata at all. That is ~20 small files and a second copy of every page
+  // name, so it is JC's call rather than a side effect of a naming pass. See
+  // DESIGN_DECISIONS §87.
+
   // Route away from pages whose capability has been revoked.
   const blocked = user && requiredPermission ? !hasPermission(user, requiredPermission) : false;
   useEffect(() => {

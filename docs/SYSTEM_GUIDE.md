@@ -67,7 +67,7 @@ somebody else's clinical alerts.
 
 ## 4. Medical — the clinical view
 
-**Athlete Dashboard** (`/medical/dashboard`) — the working screen.
+**Medical Dashboard** (`/medical/dashboard`) — the working screen.
 
 *Search, then select an athlete.* The left rail searches by name **or IC
 number**, filters by sport and programme, and lists the roster. Search tolerates
@@ -139,7 +139,7 @@ athletes currently flagged as injured, your watchlist, and recent activity.
 **Cohort Norms** (`/medical/cohort-norms`) — read-only view of the norms in
 force, so a clinician can see what an athlete is being compared against.
 
-**Data Uploading** (`/medical/data-upload`) — see §6.
+**Screening Import** (`/medical/data-upload`) — see §6.
 
 ---
 
@@ -290,7 +290,7 @@ cannot outrank the clinicians.
 The actor's name and role are copied onto the row rather than looked up later: a
 trail that changes when somebody is renamed is not a trail.
 
-### Data Uploading (`/admin/data-upload`)
+### Screening Import (`/admin/data-upload`)
 
 - **HoloMotion PDF import.** Two steps: extract and preview, then commit. The
   operator attaches each report to a roster athlete by name search. Batch upload

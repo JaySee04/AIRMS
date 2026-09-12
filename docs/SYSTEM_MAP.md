@@ -285,10 +285,10 @@ client-side; the API's RBAC above is the real boundary.
 | `/admin/activity` | admin, executive | Programme Activity |
 | `/admin/audit` | admin, executive | Activity Log |
 | `/admin/dashboard` | admin, executive | Screening Analytics |
-| `/admin/data-upload` | admin | Data Uploading |
+| `/admin/data-upload` | admin | Screening Import |
 | `/admin/personnel` | admin | Personnel |
 | `/admin/profile` | admin, executive | My Profile |
-| `/admin/reports` | admin, executive | PDF Reports |
+| `/admin/reports` | admin, executive | Reports |
 | `/admin/settings` | admin | Settings |
 | `/admin/thresholds` | admin, medical | Cohort Norms |
 | `/athlete/dashboard` | athlete | My Dashboard |
@@ -299,9 +299,9 @@ client-side; the API's RBAC above is the real boundary.
 | `/coach/profile` | coach | My Profile |
 | `/coach/reports` | coach | Reports |
 | `/forgot-password` | public |  |
-| `/medical/cohort-norms` | public |  |
-| `/medical/dashboard` | medical | Athlete Dashboard |
-| `/medical/data-upload` | medical | Data Uploading |
+| `/medical/cohort-norms` | admin, medical | Cohort Norms |
+| `/medical/dashboard` | medical | Medical Dashboard |
+| `/medical/data-upload` | medical | Screening Import |
 | `/medical/profile` | medical | My Profile |
 | `/reset-password` | public |  |
 | `/verify-otp` | public |  |

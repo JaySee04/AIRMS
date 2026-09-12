@@ -431,7 +431,7 @@ export default function MedicalDashboard() {
   const view = picked ?? selectedAthlete;
 
   return (
-    <DashboardLayout allowedRoles={['medical']} requiredPermission="viewRecords" title="Athlete Dashboard">
+    <DashboardLayout allowedRoles={['medical']} requiredPermission="viewRecords" title="Medical Dashboard">
       <div className="medical-shell">
         {/* ── Left rail ───────────────────────────────────────────────────── */}
         <aside className="medical-rail">

@@ -412,6 +412,42 @@ const MUTATIONS = [
     replace: 'themselves rather than asking an administrator. | Athlete, Medical Staff, Administrator, Coach, Executive |',
     test: 'tests/reportTable.test.js',
   },
+  {
+    guard: 'naming: the topbar title matches its sidebar entry',
+    why: 'the clinician page was "Athlete Dashboard" in both, named after the athlete\'s screen',
+    pkg: 'backend',
+    file: '../frontend/src/app/medical/dashboard/page.tsx',
+    find: 'title="Medical Dashboard"',
+    replace: 'title="Athlete Dashboard"',
+    test: 'tests/navigationNames.test.js',
+  },
+  {
+    guard: 'naming: one feature does not get two labels',
+    why: '"PDF Reports" for admin and "Reports" for coach — one concept, two names',
+    pkg: 'backend',
+    file: '../frontend/src/components/layout/Sidebar.tsx',
+    find: "    { href: '/admin/reports',     label: 'Reports',            icon: <IconFileText /> },",
+    replace: "    { href: '/admin/reports',     label: 'PDF Reports',        icon: <IconFileText /> },",
+    test: 'tests/navigationNames.test.js',
+  },
+  {
+    guard: 'naming: the user manual\'s nav table cannot go stale',
+    why: 'it described the FYP I system for a month, naming five deleted features',
+    pkg: 'backend',
+    file: '../docs/USER_MANUAL.md',
+    find: '| My Squad | Screening Import | Reports |  | Reports |',
+    replace: '| My Squad | Data Uploading | Reports |  | Reports |',
+    test: 'tests/navigationNames.test.js',
+  },
+  {
+    guard: 'system map: a re-exported page is not reported as public',
+    why: 'the norms editor was published as reachable by anybody',
+    pkg: 'backend',
+    file: 'scripts/system-map.js',
+    find: '    const src = resolveReExport(file, read(file));',
+    replace: '    const src = read(file);',
+    test: 'tests/systemMap.test.js',
+  },
 ];
 
 function pkgDir(pkg) {

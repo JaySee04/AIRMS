@@ -123,10 +123,35 @@ function routes() {
 }
 
 // ── pages ───────────────────────────────────────────────────────────────────
+// A RE-EXPORTED PAGE IS NOT A PUBLIC PAGE.
+//
+// `/medical/cohort-norms` is one line — `export { default } from
+// '../../admin/thresholds/page'` — so the gate and the title live in the file it
+// points at. Reading only the local source found no `allowedRoles` and this
+// inventory published *"/medical/cohort-norms | public"*: a norms-editing screen
+// listed as reachable by anybody, in the document whose whole job is to say who
+// reaches what. Nothing was actually open (the re-exported component carries its
+// own gate) — the MAP was wrong, which is the §56.3 failure again, a plausible
+// table rendered from a parser that quietly matched nothing.
+//
+// One hop only, and deliberately: that is the depth this codebase uses, and a
+// recursive follow would need cycle detection for a case that does not exist.
+// A page re-exporting a page that re-exports another still reports `public`,
+// which is at least visibly odd rather than confidently wrong.
+function resolveReExport(file, src) {
+  const m = src.match(/export\s*\{\s*default\s*\}\s*from\s*['"]([^'"]+)['"]/);
+  if (!m) return src;
+  const target = path.resolve(path.dirname(file), m[1]);
+  for (const cand of [`${target}.tsx`, path.join(target, 'index.tsx'), target]) {
+    if (fs.existsSync(cand) && fs.statSync(cand).isFile()) return read(cand);
+  }
+  return src;
+}
+
 function pages() {
   const dir = path.join(FE, 'app');
   return walk(dir, (n) => n === 'page.tsx').map((file) => {
-    const src = read(file);
+    const src = resolveReExport(file, read(file));
     const rel = path.relative(dir, path.dirname(file)).split(path.sep).join('/');
     const roleM = src.match(/allowedRoles=\{\[([^\]]*)\]\}/);
     const titleM = src.match(/title="([^"]*)"/);

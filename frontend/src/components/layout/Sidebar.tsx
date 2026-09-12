@@ -53,6 +53,31 @@ const IconPulse = () => (
   </svg>
 );
 
+// THE NAVIGATION VOCABULARY, and it is the same vocabulary the topbar title and
+// the user manual use (2026-09-13, DESIGN_DECISIONS §87).
+//
+// Three rules, applied after an audit of all 20 authenticated pages found each
+// one broken somewhere:
+//
+//   1. EVERY ENTRY IS A NOUN PHRASE. "Data Uploading" was the only gerund among
+//      fourteen labels, and it also named a mechanism rather than a subject —
+//      the page imports HoloMotion screening reports, which is what it now says.
+//   2. ONE CONCEPT, ONE NAME. Report downloading was "PDF Reports" for admin and
+//      executive and "Reports" for coach. Same feature, and "PDF" is a file
+//      format, not a subject. This is §33's band-vocabulary rule applied to
+//      navigation.
+//   3. A LABEL NAMES ITS OWN AUDIENCE'S VIEW. `/medical/dashboard` was "Athlete
+//      Dashboard" — the athlete's own page is "My Dashboard", so the clinician's
+//      worklist and roster pane was named after somebody else's screen.
+//
+// Rule 3's first fix was "Clinical Dashboard", which broke rule 2: this role is
+// "Medical Staff" in the topbar, in Chapter 4's actor column and in the role
+// enum, and the user manual already had a "Medical Dashboard" section. A third
+// word for one role is the defect, not the cure. "Medical Dashboard" it is.
+//
+// NOT renamed, deliberately: "Athlete Dashboard & Overall Risk Indicator" is
+// MODULE 1's name in the FDD and Chapter 4, and modules are not renamed here
+// (CLAUDE.md). Only the page label changed; the module keeps its name.
 const NAV: Record<Role, NavItem[]> = {
   athlete: [
     { href: '/athlete/dashboard',     label: 'My Dashboard',      icon: <IconHome /> },
@@ -60,17 +85,17 @@ const NAV: Record<Role, NavItem[]> = {
     { href: '/athlete/squad',         label: 'My Squad',          icon: <IconUsers /> },
   ],
   medical: [
-    { href: '/medical/dashboard',      label: 'Athlete Dashboard',  icon: <IconHome />,        perm: 'viewRecords' },
+    { href: '/medical/dashboard',      label: 'Medical Dashboard', icon: <IconHome />,        perm: 'viewRecords' },
     { href: '/medical/cohort-norms',   label: 'Cohort Norms',       icon: <IconPulse />,       perm: 'editCohortNorms' },
-    { href: '/medical/data-upload',    label: 'Data Uploading',     icon: <IconUpload />,      perm: 'uploadData' },
+    { href: '/medical/data-upload',    label: 'Screening Import',   icon: <IconUpload />,      perm: 'uploadData' },
   ],
   admin: [
     { href: '/admin/dashboard',   label: 'Screening Analytics', icon: <IconBarChart /> },
     { href: '/admin/activity',    label: 'Programme Activity',  icon: <IconTrend /> },
-    { href: '/admin/reports',     label: 'PDF Reports',        icon: <IconFileText /> },
+    { href: '/admin/reports',     label: 'Reports',            icon: <IconFileText /> },
     { href: '/admin/thresholds',  label: 'Cohort Norms',       icon: <IconPulse /> },
     { href: '/admin/personnel',   label: 'Personnel',          icon: <IconUsers /> },
-    { href: '/admin/data-upload', label: 'Data Uploading',     icon: <IconUpload /> },
+    { href: '/admin/data-upload', label: 'Screening Import',   icon: <IconUpload /> },
     { href: '/admin/audit',       label: 'Activity Log',       icon: <IconFileText /> },
     // Settings was reachable only from a button on the Cohort Norms page, which
     // put the escalation rules, the rescreen interval and the scheduled-mail
@@ -84,12 +109,12 @@ const NAV: Record<Role, NavItem[]> = {
     { href: '/coach/reports',   label: 'Reports',         icon: <IconFileText /> },
   ],
   // Executive — read-only oversight. The admin's two analytics surfaces and the
-  // reports, and nothing that writes: no Cohort Norms, no Personnel, no Data
-  // Uploading. The absence of those three entries IS the role.
+  // reports, and nothing that writes: no Cohort Norms, no Personnel, no
+  // Screening Import. The absence of those three entries IS the role.
   executive: [
     { href: '/admin/dashboard', label: 'Screening Analytics', icon: <IconBarChart /> },
     { href: '/admin/activity',  label: 'Programme Activity',  icon: <IconTrend /> },
-    { href: '/admin/reports',   label: 'PDF Reports',         icon: <IconFileText /> },
+    { href: '/admin/reports',   label: 'Reports',             icon: <IconFileText /> },
     // Reading the activity log is oversight, not administration — it is the
     // one thing this role exists for.
     { href: '/admin/audit',     label: 'Activity Log',        icon: <IconFileText /> },
