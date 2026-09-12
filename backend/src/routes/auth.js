@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const { Op } = require('sequelize');
 const { User } = require('../models');
 const authMiddleware = require('../middleware/auth');
+const { JWT_ALGORITHMS } = require('../middleware/auth');
 const { sendMail, buildResetEmail } = require('../utils/mailer');
 const { validatePassword } = require('../utils/passwordPolicy');
 const { prefsForUser, sanitizePrefs } = require('../utils/mailPrefs');
@@ -26,8 +27,14 @@ const router = express.Router();
 // inline arrow made the endpoint inventory silently drop all eight auth routes.
 router.use(authThrottle);
 
+// Signed with the algorithm the verifier PINS (middleware/auth.js). Naming it on
+// both halves means the pair cannot drift into "signed one way, accepted another
+// way as well".
 const signToken = (id) =>
-  jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '7d' });
+  jwt.sign({ id }, process.env.JWT_SECRET, {
+    algorithm: JWT_ALGORITHMS[0],
+    expiresIn: process.env.JWT_EXPIRES_IN || '7d',
+  });
 
 // Reset-OTP + verification-token helpers. The 6-digit code is generated with
 // crypto.randomInt so it's cryptographically uniform across the 0–999999

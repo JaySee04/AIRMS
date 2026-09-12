@@ -24,6 +24,15 @@ Three of the five cannot change anything. That is the shape of the system and it
 held under test: **every one of 21 write endpoints refused coach, executive and
 athlete.**
 
+There is a sixth caller this table used to say nothing about: **nobody at all.**
+Measured 2026-09-12 by calling every endpoint with no `Authorization` header,
+**all 65 answered 401** except the four sign-in routes, which are unauthenticated
+by design (`login`, `forgot-password`, `verify-otp`, `reset-password`). That was
+true before it was checked; what changed is that `npm run audit:access` now
+checks it on every run, so a route registered without `auth` fails the audit
+instead of appearing in the matrix as a perfectly ordinary endpoint. See
+`DESIGN_DECISIONS.md §84`.
+
 ---
 
 ## 2. What each role can reach
@@ -196,9 +205,14 @@ is waiting to make.
 ## 5. How to re-check this
 
 ```powershell
-cd backend; npm run audit:access     # every endpoint, every non-admin role
-cd frontend; npm run e2e             # the browser-side gate, 59 checks
+cd backend; npm run audit:access     # every endpoint, every non-admin role,
+                                     # AND every endpoint with no token at all
+cd frontend; npm run e2e             # the browser-side gate, 110 checks
 ```
 
 Both need `npm run dev` running. `audit:access` fails if any read-only role
-completes a write, so it is a regression test, not just a report.
+completes a write, **or if any guarded endpoint answers a caller with no token**,
+so it is a regression test, not just a report. Both failure modes have been seen
+to fire: the write check caught the watchlist reaching coach, and the anonymous
+check was proven by stripping `auth` off one route and watching the audit name it
+and exit 1.

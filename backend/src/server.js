@@ -28,6 +28,31 @@ const screeningRoutes = require('./routes/screenings');
 const screeningReportRoutes = require('./routes/screeningReports');
 const isnRoutes = require('./routes/isn');
 
+// REFUSE TO START WITHOUT A SIGNING SECRET.
+//
+// Without it the app still "worked": `jwt.verify(token, undefined)` throws, so
+// every authenticated request answers 401, and `jwt.sign` throws, so login
+// answers 500. It fails CLOSED, which is the right direction — but it fails
+// closed as a generic 500 on one endpoint, which reads as a database problem or
+// a code bug. A deployment that lost the variable would be diagnosed by
+// somebody reading login handler source rather than by the process saying so.
+//
+// This is the one env var whose absence is both fatal and invisible. MYSQL_* is
+// diagnosed for you by `connectDB`, SMTP_* has a documented console fallback,
+// and VISION_* self-disables the uploader with a message on the page.
+//
+// Checked at module scope so it fires under `npm run dev`, `mail:tick` and the
+// serverless import alike — not inside `listen()`, which Vercel never calls.
+if (!process.env.JWT_SECRET) {
+  // eslint-disable-next-line no-console
+  console.error(
+    'FATAL: JWT_SECRET is not set.\n'
+    + '  Every sign-in would answer 500 and every authenticated request 401.\n'
+    + '  Set it in backend/.env locally, or in the project\'s environment variables when deployed.',
+  );
+  process.exit(1);
+}
+
 const app = express();
 
 // TRUST ONE PROXY HOP. Found 2026-09-10 while making the rate-limit store

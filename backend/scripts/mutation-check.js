@@ -319,6 +319,24 @@ const MUTATIONS = [
     replace: "  ['totalScore', 'Total score', true],",
     test: 'tests/scoreOrder.test.js',
   },
+  {
+    guard: 'auth: the verifier pins its signing algorithm',
+    why: 'the accepted set must be DECLARED, not inherited from the key type',
+    pkg: 'backend',
+    file: 'src/middleware/auth.js',
+    find: "    const decoded = jwt.verify(token, process.env.JWT_SECRET, { algorithms: JWT_ALGORITHMS });",
+    replace: '    const decoded = jwt.verify(token, process.env.JWT_SECRET);',
+    test: 'tests/authHardening.test.js',
+  },
+  {
+    guard: 'auth: the process refuses to start without a signing secret',
+    why: 'without it every login 500s and every request 401s — fatal and invisible',
+    pkg: 'backend',
+    file: 'src/server.js',
+    find: 'if (!process.env.JWT_SECRET) {',
+    replace: 'if (false) {',
+    test: 'tests/authHardening.test.js',
+  },
 ];
 
 function pkgDir(pkg) {

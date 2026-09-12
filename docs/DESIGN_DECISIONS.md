@@ -6613,3 +6613,145 @@ indicator`.
 ```
 backend 48 suites / 708 tests · frontend 20 / 339 · 29 mutations caught
 ```
+
+---
+
+## 84. A security review and an optimisation pass, both measured (2026-09-12)
+
+JC: *"NNow check the stuff if it is secure and if it can be further optimized"*.
+
+Two passes. The security one found one gap worth closing and two worth hardening;
+the optimisation one found **no performance problem to fix**, and the most useful
+thing it produced was a measurement that stopped me reporting a defect that was
+not there.
+
+### 84a. What was checked, and what held
+
+Checked by measurement, not by reading: no secrets or key material in tracked
+files; no `eval` / `new Function` / `dangerouslySetInnerHTML` / raw `innerHTML`
+anywhere in either package; every `sequelize.query` either a constant or
+parameterised through `replacements`; `helmet` on with HSTS, noSniff and
+frameguard at their defaults; CORS an explicit origin list rather than a
+reflector; `trust proxy` set to **1** hop, so `X-Forwarded-For` cannot be spoofed
+past the limiter; uploads capped at 20 MB through `memoryStorage` with a
+`fileFilter`; **every** `Content-Disposition` filename passing through
+`fileSlug`, which strips to `[\w.-]` and so cannot carry a quote or a CRLF;
+`bcrypt` at cost 12; the `User` default scope excluding `password`,
+`resetTokenHash`, `resetTokenExpiresAt` and `resetCodeAttempts`; login and
+forgot-password both non-enumerating by construction; the one-time code stored
+only as a hash, single-use, five attempts; and no route performing a mass
+assignment from `req.body`.
+
+`npm audit`: **frontend 0**, backend **2 moderate** - the recorded `uuid`-via-
+`sequelize` finding (§76), which affects v3/v5/v6 with a caller-supplied buffer;
+Sequelize uses v4.
+
+### 84b. The gap: nobody had asked the questions as *nobody*
+
+`npm run audit:access` calls all 65 endpoints as four roles and prints
+*"coverage: every endpoint in the route table is probed"*. **Every one of those
+probes sends a token.** So the matrix answered "what may each ROLE reach" and
+made no claim at all about the unauthenticated caller - while its own coverage
+line reads like it covers everything.
+
+That is this project's defect class aimed at its own guard. A route registered
+without `auth` would appear in the matrix working for all four roles, exactly as
+designed, and nothing anywhere would say it was also open to the internet.
+
+Measured: **all 65 endpoints answer 401 with no `Authorization` header**, except
+the four sign-in routes that are unauthenticated by design. So nothing was wrong
+- the finding is that nothing was *checking*.
+
+`audit:access` now has an anonymous phase. Two details are deliberate:
+
+- **The open-by-design set is derived from the existing `EXEMPT` map's reason
+  string**, not written out a second time. Two lists drift, and this pair would
+  drift in the dangerous direction: a new unauthenticated route added to a second
+  list would be excused from the check by the very edit that created it.
+- **It has a floor.** The phase is an absence check, so if that filter ever
+  matched nothing every route would be expected to 401 and the sign-in endpoints
+  would be reported as findings; if it matched everything the phase would pass
+  while asserting nothing. The count is pinned to a handful and the run fails
+  loudly outside that.
+
+**Proven by breaking it**: `auth` was stripped from `GET /athletes/meta/sports`,
+the audit reported `GET /api/athletes/meta/sports -> 200` and exited 1, and the
+route was restored (`git status` clean).
+
+### 84c. Two hardening items, neither a live hole
+
+**The verifier now pins its algorithm.** `jwt.verify(token, secret)` with no
+`algorithms` accepts whatever the token's header claims, filtered by key type -
+and because the secret here is a *string*, jsonwebtoken 9 already restricts that
+to HMAC, so `alg: none` and the RS256-public-key-as-HMAC-secret confusion are not
+reachable today. The reason to name it anyway is that the protection is a
+property of the **key type**, not of this code: move `JWT_SECRET` to a PEM or a
+KMS handle and the implicit restriction changes underneath a file that never
+mentioned it. `signToken` names the same algorithm, so the pair cannot drift into
+"signed one way, also accepted another way".
+
+**The process refuses to start without `JWT_SECRET`.** Without it the app failed
+*closed* - `jwt.verify(token, undefined)` throws so every request 401s, and
+`jwt.sign` throws so login 500s - which is the right direction and the wrong
+diagnosis: a deployment that lost the variable presents as a database fault on one
+endpoint. It is the one env var whose absence is both fatal and invisible
+(`MYSQL_*` is diagnosed by `connectDB`, `SMTP_*` has a documented console
+fallback, `VISION_*` self-disables the uploader with a message on the page). The
+check sits at module scope so it fires under `npm run dev`, `mail:tick` and the
+serverless import alike - not inside `listen()`, which Vercel never calls.
+
+`tests/authHardening.test.js` guards both, and the second test spawns a process
+rather than requiring the module, because the behaviour under test is
+`process.exit`. It runs from `tests/` rather than `backend/`: `server.js` calls
+`dotenv.config()`, which resolves relative to CWD, so running it from `backend/`
+would restore the variable from the developer's own `.env` and the test would
+assert nothing. **The first version did exactly that and passed.**
+
+### 84d. Optimisation: the measurement that prevented a false report
+
+Every page was opened in a real browser with the network recorded. In **dev**,
+almost every page fetched something twice - `/athletes/analytics/periods` twice
+on the admin dashboard (32 KB where 16 would do), `/decisions` twice on medical
+and coach, `/screenings/reliability` and `/screenings/athlete/:id` twice on the
+athlete dashboard.
+
+None of it is real. `reactStrictMode` is on, so React double-invokes effects in
+development on purpose. Re-measured against a **production build** (stop dev ->
+`rm -rf .next` -> build -> `next start`, per CLAUDE.md gotcha 8), **every
+duplicate disappears**. This is the same trap §80 already documented for
+`/auth/me`, which is why the production re-measure happened before anything was
+written down.
+
+| page | production | |
+|---|---|---|
+| `/admin/thresholds`, `/medical/cohort-norms` | 4 calls · 81.5 KB | `/cohorts` is 79.2 of it |
+| `/admin/audit` | 4 calls · 78.4 KB | roster 44.2 + trail 32.2 |
+| `/medical/dashboard` | 5 calls · 59.5 KB | |
+| `/coach/dashboard` | 3 calls · 47.0 KB | |
+| `/admin/dashboard` | 5 calls · 30.2 KB | |
+| `/athlete/dashboard` | 4 calls · 5.9 KB | |
+
+Server side, timed five times each: everything answers in **3-21 ms** except
+`/athletes/analytics/periods` at **38-70 ms**. Query counts per request, taken
+with `SQL_LOG=1`: `/coach/readiness` 1, `/audit` 3, `/athletes` 4, `/cohorts` 4,
+both analytics endpoints 4, `/decisions` 5, `/athletes/:id` 10 (it re-reads the
+user, writes the `athlete.view` row and resolves cohorts). **Four queries for 56
+athletes is the absence of an N+1**, which is the thing worth stating. Bundle:
+103 kB shared, heaviest route 152 kB.
+
+**Conclusion: there is no performance problem here to fix**, which is the same
+answer §31's optimisation pass reached and for the same reason - it was measured
+rather than assumed. The one inefficiency that survives a production build is
+`/admin/personnel` issuing four `GET /users?role=...` calls where a multi-role
+query would do one; they are already in a `Promise.all`, so the wall cost is
+roughly one round trip and the saving is three auth-middleware user reads.
+**Not done**: it adds query-parameter surface to an endpoint for no measurable
+gain, and §48 has already ruled once on this endpoint family that a query
+parameter has a SHAPE. It is recorded here so the next person measures rather
+than rediscovers.
+
+```
+backend 49 suites / 714 tests · frontend 20 / 339 · 31 mutations caught
+audit:access clean incl. the new anonymous phase · e2e 110/110 against a
+PRODUCTION build · npm audit: frontend 0, backend 2 moderate (§76)
+```

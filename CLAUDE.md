@@ -41,8 +41,19 @@ npm run seed               # drops + reseeds MySQL with deterministic PRNG (seed
 cd backend; npm run audit:access     # call all 65 endpoints as each non-admin role and print
                                      # the matrix. Needs `npm run dev` running. FAILS if any
                                      # read-only role REACHES a write (403 expected, not 404 -
-                                     # a 404 means it got past the guard). See DESIGN_DECISIONS
-                                     # 43 and docs/SILENT_FAILURES.md 3b.
+                                     # a 404 means it got past the guard). ALSO calls every
+                                     # endpoint with NO TOKEN and FAILS if any but the four
+                                     # sign-in routes answers anything other than 401 (added
+                                     # 2026-09-12, DD 84b). Every other probe here sends a
+                                     # token, so the matrix used to print "coverage: every
+                                     # endpoint is probed" while making no claim at all about
+                                     # the anonymous caller - a route registered without
+                                     # `auth` would have shown up working for all four roles,
+                                     # exactly as intended, with nothing saying it was also
+                                     # open to the internet. All 65 refuse; the point is that
+                                     # it stays that way. The open-by-design set is DERIVED
+                                     # from the EXEMPT map's reason rather than listed twice.
+                                     # See DESIGN_DECISIONS 43 and docs/SILENT_FAILURES.md 3b.
 cd backend; npm run coverage         # 79.6% statements / 67.8% branches. Route handlers WERE the
                                      # gap (screeningReports 7%, audit 19%); tests/reportRoutes.test.js
                                      # took them to 44% / 42% by driving the real routers with
@@ -52,7 +63,7 @@ cd backend; npm run coverage         # 79.6% statements / 67.8% branches. Route 
                                      # transitive dep (fs.realpath) before it would run at all.
 cd backend; npm run mutate           # BREAK each registered guard on purpose and prove its
                                      # test fails. A surviving mutation exits non-zero: the
-                                     # test is not testing what it claims. 29 guards across
+                                     # test is not testing what it claims. 31 guards across
                                      # both packages. NOT part of `npx jest` — it spawns a
                                      # jest run per mutation (tens of seconds). Run it before
                                      # committing a change to a guard, and add an entry when
@@ -161,7 +172,19 @@ cd frontend; npm run e2e   # END-TO-END smoke: a real Chrome against the running
 cd frontend; npm run build
 
 # Unit tests (jest, in both packages — no linter configured for the backend)
-cd backend; npx jest      # 48 suites / 708 tests: cohorts, overallIndicator, permissions, rbac, pdfDraw,
+cd backend; npx jest      # 49 suites / 714 tests: cohorts, overallIndicator, permissions, rbac, pdfDraw,
+                          # authHardening (two properties of the RUNNING process, not of any
+                          # function: the JWT verifier NAMES its algorithm rather than
+                          # inheriting the restriction from the key's type - not a live hole,
+                          # since a string secret already limits jsonwebtoken to HMAC, but the
+                          # protection would change underneath this code the day JWT_SECRET
+                          # becomes a PEM; and the process EXITS 1 without JWT_SECRET rather
+                          # than failing closed as a 500 on login alone. The second test
+                          # SPAWNS a process and runs it from tests/ - server.js calls
+                          # dotenv.config(), which resolves relative to CWD, so running it
+                          # from backend/ restores the variable from the developer's own .env
+                          # and the test asserts nothing. The first version did exactly that
+                          # and passed. See DD 84c),
                           # scoreOrder (ONE reading order AND ONE VOCABULARY for the six
                           # tracked scores, across both packages - headline first: Total
                           # Score and Exercise Risks, then the three components Total

@@ -20,6 +20,17 @@
 //   * coach and athlete refused every athlete outside their scope
 //   * scoped refusals identical for an unknown id and a forbidden one, so an
 //     IC number cannot be tested for roster membership
+//   * every endpoint but the four sign-in ones refuses a caller with NO TOKEN
+//
+// THE LAST ONE WAS ADDED 2026-09-12, and the gap it closed is this audit's own
+// shape. Every probe here sends `Authorization: Bearer <token>` — so the matrix
+// answered "what may each ROLE do" and made no claim whatsoever about the
+// anonymous caller, while printing "coverage: every endpoint in the route table
+// is probed". A route registered without `auth` would appear in this table as
+// working for all four roles, exactly as intended, and nothing anywhere would
+// say it was also open to the internet. Measured when the check was written:
+// all 65 refuse. The point is that it stays that way without anybody checking
+// by hand.
 //
 // Writes are aimed at a deliberately invalid id, so a role that IS allowed
 // through hits "not found" in the handler rather than changing anything. The
@@ -280,6 +291,57 @@ async function login(email) {
     process.exit(1);
   }
   console.log(`coverage: every endpoint in the route table is probed.`);
+
+  // ── And with NO token at all ─────────────────────────────────────────────
+  //
+  // The open-by-design set is DERIVED from the EXEMPT map's reason rather than
+  // written out again here. Two lists would drift, and the direction they drift
+  // is the dangerous one: a new unauthenticated route added to a second list
+  // would be excused from this check by the same edit that created it.
+  const openByDesign = new Set(
+    [...EXEMPT.entries()]
+      .filter(([, reason]) => reason === 'unauthenticated by design')
+      .map(([k]) => k),
+  );
+  // A floor, because this whole phase is an ABSENCE check: if the filter above
+  // ever matches nothing, every route would be expected to 401 and the sign-in
+  // endpoints would be reported as findings — loud. If it matched everything,
+  // the phase would pass while asserting nothing, and that is the failure this
+  // project keeps producing. So the count is pinned to something small.
+  if (openByDesign.size < 1 || openByDesign.size > 6) {
+    console.error(`anonymous probe: ${openByDesign.size} routes claim to be open by design — expected a handful.`);
+    console.error('Check the EXEMPT reasons above; this phase makes no sense if that set is empty or large.');
+    process.exit(1);
+  }
+
+  const fillParams = (p) => p
+    .replace(/:athleteId/g, '000000000000')
+    .replace(/:[A-Za-z]+/g, BOGUS);
+
+  const reachable = [];
+  let probedAnon = 0;
+  for (const r of declaredRoutes()) {
+    const url = BASE + fillParams(r.path).replace(/^\/api/, '');
+    const res = await fetch(url, {
+      method: r.method,
+      headers: { 'Content-Type': 'application/json' },
+      ...(r.method === 'GET' || r.method === 'DELETE' ? {} : { body: '{}' }),
+    }).catch((e) => ({ status: `unreachable (${e.message})` }));
+    probedAnon += 1;
+    if (openByDesign.has(`${r.method} ${r.path}`)) continue;
+    // 401 and nothing else. A 403 would mean the request carried an identity it
+    // should not have had; a 404 would mean it got past the guard and only a
+    // missing row stopped it; a 2xx speaks for itself.
+    if (res.status !== 401) reachable.push(`${r.method} ${r.path} -> ${res.status}`);
+  }
+
+  if (reachable.length) {
+    console.error(`\n${reachable.length} ENDPOINT(S) ANSWERED A CALLER WITH NO TOKEN:`);
+    reachable.forEach((e) => console.error(`  ${e}`));
+    console.error('\nEvery route but the four sign-in ones must answer 401 unauthenticated.');
+    process.exit(1);
+  }
+  console.log(`anonymous: all ${probedAnon} endpoints probed with no token; every guarded one answered 401.`);
 
   if (violations.length) {
     console.error(`${violations.length} WRITE REACHED BY A READ-ONLY ROLE:`);
