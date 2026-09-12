@@ -367,29 +367,41 @@ would actually run.
 > administrator cannot sign in as them, which matters for an audit trail that
 > names people for their actions.
 
-**If pushed — why not a link, and why six digits for seven days?** The mechanism
-is the password-reset flow unchanged, sharing one definition of what a one-time
-code is (`utils/resetCodes.js`), so an invitation cannot end up weaker than a
-reset without anyone deciding it should be.
+**If pushed — why not a link, and why six digits?** The mechanism is the
+password-reset flow unchanged, sharing one definition of what a one-time code is
+(`utils/resetCodes.js`), so an invitation cannot end up weaker than a reset
+without anyone deciding it should be.
 
-**Volunteer the deviation before you are asked.** This dossier previously said
-seven days was "the ceiling NIST SP 800-63A sets for an enrollment code". It is
-not. **SP 800-63-4** (July 2025, superseding the 2017 Rev 3) sets the ceiling
-**by delivery channel** in Vol. A §3.8, and for a code sent to a *validated email
-address* it is **24 hours**. The 7-day figure came from Rev 3 and applied to a
-code handed over **in person** — Rev 4 does not specify an in-person period at
-all, so the number originally cited no longer exists in the standard it was
-attributed to. AIRMS emails the code, so its window is seven times the
-applicable maximum. Say so plainly, then give the reasoning: the
-code is single-use, it burns on five wrong attempts, and it grants no access by
-itself — until it is used the account has no working password at all, so what is
-at risk is enrollment, not authentication. The usability cost of 24 hours on an
-invitation to a clinician who may not open email that day is what buys the
-deviation. Checked against the standard 2026-09-09; full note in
-`docs/fyp/REFERENCES.md` §4.
+**The window is 24 hours, which is the standard's own figure.** SP 800-63-4
+(July 2025, superseding the 2017 Rev 3) sets the ceiling **by delivery channel**
+in Vol. A §3.8, and for a code sent to an email address it is **24 hours**.
+AIRMS emails the code, so AIRMS sits at the ceiling.
 
-Five guesses against a million values is what makes six digits acceptable across
-that window — the attempt limit, not the digit count.
+**This is worth volunteering, because it was wrong twice and the second version
+is the better story.** Until 2026-09-09 the window was seven days and this
+dossier described that as *"the ceiling NIST SP 800-63A sets for an enrollment
+code"* — it was not; the 7-day figure came from Rev 3, where it applied to a
+code handed over **in person**, a channel Rev 4 does not specify at all. The
+correction then *kept* seven days and recommended citing the deviation honestly,
+on the grounds that a clinician invited on a Friday should be able to act on
+Monday and an expired code meant asking an administrator.
+
+**On 2026-09-12 that cost was measured and does not exist.** An invited account
+is active — it holds a random password that was hashed and discarded unread — so
+the ordinary forgot-password flow works on it, issuing a fresh ten-minute code
+with nobody else involved. `/activate` had simply been pointing at a person
+instead, and now links to it. Separately, §3.8's 24 hours is specified for a
+**validated** email address; AIRMS's is typed by an administrator and validated
+by nothing, so a typo puts a credential-establishing code in a stranger's inbox
+for exactly as long as the TTL allows — which argues for the *shorter* window,
+not a longer one.
+
+If a panellist asks why it changed, that is the answer: the deviation was
+resting on a usability cost that had never been checked. Full argument in
+`DESIGN_DECISIONS.md §85b`; the standard is cited in `REFERENCES.md` §4.
+
+Five guesses against a million values is what makes six digits acceptable at any
+window — the attempt limit, not the digit count.
 
 **Volunteer the weakness:** invitations currently send from a personal Gmail
 account. A clinician receiving an unexplained six-digit code from a personal

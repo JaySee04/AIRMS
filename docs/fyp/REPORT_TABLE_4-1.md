@@ -38,12 +38,21 @@ beside was removed, which made the omission visible.
 ## What changed, and why the count went UP
 
 The FYP I table listed **36** use cases (ACWR/Excel era). The 2026-07-20
-restructure produced **44**. This revision lists **47** across the same six
+restructure produced **44**. This table now lists **71** across the same six
 modules plus General — *after* deleting an entire module.
 
+> **The count in this paragraph was wrong until 2026-09-12**, and instructively
+> so: it read **47**, which was true of the 2026-08-06 revision. UC-48–60 were
+> appended afterwards without anybody returning to the sentence that counts
+> them, and UC-61–71 were then missing entirely for five weeks while the
+> features shipped. Count the table (`grep -c "| UC-"`) rather than trusting
+> this line — the same rule `npm run measure:facts` exists to enforce for the
+> numbers in the viva dossier.
+
 That is the story worth telling in §4.1.1: the system did not shrink, it
-re-focused. Ten injury-derived use cases left; thirteen arrived, and every one
-of them is HoloMotion-derived or serves the data governing it:
+re-focused. Ten injury-derived use cases left; **twenty-seven** arrived across
+the two revisions since, and every one of them is HoloMotion-derived or serves
+the data governing it:
 
 | New use case | Where it came from |
 |---|---|
@@ -59,6 +68,14 @@ of them is HoloMotion-derived or serves the data governing it:
 | UC-39 View Cohort Trend | Screening momentum, replaces the injury trend |
 | UC-41/42 split from the old combined UC-39 | Different roles per report type |
 | UC-47 View Squad Focus & Needs-Attention | Coach cockpit |
+| **UC-61–64 the four decision aids** | Worklist, what-moved, mark-read, compare — **four views of ONE ranking** (`DESIGN_DECISIONS.md §79`), so they cannot grow four ideas of "worst first" |
+| UC-65 Maintain a Personal Watchlist | §66 — Module 6's last deferred item |
+| UC-66 Triage the Roster by Risk Band | §65 — the clinician's landing pane previously ranked by the instrument's printed score, so the system's own verdict was reachable one athlete at a time |
+| UC-67 Read the Instrument's Written Summary | §70 — extracted and stored since the pipeline existed, rendered only in the PDF |
+| UC-68 Identify the Riskiest Part of the Year | §71 — on the payload since it was built, drawn only by the report |
+| UC-69 Compare Programme Tiers | §68 |
+| **UC-70 Record That a Clinical Record Was Opened** | §51 — the control that justifies medical staff reaching every athlete |
+| UC-71 Name the Athletes Awaiting Screening | The counts existed and named nobody |
 
 **Traceability:** Appendix C below maps every UC-1–44 from the previous
 numbering to this one (kept / renumbered / removed, with reasons).
@@ -135,6 +152,17 @@ pasting.
 | | UC-58 | View Lateral Symmetry | Read each body region's symmetry score with the side that is weaker and by how much — the same rows the printed report draws. | Athlete, Medical Staff, Coach (assigned sport only) |
 | | UC-59 | Interpret Change Between Screenings | Read whether each score has improved, declined or held steady since the previous screening, judged against the programme's own detectable-change threshold, which reports itself as measured or assumed. | Athlete, Medical Staff, Coach (assigned sport only) |
 | **Module 6 — Clinical & Squad Monitoring** | UC-60 | Identify Overdue Screenings in Squad | See which athletes in the assigned sport are overdue for rescreening or have never been screened, using the same recall rule as the monthly reminder email. | Coach |
+| **Module 6 — Clinical & Squad Monitoring** | UC-61 | Work the Triage Worklist | Read the roster ordered by who should be seen next, worst first, with every entry carrying the rules that placed it there — read from that screening's own persisted factors, so the worklist cannot disagree with the record it points at. An athlete nobody has ever assessed ranks ABOVE the lowest risk band rather than inside it, because unassessed is unknown rather than low. The list orders attention; it does not predict injury, and its wording says so. Scoped on the server to the coach's assigned sport. | Medical Staff, Coach (assigned sport only) |
+| | UC-62 | Review What Moved Since the Last Visit | Read which athletes have changed since this reader last opened the worklist, with the heading stating which rule was applied — since the reader's own last visit, a fixed fallback window when there is no record of one, or a clamped window when the record is too old to honour. The reader's last-visit marker is held by their own browser and keyed to their account, so a read-only role receives the feature without the system performing a write on their behalf, and a shared clinic terminal cannot hand one reader's position to the next. | Medical Staff, Coach (assigned sport only) |
+| | UC-63 | Mark Reviewed Screenings as Read | Record that the current set of flagged screenings has been looked at, keyed to the screening rather than the athlete, so a subsequent import returns that athlete to the worklist. This states that the reader has seen the entry, never that the athlete has been cleared — clearing is the band override (UC-13), which is audited. | Medical Staff |
+| | UC-64 | Compare Athletes Side by Side | Place two or more athletes from the worklist alongside each other on the same measures, so that two athletes sharing one risk band can be separated by margin rather than by rank order. Drawn from the data already on the worklist, so a comparison cannot quote figures the list it came from does not. | Medical Staff, Coach (assigned sport only) |
+| | UC-65 | Maintain a Personal Watchlist | Add and remove athletes on a private list held per account, so a clinician can keep their own follow-ups without altering any institutional record. No account can read or change another's. It is a working note about the reader, not an act on the institute's data, and so is not audited; opening the record it points at still is (UC-70). | Medical Staff, Administrator |
+| | UC-66 | Triage the Roster by Risk Band | Read the clinician's landing pane as the split of the roster across risk bands with a worst-first shortlist, using the EFFECTIVE band — clinician overrides applied — resolved on the server so the pane cannot disagree with the athlete's own dashboard. Athletes never screened are counted apart from every band rather than folded into the lowest one. | Medical Staff |
+| **Module 1 — Athlete Dashboard & Overall Risk Indicator** | UC-67 | Read the Instrument's Written Summary | Read the numbered written comment HoloMotion itself records about the athlete, reproduced verbatim and attributed to the instrument rather than paraphrased, so the instrument's own verdict is readable without opening the PDF. A report that carries no such comment shows no panel rather than an empty one. | Athlete, Medical Staff, Coach (assigned sport only) |
+| **Module 5 — Analytics & Reporting** | UC-68 | Identify the Riskiest Part of the Year | Read every screening pooled by quarter of the calendar year with the year discarded, ranked by the SHARE of flagged screenings rather than the count, so a quarter that simply saw more testing does not appear to be the riskiest. The system declines to name a season below two years of data and states that caveat above the figures, because with one year "Q3 is worst" cannot be told from "Q3 is when the weaker squads were screened". A quarter with no screening reads as not screened rather than as zero risk. | Administrator, Executive |
+| | UC-69 | Compare Programme Tiers | Read the PODIUM and PELAPIS squads side by side on the same measures, so the institute can ask whether its two funding tiers differ in screening outcome rather than inferring it from one combined average. | Administrator, Executive |
+| | UC-70 | Record That a Clinical Record Was Opened | Write an append-only trail entry whenever an athlete's clinical record is opened, recording who opened it and when. Written after every permission check, so a refused request records nothing, and skipped when an athlete reads their own record. This is the control that justifies medical staff reaching every athlete in the institute rather than being scoped by sport: clinical cover is not organised by sport, so the answer to unrestricted reach is accountability for it. Counted as a read rather than a change in the staff activity rollup, so an account that only reads cannot outrank the clinicians. | System |
+| | UC-71 | Name the Athletes Awaiting Screening | Read a named checklist of the athletes who need a screening, listing those never screened separately from those overdue for a repeat, because the first calls for a first assessment and the second for a recall. Printed with tick boxes in the programme report, since it is used on paper. | Administrator, Executive |
 
 ---
 
@@ -144,7 +172,7 @@ Each of these is defensible and already true of the build:
 
 1. **The General Module is cross-cutting** and is not counted among the six functional modules — the same convention as the FYP I report.
 2. **"System" denotes automated behaviour with no human actor** — the FYP I convention, retained.
-3. **Four roles ship**: athlete, medical staff, administrator and coach. The coach is a first-class role (read-only, sport-scoped), promoted in FYP II on 2026-07-19 from an earlier experimental spike. It is not future work.
+3. **Five roles ship**: athlete, medical staff, administrator, coach and executive. The coach is a first-class role (read-only, sport-scoped), promoted in FYP II on 2026-07-19 from an earlier experimental spike. The executive was added on 2026-08-08 — read-only institutional oversight, with strictly *fewer* powers than an administrator, which is why it is deliberately not called a super-admin. Neither is future work. *(This note said "four roles" until 2026-09-12, while the table below already listed Executive as an actor on four use cases — the contradiction was inside one document.)*
 4. **The HoloMotion PDF is the system's sole screening input.** The Excel import was retired 2026-07-12 and archived; the Excel *backup export* remains as UC-36.
 5. **The cohort-normed overall risk indicator (UC-8/9) is the system's single risk verdict.** Training load and the composite ACWR model are not computed anywhere in the running system — see note 7.
 6. **UC-25 is the privacy contribution and deserves its own paragraph in Chapter 5.** The screening report's only direct identifier is the athlete's name; it is located and obscured locally before any image is transmitted, and the process fails closed — if the name cannot be pinpointed, the entire information region is obscured rather than risking disclosure. The operator then re-attaches the report to a roster athlete locally, so the linkage never leaves the institute either.

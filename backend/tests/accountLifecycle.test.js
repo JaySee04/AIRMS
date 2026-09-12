@@ -162,3 +162,142 @@ describe('creatable roles agree across the two packages', () => {
     INVITABLE_ROLES.forEach((r) => expect(described).toContain(r));
   });
 });
+
+// ── The invitation window, and the email that describes it ──────────────────
+//
+// Changed 2026-09-12 from 7 days to 24 hours (DESIGN_DECISIONS §85). Both
+// halves are pinned because the failure is silent in opposite directions: a
+// longer window leaves a credential-establishing code sitting in an unvalidated
+// inbox, and a wording bug tells the reader a live code is already dead.
+describe('the invitation code window', () => {
+  const {
+    INVITE_CODE_TTL_MIN, RESET_CODE_TTL_MIN, RESET_CODE_MAX_ATTEMPTS,
+  } = require('../src/utils/resetCodes');
+
+  it('is 24 hours — SP 800-63-4 Vol. A §3.8 for a code sent by email', () => {
+    // The number is written out rather than derived, so moving it is a decision
+    // somebody makes here as well as there. It was 7 * 24 * 60 until §85.
+    expect(INVITE_CODE_TTL_MIN).toBe(24 * 60);
+  });
+
+  it('is still LONGER than a reset, because the recipient did not ask for it', () => {
+    // The two must not converge by accident: a reset lands on somebody sitting
+    // on the page, an invitation on somebody who may be mid-clinic.
+    expect(INVITE_CODE_TTL_MIN).toBeGreaterThan(RESET_CODE_TTL_MIN);
+  });
+
+  it('leans on the attempt limit rather than the digit count', () => {
+    // What makes six digits survivable across any window at all. If this ever
+    // rises, the window argument in resetCodes.js stops holding.
+    expect(RESET_CODE_MAX_ATTEMPTS).toBe(5);
+  });
+});
+
+describe('the invitation email', () => {
+  const { buildInviteEmail } = require('../src/utils/mailer');
+  const { INVITE_CODE_TTL_MIN, RESET_CODE_MAX_ATTEMPTS } = require('../src/utils/resetCodes');
+
+  const build = (over = {}) => buildInviteEmail({
+    code: '123456',
+    name: 'Dr Example',
+    role: 'medical staff',
+    invitedBy: 'Admin User',
+    expiresInMinutes: INVITE_CODE_TTL_MIN,
+    maxAttempts: RESET_CODE_MAX_ATTEMPTS,
+    siteUrl: 'https://airms-web.vercel.app',
+    ...over,
+  });
+
+  it('states the real window in words a person would use', () => {
+    expect(build().text).toContain('expires in 24 hours');
+  });
+
+  // THE DEFECT THIS REPLACED. The call site passed
+  // `Math.round(TTL / 1440)` days, which at 24 hours prints "1 days" and at
+  // anything shorter prints "0 days" — an email telling its reader the code is
+  // already dead. Asserted as behaviour across the range rather than as the
+  // absence of one string.
+  it('never prints a plural 1 or a zero window, at any TTL', () => {
+    const cases = [
+      [7 * 24 * 60, '7 days'],
+      [24 * 60, '24 hours'],
+      [60, '1 hour'],
+      [10, '10 minutes'],
+      [1, '1 minute'],
+    ];
+    cases.forEach(([mins, expected]) => {
+      const text = build({ expiresInMinutes: mins }).text;
+      expect(text).toContain(`expires in ${expected}`);
+      expect(text).not.toMatch(/expires in 0 /);
+      expect(text).not.toMatch(/expires in 1 (days|hours|minutes)\b/);
+    });
+  });
+
+  it('degrades to words rather than printing NaN on a missing window', () => {
+    // The mailer is called from one place, but a unit that prints "expires in
+    // NaN days" into a clinician's inbox is worse than one that hedges.
+    [undefined, null, 0, -5, 'soon'].forEach((bad) => {
+      const text = build({ expiresInMinutes: bad }).text;
+      expect(text).toContain('expires in a short time');
+      expect(text).not.toMatch(/NaN|undefined|null/);
+    });
+  });
+
+  // The 24-hour window is only reasonable BECAUSE this path exists, and the
+  // invitee is the one person who cannot be told about it afterwards.
+  it('names the self-service remedy, since the window is short', () => {
+    expect(build().text).toMatch(/Forgot password/i);
+    expect(build().text).toMatch(/do not need to ask anybody/i);
+  });
+
+  it('still says who invited them and that nobody sees the password', () => {
+    const text = build().text;
+    expect(text).toContain('Admin User at Institut Sukan Negara');
+    expect(text).toContain('Nobody at ISN knows or can see the password you choose');
+    expect(text).toContain('123456');
+  });
+});
+
+// The page the invitee lands on must point at the self-service path rather than
+// at a person. SOURCE check, like athleteDisclosure.test.js: the copy is static
+// JSX and mounting the page to read one sentence is a poor trade.
+describe('the activation page tells an invitee what to do with a dead code', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const raw = fs.readFileSync(
+    path.join(__dirname, '..', '..', 'frontend', 'src', 'app', 'activate', 'page.tsx'),
+    'utf8',
+  );
+
+  // COMMENTS STRIPPED FIRST, and the canary below is why.
+  //
+  // The JSX comment beside this copy QUOTES the old wording, to record what was
+  // replaced. A naive search for that wording therefore matched the comment and
+  // failed against a page that renders the right thing — which is the mirror of
+  // SILENT_FAILURES 3s, where a stripper that matched nothing passed. CRLF is
+  // normalised before anything else because `.` does not match `\r`.
+  const page = raw
+    .replace(/\r\n/g, '\n')
+    .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
+    .replace(/^\s*\/\/.*$/gm, '');
+
+  it('actually strips the comments it claims to — on THIS file', () => {
+    // The floor. Without it, a stripper that silently matched nothing would
+    // make the assertion below pass or fail for reasons unrelated to the copy.
+    expect(raw).toMatch(/\{\/\*/);
+    expect(page).not.toMatch(/\{\/\*/);
+    expect(page).toMatch(/Activate account/); // the real copy survived
+  });
+
+  it('links to forgot-password', () => {
+    expect(page).toMatch(/href="\/forgot-password"/);
+  });
+
+  it('does not send them to an administrator as the FIRST answer', () => {
+    // It may still mention that an administrator can re-send — that is true and
+    // useful. What must not come back is the version where that was the only
+    // option offered.
+    expect(page.indexOf('/forgot-password')).toBeGreaterThanOrEqual(0);
+    expect(page.search(/Ask the administrator/i)).toBe(-1);
+  });
+});

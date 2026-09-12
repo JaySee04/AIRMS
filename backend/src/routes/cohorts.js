@@ -5,6 +5,7 @@
 const express = require('express');
 const { toNum } = require('../utils/num');
 const { recordAudit, auditFailures } = require('../utils/audit');
+const { senderIdentity } = require('../utils/mailer');
 const { recomputeAll } = require('../utils/recompute');
 const { CohortThreshold, Athlete, CohortNormVersion } = require('../models');
 const auth = require('../middleware/auth');
@@ -395,7 +396,17 @@ router.get('/settings/all', auth, rbac('admin', 'medical'), canEditNorms, async 
     // reads. Audit writes are non-blocking by design (utils/audit.js) — this is
     // what stops a dropped row being SILENT, which matters because the trail is
     // the stated justification for leaving medical staff unscoped (§51).
-    res.json({ settings: await getSettings(), defaults: DEFAULTS, auditHealth: auditFailures() });
+    // `mailSender` joins it for the same reason and in the same shape: who
+    // AIRMS's mail appears to come from, with a `concern` that is null when
+    // there is nothing to say. It was a documented limitation on no screen —
+    // and "configuration, not code" is precisely what survives to handover
+    // unnoticed, because no build step fails over it. See DESIGN_DECISIONS §85.
+    res.json({
+      settings: await getSettings(),
+      defaults: DEFAULTS,
+      auditHealth: auditFailures(),
+      mailSender: senderIdentity(),
+    });
   } catch (err) { sendError(res, err, 'cohorts.js'); }
 });
 

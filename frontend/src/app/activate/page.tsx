@@ -158,10 +158,24 @@ export default function ActivatePage() {
               </form>
             )}
 
+            {/* THE SELF-SERVICE PATH FIRST, because it exists and this used to
+                send people to a person instead.
+
+                This read "Ask the administrator who set up your account to send
+                a new one". That was not wrong about the administrator's ability
+                — they can re-send from Personnel — but it was the wrong FIRST
+                answer: an invited account is active, so the ordinary
+                forgot-password flow works on it and issues a fresh code in
+                seconds with nobody else involved (measured 2026-09-12;
+                DESIGN_DECISIONS §85). Telling a clinician on a Monday morning
+                to go and find an administrator, when a link on this page would
+                have done it, is the kind of dead end nobody reports. */}
             <p className="login-subtext" style={{ marginTop: 16 }}>
-              Code expired, or never arrived? Ask the administrator who set up
-              your account to send a new one — they can re-send from the
-              Personnel page. Already activated? <Link href="/">Sign in</Link>.
+              Code expired, or never arrived?{' '}
+              <Link href="/forgot-password">Get a new code</Link> — it is emailed
+              to the same address and needs nobody else. An administrator can
+              also re-send the invitation from the Personnel page. Already
+              activated? <Link href="/">Sign in</Link>.
             </p>
           </div>
         </div>

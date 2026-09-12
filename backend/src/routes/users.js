@@ -43,7 +43,11 @@ async function sendInvite(user, req, { creating = false } = {}) {
     name: user.name,
     role: user.role === 'medical' ? 'medical staff' : user.role,
     invitedBy: req.user?.name || null,
-    expiresInDays: Math.round(INVITE_CODE_TTL_MIN / (60 * 24)),
+    // Minutes, and the mailer words them. It was `expiresInDays:
+    // Math.round(TTL / 1440)`, which with the 24-hour window (§85) prints
+    // "expires in 1 days" — and would print "expires in 0 days" for anything
+    // shorter, i.e. an email telling the reader their code is already dead.
+    expiresInMinutes: INVITE_CODE_TTL_MIN,
     maxAttempts: RESET_CODE_MAX_ATTEMPTS,
     siteUrl: siteUrl(),
   });

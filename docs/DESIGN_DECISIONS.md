@@ -6755,3 +6755,201 @@ backend 49 suites / 714 tests · frontend 20 / 339 · 31 mutations caught
 audit:access clean incl. the new anonymous phase · e2e 110/110 against a
 PRODUCTION build · npm audit: frontend 0, backend 2 moderate (§76)
 ```
+
+---
+
+## 85. Four open items, argued out and settled (2026-09-12)
+
+JC: *"Debate yourself and build it along with the others"* — the four things
+listed as what was left once the module scope closed. Taking §51's precedent
+(*"Asked to argue them out and act, I did — two produced changes, two did
+not"*), each is argued here rather than merely done. One of the four reversed
+the recommendation the docs had been carrying.
+
+### 85a. Which of the four is worth doing first, and why the order is not obvious
+
+**The case for the page-mount test going first** is that it closes a *class* of
+defect, while Chapter 4 is a document nobody's code depends on. This repo's
+whole method is that a class-level guard beats an instance-level fix, and the
+frontend blind spot has been named in CLAUDE.md for weeks.
+
+**The case for Chapter 4 going first, which wins**, is that the artefact being
+graded is not the system. Every module is functional and has been since
+2026-09-06; what a panel reads is the report. A use-case table five weeks behind
+the build does not merely omit the four decision aids — it actively misdescribes
+the system under examination, and the strongest single thing here (the worklist)
+is the thing missing. A test gap costs a defect that might exist; a document gap
+costs marks that certainly do.
+
+That argument only holds because the system is finished. Six weeks ago it would
+have been the wrong way round, and the reason to write it down is that the
+correct order changed without anybody announcing it.
+
+### 85b. The invitation TTL: the recommendation the docs carried was wrong
+
+`REFERENCES.md §4` set out two options and **recommended keeping 7 days and
+citing the deviation honestly**. That recommendation is now reversed, and the
+reason is a measurement rather than a re-reading.
+
+**The case for keeping 7 days** rested on one usability claim: an expired code
+means asking an administrator, and a clinician invited on a Friday should be
+able to act on Monday. `/activate` said exactly that — *"Ask the administrator
+who set up your account"* — and only `POST /users/:id/invite`, admin-only, can
+re-send.
+
+**Measured 2026-09-12, and it is false.** An invited account exists and is
+`isActive`; it simply holds a random password that was hashed and discarded
+unread. So the ordinary forgot-password flow works on it. Probed end to end —
+create with `invite: true`, `POST /auth/forgot-password`, then a deliberately
+wrong OTP, which came back *"4 attempts remaining"*, a message only reachable
+when a live code is actually on the row. The remedy for an expired invitation is
+self-service, already built, already hardened at ten minutes and five attempts,
+and needs no administrator at all.
+
+**And the standard's figure cuts the other way from how it was read.** SP
+800-63-4 Vol. A §3.8's 24 hours applies to a code sent to a **validated** email
+address. AIRMS's address is typed by an administrator and validated by nothing,
+so a typo puts a credential-establishing code in a stranger's inbox — and the
+TTL is precisely how long it sits there unattended. An unvalidated address
+argues for the **shorter** window. The deviation was resting on the weaker half
+of the comparison.
+
+**Settled: 24 hours.** The code is still single-use, still grants no access by
+itself (until it is used the account has no working password, so this is an
+enrolment risk rather than an authentication one), and still burns after five
+wrong guesses. Reverting is one constant plus the `/activate` copy.
+
+Three things travelled with it:
+
+- `/activate` now **links to Forgot password** first. The old copy was not wrong
+  about what an administrator can do; it was the wrong *first* answer, and
+  sending a clinician to go and find a person when a link would have done it is
+  a dead end nobody reports.
+- The invitation email **names the self-service path**, because the short window
+  is only reasonable given that path and the invitee is the one person who
+  cannot be told about it afterwards.
+- A wording bug was found on the way. The call site passed
+  `expiresInDays: Math.round(TTL / 1440)`, which at 24 hours prints **"expires
+  in 1 days"** and at anything shorter prints **"0 days"** — an email telling
+  its reader that a live code is already dead. `humaniseWindow()` now takes
+  minutes and words them, using days only from two days up: *"expires in 1 day"*
+  reads as "some time tomorrow", while *"24 hours"* is the same fact told
+  usefully. Asserted across the range, not against the one string.
+
+### 85c. Chapter 4 was five weeks behind, and contradicting itself twice
+
+`REPORT_TABLE_4-1.md` — *the authority for Chapter 4* — stopped at UC-60 and was
+last revised 2026-08-06. Everything since had no use case: the four decision
+aids (§79), the clinician watchlist (§66), the roster triage pane (§65), the
+instrument's written summary (§70), on-screen seasonality (§71), programme-tier
+comparison (§68), read-auditing (§51), and the named recall checklist. Eleven
+capabilities. **UC-61–71 added.**
+
+Two contradictions were already inside the document:
+
+| | said | was |
+|---|---|---|
+| the sentence that counts the use cases | 47 | 60 rows |
+| the note listing the roles that ship | "Four roles ship" | Executive is the actor on four rows, and has been since 2026-08-08 |
+
+Both were introduced the same way: UC-48–60 were appended without returning to
+the prose that describes them.
+
+**`tests/reportTable.test.js` is the tripwire.** It pins the stated count to the
+row count, demands contiguous UC numbering with no gap or duplicate, requires a
+title on every row, and checks that every shipped role is the actor somewhere.
+It cannot know what has been built but not written up — no guard can — which is
+exactly why the *count* is the thing to guard: it is what makes somebody look.
+
+Its first version matched **93 rows against a 71-row table**, because the
+provenance table above and Appendix C below both carry `| UC-n |` cells. A count
+assembled from three tables is not a count of anything; it is now sliced to one
+section, with the section heading asserted unique (§68.4).
+
+### 85d. The first test that mounts a page.tsx
+
+`frontend/src/app/athlete/dashboard/page.test.tsx`. The athlete dashboard over
+`medical/dashboard` deliberately: 218 lines against 1043, and it is the page
+whose reader **is** the at-risk person, so the audience wiring matters most
+there. Module 1 is audit-fixed — this reads it and changes nothing.
+
+**What it covers that nothing else can.** `pageWiring.test.ts` reads page source
+and says of itself that it cannot see a prop computed at runtime. `npm run e2e`
+sees everything — but only against the **seeded** database, where every field is
+populated because the seeder populates it. A record from ISN is not obliged to
+be that tidy. So the new coverage is the **sparse payload**: an athlete added
+from the ISN directory, screened once on a compact report, with `screening:
+null`, empty `risks` and no optional fields at all. That is where §54's rule
+bites, and no existing suite can reach it.
+
+**Mounting it immediately taught two things.**
+
+*A page is not one fetch.* The first version answered every `api.get` with the
+athlete payload and failed with `rows.map is not a function` from inside
+`ScreeningHistory` — because the page renders a **tree** of components that each
+fetch their own data once mounted. The stub is now a router whose default
+**throws**, so a page that grows a fifth fetch fails loudly instead of handing
+that component a plausible wrong shape.
+
+*`\b` anchors are wrong on a `textContent` assertion.* `textContent` concatenates
+across element boundaries with no separator, so the page genuinely reads
+`...No indicators flaggedYour latest screening is...`. There is no word boundary
+between `d` and `Y`. That surfaced loudly on a positive assertion — and the same
+anchor on a **negative** one fails silently in the dangerous direction:
+`not.toMatch(/\bthis athlete\b/)` passes against a page reading
+`flaggedthis athlete`, i.e. against the exact bug it exists to catch. Every
+negative in the file is unanchored now.
+
+It runs in **0.87 s**. Left un-stubbed, the two canvas/geometry components took
+it to **25 seconds** with a wall of `HTMLCanvasElement.prototype.getContext`
+errors — and a 25-second suite in front of a commit gets skipped, while a wall
+of expected errors is where a real one hides. Both are still mounted, just
+stubbed; e2e asserts in a real browser that they draw 155 regions and 2 SVGs on
+this same route.
+
+Registering its mutations found that the prop value is `audience="self"`, not
+`"athlete"` as assumed — and the registry reported *"the registry is stale"* and
+exited non-zero rather than reporting a healthy guard.
+
+### 85e. The Gmail sender, and a tile that was reporting into a void
+
+The known limitation — invitations send from a personal Gmail, which to a
+clinician reads as phishing — had been documented since the invitation flow
+shipped and appeared on **no screen**. It survived three weeks for a specific
+reason: it is *configuration, not code*. No test fails, no build breaks, nothing
+renders wrong. The first person to notice is the invitee, and deleting an
+unexplained six-digit code from a `gmail.com` address is the **correct**
+response, so the observable failure is an account that is never activated and a
+clinician who never says why.
+
+`senderIdentity()` reports it on the admin Settings payload, with a `concern`
+that is null when there is nothing to say.
+
+**And that exposed something worse sitting beside it.** `auditHealth` was
+already on that same payload, with a comment explaining that the tile *"stays
+absent rather than showing a permanently-green badge nobody reads"* — and
+**nothing in the frontend read it.** `grep -rn auditHealth frontend/src` returned
+nothing. Audit writes are deliberately fire-and-forget so logging can never fail
+the operation it describes, which makes a dropped row silent; this panel was the
+one place it stopped being silent, and it was reporting into a void. The trail is
+the stated justification for leaving medical staff unscoped (§51), so its health
+is a governance fact, not a diagnostic. That is §70 in miniature — a fact the
+system held and never showed — and finding it while building the fix for the
+same failure one field along is the argument for doing these sweeps at all.
+
+Both now render in one **"Needs your attention"** card, and only when there is
+something to say. Verified off the rendered page:
+
+```
+Needs your attention
+Mail is sent as AIRMS <poseidonapollo11@gmail.com>
+Mail is sent from a personal gmail.com mailbox. An invitation or a clinical
+alert arriving from a consumer address reads as phishing to a clinician; ISN's
+own relay, or a controlled domain with SPF and DKIM, is what real use needs.
+This is configuration, not code.
+```
+
+```
+backend 51 suites / 736 tests · frontend 21 / 346 · 36 mutations caught
+audit:access clean incl. the anonymous phase · e2e 110/110 · tsc + lint clean
+```

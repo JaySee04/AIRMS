@@ -154,7 +154,14 @@ Already post-2022; no change needed.
 
 ---
 
-## 4. A claim this project was making that the standard does not support
+## 4. A claim this project was making that the standard does not support — now RESOLVED
+
+> **Status 2026-09-12: settled by aligning with the standard.** The invitation
+> TTL is **24 hours**. The history below is kept because the *mistake* is the
+> instructive part: a number was cited to a standard that no longer contains it,
+> the correction then recommended keeping the number and admitting the
+> deviation, and one measurement showed the deviation was buying nothing. See
+> the SETTLED block at the end of this section.
 
 **The 7-day invitation TTL was cited incorrectly in three places, and the current
 revision makes it worse rather than better.**
@@ -178,21 +185,47 @@ a different delivery mode from the one this system uses. **Revision 4 does not
 specify an in-person period at all**, so the number being cited no longer exists
 in the standard it was attributed to.
 
-**This is JC's call, and both options are defensible — the present citation is
-not.**
+### SETTLED 2026-09-12 — Option 1. The window is **24 hours**.
 
-- **Option 1 — align.** Drop the invitation TTL to 24 hours. Cleanest against
-  the standard; costs usability, since a clinician invited on a Friday who opens
-  their email on Monday must request a new code.
-- **Option 2 — keep 7 days and cite the deviation honestly.** The code is
-  single-use, burns after five wrong attempts, and grants no access by itself:
-  until it is used the account has no working password at all, so the exposure is
-  an **enrollment** risk, not an authentication one. **This is the
-  recommendation** — it converts a wrong citation into a reasoned one, and an
-  examiner who knows the standard is satisfied by the acknowledgement rather than
-  catching you with it.
+This section previously recommended Option 2 (keep 7 days, cite the deviation).
+**That recommendation was withdrawn**, and the reason is a measurement rather
+than a re-reading of the standard. Full argument: `DESIGN_DECISIONS.md §85b`.
 
-All three sites now state the deviation. **Do not restore "the NIST ceiling".**
+- **Option 1 — align. CHOSEN.** `INVITE_CODE_TTL_MIN = 24 * 60`.
+- ~~**Option 2 — keep 7 days and cite the deviation honestly.**~~ Its whole cost
+  argument was that *"a clinician invited on a Friday who opens their email on
+  Monday must request a new code"*, and that requesting was believed to mean
+  asking an administrator — which is what `/activate` told them to do.
+
+**Measured, and it is false.** An invited account exists and is `isActive`; it
+holds a random password that was hashed and discarded unread. So the ordinary
+**forgot-password flow works on it**. Probed end to end on 2026-09-12: create
+with `invite: true`, `POST /auth/forgot-password`, then a deliberately wrong
+OTP — which answered *"4 attempts remaining"*, a message only reachable when a
+live code is actually on the row. The remedy is self-service, already built,
+already hardened at ten minutes and five attempts, and involves nobody else.
+
+**And §3.8's 24 hours cuts the other way from how it was read.** It applies to a
+code sent to a **validated** email address. AIRMS's address is typed by an
+administrator and validated by nothing, so a typo puts a credential-establishing
+code in a stranger's inbox — and the TTL is exactly how long it sits there
+unattended. An **unvalidated** address argues for the shorter window. The
+deviation was resting on the weaker half of the comparison.
+
+What remains true, and is why six digits is enough at any window: the code is
+single-use, burns after five wrong attempts, and grants no access by itself —
+until it is used the account has no working password at all, so the exposure is
+an **enrollment** risk, not an authentication one.
+
+Shipped with it: `/activate` now links to Forgot password as the *first* answer,
+and the invitation email names that path, since the short window is only
+reasonable because it exists and the invitee cannot be told afterwards.
+
+**Do not restore "the NIST ceiling" as a description of 7 days** — and note that
+the claim is no longer needed, because the system now sits *at* the ceiling
+rather than beside it. Reverting is one constant plus the `/activate` copy;
+`tests/accountLifecycle.test.js` pins both, and the mutation registry breaks the
+window on purpose.
 
 ---
 

@@ -15,7 +15,17 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import { api } from '@/lib/api';
 import { isnDateTime } from '@/lib/dates';
 
-interface SettingsResp { settings: Record<string, number | boolean | string>; defaults: Record<string, number | boolean | string>; }
+// Both extra fields are OPTIONAL on the type as well as nullable in the data.
+// The route is shared with `medical` norm-editors, and a type that promised
+// them would make this page's own guards look redundant.
+interface SettingsResp {
+  settings: Record<string, number | boolean | string>;
+  defaults: Record<string, number | boolean | string>;
+  /** Null unless an audit write has actually failed (utils/audit.js). */
+  auditHealth?: { count: number; lastAction: string | null; lastError: string | null; lastAt: string | null } | null;
+  /** Who AIRMS's mail appears to come from; `concern` null when unremarkable. */
+  mailSender?: { from: string; domain: string | null; delivering: boolean; concern: string | null } | null;
+}
 interface SendResult {
   sent: boolean; reason?: string; recipients?: number; emails?: number;
   attached?: boolean; sentTo?: string[];
@@ -106,6 +116,59 @@ export default function AdminSettingsPage() {
       <div style={{ marginBottom: 16 }}>
         <Link href="/admin/thresholds" className="btn btn-outline btn-sm">← Back to Cohort Norms</Link>
       </div>
+
+      {/* HOW THE INSTITUTION'S MAIL AND TRAIL ARE ACTUALLY BEHAVING.
+          Two facts the API was already reporting to nobody.
+
+          `mailSender` (added 2026-09-12) answers "who does AIRMS's mail appear
+          to come from". Invitations and clinical alerts currently send from a
+          personal Gmail, which to a clinician reads as phishing — a documented
+          limitation that appeared on no screen. Because it is configuration
+          rather than code, nothing fails over it and the first person to notice
+          is the invitee, who reasonably deletes the mail.
+
+          `auditHealth` is older and was WORSE off: the backend has been putting
+          it on this payload, with a comment explaining that the tile "stays
+          absent rather than showing a permanently-green badge nobody reads" —
+          and no page ever read it. Audit writes are deliberately
+          fire-and-forget so logging cannot fail the operation it describes, so
+          a dropped row is silent; this is the one place it stops being silent,
+          and it was reporting into a void. The trail is the stated
+          justification for leaving medical staff unscoped (§51), which makes
+          its health a governance fact, not a diagnostic.
+
+          Both render ONLY when there is something to say. */}
+      {(settings?.mailSender?.concern || (settings?.auditHealth?.count ?? 0) > 0) && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div className="card-header"><div>
+            <h2 className="card-title" style={{ marginBottom: 0 }}>Needs your attention</h2>
+            <span className="card-sub">Conditions that do not stop AIRMS working, and that nobody else will report.</span>
+          </div></div>
+          {settings?.mailSender?.concern && (
+            <div className="alert alert-warning" style={{ marginBottom: 12 }}>
+              <strong>Mail is sent as {settings.mailSender.from}</strong>
+              <div style={{ marginTop: 4, fontSize: 'var(--fs-sm)' }}>{settings.mailSender.concern}</div>
+            </div>
+          )}
+          {(settings?.auditHealth?.count ?? 0) > 0 && (
+            <div className="alert alert-error">
+              <strong>
+                {settings!.auditHealth!.count} activity-log write
+                {settings!.auditHealth!.count === 1 ? '' : 's'} failed
+              </strong>
+              <div style={{ marginTop: 4, fontSize: 'var(--fs-sm)' }}>
+                An action happened and the trail did not record it. Audit writes never
+                fail the operation they describe, so nothing else reports this.
+                {settings!.auditHealth!.lastAction && (
+                  <> Most recent: <code>{settings!.auditHealth!.lastAction}</code>
+                    {settings!.auditHealth!.lastError && <> — {settings!.auditHealth!.lastError}</>}.
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Email Notifications — governs the whole email surface (utils/alerts.js +
           utils/notifications.js). Backend-gated defaults are all on. */}

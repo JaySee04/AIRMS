@@ -57,13 +57,15 @@ cd backend; npm run audit:access     # call all 65 endpoints as each non-admin r
 cd backend; npm run coverage         # 79.6% statements / 67.8% branches. Route handlers WERE the
                                      # gap (screeningReports 7%, audit 19%); tests/reportRoutes.test.js
                                      # took them to 44% / 42% by driving the real routers with
-                                     # supertest. The remaining blind spot is the FRONTEND: it has
-                                     # e2e (110 checks) and four jsdom component suites, but nothing
-                                     # that mounts a page.tsx. Coverage needed a missing
-                                     # transitive dep (fs.realpath) before it would run at all.
+                                     # supertest. The FRONTEND was the remaining blind spot and is
+                                     # now partly closed: e2e (110 checks), four jsdom component
+                                     # suites, and since 2026-09-12 ONE test that mounts a page.tsx
+                                     # (athlete/dashboard - DD 85d). The other 14 authenticated
+                                     # pages are still covered by e2e or by nobody. Coverage needed
+                                     # a missing transitive dep (fs.realpath) before it would run.
 cd backend; npm run mutate           # BREAK each registered guard on purpose and prove its
                                      # test fails. A surviving mutation exits non-zero: the
-                                     # test is not testing what it claims. 31 guards across
+                                     # test is not testing what it claims. 36 guards across
                                      # both packages. NOT part of `npx jest` — it spawns a
                                      # jest run per mutation (tens of seconds). Run it before
                                      # committing a change to a guard, and add an entry when
@@ -172,7 +174,7 @@ cd frontend; npm run e2e   # END-TO-END smoke: a real Chrome against the running
 cd frontend; npm run build
 
 # Unit tests (jest, in both packages — no linter configured for the backend)
-cd backend; npx jest      # 49 suites / 714 tests: cohorts, overallIndicator, permissions, rbac, pdfDraw,
+cd backend; npx jest      # 51 suites / 736 tests: cohorts, overallIndicator, permissions, rbac, pdfDraw,
                           # authHardening (two properties of the RUNNING process, not of any
                           # function: the JWT verifier NAMES its algorithm rather than
                           # inheriting the restriction from the key's type - not a live hole,
@@ -247,7 +249,7 @@ cd backend; npx jest      # 49 suites / 714 tests: cohorts, overallIndicator, pe
                           # other suite. Static: it reads both files as text and never
                           # require()s the target, because several modules build a Sequelize
                           # instance at import time)
-cd frontend; npx jest     # 20 suites / 339 tests (the run is pinned to UTC by
+cd frontend; npx jest     # 21 suites / 346 tests (the run is pinned to UTC by
                           # jest.globalSetup.js - this machine sits IN the institution
                           # zone, which made the date tests pass for the wrong reason
                           # until mutation testing said so; see DD 62): lib/risk.ts, lib/screeningUploadStore.ts, bodymap-data/muscles.ts,
@@ -346,27 +348,49 @@ the guard installation the tests exist to verify). Note also that
 counting paint ops is a trap — the dead-band *zone* is itself a fill, so fill
 counts coincide between opposite renderings; assert on the fill **colour**.
 
-**Frontend coverage, stated accurately (2026-09-05).** There are end-to-end
-tests (`cd frontend; npm run e2e`, 110 checks) and now FOUR jsdom component suites
+**Frontend coverage, stated accurately (2026-09-12).** There are end-to-end
+tests (`cd frontend; npm run e2e`, 110 checks), FOUR jsdom component suites
 — `DashboardLayout` (the access gate), `OverallRiskBadge` (the hero),
 `ScreeningPanel` (§70.4's field resolution) and `DecisionPanel` (what the change
 list CLAIMS to cover — DD 79.4, and it is a jsdom test rather than an e2e check
 for a stated reason: on seeded data the section never renders, so e2e walks past
-it and reports green). What
-there is still **none** of is a test that mounts a `page.tsx`: every suite either
-renders one component with a hand-built payload, reads page SOURCE, or drives the
-whole app through a real browser, with nothing in between.
+it and reports green) — and, since 2026-09-12, **the first test that mounts a
+`page.tsx`**: `src/app/athlete/dashboard/page.test.tsx` (DD 85d).
 
-The "right component, wrong prop" case is now partly covered by
-`app/pageWiring.test.ts`, which reads the pages as text and checks the `audience`
-wiring — the same technique `backend/tests/athleteDisclosure.test.js` uses, and
-chosen because mounting `medical/dashboard` (900 lines, many fetches) is a large
-brittle investment to assert one prop. **It is not a substitute for mounting a
-page**: it cannot see a prop computed at runtime, and it covers one prop on two
-components. Any *other* mis-wiring is still caught by `npm run e2e` or by nobody. Adding a page test
-means mocking `next/navigation` and `@/lib/api` — the pattern is in
-`DashboardLayout.test.tsx`, including the trap that a router stub returning a
-fresh object each render loops for ever.
+**What mounting a page adds that none of the others can: the SPARSE PAYLOAD.**
+e2e sees everything but only against the *seeded* database, where every field is
+populated because the seeder populates it; a record from ISN is not obliged to be
+that tidy. So that suite renders the page against an athlete with
+`screening: null`, empty `risks` and no optional fields — where §54's
+"an unknown value stays unknown" actually bites. It also pins, at runtime rather
+than from source, that the page asks for its own record by **IC number** and
+passes `audience="self"` so the hero does not address the athlete as staff.
+
+Two traps it found, both worth knowing before writing the next one:
+
+- **A page is not one fetch.** It renders a tree of components that each fetch
+  their own data on mount (this route makes four calls), so a stub that answers
+  every path with the page's own payload dies inside a child. The stub is a
+  ROUTER whose default **throws** — a page that grows a fifth fetch must fail
+  loudly rather than be handed a plausible wrong shape.
+- **No `\b` anchors on a `textContent` assertion.** `textContent` concatenates
+  across elements with no separator, so the real page reads
+  `...flaggedYour latest screening...`. On a POSITIVE assertion that fails
+  loudly; on a NEGATIVE one it passes against the very bug it guards
+  (`not.toMatch(/\bthis athlete\b/)` is satisfied by `flaggedthis athlete`).
+- **Stub `BodyMap` and `RiskRadar`.** Left real the suite took **25 seconds** and
+  emitted a wall of `HTMLCanvasElement.prototype.getContext` errors; stubbed it
+  runs in 0.9 s, and e2e already proves both draw geometry on that route.
+
+`app/pageWiring.test.ts` still reads the pages as text for the `audience` wiring
+across the other pages — the same technique `backend/tests/athleteDisclosure.test.js`
+uses, and chosen because mounting `medical/dashboard` (1043 lines, many fetches)
+is a large brittle investment to assert one prop. **It is not a substitute for
+mounting a page**: it cannot see a prop computed at runtime, and it covers one
+prop on two components. The other three dashboards are still covered by
+`npm run e2e` or by nobody. The pattern for adding another page test is that
+file plus `DashboardLayout.test.tsx`, including the trap that a router stub
+returning a fresh object each render loops for ever.
 
 **Route handlers are only tested where their logic has been extracted into a
 util** (`holisticReport`), plus `reportRoutes.test.js` driving the real routers
@@ -525,19 +549,29 @@ password that ever really exists on the account.
 The mechanism is the password-reset flow, unchanged. `utils/resetCodes.js` was
 extracted from `routes/auth.js` so both share ONE definition of what a one-time
 code is; two definitions is how an invitation ends up weaker than a reset
-without anybody deciding it should be. What differs is deliberate: a 7-day TTL
-(**a deliberate deviation from NIST SP 800-63, not compliance with it** — SP
-800-63-4 (July 2025) Vol. A §3.8 caps a confirmation code sent to a *validated
-email address* at **24 hours**; the 7-day figure came from the superseded Rev 3
-and applied to a code handed over **in person**, which Rev 4 no longer specifies
-at all. Corrected 2026-09-09, having been documented as "the NIST ceiling" —
-see `docs/fyp/REFERENCES.md` §4, which sets out the two options and recommends
-keeping 7 days and citing the deviation honestly. **Changing the TTL is JC's
-call.** What makes the window survivable is that the code is single-use, grants
-no access by itself, and is capped at five attempts — the attempt limit, not the
-digit count), an email
-that says who invited them and why, and an **awaited** send because an
-administrator pressing invite needs to know it went.
+without anybody deciding it should be. What differs is deliberate: a **24-hour
+TTL**, which is SP 800-63-4 (July 2025) Vol. A §3.8's ceiling for a confirmation
+code sent to an email address. It was **7 days** until 2026-09-12, and before
+2026-09-09 that was documented as being *the standard's own figure*, which was
+wrong twice over — the 7-day number came from the superseded Rev 3 and applied
+to a code handed over **in person**, a channel Rev 4 does not specify at all.
+
+**Why the deviation was dropped rather than defended** (`DESIGN_DECISIONS.md
+§85`): its usability case was that an expired code means "ask an administrator",
+and that turned out to be false. **Measured 2026-09-12** — an
+invited-but-never-activated account is `isActive`, so the ordinary
+forgot-password flow works on it and issues a live 10-minute code with nobody
+else involved. The remedy is self-service and was already built; the
+`/activate` page was simply pointing at a person instead, and now links to it.
+Second, the standard's 24 hours is for a *validated* address, and AIRMS's is
+typed by an administrator and validated by nothing — so a typo puts a
+credential-establishing code in a stranger's inbox for exactly as long as the
+TTL says. An unvalidated address argues for the **shorter** window. Reverting is
+one constant plus the `/activate` copy. What makes six digits enough across any
+window is that the code is single-use, grants no access by itself, and is capped
+at five attempts — the attempt limit, not the digit count. Plus an email
+that says who invited them and why, names the self-service path, and an
+**awaited** send because an administrator pressing invite needs to know it went.
 
 `users.invited_at` / `users.activated_at` record it (`ALTER TABLE` both on an
 existing dev DB). Both null = an account whose password somebody typed

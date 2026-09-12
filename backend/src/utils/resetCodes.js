@@ -21,31 +21,50 @@ const RESET_CODE_TTL_MIN = 10;
  * meeting, or on leave. Ten minutes would produce an invitation that is
  * expired before it is read.
  *
- * SEVEN DAYS IS A DELIBERATE DEVIATION FROM NIST SP 800-63, NOT COMPLIANCE
- * WITH IT. This comment said the opposite until 2026-09-09, when the standard
- * was actually read. SP 800-63-4 (July 2025, superseding the 2017 Rev 3) caps a
- * confirmation code by DELIVERY CHANNEL in Vol. A section 3.8: 21 days by post
- * within the contiguous US, 30 days outside it, 10 minutes by SMS or voice, and
- * 24 HOURS to a validated email address. AIRMS emails it, so this window is 7x
- * the applicable maximum. The 7-day figure came from Rev 3, where it applied to
- * a code handed over IN PERSON — and Rev 4 does not specify an in-person period
- * at all, so the number originally cited no longer exists in the standard.
+ * TWENTY-FOUR HOURS, WHICH IS THE STANDARD'S FIGURE (changed 2026-09-12; it was
+ * 7 days, and before 2026-09-09 the comment here claimed 7 days WAS the
+ * standard's figure, which was simply wrong).
  *
- * Kept, and argued rather than hidden: the code is single-use, it burns on
- * five wrong attempts, and it grants no access on its own — until it is used
- * the account has no working password at all, so the exposure is an ENROLLMENT
- * risk, not an authentication one. The cost being bought is that a clinician
- * invited on a Friday can still act on it on Monday.
+ * SP 800-63-4 (July 2025, superseding the 2017 Rev 3) caps a confirmation code
+ * by DELIVERY CHANNEL in Vol. A §3.8: 21 days by post within the contiguous US,
+ * 30 days outside it, 10 minutes by SMS or voice, and **24 hours to a validated
+ * email address**. AIRMS emails it. The 7-day figure came from Rev 3, where it
+ * applied to a code handed over IN PERSON — and Rev 4 does not specify an
+ * in-person period at all, so the number originally cited no longer exists in
+ * the standard.
  *
- * What makes six digits acceptable across that window is not the digits, it is
- * MAX_ATTEMPTS below: five guesses against a million values is a 1-in-200,000
- * chance before the code burns, and it burns whether or not the attacker is
- * the intended recipient.
+ * WHY THE 7-DAY DEVIATION WAS DROPPED RATHER THAN DEFENDED. Two things, one
+ * measured and one read:
  *
- * Changing this to 24h to align with the standard is JC's decision — the
- * trade-off is written up in docs/fyp/REFERENCES.md §4.
+ *   1. The usability case for it was that a clinician invited on a Friday can
+ *      still act on it on Monday, and /activate said an expired code means
+ *      "ask the administrator". MEASURED 2026-09-12: an invited-but-never-
+ *      activated account is `isActive`, so the ordinary forgot-password flow
+ *      works on it — `POST /auth/forgot-password` for such an account issues a
+ *      live reset code (verified: a wrong OTP came back "4 attempts remaining",
+ *      which only happens when a code is actually on the row). So the remedy
+ *      for an expired invitation is self-service, already built, already
+ *      hardened at 10 minutes and five attempts, and needs no administrator.
+ *      The cost the deviation was buying does not exist.
+ *
+ *   2. The standard's 24 hours applies to a code sent to a VALIDATED email
+ *      address. AIRMS's address is typed by an administrator and is validated
+ *      by nothing, so a typo delivers a credential-establishing code to a
+ *      stranger — and the TTL is exactly the window in which it sits there
+ *      unattended. An unvalidated address argues for the SHORTER window, not a
+ *      longer one. The deviation was resting on the weaker half of the
+ *      comparison.
+ *
+ * What remains true, and is why six digits is enough: the code is single-use,
+ * it grants no access on its own (until it is used the account has no working
+ * password at all, so this is an ENROLMENT risk rather than an authentication
+ * one), and MAX_ATTEMPTS below burns it after five wrong guesses — a
+ * 1-in-200,000 chance against a million values, whoever is guessing.
+ *
+ * Reverting is this one constant plus the /activate copy. See
+ * docs/fyp/REFERENCES.md §4 and DESIGN_DECISIONS.md §85.
  */
-const INVITE_CODE_TTL_MIN = 7 * 24 * 60;
+const INVITE_CODE_TTL_MIN = 24 * 60;
 
 const RESET_CODE_MAX_ATTEMPTS = 5;
 const RESET_VERIFY_TOKEN_TTL_MIN = 5;

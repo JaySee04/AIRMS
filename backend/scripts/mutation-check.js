@@ -337,6 +337,54 @@ const MUTATIONS = [
     replace: 'if (false) {',
     test: 'tests/authHardening.test.js',
   },
+  {
+    guard: 'athlete dashboard: the page asks for its own record by IC number',
+    why: 'asking with the row id returns somebody else, or nobody',
+    pkg: 'frontend',
+    file: 'src/app/athlete/dashboard/page.tsx',
+    find: '    setAthleteId(session.user.athleteId);',
+    replace: '    setAthleteId(session.user.id);',
+    test: 'src/app/athlete/dashboard/page.test.tsx',
+  },
+  {
+    guard: 'athlete dashboard: the hero addresses the ATHLETE, not staff',
+    why: 'the audience prop defaults to staff, so omitting it still scans as English',
+    pkg: 'frontend',
+    file: 'src/app/athlete/dashboard/page.tsx',
+    // The value is "self", not "athlete" — I guessed and the registry said so
+    // out loud rather than reporting a healthy guard. Anchored on the HERO
+    // instance, since the page passes it twice.
+    find: '<OverallRiskBadge screening={athlete.screening} hero audience="self" />',
+    replace: '<OverallRiskBadge screening={athlete.screening} hero audience="staff" />',
+    test: 'src/app/athlete/dashboard/page.test.tsx',
+  },
+  {
+    guard: 'Chapter 4: the stated use-case count matches the table',
+    why: 'the count read 47 against a 60-row table for five weeks',
+    pkg: 'backend',
+    file: '../docs/fyp/REPORT_TABLE_4-1.md',
+    find: '| | UC-71 | Name the Athletes Awaiting Screening |',
+    replace: '| | UC-72 | Name the Athletes Awaiting Screening |',
+    test: 'tests/reportTable.test.js',
+  },
+  {
+    guard: 'invitation: the code window is the standard\'s 24 hours',
+    why: 'a credential-establishing code sitting in an unvalidated inbox',
+    pkg: 'backend',
+    file: 'src/utils/resetCodes.js',
+    find: 'const INVITE_CODE_TTL_MIN = 24 * 60;',
+    replace: 'const INVITE_CODE_TTL_MIN = 7 * 24 * 60;',
+    test: 'tests/accountLifecycle.test.js',
+  },
+  {
+    guard: 'invitation: the email never prints a 0 or plural-1 window',
+    why: '"expires in 1 days" / "0 days" tells the reader a live code is dead',
+    pkg: 'backend',
+    file: 'src/utils/mailer.js',
+    find: '  if (m % (60 * 24) === 0 && m / (60 * 24) >= 2) return plural(m / (60 * 24), \'day\');',
+    replace: '  return `${Math.round(m / (60 * 24))} days`;',
+    test: 'tests/accountLifecycle.test.js',
+  },
 ];
 
 function pkgDir(pkg) {
