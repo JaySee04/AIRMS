@@ -392,6 +392,8 @@ Generated into both packages from `shared/facts.js` — see DESIGN_DECISIONS §5
 | backend | `guide:pdf` | `node scripts/guide-to-pdf.js && node scripts/verify-guide-pdf.js` |
 | backend | `measure:facts` | `node scripts/measure-facts.js` |
 | backend | `migrate:screening-unique` | `node scripts/migrate-screening-unique.js` |
+| backend | `verify:schema` | `node scripts/verify-schema.js` |
+| backend | `migrate:drop-redundant-indexes` | `node scripts/migrate-drop-redundant-indexes.js` |
 | backend | `audit:access` | `node scripts/audit-access.js` |
 | backend | `coverage` | `jest --coverage --coverageReporters=text-summary` |
 | backend | `migrate:hosted` | `node scripts/migrate-hosted.js` |

@@ -90,6 +90,27 @@ cd backend; npm run measure:facts    # print the headline numbers MEASURED from 
                                      # the report or the viva - the docs have carried four
                                      # different band splits, all true when written. See
                                      # docs/SILENT_FAILURES.md H7.
+cd backend; npm run verify:schema    # compare the LIVE database's indexes against what the models
+                                     # declare. READ-ONLY. Three sections: redundant indexes in the
+                                     # database, DRIFT between models and database, and redundancy
+                                     # declared in the models. Takes --url/--ca/--insecure like the
+                                     # migrations, so it can be pointed at the hosted Aiven database.
+                                     # EVERY OTHER GUARD HERE READS THE CODE - schema is STATE, and
+                                     # it drifts where nothing can see it. It found `screenings`
+                                     # carrying TWO indexes on identical columns, only one of which
+                                     # any model declared: a fresh `npm run seed` and this machine
+                                     # had DIFFERENT schemas (DD 94.2). It deliberately does NOT
+                                     # report "too wide" VARCHARs - InnoDB stores them
+                                     # variable-length, so narrowing reclaims nothing, and the
+                                     # observed maxima come from FABRICATED seed data: longest
+                                     # seeded name 28 chars, longest REAL name already in
+                                     # src/mock/isnDirectory.js is 37 (DD 94.3).
+cd backend; npm run migrate:drop-redundant-indexes   # drop what verify:schema reports. Idempotent,
+                                     # --dry-run prints the statements, and it RE-DERIVES redundancy
+                                     # from information_schema rather than trusting index names - it
+                                     # refuses if the covering index is missing or does not actually
+                                     # cover. LOCAL ONLY so far; the hosted database is expected to
+                                     # hold both and is untouched on purpose (DD 94.6).
 cd backend; npm run verify:claims    # check the OPERATIONAL claims against a RUNNING instance and
                                      # print the measured number for each. Needs `npm run dev`.
 cd backend; npm run verify:claims -- --hosted   # ...against the deployed API (10/10 on 2026-09-11)

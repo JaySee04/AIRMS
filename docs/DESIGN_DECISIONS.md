@@ -8005,3 +8005,165 @@ backend 53 suites / 754 tests · frontend 21 / 346 · 47 mutations caught
 sourceHygiene now scans 39 markdown files as well as both packages
 typecheck + lint clean · npm audit 0 both packages
 ```
+
+---
+
+## 94. The schema, measured — and why the obvious "field optimisation" is the wrong one (2026-09-13)
+
+A pass over the MySQL side: every table, every column type, every index, read
+from the LIVE database rather than from the models.
+
+**No column of `Athlete` or `Screening` was changed.** Those are locked
+(`MASTER_CLARIFICATIONS §12`) and nothing here needed them touched. Two
+redundant *indexes* were removed, one of which no model had ever declared.
+
+### 94.1 The size of the thing, stated first
+
+| table | rows | data | index |
+|---|---|---|---|
+| audit_logs | 1041 | 240 KB | 80 KB |
+| screenings | 74 | 160 KB | 16 KB |
+| athletes | 62 | 16 KB | 48 KB |
+| muscle_flags | 336 | 48 KB | 16 KB |
+| athlete_disciplines | 22 | 16 KB | 32 KB |
+
+**At this size no index choice is measurable, and this section claims no
+speed-up.** Stating that first is the point: the changes below are correctness
+and honesty changes, not performance ones, and presenting them as performance
+would be the §33 reassurance failure applied to a database.
+
+`audit_logs` is the only table that grows without bound (append-only by
+design). It already has indexes on `created_at`, `action` and `actor_id`, which
+serve its filters. A composite `(action, created_at)` would serve "this action,
+newest first" better — **not added**, because at 1,041 rows the benefit is
+unmeasurable and adding an index on a guess is the thing this section is about.
+Revisit if it passes ~100k rows.
+
+### 94.2 Two redundant indexes — one of them invisible to every existing guard
+
+```
+screenings_athlete_assessed_unique   UNIQUE  (athlete_id, assessed_at)
+screenings_athlete_id_assessed_at            (athlete_id, assessed_at)
+```
+
+Identical columns. **The model declares only the first.** The second is a
+leftover from before §45 introduced the unique key, never dropped from databases
+that already existed — so `npm run seed` on a fresh clone produced a *different
+schema* from the one on this machine, and every screening insert here was
+maintaining a second, pointless B-tree.
+
+That is the interesting half: **the code was right and the database was wrong**,
+and nothing in this repo could see it. Every other guard reads the source —
+jest, `npm run map`, `npm run mutate`, `npm run audit:access`. Schema is state,
+and it drifts silently. It is the §91 `verify:claims` argument one layer down.
+
+The second was declared in the model itself:
+
+```
+athlete_disciplines_athlete_id             (athlete_id)
+athlete_disciplines_athlete_id_discipline  UNIQUE (athlete_id, discipline)
+```
+
+`athlete_id` is the leftmost column of the unique key, so InnoDB already
+satisfies `WHERE athlete_id = ?` from it. The separate index could never be the
+better choice for any query, while still being written on every insert. Removed
+from `AthleteDiscipline.js`, so fresh databases no longer get it.
+
+### 94.3 Narrowing the VARCHARs is the wrong move, and the data says so
+
+The obvious reading of "optimise the fields" is that `athletes.name
+varchar(120)` holding at most 28 characters is 77% waste. It is not, twice over:
+
+1. **InnoDB stores VARCHAR variable-length.** `varchar(120)` holding 28
+   characters costs the same as `varchar(32)` holding 28. The "unused %" a naive
+   audit prints is not space anybody can reclaim.
+2. **The observed maxima are a property of FABRICATED data.** The longest seeded
+   athlete name is 28 characters. The longest *real* name the project already
+   holds — `src/mock/isnDirectory.js`, used by the three demo reports handed to
+   Dr Thung — is **37**: "Mohamed Elffie Danish Bin Khir Johari". A full
+   Malaysian name with bin/binti chains runs longer still.
+
+So narrowing would trade nothing measurable for a truncation bug on the first
+real roster ISN supplies — and a truncated name is a silent failure of exactly
+this project's kind: it looks like a name. `verify-schema.js` deliberately does
+**not** report wide columns, and says why in its header, so the next person
+running it is not tempted.
+
+### 94.4 What the audit found to be already right
+
+Worth recording, because "we checked and it was fine" is the half nobody writes
+down and therefore re-checks:
+
+- **Scores are `decimal(5,2)`, not `float`** — 14 of them on `screenings`, plus
+  one `decimal(6,3)`. Binary floating point would make the §57 rounding work
+  meaningless.
+- **Closed vocabularies are `enum`** (bands, tier, role, flag type, side), so the
+  database refuses a value the application would have to validate.
+- **Structured extras are `json`** (`subitems`, `cohort_deltas`, `prescription`,
+  `factors`) rather than a wide column each.
+- **`settings.key` is the primary key**, so a setting cannot be duplicated.
+- The `(athlete_id, assessed_at)` unique key §45 argued for is present and
+  correct on the local database.
+
+### 94.5 The guard, and how it is verified
+
+`npm run verify:schema` (read-only) compares live indexes against what the models
+declare, in three sections: redundant indexes in the database, drift between
+models and database, and redundancy declared in the models themselves. Takes the
+same `--url` / `--ca` / `--insecure` arguments as the other migration scripts, so
+it can be pointed at the hosted Aiven database.
+
+One bug in it, worth recording because it is this project's own favourite shape:
+the drift check first asked *"does some declared index have these columns?"* and
+reported **`drift: none`** against a database holding two indexes over
+`(athlete_id, assessed_at)` and a model declaring one — both live indexes matched
+the same declaration, so neither looked extra. It now consumes declarations
+**one-to-one**, and whatever is left over on either side is the drift. A
+set-membership test cannot count duplicates.
+
+`npm run migrate:drop-redundant-indexes` applies the fix and **re-derives
+redundancy from `information_schema` rather than trusting the index names** — it
+drops nothing unless the covering index exists AND its columns actually cover
+the victim's. All branches were exercised against the real table, not just the
+happy path:
+
+| branch | result |
+|---|---|
+| both drops applied | dropped 2, `verify:schema` then 0 findings |
+| run again (idempotent) | both skipped, nothing changed |
+| cover exists but does NOT cover | **REFUSED**, nothing dropped |
+| named cover does not exist at all | **REFUSED**, nothing dropped |
+
+After the refusal probe, `athletes` still had all four of its indexes.
+
+**And the model fix was proven on a FRESH database**, not argued: the models were
+synced into a scratch database (`airms_schema_probe`, created and dropped in the
+same run, dev data untouched — 74 screenings before and after), which came out
+with **9 tables and 0 redundant or duplicate indexes**.
+
+### 94.6 The hosted database was deliberately not touched
+
+The migration was run against **local only**. There are no Aiven credentials on
+this machine and the hosted database is a live deployment; dropping an index
+there is the sort of thing to do deliberately, with the console open, not as a
+side effect of a tidy-up. The script takes `--url` and `--ca` for exactly that,
+and `--dry-run` prints the statements first.
+
+The hosted database is expected to hold **both** redundant indexes (it was
+migrated for §45 on 2026-09-04, which added the unique key without dropping the
+older one). Check with:
+
+```powershell
+cd backend; npm run verify:schema -- --url "mysql://user:pass@host:12345/defaultdb" --ca ./ca.pem
+```
+
+Nothing is broken until it is run — the indexes are redundant, not wrong.
+
+---
+
+```
+verify:schema 0 findings (local) · migration idempotent, both refusal branches fire
+fresh-database probe: 9 tables, 0 redundant indexes · dev data untouched (74 screenings)
+backend 53 suites / 754 tests · frontend 21 / 346 · map current
+no Athlete or Screening COLUMN changed — the locked schema is untouched
+```

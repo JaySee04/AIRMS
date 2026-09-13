@@ -26,8 +26,20 @@ const AthleteDiscipline = sequelize.define('AthleteDiscipline', {
   tableName: 'athlete_disciplines',
   underscored: true,
   indexes: [
-    { fields: ['athlete_id'] },
     // One row per (athlete, discipline) — re-adding the same event is a no-op.
+    //
+    // This ALSO serves every lookup by athlete alone. A separate
+    // `{ fields: ['athlete_id'] }` stood here until 2026-09-13 and was strictly
+    // redundant: athlete_id is the leftmost column of this key, so InnoDB can
+    // already use it for `WHERE athlete_id = ?` — the extra index could never be
+    // the better choice for any query, while still being written on every
+    // insert, update and delete.
+    //
+    // Not a performance problem at 22 rows, and it is not removed as one. It is
+    // removed because a redundant index is a claim about the access pattern that
+    // is not true, and the next person sizing this table would believe it.
+    // Found by `npm run verify:schema`; dropped from existing databases by
+    // `npm run migrate:drop-redundant-indexes`.
     { unique: true, fields: ['athlete_id', 'discipline'] },
   ],
 });
