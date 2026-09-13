@@ -79,6 +79,19 @@ function parsePrescription(text) {
     const to = i + 1 < marks.length ? marks[i + 1].at : flat.length;
     let chunk = flat.slice(from, to);
     // Drop the column headings so "Reps Sets Rest Interval" cannot be read as a row.
+    //
+    // REDUNDANT ON EVERY LAYOUT WE HOLD, AND DELIBERATELY KEPT (measured
+    // 2026-09-13). Disabling this line leaves the parsed output BYTE-IDENTICAL
+    // on the real Nazwan fixture — the row matcher below already refuses the
+    // heading, because "No. Exercises Reps Sets Rest Interval" does not have the
+    // `<num> <name> <reps> <sets> <rest>` shape. So a mutation of this line
+    // correctly survives `npm run mutate`; that is the mutation being aimed at a
+    // second lock rather than the test being weak (SILENT_FAILURES 3u).
+    //
+    // It stays because this output is a programme somebody may follow, and the
+    // cost of a heading printed as a prescribed movement is far higher than one
+    // regex. Do not delete it as dead code — it is a second lock, not a live one,
+    // and the layouts ISN may send are not all in hand.
     chunk = chunk.replace(/No\.\s*Exercises\s*Reps\s*Sets\s*Rest Interval/gi, ' ');
 
     // Collect the rows and the text BETWEEN them in one pass, because a name

@@ -124,12 +124,69 @@ const MUTATIONS = [
     test: 'tests/riskIndicators.test.js',
   },
   {
+    // The SAME clinical rule, in the other package, because the frontend is
+    // what actually renders an indicator onto a clinician's screen. The two
+    // copies are generated from shared/facts.js, so a bad edit to
+    // shared/generate.js can drop the exclusion in ONE package while the other
+    // stays correct and green — which is the §60 failure that already happened
+    // once, in the direction where both suites passed with the value missing.
+    // Mutating only the backend copy proved only the backend half.
+    // REGISTERED AGAINST THE WRONG TEST FIRST, and duly reported SURVIVED.
+    // screeningAlerts.indicators.test.ts pins LDH by the literal string, so it
+    // is blind to this constant emptying — correctly, because EXCLUDED_RISK_KEYS
+    // is an ASSERTION ANCHOR and not a filter: LDH is excluded by being absent
+    // from RISK_INDICATORS, and no production code in either package filters on
+    // this list. Emptying it removes the ability to state the rule, which is a
+    // real loss and a different one from rendering LDH. The test that actually
+    // reads it by value is the badge suite. See SILENT_FAILURES 3u.
+    guard: 'LDH exclusion stays STATEABLE on the frontend (Dr Thung)',
+    why: 'named as a value so the rule can be asserted rather than left as an absence',
+    pkg: 'frontend',
+    file: 'src/lib/shared/facts.ts',
+    find: "export const EXCLUDED_RISK_KEYS: string[] = ['spinalDiscHerniation'];",
+    replace: 'export const EXCLUDED_RISK_KEYS: string[] = [];',
+    test: 'src/components/dashboard/OverallRiskBadge.test.tsx',
+  },
+  {
+    // The mutation that asks the question that actually matters on the frontend:
+    // if LDH were put BACK into the indicator list, would anything stop it
+    // reaching a clinician's screen? Every frontend view (INDICATORS,
+    // RADAR_AXES, REPORT_RISKS, RADAR_LABELS) derives from this one array.
+    guard: 'LDH cannot re-enter the frontend indicator list',
+    why: "Dr Thung's instruction — ISN cannot support the assessment, so it is never drawn",
+    pkg: 'frontend',
+    file: 'src/lib/shared/facts.ts',
+    find: "export const RISK_INDICATORS: RiskIndicator[] = [\n  { key: 'neckInjuryRisk', region: 'Neck', reportLabel: 'Neck Pain' },",
+    replace: "export const RISK_INDICATORS: RiskIndicator[] = [\n  { key: 'spinalDiscHerniation', region: 'Spine', reportLabel: 'Disc Herniation' },\n  { key: 'neckInjuryRisk', region: 'Neck', reportLabel: 'Neck Pain' },",
+    test: 'src/lib/screeningAlerts.indicators.test.ts',
+  },
+  {
     guard: 'accountLifecycle: athlete is not an invitable role',
     why: 'an athlete account also needs a roster record to attach to',
     pkg: 'backend',
     file: 'src/routes/users.js',
     find: "const INVITABLE_ROLES = ['medical', 'coach', 'admin', 'executive'];",
     replace: "const INVITABLE_ROLES = ['medical', 'coach', 'admin', 'executive', 'athlete'];",
+    test: 'tests/accountLifecycle.test.js',
+  },
+  {
+    guard: 'accountLifecycle: athletes ARE invitable from the roster',
+    why: 'the exclusion above is only defensible because this route exists — '
+       + 'without it, "not invitable here" silently means "can never sign in"',
+    pkg: 'backend',
+    file: 'src/routes/athletes.js',
+    find: "router.post('/:id/invite', auth, rbac('admin'), async (req, res) => {",
+    replace: "router.post('/:id/invite-disabled', auth, rbac('admin'), async (req, res) => {",
+    test: 'tests/accountLifecycle.test.js',
+  },
+  {
+    guard: 'invite: the athlete account is BOUND to its roster row',
+    why: 'an account with a null athleteId authenticates and is then refused '
+       + 'from its own record — a working login onto a dashboard that resolves nothing',
+    pkg: 'backend',
+    file: 'src/routes/athletes.js',
+    find: '      athleteId: athlete.athleteId,\n    });\n\n    try {\n      await sendInvite(user, req, { creating: true });',
+    replace: '      athleteId: null,\n    });\n\n    try {\n      await sendInvite(user, req, { creating: true });',
     test: 'tests/accountLifecycle.test.js',
   },
   {

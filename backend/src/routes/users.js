@@ -8,56 +8,22 @@ const rbac = require('../middleware/rbac');
 const { PERMISSION_KEYS, PERMISSION_LABELS, sanitizePermissions } = require('../utils/permissions');
 const { validatePassword } = require('../utils/passwordPolicy');
 const { recordAudit } = require('../utils/audit');
-const { sendMail, buildInviteEmail } = require('../utils/mailer');
-const { issueCode, INVITE_CODE_TTL_MIN, RESET_CODE_MAX_ATTEMPTS } = require('../utils/resetCodes');
-const crypto = require('crypto');
+const { sendInvite, inviteBlockedReason, unusablePassword } = require('../utils/invite');
 const { Op } = require('sequelize');
 const { sendError } = require('../utils/httpError');
 
-// Roles an administrator may create. `athlete` is deliberately absent: athlete
-// accounts are not part of this deployment's onboarding (JC, 2026-08-23), and
-// creating one would also need a roster record to attach it to, which is a
-// different decision from "who may use the system".
-const INVITABLE_ROLES = ['medical', 'coach', 'admin', 'executive'];
-
-// The site an invitation points at. Env rather than derived from the request:
-// the invitee's link must go to the web app, and the API is on a different
-// origin — deriving it from Host would send people to the API domain, where
-// there is no activation page.
-const siteUrl = () => (process.env.FRONTEND_URL || '').split(',')[0].trim() || null;
-
-// Send (or re-send) an invitation. Mutates and SAVES the user.
+// STAFF roles an administrator may create from the Personnel page. `athlete` is
+// deliberately absent and stays absent: an athlete account must be bound to a
+// roster row, and the identifier that binds it (the IC number) is not something
+// to hand-type into a personnel form. Athletes are invited from the roster
+// instead — POST /athletes/:id/invite, added 2026-09-13 — where the roster row
+// is already in hand and the link cannot be mistyped.
 //
-// The password set here is random and immediately discarded: an invited account
-// must be unusable until its owner chooses a credential, and the administrator
-// who created it must not be able to sign in as them. That is the whole reason
-// this flow exists rather than an admin typing a password and texting it over.
-async function sendInvite(user, req, { creating = false } = {}) {
-  if (creating) user.password = crypto.randomBytes(32).toString('hex');
-  const code = issueCode(user, { ttlMinutes: INVITE_CODE_TTL_MIN });
-  user.invitedAt = new Date();
-  await user.save();
-
-  const mail = buildInviteEmail({
-    code,
-    name: user.name,
-    role: user.role === 'medical' ? 'medical staff' : user.role,
-    invitedBy: req.user?.name || null,
-    // Minutes, and the mailer words them. It was `expiresInDays:
-    // Math.round(TTL / 1440)`, which with the 24-hour window (§85) prints
-    // "expires in 1 days" — and would print "expires in 0 days" for anything
-    // shorter, i.e. an email telling the reader their code is already dead.
-    expiresInMinutes: INVITE_CODE_TTL_MIN,
-    maxAttempts: RESET_CODE_MAX_ATTEMPTS,
-    siteUrl: siteUrl(),
-  });
-  // Awaited, unlike the reset mail: an administrator pressing "invite" needs to
-  // know whether it actually went. A reset can be fire-and-forget because the
-  // user is present and will simply ask again; nobody is watching an invitation
-  // fail.
-  await sendMail({ to: user.email, ...mail });
-  return code;
-}
+// tests/accountLifecycle.test.js pins this list to the page's options in the
+// direction that fails silently, and pins the athlete exclusion to the
+// existence of that other route, so "athletes are not invitable here" can never
+// again mean "athletes can never sign in".
+const INVITABLE_ROLES = ['medical', 'coach', 'admin', 'executive'];
 
 const router = express.Router();
 
@@ -98,9 +64,6 @@ router.get('/', async (req, res) => {
   }
 });
 
-// POST /api/users — create a staff account: a coach (needs an assigned sport)
-// or a medical staffer (full permissions by default, opt-out model). Admins and
-// athletes still come from seed/register, not this endpoint.
 // POST /api/users — create a coach, medical, admin or executive account.
 //
 // Two ways in, and the difference matters:
@@ -140,7 +103,7 @@ router.post('/', async (req, res) => {
       email: String(email).trim().toLowerCase(),
       // Replaced immediately by sendInvite when inviting; a value is needed here
       // because the column is NOT NULL and the model hashes on save.
-      password: wantInvite ? crypto.randomBytes(32).toString('hex') : String(password),
+      password: wantInvite ? unusablePassword() : String(password),
       role: wantRole,
       coachSport: wantRole === 'coach' ? String(coachSport).trim() : null,
     });
@@ -200,15 +163,10 @@ router.post('/:id/invite', async (req, res) => {
   try {
     const user = await User.findByPk(req.params.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
-    if (!user.isActive) return res.status(409).json({ message: 'That account is deactivated. Reactivate it before inviting.' });
-    // Activated, or simply signed in at all: either way somebody already has a
-    // working password, and this mail tells its reader an account has just been
-    // created for them.
-    if (user.activatedAt || user.lastLoginAt) {
-      return res.status(409).json({
-        message: 'That account is already in use. They can reset their own password from "Forgot password?" on the sign-in page.',
-      });
-    }
+    // Deactivated, activated, or simply signed in at all — one definition,
+    // shared with the roster's athlete invitation so the two cannot drift.
+    const blocked = inviteBlockedReason(user);
+    if (blocked) return res.status(409).json({ message: blocked });
 
     await sendInvite(user, req);
     recordAudit(req, {

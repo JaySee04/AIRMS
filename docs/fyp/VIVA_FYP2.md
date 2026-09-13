@@ -403,6 +403,31 @@ resting on a usability cost that had never been checked. Full argument in
 Five guesses against a million values is what makes six digits acceptable at any
 window — the attempt limit, not the digit count.
 
+**And the athlete? Volunteer this one — it is the better answer to the question
+actually asked.** Until 2026-09-13 the honest answer was *"they cannot"*.
+`POST /api/users` refuses the `athlete` role, and the seeder was the only other
+place an athlete account had ever been created — so **60 of 62 roster athletes
+had no login**, and the two that did were seeded demos. An athlete added by
+importing their HoloMotion report received a dashboard nobody could sign into.
+The three reports handed over for the demo all land in that 60.
+
+`POST /api/athletes/:id/invite` closes it, and **where it lives is the defensible
+part**: the invitation is issued from the roster, not from the personnel form.
+An athlete account has to be bound to its roster row by `users.athleteId`, and
+adding `'athlete'` to the personnel role list would not have worked — that
+endpoint never sets the column, so the account would authenticate and then be
+refused from **its own record** by the self-scope check. A working login onto a
+dashboard that resolves nothing is worse than no login, because nothing reports
+it. Inviting from the roster takes the binding from the row, so it cannot be
+mistyped.
+
+If a panellist asks how a gap like that survived: a test asserted the exclusion
+and passed, and its own comment argued the case for it. That sentence was true
+when written and quietly stopped being true once the roster became something
+real people are added to. The guard now pins the exclusion **to the existence of
+the roster route**, so "not invitable here" can never again mean "can never sign
+in" (`SILENT_FAILURES.md` 3t).
+
 **Volunteer the weakness:** invitations currently send from a personal Gmail
 account. A clinician receiving an unexplained six-digit code from a personal
 address is looking at a textbook phishing pattern, and deleting it would be the
@@ -410,8 +435,10 @@ correct response. Real institutional use needs ISN's own relay or a controlled
 sending domain with SPF and DKIM; the mailer is entirely environment-driven, so
 that is configuration rather than code.
 
-*Backing: `backend/src/utils/resetCodes.js`; `backend/src/routes/users.js`;
-`frontend/src/app/activate/page.tsx`.*
+*Backing: `backend/src/utils/resetCodes.js`; `backend/src/utils/invite.js`;
+`backend/src/routes/users.js`; `backend/src/routes/athletes.js`
+(`POST /:id/invite`); `frontend/src/app/activate/page.tsx`;
+`DESIGN_DECISIONS.md §88`.*
 
 ### Q14 · "The screening tells you what is wrong. Does it tell anyone what to do?"
 

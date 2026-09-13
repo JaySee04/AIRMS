@@ -7216,3 +7216,671 @@ call**, not a side effect of a naming pass.
 backend 53 suites / 752 tests · frontend 21 / 346 · 43 mutations caught
 e2e 110/110 · guide:pdf clean · npm run map current · tsc + lint clean
 ```
+
+## 88. Athletes could not be given a login at all (2026-09-13)
+
+Found by answering a question, not by a bug report: *"how do we make new
+accounts right now?"*
+
+### The gap
+
+`POST /api/users` is the **only** route in the codebase that creates a `User`,
+and `INVITABLE_ROLES` excluded `athlete`. The only other place an athlete
+account has ever come from is `utils/seeder.js`. So on the hosted instance,
+every athlete login that exists is one the seeder made — and an athlete added
+by importing their HoloMotion report gets a dashboard nobody can ever sign into.
+
+Measured on the dev database before the fix: **60 of 62 roster athletes had no
+account.** The two that did are the seeded demos. The three reports handed to
+Dr Thung and Dr Hoo all land in the 60.
+
+`tests/accountLifecycle.test.js` asserted the exclusion and passed, describing
+the gap as a deliberate design — which it was, right up until the roster became
+a thing real people are added to.
+
+### Why adding `'athlete'` to the array would NOT have fixed it
+
+`users.athleteId` is the column binding an account to its roster row, and
+`POST /users` neither accepts nor sets it. The account would authenticate
+normally and then be refused from **every** record including its own, by the
+self-scope check at `routes/athletes.js`:
+
+```js
+if (req.user.role === 'athlete' && req.user.athleteId !== req.params.id) …
+```
+
+A login that works, attached to a dashboard that resolves nothing. That is the
+silent-failure shape, not a loud error — and it is what a one-word fix produces.
+
+### What was built
+
+`POST /api/athletes/:id/invite` (admin), because the binding must come from the
+roster row rather than from a typed field. On the Personnel page it is a
+separate **Athlete logins** card driving `AthleteSearchSelect`, so the IC number
+is picked and never keyed.
+
+`utils/invite.js` holds `sendInvite` / `inviteBlockedReason` /
+`unusablePassword`, extracted from `routes/users.js`. Two routes minting
+invitations from two copies is how one of them ends up with a longer TTL or an
+uncleared attempt counter — the same reasoning that put the one-time code into
+`utils/resetCodes.js` (§85) and the band vocabulary into `utils/bands.js`.
+
+**The address is echoed back before anything is sent.** §85 shortened the invite
+TTL to 24 hours precisely because an administrator-typed address is validated by
+nobody, so a typo drops a password-setting code into a stranger's inbox for the
+whole window. Shortening the window was half the remedy; catching the typo is
+the other half, and it was never built. The confirm step names the athlete
+beside the address.
+
+### Verified end to end, against a running instance
+
+The mailer is live on this machine, so verification ran against a second backend
+on :5099 with `MAILER_DRY_RUN=true` — same database, no outbound mail.
+
+| Step | Result |
+|---|---|
+| invite a roster athlete | 201, account bound to `000525531052` |
+| stored password | bcrypt hash, **not** the random hex — unrecoverable by anyone |
+| code | 24h TTL (1439 min remaining), 0 attempts, hashed |
+| email copy | "expires in 24 hours", 5 attempts, correct `/activate` URL |
+| activate → sign in | works |
+| **read own record** | **200** — `Nurul Raj · Swimming` |
+| read another athlete | **403** — self-scope holds |
+| re-invite after activation | 409 |
+| unknown athlete / no email | 404 / 400 |
+| as coach / medical / executive / athlete | **403** |
+| with no token | 401 |
+
+Test account and its audit row removed afterwards; roster back to 2 athlete
+accounts.
+
+### Two defects found on the way
+
+1. **The Personnel page told administrators the code "expires in 7 days".** The
+   TTL became 24 hours on 2026-09-12 (§85); the backend constant, the email
+   body and `REPORT_TABLE_4-1.md` were all updated and this string was not. It
+   is the copy the person *granting* access reads, and it was wrong by a factor
+   of seven in the direction that makes an expired code look like a broken
+   system. Now also names the self-service remedy.
+
+2. **The first version of the new guard passed against its own mutation.**
+   `npm run mutate` reported SURVIVED: the test sliced from the route to
+   end-of-file and matched `athleteId: athlete.athleteId` in the lookup and the
+   two audit-meta objects, none of which is what gets written to the row. Scoped
+   to the `User.create` call it fails correctly. This is the fifth instance of a
+   check and its own test agreeing while both were wrong, and the first one the
+   runner caught rather than a person.
+
+```
+backend 53 suites / 754 tests · frontend 21 / 346 · 45 mutations caught
+audit:access 66 endpoints, no read-only role reaches a write · map current
+tsc + lint clean
+```
+
+## 89. The second upgrade pass — what §82 left, and the one it could not reach (2026-09-13)
+
+§82 (2026-09-12) moved everything it could show still working. This is the
+remainder, measured the same way: what shipped is what reproduced the
+fingerprint, and what did not ship is recorded with the measurement that stopped
+it.
+
+### 89.1 Shipped
+
+| package | from → to | evidence |
+|---|---|---|
+| `nodemailer` | 10.0.7 → **10.0.9** | patch. 754 backend tests; invite mail still renders its 24-hour window |
+| `react` + `react-dom` | 18.3.1 → **19.3.0** | the big one — see below |
+| `@types/react` / `@types/react-dom` | 18 → **19** | required by React 19 |
+| `@types/node` | 20 → **22.20.2** | the types were two majors **behind the runtime** — this machine runs Node v22.14.0, so they were describing a Node nobody here uses |
+| `typescript` | 5.9.3 → **6.0.3** | see 89.3 |
+
+**React 19 is clean on every instrument this repo has.** `tsc` clean, `next
+lint` clean, 21 suites / 346 tests, production build compiles 30/30 static
+pages, and **e2e 110/110** — including the body-map geometry, which is the check
+that would actually catch a React-19 rendering regression: 155 regions on the
+athlete dashboard, 156 on both coach and medical detail, identical to React 18.
+Next 15.5.25 declares `react: ^18.2.0 || ^19.0.0`, so this is a supported pairing
+and not a version-range dodge.
+
+### 89.2 The PDF fingerprint is unchanged
+
+Nothing in this pass touches `pdfjs-dist`, `@napi-rs/canvas` or `tesseract.js`,
+but §82.1's instrument was re-run anyway, because "should not be affected" is
+the sentence that precedes every silent regression:
+
+| | expected (§82.1) | measured |
+|---|---|---|
+| `thung.pdf` | `ocr {144, 258, 96, 20}` | **identical** |
+| `nazwan.pdf` | `ocr {233, 576, 415, 29}` | **identical** |
+
+Both report `method: "ocr"`, not `fallback:name-not-found` — which is the
+distinction §82.3 turns on, and the one a `redacted: true` check cannot see.
+
+### 89.3 TypeScript 7 is refused; TypeScript 6 is the upgrade
+
+`npm outdated` names 7.0.2 as latest, and it does not work here. Next 15.5 does
+not merely warn — it **fails the build**:
+
+> TypeScript 7.0.2 is not supported by this version of Next.js. The TypeScript 7
+> native compiler does not provide the JavaScript compiler API that Next.js
+> requires. Install TypeScript 6 … or upgrade to a Next.js v16.2.11 or later.
+
+So TS 7 is chained to Next 16, which §82.3 refused with its own measurement, and
+the chain does not stop there: every `@typescript-eslint` package under
+`eslint-config-next@15` declares `typescript: ">=4.8.4 <6.1.0"`, and npm installs
+TS 7 as `invalid` against all of them — the type-aware lint rules would run on an
+unsupported compiler.
+
+**TypeScript 6.0.3 satisfies both constraints**: it is what Next's own error
+message asks for, and 6.0.x is inside `@typescript-eslint`'s `<6.1.0` range. It
+is the upgrade; 7 is not available to this project until Next 16 is, which is a
+separate decision with its own recorded cost.
+
+**One real change came with it.** TS 6 checks side-effect imports for a
+declaration and raises `TS2882` on `import '@/styles/globals.css'`; 5.9 did not
+look. Next's generated `next-env.d.ts` declares CSS *modules* but not a bare
+stylesheet, and carries "should not be edited" — so the declaration lives in
+`src/types/css.d.ts` rather than being patched into a file `next dev` rewrites.
+Declared bare (`declare module '*.css';`) rather than as `any`, so
+`import styles from './x.css'` does not start type-checking against a bundler
+setup that returns nothing for a plain stylesheet.
+
+### 89.4 Still refused, unchanged
+
+- **`tesseract.js` 5 → 6/7** — §82.3. Breaks name redaction into a 691×758
+  blackout that still reports `redacted: true`. Re-confirmed above that 5.1.1 is
+  exact.
+- **Next 15 → 16**, and the `eslint` 9/10 + flat-config migration it forces —
+  §82.3. 38 `react-hooks` errors, 14 of them in `BodyMap.tsx` (Module 1,
+  audit-fixed). Now also blocks TypeScript 7.
+- **`uuid` 11 / Sequelize's 2 moderate advisories** — §76. `npm audit fix
+  --force` still proposes **`sequelize@3.30.0`**, a downgrade of six majors, to
+  close a moderate in an internal id generator. Frontend audit: **0**.
+
+### 89.5 Where it ended
+
+```
+backend 53 suites / 754 tests · frontend 21 / 346 · 45 mutations caught
+e2e 110/110 · build 30/30 static pages · tsc + lint clean
+redaction fingerprint identical on both sample reports
+npm audit: frontend 0, backend 2 moderate (§76, refused)
+```
+
+Stack now: **Next 15.5.25 · React 19.3 · TypeScript 6.0.3 · Node 22**.
+
+## 90. A payload the pickers never needed, and a sweep for guards that cannot fail (2026-09-13)
+
+### 90.1 Four pages downloading 44.2 KB to use five fields
+
+`GET /athletes` returns the full roster row — 28 keys, clinical scores, effective
+band, injury flag. **Four surfaces call it purely to fill an athlete picker** and
+then filter client-side: Personnel, the Activity Log, admin Reports and the
+import uploader. `GET /athletes`'s own paging comment already named those four;
+what it did not say is that none of them displays a clinical value.
+
+Measured on 62 athletes: **44.2 KB** to use `athleteId`, `name`, `sport`, and —
+for the uploader only — `program` and `disciplines`.
+
+`GET /athletes/meta/roster` serves exactly those five: **6.7 KB, 6.6× smaller**,
+on the same rows. It sits beside `meta/sports` and `meta/disciplines`, which are
+already the "vocabulary for pickers" endpoints, and carries **identical guards**
+and the same `isActive: true` scope — a strict subset of what the same roles can
+already fetch, which is the §43 question to ask of any new payload before asking
+whether it is faster.
+
+The per-athlete cost drops from ~713 to ~110 bytes. At the 5,000-athlete roster
+`GET /athletes` projects, that is ~3.5 MB against ~0.55 MB, on four pages that
+were each paying it in full.
+
+**Not** a default cap on `GET /athletes`: §—the paging note explains why that
+endpoint stays opt-in, and this changes nothing about it. The full roster is
+still exactly one request away for anything that genuinely needs a roster row.
+
+### 90.2 The guard that cannot fail, swept for as a class
+
+`SILENT_FAILURES.md` 3t records a test that asserted an absence, passed forever,
+and whose own comment argued the case for a defect. The prescribed sweep was then
+actually run rather than left as advice: **948 test cases, 32 of which assert an
+absence**, 12 in files with no mutation-registry entry.
+
+Most are behavioural negatives — "never reports a negative age", "returns null
+when the section is absent" — which a code change breaks, so they are safe. The
+3t shape is narrower: *an absence that nothing else depends on*, where the world
+can move around it. On this codebase it had occurred **once**.
+
+The sweep's real catch was elsewhere, on the highest-stakes rule in the system.
+
+### 90.3 Dr Thung's LDH exclusion was proven in one package out of two
+
+`EXCLUDED_RISK_KEYS` was mutation-proven only on `backend/src/shared/facts.js`.
+The **frontend** is the package that draws an indicator onto a clinician's
+screen, and both copies are generated — so a bad `shared/generate.js` edit can
+drop a value from one package while the other stays correct and green, which is
+exactly the §60 failure that has already happened once.
+
+Adding the frontend entry took three attempts, and each failure was informative:
+
+1. **Registered against the wrong test** — `SURVIVED`. `screeningAlerts.indicators.test.ts`
+   pins LDH by the literal string and is rightly blind to the constant emptying.
+2. **Which exposed what the constant IS.** `EXCLUDED_RISK_KEYS` is an *assertion
+   anchor, not a filter*: no production code in either package filters on it.
+   LDH is excluded by being **absent from `RISK_INDICATORS`**. Emptying the list
+   removes the ability to *state* the rule — a real loss, and a different one
+   from rendering LDH.
+3. **Which found a vacuous test.** `for (const k of EXCLUDED_RISK_KEYS)` over an
+   empty array runs zero times, so `facts.test.ts` asserted **nothing** and
+   passed. It now asserts `toContain` before the loop.
+
+Both directions are now pinned in both packages: the list cannot be emptied, and
+LDH cannot be put back into `RISK_INDICATORS`. **47 mutations, all caught.**
+
+The transferable lesson is in `SILENT_FAILURES.md` 3u: *a surviving mutation is
+not always a weak test — it is sometimes a mis-aimed mutation, and telling the
+two apart is the work.* Assuming the test was weak and rewriting it would have
+left the vacuous loop in place.
+
+### 90.4 Documentation that had gone stale without anything failing
+
+- **`USER_MANUAL.md` §15 never covered account creation at all** — the page it
+  documents grew invitations on 2026-08-23 and the manual still described only
+  the medical-permissions checkboxes. Now §15.1 (staff), §15.2 (athlete logins)
+  and §15.3 (capabilities).
+- **`PERMISSIONS.md` claimed "21 write endpoints"**, written 2026-09-04. It is
+  **27** — the watchlist, the decision worklist and the two invitation routes
+  arrived since. Now stated with its derivation, so the next pass re-counts
+  rather than trusting it.
+- **`VIVA_FYP2.md` Q13 is literally "how does a real person get an account?"**
+  and its answer omitted the half where the answer was *"an athlete cannot"*.
+
+### 90.5 The claim that was not allowed to stay a claim
+
+This pass closed with a judgement rather than a measurement, stated as such:
+
+> *"I did not mass-register mutations for the other nine absence-asserting
+> tests. They're behavioural negatives that a code change breaks, so entries
+> would be cost without coverage — but that's a judgement, not a measurement."*
+
+**The argument for leaving it.** The registry is a gate, and a gate that gets
+slow stops being run — which is a worse outcome than a few unregistered tests.
+47 entries already spawn 47 jest runs. These nine are ordinary behavioural
+negatives over pure functions, not 3t's shape, where an absence floats free of
+everything that could contradict it.
+
+**The argument against, which is stronger.** "A code change breaks them" was an
+*inference*. §3r in `SILENT_FAILURES.md` is an entire section about a cause being
+inferred and the inference propagating in the voice of a measurement — and two
+guards in this same session were wrong in exactly that way (3u). The premise of
+the runner is that *a test nobody has watched fail is a guess about what it
+covers*. Nobody had watched these fail. The sentence was a guess wearing a
+measurement's clothes, in the document whose subject is that mistake.
+
+**Settled by running it, because the disagreement was decidable.** Deciding by
+*category* was the error in both positions. All nine were registered temporarily
+and run:
+
+| | |
+|---|---|
+| caught | **8 of 9** |
+| survived | 1 — `prescription: column headings are not exercises` |
+
+**The survivor was a mis-aimed mutation, not a weak test**, and that was verified
+rather than assumed: disabling the heading-strip line leaves the parsed output
+**byte-identical** on the real Nazwan fixture, because the row matcher already
+refuses a heading that lacks the `<num> <name> <reps> <sets> <rest>` shape. The
+line is a second lock. It is kept — this output is a programme somebody may
+follow, and one regex is cheap against a heading printed as a prescribed
+movement — and `prescription.js` now says so, so nobody deletes it as dead code
+or assumes it is independently covered.
+
+**Decision: no standing entries for the nine, and the reason is now measured.**
+Eight are demonstrably caught, so an entry would re-prove permanently what one
+run proved once; the ninth's test is sound. What is worth keeping is *this
+paragraph*, not the entries — §80's principle exactly: recording the negative
+means the next pass does not re-audit it from scratch.
+
+**What would change the answer:** any of these nine becoming a guard rather than
+a behavioural assertion — i.e. if production code began *depending* on the
+absence rather than merely exhibiting it. That is the 3t trigger, and it is the
+thing to re-check, not the runtime.
+
+```
+backend 53 suites / 754 tests · frontend 21 / 346 · 47 mutations caught
+audit:access 67 endpoints, no read-only role reaches a write
+e2e 110/110 · tsc + lint clean · map current
+```
+
+---
+
+## 91. An industry-standards pass, measured rather than opinioned (2026-09-13)
+
+A sweep against ordinary Node/Express/Next practice rather than against this
+project's own backlog. Most of it came back **already done** — and saying so
+matters as much as the fixes, because "we checked and it was fine" is the half
+of an audit that never gets written down and therefore gets re-run:
+
+| checked | finding |
+|---|---|
+| `npm audit`, frontend | 0 vulnerabilities |
+| `xlsx` (the usual offender) | already the patched **0.20.3 from the SheetJS CDN**, not the abandoned npm 0.18.5 |
+| secret hygiene | no `.env` tracked; only `.env.example` / `.env.local.example` |
+| API security headers | full helmet set live (HSTS, nosniff, frameguard, CSP, referrer) |
+| CORS | explicit origin allow-list, not `*` |
+| brute-force | database-backed limiter on `/api/auth` (§48) |
+| graceful shutdown | SIGTERM/SIGINT drain + pool close, already present |
+| fire-and-forget audit writes | **already `.catch()`-ed** on both paths — the unhandled-rejection crash this pass went looking for cannot fire |
+| outdated packages | all four are **documented refusals** (tesseract 5 pinned, Next 16 §82.3, TS 7 §89), not drift |
+
+What follows is what was actually wrong.
+
+### 91.1 The last-resort error handler contradicted §48 in four ways
+
+`server.js` ended in the handler every Express app ends in:
+
+```js
+app.use((err, _req, res, _next) => {
+  console.error(err.stack);
+  res.status(500).json({ message: 'Internal server error' });
+});
+```
+
+Measured against the real app with supertest:
+
+| request | express threw | caller was told |
+|---|---|---|
+| malformed JSON body | `status: 400, expose: true, type: entity.parse.failed` | **500** `Internal server error` |
+| 200 KB body | `PayloadTooLargeError, status: 413` | **500** `Internal server error` |
+
+Four defects in six lines:
+
+1. **A 4xx was reported as a 5xx.** §48's whole rule is that a 4xx keeps its
+   message because it is a statement about the REQUEST. This handler told a
+   caller who sent broken JSON that the *server* had failed. CLAUDE.md gotcha 9
+   already records the cost of exactly this — "answers 500 before any of your
+   code runs, which reads as a server bug you just introduced" — filed as a
+   curl-quoting trap, when it was also this.
+2. **A fourth message vocabulary.** `'Internal server error'` against
+   httpError's `GENERIC`, which names what to do next. The same defect class as
+   the four band maps (§53) and the three medians (§56): one meaning, several
+   spellings, discovered when they disagree.
+3. **Unstructured logging on the one path that most needs structure.**
+   `utils/logger.js` calls `logger.error('request.failed')` "the alert condition
+   for the whole API" — and this path skipped it for a raw stack. The single
+   failure class that escapes every route handler was the single class nothing
+   could alert on.
+4. **No `headersSent` check.** A report PDF failing mid-render would have had a
+   JSON body written after its headers, corrupting the download.
+
+The fix is not new code. `sendError` already decides all of it, on intent rather
+than status, and is where all 67 routes end. Handing it this error is what makes
+"every failure converges here" true rather than nearly true.
+
+**This matters more under Express 5 than it would have under 4.** Express 5
+forwards a rejected promise from any `async` route handler to the error handler
+automatically — so this is not merely body-parser's backstop, it is the catch-all
+for every unhandled async failure in all 67 routes.
+
+### 91.2 The field nobody thought to redact — caught before it shipped
+
+The obvious context to pass `sendError` is `req.path`. It is wrong, and the
+first version of the fix did it.
+
+`logger.js` redacts by KEY name against
+`/(name|athleteid|ic|note|token|password|secret|email|body|score|band)/i`.
+`context` matches none of them, so `/api/athletes/890202021001` would have
+written an **IC number** — a direct identifier encoding date of birth, birth
+state and sex — straight into a third-party log viewer. That is the precise
+disclosure `logger.js` exists to refuse, arriving through the one field its
+regex does not cover, in a change whose stated purpose was better logging.
+
+Two segments only (`GET /api/athletes`), which is also what every existing call
+site passes (`'athletes.js'`). Verified by probe: IC absent from the log line,
+driver text absent from the client response, stack still present for the
+operator.
+
+**The general lesson, and it is the §54 lesson again:** a redaction list keyed on
+field NAMES protects the fields somebody thought of. It is a denylist, and the
+next leak will be through whatever the next contributor names their new field.
+
+### 91.3 An advisory npm wanted fixed by a seven-year downgrade
+
+Two moderate advisories, both the same one: `uuid` <11.1.1,
+[GHSA-w5hq-g745-h8pq](https://github.com/advisories/GHSA-w5hq-g745-h8pq),
+a missing buffer bounds check **in v3/v5/v6 when a `buf` argument is passed**.
+Reached through `sequelize@6.37.8 → uuid@8.3.2`.
+
+npm's `fixAvailable` was `sequelize@3.30.0` — a major *downgrade* to a 2017
+release, which would take the ORM out from under every model in the project to
+patch a function nothing calls. Sequelize uses `uuid.v4()` only, with no
+arguments; AIRMS declares no UUID columns.
+
+So the vulnerable path is **unreachable**, and the honest options were to
+document that or to remove it. It was removed, via `overrides: { "uuid":
+"^11.1.1" }` alongside the existing `qs` pin — because the cost of leaving it is
+not the advisory, it is that `npm audit` stays permanently red, and a permanently
+red audit is one nobody reads on the day a reachable advisory appears in it.
+Verified: `found 0 vulnerabilities`, uuid resolves to 11.1.1, CJS `require`
+works (uuid 11 still ships it), and Sequelize instantiates and generates SQL.
+
+### 91.4 The runtime nobody had declared
+
+No `engines` field in any of the three `package.json` files. Ordinary hygiene
+anywhere; specific here, because Vercel selects its Node runtime from it and
+this backend carries a **native, version-coupled** PDF pipeline — §82 records
+that moving `pdfjs-dist` or `@napi-rs/canvas` independently *segfaults*, a hard
+crash with no stack. An undeclared runtime is that same coupling left to the
+platform's default.
+
+Pinned to the tested major, `>=22.0.0 <23.0.0`, in all three. **The upper bound
+is deliberate and has a cost**: it must be raised when Node 22 goes
+end-of-life, or Vercel will refuse the build. That is the intended failure —
+loud, at a time of our choosing — rather than a silent jump to an untested major
+underneath a native dependency.
+
+### 91.5 The API was hardened; the half that renders the data was not
+
+helmet has covered the API for months. `frontend/next.config.js` set **no
+headers at all** — and that is the half a clinician's browser loads, and the half
+that paints names, IC numbers and clinical notes.
+
+Added, each checked against what AIRMS actually does rather than copied from a
+checklist:
+
+- **`frame-ancestors 'none'` + `X-Frame-Options: DENY`.** Verified first that
+  the app contains no `<iframe>`, `<embed>` or `<object>` — PDFs are fetched
+  with an auth header and saved through a blob URL, never framed. Clickjacking
+  matters here beyond the usual, because the controls being baited include
+  *declare an athlete injured* and *override a clinical band*.
+- **`Referrer-Policy: strict-origin-when-cross-origin`.** Routes carry ICs
+  (`/medical/athlete/<ic>`); a full-URL referer would leak the identifier
+  `logger.js` refuses to log and `/teammates` withholds.
+- **`X-Content-Type-Options: nosniff`**, and a **`Permissions-Policy`** denying
+  camera/microphone/geolocation — verified unused today, so the cost is nil and
+  the effect is that a future dependency cannot quietly begin asking.
+
+**A full CSP was deliberately NOT added** — *superseded the same day by §92,
+on JC's instruction.* The reasoning is kept because the deferral turned out to
+be right about the mechanism and wrong about the conclusion: a `script-src`
+policy on Next does need per-request nonces, and a wrong one does fail by
+silently blocking hydration. What the deferral got wrong was treating "must be
+verified in a real browser" as a reason to **postpone** rather than as a
+**specification for the verification to build**. See §92.
+`frame-ancestors` is safe precisely because it constrains no script.
+
+Verified live against `next dev`: all five headers present on `/` and on a
+nested route, page still rendering.
+
+### 91.6 The guards that only ran when somebody remembered
+
+The largest gap, and the one least visible from inside the code. This repo
+carries ~1,100 unit tests, 47 mutation guards, and staleness checks that fail if
+`docs/SYSTEM_MAP.md` or either generated `shared/facts` copy drifts — and every
+one of them ran **only when a human chose to run it**. The commits likeliest to
+skip that are the late pre-deadline ones, which are the commits the guards exist
+for. A push to `feat/mysql-migration` deploys both Vercel projects, so "nobody
+ran the tests" and "it is live" are the same instant.
+
+`.github/workflows/ci.yml`: two jobs, `checks` (both suites, types, lint) and
+`mutate` (separate because it exceeds two minutes — a developer waiting on lint
+should not wait on it).
+
+**No database service, deliberately.** Verified that nothing under `backend/tests/`
+calls `connectDB` or `sequelize.authenticate`, so the suites need no MySQL
+container and no secrets. The checks that *do* need a live instance —
+`audit:access`, `verify:claims`, `e2e` — are **left out rather than half-wired**:
+a green tick that quietly skipped them is a worse signal than no tick.
+
+One step was wrong when written and caught before pushing: `npm --prefix
+frontend exec -- tsc` does **not** change the working directory for `exec`
+(only `run` honours `--prefix`), so it resolved `tsconfig.json` against the repo
+root and died. Hence the new `typecheck` script — which also gives the check a
+name locally. Every step was then run as spelled, from the root, and the
+workflow parsed with a real YAML parser rather than eyeballed.
+
+### 91.7 Next was guessing its own build root
+
+`next lint`, `next build` and jest each printed a warning that Next had inferred
+the workspace root as the **repo root**, having found three lockfiles.
+
+It was right to doubt itself: the three lockfiles exist because the packages are
+deliberately self-contained (a *deployment* constraint — Vercel builds `airms-web`
+with Root Directory `frontend`, so the repo root is not in the build context at
+all), and file tracing rooted one level too high traces against a tree the build
+will never see. `outputFileTracingRoot: __dirname` states it.
+
+The warning was also its own argument for fixing: a permanent warning nobody can
+act on is how a *real* one goes unread later.
+
+---
+
+```
+backend 53 suites / 754 tests · frontend 21 / 346 · 47 mutations caught
+tsc + lint clean (lint now warning-free) · map current
+npm audit: 0 vulnerabilities, both packages
+error handler: 400 stays 400, 413 stays 413, 500 stays generic, IC never logged
+web app: 5 security headers verified live; full CSP recorded as a stated gap
+```
+
+---
+
+## 92. Both deferrals overruled — and the CSP one was wrong for an instructive reason (2026-09-13)
+
+§91 closed with two judgement calls offered for reversal: the `engines` upper
+bound, and a full CSP recorded as a stated gap. JC reversed both. One was a
+one-line preference; the other was a mistake worth writing down.
+
+### 92.1 `engines` — the upper bound came off
+
+`>=22.0.0 <23.0.0` → `>=22.0.0` in all three packages. §91.4 argued the bound
+made an untested-major jump fail loudly at a time of our choosing; against that,
+it guarantees a build break on a date nobody has diarised, for a runtime that
+would very likely have worked. JC's call, and it is the reversible direction:
+the floor still states what the project is tested on, and re-adding the ceiling
+is one edit if a future Node actually breaks the native PDF pipeline.
+
+### 92.2 The CSP — deferring verification is not the same as deferring the work
+
+§91.5 declined to ship a `script-src` policy, reasoning that a wrong one fails by
+silently blocking hydration and so "must be verified in a real browser, not
+asserted from a config file". Every clause of that is true. **The conclusion
+drawn from it was wrong**, and the error is a general one worth naming:
+
+> "This needs real verification" is a **specification for the verification**, not
+> a licence to postpone the feature. The deferral treated the hard part as a
+> reason to stop, when it was a description of what to build next.
+
+The tell was already in the sentence: it named the exact failure mode, the exact
+tool (`npm run e2e`, real Chrome, already in the repo) and the exact standard of
+proof. That is a completed design, filed as a gap.
+
+**What it required, measured rather than predicted.** `src/middleware.ts`
+generates a per-request nonce (`crypto.getRandomValues` + `btoa` — the Edge
+runtime has no `Buffer`) and builds the policy; the four static headers stay in
+`next.config.js`. The full CSP is declared in ONE place: two
+`Content-Security-Policy` headers are enforced as an *intersection*, which works
+and means the effective policy is written in two files, where a later edit to
+one silently changes the other.
+
+`connect-src` is the directive that matters most here and is derived from
+`NEXT_PUBLIC_API_URL`, the same value `lib/api.ts` reads. The web app and API are
+different origins in *every* environment (`:3000` vs `:5000` local,
+airms-web vs airms-api hosted). A CSP that forgets this does not fail loudly —
+pages render and every panel silently fetches nothing.
+
+### 92.3 The first attempt failed exactly as §91.5 predicted, and the verifier caught it
+
+First production run: **10 of 19 checks**. Chrome blocked all 16 inline scripts
+and every chunk. The decisive pair of results:
+
+| check | result |
+|---|---|
+| `/` rendered real content | **ok** |
+| `/` hydrated (React attached) | **FAIL** |
+
+A full-length document, status 200, real text — and dead. `curl` could not have
+told the difference, and neither could any assertion about the header.
+
+**The cause was structural, not a typo.** Those routes were statically
+prerendered (`○`), so their HTML is fixed at build time and cannot carry a
+per-request nonce. Confirmed directly: the served HTML contained **zero** `nonce`
+attributes against a policy demanding one. The choice was therefore never
+"write the policy correctly" but:
+
+| option | cost |
+|---|---|
+| `script-src 'unsafe-inline'` | keeps static rendering; barely a policy — inline XSS is the threat |
+| nonce + `force-dynamic` | a real policy; pages render per request instead of from the CDN |
+
+Taken: `export const dynamic = 'force-dynamic'` in the root layout, **one line,
+commented as the rollback point**. The cost is small *here specifically* because
+every AIRMS page is a client component fetching its own data with a localStorage
+JWT — the shell was never personalised, so what stops being cached is an empty
+frame. That is a real trade, stated rather than buried.
+
+### 92.4 What the verification is, and the artefact that made it trustworthy
+
+`frontend/scripts/verify-csp.js` (`npm run verify:csp`) asserts three
+independent things, because **any one alone passes against a broken policy**:
+
+1. **Zero `securitypolicyviolation` events**, with the listener registered via
+   `evaluateOnNewDocument` — *before* navigation. A listener added on `load`
+   misses every violation raised during parse, which is all the ones that matter,
+   and would have reported this very failure as clean.
+2. **The page hydrated.** React must actually have attached; server HTML proves
+   nothing.
+3. **The policy is the strict one** — nonce present, `'unsafe-inline'` and
+   `'unsafe-eval'` absent, nonce *fresh per request*. A reused nonce is a
+   nonce-shaped constant.
+
+Against a **production build**, deliberately: `next dev` needs `'unsafe-eval'`,
+so a dev run passes under a looser rule and proves nothing about what ships.
+
+**This guard has been seen to fail**, which is the standing requirement here
+(§90.5, SILENT_FAILURES 3u): the 10/19 run above was a genuine failure of the
+real defect, not a synthetic mutation — better evidence than a registry entry.
+
+**Then the authenticated half.** The three public routes are not the risk; the
+dashboards with Chart.js canvases and the body map are. `npm run e2e` was run
+against the CSP-hardened production build: **110/110**, with the body map drawing
+155–156 regions and charts carrying geometry on every role's detail view.
+
+One false alarm on the way, recorded because it would mislead the next person:
+run against a production build on port **3210**, e2e reported authenticated pages
+at 121–370 characters and every body map empty — which reads exactly like CSP
+damage. It was CORS. `FRONTEND_URL` allows `:3000`, so the browser discarded
+every API response. Gotcha 1 says never to edit CORS as a workaround; moving the
+server to `:3000` gave 110/110. **A CSP failure and a CORS failure present
+identically from the page's side** — both are "the document loaded and the panels
+are empty". Check the allow-list before suspecting the policy.
+
+CI runs `verify:csp` as its own job, because the thing most likely to
+reintroduce this is a Next upgrade changing how the bootstrap is emitted —
+silently.
+
+---
+
+```
+CSP: 19/19 real-browser checks, production build
+e2e against that same build: 110/110 (body map 155 regions, charts drawing)
+backend 53 suites / 754 tests · frontend 21 / 346 · 47 mutations caught
+typecheck + lint clean · map current · npm audit 0 both packages
+```

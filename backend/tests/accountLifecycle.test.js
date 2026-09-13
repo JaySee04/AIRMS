@@ -150,6 +150,56 @@ describe('creatable roles agree across the two packages', () => {
     expect(page).not.toMatch(/<option value="athlete"/);
   });
 
+  // THE EXCLUSION ABOVE IS ONLY DEFENSIBLE BECAUSE ANOTHER ROUTE EXISTS.
+  //
+  // Until 2026-09-13 it did not. POST /users refuses the role and the seeder was
+  // the only other place an athlete User had ever been created, so on a real
+  // deployment no athlete could obtain a login at all — while the test above
+  // passed, describing the gap as a deliberate design. An athlete imported from
+  // a HoloMotion report got a dashboard nobody could ever sign into.
+  //
+  // So the exclusion is pinned to its replacement rather than asserted alone.
+  // Deleting the roster route makes this fail instead of quietly restoring the
+  // original defect.
+  it('athletes are invitable from the ROSTER instead, bound to their roster row', () => {
+    const athletesSrc = fs.readFileSync(
+      path.join(__dirname, '..', 'src', 'routes', 'athletes.js'), 'utf8',
+    );
+    expect(athletesSrc).toMatch(/router\.post\(\s*'\/:id\/invite'/);
+    // Admin-only, like every other account-creating route.
+    expect(athletesSrc).toMatch(/router\.post\(\s*'\/:id\/invite',\s*auth,\s*rbac\('admin'\)/);
+    // The binding is the whole point: an account created without `athleteId` is
+    // refused from its own record by the self-scope check in GET /athletes/:id,
+    // which is a login that works attached to a dashboard that resolves nothing.
+    //
+    // Scoped to the User.create CALL, not to the handler. The first version
+    // searched from the route to end-of-file and passed against the mutation
+    // that nulls the binding, because `athleteId: athlete.athleteId` also
+    // appears in the lookup, the re-send audit meta and the create audit meta —
+    // three matches that have nothing to do with what is written to the row.
+    // Found by `npm run mutate` reporting SURVIVED, which is what it is for.
+    const create = athletesSrc.slice(
+      athletesSrc.indexOf('const user = await User.create({'),
+      athletesSrc.indexOf('await sendInvite(user, req, { creating: true })'),
+    );
+    expect(create).toMatch(/role: 'athlete'/);
+    expect(create).toMatch(/athleteId: athlete\.athleteId/);
+  });
+
+  // One definition of what an invitation is, shared by both routes. Two copies
+  // is how one of them ends up with a longer TTL or an uncleared attempt
+  // counter — the reason the one-time code itself lives in utils/resetCodes.js.
+  it('both invitation routes mint through the same util', () => {
+    const athletesSrc = fs.readFileSync(
+      path.join(__dirname, '..', 'src', 'routes', 'athletes.js'), 'utf8',
+    );
+    for (const src of [routeSrc, athletesSrc]) {
+      expect(src).toMatch(/require\('\.\.\/utils\/invite'\)/);
+      // Neither route may roll its own throwaway password.
+      expect(src).not.toMatch(/crypto\.randomBytes\(32\)/);
+    }
+  });
+
   it('every creatable role is offered by the form', () => {
     const options = [...page.matchAll(/<option value="([a-z]+)"/g)].map((m) => m[1]);
     expect(sorted(options)).toEqual(sorted(INVITABLE_ROLES));

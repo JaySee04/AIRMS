@@ -158,6 +158,11 @@ describe('this package covers every shared indicator', () => {
   });
 
   it('still excludes LDH after the composition', () => {
+    // Asserted BEFORE the loop, because a `for…of` over an empty array is
+    // vacuously true: emptying EXCLUDED_RISK_KEYS used to make this test pass
+    // while asserting nothing at all. Found by `npm run mutate` — the mutation
+    // that empties the list survived here. See SILENT_FAILURES 3u.
+    expect(EXCLUDED_RISK_KEYS).toContain('spinalDiscHerniation');
     for (const k of EXCLUDED_RISK_KEYS) {
       expect(INDICATORS.map((i) => i.key as string)).not.toContain(k);
     }

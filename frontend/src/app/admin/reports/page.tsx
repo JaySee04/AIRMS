@@ -31,7 +31,7 @@ export default function AdminReportsPage() {
     (async () => {
       try {
         const [rows, ds] = await Promise.all([
-          api.get<PickableAthlete[]>('/athletes'),
+          api.get<PickableAthlete[]>('/athletes/meta/roster'),
           api.get<Array<{ sport: string; discipline: string }>>('/athletes/meta/disciplines').catch(() => []),
         ]);
         if (!cancelled) {

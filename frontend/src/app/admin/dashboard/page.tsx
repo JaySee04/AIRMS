@@ -46,7 +46,7 @@ interface ScreeningCohort {
   topMyodynamia: Array<{ muscle: string; count: number }>;
   topTension: Array<{ muscle: string; count: number }>;
   bandDistribution: { green: number; amber: number; red: number; none: number };
-  // The 25-cell subitem table, aggregated. See backend/utils/subitemAggregate.js.
+  // The 25-cell subitem table, aggregated. See backend/src/utils/subitemAggregate.js.
   subitems: {
     n: number;
     matrix: Array<{ key: string; label: string; cells: Array<{ key: string; label: string; value: number | null; n: number }> }>;

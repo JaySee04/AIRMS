@@ -11,6 +11,7 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import { api } from '@/lib/api';
 import { ISN_SPORTS } from '@/lib/sports';
 import SportSelect from '@/components/ui/SportSelect';
+import AthleteSearchSelect, { type PickableAthlete } from '@/components/ui/AthleteSearchSelect';
 import { passwordRules, validatePassword, PASSWORD_MIN_LENGTH } from '@/lib/passwordPolicy';
 import { isnDay } from '@/lib/dates';
 
@@ -46,10 +47,11 @@ const ROLE_INFO: Record<Role, { noun: string; can: string[]; cannot: string[] }>
   },
 };
 
-// The roles an administrator may create here. Mirrors INVITABLE_ROLES in
-// backend/src/routes/users.js — `athlete` is excluded from both, because an
-// athlete account also needs a roster record to attach to, which is a different
-// decision from "who may use the system".
+// The STAFF roles an administrator may create from this form. Mirrors
+// INVITABLE_ROLES in backend/src/routes/users.js — `athlete` is excluded from
+// both, and is invited from the "Athlete logins" card below instead, because an
+// athlete account must be bound to a roster row and that binding is picked from
+// the roster rather than typed (DESIGN_DECISIONS §88).
 type Role = 'coach' | 'medical' | 'admin' | 'executive';
 
 interface StaffUser {
@@ -117,6 +119,25 @@ export default function AdminPersonnelPage() {
   const [addError, setAddError] = useState<string | null>(null);
   const [addMsg, setAddMsg] = useState<string | null>(null);
 
+  // ── Athlete logins ────────────────────────────────────────────────────────
+  // Separate from the staff form above, and deliberately not another option in
+  // its role picker. An athlete account is bound to a ROSTER ROW, and the thing
+  // that binds it is the IC number — picked from the roster here, never typed,
+  // so it cannot be mistyped into an account that authenticates and then cannot
+  // read its own record.
+  const [roster, setRoster] = useState<PickableAthlete[]>([]);
+  const [inviteAthleteId, setInviteAthleteId] = useState('');
+  const [athleteEmail, setAthleteEmail] = useState('');
+  // The typed address, held for confirmation before anything is sent. The
+  // address is validated by nobody: a typo puts a code that SETS THE PASSWORD on
+  // a real athlete's account into a stranger's inbox, and it sits there for the
+  // whole 24-hour window. That is the weakness the invite TTL was shortened
+  // for (DESIGN_DECISIONS §85) — this is the other half of it.
+  const [athleteConfirm, setAthleteConfirm] = useState<{ name: string; ic: string; email: string } | null>(null);
+  const [athleteBusy, setAthleteBusy] = useState(false);
+  const [athleteError, setAthleteError] = useState<string | null>(null);
+  const [athleteMsg, setAthleteMsg] = useState<string | null>(null);
+
   const load = useCallback(async () => {
     try {
       const [m, coachList, medList, adminList, execList] = await Promise.all([
@@ -140,6 +161,52 @@ export default function AdminPersonnelPage() {
     }
   }, []);
   useEffect(() => { load(); }, [load]);
+
+  // The roster, for the athlete picker only. Its own effect and its own failure:
+  // it must not take the staff lists down with it, because managing staff does
+  // not depend on it.
+  useEffect(() => {
+    let cancelled = false;
+    api.get<PickableAthlete[]>('/athletes/meta/roster')
+      .then((rows) => { if (!cancelled) setRoster(rows); })
+      .catch(() => { if (!cancelled) setRoster([]); });
+    return () => { cancelled = true; };
+  }, []);
+
+  const pickedAthlete = roster.find((a) => a.athleteId === inviteAthleteId) || null;
+
+  // Step 1 of 2. Nothing is sent here — this only puts the address in front of
+  // the administrator with the athlete's name beside it.
+  function reviewAthleteInvite(e: React.FormEvent) {
+    e.preventDefault();
+    setAthleteError(null); setAthleteMsg(null);
+    if (!pickedAthlete) { setAthleteError('Pick an athlete from the roster first.'); return; }
+    const addr = athleteEmail.trim().toLowerCase();
+    if (!addr) { setAthleteError('An email address is required.'); return; }
+    setAthleteConfirm({ name: pickedAthlete.name, ic: pickedAthlete.athleteId, email: addr });
+  }
+
+  async function sendAthleteInvite() {
+    if (!athleteConfirm) return;
+    setAthleteBusy(true); setAthleteError(null); setAthleteMsg(null);
+    try {
+      const r = await api.post<{ invited?: boolean; inviteError?: string; resent?: boolean }>(
+        `/athletes/${athleteConfirm.ic}/invite`, { email: athleteConfirm.email },
+      );
+      if (r.invited === false) {
+        setAthleteError(`The account for ${athleteConfirm.name} exists, but the invitation could not be sent${r.inviteError ? `: ${r.inviteError}` : ''}. Try again.`);
+      } else {
+        setAthleteMsg(`${r.resent ? 'Re-sent' : 'Sent'} — ${athleteConfirm.name} can activate their account with the code emailed to ${athleteConfirm.email}.`);
+        setInviteAthleteId(''); setAthleteEmail('');
+      }
+      setAthleteConfirm(null);
+    } catch (err) {
+      setAthleteError(err instanceof Error ? err.message : 'Failed to send the invitation');
+      setAthleteConfirm(null);
+    } finally {
+      setAthleteBusy(false);
+    }
+  }
 
   const sportRequired = role === 'coach';
   const canAdd = name.trim() && email.trim() && (byInvite || !validatePassword(password)) && (!sportRequired || sport.trim());
@@ -376,7 +443,7 @@ export default function AdminPersonnelPage() {
               </label>
               <p className="card-sub" style={{ margin: 0 }}>
                 {byInvite
-                  ? 'They choose their own password from the code. Nobody here ever knows it, and the code expires in 7 days.'
+                  ? 'They choose their own password from the code. Nobody here ever knows it, and the code expires in 24 hours — if it lapses they can use “Forgot password?” themselves, without asking you.'
                   : 'You will have to pass this password to them somehow, and you will know it afterwards. Use only for a demo account or somebody with no working mailbox.'}
               </p>
             </div>
@@ -418,6 +485,79 @@ export default function AdminPersonnelPage() {
             {adding ? 'Creating…' : `Create ${ROLE_INFO[role].noun.toLowerCase()}`}
           </button>
         </form>
+      </div>
+
+      {/* Athlete logins */}
+      <div className="card" style={{ marginBottom: 20 }}>
+        <div className="card-header"><div>
+          <h2 className="card-title" style={{ marginBottom: 0 }}>Athlete logins</h2>
+          <span className="card-sub">
+            An athlete on the roster has no login until they are invited here. Pick them from the roster
+            so the account is bound to their record — an athlete invited by hand-typed IC gets a sign-in
+            that works and a dashboard that shows nothing.
+          </span>
+        </div></div>
+        {athleteError && <div className="alert alert-error">{athleteError}</div>}
+        {athleteMsg && <div className="alert alert-success">{athleteMsg}</div>}
+
+        {athleteConfirm ? (
+          // Echo-back confirm. The address was typed a moment ago and is about
+          // to receive a code that sets the password on a named athlete's
+          // account; this is the last point at which a typo is free to fix.
+          <div className="role-note role-note--strong">
+            <p style={{ margin: '0 0 10px' }}>
+              Send an activation code for <strong>{athleteConfirm.name}</strong> (IC {athleteConfirm.ic}) to:
+            </p>
+            <p style={{ margin: '0 0 10px', fontSize: 'var(--fs-lg)' }}><strong>{athleteConfirm.email}</strong></p>
+            <p className="card-sub" style={{ margin: '0 0 12px' }}>
+              Check the address. Whoever receives this code can set the password on {athleteConfirm.name}’s
+              account, and it stays valid for 24 hours.
+            </p>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button type="button" className="btn btn-gold" onClick={sendAthleteInvite} disabled={athleteBusy}>
+                {athleteBusy ? 'Sending…' : 'Send invitation'}
+              </button>
+              <button type="button" className="btn" onClick={() => setAthleteConfirm(null)} disabled={athleteBusy}>
+                Change the address
+              </button>
+            </div>
+          </div>
+        ) : (
+          <form onSubmit={reviewAthleteInvite}>
+            <div className="form-row-2">
+              <div className="form-group">
+                <label>Athlete <span style={{ color: 'var(--risk-high)' }}>*</span></label>
+                <AthleteSearchSelect
+                  athletes={roster}
+                  onSelect={setInviteAthleteId}
+                  placeholder="Search the roster by name or IC…"
+                  ariaLabel="Athlete to invite"
+                />
+                {pickedAthlete && (
+                  <p className="card-sub" style={{ margin: '6px 0 0' }}>
+                    IC {pickedAthlete.athleteId}{pickedAthlete.sport ? ` · ${pickedAthlete.sport}` : ''}
+                  </p>
+                )}
+              </div>
+              <div className="form-group">
+                <label>Email <span style={{ color: 'var(--risk-high)' }}>*</span></label>
+                <input
+                  type="email"
+                  value={athleteEmail}
+                  onChange={(e) => setAthleteEmail(e.target.value)}
+                  placeholder="their.name@example.com"
+                  autoComplete="off"
+                />
+                <p className="card-sub" style={{ margin: '6px 0 0' }}>
+                  Not held on the roster — AIRMS stores no athlete email until one is given here.
+                </p>
+              </div>
+            </div>
+            <button type="submit" className="btn btn-gold" disabled={!inviteAthleteId || !athleteEmail.trim()}>
+              Review invitation
+            </button>
+          </form>
+        )}
       </div>
 
       {/* Coaches */}

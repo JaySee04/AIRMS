@@ -1526,3 +1526,204 @@ symptom was measured, a cause was *inferred*, and the inference propagated into
 six places in the voice of a measurement. **Write down which sentences you
 measured and which you reasoned to** — the diagnostic that settled this took
 under an hour, and the wrong explanation had already been committed three times.
+
+---
+
+### 3t. The absence that documented itself as a decision (2026-09-13)
+
+The gap: **an athlete could not be given a login at all.** `POST /api/users` is
+the only route that creates a `User` and it refuses the `athlete` role; the
+seeder was the only other source. Measured on the dev database: **60 of 62
+roster athletes had no account**, and the two that did were seeded demos.
+
+What makes this belong here rather than in a bug list is the guard. A test
+asserted the exclusion and passed:
+
+```js
+it('athlete is excluded from both — an athlete account also needs a roster record', …)
+```
+
+That sentence was true when written. It describes a *deliberate scope decision*,
+and it kept describing one after the roster became something real people are
+added to by importing a PDF — at which point the same sentence had quietly
+become a description of a system that cannot onboard its primary user. Nothing
+failed. The test went green on every run, and its own comment argued the case
+for the defect.
+
+**The sub-pattern: a guard that pins an ABSENCE states a decision, and a
+decision can expire.** A guard on a present behaviour breaks when the behaviour
+changes. A guard on a missing one keeps passing no matter how the world moves
+around it, because nothing about "athlete is not in this array" depends on
+anything else being true.
+
+The remedy is not to delete such a guard — the exclusion is still correct, for a
+real reason (the account must be bound to a roster row, and the IC that binds it
+must not be hand-typed into a personnel form). The remedy is to **pin the
+absence to its replacement**, so the pair cannot drift apart:
+
+```js
+it('athletes are invitable from the ROSTER instead, bound to their roster row', …)
+```
+
+Deleting `POST /athletes/:id/invite` now fails that test rather than silently
+restoring the original hole. Both are registered in `npm run mutate`.
+
+**Sweep for the rest of this class:** any test whose name contains *excluded*,
+*never*, *not offered*, *cannot*, or asserts `not.toContain` / `not.toMatch` on
+a capability. Ask of each: *if this absence became wrong, what would fail?* If
+the answer is "nothing", it is documentation wearing a test's clothes.
+
+### 3u. The test that agreed with its own mutation (2026-09-13)
+
+The replacement guard for 3t was written, passed, and was **wrong** — caught by
+`npm run mutate` reporting `SURVIVED`.
+
+It asserted that the invite handler binds the account to its roster row:
+
+```js
+const handler = src.slice(src.indexOf("router.post('/:id/invite'")); // → END OF FILE
+expect(handler).toMatch(/athleteId: athlete\.athleteId/);
+```
+
+The mutation nulls the binding in the `User.create` call — the one place it
+matters. The test still passed, because `athleteId: athlete.athleteId` also
+appears three more times in that slice: the existing-account lookup, the re-send
+audit meta and the create audit meta. None of them writes the row. Scoped to the
+`User.create` call, it fails correctly.
+
+This is the **fifth** instance of a check and its own test agreeing while both
+were wrong (3l, 3n, 3o, 3p) — and the **first one a machine caught rather than a
+person**, which is the entire argument for §4 having been built.
+
+The narrow lesson: **an unbounded `slice` is not a scope.** `indexOf(start)` with
+no end silently includes everything after it, and a source-reading assertion is
+only as precise as its window. The general one is unchanged and is why the
+runner exists — a test nobody has watched fail is a guess about what it covers.
+
+**It happened a second time in the same session, on the highest-stakes rule in
+the system.** Dr Thung's LDH exclusion was mutation-proven on the *backend* copy
+of `shared/facts.js` only, so a new entry was added for the frontend copy —
+emptying `EXCLUDED_RISK_KEYS` and expecting `screeningAlerts.indicators.test.ts`
+to notice. It reported `SURVIVED`, and the reason was instructive: that test
+pins LDH by the **literal string**, so it is blind to the constant emptying, and
+correctly so. `EXCLUDED_RISK_KEYS` is an **assertion anchor, not a filter** — no
+production code in either package filters on it; LDH is excluded by being absent
+from `RISK_INDICATORS`. The entry was pointed at the wrong test.
+
+Chasing it surfaced a third thing, in a test that had been green for days:
+
+```ts
+for (const k of EXCLUDED_RISK_KEYS) {           // empty array
+  expect(INDICATORS).not.toContain(k);          // never runs
+}
+```
+
+**A `for…of` over an empty array is vacuously true.** Emptying the list made
+that test assert *nothing* and still pass — the guard and the thing it guards
+failing together, one level down. It now asserts `toContain` **before** the
+loop.
+
+Both LDH rules are now pinned in both packages and in both directions: the list
+cannot be emptied (the rule stays stateable), and LDH cannot be put back into
+`RISK_INDICATORS` (it cannot re-enter a rendered view). 47 mutations, all
+caught.
+
+**The compound lesson: a mutation that survives is not always a weak test — it
+is sometimes a mis-aimed mutation, and telling the two apart is the work.**
+Reading *why* it survived is what found the vacuous loop; assuming the test was
+simply weak and rewriting it would have left that defect in place.
+
+**A third instance the same day, resolved the other way.** The nine remaining
+absence-asserting tests from the 3t sweep were run as a one-off experiment
+(`DESIGN_DECISIONS.md §90.5`). **Eight were caught.** The survivor —
+`prescription: never reads the column headings as an exercise` — was again a
+mis-aimed mutation, and this time the proof was direct: disabling the
+heading-strip line leaves the parser's output **byte-identical** on the real
+fixture, because the row matcher already refuses a heading that lacks the
+`<num> <name> <reps> <sets> <rest>` shape.
+
+So that line is a **second lock**, not a live one. Three outcomes are now
+distinguishable when a mutation survives, and they need different responses:
+
+| survived because… | response |
+|---|---|
+| the test is weak | fix the test (3u, first instance) |
+| the mutation is aimed at the wrong test | re-aim it — and read *why*, which is what found the vacuous loop |
+| the mutated line is redundant defence-in-depth | keep the line, keep the test, **say so in the code** |
+
+The third is the one that will be misread. A redundant lock looks exactly like
+dead code to a later reader with a linter, and deleting it stays silent until a
+layout arrives that the first lock does not cover. `prescription.js` now carries
+that note at the line itself, because a finding recorded only in a document is
+not where the person holding the delete key is looking.
+
+### 3v. The copy that was wrong by 7× where it mattered most (2026-09-13)
+
+The invitation TTL was shortened from 7 days to 24 hours on 2026-09-12 (§85).
+The constant moved, the email body moved, `REPORT_TABLE_4-1.md` moved, and
+`accountLifecycle.test.js` pins both halves in both directions.
+
+The Personnel page still said:
+
+> *the code expires in 7 days*
+
+That string is what the person **granting** access reads while deciding how to
+tell the invitee. It was wrong by a factor of seven, in the direction where an
+expired code reads as a broken system rather than an expected timeout — and no
+guard covered it, because every guard pointed at the backend constant and the
+outgoing email, which are the two places that were already right.
+
+**The pattern: a value with one definition and several audiences.** The pins were
+written where the value *lives* and where it is *sent*, and missed where it is
+*explained to the person acting on it*. When a constant changes, grep the human
+copy as well as the code — the UI string is the copy nobody tests and everybody
+reads.
+
+### 3w. The error handler that blamed the server for the caller's mistake (2026-09-13)
+
+The last line of `server.js`, in the shape almost every Express app ends in:
+
+```js
+app.use((err, _req, res, _next) => {
+  console.error(err.stack);
+  res.status(500).json({ message: 'Internal server error' });
+});
+```
+
+Measured with supertest against the real app:
+
+| request | express threw | caller was told |
+|---|---|---|
+| malformed JSON body | `status: 400, expose: true` | **500** `Internal server error` |
+| 200 KB body | `status: 413` | **500** `Internal server error` |
+
+This is the defect class exactly. **A 500 is a well-formed, plausible,
+correct-looking response**, and it is a lie about whose fault the failure was: it
+sends the operator to read server logs for a bug that does not exist, over a
+request the *client* malformed. CLAUDE.md gotcha 9 had already paid for it once
+— "answers 500 before any of your code runs, which reads as a server bug you just
+introduced" — and filed it as a curl-quoting trap rather than as this.
+
+Nothing could have caught it from inside a route, because **no route is
+involved**: body-parser throws before any handler runs. Every test, every
+`audit:access` probe and every `verify:claims` check sends a well-formed body,
+so the entire verification estate agreed the API was healthy.
+
+**The pattern: the path that runs when no code of yours runs.** A codebase's
+conventions are enforced where its authors write code. The framework's own
+edges — the parser, the router's 404, the error handler of last resort — are
+where the house style silently does not apply, and they are invisible to tests
+written in terms of the application's own vocabulary. **Probe the framework
+boundary directly, with input deliberately too broken to reach your code.**
+
+Two further notes, both cheap and both general:
+
+- **Express 5 widened the blast radius.** It forwards rejected promises from
+  `async` handlers to this function, so it is not the body-parser backstop — it
+  is the catch-all for every unhandled async failure in all 67 routes.
+- **The fix nearly introduced 3-class disclosure.** Passing `req.path` as the log
+  context would have written an IC number into a third-party log viewer, because
+  `context` is not in `logger.js`'s FORBIDDEN_KEY list. A name-keyed redaction
+  list is a **denylist**: it covers the fields somebody already thought of, and
+  the next leak comes through whatever the next contributor names their field.
+  See `DESIGN_DECISIONS.md §91.2`.

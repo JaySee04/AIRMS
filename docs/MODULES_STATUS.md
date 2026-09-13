@@ -130,7 +130,12 @@
 >   administrator invites; the invitee sets the first password that ever really
 >   exists on the account. The mechanism is the password-reset flow unchanged,
 >   sharing one definition of a one-time code, so an invitation cannot end up
->   weaker than a reset. Athlete accounts are deliberately out of scope for now.
+>   weaker than a reset. **Athletes are invited from the ROSTER**
+>   (`POST /athletes/:id/invite`, 2026-09-13) rather than from the personnel
+>   form, because the account must be bound to a roster row and the IC that
+>   binds it is picked, never typed. Before that date an athlete could not be
+>   given a login at all — 60 of 62 roster athletes had none. See
+>   `DESIGN_DECISIONS.md §88` and `SILENT_FAILURES.md 3t`.
 >   Table 4.1 grows to **55** use cases.
 
 ---

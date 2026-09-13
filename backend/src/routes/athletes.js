@@ -1,7 +1,7 @@
 const express = require('express');
 const { recordAudit } = require('../utils/audit');
 const { Op } = require('sequelize');
-const { Athlete, MuscleFlag, Screening, AthleteDiscipline } = require('../models');
+const { Athlete, MuscleFlag, Screening, AthleteDiscipline, User } = require('../models');
 const {
   screeningMovement, resolveCohortStats, latestScreeningsByAthlete,
 } = require('../utils/cohorts');
@@ -9,6 +9,7 @@ const {
   belongsToCohort, resolvedCohortId, cohortLabelFor,
 } = require('../utils/overallIndicator');
 const { notifyInjuryToCoach } = require('../utils/notifications');
+const { sendInvite, inviteBlockedReason, unusablePassword } = require('../utils/invite');
 const { programmeActivityData } = require('../utils/programmeActivity');
 const { aggregateSubitems } = require('../utils/subitemAggregate');
 const { effectiveBand } = require('../utils/bands');
@@ -217,6 +218,50 @@ router.get('/meta/sports', auth, rbac('medical', 'admin', 'executive'), requireP
       raw: true,
     });
     res.json(rows.map((r) => r.sport).filter(Boolean));
+  } catch (err) {
+    sendError(res, err, 'athletes.js');
+  }
+});
+
+// GET /api/athletes/meta/roster — the roster as a PICKER needs it, and nothing more.
+//
+// Four surfaces (Personnel, the Activity Log, admin Reports and the import
+// uploader) pull the full `GET /athletes` purely to fill an athlete picker, then
+// filter it client-side. Measured on 62 athletes: **44.2 KB, 28 keys a row**, to
+// use five of them. At the roster sizes `GET /athletes`'s own paging comment
+// projects — ~3.5 MB at 5,000 athletes — that is the same wall reached four
+// times over, on pages that never display a clinical value.
+//
+// Five fields, because that is what the four consumers actually read: the three
+// the picker shows (`athleteId`, `name`, `sport`) plus `program` and
+// `disciplines`, which the import uploader uses to pre-fill a committed
+// screening. Measured after: **6.7 KB** — 6.6x smaller, on the same 62 rows.
+//
+// Identical guards, and a strict SUBSET of what `GET /athletes` already returns
+// to the same roles — so this cannot disclose anything the caller could not
+// already fetch, which is the §43 question to ask of any new payload. Same
+// `isActive: true` scope, so the two cannot disagree about who is on the roster.
+//
+// Declared BEFORE /:id, like the other meta routes, or Express matches "meta"
+// as an athlete id.
+router.get('/meta/roster', auth, rbac('medical', 'admin', 'executive'), requirePermission('viewRecords'), async (req, res) => {
+  try {
+    const [rows, discRows] = await Promise.all([
+      Athlete.findAll({
+        attributes: ['athleteId', 'name', 'sport', 'program'],
+        where: { isActive: true },
+        order: [['name', 'ASC']],
+        raw: true,
+      }),
+      AthleteDiscipline.findAll({ attributes: ['athleteId', 'discipline'], raw: true }),
+    ]);
+    const discBy = new Map();
+    for (const d of discRows) {
+      if (!d.discipline) continue;
+      if (!discBy.has(d.athleteId)) discBy.set(d.athleteId, []);
+      discBy.get(d.athleteId).push(d.discipline);
+    }
+    res.json(rows.map((r) => ({ ...r, disciplines: discBy.get(r.athleteId) || [] })));
   } catch (err) {
     sendError(res, err, 'athletes.js');
   }
@@ -672,6 +717,111 @@ router.post('/', auth, rbac('admin'), async (req, res) => {
     res.status(201).json(serializeAthlete(reloaded, req.user));
   } catch (err) {
     res.status(400).json({ message: err.message });
+  }
+});
+
+// POST /api/athletes/:id/invite — give a roster athlete a login.
+//
+// WHY THIS LIVES HERE AND NOT ON /users. Until 2026-09-13 there was no way to
+// create an athlete account at all: POST /users refuses the role, and the only
+// other place an athlete User has ever been made is the seeder. So every
+// athlete login on the hosted instance was a seeded one, and an athlete added
+// by importing their HoloMotion report got a dashboard they could never sign
+// into. The three demo reports all landed exactly there.
+//
+// Adding 'athlete' to INVITABLE_ROLES would not have fixed it. `users.athleteId`
+// is the column that binds an account to its roster row, and POST /users
+// neither accepts nor sets it — so the account would authenticate and then be
+// refused from every record INCLUDING ITS OWN by the self-scope check in GET
+// /athletes/:id. A login that works attached to a dashboard that resolves
+// nothing is the silent-failure shape, not a loud error.
+//
+// Inviting from the roster takes the binding from the row rather than from a
+// typed field, so it cannot be mistyped.
+//
+// The address is NOT on the athlete row (there is no email column) and is
+// supplied here. That address is validated by nobody, which is exactly the
+// weakness resetCodes.js cites for keeping the TTL at 24 hours — so the
+// endpoint echoes back what it is about to mail, and the UI makes the
+// administrator confirm it before this is ever called.
+router.post('/:id/invite', auth, rbac('admin'), async (req, res) => {
+  try {
+    const athlete = await Athlete.findOne({
+      where: { athleteId: req.params.id },
+      attributes: ['athleteId', 'name', 'isActive'],
+    });
+    if (!athlete) return res.status(404).json({ message: 'Athlete not found' });
+    if (!athlete.isActive) {
+      return res.status(409).json({ message: 'That athlete is not on the active roster.' });
+    }
+
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    if (!email) return res.status(400).json({ message: 'An email address is required to send an invitation.' });
+
+    // An account already bound to this roster row: re-send rather than mint a
+    // second one. Two User rows carrying the same athleteId would both pass the
+    // self-scope check, which is a quiet way to give one athlete's record two
+    // owners.
+    const existing = await User.findOne({ where: { athleteId: athlete.athleteId } });
+    if (existing) {
+      const blocked = inviteBlockedReason(existing);
+      if (blocked) return res.status(409).json({ message: blocked });
+      if (existing.email !== email) existing.email = email;
+      await sendInvite(existing, req);
+      recordAudit(req, {
+        action: 'user.invite',
+        entity: 'user',
+        entityId: existing.id,
+        summary: `Re-sent an activation code to ${existing.name} (${existing.email})`,
+        meta: { role: 'athlete', email: existing.email, athleteId: athlete.athleteId },
+      });
+      return res.json({ _id: String(existing.id), email: existing.email, invited: true, resent: true });
+    }
+
+    // A different person already holds this address. Caught before create so the
+    // answer names the real problem instead of a unique-constraint violation.
+    const emailTaken = await User.findOne({ where: { email }, attributes: ['id'] });
+    if (emailTaken) return res.status(409).json({ message: 'A user with that email already exists.' });
+
+    const user = await User.create({
+      name: athlete.name,
+      email,
+      // Replaced immediately by sendInvite; the column is NOT NULL and the model
+      // hashes on save, so a value has to exist for the row to be created.
+      password: unusablePassword(),
+      role: 'athlete',
+      athleteId: athlete.athleteId,
+    });
+
+    try {
+      await sendInvite(user, req, { creating: true });
+    } catch (err) {
+      // Same call as POST /users: the account is left in place rather than
+      // rolled back, because the remedy is to re-send, and saying the mail
+      // failed is the difference between an administrator re-sending and an
+      // administrator waiting for somebody who was never contacted.
+      return res.status(201).json({
+        _id: String(user.id),
+        email: user.email,
+        invited: false,
+        inviteError: err.message,
+        message: 'Account created, but the invitation email could not be sent. Use Resend invite.',
+      });
+    }
+
+    recordAudit(req, {
+      action: 'user.create',
+      entity: 'user',
+      entityId: user.id,
+      summary: `Created athlete account for ${user.name} (${user.email}) and sent an invitation`,
+      meta: { role: 'athlete', email: user.email, athleteId: athlete.athleteId, invited: true },
+    });
+    res.status(201).json({ _id: String(user.id), email: user.email, invited: true });
+  } catch (err) {
+    if (err.name === 'SequelizeUniqueConstraintError') {
+      return res.status(409).json({ message: 'A user with that email already exists.' });
+    }
+    sendError(res, err, 'athletes.js');
   }
 });
 

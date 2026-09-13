@@ -11,6 +11,8 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const { connectDB, sequelize } = require('./config/db');
+const { sendError } = require('./utils/httpError');
+const logger = require('./utils/logger');
 require('./models'); // register models + associations
 
 const authRoutes = require('./routes/auth');
@@ -162,9 +164,52 @@ app.use('/api/audit', auditRoutes);
 app.use('/api/watchlist', watchlistRoutes);
 app.use('/api/decisions', decisionRoutes);
 
-app.use((err, _req, res, _next) => {
-  console.error(err.stack);
-  res.status(500).json({ message: 'Internal server error' });
+// The last-resort handler: anything thrown BEFORE a route body runs, or thrown
+// synchronously by middleware, lands here rather than in a route's own catch.
+//
+// It used to be `console.error(err.stack)` + a flat 500 "Internal server error",
+// which was wrong three ways, all three MEASURED against this app on 2026-09-13:
+//
+//   * A 4xx became a 500. `express.json()` rejects a malformed body with a
+//     SyntaxError carrying `status: 400, expose: true, type:
+//     'entity.parse.failed'` — and the caller was told 500. An oversized body
+//     (PayloadTooLargeError, `status: 413`) likewise. CLAUDE.md gotcha 9 already
+//     records the confusion this causes: the endpoint "answers 500 before any of
+//     your code runs — which reads as a server bug you just introduced". It is
+//     not a server bug; it is a statement about the REQUEST, and §48's rule is
+//     that a 4xx keeps its message.
+//   * It was a FOURTH message vocabulary. Every other 500 in the API says
+//     httpError's GENERIC sentence, which names what to do next; this one said
+//     "Internal server error". Same defect class as the four band maps (§53) and
+//     the three medians (§56) — one meaning, several spellings.
+//   * The stack went to console.error unstructured, so the ONE failure class
+//     that escapes every route handler was the one class that could not be
+//     alerted on. utils/logger.js calls `logger.error('request.failed')` "the
+//     alert condition for the whole API"; this path skipped it.
+//
+// `sendError` already decides all of that, on intent rather than status alone,
+// and is the same function all 67 routes end in. Handing it this error is not
+// tidiness — it is what makes the claim "every failure converges here" true.
+// The ROUTER a request was aimed at, and deliberately no more of the path.
+//
+// The natural thing to log is `req.path`, and it is wrong here: `context` is not
+// one of logger.js's FORBIDDEN_KEY names, so `/api/athletes/890202021001` would
+// write an IC number — a direct identifier encoding date of birth, birth state
+// and sex — into a third-party log viewer. That is the exact disclosure
+// logger.js exists to refuse, arriving through the one field nobody thought to
+// redact. Two segments give `/api/athletes`, which matches what every route
+// already passes ('athletes.js') and is all the log needs to group by.
+const routerOf = (req) => `${req.method} ${req.path.split('/').slice(0, 3).join('/')}`;
+
+app.use((err, req, res, _next) => {
+  // Express's own rule: if the response has already begun streaming (a report
+  // PDF that failed mid-render), the only correct action is to destroy the
+  // socket. Writing a JSON body after headers would corrupt the download.
+  if (res.headersSent) {
+    logger.error('request.failed.midstream', { context: routerOf(req), err: err && err.message });
+    return req.socket.destroy();
+  }
+  return sendError(res, err, routerOf(req));
 });
 
 const PORT = process.env.PORT || 5000;
@@ -226,6 +271,31 @@ async function start() {
   };
   process.on('SIGTERM', () => shutdown('SIGTERM'));
   process.on('SIGINT', () => shutdown('SIGINT'));
+
+  // A crash should be FINDABLE, not merely fatal.
+  //
+  // These change no behaviour: Node 22 already terminates on both an uncaught
+  // exception and an unhandled rejection, and these handlers still exit(1), so
+  // the process dies exactly when it died before. What changes is what it leaves
+  // behind — one structured line an operator can filter and alert on, instead of
+  // a bare stack in a platform log viewer that nothing can group by. That is the
+  // same argument utils/logger.js makes for every other failure; the death of
+  // the process was simply the one event still writing unstructured output.
+  //
+  // Deliberately NOT swallowed. Continuing after an uncaught exception leaves a
+  // process in an undefined state, and for a clinical system "still answering,
+  // possibly wrongly" is worse than "restarted" — a silent failure at the
+  // process level. Exit and let the orchestrator (or nodemon) restart cleanly.
+  //
+  // Registered INSIDE start(), like the signal handlers above, so importing this
+  // module — the Vercel handler, or a test — never installs them. On serverless
+  // the platform owns the process lifecycle and must keep it.
+  const die = (event) => (err) => {
+    logger.error(event, { err: err && err.message, stack: err && err.stack });
+    process.exit(1);
+  };
+  process.on('uncaughtException', die('process.uncaughtException'));
+  process.on('unhandledRejection', die('process.unhandledRejection'));
 }
 
 // Only when this file IS the program. `require`d — by the Vercel handler, or by

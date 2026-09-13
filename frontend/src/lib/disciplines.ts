@@ -26,7 +26,3 @@ export function disciplinesForSport(sport: string | null | undefined): string[] 
   if (!sport) return [];
   return SPORT_DISCIPLINES[sport] ?? [];
 }
-
-export function sportHasDisciplines(sport: string | null | undefined): boolean {
-  return disciplinesForSport(sport).length > 0;
-}

@@ -99,7 +99,7 @@ export default function PdfScreeningUpload() {
         // matching silently degrades to manual entry. Server truth includes any
         // athletes committed earlier (they're persisted), so overwriting the
         // store's roster on remount is correct, not lossy.
-        uploadStore.setRoster(await api.get<RosterAthlete[]>('/athletes'));
+        uploadStore.setRoster(await api.get<RosterAthlete[]>('/athletes/meta/roster'));
       } catch { /* no roster → manual entry */ }
       try {
         // Existing (sport, discipline) pairs → group by sport for the picker's

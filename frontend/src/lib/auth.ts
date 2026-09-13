@@ -54,15 +54,6 @@ export function clearSession(): void {
   localStorage.removeItem('airms_user');
 }
 
-export function requireRole(
-  allowedRoles: Role[]
-): SessionUser | null {
-  const session = getSession();
-  if (!session) return null;
-  if (!allowedRoles.includes(session.user.role)) return null;
-  return session.user;
-}
-
 // First page a medical staffer is still permitted to see — used to route them
 // away from a revoked page instead of showing a dead-end denial message.
 // Profile is the unconditional fallback (never permission-gated).

@@ -195,6 +195,15 @@ const ROUTES = [
   ['DELETE', `/cohorts/versions/${BOGUS}`],
   ['PATCH', `/users/${BOGUS}`, { isActive: true }],
   ['POST', `/users/${BOGUS}/invite`, {}],
+  // The roster-side invitation (added 2026-09-13). Probed with a BOGUS athlete
+  // and no email: every non-admin role must be refused by the guard BEFORE
+  // either is looked at, so a 404 or a 400 here would mean the request got past
+  // rbac — which is the thing this matrix exists to catch.
+  ['POST', `/athletes/${BOGUS}/invite`, {}],
+  // The light roster projection (2026-09-13). Same guards as GET /athletes and a
+  // strict subset of it, but probed in its own right: an endpoint nothing calls
+  // in the matrix is one the matrix makes no claim about.
+  ['GET', '/athletes/meta/roster'],
   ['POST', '/athletes', {}, ROLES],
   ['POST', '/cohorts/recompute', {}, ['coach', 'executive', 'athlete']],
   ['POST', '/cohorts/versions/unpin', {}, ROLES],

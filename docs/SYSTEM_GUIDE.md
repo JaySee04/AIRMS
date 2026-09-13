@@ -240,12 +240,17 @@ Staff accounts, and what each may do.
 
 - **Four roles can be created here** — coach (read-only, one sport), medical
   staff (clinical access), executive (read-only oversight) and administrator
-  (everything you can do, including this page). Athlete accounts are not created
-  here; see §9.
+  (everything you can do, including this page).
+- **Athlete logins are issued from the card below the form**, not from that role
+  picker — an athlete is picked from the roster so the account binds to their
+  record. An athlete on the roster has no login until somebody invites them here;
+  importing their report creates the record, not the account.
 - Create an account **by invitation**: no password is typed by the administrator.
   One is generated, hashed and discarded unread, and the invitee sets the first
   password that ever really exists on the account from a six-digit code valid for
-  seven days. Nobody, including the creator, can sign in as that person.
+  **24 hours**. Nobody, including the creator, can sign in as that person. If the
+  code lapses they do not need to ask anybody — "Forgot password?" on the sign-in
+  page works on an invited account and issues a fresh one.
 - **What the role can reach is listed under the picker as you choose it.** The
   expensive mistake on this page is quiet — `admin` and `medical` sit next to
   each other, and one of them can create accounts and move the cohort norms.
@@ -403,9 +408,12 @@ machine. On this hosted demonstration the browser uploads the PDF to the AIRMS
 server, which redacts before contacting the AI provider — so the name still never
 reaches the provider, but it does traverse the hosted server first.
 
-**Athlete accounts cannot be created by invitation.** Deliberate: an athlete
-account also needs a roster record to attach to. Medical, coach, admin and
-executive accounts can be invited.
+**Athletes are invited from the roster, not from the staff form.** An athlete
+account must be bound to their roster record, so it is issued from the **Athlete
+logins** card on Personnel, where the athlete is picked from the roster and the
+binding cannot be mistyped. Medical, coach, admin and executive accounts are
+created from the role picker above it. In both cases the administrator confirms
+the email address before the code is sent.
 
 **The data is fabricated**, so the band distribution demonstrates that the
 pipeline runs — it is not evidence that the model is calibrated against real

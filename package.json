@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "description": "Athlete Injury Risk Management System — Institut Sukan Negara Malaysia",
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "scripts": {
     "dev:backend": "npm --prefix backend run dev",
     "dev:frontend": "npm --prefix frontend run dev",

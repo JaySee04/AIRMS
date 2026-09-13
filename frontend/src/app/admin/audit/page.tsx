@@ -97,7 +97,7 @@ export default function AuditPage() {
   // The roster is only needed to name the athlete filter; a failure to load it
   // must not take the log down with it.
   useEffect(() => {
-    api.get<PickableAthlete[]>('/athletes').then(setRoster).catch(() => setRoster([]));
+    api.get<PickableAthlete[]>('/athletes/meta/roster').then(setRoster).catch(() => setRoster([]));
   }, []);
 
   // Every filter that narrows the view, in one place — so the query, the export

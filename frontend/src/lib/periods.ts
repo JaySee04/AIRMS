@@ -21,9 +21,6 @@ const GRAIN_LABEL: Record<Grain, string> = { month: 'Monthly', quarter: 'Quarter
 export const GRAINS: Array<{ key: Grain; label: string }> = GRAIN_KEYS
   .map((key) => ({ key, label: GRAIN_LABEL[key] }));
 
-/** Grain as a noun, for prose ("only one quarter of screening falls here"). */
-export const GRAIN_NOUN: Record<Grain, string> = { month: 'month', quarter: 'quarter', year: 'year' };
-
 /**
  * The calendar this system dates things in: ISN's, not the viewer's.
  *

@@ -1,0 +1,170 @@
+# AIRMS continuous integration.
+#
+# WHY THIS EXISTS. This repository already carries an unusual amount of
+# verification — ~1,100 unit tests, 47 registered mutation guards, and staleness
+# checks that fail if docs/SYSTEM_MAP.md or either generated shared/facts copy
+# drifts from the code. Every one of them ran only when somebody remembered to
+# run it. That is the wrong shape for a guard: the commits most likely to skip
+# it are the late, tired, pre-deadline ones, which are exactly the commits it
+# exists to catch. A push to feat/mysql-migration deploys BOTH Vercel projects,
+# so "nobody ran the tests" and "it is live" are the same moment.
+#
+# NO DATABASE SERVICE, deliberately. Every backend suite is DB-free (verified:
+# nothing under tests/ calls connectDB or sequelize.authenticate), so this needs
+# no MySQL container, no secrets, and no fixture loading. The checks that DO need
+# a running instance — `npm run audit:access`, `npm run verify:claims`,
+# `npm run e2e` — are deliberately left out rather than half-wired: a green tick
+# that skipped them would be a worse signal than no tick, which is this
+# project's signature defect class (docs/SILENT_FAILURES.md).
+#
+# Node is pinned to the major each package declares in `engines`.
+
+name: CI
+
+on:
+  push:
+    branches: [feat/mysql-migration, main]
+  pull_request:
+    branches: [feat/mysql-migration, main]
+  workflow_dispatch:
+
+# A newer push makes an in-flight run obsolete; don't pay for both.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  # Fast feedback: everything that answers in about a minute.
+  checks:
+    name: Tests, types and lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Install (root, backend, frontend)
+        run: |
+          npm ci
+          npm --prefix backend ci
+          npm --prefix frontend ci
+
+      # Backend jest also enforces the two staleness guards that have caught
+      # real drift before: docs/SYSTEM_MAP.md against the code (`npm run map`)
+      # and both generated shared/facts copies (`npm run sync:shared`). They are
+      # not separate steps because they are already assertions, and duplicating
+      # them here would be a second definition of "current".
+      - name: Backend unit tests
+        run: npm --prefix backend test
+
+      - name: Frontend unit tests
+        run: npm --prefix frontend test
+
+      # A named script, not `npm exec -- tsc`: `--prefix` does not change the
+      # working directory for `exec`, so that form resolves tsconfig.json
+      # against the REPO ROOT and dies with "The specified path does not exist".
+      # `run` does honour the prefix. Caught by running it before pushing.
+      - name: Frontend type-check
+        run: npm --prefix frontend run typecheck
+
+      - name: Frontend lint
+        run: npm --prefix frontend run lint
+
+  # Slow feedback, run in parallel: BREAK each registered guard and prove its
+  # test fails. Takes minutes (it spawns a jest run per mutation), which is
+  # exactly why it is a separate job rather than part of `checks` — a developer
+  # waiting on lint should not be waiting on this too.
+  mutate:
+    name: Mutation guards
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      # Both packages: the registry spans them, and several guards mutate a
+      # frontend source file and run the frontend suite against it.
+      - name: Install (backend, frontend)
+        run: |
+          npm --prefix backend ci
+          npm --prefix frontend ci
+
+      - name: Run mutation check
+        run: npm --prefix backend run mutate
+
+  # The Content-Security-Policy, in a real browser against a PRODUCTION build.
+  #
+  # This is the check the CSP cannot go without. Its failure mode is a page that
+  # serves 200, returns a full-length document, and never hydrates — so every
+  # cheap check passes while the dashboard is dead. That is not hypothetical: it
+  # is exactly what happened on 2026-09-13 when the routes were still statically
+  # prerendered and the policy demanded a nonce the prerendered HTML could not
+  # carry (10/19, with "rendered real content" passing on the same pages whose
+  # "hydrated" failed). A dependency bump that changes how Next emits its
+  # bootstrap would reproduce it silently.
+  #
+  # Production build deliberately: `next dev` needs 'unsafe-eval', so a dev run
+  # would pass under a looser policy and prove nothing about what ships.
+  # Chrome is preinstalled on the ubuntu-latest runner image.
+  csp:
+    name: CSP (real browser, production build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install
+        run: npm --prefix frontend ci
+
+      - name: Build
+        run: npm --prefix frontend run build
+
+      # Only the three PUBLIC routes are checked here; the authenticated
+      # dashboards need a seeded database and are covered by `npm run e2e`,
+      # which is run locally against the same production build (110/110 with
+      # this policy in force).
+      # `working-directory` rather than `npm --prefix ... exec`: --prefix does
+      # not change the working directory for `exec` (only for `run`), the same
+      # trap that broke the typecheck step in `checks`. And a curl loop rather
+      # than `npx wait-on`, which would pull a package that is not a dependency
+      # of anything here.
+      - name: Start and verify
+        working-directory: frontend
+        run: |
+          npm run start -- -p 3210 &
+          for i in $(seq 1 60); do
+            curl -sf -o /dev/null http://127.0.0.1:3210/ && break
+            sleep 1
+          done
+          curl -sf -o /dev/null http://127.0.0.1:3210/ || { echo "server never came up"; exit 2; }
+          npm run verify:csp
+        env:
+          CSP_WEB: http://127.0.0.1:3210
+          CHROME_PATH: /usr/bin/google-chrome

@@ -20,9 +20,9 @@ The project ships its own extensive docs. Treat these as the source of truth —
 4. [`docs/PROJECT_GUIDE.md`](docs/PROJECT_GUIDE.md) — file-level map (models, routes, components, pages)
 5. [`docs/DESIGN_DECISIONS.md`](docs/DESIGN_DECISIONS.md) — read before suggesting "improvements" that may have already been considered and rejected
 6. [`docs/FYP_RUBRICS.md`](docs/FYP_RUBRICS.md) — current rubric weighting + pre-viva punch list
-7. [`docs/PERMISSIONS.md`](docs/PERMISSIONS.md) — **who can actually do what**, measured by calling all 65 endpoints as every role rather than described. Read before touching RBAC, and before answering a viva question about access. Its §3 records four things that **were** open and how each was settled — they are decided, not pending
+7. [`docs/PERMISSIONS.md`](docs/PERMISSIONS.md) — **who can actually do what**, measured by calling all 67 endpoints as every role rather than described. Read before touching RBAC, and before answering a viva question about access. Its §3 records four things that **were** open and how each was settled — they are decided, not pending
 8. [`docs/SILENT_FAILURES.md`](docs/SILENT_FAILURES.md) — **the defect class this project keeps producing** (a wrong answer that looks like a right one), its six sub-patterns, the hypotheses that sweep for each, and the standing guards. Read before an audit or a bug hunt; add to it when a new instance is found
-9. [`docs/SYSTEM_MAP.md`](docs/SYSTEM_MAP.md) — **every attribute of the system, GENERATED from the code**: 9 models with all 138 columns and their enum values, 65 endpoints with their rbac list and permission gate, 25 pages with their allowedRoles, every setting and default, audited action, shared fact, env var and npm script. Regenerate with `cd backend; npm run map`. This is the *what*; DESIGN_DECISIONS is the *why*
+9. [`docs/SYSTEM_MAP.md`](docs/SYSTEM_MAP.md) — **every attribute of the system, GENERATED from the code**: 9 models with all 138 columns and their enum values, 67 endpoints with their rbac list and permission gate, 25 pages with their allowedRoles, every setting and default, audited action, shared fact, env var and npm script. Regenerate with `cd backend; npm run map`. This is the *what*; DESIGN_DECISIONS is the *why*
 10. [`docs/fyp/VIVA_FYP2.md`](docs/fyp/VIVA_FYP2.md) — **the FYP II viva dossier**: the thesis, the fifteen hard questions with citations, the weaknesses to volunteer, the demo landmines, and every headline number measured against the live database rather than quoted from a doc. `VIVA_SCRIPT.md` / `VIVA_ANSWERS.md` are frozen FYP I artefacts — this is their successor. Re-measure §2 before quoting it.
 
 ## Commands
@@ -38,7 +38,7 @@ npm run sync:shared        # regenerate backend/src/shared/facts.js and
                            # suites fail if a committed copy is stale (DD 53).
 npm run install:all        # installs root + backend + frontend
 npm run seed               # drops + reseeds MySQL with deterministic PRNG (seed=42)
-cd backend; npm run audit:access     # call all 65 endpoints as each non-admin role and print
+cd backend; npm run audit:access     # call all 67 endpoints as each non-admin role and print
                                      # the matrix. Needs `npm run dev` running. FAILS if any
                                      # read-only role REACHES a write (403 expected, not 404 -
                                      # a 404 means it got past the guard). ALSO calls every
@@ -50,7 +50,7 @@ cd backend; npm run audit:access     # call all 65 endpoints as each non-admin r
                                      # the anonymous caller - a route registered without
                                      # `auth` would have shown up working for all four roles,
                                      # exactly as intended, with nothing saying it was also
-                                     # open to the internet. All 65 refuse; the point is that
+                                     # open to the internet. All 67 refuse; the point is that
                                      # it stays that way. The open-by-design set is DERIVED
                                      # from the EXEMPT map's reason rather than listed twice.
                                      # See DESIGN_DECISIONS 43 and docs/SILENT_FAILURES.md 3b.
@@ -65,7 +65,7 @@ cd backend; npm run coverage         # 79.6% statements / 67.8% branches. Route 
                                      # a missing transitive dep (fs.realpath) before it would run.
 cd backend; npm run mutate           # BREAK each registered guard on purpose and prove its
                                      # test fails. A surviving mutation exits non-zero: the
-                                     # test is not testing what it claims. 43 guards across
+                                     # test is not testing what it claims. 45 guards across
                                      # both packages. NOT part of `npx jest` — it spawns a
                                      # jest run per mutation (tens of seconds). Run it before
                                      # committing a change to a guard, and add an entry when
@@ -135,8 +135,42 @@ npm run dev:backend        # backend only
 npm run dev:frontend       # frontend only
 
 # Frontend type-check / lint
-cd frontend; npx tsc --noEmit -p tsconfig.json
+cd frontend; npm run typecheck   # tsc --noEmit -p tsconfig.json. A NAMED script since
+                                 # 2026-09-13 because CI needs one: `npm --prefix frontend
+                                 # exec -- tsc` does NOT change the working directory
+                                 # (only `run` honours --prefix), so that form resolves
+                                 # tsconfig.json against the REPO ROOT and dies.
 cd frontend; npm run lint  # next lint
+
+cd frontend; npm run verify:csp   # the CSP, in REAL CHROME against a PRODUCTION build
+                                  # (needs `npm run build` then `npx next start -p 3210`,
+                                  # or set CSP_WEB). 19 checks. Asserts THREE independent
+                                  # things because any one alone passes against a broken
+                                  # policy: zero securitypolicyviolation events (listener
+                                  # registered BEFORE navigation - one added on `load`
+                                  # misses every violation raised during parse), the page
+                                  # actually HYDRATED, and the policy is the strict one
+                                  # (nonce present and FRESH per request, no unsafe-inline
+                                  # /unsafe-eval). Production build deliberately: `next dev`
+                                  # needs 'unsafe-eval', so a dev run passes under a looser
+                                  # rule and proves nothing. It has been SEEN TO FAIL -
+                                  # 10/19 while routes were still statically prerendered,
+                                  # with "rendered real content" passing on the same pages
+                                  # whose "hydrated" failed. See DD 92.
+
+# CI (.github/workflows/ci.yml, added 2026-09-13, DD 91.6 / 92.4)
+#   Runs on push/PR to feat/mysql-migration and main. THREE jobs:
+#     checks  - backend jest, frontend jest, typecheck, lint (~1 min)
+#     mutate  - npm run mutate, separate because it exceeds 2 minutes
+#     csp     - build + real Chrome + verify:csp, because the thing most likely
+#               to reintroduce the blocked-hydration failure is a Next upgrade
+#               changing how the bootstrap is emitted, silently
+#   NO database service: every backend suite is DB-free, so it needs no MySQL and
+#   no secrets. audit:access / verify:claims / e2e need a LIVE instance and are
+#   deliberately LEFT OUT rather than half-wired - a green tick that skipped them
+#   would be a worse signal than no tick. Node is pinned by each package's
+#   `engines` field (>=22 <23; the upper bound must be raised when 22 goes EOL,
+#   which is the intended loud failure - see DD 91.4).
 
 # Frontend production build
 cd frontend; npm run e2e   # END-TO-END smoke: a real Chrome against the running
@@ -174,7 +208,7 @@ cd frontend; npm run e2e   # END-TO-END smoke: a real Chrome against the running
 cd frontend; npm run build
 
 # Unit tests (jest, in both packages — no linter configured for the backend)
-cd backend; npx jest      # 53 suites / 752 tests: cohorts, overallIndicator, permissions, rbac, pdfDraw,
+cd backend; npx jest      # 53 suites / 754 tests: cohorts, overallIndicator, permissions, rbac, pdfDraw,
                           # authHardening (two properties of the RUNNING process, not of any
                           # function: the JWT verifier NAMES its algorithm rather than
                           # inheriting the restriction from the key's type - not a live hole,
@@ -576,10 +610,28 @@ that says who invited them and why, names the self-service path, and an
 `users.invited_at` / `users.activated_at` record it (`ALTER TABLE` both on an
 existing dev DB). Both null = an account whose password somebody typed
 directly, which is every seeded one. `POST /api/users` takes `invite: true`;
-`POST /api/users/:id/invite` re-sends and kills the previous code. Roles:
-medical, coach, admin, executive — **athlete is deliberately excluded** (JC,
-2026-08-23), since an athlete account also needs a roster record to attach to.
-The invitee lands on `/activate`.
+`POST /api/users/:id/invite` re-sends and kills the previous code. Roles on
+that endpoint: medical, coach, admin, executive. The invitee lands on
+`/activate`.
+
+**Athletes are invited from the ROSTER, not from Personnel's role picker**
+(2026-09-13, `DESIGN_DECISIONS.md §88`). `POST /api/athletes/:id/invite` (admin)
+creates the account bound to the roster row it was called on. Until then there
+was **no way to give an athlete a login at all** — `POST /api/users` refuses the
+role and `seeder.js` was the only other source, so 60 of 62 roster athletes had
+no account and an athlete added by importing their report got a dashboard nobody
+could sign into. Adding `'athlete'` to `INVITABLE_ROLES` would NOT have fixed
+it: `users.athleteId` is the binding, `POST /api/users` never sets it, and an
+account with a null binding authenticates and is then refused from its own
+record by the self-scope check — a working login onto a dashboard that resolves
+nothing. **Do not "simplify" this into the Personnel role picker.** The IC is
+picked from the roster via `AthleteSearchSelect`, never typed, and the
+administrator confirms the email address before anything sends (the typo the
+24-hour TTL was shortened for — §85 fixed the window, this fixes the typo).
+`utils/invite.js` holds the one definition of what an invitation is; both routes
+mint through it, and `accountLifecycle.test.js` pins the exclusion **to the
+existence of the roster route**, so "not invitable here" can never again quietly
+mean "can never sign in".
 
 **All four roles are creatable from the page, and the two lists are pinned
 (2026-09-01, `DESIGN_DECISIONS.md §42`).** The endpoint had accepted four roles
@@ -817,7 +869,7 @@ Forgetting the sync is the one hazard the design trades for, so **both** test su
   and shown on the Activity Log row. A HoloMotion report costs ~11,400 tokens
   (~9,288 image + ~700 prompt + ~1,400 reply) at the default 6 pages
 - **The seven shown risk indicators have one definition PER PACKAGE** — `utils/riskIndicators.js` on the backend and the `INDICATORS` list in `frontend/src/lib/screeningAlerts.ts` (2026-08-18). This list is not a display detail: it encodes Dr Thung's instruction that `spinalDiscHerniation` (LDH) is stored but **never** scored, charted, printed or named, so "which indicators are shown" and "LDH is excluded" are the same decision — and it had been hand-maintained in **eight** places (five backend, three frontend), each with a comment pointing at the others. `routes/athletes.js` held an inline copy *and* the shared import, one per handler. Two label vocabularies are kept on purpose and are not synonyms: `label` is the terse UI wording ("Knee"), `reportLabel` is HoloMotion's own printed wording ("Ligament Strain") so a clinician can check a line against the PDF in hand. `EXCLUDED_RISK_KEYS` names the exclusion as a value so it can be **asserted** rather than left as an absence; `riskIndicators.test.js` and `screeningAlerts.indicators.test.ts` pin the packages together. Verified byte-identical report output. See `docs/DESIGN_DECISIONS.md §31`
-- **A failed request reveals nothing it was not asked to, and a query parameter has a SHAPE** (2026-09-02, `DESIGN_DECISIONS.md §48`). 49 handlers returned `err.message` on a 500, so `?from=not-a-date` answered "Incorrect DATETIME value" and `?gender[$ne]=Male` answered "Invalid value { '$ne': 'Male' }". `utils/httpError.js` decides once, on INTENT rather than status: a 4xx keeps its message, an `expose`d error keeps its message (the operator needs "Could not render any pages from the PDF"), everything else gets one generic sentence while the real error goes to stderr with its route. `utils/queryParams.js` rejects the array Express builds from `?p[]=` and the object from `?p[k]=` with a **400** — the array form had been a silent, undocumented multi-select — and `likeTerm` escapes `%` and `_`, which had made a search for `%` return the whole roster. **There is already an `express-rate-limit` on `/api/auth`** (30 failures / 15 min / IP) — do not add a second one. It is database-backed (`utils/rateLimitStore.js`, 2026-09-10) because the in-process Map counted per serverless instance. **It does NOT use `skipSuccessfulRequests`** (removed 2026-09-11): that option un-counts a success from a `res.on('finish')` handler, i.e. after the response is flushed, and on Vercel post-response work is **deferred until the instance is thawed by another request** (measured: an unref'd 1.5s timer landed 7.25s later, on the next call) — so the decrement lands eventually and never in time, the next login having already read the un-decremented count. On the deployed API five successful logins took `remaining` 28 → 27 → 26 → 25 → 24 and never recovered, making the real policy "30 **requests**" while the header and every doc said "failures". The same limiter on a long-lived process holds flat at 999/999 — same code, same store, the host is the only variable. A clinic behind one NAT address would have locked itself out with correct passwords. A successful sign-in now **awaits `clearRateLimit()` inside the request** instead, and the key comes from one shared `authThrottleKey` so the reset provably clears the counter the limiter reads. Verified on the hosted API: failures 29→28→27→26, then the request after a success is back to a full window. See `SILENT_FAILURES.md` 3r
+- **A failed request reveals nothing it was not asked to, and a query parameter has a SHAPE** (2026-09-02, `DESIGN_DECISIONS.md §48`). 49 handlers returned `err.message` on a 500, so `?from=not-a-date` answered "Incorrect DATETIME value" and `?gender[$ne]=Male` answered "Invalid value { '$ne': 'Male' }". `utils/httpError.js` decides once, on INTENT rather than status: a 4xx keeps its message, an `expose`d error keeps its message (the operator needs "Could not render any pages from the PDF"), everything else gets one generic sentence while the real error goes to stderr with its route. `utils/queryParams.js` rejects the array Express builds from `?p[]=` and the object from `?p[k]=` with a **400** — the array form had been a silent, undocumented multi-select — and `likeTerm` escapes `%` and `_`, which had made a search for `%` return the whole roster. **There is already an `express-rate-limit` on `/api/auth`** (30 failures / 15 min / IP) — do not add a second one. It is database-backed (`utils/rateLimitStore.js`, 2026-09-10) because the in-process Map counted per serverless instance. **It does NOT use `skipSuccessfulRequests`** (removed 2026-09-11): that option un-counts a success from a `res.on('finish')` handler, i.e. after the response is flushed, and on Vercel post-response work is **deferred until the instance is thawed by another request** (measured: an unref'd 1.5s timer landed 7.25s later, on the next call) — so the decrement lands eventually and never in time, the next login having already read the un-decremented count. On the deployed API five successful logins took `remaining` 28 → 27 → 26 → 25 → 24 and never recovered, making the real policy "30 **requests**" while the header and every doc said "failures". The same limiter on a long-lived process holds flat at 999/999 — same code, same store, the host is the only variable. A clinic behind one NAT address would have locked itself out with correct passwords. A successful sign-in now **awaits `clearRateLimit()` inside the request** instead, and the key comes from one shared `authThrottleKey` so the reset provably clears the counter the limiter reads. Verified on the hosted API: failures 29→28→27→26, then the request after a success is back to a full window. See `SILENT_FAILURES.md` 3r. **`server.js`'s last-resort handler routes through `sendError` too** (2026-09-13, §91.1): it used to `console.error(err.stack)` and answer a flat 500, which reported body-parser's `status: 400` as a server fault, gave the API a FOURTH message vocabulary, and skipped the one structured `request.failed` line that `logger.js` calls the alert condition for the whole API. **Under Express 5 this is the catch-all for every unhandled async rejection in all 67 routes**, not just a body-parser backstop. Its log context is the ROUTER (`GET /api/athletes`), never `req.path` — `context` is not in `logger.js`'s FORBIDDEN_KEY list, so a full path would write an **IC number** into a third-party log viewer. See `SILENT_FAILURES.md` 3w
 - **A screening belongs to ISN's calendar, and committing it twice is not a retest** (2026-09-02, `DESIGN_DECISIONS.md §45`). Two latent defects, both found by sweeping rather than by a bug report. Periods bucketed on `getUTC*()` while the frontend dated the same row in the VIEWER's zone — hosted, the API runs UTC and a clinician's browser runs MYT, so a screening between 00:00 and 07:59 local falls on the previous UTC day and, across a month end, is drawn in one column and dated into the next month. Both packages now name one `INSTITUTION_TZ = 'Asia/Kuala_Lumpur'`; re-bucketing all 74 rows in that zone was verified to move **none** of them, so it changes no published number. Separately, the screening commit was an unconditional INSERT against a NON-unique `(athlete_id, assessed_at)` index, so the same report committed twice appended an identical row that `consecutivePairs()` paired as a retest with a difference of **zero on every score** — two such commits take the dead band from the documented fallback of 2, correctly labelled an assumption, to a DERIVED 5.7–11.5. That is the failure `reliability.js` exists to prevent, reached by inflating the numerator rather than lowering the floor, and the demo hands **the same three reports to two people**. Fixed at both layers: the commit is idempotent on `(athleteId, assessedAt)`, and same-instant readings are collapsed before pairing. **Do not "simplify" either back** — and do not add a unique index without an `ALTER TABLE` on both the local and hosted databases
 - **A scoped role's REFUSAL is an answer, and its payload is a grant** (2026-09-02, `DESIGN_DECISIONS.md §43`). Auditing the four non-admin roles by *calling* every endpoint as each of them (46 at the time) found the role model sound — every write refused for coach, executive and athlete; `executive` with no write reach anywhere — and two disclosures beneath it. A coach could separate a real IC number from an invented one, because their scope compares `sport` and so cannot refuse before the row is loaded: unknown gave 404, foreign gave 403. `notFoundStatusFor(user)` now returns **403 for coach and athlete** at all three scoped lookups (`/athletes/:id`, `/screening-reports/individual/:id.pdf`, `/screenings/:id/full`) and fails closed on a missing user — the IC encodes date of birth, birth state and sex, which is why `/teammates` withholds it. Separately, both athlete serialisers built their result by SPREADING the row, so `injuryNote` / `injuryBy` / `injuryAt` — the clinician's free text — shipped to coach and executive; they now take a `viewer` and strip those unless it is `medical` or `admin`. **`isInjured` stays for everyone**: it is a roster fact a coach needs and coverage rests on. `viewer` is optional and the omitted case **withholds**, so a forgetful call site under-discloses. Do not "tidy" the 404s back: a bare 404 elsewhere in those files is correct, because nothing a medical-only route looks up is scoped. `tests/athleteDisclosure.test.js` reads the route SOURCE for the wiring — the predicates are pure and pass whether or not anything calls them
 - **Risk band vocabulary now comes from `shared/facts.js`** and is generated into `utils/bands.js` (backend) and `frontend/src/lib/bands.ts` (frontend) — see the shared-facts note in the architecture overview. Unified 2026-08-11 because six frontend files had their own map and the red band was "Immediate assessment" in the risk hero but "Immediate" in the trend legend and admin distribution bar; moved to one generated source 2026-09-04, which immediately found a **fourth** copy in `ScreeningHistory.tsx` spelling the bands `Green`/`Amber`/`Red`. The frontend module still exports BOTH a full `BAND_LABEL` and a compact `BAND_SHORT` deliberately — a legend has no room for the long form, and `BAND_SHORT` is local because the backend has no legend. Grain labels live in `lib/periods.ts` for the same reason (the grain KEYS are shared, their labels are not). Backend: (`BAND_RANK`,
@@ -827,12 +879,15 @@ Forgetting the sync is the one hazard the design trades for, so **both** test su
   here that could be written backwards and silently ignore every clinical override
 - Module 3 (Screening Data Ingestion) is **HoloMotion PDF only** (the Excel import was retired 2026-07-12; code archived in `archive/excel-upload/`). Two-step flow: `POST /api/upload/screening/pdf/preview` (render + vision-extract, no commit) → `POST /api/upload/screening/pdf` (commit the previewed JSON). The uploader is batch-capable (sequential extraction). **The athlete's name is redacted on-device (page-1 OCR locates it, blacks out the value) before any image reaches the vision model** — so the sole direct identifier never leaves the machine (`utils/redactName.js`; see `docs/DESIGN_DECISIONS.md §18`). The operator then attaches each report to a roster athlete by **name search** (`AthleteSearchSelect`), which fills Athlete ID/sport/programme from the roster; the commit backfills the name server-side. The Excel **backup export** (`GET /api/export/backup.xlsx`, Module 4 — Cohort Norms & Governance) remains
 
-**Frontend** (`frontend/`, Next.js 15 App Router, TypeScript, plain CSS with variables):
+**Frontend** (`frontend/`, Next.js 15.5 App Router, **React 19**, **TypeScript 6**, plain CSS with variables):
+- **TypeScript 7 is NOT available to this project** (2026-09-13, `DESIGN_DECISIONS.md §89`). Next 15.5 fails the build on it outright — the native compiler does not expose the JS compiler API Next needs — and every `@typescript-eslint` package under `eslint-config-next@15` declares `typescript: ">=4.8.4 <6.1.0"`, so TS 7 installs as `invalid` and the type-aware lint rules would run on an unsupported compiler. **6.0.3 is the ceiling until Next 16**, which is its own refused decision (§82.3). `npm outdated` will keep offering 7 — that is not an oversight.
+- `src/types/css.d.ts` declares `*.css` for side-effect imports. TS 6 raises `TS2882` without it; `next-env.d.ts` covers CSS *modules* only and is generated, so the declaration cannot go there.
 - Pages live under `frontend/src/app/<role>/<slug>/page.tsx` — the URL hierarchy is the role-based access boundary (`/athlete/*`, `/medical/*`, `/admin/*`)
 - Every authenticated page wraps its content in `<DashboardLayout allowedRoles={[...]} title="...">` (`components/layout/`). The layout enforces client-side role gating; backend RBAC is the actual security
 - Auth state is JWT in `localStorage`, managed via `lib/auth.ts` (`saveSession` / `getSession` / `clearSession`). API calls go through `lib/api.ts` which auto-attaches the bearer token. **`lib/api.ts` throws `ApiError` carrying the HTTP status**, and `isAuthError()` tells a refusal (401/403) from a network failure — a bare `Error` collapsed those into one, and they need opposite handling
 - **`DashboardLayout` confirms the session with the SERVER, for every role** (2026-09-01). The gate reads `airms_user` from `localStorage`, which is a login-time snapshot the browser owns — it answers "what does this browser claim?", not "who is this?". Measured with a real browser against 20 protected routes: with no session every route already bounced to `/`, nothing painted, and all 46 API calls returned 401; as a coach, every admin/medical route bounced and every call 403'd. What did NOT hold was an **expired** token (7-day JWT: on day 8 the snapshot still said "admin", so the shell rendered and every panel failed 401 — a broken page instead of the sign-in screen) and a hand-edited snapshot, which rendered an empty admin shell. `/auth/me` on mount settles both; only `isAuthError` ends the session, because signing everyone out whenever the API blinks would be its own outage
 - Modules 1 and 6 (Athlete Dashboard & Overall Risk Indicator, Clinical & Squad Monitoring) share the same dashboard components (`BodyMap`, `WorkloadChart`, `RiskRadar`, `ScreeningPanel` — the embedded HoloMotion report with threshold strips; there are no standalone screening pages) and the same `classifyCompositeRisk()` from `lib/risk.ts` — the medical view is "the athlete dashboard with a clinician's affordances added"
+- **Security headers are set in `next.config.js`** (2026-09-13, `DESIGN_DECISIONS.md §91.5`). The API had the full helmet set for months while the WEB APP — the half that actually paints names, ICs and clinical notes — sent none. Five now: `frame-ancestors 'none'` + `X-Frame-Options: DENY` (verified no `<iframe>`/`<embed>` anywhere; PDFs download via blob URL, never framed — and the controls a clickjack would bait include *declare injured* and *override a band*), `Referrer-Policy: strict-origin-when-cross-origin` (routes carry ICs), `nosniff`, and a `Permissions-Policy` denying camera/mic/geolocation. **The full CSP is in `src/middleware.ts`** (2026-09-13, `§92`), not next.config — it carries a per-request nonce, which a static header cannot. Declared in ONE place on purpose: two `Content-Security-Policy` headers are enforced as an *intersection*, so a second copy would silently change the effective policy. **`export const dynamic = 'force-dynamic'` in `src/app/layout.tsx` is REQUIRED by it and is the one-line rollback point** — with routes statically prerendered the HTML carries no nonce, and Chrome blocked all 16 inline scripts: pages rendered their server HTML and never hydrated, i.e. a dead page that looks alive. **Verify with `cd frontend; npm run verify:csp`** (real Chrome, production build — `next dev` needs `'unsafe-eval'`, so a dev run proves nothing). 19/19, and `npm run e2e` is 110/110 against that same hardened build. `connect-src` is derived from `NEXT_PUBLIC_API_URL` because web and API are always different origins; **if dashboards render but every panel is empty, check CORS/`FRONTEND_URL` before the CSP — the two failures look identical from the page.** `outputFileTracingRoot: __dirname` is also set: three lockfiles made Next infer the REPO ROOT as its build root, which is not the Vercel build context.
 - Styling: a single `frontend/src/styles/globals.css` with CSS custom properties. Dark mode via `[data-theme="dark"]` on `<html>`. **Do not introduce CSS-in-JS, Tailwind, or component libraries.**
 - **There is a design scale — use it (2026-08-16, `DESIGN_DECISIONS.md §29`).** Type `--fs-2xs|xs|sm|md|lg|xl|2xl`, radius `--r-xs|sm|md|lg` (+ `999px` for pills), spacing `--sp-xs|sm|md|lg|xl`. Named for ROLE, not size. The file previously held 31 distinct font-size literals and the markup another 160 inline ones that bypassed the stylesheet entirely — **do not add a new literal**; pick the nearest step, or change what the step means. `--radius` is an alias of `--r-md`, kept because it was already in use.
 
@@ -1044,11 +1099,16 @@ Commit cadences are independent — JC will commit many times in this repo betwe
      rule is not "heredocs mangle backslashes sometimes", it is **every**
      backslash in a heredoc is one layer away from meaning something else.
    - `curl -d '{\"email\":\"…\"}'` inside single quotes sends LITERAL
-     backslashes. `express.json()` then rejects the body and the endpoint
-     answers **500 before any of your code runs** — which reads as a server bug
-     you just introduced. Put the JSON in a variable first
-     (`B='{"email":"…"}'; curl -d "$B"`), which is unambiguous and lets you echo
-     what you actually sent.
+     backslashes. `express.json()` then rejects the body. Put the JSON in a
+     variable first (`B='{"email":"…"}'; curl -d "$B"`), which is unambiguous and
+     lets you echo what you actually sent.
+     **This used to answer 500 and now answers 400** (2026-09-13, DD 91.1 /
+     SILENT_FAILURES 3w). The 500 was the last-resort error handler flattening
+     body-parser's `status: 400` — so the symptom "reads as a server bug you just
+     introduced" was itself the bug, and it took a year and this note to be read
+     as one. A malformed body now returns **400** with the parser's own message,
+     and an oversized one **413**; if you see a 500 from a hand-built curl today,
+     it is genuinely yours.
 
    Use the Edit/Write tools, which write bytes literally. Where a script is
    genuinely the right shape, hold patterns in a **string** (`new RegExp(SRC)`)

@@ -1,6 +1,6 @@
 # Who can do what in AIRMS
 
-*Measured, not described. Every line below comes from calling all 65 endpoints as
+*Measured, not described. Every line below comes from calling all 67 endpoints as
 each non-administrator role against the running system (`cd backend; npm run
 audit:access`), re-run 2026-09-04. Where this disagrees with any other document,
 this one is right, because the other one was written and this one was executed.*
@@ -21,12 +21,20 @@ questions produced changes and the table below already reflects them.
 | **athlete** | Their own record, and their squad without the identifiers. | **No** |
 
 Three of the five cannot change anything. That is the shape of the system and it
-held under test: **every one of 21 write endpoints refused coach, executive and
-athlete.**
+held under test: **every one of 27 role-boundary write endpoints refused coach,
+executive and athlete.**
+
+*(That figure was **21** when this file was written on 2026-09-04 and is
+re-counted from the route table on each pass — the watchlist, the decision
+worklist and the two invitation routes have been added since. The count is
+derived, not maintained by hand: `POST`/`PATCH`/`PUT`/`DELETE` in
+`docs/SYSTEM_MAP.md`, less the four unauthenticated sign-in routes and the two
+self-scoped ones, which address `req.user` and so have no role boundary to
+test.)*
 
 There is a sixth caller this table used to say nothing about: **nobody at all.**
 Measured 2026-09-12 by calling every endpoint with no `Authorization` header,
-**all 65 answered 401** except the four sign-in routes, which are unauthenticated
+**all 67 answered 401** except the four sign-in routes, which are unauthenticated
 by design (`login`, `forgot-password`, `verify-otp`, `reset-password`). That was
 true before it was checked; what changed is that `npm run audit:access` now
 checks it on every run, so a route registered without `auth` fails the audit
@@ -70,7 +78,8 @@ instead of appearing in the matrix as a perfectly ordinary endpoint. See
 | Set an athlete's injury flag | ✓ | ✓ | — | — | — |
 | Create / edit / delete an athlete | ✓ | edit only | — | — | — |
 | **People** | | | | | |
-| Create, invite, deactivate an account | ✓ | — | — | — | — |
+| Create, invite, deactivate a staff account | ✓ | — | — | — | — |
+| Invite a roster athlete to AIRMS | ✓ | — | — | — | — |
 
 ---
 

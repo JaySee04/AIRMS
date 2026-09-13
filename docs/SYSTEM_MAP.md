@@ -12,7 +12,7 @@ This is the *what*. The **why** is [`DESIGN_DECISIONS.md`](DESIGN_DECISIONS.md),
 the measured figures are `npm run measure:facts` (which needs the database),
 and the access model argued in prose is [`PERMISSIONS.md`](PERMISSIONS.md).
 
-Counts: **9 models**, **138 columns**, **65 endpoints**, **25 pages**.
+Counts: **9 models**, **138 columns**, **67 endpoints**, **25 pages**.
 
 ## 1. Data model
 
@@ -213,10 +213,12 @@ refused inside the handler — see PERMISSIONS.md for what each role actually re
 | GET | `/api/athletes/:id` | athlete, medical, admin, coach | viewRecords | backend/src/routes/athletes.js |
 | PATCH | `/api/athletes/:id` | medical, admin | viewRecords | backend/src/routes/athletes.js |
 | PATCH | `/api/athletes/:id/injury` | medical, admin | viewRecords | backend/src/routes/athletes.js |
+| POST | `/api/athletes/:id/invite` | admin |  | backend/src/routes/athletes.js |
 | GET | `/api/athletes/:id/sport-context` | medical, admin | viewRecords | backend/src/routes/athletes.js |
 | GET | `/api/athletes/analytics/periods` | admin, executive |  | backend/src/routes/athletes.js |
 | GET | `/api/athletes/analytics/screening` | admin, executive |  | backend/src/routes/athletes.js |
 | GET | `/api/athletes/meta/disciplines` | medical, admin, executive | viewRecords | backend/src/routes/athletes.js |
+| GET | `/api/athletes/meta/roster` | medical, admin, executive | viewRecords | backend/src/routes/athletes.js |
 | GET | `/api/athletes/meta/sports` | medical, admin, executive | viewRecords | backend/src/routes/athletes.js |
 | GET | `/api/athletes/teammates` | any signed-in |  | backend/src/routes/athletes.js |
 | GET | `/api/audit` | admin, executive |  | backend/src/routes/audit.js |
@@ -400,6 +402,8 @@ Generated into both packages from `shared/facts.js` — see DESIGN_DECISIONS §5
 | frontend | `build` | `next build` |
 | frontend | `start` | `next start` |
 | frontend | `lint` | `next lint` |
+| frontend | `typecheck` | `tsc --noEmit -p tsconfig.json` |
 | frontend | `test` | `jest` |
 | frontend | `e2e` | `node scripts/e2e-smoke.js` |
+| frontend | `verify:csp` | `node scripts/verify-csp.js` |
 
