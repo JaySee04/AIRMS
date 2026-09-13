@@ -54,11 +54,29 @@ function makeNonce(): string {
   return btoa(String.fromCharCode(...bytes));
 }
 
-export function middleware(request: NextRequest) {
-  const nonce = makeNonce();
-  const api = apiOrigin();
-  const dev = process.env.NODE_ENV !== 'production';
+// The two values that cannot differ between requests, resolved once.
+//
+// `NEXT_PUBLIC_API_URL` and `NODE_ENV` are fixed for the life of a deployment,
+// so re-parsing the origin on every document request bought nothing. Hoisting
+// also means a malformed API URL is resolved once at module load rather than
+// re-handled per request.
+//
+// The nonce is deliberately NOT hoisted. One nonce shared by every visitor is a
+// nonce-shaped decoration that defeats the entire scheme — which is why
+// verify-csp.js asserts freshness ACROSS requests rather than mere presence.
+//
+// MEASURED, because the obvious next step is not worth taking: pre-splitting the
+// finished policy around a placeholder and concatenating once per request saves
+// a further 0.46 us against ~1.9 us — noise beside a page render measured in
+// milliseconds. It was written, benchmarked and removed. It also cost a NUL byte
+// smuggled into the placeholder literal, invisible to grep and to the editor
+// (SILENT_FAILURES 3l). Do not reintroduce the trick.
+const API_ORIGIN = apiOrigin();
+const IS_DEV = process.env.NODE_ENV !== 'production';
 
+function buildPolicy(nonce: string): string {
+  const dev = IS_DEV;
+  const api = API_ORIGIN;
   const policy = [
     "default-src 'self'",
 
@@ -104,8 +122,12 @@ export function middleware(request: NextRequest) {
     "worker-src 'self' blob:",
   ];
   if (!dev) policy.push('upgrade-insecure-requests');
+  return policy.join('; ');
+}
 
-  const value = policy.join('; ');
+export function middleware(request: NextRequest) {
+  const nonce = makeNonce();
+  const value = buildPolicy(nonce);
 
   // Next reads the nonce back off the REQUEST header and stamps it onto the
   // scripts it injects. Setting only the response header would produce a policy

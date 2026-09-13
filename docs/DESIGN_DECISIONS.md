@@ -7879,8 +7879,129 @@ silently.
 ---
 
 ```
-CSP: 19/19 real-browser checks, production build
+CSP: 20/20 real-browser checks, production build (local AND hosted)
 e2e against that same build: 110/110 (body map 155 regions, charts drawing)
 backend 53 suites / 754 tests · frontend 21 / 346 · 47 mutations caught
 typecheck + lint clean · map current · npm audit 0 both packages
+```
+
+---
+
+## 93. An optimisation that was measured and then thrown away (2026-09-13)
+
+A tidy-up pass over §91/§92's own new code. Two of the three findings were real;
+the headline "optimisation" was not, and removing it is the point of this entry.
+
+### 93.1 A verification that navigated four times to check three pages
+
+`verify-csp.js` looped over its three routes, then called `inspect(browser, '/')`
+**again** purely to read the CSP header — a full navigation, `networkidle2` plus
+the settle, to re-fetch something the loop had already captured. One middleware
+emits that header, so it is identical on every route.
+
+Removed; the policy is now kept from the first route that answers. Three page
+loads instead of four — negligible locally, seconds against the hosted instance
+where the suite is now routinely run. A `a policy was served at all` check was
+added while there, so a missing header reports *that* rather than six confusing
+regex failures (20 checks, up from 19).
+
+### 93.2 The middleware rebuilt a constant policy on every request
+
+`apiOrigin()` re-parsed `NEXT_PUBLIC_API_URL`, `NODE_ENV` was re-tested, and
+thirteen directive strings were rebuilt and joined — per document request, on the
+Edge runtime, for a value that cannot differ between two requests of the same
+deployment. Hoisted to module scope. The nonce is emphatically **not** hoisted: a
+shared nonce is a nonce-shaped decoration, which is why `verify-csp.js` asserts
+freshness *across* requests rather than mere presence.
+
+### 93.3 The part that was written, benchmarked, and deleted
+
+The obvious next step is to pre-split the finished policy around a placeholder so
+each request is one string concatenation. It was implemented. Then it was
+measured, interleaved across five runs of 200,000 calls each:
+
+| variant | per request |
+|---|---|
+| original (parse + rebuild) | 2.668 µs |
+| hoisted constants only | 1.888 µs |
+| hoisted + placeholder split | 1.430 µs |
+
+**The split buys 0.46 µs.** Against a page render measured in milliseconds that
+is nothing — roughly one part in ten thousand of a request. Set against it: a
+sentinel constant, a `HEAD`/`TAIL` indirection, and an invariant (the placeholder
+must appear exactly once) that nothing checks.
+
+It was removed. `buildPolicy(nonce)` is called per request again, and the comment
+in `middleware.ts` records the measurement so the same idea is not re-had.
+**The hoisting stayed** — it costs no cleverness and removes a URL parse.
+
+This is §90's rule applied to my own work: *tidy what MEASURED as untidy, and
+leave what only looked it.* The honest form of "optimise" includes reporting that
+the optimisation did not earn its place. Correctness was pinned independently of
+the benchmark: the served policy is **byte-identical** to the pre-refactor
+header, diffed mechanically rather than eyeballed, through both variants.
+
+### 93.4 And the cleverness had already cost something
+
+The placeholder literal was written as `' nonce '` and reached disk as two
+**NUL bytes** — `'\u0000nonce\u0000'`. It rendered as spaces everywhere: in the
+editor, in a file read, in the diff. The tell was a contradiction between tools,
+the same shape as 3l — an Edit failing with *"String to replace not found"*
+against text plainly on screen, then `grep` refusing to search at all with
+`Binary file src/middleware.ts matches`.
+
+**CLAUDE.md gotcha 9 prescribes the Edit/Write tools as the remedy for this
+class.** That remedy is still right and it is not a guarantee: this one arrived
+through an ordinary editor write, not a heredoc. Recorded as `SILENT_FAILURES 3l
+(continued)`.
+
+**No new guard was written**, deliberately. `sourceHygiene.test.js` already lists
+`0x00` first and already scans `frontend/src`; it did not fire only because the
+suite had not been re-run since the edit. Verified by planting a canary, which it
+named as `frontend\src\__nul_canary.ts:1 contains NUL (U+0000)`. A second guard
+for a covered case is the §90.2 mistake.
+
+### 93.5 What DID need widening — docs are inputs here
+
+Writing 93.4 up put a NUL into `docs/SILENT_FAILURES.md`, inside the paragraph
+describing the hazard. That is not merely funny: it is evidence the character is
+invisible *at the moment of authoring*, so "be careful" is not a control.
+
+And the guard did **not** cover it. `SCAN` listed source directories only — yet
+in this repo docs are not decoration, they are **inputs**: `systemMap`,
+`codebaseHygiene` and the naming suites all read `.md` files as text and match
+patterns against them. A control byte in a doc reproduces 3l exactly, in a file
+nothing was checking.
+
+Extended to `docs/` and the root `*.md`. **Measured before extending** — all 39
+markdown files were already clean, so it starts green and can only fire on new
+contamination. Proven to fail by planting `docs/__canary.md`, which it named.
+
+The generalisation worth keeping: **a hygiene guard should cover every file the
+project READS, not every file it EXECUTES.**
+
+### 93.6 Documentation drift found while checking the above
+
+`PROJECT_GUIDE.md` had gone stale in the direction that matters. It was missing
+`utils/httpError.js` and `utils/logger.js` (both predating this session),
+`middleware.ts`, `verify-csp.js`, `types/css.d.ts` and the CI workflow — all now
+added. Worse, its coverage section opened with:
+
+> *"Jest covers the pure logic only. There is no linter for the backend and no
+> route, page or end-to-end test anywhere."*
+
+True when written; false for weeks. It predates `reportRoutes.test.js`, the 110
+e2e checks, four jsdom suites, the first mounted `page.tsx`, and `verify-csp.js`.
+It is **quoted rather than silently deleted**, because a coverage claim that
+decays *downward* is the dangerous direction for a graded artefact: it invites a
+viva question the project can in fact answer well.
+
+---
+
+```
+verify:csp 20/20 (local + hosted) · e2e 110/110 against the hardened build
+policy byte-identical across both refactors, diffed mechanically
+backend 53 suites / 754 tests · frontend 21 / 346 · 47 mutations caught
+sourceHygiene now scans 39 markdown files as well as both packages
+typecheck + lint clean · npm audit 0 both packages
 ```

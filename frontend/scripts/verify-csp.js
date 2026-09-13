@@ -116,6 +116,13 @@ async function inspect(browser, route) {
   }
 
   const nonces = [];
+  // The policy as served, kept from the first route that answered. It used to
+  // be fetched by navigating to '/' AGAIN after the loop, which cost a whole
+  // extra page load — networkidle2 plus the settle — to re-read a header the
+  // loop had already captured. Cheap locally, several seconds against the
+  // hosted instance, and bought nothing: the header is identical on every
+  // route, since one middleware emits it.
+  let served = '';
   try {
     console.log(`\nCSP verification against ${WEB} (production build)\n`);
 
@@ -138,10 +145,13 @@ async function inspect(browser, route) {
         r.consoleErrors.slice(0, 3).join(' | '));
 
       if (r.nonce) nonces.push(r.nonce);
+      if (!served) served = r.csp;
     }
 
     // The policy itself, read off the wire rather than off the source file.
-    const { csp } = await inspect(browser, '/');
+    const csp = served;
+    check('a policy was served at all', !!csp,
+      'no Content-Security-Policy header on any route — middleware not running?');
     check('policy carries a script-src nonce', /script-src[^;]*'nonce-/.test(csp), csp.slice(0, 200));
     check("script-src does NOT allow 'unsafe-inline'", !/script-src[^;]*'unsafe-inline'/.test(csp),
       'a nonce plus unsafe-inline is no policy at all in CSP2 browsers');

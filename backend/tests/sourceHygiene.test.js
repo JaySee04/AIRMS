@@ -36,7 +36,25 @@ const SCAN = [
   ['backend', 'src'], ['backend', 'tests'], ['backend', 'scripts'],
   ['frontend', 'src'], ['frontend', 'scripts'],
   ['shared'],
+  // MARKDOWN TOO, since 2026-09-13. Docs are not decoration in this repo: they
+  // are INPUTS. systemMap, codebaseHygiene and the naming suites all read .md
+  // files as text and match patterns against them, so a control byte in a doc
+  // reproduces 3l exactly — a regex that silently matches nothing — in a file
+  // this guard was not looking at.
+  //
+  // It is not hypothetical. A NUL reached docs/SILENT_FAILURES.md on the day
+  // this line was added, in the paragraph describing the hazard, and `grep`
+  // responded by refusing to search the file at all ("Binary file … matches").
+  // Measured before extending: all 39 markdown files were already clean, so
+  // this starts green and can only fire on new contamination.
+  ['docs'],
 ];
+
+// Markdown files at the repository ROOT (CLAUDE.md, README.md, …), which `walk`
+// would otherwise miss since it only descends the directories listed above.
+const ROOT_DOCS = fs.existsSync(ROOT)
+  ? fs.readdirSync(ROOT).filter((f) => f.endsWith('.md')).map((f) => path.join(ROOT, f))
+  : [];
 
 function walk(dir, acc = []) {
   if (!fs.existsSync(dir)) return acc;
@@ -44,7 +62,7 @@ function walk(dir, acc = []) {
     if (['node_modules', '.next', '.git'].includes(e.name)) continue;
     const full = path.join(dir, e.name);
     if (e.isDirectory()) walk(full, acc);
-    else if (/\.(js|ts|tsx)$/.test(e.name)) acc.push(full);
+    else if (/\.(js|ts|tsx|md)$/.test(e.name)) acc.push(full);
   }
   return acc;
 }
@@ -74,7 +92,7 @@ const FORBIDDEN = new Map([
 const EXEMPT = path.join('src', 'utils', 'pdfDraw.js');
 
 describe('no invisible characters in source', () => {
-  const files = SCAN.flatMap((parts) => walk(path.join(ROOT, ...parts)));
+  const files = [...SCAN.flatMap((parts) => walk(path.join(ROOT, ...parts))), ...ROOT_DOCS];
 
   it('scans both packages', () => {
     // A floor, so a broken walk cannot pass by finding nothing.

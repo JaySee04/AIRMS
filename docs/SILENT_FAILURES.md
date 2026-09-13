@@ -848,6 +848,41 @@ The diagnosis only happened because the same pattern, built with
 `new RegExp(<string>)` in a scratch file, DID match — identical source text,
 different result. That contradiction is what pointed at the bytes.
 
+#### 3l (continued). It is not only heredocs — one arrived through an ordinary editor write (2026-09-13)
+
+CLAUDE.md gotcha 9 prescribes the Edit/Write tools as the *remedy* for this
+class, "which write bytes literally". That remedy is still right, and it is not
+a guarantee. A `NUL (U+0000)` reached `frontend/src/middleware.ts` through an
+ordinary editor write, in a placeholder constant intended to read `' nonce '`.
+
+The tell was the same shape as 3l's: **a contradiction between two tools.** A
+follow-up edit failed with *"String to replace not found"* against text that was
+plainly on screen — because on screen the NULs rendered as spaces, and on disk
+they were 0x00. `grep` then declined to search the file at all, reporting only
+`Binary file src/middleware.ts matches`. Neither message names the real problem,
+and both are easy to read as a tooling glitch and retry past.
+
+Three things worth keeping:
+
+1. **`grep` saying "binary file" IS the diagnosis**, not an obstacle. A source
+   file has no business being binary. Treat it as a finding.
+2. **An Edit that cannot match visible text is evidence about the bytes**, not a
+   reason to re-paste. The second attempt would have written a second copy of
+   the fault.
+3. **The existing guard was already correct and already covered this.**
+   `backend/tests/sourceHygiene.test.js` lists `0x00, 'NUL'` first in its
+   FORBIDDEN map and scans `frontend/src` as well as the backend — verified by
+   planting a canary, which it named as
+   `frontend\src\__nul_canary.ts:1 contains NUL (U+0000)`. It did not fire
+   earlier only because the suite had not been re-run since the edit. **No new
+   guard was added**, deliberately: the lesson is about running the one that
+   exists, and a second guard for a covered case is the §90.2 mistake.
+
+The constant is now written `'\u0000'` — an explicit six-character escape — so
+the file stays plain ASCII while the sentinel is still a byte that cannot occur
+in the text it delimits. (It was then removed entirely for unrelated reasons;
+see `DESIGN_DECISIONS.md §93`.)
+
 **The standing fix is a canary, not a better regex.** The scan now asserts, before
 scanning anything, that it flags a synthetic offending line and does *not* flag an
 innocuous one. A pattern broken by any means — mangling, a bad edit, a rewrite

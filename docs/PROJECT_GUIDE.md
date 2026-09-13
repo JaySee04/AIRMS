@@ -118,6 +118,8 @@ All Sequelize models. The `index.js` registers them and wires up associations �
 - **FYP II** [utils/screeningPeriods.js](../backend/src/utils/screeningPeriods.js) — the **institutional** view, added 2026-08-06. `screeningPeriods(rows, {grain})` buckets the immutable screening history by calendar period (`month`/`quarter`/`year`) into throughput (tests, distinct athletes, within-period retests), population averages, band mix, and the change against the previous period *present in the series* (an empty quarter is skipped, not read as zero). Also returns `betweenTests`: within-athlete consecutive pairs — retest interval, improved/declined/steady, band moves, and average delta per score. Pure, no DB; `PERIOD_SCORES` carries each score's orientation so exercise-risk improvements (which go DOWN) are not reported as declines. Also returns `seasonality` — every screening pooled by **quarter of the year with the year discarded**, so all Q3s land together (Dr Thung's "which quarter is the risky one"). It ranks by the *share* of flagged screenings rather than the count (throughput differs by quarter) and **names no season below two years of data** (`yearsCovered` / `sufficient` / `worst`), because with one year a worst quarter is indistinguishable from the quarter the weaker squads were screened in. Tested by [tests/screeningPeriods.test.js](../backend/tests/screeningPeriods.test.js)
 - **FYP II** [utils/bands.js](../backend/src/utils/bands.js) — **2026-08-10** the single definition of the risk-band vocabulary: `BAND_RANK` (ordering for "worse than"), `BAND_LABEL` (human wording), `effectiveBand(screening)` (a clinician's override wins over the computed band) and `atLeastAsBad()`. `BAND_RANK` had stood in three files and `BAND_LABEL` in two — identical, with nothing stopping them drifting, which is the §19 failure mode: a divergent rank makes "worse than" disagree between the alert gate and the period comparison, a divergent label makes two emails name the same band differently, and neither raises an error. New code should call `effectiveBand` rather than inline `overrideBand || overallBand`, the one expression here that can be written backwards and silently ignore every override
 - **FYP II** [utils/invite.js](../backend/src/utils/invite.js) — **2026-09-13** the single definition of what an invitation *is*: `sendInvite(user, req, {creating})` (mint a throwaway password, issue the one-time code, stamp `invitedAt`, **await** the send so an administrator pressing invite learns whether it went), `inviteBlockedReason(user)` (deactivated / already in use) and `unusablePassword()`. Extracted from `routes/users.js` when athletes gained their own invitation path — two routes minting invitations from two copies is how one of them ends up with a longer TTL or an attempt counter it forgot to clear, the same reasoning that put the one-time code into `utils/resetCodes.js`. `accountLifecycle.test.js` pins both routes to this module and forbids either from rolling its own `crypto.randomBytes(32)`. See `DESIGN_DECISIONS.md §88`
+- **FYP II** [utils/httpError.js](../backend/src/utils/httpError.js) — **2026-09-02** the one place that decides what a failed request tells its caller. `sendError(res, err, context)` routes on INTENT, not status alone: a 4xx keeps its message (it is a statement about the REQUEST), an `expose`d error keeps its message (the operator needs "Could not render any pages from the PDF"), everything else gets `GENERIC` while the real error goes to the structured log. All 67 routes end here — **and since 2026-09-13 so does `server.js`'s last-resort handler**, which had been flattening body-parser's `status: 400` into a 500 and inventing a fourth message vocabulary. Under Express 5 that handler catches every unhandled async rejection in every route. See `DESIGN_DECISIONS.md §48`, `§91.1` and `SILENT_FAILURES.md 3w`
+- **FYP II** [utils/logger.js](../backend/src/utils/logger.js) — **2026-09-09** structured logging, one line of JSON per event, **no new dependency** (pino/winston would each add a tree to a project whose whole shape is self-contained packages). `redact()` is the point and **fails closed**: anything matching `FORBIDDEN_KEY` is dropped, credential-shaped strings are dropped, and an unrecognised object is replaced rather than serialised — so a future caller passing a whole Sequelize row cannot leak a roster. **Log identifiers and outcomes, never clinical content.** UTC always, deliberately unlike `INSTITUTION_TZ`. Note the denylist covers the fields somebody thought of: `context` is not on it, which is why callers pass a ROUTER (`GET /api/athletes`) and never `req.path` — a full path carries the IC (`§91.2`)
 - **FYP II** [utils/audit.js](../backend/src/utils/audit.js) + [models/AuditLog.js](../backend/src/models/AuditLog.js) — **2026-08-10** the accountability trail. `recordAudit(req, {...})` is **fire-and-forget**: a logging failure must never fail the operation it describes. The actor's name and role are **copied onto the row**, not joined from `users`, so the record says who they were when they acted. Append-only — no update or delete path exists anywhere. See `DESIGN_DECISIONS.md §20a`
 - **FYP II** [utils/scheduler.js](../backend/src/utils/scheduler.js) — **2026-08-10** the monthly digest (§16). `startScheduler()` runs an hourly tick asking whether this month is still owed, against a `digest_last_sent` YYYY-MM marker in settings — **not** a cron expression, because a cron instant missed while the process is down skips the month with no error. Idempotent, self-healing, and safe under two instances. **Attaches the holistic PDF** via `renderHolisticPdf()`; `digestAttachment()` is non-fatal, so a render failure downgrades the digest to summary-only rather than losing the month, and `buildDigest(now, {attached})` words the email to match what actually got attached. Recipients are filtered through the per-user opt-out. `runDigestOnce()`, `isDue()`, `buildDigest()`, `digestAttachment()` and `monthKey()` are exported for testing; tested in [tests/scheduler.test.js](../backend/tests/scheduler.test.js)
 - **FYP II** [utils/programmeActivity.js](../backend/src/utils/programmeActivity.js) — **2026-08-11** the Programme Activity KPIs, gathered once. `programmeActivityData(query)` applies the cohort filters + date window, then returns `periods` / `betweenTests` / `seasonality` (from `screeningPeriods`) plus `coverage` and a `scope` sentence. Extracted from `routes/athletes.js` when the same figures had to appear in a downloadable PDF — the page (`GET /athletes/analytics/periods`) and the report (`GET /screening-reports/programme-activity.pdf`) now read one function, so the screen and the filed document cannot quote different KPIs. `scopeLabel()` is reused for the PDF cover and the filename. Throws with `err.status = 400` on an unknown grain. Tested in [tests/programmeActivity.test.js](../backend/tests/programmeActivity.test.js) (models mocked, no DB)
@@ -275,6 +277,40 @@ Pages mapped to the 4 roles + profile pages. **The URL hierarchy is the role bou
 | [screeningUploadStore.ts](../frontend/src/lib/screeningUploadStore.ts) | The batch-import queue's state machine: per-file extract → preview → commit, with **sequential** vision extraction (deliberately serial — `BATCH_SPACING_MS` paces the provider) and *Retry failed* re-queueing only the errors. Tested in [screeningUploadStore.test.ts](../frontend/src/lib/screeningUploadStore.test.ts) |
 | [trainingFocus.ts](../frontend/src/lib/trainingFocus.ts) | *(listed above)* |
 
+### Edge middleware — `frontend/src/middleware.ts`
+
+**2026-09-13.** The Content-Security-Policy, built per request because it carries
+a **nonce** and a static header cannot. The four non-varying headers
+(`X-Frame-Options`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`) stay in
+`next.config.js`; the CSP is declared **only here**, because two
+`Content-Security-Policy` headers are enforced as an *intersection* and a second
+copy would silently change the effective policy.
+
+Three things to know before editing it:
+
+- **`connect-src` is derived from `NEXT_PUBLIC_API_URL`**, the same value
+  `lib/api.ts` reads. Web and API are different origins in every environment, and
+  a CSP that forgets this does not fail loudly — pages render and every panel
+  silently fetches nothing.
+- **`export const dynamic = 'force-dynamic'` in `app/layout.tsx` is required by
+  it**, and is the one-line rollback point. Statically prerendered HTML is built
+  once and cannot carry a per-request nonce; with it, Chrome blocked all 16
+  inline scripts and the pages rendered their server HTML and never hydrated.
+- **Constants are hoisted, the nonce is not.** A hoisted nonce is one constant
+  shared by every visitor — which is why `verify-csp.js` asserts freshness
+  *across* requests, not mere presence.
+
+Verified by [scripts/verify-csp.js](../frontend/scripts/verify-csp.js)
+(`npm run verify:csp`, 20 checks) in real Chrome against a **production** build —
+`next dev` needs `'unsafe-eval'`, so a dev run passes under a looser policy and
+proves nothing. See `DESIGN_DECISIONS.md §92`.
+
+### Type declarations — `frontend/src/types/`
+
+[css.d.ts](../frontend/src/types/css.d.ts) — declares `*.css` for side-effect
+imports. TypeScript 6 raises `TS2882` without it, and it cannot live in
+`next-env.d.ts`, which covers CSS *modules* only and is generated.
+
 ### Styles
 
 [frontend/src/styles/globals.css](../frontend/src/styles/globals.css) — single global stylesheet. Uses CSS variables for theming (`--brand-navy`, `--brand-gold`, `--risk-*`, `--bodymap-*`, etc.). Dark mode via `[data-theme="dark"]` attribute on `<html>`.
@@ -341,7 +377,22 @@ curl http://localhost:5000/api/health
 
 ### Test coverage — what is and isn't guarded
 
-Jest covers the **pure logic** only. There is no linter for the backend and no route, page or end-to-end test anywhere.
+> **This line used to read "Jest covers the pure logic only. There is no linter
+> for the backend and no route, page or end-to-end test anywhere."** That was
+> true when written and had been false for weeks by 2026-09-13 — it predates
+> `reportRoutes.test.js` (real routers via supertest), `npm run e2e` (110 checks
+> in real Chrome), the four jsdom component suites, the first mounted `page.tsx`,
+> and `verify-csp.js`. It is quoted rather than deleted because a coverage claim
+> that decays *downward* is the dangerous direction in a viva: it invites a
+> question the project can actually answer.
+
+Jest still covers mostly **pure logic**, and there is still no linter for the
+backend. What exists beyond it, and what genuinely remains unguarded, is the
+table below plus the four verification commands — `npm run mutate` (47 guards),
+`npm run audit:access` (67 endpoints × every role, plus anonymous),
+`npm run verify:claims` (a *running* instance) and `npm run verify:csp`
+(real Chrome, production build). The honest gap is **route handlers and pages**:
+most are covered by e2e or by nobody.
 
 | Suite | Guards |
 |---|---|
@@ -366,6 +417,18 @@ Jest covers the **pure logic** only. There is no linter for the backend and no r
 | `frontend/src/lib/bands.test.ts` | pins the frontend band labels to the backend's wording character for character |
 | `frontend/src/lib/athleteSearch.test.ts` · `rank.test.ts` | token/IC matching and the `ambiguous` duplicate-name flag; mid-rank percentiles |
 | `frontend/src/lib/screeningUploadStore.test.ts` · `components/charts/Charts.test.tsx` | the batch queue state machine; the chart set rendered via `react-dom/server` (no jsdom) |
+| `backend/tests/sourceHygiene.test.js` | **invisible characters in source, BOTH packages** (`frontend/src` included). NUL, BACKSPACE, zero-width space, BOM and friends, naming file/line/character. It earns its place regularly: a NUL reached `frontend/src/middleware.ts` on 2026-09-13 through an ordinary editor write — invisible to grep, which simply reported the file "binary" — and this suite names it in under a second. `pdfDraw.js` is the one exemption, and the exemption **invalidates itself** if its substitution table ever goes away |
+| `frontend/scripts/verify-csp.js` | **2026-09-13** the CSP in real Chrome against a **production** build (`npm run verify:csp`, 20 checks). Asserts three independent things because any one alone passes against a broken policy: zero `securitypolicyviolation` events (listener registered *before* navigation — one added on `load` misses every violation raised during parse), the page actually **hydrated**, and the policy is the strict one with a nonce **fresh per request**. Has been seen to fail on the real defect: 10/19 while routes were still statically prerendered, with "rendered real content" passing on the same pages whose "hydrated" failed |
+
+**Continuous integration — [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)** (2026-09-13).
+Three jobs on push/PR to `feat/mysql-migration` and `main`: **checks** (both jest
+suites, typecheck, lint), **mutate** (the 47 guards — separate because it exceeds
+two minutes), and **csp** (build + real Chrome + `verify:csp`). **No database
+service**, because every backend suite is DB-free. `audit:access`,
+`verify:claims` and `e2e` need a *live* instance and are deliberately **left out
+rather than half-wired** — a green tick that quietly skipped them is a worse
+signal than no tick at all. Until this existed, ~1,100 tests and 47 guards ran
+only when somebody remembered, on a branch where a push **is** a deploy.
 
 Counts as of 2026-08-18: **18 backend suites / 270 tests**, **8 frontend suites / 119 tests**.
 
