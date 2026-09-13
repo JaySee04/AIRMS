@@ -181,6 +181,11 @@ async function programmeActivityData(query = {}) {
     attributes: [
       'id', 'athleteId', 'assessedAt', 'totalScore', 'rom', 'stability', 'symmetry',
       'exerciseRisks', 'overallIndicator', 'overallBand', 'overrideBand',
+      // Band PROVENANCE (§96). Without these two the period tally cannot tell
+      // whether the bands it is comparing were measured against the same ruler,
+      // and screeningPeriods would report every window as comparable — which is
+      // the silent-success shape this pair exists to prevent.
+      'normVersionId', 'scoredAt',
     ],
     order: [['assessedAt', 'ASC'], ['id', 'ASC']],
     raw: true,

@@ -12,7 +12,7 @@ This is the *what*. The **why** is [`DESIGN_DECISIONS.md`](DESIGN_DECISIONS.md),
 the measured figures are `npm run measure:facts` (which needs the database),
 and the access model argued in prose is [`PERMISSIONS.md`](PERMISSIONS.md).
 
-Counts: **9 models**, **138 columns**, **67 endpoints**, **25 pages**.
+Counts: **9 models**, **140 columns**, **67 endpoints**, **25 pages**.
 
 ## 1. Data model
 
@@ -160,6 +160,8 @@ Counts: **9 models**, **138 columns**, **67 endpoints**, **25 pages**.
 | cohortSize | cohort_size | INTEGER | yes |  |
 | cohortLabel | cohort_label | STRING(160) | yes |  |
 | cohortDeltas | cohort_deltas | JSON | yes |  |
+| normVersionId | norm_version_id | INTEGER | yes |  |
+| scoredAt | scored_at | DATE | yes |  |
 | overrideBand | override_band | ENUM(green \| amber \| red) | yes |  |
 | overrideNote | override_note | TEXT | yes |  |
 | overrideBy | override_by | STRING(120) | yes |  |
@@ -392,6 +394,7 @@ Generated into both packages from `shared/facts.js` — see DESIGN_DECISIONS §5
 | backend | `guide:pdf` | `node scripts/guide-to-pdf.js && node scripts/verify-guide-pdf.js` |
 | backend | `measure:facts` | `node scripts/measure-facts.js` |
 | backend | `migrate:screening-unique` | `node scripts/migrate-screening-unique.js` |
+| backend | `migrate:norm-stamp` | `node scripts/migrate-screening-norm-stamp.js` |
 | backend | `verify:schema` | `node scripts/verify-schema.js` |
 | backend | `migrate:drop-redundant-indexes` | `node scripts/migrate-drop-redundant-indexes.js` |
 | backend | `audit:access` | `node scripts/audit-access.js` |

@@ -81,6 +81,30 @@ const Screening = sequelize.define('Screening', {
   // Per-component [{ key,label,value,mean,delta,z,lowerIsBetter }].
   cohortDeltas: { type: DataTypes.JSON, allowNull: true, field: 'cohort_deltas' },
 
+  // WHICH RULER MEASURED THIS BAND, and when (2026-09-13, §96).
+  //
+  // `recomputeIndicators()` rescores only each athlete's LATEST screening, so an
+  // older row keeps whatever band it was given the last time it happened to be
+  // the latest. That is correct for the athlete's own record — a verdict formed
+  // in August was formed in August — but it makes the ADMIN band-mix trend a
+  // comparison across rulers rather than across time, and nothing said so.
+  //
+  // Measured on the live database before adding these: 2026 Q2 held 18 rows last
+  // scored 2026-08-23 alongside 21 scored 2026-09-10, while Q3 was uniformly
+  // 2026-09-10 — and the pinned norm version was created 2026-08-24, i.e.
+  // BETWEEN them. The chart drew the difference as athlete change.
+  //
+  // `normVersionId` is the pinned CohortNormVersion in force at scoring time, or
+  // NULL when norms were live/unpinned — and NULL is therefore not "missing", it
+  // is "scored against an unversioned ruler", which is exactly the case that
+  // cannot be proven comparable. `scoredAt` disambiguates two different
+  // unpinned epochs, which would otherwise both read NULL.
+  //
+  // Both stay NULL on rows written before this existed. A period containing them
+  // is reported as UNKNOWN rather than assumed comparable.
+  normVersionId: { type: DataTypes.INTEGER, allowNull: true, field: 'norm_version_id' },
+  scoredAt: { type: DataTypes.DATE, allowNull: true, field: 'scored_at' },
+
   // Clinician override (medical staff, after a real assessment). Auto-expires
   // when a newer Screening row is imported.
   overrideBand: { type: DataTypes.ENUM(...BANDS), allowNull: true, field: 'override_band' },

@@ -492,6 +492,106 @@ describe('per-athlete band counts', () => {
     expect(p.athleteBands.red).toBe(1);
   });
 
-  function periodsOf(rows) { return screeningPeriods(rows, 'month').periods; }
+  function periodsOf(rows) { return screeningPeriods(rows, { grain: 'month' }).periods; }
   function sum(b) { return b.green + b.amber + b.red + b.none; }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// §96. Is the band trend comparing TIME, or RULERS?
+//
+// recomputeIndicators() rescores only each athlete's LATEST screening, so an
+// older row keeps the band it had when it last WAS the latest. Correct for the
+// athlete's record; wrong for a chart that compares periods, because part of any
+// movement is then a change of ruler. Measured on the live database: 2026 Q2
+// held 18 rows scored 2026-08-23 beside 21 scored 2026-09-10, with the pinned
+// norm version created 2026-08-24 — i.e. BETWEEN them.
+//
+// These pin the three states apart. The dangerous one is the last: "we do not
+// know" must never read as "it matches".
+// ─────────────────────────────────────────────────────────────────────────────
+describe('band provenance — comparing rulers, not just time', () => {
+  const at = (athleteId, assessedAt, overallBand, normVersionId, scoredAt) => ({
+    athleteId, assessedAt, overallBand, overrideBand: null, totalScore: 70,
+    normVersionId, scoredAt,
+  });
+
+  it('one pinned version across the window IS comparable', () => {
+    const out = screeningPeriods([
+      at('A', '2026-06-02', 'green', 1, '2026-09-10'),
+      at('B', '2026-07-02', 'amber', 1, '2026-09-10'),
+    ], { grain: 'month' });
+    expect(out.bandProvenance.comparable).toBe(true);
+    expect(out.bandProvenance.unknown).toBe(false);
+    expect(out.bandProvenance.epochs).toEqual(['pinned:1']);
+  });
+
+  it('a pinned version is comparable to ITSELF however far apart the scoring', () => {
+    // A pin is a frozen snapshot (§22) — that is the reason it exists. Two rows
+    // sharing a version id were measured by the same ruler even if one was
+    // scored months after the other.
+    const out = screeningPeriods([
+      at('A', '2026-06-02', 'green', 1, '2026-08-01'),
+      at('B', '2026-07-02', 'amber', 1, '2026-12-25'),
+    ], { grain: 'month' });
+    expect(out.bandProvenance.comparable).toBe(true);
+  });
+
+  it('TWO pinned versions are NOT comparable', () => {
+    const out = screeningPeriods([
+      at('A', '2026-06-02', 'green', 1, '2026-09-10'),
+      at('B', '2026-07-02', 'amber', 2, '2026-09-11'),
+    ], { grain: 'month' });
+    expect(out.bandProvenance.comparable).toBe(false);
+    expect(out.bandProvenance.unknown).toBe(false);
+    expect(out.bandProvenance.epochs).toHaveLength(2);
+  });
+
+  it('live (unpinned) norms are comparable only WITHIN one recompute', () => {
+    // Live norms move on every import, so the timestamp is part of the ruler.
+    const same = screeningPeriods([
+      at('A', '2026-06-02', 'green', null, '2026-09-10T00:00:00Z'),
+      at('B', '2026-07-02', 'amber', null, '2026-09-10T00:00:00Z'),
+    ], { grain: 'month' });
+    expect(same.bandProvenance.comparable).toBe(true);
+
+    const apart = screeningPeriods([
+      at('A', '2026-06-02', 'green', null, '2026-09-10T00:00:00Z'),
+      at('B', '2026-07-02', 'amber', null, '2026-09-11T00:00:00Z'),
+    ], { grain: 'month' });
+    expect(apart.bandProvenance.comparable).toBe(false);
+  });
+
+  it('an UNSTAMPED band makes the window unprovable, never "fine"', () => {
+    // THE failure this exists to prevent. A row scored before the provenance
+    // columns existed could have been measured against anything; treating it as
+    // matching whatever sits beside it is the silent-success shape.
+    const out = screeningPeriods([
+      at('A', '2026-06-02', 'green', 1, '2026-09-10'),
+      at('B', '2026-07-02', 'amber', null, null),
+    ], { grain: 'month' });
+    expect(out.bandProvenance.comparable).toBe(false);
+    expect(out.bandProvenance.unknown).toBe(true);
+    expect(out.bandProvenance.epochs).toContain('unknown');
+  });
+
+  it('reports a window with no bands as EMPTY, not comparable', () => {
+    // Nothing to compare is not the same as "checked and consistent", and the
+    // card must stay quiet rather than caveat an empty chart.
+    const out = screeningPeriods([], { grain: 'month' });
+    expect(out.bandProvenance.empty).toBe(true);
+    expect(out.bandProvenance.comparable).toBe(false);
+  });
+
+  it('tallies provenance over the SAME rows the band counts came from', () => {
+    // athleteBands counts one row per athlete (their latest in the period). If
+    // provenance were tallied over every screening instead, a superseded row
+    // could flag a window whose drawn numbers never used it.
+    const out = screeningPeriods([
+      // A's earlier, unstamped screening is NOT the one counted in June.
+      at('A', '2026-06-02', 'red', null, null),
+      at('A', '2026-06-20', 'green', 1, '2026-09-10'),
+    ], { grain: 'month' });
+    expect(out.bandProvenance.comparable).toBe(true);
+    expect(out.bandProvenance.unknown).toBe(false);
+  });
 });

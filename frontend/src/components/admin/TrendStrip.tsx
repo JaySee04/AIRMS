@@ -50,11 +50,26 @@ interface Period {
   deltas?: Record<string, Delta | undefined>;
   direction?: string;
 }
+/** Whether every band in the window was measured against ONE known ruler (§96). */
+interface BandProvenance {
+  /** Distinct rulers: `pinned:<id>`, `live:<iso>`, or `unknown`. */
+  epochs: string[];
+  /** At least one band predates the provenance columns. */
+  unknown: boolean;
+  /** Exactly one epoch, and it is a known one. */
+  comparable: boolean;
+  /** No bands at all — vacuous, not comparable. */
+  empty: boolean;
+}
+
 interface PeriodsResponse {
   grain: Grain;
   periods: Period[];
   grainCounts?: Record<Grain, number>;
   composition?: { grain: Grain; periods: Period[] } | null;
+  /** Optional so an older API response still renders — absent means "not stated",
+   *  which is treated as "do not claim comparability" rather than as "fine". */
+  bandProvenance?: BandProvenance;
 }
 
 // The metrics compared when a selection has exactly two periods. The boolean is
@@ -201,6 +216,27 @@ export default function TrendStrip({ query }: { query: string }) {
               }))}
               valueLabel="Athletes tested"
               mixLabel="Band mix"
+              // IS THE MIX COMPARING TIME, OR RULERS? (§96)
+              //
+              // Rendered ABOVE the row it qualifies, not at the foot of the card:
+              // §71's rule, learned on the seasonality panel — a caveat below the
+              // numbers is read after the reader has already believed them. Shown
+              // only when the answer is no; a caveat shown always is a caveat
+              // nobody reads.
+              //
+              // It names what is UNAFFECTED too. The column heights are
+              // headcounts and are true regardless, so this must not be taken to
+              // mean the whole card is unreliable.
+              mixNote={data?.bandProvenance && !data.bandProvenance.empty
+                && !data.bandProvenance.comparable ? (
+                  <p className="chart-note" style={{ margin: '0 0 8px', paddingLeft: 38 }}>
+                    <strong>Band mix not comparable across these periods.</strong>{' '}
+                    {data.bandProvenance.unknown
+                      ? 'Some of these bands were scored before AIRMS recorded which norms it used, so it cannot be shown they were measured against the same cohort norms as the rest.'
+                      : 'These bands were scored against more than one set of cohort norms, so part of any movement is a change of ruler rather than a change in the squad.'}{' '}
+                    Athletes tested, above, is a headcount and is unaffected.
+                  </p>
+                ) : null}
               lineLabel="Average Total Score"
               // A single period gets the finer buckets it is made of; two periods
               // get metric slopes, because with two the comparison IS the content

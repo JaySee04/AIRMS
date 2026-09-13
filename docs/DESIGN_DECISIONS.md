@@ -8276,3 +8276,138 @@ Charts 59/59 · frontend 21 suites / 346 tests · e2e 110/110
 three grains photographed in real Chrome; columns = ribbon = labels at each
 one switch on the card (grain); no auto-rotating content anywhere
 ```
+
+---
+
+## 96. The band trend was comparing rulers, not time (2026-09-13)
+
+Found by answering a question, not by hunting a bug. JC asked what band mix % is
+for and where it comes from in the HoloMotion PDF; checking the second half
+turned up the first real defect in the trend.
+
+**Unlocks part of `MASTER_CLARIFICATIONS §12`**: the `Screening` schema is
+locked. Two nullable columns were added on JC's explicit instruction, which is
+the discussion the lock requires. No existing column changed.
+
+### 96.1 First, the answer to the question — the band is not in the PDF
+
+Nothing HoloMotion prints is green/amber/red. From the real report used to check
+this (Nur Batrisyia Binti Yusof, 2025-07-29):
+
+| printed | value | HoloMotion's own label |
+|---|---|---|
+| Total Score | 68 | "Average" |
+| Exercise Risks | 21 | "Medium Risk" (fixed 0–15 / 16–55 / 56–100) |
+| ROM · Stability · Symmetry | 55 · 78 · 77 | "Below Average" · "Good" · "Good" |
+
+AIRMS's band is **derived**: six oriented components → z-scores against the
+athlete's peer cohort → escalation count → green/amber/red. HoloMotion says *"68
+is average"* on a fixed scale; AIRMS says *"68 is unusual for this cohort"*, or
+does not. §21 already records why the hero shows the printed Total Score and not
+the derived indicator — this is the same distinction one layer down, and it is
+the likeliest viva question about the colour.
+
+### 96.2 The defect: history is never rescored, and nothing said so
+
+`recomputeIndicators()` rescores **only each athlete's latest screening**
+(`latestScreeningsByAthlete()`). An older row keeps the band it was given the
+last time it *was* the latest.
+
+For the athlete's own record that is right, and stays: a verdict formed in August
+is a record of what was decided in August. For a chart that compares **periods**
+it is wrong, because the periods may have been scored against different norms —
+and the chart drew the difference as athlete change.
+
+Measured on the live database before any change:
+
+| period | when the band was last computed | n | green/amber/red |
+|---|---|---|---|
+| 2026 Q2 | **2026-08-23** | 18 | 15/2/1 |
+| 2026 Q2 | **2026-09-10** | 21 | 13/4/4 |
+| 2026 Q3 | 2026-09-10 | 35 | 25/5/5 |
+
+The pinned norm version `Pre-viva baseline 2026-08-25` was created **2026-08-24**
+— *between* the two Q2 groups.
+
+**What is NOT claimed:** that the 83% → 62% green difference was caused by the
+norms. Those are different athletes with different data, and that comparison
+cannot separate the two. What is certain is the **mechanism**: any norm change,
+pin, unpin or escalation-threshold edit silently makes the trend a mix of epochs,
+with nothing anywhere saying so. Classic shape — the chart looks right and part
+of the movement is an artefact.
+
+### 96.3 The fix: provenance, not back-filling
+
+Two nullable columns on `screenings`, written **with the band, never
+separately**, so a band cannot exist without its provenance:
+
+- `norm_version_id` — the pinned `CohortNormVersion` in force at scoring time.
+  **NULL is not "missing"**, it means *scored against live, unpinned norms*,
+  which is exactly the state that cannot be proven comparable to anything.
+- `scored_at` — when. Disambiguates two different unpinned epochs, which would
+  otherwise both read NULL.
+
+`normEpochOf()` reduces those to one comparable key, with three states:
+`pinned:<id>` (comparable to itself however far apart the scoring — a pin is a
+frozen snapshot, §22), `live:<iso>` (only within one recompute), and `unknown`.
+
+**Existing rows are deliberately NOT back-filled.** Inventing provenance for
+verdicts whose provenance is genuinely unknown is precisely this project's defect
+class: a fabricated value that looks like a real one. 18 rows stay unstamped and
+make their window *unprovable*, which is the honest answer.
+
+`screeningPeriods()` now returns `bandProvenance { epochs, unknown, comparable,
+empty }`, tallied over **exactly the rows `athleteBands` counted** — so the
+provenance can never describe a different set from the numbers drawn. `empty`
+is distinguished from `comparable` because a window with no bands is vacuous,
+not verified.
+
+### 96.4 What it says, and where
+
+A caveat on the card, shown **only when the answer is no** — one shown always is
+one nobody reads. It states what is *unaffected*: the column heights are
+headcounts and are true regardless.
+
+Placed **above the mix row**, not at the foot of the card. The first version sat
+at the bottom, below the change chart, and that violated §71's own rule learned
+on the seasonality panel — *a caveat below the numbers is read after the reader
+has already believed them*. Fixed by passing it into `PeriodChart` as `mixNote`.
+
+Verified in real Chrome against the live data:
+
+| grain | caveat | why |
+|---|---|---|
+| Monthly | **shown** | May 2026 is entirely unstamped |
+| Quarterly | **shown** | Q2 mixes unstamped with `pinned:1` |
+| Yearly | **not shown** | one row per athlete, all rescored → `pinned:1` alone |
+
+That last row is the point: it is not a blanket warning. The yearly view *is*
+comparable and says nothing.
+
+### 96.5 A latent test bug found on the way
+
+`screeningPeriods(rows, 'month')` takes an options **object**, so a bare string
+contributes nothing and the grain silently falls back to `quarter`. 23 call sites
+in `screeningPeriods.test.js` did this — tests named for months had been
+exercising quarters.
+
+Latent rather than wrong: every assertion still passed once fixed, because the
+fixtures bucket the same way at both grains. But a test that does not exercise
+what its name says is a test nobody can rely on later, and it is the same family
+as the guards §90.2 swept for. Fixed at all 23 — and the first fix was too broad,
+rewriting `periodKeyOf(date, 'month')`, which genuinely does take a bare string;
+caught by three failures and reverted precisely.
+
+### 96.6 What is still open
+
+Only the **local** database is migrated. The hosted one needs
+`npm run migrate:norm-stamp -- --url … --ca …`, and until then its trend will
+report every window as `unknown` — which is correct and honest, not broken.
+
+---
+
+```
+backend 53 suites / 761 tests (7 new provenance cases) · frontend 21 / 346
+e2e 110/110 · verify:schema 0 findings · typecheck + lint clean · map current
+caveat verified in real Chrome: shown at month and quarter, silent at year
+```

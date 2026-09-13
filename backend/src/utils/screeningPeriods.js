@@ -138,6 +138,29 @@ function keysBetween(first, last, grain) {
 // one row per athlete — and a second copy of the counting is a second place for
 // the band precedence (`effectiveBand`, which honours a clinical override) to be
 // got wrong.
+/**
+ * Which RULER a band was measured against (§96) — a short key, comparable by
+ * string equality.
+ *
+ * Three states, and the distinction between them is the whole point:
+ *
+ *   `unknown`     the row predates the provenance columns. NOT assumed to match
+ *                 anything: an unstamped band could have been scored under any
+ *                 norms, so a window containing one cannot be proven comparable.
+ *   `pinned:<id>` scored against a pinned CohortNormVersion. Two rows sharing an
+ *                 id ARE comparable however far apart they were scored — a pin
+ *                 is a frozen snapshot, which is the reason pinning exists (§22).
+ *   `live:<when>` scored against live, unpinned norms. Only rows from the SAME
+ *                 recompute are comparable, so the timestamp is part of the key.
+ *                 Live norms move on every import, which is exactly why an
+ *                 institution that cares about trend should pin.
+ */
+function normEpochOf(row) {
+  if (!row || row.scoredAt == null) return 'unknown';
+  if (row.normVersionId != null) return `pinned:${row.normVersionId}`;
+  return `live:${new Date(row.scoredAt).toISOString()}`;
+}
+
 function tallyBands(rows) {
   const out = { green: 0, amber: 0, red: 0, none: 0 };
   for (const r of rows) {
@@ -202,6 +225,10 @@ function bucketByPeriod(screenings, grain, deadBands) {
         if (!held || new Date(r.assessedAt) > new Date(held.assessedAt)) latestPerAthlete.set(r.athleteId, r);
       }
       const athleteBands = tallyBands(latestPerAthlete.values());
+      // Which RULER each of those bands was measured against (§96). Tallied over
+      // exactly the rows athleteBands counted, so the provenance can never
+      // describe a different set from the numbers drawn.
+      const bandEpochs = [...new Set([...latestPerAthlete.values()].map(normEpochOf))];
       const averages = {};
       for (const [k] of PERIOD_SCORES) {
         averages[k] = mean(rows.map((r) => num(r[k])).filter((v) => v !== null));
@@ -216,6 +243,7 @@ function bucketByPeriod(screenings, grain, deadBands) {
         retestedWithin: [...perAthlete.values()].filter((n) => n > 1).length,
         bands,
         athleteBands,
+        bandEpochs,
         averages,
       };
     });
@@ -456,8 +484,33 @@ function screeningPeriods(screenings, { grain = 'quarter', noise } = {}) {
     ? { deadBandFor: () => noise, derived: false }
     : { deadBandFor: rel.deadBandFor, derived: true };
 
+  const periods = bucketByPeriod(rows, g, deadBands);
+
+  // IS THE BAND TREND COMPARING TIME, OR RULERS? (§96)
+  //
+  // Computed across the periods actually drawn, from the same rows their band
+  // tallies came from. `comparable` is true only when every band in the window
+  // was measured against ONE known ruler — an unstamped row makes it false,
+  // because "we do not know" is not "it matches".
+  //
+  // Travels with the data for the same reason `reliability` does: a caveat the
+  // reader cannot see is a caveat they cannot weigh. The chart that leans on
+  // this has no other way to know.
+  const epochs = [...new Set(periods.flatMap((p) => p.bandEpochs || []))];
+  const bandProvenance = {
+    epochs,
+    unknown: epochs.includes('unknown'),
+    // One epoch, and it is a known one.
+    comparable: epochs.length === 1 && epochs[0] !== 'unknown',
+    // A window with no bands at all is vacuously consistent, not "comparable" —
+    // there is nothing to compare. Distinguished so the UI can stay quiet rather
+    // than print a caveat about an empty chart.
+    empty: epochs.length === 0,
+  };
+
   return {
     grain: g,
+    bandProvenance,
     // What counts as a change, and where that number came from. Travels with
     // the data because a threshold the reader cannot see is a threshold they
     // cannot challenge.
@@ -468,7 +521,7 @@ function screeningPeriods(screenings, { grain = 'quarter', noise } = {}) {
       fallback: rel.fallback,
       scores: rel.scores,
     },
-    periods: bucketByPeriod(rows, g, deadBands),
+    periods,
     // How many periods EACH grain would produce, so the UI can say which views
     // the data can support before the user clicks one.
     //

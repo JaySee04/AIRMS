@@ -90,6 +90,19 @@ cd backend; npm run measure:facts    # print the headline numbers MEASURED from 
                                      # the report or the viva - the docs have carried four
                                      # different band splits, all true when written. See
                                      # docs/SILENT_FAILURES.md H7.
+cd backend; npm run migrate:norm-stamp   # add screenings.norm_version_id + scored_at (DD 96).
+                                     # WHICH RULER measured each band, and when. recomputeIndicators()
+                                     # rescores only each athlete's LATEST screening, so older rows keep
+                                     # the band they had when they last WERE the latest - correct for the
+                                     # athlete's record, WRONG for a chart comparing periods, which was
+                                     # drawing a change of NORMS as a change in the squad. Measured: Q2
+                                     # 2026 held 18 rows scored 2026-08-23 beside 21 scored 2026-09-10,
+                                     # with the pinned version created 2026-08-24 - BETWEEN them.
+                                     # Existing rows are deliberately NOT back-filled: inventing
+                                     # provenance for verdicts whose provenance is unknown is the exact
+                                     # defect class this project exists to avoid. They report as
+                                     # `unknown`, and the card says so. LOCAL ONLY so far - the hosted
+                                     # database still needs it (`-- --url ... --ca ...`).
 cd backend; npm run verify:schema    # compare the LIVE database's indexes against what the models
                                      # declare. READ-ONLY. Three sections: redundant indexes in the
                                      # database, DRIFT between models and database, and redundancy

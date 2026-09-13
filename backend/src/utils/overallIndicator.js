@@ -316,6 +316,17 @@ async function recomputeIndicators() {
     }
   }
 
+  // The ruler these bands are about to be measured against, stamped onto every
+  // row this pass writes (§96). Read ONCE outside the loop: it is a property of
+  // this recompute, not of each athlete, and re-reading it per row would invite
+  // a pass that stamped two different versions onto one batch.
+  //
+  // NULL when no norm version is pinned. That is a real state, not a gap — it
+  // means "scored against live, unversioned norms", which is precisely the case
+  // that cannot later be proven comparable to anything.
+  const normVersionId = settings.pinned_norm_version_id ?? null;
+  const scoredAt = new Date();
+
   let scored = 0;
   const updates = enriched.map((e) => {
     const rankInfo = rankOf.get(e.screening.id) || null;
@@ -334,6 +345,10 @@ async function recomputeIndicators() {
         cohortSize: rankInfo ? rankInfo.total : null,
         cohortLabel: e.resolved ? cohortLabelFor(resolvedCohortId(e.athlete, e.resolved)) : null,
         cohortDeltas: r.deltas && r.deltas.length ? r.deltas : null,
+        // Which ruler, and when — written with the band, never separately, so a
+        // band can never exist without its provenance (§96).
+        normVersionId,
+        scoredAt,
       },
       { where: { id: e.screening.id } },
     );

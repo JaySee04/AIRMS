@@ -242,7 +242,7 @@ function niceTicks(max: number, target = 4): { top: number; ticks: number[] } {
 }
 
 export function PeriodChart({
-  points, lineLabel, valueLabel, composition, compositionGrain, slope, mixLabel,
+  points, lineLabel, valueLabel, composition, compositionGrain, slope, mixLabel, mixNote,
 }: {
   points: PeriodPoint[];
   lineLabel?: string;
@@ -254,6 +254,10 @@ export function PeriodChart({
   slope?: MetricDelta[];
   /** Caption for the normalised row. Omitted where `segments` carry no mix. */
   mixLabel?: string;
+  /** Caveat about the mix, rendered ABOVE the row it qualifies (§71's rule: a
+   *  caveat below the numbers is read after the reader has already believed
+   *  them). Nothing is drawn when absent. */
+  mixNote?: ReactNode;
 }) {
   // Hooks first: this component has two early returns below, and React requires
   // the same hook order on every render regardless of which branch is taken.
@@ -461,6 +465,7 @@ export function PeriodChart({
           <div className="periodchart-rowcap periodchart-rowcap--mix">
             {mixLabel ?? 'Band mix'} <em>share of those tested &middot; each column 100%</em>
           </div>
+          {mixNote}
           <div className={`periodchart-ribbon${hasLine ? '' : ' periodchart-ribbon--noright'}`}>
             {points.map((p) => {
               const segs = (p.segments ?? []).filter((sg) => sg.value > 0);
