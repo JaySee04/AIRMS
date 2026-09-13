@@ -8167,3 +8167,112 @@ fresh-database probe: 9 tables, 0 redundant indexes · dev data untouched (74 sc
 backend 53 suites / 754 tests · frontend 21 / 346 · map current
 no Athlete or Screening COLUMN changed — the locked schema is untouched
 ```
+
+---
+
+## 95. Direction of travel: both readings at once, and the switch moved to the grain (2026-09-13)
+
+**Supersedes the toggle half of §38.** Everything else in §38 stands — columns
+still serve every selection, the change chart is still drawn beneath at two
+periods, the score line still has its own labelled right-hand axis, and *"do not
+simplify this back to one chart type per grain"* still holds. What changed is
+how the two readings of a column are presented.
+
+### 95.1 The toggle answered a real problem with the wrong shape
+
+§38 identified the problem correctly: **counts** ("how much screening happened")
+and **band mix %** ("how is the mix moving") each hide what the other shows. A
+count stack squashes a 4-athlete month into a sliver where the mix cannot be
+read; a share stack draws that same month exactly as tall as a 33-athlete one.
+
+Its answer was two scalings of one set of columns, selected by a segmented
+control that **rotated every 10 seconds** until the reader clicked.
+
+That answer is wrong for a reason worth naming: **the two readings are not
+alternatives.** The interesting thing is the relationship between them — *"Aug
+had 5 athletes and 40% of them needed attention"* is one thought, and a card
+that shows volume **or** mix can never carry it. At any instant the old card
+showed one of them, and which one depended on when you happened to look.
+
+A carousel is what you build when you have two things and one slot. The fix was
+not a better carousel; it was a second slot.
+
+### 95.2 What it looks like now
+
+One graphic, two plots, **one shared x-axis**:
+
+- **Above** — athletes tested, real heights against a real gridded axis, stacked
+  by band, with the average-score line over it on its own right-hand axis.
+- **Below** — the same periods, normalised: every column full height, so
+  proportions are comparable between a 4-athlete month and a 33-athlete one.
+  Deliberately **shorter** than the count plot, because it is the second
+  question and equal height would claim equal billing.
+- **One row of period labels** under both, carrying the headcount. That single
+  axis is what makes the pair read as one chart rather than two.
+
+Each plot carries a caption naming the question it answers (`Athletes tested ·
+how many`, `Band mix · share of those tested · each column 100%`) — wording that
+previously lived on the toggle buttons and would otherwise have been lost.
+
+**The only switch on the card is now Monthly / Quarterly / Yearly**, which is
+what JC asked for and is the right division: the grain changes *what data is
+shown*, whereas the old toggle changed *which half of it you were allowed to
+see*.
+
+### 95.3 What removing the rotation bought
+
+The auto-rotation carried real obligations, all now moot: a WCAG 2.2.2 pause
+control (the toggle doubled as the stop), a `prefers-reduced-motion` branch, a
+"switching every 10s · click to hold" hint, and the `held` state that stopped the
+carousel moving under a reader who had chosen. All deleted — about 25 lines of
+component, two props (`defaultMode`, `autoRotate`), a type (`PeriodMode`), a
+constant, and a CSS rule (`.seg-group--sm`, whose only user this was).
+
+**The accessible form of moving content is usually content that does not move.**
+Auto-rotation was never the requirement; it was a consequence of the one-slot
+layout, and it left with the layout.
+
+### 95.4 Verified by looking at it
+
+A layout change nobody has *seen* is a guess, so all three grains were driven in
+real Chrome as a signed-in admin and photographed:
+
+| grain | count columns | ribbon columns | x-axis labels | switches on card |
+|---|---|---|---|---|
+| Monthly | 4 | 4 | 4 | 1 |
+| Quarterly | 2 | 2 | 2 | 1 |
+| Yearly | single-period view | — | — | 1 |
+
+Columns, ribbon and labels agree at every grain — that equality is the alignment
+claim, checked rather than eyeballed — and exactly **one** `role="tablist"`
+remains on the card, which is the grain selector.
+
+Yearly has one period on the seeded data and still routes to `SinglePeriod`
+(§38: one period is not a trend, and no chart makes a single point look like
+one), where the composition one grain finer is shown instead. The ribbon is
+correctly absent there.
+
+`npm run e2e` 110/110 and `Charts.test.tsx` 59/59 against the new layout.
+
+### 95.5 Two properties kept that are easy to lose in a redesign
+
+- **A period with nobody in it is drawn, not skipped** (§24), and its ribbon cell
+  is a **dashed outline rather than a filled block** — the same idiom the count
+  plot's empty column already used. A grey fill would read as a band, and "no
+  screening" is not a band (§33). Printing `0%` there would be a verdict it has
+  not earned.
+- **Colour is never the only carrier** (WCAG 1.4.1): ribbon segments print their
+  percentage where there is room, the count plot prints its headcounts, and the
+  legend beneath names every band in words with its count.
+
+The ribbon only renders where `segments` actually carry a mix, so Programme
+Activity — which plots test counts with no bands — is unaffected and gets no
+empty grey row.
+
+---
+
+```
+Charts 59/59 · frontend 21 suites / 346 tests · e2e 110/110
+three grains photographed in real Chrome; columns = ribbon = labels at each
+one switch on the card (grain); no auto-rotating content anywhere
+```

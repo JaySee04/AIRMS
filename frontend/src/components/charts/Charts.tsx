@@ -207,10 +207,21 @@ export interface PeriodPoint {
  * shows: counts make a light month look like a good one, shares make four
  * athletes look like thirty-three. Rather than pick, the chart shows both.
  */
-export type PeriodMode = 'count' | 'share';
-
-/** Seconds between automatic views, before the reader takes over. */
-const ROTATE_MS = 10000;
+// BOTH READINGS ARE DRAWN AT ONCE, since 2026-09-13 (§95). They used to be two
+// scalings of one set of columns, toggled by a segmented control that rotated
+// every 10 seconds until the reader clicked it.
+//
+// The reasoning behind the rotation was sound and its conclusion was not: the
+// two readings are not alternatives, so making the reader choose — or worse,
+// waiting for the carousel to come round — was the wrong answer to a real
+// problem. Volume and mix are now stacked one above the other on a SHARED
+// period axis, which is the comparison the card exists to make and the one a
+// rotation actively prevents: at any instant the old card showed one of them.
+//
+// It also removes the auto-rotation entirely, and with it the WCAG 2.2.2
+// obligation to provide a pause control, the prefers-reduced-motion branch, and
+// the "switching every 10s" hint. The accessible version of moving content is
+// usually content that does not move.
 
 /**
  * Axis ticks at a round step, so gridlines land on numbers a person would
@@ -231,8 +242,7 @@ function niceTicks(max: number, target = 4): { top: number; ticks: number[] } {
 }
 
 export function PeriodChart({
-  points, lineLabel, valueLabel, composition, compositionGrain, slope,
-  defaultMode = 'count', autoRotate = true,
+  points, lineLabel, valueLabel, composition, compositionGrain, slope, mixLabel,
 }: {
   points: PeriodPoint[];
   lineLabel?: string;
@@ -242,10 +252,8 @@ export function PeriodChart({
   compositionGrain?: string;
   /** Per-metric changes — the right chart for exactly two periods. */
   slope?: MetricDelta[];
-  /** Which view opens. Counts, because that is the question asked first. */
-  defaultMode?: PeriodMode;
-  /** Cycle the two views until the reader chooses one. */
-  autoRotate?: boolean;
+  /** Caption for the normalised row. Omitted where `segments` carry no mix. */
+  mixLabel?: string;
 }) {
   // Hooks first: this component has two early returns below, and React requires
   // the same hook order on every render regardless of which branch is taken.
@@ -267,24 +275,6 @@ export function PeriodChart({
   // rotated a page into one full-height grey block every 10 seconds under a
   // legend describing a mix that was not in the data.
   const canShare = points.some((p) => (p.segments ?? []).length > 0);
-
-  const [mode, setMode] = useState<PeriodMode>(defaultMode);
-  // Once the reader picks a view, it STAYS picked. Content that keeps moving
-  // under someone who has chosen is the failure mode of every rotating panel.
-  const [held, setHeld] = useState(false);
-
-  useEffect(() => {
-    if (held || !autoRotate || !canShare) return undefined;
-    // An automatically changing graphic is motion, and some readers have asked
-    // the platform not to send them any (WCAG 2.3.3 / prefers-reduced-motion).
-    // They get the default view and the toggle, which loses them nothing.
-    if (typeof window !== 'undefined'
-      && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return undefined;
-    const t = setInterval(() => setMode((m) => (m === 'count' ? 'share' : 'count')), ROTATE_MS);
-    return () => clearInterval(t);
-  }, [held, autoRotate, canShare]);
-
-  const choose = (m: PeriodMode) => { setHeld(true); setMode(m); };
 
   if (!points.length) return null;
 
@@ -320,15 +310,14 @@ export function PeriodChart({
   // volume. Both are drawn, and the reader can hold either.
   const maxV = Math.max(...points.map((p) => p.value));
   const { top: axisTop, ticks } = niceTicks(maxV);
-  const isShare = canShare && mode === 'share';
   // The caller's own noun. Hardcoding "Athletes tested" mislabelled Programme
   // Activity, which counts TESTS — an athlete screened twice is two of one and
   // one of the other.
   const countLabel = valueLabel ?? 'Athletes tested';
-  // Gridlines are the point of the count view — without a scale to read heights
+  // Gridlines are the point of the count plot — without a scale to read heights
   // against, a column is decoration.
-  const gridTicks = isShare ? [0, 25, 50, 75, 100] : ticks;
-  const gridPct = (v: number) => (isShare ? v : (v / axisTop) * 100);
+  const gridTicks = ticks;
+  const gridPct = (v: number) => (v / axisTop) * 100;
 
   const lineVals = points.map((p) => p.line).filter((v): v is number => v != null);
   const hasLine = lineVals.length >= 2;
@@ -359,30 +348,14 @@ export function PeriodChart({
     <div className="periodchart" ref={tipHost}>
       <HoverTip tip={tip} />
 
-      {canShare && (
-        <div className="periodchart-modes">
-          <div className="seg-group seg-group--sm" role="tablist" aria-label="Column scale">
-            <button type="button" role="tab" aria-selected={!isShare}
-              className={`seg-btn${!isShare ? ' active' : ''}`} onClick={() => choose('count')}>
-              {countLabel}
-            </button>
-            <button type="button" role="tab" aria-selected={isShare}
-              className={`seg-btn${isShare ? ' active' : ''}`} onClick={() => choose('share')}>
-              Band mix %
-            </button>
-          </div>
-          {/* Content that changes on its own must say so and must be stoppable
-              (WCAG 2.2.2). The toggle is the stop, so the hint names it. */}
-          {!held && autoRotate && (
-            <span className="periodchart-rotating">switching every 10s &middot; click to hold</span>
-          )}
-        </div>
-      )}
+      {/* Caption above the plot it captions, so the reader knows which of the
+          two rows they are looking at before they read its heights. */}
+      {canShare && <div className="periodchart-rowcap">{countLabel} <em>how many</em></div>}
 
       <div className="periodchart-plotwrap">
         <div className="periodchart-yaxis" aria-hidden>
           {gridTicks.map((t) => (
-            <span key={t} style={{ bottom: `${gridPct(t)}%` }}>{isShare ? `${t}%` : fmt(t)}</span>
+            <span key={t} style={{ bottom: `${gridPct(t)}%` }}>{fmt(t)}</span>
           ))}
         </div>
 
@@ -396,7 +369,7 @@ export function PeriodChart({
             {points.map((p) => {
               const segs = (p.segments ?? []).filter((sg) => sg.value > 0);
               const total = segs.reduce((acc, sg) => acc + sg.value, 0) || 1;
-              const colH = isShare ? 100 : (p.value / axisTop) * 100;
+              const colH = (p.value / axisTop) * 100;
               return (
                 <div className="periodchart-col" key={p.key}>
                   {p.value === 0 ? (
@@ -421,7 +394,7 @@ export function PeriodChart({
                           >
                             {/* Colour alone must not carry the band (WCAG 1.4.1),
                                 the same rule as every band label in AIRMS. */}
-                            {pct >= 18 && colH >= 22 && <em>{isShare ? `${Math.round(pct)}%` : sg.value}</em>}
+                            {pct >= 18 && colH >= 22 && <em>{sg.value}</em>}
                           </span>
                         );
                       }) : (
@@ -474,9 +447,58 @@ export function PeriodChart({
         )}
       </div>
 
-      {/* The headcount rides on the x-axis rather than above its column: it must
-          stay visible in the SHARE view, which by construction cannot encode it,
-          and there is no room for a second label inside the plot. */}
+      {/* ── the mix, normalised, on the SAME period axis ──────────────────────
+          Every column full height, so the proportions are comparable between a
+          4-athlete month and a 33-athlete one — which is exactly what the plot
+          above cannot show, because there the 4-athlete column is a sliver.
+          Deliberately SHORTER than the count plot: it is the second question,
+          and giving it equal height would say the two rank equally.
+          Aligned by sharing the count plot's axis gutters (the padding below),
+          so a column sits directly under its own bar and the pair reads as one
+          graphic with one x-axis rather than as two charts. */}
+      {canShare && (
+        <>
+          <div className="periodchart-rowcap periodchart-rowcap--mix">
+            {mixLabel ?? 'Band mix'} <em>share of those tested &middot; each column 100%</em>
+          </div>
+          <div className={`periodchart-ribbon${hasLine ? '' : ' periodchart-ribbon--noright'}`}>
+            {points.map((p) => {
+              const segs = (p.segments ?? []).filter((sg) => sg.value > 0);
+              const total = segs.reduce((acc, sg) => acc + sg.value, 0) || 1;
+              return (
+                <div className="periodchart-ribbon-col" key={p.key}>
+                  {segs.length ? segs.map((sg) => {
+                    const pct = (sg.value / total) * 100;
+                    const tipText = `${p.label} — ${sg.label}: ${sg.value} of ${total} (${Math.round(pct)}%)`;
+                    return (
+                      <span
+                        key={sg.label}
+                        style={{ flex: `${sg.value} 0 0`, background: sg.color }}
+                        onMouseEnter={onTip(tipText)}
+                        onMouseMove={onTip(tipText)}
+                        onMouseLeave={hide}
+                      >
+                        {/* Colour must never be the only carrier (WCAG 1.4.1). */}
+                        {pct >= 22 && <em>{Math.round(pct)}%</em>}
+                      </span>
+                    );
+                  }) : (
+                    // A period with nobody in it has no mix — and saying "0%"
+                    // would be a verdict it has not earned (§33/§24).
+                    <span className="periodchart-ribbon-empty"
+                      onMouseEnter={onTip(`${p.label}: no screening`)}
+                      onMouseMove={onTip(`${p.label}: no screening`)}
+                      onMouseLeave={hide} />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      {/* The headcount rides on the x-axis rather than above its column: one
+          label row serves BOTH plots, which is what makes them one graphic. */}
       <div className={`periodchart-xaxis${hasLine ? '' : ' periodchart-xaxis--noright'}`}>
         {points.map((p) => (
           <span key={p.key}>
@@ -493,9 +515,16 @@ export function PeriodChart({
       <div className="periodchart-legend">
         <span className="periodchart-key">
           <i className="periodchart-key-col" aria-hidden />
-          {isShare ? 'Band mix, share of those tested' : countLabel}
-          <em>left axis</em>
+          {countLabel}
+          <em>upper plot &middot; left axis</em>
         </span>
+        {canShare && (
+          <span className="periodchart-key">
+            <i className="periodchart-key-col" aria-hidden />
+            {mixLabel ?? 'Band mix'}
+            <em>lower row &middot; each column 100%</em>
+          </span>
+        )}
         {hasLine && (
           <span className="periodchart-key">
             <i className="periodchart-key-line" aria-hidden />

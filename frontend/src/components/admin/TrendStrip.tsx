@@ -137,7 +137,8 @@ export default function TrendStrip({ query }: { query: string }) {
         <div>
           <h2 className="card-title" style={{ marginBottom: 0 }}>Direction of travel</h2>
           <span className="card-sub">
-            Athletes tested and their band mix over recent periods, for the current filters.
+            How many were tested, and how their band mix moved — both over the same
+            periods, for the current filters. Switch the period length on the right.
           </span>
         </div>
         {/* Each grain carries how many periods it would draw. The quarterly and
@@ -199,6 +200,7 @@ export default function TrendStrip({ query }: { query: string }) {
                 line: typeof p.averages?.totalScore === 'number' ? p.averages.totalScore : null,
               }))}
               valueLabel="Athletes tested"
+              mixLabel="Band mix"
               lineLabel="Average Total Score"
               // A single period gets the finer buckets it is made of; two periods
               // get metric slopes, because with two the comparison IS the content

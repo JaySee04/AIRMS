@@ -110,7 +110,7 @@ describe('PeriodChart — layout follows the number of periods', () => {
     // Also guards a crash path: the rotation effect closes over `canShare`, so if
     // that const were declared after this early return it would never be
     // initialised and the callback would throw on an empty selection.
-    expect(render(<PeriodChart points={[]} autoRotate />)).toBe('');
+    expect(render(<PeriodChart points={[]} />)).toBe('');
   });
 
   // REDESIGNED 2026-08-24, then again the same day. Height first encoded the
@@ -118,11 +118,12 @@ describe('PeriodChart — layout follows the number of periods', () => {
   // 33-athlete one and made the band MIX unreadable exactly when the group was
   // small. Making every column equal fixed that and broke the opposite thing:
   // a light month drew as tall as a busy one. Neither reading is wrong and each
-  // hides what the other shows, so both are drawn and the reader holds one.
+  // hides what the other shows, so both are drawn AT ONCE on a shared x-axis
+// (§95) — counts above with a real axis, the normalised mix directly beneath.
   const busyQuiet = [period('a', 'Jun', 33), period('b', 'Aug', 4)];
 
   it('COUNT view scales height to the headcount, against a real axis', () => {
-    const html = render(<PeriodChart points={busyQuiet} defaultMode="count" autoRotate={false} />);
+    const html = render(<PeriodChart points={busyQuiet} />);
     const heights = [...html.matchAll(/class="periodchart-stack"[^>]*style="height:\s*([\d.]+)%/g)]
       .map((m) => Number(m[1]));
     expect(heights).toHaveLength(2);
@@ -133,42 +134,57 @@ describe('PeriodChart — layout follows the number of periods', () => {
     expect(html).toContain('periodchart-yaxis');
   });
 
-  it('SHARE view makes every column equal, so the mix is comparable', () => {
-    const html = render(<PeriodChart points={busyQuiet} defaultMode="share" autoRotate={false} />);
+  it('gives the mix its OWN normalised row, so it stays comparable', () => {
+    // §95. The main plot keeps real heights (tested above); the mix is drawn
+    // beneath it with every column full height, which is the only way a
+    // 4-athlete period's proportions can be read beside a 33-athlete one.
+    const html = render(<PeriodChart points={busyQuiet} />);
+    expect(html).toContain('periodchart-ribbon');
+    // One ribbon column per period, sharing the count plot's x-axis.
+    const cols = [...html.matchAll(/class="periodchart-ribbon-col"/g)];
+    expect(cols).toHaveLength(2);
+    // The main plot is NOT flattened to make room for it.
     const heights = [...html.matchAll(/class="periodchart-stack"[^>]*style="height:\s*([\d.]+)%/g)]
       .map((m) => Number(m[1]));
-    expect(heights).toEqual([100, 100]);
-    // Percentage gridlines rather than counts.
-    expect(html).toContain('50%');
+    expect(heights[0]).toBeGreaterThan(heights[1]);
+  });
+  it('keeps the headcount on screen alongside the mix', () => {
+    // The normalised row cannot encode volume by construction, so the counts
+    // have to stay visible next to it or the card trades one blind spot for
+    // another.
+    const html = render(<PeriodChart points={busyQuiet} />);
+    expect(html).toContain('>33<');
+    expect(html).toContain('>4<');
   });
 
-  it('keeps the headcount on screen in BOTH views', () => {
-    // It is precisely what the share view cannot encode, so dropping it there
-    // would trade one blind spot for another.
-    for (const m of ['count', 'share'] as const) {
-      const html = render(<PeriodChart points={busyQuiet} defaultMode={m} autoRotate={false} />);
-      expect(html).toContain('>33<');
-      expect(html).toContain('>4<');
-    }
-  });
-
-  it('offers both views as a toggle', () => {
-    const html = render(<PeriodChart points={busyQuiet} autoRotate={false} />);
+  it('draws BOTH readings at once, with no toggle and no rotation', () => {
+    // §95. They are not alternatives: volume and mix answer different questions
+    // and the comparison between them is the point of the card. A toggle showed
+    // one at a time and a carousel showed whichever had come round.
+    const html = render(<PeriodChart points={busyQuiet} />);
     expect(html).toContain('Athletes tested');
-    expect(html).toContain('Band mix %');
-    expect(html).toContain('role="tablist"');
+    expect(html).toContain('Band mix');
+    expect(html).toContain('periodchart-ribbon');
+    // no control, and nothing that moves on its own
+    expect(html).not.toContain('role="tablist"');
+    expect(html).not.toMatch(/switching every 10s/);
   });
 
-  it('says that it rotates, because content that moves must be stoppable', () => {
-    // WCAG 2.2.2. The toggle IS the stop, so the hint names it; once a view is
-    // held the hint has nothing left to warn about.
-    expect(render(<PeriodChart points={busyQuiet} />)).toMatch(/switching every 10s/);
-    expect(render(<PeriodChart points={busyQuiet} autoRotate={false} />)).not.toMatch(/switching every 10s/);
+  it('normalises every ribbon column, whatever the headcount', () => {
+    // The whole reason the mix needs its own row: in the count plot the
+    // 4-athlete period is a sliver whose proportions cannot be read.
+    const html = render(<PeriodChart points={busyQuiet} />);
+    const ribbon = html.slice(html.indexOf('periodchart-ribbon'));
+    // Each column is a flex COLUMN of segments sized by flex-grow, so the
+    // proportions are the segment values themselves and no column is scaled
+    // down by its total.
+    const cols = [...ribbon.matchAll(/class="periodchart-ribbon-col"/g)];
+    expect(cols).toHaveLength(busyQuiet.length);
   });
 
   it('gridline ticks land on round numbers a person would choose', () => {
     // max/4 on 33 athletes gives 8.25, which is worse than no axis at all.
-    const html = render(<PeriodChart points={busyQuiet} defaultMode="count" autoRotate={false} />);
+    const html = render(<PeriodChart points={busyQuiet} />);
     const ticks = [...html.matchAll(/class="periodchart-yaxis"[\s\S]*?<\/div>/g)][0][0];
     const nums = [...ticks.matchAll(/>([\d.]+)</g)].map((m) => Number(m[1]));
     expect(nums.every((v) => Number.isInteger(v))).toBe(true);
@@ -224,7 +240,7 @@ describe('PeriodChart — layout follows the number of periods', () => {
     // Programme Activity counts tests: an athlete screened twice is two of one
     // and one of the other.
     const html = render(<PeriodChart points={busyQuiet} valueLabel="Tests performed"
-      lineLabel="Average indicator" autoRotate={false} />);
+      lineLabel="Average indicator" />);
     expect(html).toContain('Tests performed');
     expect(html).not.toContain('Athletes tested');
   });
@@ -232,8 +248,7 @@ describe('PeriodChart — layout follows the number of periods', () => {
   it('keeps axis ticks whole, because headcounts are', () => {
     // A round-number step lands on 0.5 below ~8, and "1.5 athletes" is worse
     // than a coarse axis.
-    const html = render(<PeriodChart points={[period('a', 'Jun', 2), period('b', 'Jul', 1)]}
-      defaultMode="count" autoRotate={false} />);
+    const html = render(<PeriodChart points={[period('a', 'Jun', 2), period('b', 'Jul', 1)]} />);
     const yaxis = html.slice(html.indexOf('periodchart-yaxis'));
     const ticks = [...yaxis.slice(0, yaxis.indexOf('periodchart-grid')).matchAll(/>([\d.]+)</g)]
       .map((m) => Number(m[1]));
@@ -247,9 +262,9 @@ describe('PeriodChart — layout follows the number of periods', () => {
     // width with no axis there shifted every label away from the column it names.
     const withLine = render(<PeriodChart
       points={[period('a', 'Jun', 30, 76.4), period('b', 'Jul', 28, 73.8)]}
-      lineLabel="Average Total Score" autoRotate={false} />);
+      lineLabel="Average Total Score" />);
     expect(withLine).not.toContain('periodchart-xaxis--noright');
-    const noLine = render(<PeriodChart points={[period('a', 'Jun', 30), period('b', 'Jul', 28)]} autoRotate={false} />);
+    const noLine = render(<PeriodChart points={[period('a', 'Jun', 30), period('b', 'Jul', 28)]} />);
     expect(noLine).toContain('periodchart-xaxis--noright');
   });
 
@@ -265,8 +280,8 @@ describe('PeriodChart — layout follows the number of periods', () => {
     // of a scale the reader could not see.
     const html = render(<PeriodChart
       points={[period('a', 'Jun', 33, 76.4), period('b', 'Jul', 28, 73.8)]}
-      lineLabel="Average Total Score" defaultMode="count" autoRotate={false} />);
-    expect(html).toMatch(/Athletes tested<em>left axis/);
+      lineLabel="Average Total Score" />);
+    expect(html).toMatch(/Athletes tested<em>upper plot/);
     expect(html).toMatch(/Average Total Score<em>right axis/);
   });
 });

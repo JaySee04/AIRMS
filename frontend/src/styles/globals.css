@@ -2891,12 +2891,44 @@ textarea:focus-visible,
    what the other shows. */
 .periodchart { position: relative; }
 
-.periodchart-modes {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: var(--sp-sm); flex-wrap: wrap; margin-bottom: var(--sp-sm);
+/* Caption for each of the two stacked plots. The count plot and the mix row are
+   one graphic over one x-axis, so each needs to say which question it answers —
+   previously carried by the toggle that selected between them (§95). */
+.periodchart-rowcap {
+  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  font-size: var(--fs-sm); font-weight: 600; color: var(--text);
+  margin-bottom: 6px; padding-left: 38px;
 }
-.seg-group--sm .seg-btn { padding: 4px 10px; font-size: var(--fs-xs); }
-.periodchart-rotating { font-size: var(--fs-2xs); color: var(--text-muted); }
+.periodchart-rowcap em {
+  font-style: normal; font-weight: 400;
+  font-size: var(--fs-2xs); color: var(--text-muted);
+}
+.periodchart-rowcap--mix { margin-top: var(--sp-md); }
+
+/* The normalised mix. Same gutters and gap as the x-axis and the count plot, so
+   a column sits directly beneath its own bar. Short on purpose: it answers the
+   second question, and equal height would claim equal billing. */
+.periodchart-ribbon {
+  display: flex; gap: var(--sp-sm); height: 34px;
+  padding-left: 38px; padding-right: 38px;
+}
+.periodchart-ribbon--noright { padding-right: 0; }
+.periodchart-ribbon-col {
+  flex: 1 1 0; min-width: 0; display: flex; flex-direction: column;
+  border-radius: var(--r-xs); overflow: hidden;
+}
+.periodchart-ribbon-col > span {
+  display: flex; align-items: center; justify-content: center; min-height: 0;
+}
+.periodchart-ribbon-col > span em {
+  font-style: normal; font-size: var(--fs-2xs); font-weight: 700;
+  color: #fff; text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35);
+}
+/* Same idiom as .periodchart-empty above — a dashed outline, not a fill. A
+   filled grey block reads as a band, and "no screening" is not a band (§33). */
+.periodchart-ribbon-empty {
+  flex: 1; border: 1px dashed var(--border); background: transparent;
+}
 
 .periodchart-plotwrap { display: flex; align-items: stretch; gap: 8px; }
 .periodchart-yaxis { position: relative; width: 30px; flex: 0 0 auto; height: 184px; }
