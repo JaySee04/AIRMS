@@ -72,6 +72,15 @@ cd backend; npm run coverage         # 79.6% statements / 67.8% branches. Route 
                                      # a missing transitive dep (fs.realpath) before it would run.
 cd backend; npm run mutate           # BREAK each registered guard on purpose and prove its
                                      # test fails. A surviving mutation exits non-zero: the
+                                     # RUN IT WITH THE DEV PORTS FREE (`npm run dev:stop`).
+                                     # tests/preflightPorts.test.js SKIPS its two
+                                     # message cases when the other port is held — a
+                                     # developer with `npm run dev` up has BOTH, so both
+                                     # branches print correctly and the negative
+                                     # assertions would fail against working code. The
+                                     # skip is right; the consequence is that the guard
+                                     # reports SURVIVED while a dev server runs, which
+                                     # is environmental and not a real regression.
                                      # test is not testing what it claims. 60 guards across
                                      # both packages. NOT part of `npx jest` — it spawns a
                                      # jest run per mutation (tens of seconds). Run it before

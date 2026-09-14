@@ -17,8 +17,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { GRAINS, type Grain } from '@/lib/periods';
-import { PeriodChart } from '@/components/charts/Charts';
-import { BANDS, BAND_COLOR, BAND_SHORT } from '@/lib/bands';
+import { MetricDeltas } from '@/components/charts/Charts';
 
 
 // Mirrors GET /athletes/analytics/periods. Everything past `bands` is marked
@@ -50,34 +49,17 @@ interface Period {
   deltas?: Record<string, Delta | undefined>;
   direction?: string;
 }
-/** Whether every band in the window was measured against ONE known ruler (§96). */
-interface BandProvenance {
-  /** Distinct rulers: `pinned:<id>`, `live:<iso>`, or `unknown`. */
-  epochs: string[];
-  /** At least one band predates the provenance columns. */
-  unknown: boolean;
-  /** Exactly one epoch, and it is a known one. */
-  comparable: boolean;
-  /** No bands at all — vacuous, not comparable. */
-  empty: boolean;
-}
 
 interface PeriodsResponse {
   grain: Grain;
   periods: Period[];
   grainCounts?: Record<Grain, number>;
   composition?: { grain: Grain; periods: Period[] } | null;
-  /** Optional so an older API response still renders — absent means "not stated",
-   *  which is treated as "do not claim comparability" rather than as "fine". */
-  bandProvenance?: BandProvenance;
 }
 
 // The metrics compared when a selection has exactly two periods. The boolean is
 // `higherBetter` — exercise risks is the one that runs the other way, and getting
 // it wrong would draw a rise in injury risk as an improvement.
-// The column height is the athlete count, so the stack must be per athlete.
-// Falls back to the per-screening tally if the API predates athleteBands.
-const bandsOf = (p: Period): BandCounts => p.athleteBands ?? p.bands;
 
 // Key order MUST match backend/src/utils/periodScores.js — the two printed
 // HoloMotion scores lead, then what Total Score is made of, then AIRMS's own
@@ -112,7 +94,6 @@ const SHOWN = 6;
 // Band names + colours come from lib/bands.ts. This file used to declare its own
 // and called the red band "Immediate" while the risk hero called it "Immediate
 // assessment" — one clinical state, two names, on screens seen side by side.
-const BAND_TOKENS = BANDS.map((key) => ({ key, label: BAND_SHORT[key], color: BAND_COLOR[key] }));
 
 export default function TrendStrip({ query }: { query: string }) {
   const [grain, setGrain] = useState<Grain>('quarter');
@@ -132,6 +113,9 @@ export default function TrendStrip({ query }: { query: string }) {
 
   const periods = (data?.periods ?? []).slice(-SHOWN);
   const latest = periods.length ? periods[periods.length - 1] : null;
+  // First against last — the comparison this card now IS (§106).
+  const first = periods.length ? periods[0] : null;
+  const latestPeriod = latest;
 
   // Direction on the headline score, straight from the API.
   const prev = periods.length >= 2 ? periods[periods.length - 2] : null;
@@ -152,8 +136,8 @@ export default function TrendStrip({ query }: { query: string }) {
         <div>
           <h2 className="card-title" style={{ marginBottom: 0 }}>Direction of travel</h2>
           <span className="card-sub">
-            How many were tested, and how their band mix moved — both over the same
-            periods, for the current filters. Switch the period length on the right.
+            How HoloMotion&rsquo;s own measurements have moved between periods, for the
+            current filters. Switch the period length on the right.
           </span>
         </div>
         {/* Each grain carries how many periods it would draw. The quarterly and
@@ -198,91 +182,53 @@ export default function TrendStrip({ query }: { query: string }) {
 
       {periods.length > 0 && (
         <>
-          {/* Columns FLEX to fill the card (capped, so two periods are two
-              columns in a full-width chart, not two 62px stubs marooned in
-              1500px — which is exactly how this read before). The score line
-              over them is what makes it a direction rather than a snapshot. */}
-          <div style={{ marginTop: 22 }}>
-            <PeriodChart
-              points={periods.map((p) => ({
-                key: p.key,
-                label: p.label,
-                value: p.athletes,
-                // athleteBands, not bands: the column's height is the ATHLETE
-                // count, so its subdivision has to be per athlete or the stack
-                // sums to a different number than the column says.
-                segments: BAND_TOKENS.map((b) => ({ label: b.label, value: bandsOf(p)[b.key], color: b.color })),
-                line: typeof p.averages?.totalScore === 'number' ? p.averages.totalScore : null,
-              }))}
-              valueLabel="Athletes tested"
-              mixLabel="Band mix"
-              // IS THE MIX COMPARING TIME, OR RULERS? (§96)
-              //
-              // Rendered ABOVE the row it qualifies, not at the foot of the card:
-              // §71's rule, learned on the seasonality panel — a caveat below the
-              // numbers is read after the reader has already believed them. Shown
-              // only when the answer is no; a caveat shown always is a caveat
-              // nobody reads.
-              //
-              // It names what is UNAFFECTED too. The column heights are
-              // headcounts and are true regardless, so this must not be taken to
-              // mean the whole card is unreliable.
-              mixNote={data?.bandProvenance && !data.bandProvenance.empty
-                && !data.bandProvenance.comparable ? (
-                  <p className="chart-note" style={{ margin: '0 0 8px', paddingLeft: 38 }}>
-                    <strong>Band mix not comparable across these periods.</strong>{' '}
-                    {data.bandProvenance.unknown
-                      ? 'Some of these bands were scored before AIRMS recorded which norms it used, so it cannot be shown they were measured against the same cohort norms as the rest.'
-                      : 'These bands were scored against more than one set of cohort norms, so part of any movement is a change of ruler rather than a change in the squad.'}{' '}
-                    Athletes tested, above, is a headcount and is unaffected.
-                  </p>
-                ) : null}
-              lineLabel="Average Total Score"
-              // A single period gets the finer buckets it is made of; two periods
-              // get metric slopes, because with two the comparison IS the content
-              // and a pair of columns leaves the reader to do the subtraction.
-              composition={data?.composition?.periods.map((p) => ({
-                key: p.key,
-                label: p.label,
-                value: p.athletes,
-                segments: BAND_TOKENS.map((b) => ({ label: b.label, value: bandsOf(p)[b.key], color: b.color })),
-                line: typeof p.averages?.totalScore === 'number' ? p.averages.totalScore : null,
-              }))}
-              compositionGrain={data?.composition?.grain}
-              slope={periods.length === 2 ? COMPARED_METRICS.map(([key, label, higherBetter]) => ({
-                key,
-                label,
-                from: typeof periods[0].averages?.[key] === 'number' ? (periods[0].averages[key] as number) : null,
-                to: typeof periods[1].averages?.[key] === 'number' ? (periods[1].averages[key] as number) : null,
-                higherBetter,
-                // The API's own verdict — it already knows exercise risks improve
-                // downwards and that a small move is noise.
-                direction: periods[1].deltas?.[key]?.direction ?? null,
-              })) : undefined}
-            />
-          </div>
+          {/* WHAT THIS CARD IS FOR, after 2026-09-14 (§106).
+              HoloMotion's own measurements, and how they moved. Nothing else.
 
-          {/* Counts, not just colour: the stack shows proportion, these say how
-              many — and they keep the panel readable without relying on hue. */}
-          {latest && (
-            <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'baseline', fontSize: 'var(--fs-sm)', marginTop: 10 }}>
-              <span className="text-muted">{latest.label}:</span>
-              {BAND_TOKENS.map((t) => (
-                <span key={t.key}>
-                  <i style={{
-                    // var(--r-xs), not a bare 2: the two legend swatches in this
-                    // app were the only 2px corners anywhere (§29).
-                    display: 'inline-block', width: 9, height: 9, borderRadius: 'var(--r-xs)',
-                    background: t.color, marginRight: 5,
-                  }} />
-                  {t.label} <strong>{bandsOf(latest)[t.key]}</strong>
-                </span>
-              ))}
-              <Link href="/admin/activity" style={{ marginLeft: 'auto' }}>
-                Full programme activity →
-              </Link>
-            </div>
+              It used to draw stacked columns of ATHLETES TESTED with a band-mix
+              row beneath them, which was two problems. The headcount duplicated
+              Programme Activity's Screening Throughput — the same figure, from
+              the same util, on two pages — and the band mix answered a question
+              nobody asked of this card. Both are gone; the headcount lives on
+              Programme Activity, which is the page about whether the programme
+              is running.
+
+              What is left is the comparison itself: first period against last,
+              per score, on one shared delta axis. That works at every grain,
+              where the old columns needed three different idioms (§38) to cope
+              with one, two and many periods. */}
+          {first && latestPeriod && periods.length >= 2 && (
+          <MetricDeltas
+            metrics={COMPARED_METRICS.map(([key, label, higherBetter]) => ({
+              key,
+              label,
+              from: typeof first.averages?.[key] === 'number' ? (first.averages[key] as number) : null,
+              to: typeof latestPeriod.averages?.[key] === 'number' ? (latestPeriod.averages[key] as number) : null,
+              higherBetter,
+              // The API's own verdict, never re-derived here: it already knows
+              // exercise risks improve DOWNWARDS and that a move inside the
+              // dead band is noise rather than a direction (§27).
+              direction: latestPeriod.deltas?.[key]?.direction ?? null,
+            }))}
+            fromLabel={first.label}
+            toLabel={latestPeriod.label}
+            note={
+              periods.length > 2
+                ? `First period against last, across ${periods.length} ${grain === 'year' ? 'years' : grain === 'quarter' ? 'quarters' : 'months'} of screening. Movement in between is not drawn.`
+                : undefined
+            }
+          />
           )}
+
+          {/* The link across, kept: the band counts that used to sit here went
+              with the mix (§106). They were the same claim in another form —
+              this card is about how the SCORES moved, and a band tally is a
+              snapshot of state, which the panels above it already draw. */}
+          <div style={{ display: 'flex', fontSize: 'var(--fs-sm)', marginTop: 10 }}>
+            <Link href="/admin/activity" style={{ marginLeft: 'auto' }}>
+              Athletes tested, coverage and recall &rarr;
+            </Link>
+          </div>
 
           <div style={{ fontSize: 'var(--fs-sm)', marginTop: 10 }}>
             {delta !== null && prev ? (

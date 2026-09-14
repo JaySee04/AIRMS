@@ -9366,3 +9366,82 @@ different surface.
 **60/60 mutations**, `audit:access` clean at 68 endpoints, `verify:schema` 0
 findings after the §103 columns, map current — and the PDF itself read back
 rather than assumed from a 200.
+
+---
+
+## 106. Two pages, two questions — and the band mix that answered neither (2026-09-14)
+
+JC: *"If band mix is useless just remove it. Stuff like athletes tested should be
+in programme activity. Screening analytics for HoloMotion data insight (how the
+data has changed etc), Programme activity for the others, for example athletes
+tested."*
+
+A boundary, stated once, that resolves something §38 / §95 / §96 had been
+patching around rather than fixing.
+
+### 106.1 The card was answering three questions at once
+
+*Direction of travel* on Screening Analytics drew stacked columns of **athletes
+tested**, a normalised **band mix** row beneath them, an **average Total Score**
+line over the top, and a per-metric change table. Four encodings, three subjects.
+
+Two of them did not belong there at all:
+
+- **Athletes tested duplicated Programme Activity's Screening Throughput** —
+  the same figure, from the same util, on two pages. Not a disagreement risk
+  (one util) but a *reader* risk: a number seen twice invites reconciliation
+  that has no answer, and it made Screening Analytics partly a programme report.
+- **Band mix** answered "what state is the squad in", which every panel below it
+  already answers as a snapshot — while drawing it as a *trend*, which is the
+  form that needed §96's whole provenance apparatus to be honest.
+
+What remains is what the page is for: **how HoloMotion's own measurements have
+moved**, first period against last, per score, on one shared delta axis.
+
+### 106.2 Why the chart went rather than being trimmed
+
+The instinct was to keep `PeriodChart` and remove the `segments`. That does not
+work: with the band mix gone and the headcount moved, the columns have no
+subject — a bar of the average Total Score would start at zero and render 74.6
+against 75.5 as two identical rectangles, or not start at zero and lie.
+
+`MetricDeltas` was already the right graphic and was already on the card, but
+only at **exactly two periods** (as `PeriodChart`'s `slope` prop). Promoting it
+to the card's primary content makes it work at every grain — which also retires
+the §38 problem of one card needing three idioms to cope with one, two and many
+periods. The three-idiom switch is gone because the question stopped changing
+shape with the data.
+
+### 106.3 What this leaves unconsumed, stated rather than hidden
+
+`bandProvenance` on the periods payload (§96) existed to caveat the band-mix
+row. **Nothing renders it now.**
+
+The COLUMNS it is derived from — `screenings.norm_version_id` and `scored_at` —
+stay, and stay valuable: they record which ruler scored each band, which is a
+property of the data that matters wherever a band is shown (the worklist, the
+roster, the athlete's own hero), not only in a trend chart. The derived
+per-window summary is the part with no reader.
+
+Left in place rather than cut in the same pass: removing it means deleting its
+tests and its computation, which is a separate decision with its own surface,
+and cutting §96's derived half immediately after being asked to cut band mix
+would be over-reaching on an instruction that did not mention it. **Recorded
+here so it is a decision awaiting an answer rather than debt nobody named.**
+
+### 106.4 A gotcha introduced two sections earlier, found here
+
+`npm run mutate` reported the §100 preflight guard as **SURVIVED**. It had not
+regressed: `tests/preflightPorts.test.js` skips its two message cases when the
+*other* port is held (§100.2), and a stale pair was sitting on :3000/:5000. With
+the ports free, all 60 are caught.
+
+The skip is correct — a developer with `npm run dev` up holds both ports, so
+both message branches print correctly and the negative assertions would fail
+against working code. The consequence is that the mutation suite cannot prove
+that one guard while a dev server runs. Now stated in CLAUDE.md beside the
+command, because a SURVIVED line that means "your environment" rather than "your
+code" is exactly the kind of false signal that gets a suite ignored.
+
+**Verified**: backend 58 suites / 852 tests, frontend 22 / 357, e2e 110/110,
+60/60 mutations with the ports free, typecheck + lint clean.
