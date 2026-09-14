@@ -116,3 +116,88 @@ describe('the sending identity AIRMS reports to its administrator', () => {
     expect(page).toMatch(/auditHealth\?\.count/);
   });
 });
+
+// ── SMTP_FROM that the provider will silently rewrite (2026-09-14) ──────────
+//
+// Pointing SMTP_FROM at an institutional address while SMTP_USER stays a Gmail
+// account LOOKS like the fix for the consumer-sender limitation and is not. A
+// provider only sends as the account it authenticated, so it rewrites the From
+// header: the configuration claims one sender and the recipient sees another.
+//
+// The nastiest part is that the existing consumer-domain warning goes QUIET,
+// because the configured domain is no longer a consumer one — so the change
+// makes the screen look fixed while nothing about delivery changed.
+describe('SMTP_FROM on a transport that cannot send as it', () => {
+  const KEYS = ['SMTP_HOST', 'SMTP_USER', 'SMTP_FROM', 'MAILER_DRY_RUN'];
+  let saved;
+  beforeEach(() => { saved = Object.fromEntries(KEYS.map((k) => [k, process.env[k]])); });
+  afterEach(() => {
+    for (const k of KEYS) {
+      if (saved[k] === undefined) delete process.env[k];
+      else process.env[k] = saved[k];
+    }
+  });
+
+  const identity = (env) => {
+    for (const k of KEYS) delete process.env[k];
+    Object.assign(process.env, env);
+    delete require.cache[require.resolve('../src/utils/mailer')];
+    // eslint-disable-next-line global-require
+    return require('../src/utils/mailer').senderIdentity();
+  };
+
+  it('flags a From domain the transport does not authenticate as', () => {
+    const s = identity({
+      SMTP_HOST: 'smtp.gmail.com',
+      SMTP_USER: 'someone@gmail.com',
+      SMTP_FROM: 'AIRMS <injriskdashboard@isn.gov.my>',
+    });
+    expect(s.mismatched).toBe(true);
+    // It must name BOTH domains: "your From is wrong" is not actionable, and the
+    // reader needs to see which account the mail will actually appear from.
+    expect(s.concern).toMatch(/isn\.gov\.my/);
+    expect(s.concern).toMatch(/gmail\.com/);
+    expect(s.concern).toMatch(/rewrite/i);
+  });
+
+  it('takes PRECEDENCE over the consumer-domain warning', () => {
+    // The ordering is the guard. Checked after it, this case would fall through
+    // to a consumer check that no longer fires — and the page would go green on
+    // the exact configuration that broke it.
+    const s = identity({
+      SMTP_HOST: 'smtp.gmail.com',
+      SMTP_USER: 'someone@gmail.com',
+      SMTP_FROM: 'AIRMS <injriskdashboard@isn.gov.my>',
+    });
+    expect(s.concern).not.toMatch(/personal gmail\.com mailbox/i);
+  });
+
+  it('is silent once the transport authenticates as that domain', () => {
+    const s = identity({
+      SMTP_HOST: 'smtp.isn.gov.my',
+      SMTP_USER: 'injriskdashboard@isn.gov.my',
+      SMTP_FROM: 'AIRMS <injriskdashboard@isn.gov.my>',
+    });
+    expect(s.mismatched).toBe(false);
+    expect(s.concern).toBeNull();
+  });
+
+  it('does not fire in dry run, where nothing is delivered anyway', () => {
+    const s = identity({
+      SMTP_HOST: 'smtp.gmail.com',
+      SMTP_USER: 'someone@gmail.com',
+      SMTP_FROM: 'AIRMS <injriskdashboard@isn.gov.my>',
+      MAILER_DRY_RUN: 'true',
+    });
+    expect(s.mismatched).toBe(false);
+    expect(s.concern).toMatch(/DRY_RUN/);
+  });
+
+  it('does not fire when SMTP_USER is absent (some relays need no auth)', () => {
+    const s = identity({
+      SMTP_HOST: 'relay.isn.gov.my',
+      SMTP_FROM: 'AIRMS <injriskdashboard@isn.gov.my>',
+    });
+    expect(s.mismatched).toBe(false);
+  });
+});

@@ -402,7 +402,7 @@ filters, a Staff-activity rollup and a PDF export.
 | §6.2 `root` database user | Open by decision — remedy written above, JC's call |
 | Hosted migration `migrate:norm-stamp` | **Required before `c3b4842` deploys** — no Aiven credentials on this machine |
 | Hosted migration `migrate:drop-redundant-indexes` | Optional; local-only so far |
-| Invitations send from a personal Gmail | Reads as phishing to a clinician. Needs ISN's relay or a controlled domain with SPF/DKIM — configuration, not code |
+| Invitations send from a personal Gmail | Intended sender is `injriskdashboard@isn.gov.my` (JC, 2026-09-14). Blocked on ISN SMTP credentials: `SMTP_FROM` alone is rewritten by the provider, so `SMTP_HOST`/`USER`/`PASS` must move with it. `senderIdentity()` flags the mismatch on the admin Settings tile |
 | `verify:claims --hosted` | Last run 10/10 on 2026-09-11; re-run after the next deploy |
 
 ## How to re-run the whole thing

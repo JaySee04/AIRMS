@@ -799,7 +799,18 @@ rather than left looking load-bearing.
 while nobody can get into the account yet. Gating on `activatedAt` alone still
 offered to "invite" a seeded account somebody signs into daily.
 
-**Known limitation:** invitations send from a personal Gmail, which to a
+**The intended production sender is `injriskdashboard@isn.gov.my`** (JC,
+2026-09-14). **Changing `SMTP_FROM` alone does not achieve it and fails
+silently**: a provider only sends as the account it authenticated, so an
+`isn.gov.my` From on a Gmail transport is REWRITTEN back to the Gmail address —
+the config claims one sender, the recipient sees another, and the existing
+consumer-domain warning goes *quiet* because the configured domain is no longer
+a consumer one. `senderIdentity()` now reports that mismatch on the admin
+Settings tile, checked BEFORE the consumer case so the screen cannot go green on
+the configuration that broke it. Switching over needs `SMTP_HOST`, `SMTP_USER`,
+`SMTP_PASS` and `SMTP_FROM` to move together — i.e. ISN's own SMTP credentials.
+
+**Known limitation (until those credentials exist):** invitations send from a personal Gmail, which to a
 clinician reads as phishing. Real use needs ISN's relay or a controlled domain
 with SPF/DKIM; the mailer is env-driven, so it is configuration, not code.
 

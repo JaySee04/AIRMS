@@ -95,16 +95,41 @@ function senderIdentity() {
   const from = process.env.SMTP_FROM || 'AIRMS <no-reply@airms.local>';
   const domain = addressOf(from).split('@')[1] || null;
 
+  // The domain the transport is AUTHENTICATED as, which is not necessarily the
+  // one the From header claims.
+  const authDomain = addressOf(process.env.SMTP_USER || '').split('@')[1] || null;
+  const mismatched = Boolean(configured && !dryRun && domain && authDomain && domain !== authDomain);
+
   let concern = null;
   if (!configured) {
     concern = 'No SMTP host is configured, so nothing is delivered — mail is printed to the server log instead.';
   } else if (dryRun) {
     concern = 'MAILER_DRY_RUN is set, so nothing is delivered — mail is printed to the server log instead.';
+  } else if (mismatched) {
+    // CHECKED BEFORE the consumer-domain case, and that order is the point.
+    //
+    // Setting SMTP_FROM to an institutional address while SMTP_USER stays a
+    // Gmail account looks like the fix and is not: a provider only sends as the
+    // account it authenticated (or a verified alias), so it REWRITES the From
+    // header. The configuration then claims one sender, the recipient sees
+    // another, and nothing anywhere says so — and the consumer-domain warning
+    // below goes quiet too, because the CONFIGURED domain is no longer a
+    // consumer one. A warning that switches itself off when the misconfiguration
+    // appears is worse than no warning.
+    //
+    // Not fatal: a rewritten From still delivers, and refusing to start over a
+    // header would take the whole institution's mail down for a cosmetic fault.
+    concern = `SMTP_FROM is @${domain} but the transport authenticates as @${authDomain}. `
+      + 'Most providers refuse to send as an address they do not own and will rewrite the From '
+      + `header back to the authenticated account, so recipients will still see @${authDomain}. `
+      + `Sending as @${domain} needs that domain's own SMTP credentials, or a verified alias on the existing account.`;
   } else if (domain && CONSUMER_MAIL_DOMAINS.has(domain)) {
     concern = `Mail is sent from a personal ${domain} mailbox. An invitation or a clinical alert arriving from a consumer address reads as phishing to a clinician; ISN's own relay, or a controlled domain with SPF and DKIM, is what real use needs. This is configuration, not code.`;
   }
 
-  return { from, domain, delivering: configured && !dryRun, concern };
+  return {
+    from, domain, authDomain, mismatched, delivering: configured && !dryRun, concern,
+  };
 }
 
 // `attachments` is nodemailer's own shape ([{ filename, content, contentType }]).
