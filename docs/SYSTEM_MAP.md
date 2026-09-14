@@ -12,7 +12,7 @@ This is the *what*. The **why** is [`DESIGN_DECISIONS.md`](DESIGN_DECISIONS.md),
 the measured figures are `npm run measure:facts` (which needs the database),
 and the access model argued in prose is [`PERMISSIONS.md`](PERMISSIONS.md).
 
-Counts: **9 models**, **140 columns**, **67 endpoints**, **25 pages**.
+Counts: **9 models**, **144 columns**, **68 endpoints**, **25 pages**.
 
 ## 1. Data model
 
@@ -166,6 +166,10 @@ Counts: **9 models**, **140 columns**, **67 endpoints**, **25 pages**.
 | overrideNote | override_note | TEXT | yes |  |
 | overrideBy | override_by | STRING(120) | yes |  |
 | overrideAt | override_at | DATE | yes |  |
+| responseOutcome | response_outcome | ENUM(assessed-none \| monitoring \| treating \| referred) | yes |  |
+| responseNote | response_note | TEXT | yes |  |
+| responseBy | response_by | STRING(120) | yes |  |
+| responseAt | response_at | DATE | yes |  |
 | createdAt | created_at | DATE | no |  |
 | updatedAt | updated_at | DATE | no |  |
 
@@ -263,6 +267,7 @@ refused inside the handler — see PERMISSIONS.md for what each role actually re
 | GET | `/api/screenings/:id/full` | athlete, medical, admin, coach | viewRecords | backend/src/routes/screenings.js |
 | PATCH | `/api/screenings/:id/override` | medical, admin | viewRecords | backend/src/routes/screenings.js |
 | POST | `/api/screenings/:id/reinstate` | medical, admin | viewRecords | backend/src/routes/screenings.js |
+| POST | `/api/screenings/:id/response` | medical, admin | viewRecords | backend/src/routes/screenings.js |
 | GET | `/api/screenings/athlete/:id` | athlete, medical, admin, coach | viewRecords | backend/src/routes/screenings.js |
 | GET | `/api/screenings/reliability` | any signed-in |  | backend/src/routes/screenings.js |
 | POST | `/api/upload/screening/pdf` | medical, admin | uploadData | backend/src/routes/upload.js |
@@ -348,7 +353,7 @@ client-side; the API's RBAC above is the real boundary.
 
 Append-only. Written fire-and-forget, so a lost row is silent.
 
-`athlete.injury` · `athlete.view` · `export.backup` · `mail.send` · `norm.member` · `norm.pin` · `norm.restore` · `norm.unpin` · `report.download` · `screening.import` · `screening.override` · `screening.reinstate` · `settings.update` · `user.create` · `user.invite` · `user.update`
+`athlete.injury` · `athlete.view` · `escalation.response` · `export.backup` · `mail.send` · `norm.member` · `norm.pin` · `norm.restore` · `norm.unpin` · `report.download` · `screening.import` · `screening.override` · `screening.reinstate` · `settings.update` · `user.create` · `user.invite` · `user.update`
 
 ## 6. Shared facts
 
@@ -370,6 +375,8 @@ Generated into both packages from `shared/facts.js` — see DESIGN_DECISIONS §5
 | `EXCLUDED_RISK_KEYS` | `["spinalDiscHerniation"]` |
 | `RISK_INDICATORS` | `[{"key":"neckInjuryRisk","region":"Neck","reportLabel":"Neck Pain"},{"key":"shoulderInjuryRisk","region":"Shoulder","reportLabel":"Shoulder Pain"},{"k…` |
 | `SMALL_COHORT` | `10` |
+| `RESPONSE_OUTCOMES` | `[{"key":"assessed-none","label":"Assessed — no action needed"},{"key":"monitoring","label":"Monitoring — re-check next screening"},{"key":"treating","…` |
+| `RESPONSE_OUTCOME_KEYS` | `["assessed-none","monitoring","treating","referred"]` |
 
 ## 7. Environment variables the backend reads
 
@@ -382,6 +389,8 @@ Generated into both packages from `shared/facts.js` — see DESIGN_DECISIONS §5
 | root | `dev:backend` | `npm --prefix backend run dev` |
 | root | `dev:frontend` | `npm --prefix frontend run dev` |
 | root | `dev` | `node scripts/dev.js` |
+| root | `dev:alt` | `node scripts/dev-alt.js` |
+| root | `dev:stop` | `node scripts/dev-stop.js` |
 | root | `install:all` | `npm install && npm --prefix backend install && npm --prefix frontend install` |
 | root | `seed` | `npm --prefix backend run seed` |
 | root | `sync:shared` | `node shared/generate.js` |
@@ -395,6 +404,7 @@ Generated into both packages from `shared/facts.js` — see DESIGN_DECISIONS §5
 | backend | `measure:facts` | `node scripts/measure-facts.js` |
 | backend | `migrate:screening-unique` | `node scripts/migrate-screening-unique.js` |
 | backend | `migrate:norm-stamp` | `node scripts/migrate-screening-norm-stamp.js` |
+| backend | `migrate:escalation-response` | `node scripts/migrate-escalation-response.js` |
 | backend | `verify:schema` | `node scripts/verify-schema.js` |
 | backend | `migrate:drop-redundant-indexes` | `node scripts/migrate-drop-redundant-indexes.js` |
 | backend | `audit:access` | `node scripts/audit-access.js` |

@@ -3,6 +3,7 @@
 import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
+import SectionHeading from '@/components/layout/SectionHeading';
 import type { MuscleEntry } from '@/components/dashboard/BodyMap';
 
 // Chart.js and the body-map path data are the heaviest client code on this
@@ -151,6 +152,14 @@ export default function AthleteDashboard() {
         audience="self"
       />
 
+      {/* The three headings below put the flow stated in the comment above
+          ("verdict → why → overview → detail") on the screen rather than only
+          in this file. Second person throughout, like everything else on an
+          `audience="self"` page. */}
+      <SectionHeading note="Your most recent HoloMotion report, read against your comparison group">
+        Your latest screening
+      </SectionHeading>
+
       {/* Risk radar — sits just above the threshold strips that plot the same
           indicators, so the two screening views read together. */}
       <div className="card" style={{ marginTop: 20 }}>
@@ -189,6 +198,10 @@ export default function AthleteDashboard() {
           the flat athlete row), so they're merged in here. */}
       <ScreeningPanel athlete={{ ...athlete, subitems: athlete.screening?.subitems }} />
 
+      <SectionHeading note="Report to report — newest first">
+        How you have changed
+      </SectionHeading>
+
       {/* Report-to-report progress + the athlete's own downloadable PDF (the
           same individual report medical/coach pull, self-only server-side). */}
       {dlError && <div className="alert alert-error" style={{ marginBottom: 16 }}>{dlError}</div>}
@@ -203,7 +216,15 @@ export default function AthleteDashboard() {
         />
       )}
 
-      {/* Body map */}
+      {/* REQUIRED, not decorative. The body map draws the LATEST screening but
+          sits after the history panel, so "How you have changed" above would
+          otherwise misdescribe it. A grouping label is a claim about what is
+          beneath it, and an unclosed group is a false one. Pinned by
+          app/sectionHeadings.test.ts. */}
+      <SectionHeading note="Flags from that same latest screening, drawn on the figure">
+        Where it shows on your body
+      </SectionHeading>
+
       <div className="card" style={{ marginBottom: 20 }}>
         <div className="card-header">
           <div>

@@ -21,6 +21,7 @@ const INDICATOR_ATTRS = [
   'id', 'assessedAt', 'totalScore', 'overallIndicator', 'overallBand', 'escalations',
   'factors', 'reasonsAgainst', 'cohortZ', 'cohortRank', 'cohortSize', 'cohortLabel', 'cohortDeltas',
   'subitems', 'prescription', 'overrideBand', 'overrideNote', 'overrideBy', 'overrideAt',
+  'responseOutcome', 'responseNote', 'responseBy', 'responseAt',
 ];
 
 // The single-athlete variant: everything above plus HoloMotion's written summary.
@@ -100,6 +101,17 @@ function toIndicator(s, dueDays = null) {
     overrideNote: s.overrideNote,
     overrideBy: s.overrideBy,
     overrideAt: s.overrideAt,
+    // What a clinician DID about the escalation (§103).
+    //
+    // On INDICATOR_ATTRS rather than DETAIL_ATTRS, unlike summaryText: the
+    // worklist is a roster-scale query and the whole point of the feature is
+    // that an answered escalation looks different from an unanswered one THERE.
+    // Four short columns, one of them an enum — the payload cost is the reason
+    // the note is carried and the free text is not aggregated anywhere.
+    responseOutcome: s.responseOutcome ?? null,
+    responseNote: s.responseNote ?? null,
+    responseBy: s.responseBy ?? null,
+    responseAt: s.responseAt ?? null,
     // HOW OLD the reading is, and whether it is still current. The band is
     // rendered in the present tense, so without this an eight-month-old screening
     // presents exactly like one taken last week. Classified by the same function

@@ -16,6 +16,8 @@ const { median } = require('./num');
 const { getSettings } = require('./settings');
 const { recallState } = require('./recall');
 const { str, date } = require('./queryParams');
+const { escalationResponse } = require('./escalationResponse');
+const { sportCompliance } = require('./sportCompliance');
 
 // The scope filters, as a sentence — for the PDF cover and the page's own note,
 // so a printed copy says who it is about.
@@ -163,6 +165,12 @@ async function programmeActivityData(query = {}) {
         rostered: roster.length, tested: 0, untested: roster.length, tests: 0,
       },
       recall: await rescreenRecall(roster),
+      // Present and EMPTY rather than absent. An omitted key renders as a blank
+      // panel, which reads as "we do not know"; the truthful answer for an
+      // empty roster is "nothing was owed a response", and escalationResponse([])
+      // says exactly that (rate null, not 0).
+      escalationResponse: escalationResponse([]),
+      sportCompliance: sportCompliance([], new Map()),
       scope,
     };
   }
@@ -196,8 +204,47 @@ async function programmeActivityData(query = {}) {
   // Without a date filter `rows` IS every screening for this roster, so recall
   // can read it directly instead of re-querying the same table.
   const recall = await rescreenRecall(roster, from || to ? null : rows);
+
+  // Responsiveness reads the LATEST screening per athlete, ACROSS ALL TIME —
+  // never the from/to window, and for the same reason recall does not.
+  //
+  // Whether a flagged athlete has been seen is a fact about that athlete NOW.
+  // Windowing it would report an escalation as unanswered because the clinician
+  // responded outside the window, which is the §24-shaped mistake of letting a
+  // filter change a fact rather than the view of it. Its own query for that
+  // reason: `rows` is windowed and may hold none of the current screenings.
+  const latestRows = await Screening.findAll({
+    where: { athleteId: { [Op.in]: ids } },
+    attributes: [
+      'id', 'athleteId', 'assessedAt', 'escalations',
+      'overallBand', 'overrideBand', 'responseOutcome', 'responseAt',
+    ],
+    order: [['athleteId', 'ASC'], ['assessedAt', 'DESC'], ['id', 'DESC']],
+    raw: true,
+  });
+  const latestByAthlete = [];
+  const screeningCounts = new Map();
+  let lastSeen = null;
+  for (const r of latestRows) {
+    // Counted while walking the rows that are already in hand — a repeat rate
+    // per athlete for no extra query. `latestRows` is every screening for this
+    // roster, ordered, so the count is complete.
+    screeningCounts.set(r.athleteId, (screeningCounts.get(r.athleteId) || 0) + 1);
+    if (r.athleteId === lastSeen) continue;
+    lastSeen = r.athleteId;
+    latestByAthlete.push(r);
+  }
+
   return {
     ...result,
+    // Whether anybody ACTED on the flags. Everything else on this page measures
+    // whether the institution screened; this measures whether it responded.
+    escalationResponse: escalationResponse(latestByAthlete),
+    // Squad by squad, off the SAME recall rows the institution-wide numbers use,
+    // so a sport's slice can never disagree with the total it belongs to — the
+    // property the rescreen reminder is built on (one computation, sliced).
+    // All-time like recall, never the from/to window.
+    sportCompliance: sportCompliance(recall.athletes, screeningCounts),
     // Coverage is the roster measured against the WINDOW, so a narrow from/to
     // correctly shows athletes as untested in that window.
     coverage: {

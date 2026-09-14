@@ -2,7 +2,7 @@ const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/db');
 // The band columns ARE the band vocabulary — same source as every label,
 // comparison and legend (shared/facts.js).
-const { BANDS } = require('../shared/facts');
+const { BANDS, RESPONSE_OUTCOME_KEYS } = require('../shared/facts');
 
 // Immutable snapshot of one committed HoloMotion import. The `athletes` table
 // still holds the LATEST snapshot (dashboards read it — backward compatible);
@@ -111,6 +111,37 @@ const Screening = sequelize.define('Screening', {
   overrideNote: { type: DataTypes.TEXT, allowNull: true, field: 'override_note' },
   overrideBy: { type: DataTypes.STRING(120), allowNull: true, field: 'override_by' },
   overrideAt: { type: DataTypes.DATE, allowNull: true, field: 'override_at' },
+
+  // ── What a clinician DID about the escalation (§103) ────────────────────
+  //
+  // Deliberately shaped like the override block above, because it is the same
+  // kind of thing: a clinician's act, attributed and timed, held on the row it
+  // is about. What differs is what it MEANS. An override says "the band is
+  // wrong"; a response says "the band is right and here is what I did". Before
+  // this, agreeing with a red band and acting on it left no institutional
+  // record at all — only disagreeing did.
+  //
+  // NOT the same as `reviewed:<userId>` in settings. That is a private
+  // bookmark, per reader, unaudited on purpose (utils/reviewed.js). This is the
+  // institution's record, and every write of it is an `escalation.response`
+  // audit row.
+  //
+  // These four hold the LATEST response; the audit log holds the history. Same
+  // division as the override, and the reason a second response overwriting the
+  // first loses nothing.
+  //
+  // An ENUM rather than a free string: Programme Activity counts these, and a
+  // countable field whose values are whatever somebody typed is not countable.
+  // The list is generated from shared/facts.js so the column, the route's
+  // validation and the picker on screen cannot drift apart.
+  responseOutcome: {
+    type: DataTypes.ENUM(...RESPONSE_OUTCOME_KEYS),
+    allowNull: true,
+    field: 'response_outcome',
+  },
+  responseNote: { type: DataTypes.TEXT, allowNull: true, field: 'response_note' },
+  responseBy: { type: DataTypes.STRING(120), allowNull: true, field: 'response_by' },
+  responseAt: { type: DataTypes.DATE, allowNull: true, field: 'response_at' },
 }, {
   tableName: 'screenings',
   underscored: true,

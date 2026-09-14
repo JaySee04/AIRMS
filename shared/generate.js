@@ -49,6 +49,10 @@ function renderBackend() {
     (i) => `  { key: ${q(i.key)}, region: ${q(i.region)}, reportLabel: ${q(i.reportLabel)} },`,
   ).join('\n');
 
+  const outcomeRows = F.RESPONSE_OUTCOMES.map(
+    (o) => `  { key: ${q(o.key)}, label: ${q(o.label)} },`,
+  ).join('\n');
+
   const bandLabelRows = F.BANDS.map((b) => `  ${b}: ${q(F.BAND_LABEL[b])},`).join('\n');
   const bandRankRows = F.BANDS.map((b, i) => `${b}: ${i}`).join(', ');
 
@@ -103,6 +107,17 @@ ${indicatorRows}
 /** Peer count below which a cohort caveats itself, on every surface. */
 const SMALL_COHORT = ${F.SMALL_COHORT};
 
+/**
+ * What a clinician recorded DOING about an escalation — ordered least to most
+ * intervention. Not a severity scale. These are responses, never diagnoses.
+ */
+const RESPONSE_OUTCOMES = [
+${outcomeRows}
+];
+
+/** Just the keys, for validation and for the DB enum. */
+const RESPONSE_OUTCOME_KEYS = ${list(F.RESPONSE_OUTCOME_KEYS)};
+
 module.exports = {
   INSTITUTION_TZ,
   BANDS,
@@ -118,6 +133,8 @@ module.exports = {
   EXCLUDED_RISK_KEYS,
   RISK_INDICATORS,
   SMALL_COHORT,
+  RESPONSE_OUTCOMES,
+  RESPONSE_OUTCOME_KEYS,
 };
 `;
 }
@@ -132,6 +149,10 @@ function renderFrontend() {
 
   const indicatorRows = F.RISK_INDICATORS.map(
     (i) => `  { key: ${q(i.key)}, region: ${q(i.region)}, reportLabel: ${q(i.reportLabel)} },`,
+  ).join('\n');
+
+  const outcomeRows = F.RESPONSE_OUTCOMES.map(
+    (o) => `  { key: ${q(o.key)}, label: ${q(o.label)} },`,
   ).join('\n');
 
   const bandLabelRows = F.BANDS.map((b) => `  ${b}: ${q(F.BAND_LABEL[b])},`).join('\n');
@@ -219,6 +240,21 @@ ${indicatorRows}
 
 /** Peer count below which a cohort caveats itself, on every surface. */
 export const SMALL_COHORT = ${F.SMALL_COHORT};
+
+/** One recorded clinical response to an escalation. */
+export type ResponseOutcome = { key: string; label: string };
+
+/**
+ * What a clinician recorded DOING about an escalation — ordered least to most
+ * intervention. NOT a severity scale and must never be drawn as one; these are
+ * responses, never diagnoses.
+ */
+export const RESPONSE_OUTCOMES: ResponseOutcome[] = [
+${outcomeRows}
+];
+
+/** Just the keys, for validation. */
+export const RESPONSE_OUTCOME_KEYS = ${list(F.RESPONSE_OUTCOME_KEYS)};
 `;
 }
 

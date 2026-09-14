@@ -14,6 +14,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import DashboardLayout from '@/components/layout/DashboardLayout';
+import SectionHeading from '@/components/layout/SectionHeading';
 import { api } from '@/lib/api';
 import { MuscleEntry } from '@/lib/risk';
 import { computeBodyPartAlerts, AthleteRisks, BodyRegion, RADAR_LABELS, highThresholdsFor, riskRadarSeries } from '@/lib/screeningAlerts';
@@ -641,6 +642,10 @@ export default function CoachDashboard() {
         )}
       </div>
 
+      <SectionHeading note="Training adjustments and individuals to look at — informational, never a clearance">
+        What to act on
+      </SectionHeading>
+
       {/* Smart coaching suggestion — the squad's main shared issue this
           screening round, phrased as a training adjustment the coach can act
           on. Sits above "Needs attention" because it's the headline takeaway. */}
@@ -723,6 +728,10 @@ export default function CoachDashboard() {
           </div>
         </div>
       )}
+
+      <SectionHeading note="The squad athlete by athlete, and the detail behind the summary above">
+        The roster
+      </SectionHeading>
 
       {/* Squad breakdown — supporting detail behind the suggestion card above:
           muscle hotspots, per-event readiness, and screening momentum. The

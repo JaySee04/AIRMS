@@ -442,7 +442,7 @@ function buildUsers() {
     { name: 'Coach Demo 01', email: 'coach@isn.gov.my', password: DEMO_PASSWORD, role: 'coach', coachSport: 'Badminton' },
     // Executive — read-only oversight. Sees the admin analytics and can download
     // the reports; cannot import, edit norms, touch the roster or personnel.
-    { name: 'Datuk Executive', email: 'executive@isn.gov.my', password: DEMO_PASSWORD, role: 'executive' },
+    { name: 'Executive Demo 01', email: 'executive@isn.gov.my', password: DEMO_PASSWORD, role: 'executive' },
     // Deliverable-inbox counterparts, beside the canonical @isn.gov.my logins
     // rather than replacing them (those are documented credentials).
     //

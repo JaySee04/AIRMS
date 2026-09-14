@@ -511,6 +511,23 @@ router.get('/programme-activity.pdf', auth, rbac('admin', 'executive'), async (r
         ['Median age of latest screening', recall.medianAgeDays === null ? '—' : `${recall.medianAgeDays} days`],
       );
     }
+    // Whether anybody ACTED on the flags (§103). Everything above measures
+    // whether the institution screened; without these rows the document quotes
+    // a strictly smaller set of KPIs than the page drawn from the same util,
+    // which is the one property this report exists to preserve.
+    const er = data.escalationResponse;
+    if (er) {
+      kpis.push(
+        ['Escalations owed a clinical response', `${er.owed}`],
+        ['Answered', `${er.answered}`],
+        ['Still outstanding', `${er.outstanding}`],
+        // null, never 0% — a programme with nothing flagged has no rate, and a
+        // printed zero reads as total failure (§71).
+        ['Response rate', er.rate === null ? 'nothing owed' : `${Math.round(er.rate * 100)}%`],
+        ['Median days to respond', er.medianDaysToRespond === null ? '—' : `${er.medianDaysToRespond} days`],
+        ['Longest outstanding', er.oldestOutstandingDays === null ? '—' : `${er.oldestOutstandingDays} days`],
+      );
+    }
     for (const [label, value] of kpis) {
       ensure(doc, 14);
       const y = doc.y;
@@ -648,6 +665,41 @@ router.get('/programme-activity.pdf', auth, rbac('admin', 'executive'), async (r
       changeBars(doc, bt.deltas, {
         note: `Averaged across ${bt.pairs} consecutive test pair${bt.pairs === 1 ? '' : 's'}.`,
       });
+    }
+
+    // ── Compliance by squad (§104) ───────────────────────────────────────────
+    //
+    // The CAVEAT is drawn before the table, not after it, and it is not
+    // optional: this measure cannot separate ISN's scheduling from a squad's
+    // attendance, and a printed table headed by squad name invites exactly that
+    // reading. It is taken from the payload rather than written here, so the
+    // page and the document state the same limit.
+    const sc = data.sportCompliance;
+    if (sc && sc.sports.length) {
+      sectionTitle(doc, 'Screening Compliance by Squad', 180);
+      doc.fontSize(7.5).fillColor(MUTED).font('Helvetica')
+        .text(sc.caveat, 50, doc.y, { width: 495 });
+      doc.moveDown(0.5);
+      // Drawn with the label/value idiom this file already uses for the KPI
+      // block rather than a new table primitive. A new pdfDraw helper would
+      // need its own paint-op tests and a mutation, and this report has no
+      // generic table — inventing one to print five rows buys a maintenance
+      // surface, not a better page.
+      const pc = (v) => (v === null ? '—' : `${Math.round(v * 100)}%`);
+      for (const s of sc.sports) {
+        ensure(doc, 14);
+        const y = doc.y;
+        doc.fontSize(9.5).font('Helvetica-Bold').fillColor(TEXT)
+          .text(s.small ? `${s.sport} (small squad)` : s.sport, 50, y, { lineBreak: false });
+        doc.font('Helvetica').fillColor(MUTED).text(
+          `${s.rostered} on roster · current ${pc(s.currentShare)} · ever screened ${pc(s.coverage)}`
+          + ` · came back ${pc(s.repeatShare)}`
+          + ` · median ${s.medianAgeDays === null ? '—' : `${s.medianAgeDays}d`}`,
+          190, y, { width: 355, align: 'right', lineBreak: false },
+        );
+        doc.y = y + 14;
+      }
+      doc.moveDown(0.5);
     }
 
     // ── Seasonality ──────────────────────────────────────────────────────────

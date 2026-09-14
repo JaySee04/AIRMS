@@ -21,7 +21,7 @@ import CohortFilters, { useCohortFilters } from '@/components/admin/CohortFilter
 import DistributionBar from '@/components/admin/DistributionBar';
 import StaffActivity from '@/components/admin/StaffActivity';
 import { DivergingBar, MetricDeltas, PeriodChart, Ring } from '@/components/charts/Charts';
-import { BAND_COLOR } from '@/lib/bands';
+import { BAND_COLOR, BAND_LABEL } from '@/lib/bands';
 import { api } from '@/lib/api';
 import { GRAINS, type Grain } from '@/lib/periods';
 
@@ -62,6 +62,36 @@ interface PeriodsPayload {
     scores: ReliabilityScore[];
   };
   coverage: { rostered: number; tested: number; untested: number; tests: number };
+  /**
+   * Whether anybody ACTED on the escalations (§103).
+   *
+   * `rate` is null rather than 0 when nothing was owed a response — a programme
+   * with no escalations has no response rate, and 0% would read as total
+   * failure where the truthful answer is "nothing to answer".
+   */
+  escalationResponse?: {
+    owed: number; answered: number; outstanding: number;
+    rate: number | null;
+    medianDaysToRespond: number | null;
+    oldestOutstandingDays: number | null;
+    outcomes: Array<{ key: string; label: string; count: number }>;
+  };
+  /**
+   * Screening compliance squad by squad (§104).
+   *
+   * `caveat` travels in the PAYLOAD rather than living on this page, so every
+   * surface that draws this has to render the limit with it.
+   */
+  sportCompliance?: {
+    minSquad: number;
+    caveat: string;
+    sports: Array<{
+      sport: string; rostered: number; screened: number;
+      current: number; dueSoon: number; overdue: number; never: number; repeat: number;
+      coverage: number | null; currentShare: number | null; repeatShare: number | null;
+      medianAgeDays: number | null; small: boolean;
+    }>;
+  };
   /** Whether what the programme holds on each athlete is still current. */
   recall?: {
     dueDays: number;
@@ -156,6 +186,223 @@ function ThroughputBar({ tests, athletes, max }: { tests: number; athletes: numb
   );
 }
 
+/**
+ * Did anybody act on the flags? (§103)
+ *
+ * Reads the LATEST screening per athlete across ALL TIME — never the from/to
+ * window — for the same reason recall does: whether a flagged athlete has been
+ * seen is a fact about that athlete now, not about a window.
+ */
+function EscalationResponsePanel({ r }: { r: NonNullable<PeriodsPayload['escalationResponse']> }) {
+  const answeredAll = r.owed > 0 && r.outstanding === 0;
+  return (
+    <div className="card" style={{ marginBottom: 20 }}>
+      <div className="card-header"><div>
+        <h2 className="card-title" style={{ marginBottom: 0 }}>Response to escalations</h2>
+        <span className="card-sub">
+          Whether a clinician recorded what was done — the latest screening per athlete, all time
+        </span>
+      </div></div>
+
+      {/* THE CAVEAT ABOVE THE NUMBERS (§71). Below them it is read after the
+          reader has already believed the percentage. */}
+      {/* Bands named by their CLINICAL LABEL, never by colour. "Green is not
+          owed a response" was the first wording and `npm run e2e` refused it:
+          a colour word carries no clinical meaning and "Green" reads as "you
+          are fine" (SILENT_FAILURES 3i). The labels come from BAND_LABEL, so
+          this sentence cannot drift from the chips it describes. */}
+      <p className="text-muted" style={{ marginTop: 0, fontSize: 'var(--fs-sm)' }}>
+        Counts only athletes whose current screening reads
+        {' '}<strong>{BAND_LABEL.amber}</strong> or <strong>{BAND_LABEL.red}</strong>.
+        An athlete with <strong>{BAND_LABEL.green.toLowerCase()}</strong> is not owed a
+        response, a superseded screening is a closed question, and a band a clinician
+        overrode has already been answered.
+      </p>
+
+      {r.owed === 0 ? (
+        // NOT "0%". A programme with nothing flagged has no response rate, and
+        // printing a zero would read as total failure.
+        <p className="text-muted" style={{ margin: 0 }}>
+          No athlete&rsquo;s current screening is flagged, so nothing is owed a response.
+        </p>
+      ) : (
+        <>
+          <div className="stat-grid" style={{ marginBottom: 0 }}>
+            <div className="stat-tile">
+              <div className="stat-tile-label">Answered</div>
+              <div
+                className="stat-tile-value"
+                style={{ color: answeredAll ? 'var(--risk-low)' : undefined }}
+              >
+                {r.answered}<span style={{ fontSize: 'var(--fs-lg)', color: 'var(--text-muted)' }}> of {r.owed}</span>
+              </div>
+              <div className="text-muted" style={{ fontSize: 'var(--fs-sm)' }}>
+                {r.rate === null ? '—' : `${Math.round(r.rate * 100)}% of flagged athletes`}
+              </div>
+            </div>
+            <div className="stat-tile">
+              <div className="stat-tile-label">Still outstanding</div>
+              <div
+                className="stat-tile-value"
+                style={{ color: r.outstanding > 0 ? 'var(--risk-high)' : 'var(--risk-low)' }}
+              >
+                {r.outstanding}
+              </div>
+              <div className="text-muted" style={{ fontSize: 'var(--fs-sm)' }}>
+                {/* The number a clinical lead acts on. A rate of 80% says nothing
+                    about whether the missing fifth is a day or five months old. */}
+                {r.oldestOutstandingDays === null
+                  ? 'nothing waiting'
+                  : `oldest waiting ${r.oldestOutstandingDays} days`}
+              </div>
+            </div>
+            <div className="stat-tile">
+              <div className="stat-tile-label">Median time to respond</div>
+              <div className="stat-tile-value">
+                {r.medianDaysToRespond === null ? '—' : r.medianDaysToRespond}
+                {r.medianDaysToRespond !== null && (
+                  <span style={{ fontSize: 'var(--fs-lg)', color: 'var(--text-muted)' }}> days</span>
+                )}
+              </div>
+              <div className="text-muted" style={{ fontSize: 'var(--fs-sm)' }}>
+                from the screening date, not from when it was scored
+              </div>
+            </div>
+          </div>
+
+          {r.answered > 0 && (
+            <>
+              <h3 className="card-sub" style={{ marginTop: 'var(--sp-lg)', display: 'block' }}>
+                What was done
+              </h3>
+              <table>
+                <thead>
+                  <tr><th>Outcome</th><th style={{ textAlign: 'right' }}>Athletes</th></tr>
+                </thead>
+                <tbody>
+                  {/* In the SHARED order — least to most intervention — never by
+                      count. Sorting by frequency would redraw the axis whenever
+                      the data moved and invite a ranking that does not exist. */}
+                  {r.outcomes.map((o) => (
+                    <tr key={o.key}>
+                      <td>{o.label}</td>
+                      <td style={{ textAlign: 'right' }}>{o.count}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="text-muted" style={{ fontSize: 'var(--fs-xs)', marginBottom: 0 }}>
+                These record what a clinician <strong>did</strong>, not what is wrong with the
+                athlete. Not a severity scale — &ldquo;monitoring&rdquo; is a different decision
+                from &ldquo;no action&rdquo;, not a worse one. Every entry is in the Activity
+                Log as <em>Clinical response recorded</em>.
+              </p>
+            </>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Which squads are keeping up with screening (§104).
+ *
+ * Named for what it MEASURES. It is tempting to head this "most cooperative
+ * squads" — that was the ask — and it would be wrong: a screening happens only
+ * when ISN schedules it, the coach releases the athlete, the athlete attends and
+ * the report is imported. A squad that was never booked produces exactly the
+ * numbers of one that did not turn up, and nothing here separates them. A coach
+ * reading a table headed "least cooperative" is being handed the institution's
+ * own scheduling as an indictment of their athletes.
+ */
+function SportCompliancePanel({ c }: { c: NonNullable<PeriodsPayload['sportCompliance']> }) {
+  if (!c.sports.length) return null;
+  const pct = (v: number | null) => (v === null ? '—' : `${Math.round(v * 100)}%`);
+  return (
+    <div className="card" style={{ marginBottom: 20 }}>
+      <div className="card-header"><div>
+        <h2 className="card-title" style={{ marginBottom: 0 }}>Screening compliance by squad</h2>
+        <span className="card-sub">
+          How much of each squad is still current · worst first · all time, not the filter window
+        </span>
+      </div></div>
+
+      {/* ABOVE the numbers (§71) — below them it is read after the reader has
+          already drawn a conclusion about somebody's athletes. */}
+      <p className="text-muted" style={{ marginTop: 0, fontSize: 'var(--fs-sm)' }}>
+        {c.caveat}
+      </p>
+
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Squad</th>
+              <th style={{ textAlign: 'right' }}>On roster</th>
+              <th style={{ textAlign: 'right' }}>Current</th>
+              <th style={{ textAlign: 'right' }}>Ever screened</th>
+              <th style={{ textAlign: 'right' }}>Came back</th>
+              <th style={{ textAlign: 'right' }}>Median age</th>
+            </tr>
+          </thead>
+          <tbody>
+            {c.sports.map((s) => (
+              <tr key={s.sport}>
+                <td>
+                  <strong>{s.sport}</strong>
+                  {/* Marked on the ROW, not filtered out: a squad dropped from a
+                      comparison is a squad nobody asks about. */}
+                  {s.small && (
+                    <span className="text-muted" style={{ fontSize: 'var(--fs-xs)' }}>
+                      {' '}· under {c.minSquad}, read as indicative
+                    </span>
+                  )}
+                </td>
+                <td style={{ textAlign: 'right' }}>{s.rostered}</td>
+                <td style={{ textAlign: 'right' }}>
+                  {pct(s.currentShare)}
+                  <span className="text-muted" style={{ fontSize: 'var(--fs-xs)' }}> ({s.current})</span>
+                </td>
+                <td style={{ textAlign: 'right' }}>
+                  {pct(s.coverage)}
+                  {s.never > 0 && (
+                    <span className="text-muted" style={{ fontSize: 'var(--fs-xs)' }}>
+                      {' '}({s.never} never)
+                    </span>
+                  )}
+                </td>
+                <td style={{ textAlign: 'right' }}>{pct(s.repeatShare)}</td>
+                <td style={{ textAlign: 'right' }}>
+                  {s.medianAgeDays === null ? '—' : `${s.medianAgeDays}d`}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <dl className="table-legend">
+        <div>
+          <dt>Current</dt>
+          <dd>share of the squad whose last screening is still inside the recall interval.</dd>
+        </div>
+        <div>
+          <dt>Ever screened</dt>
+          <dd>share with any screening at all — a first assessment is a different gap from a lapsed recall.</dd>
+        </div>
+        <div>
+          <dt>Came back</dt>
+          <dd>
+            share of those EVER screened who have two or more. Asking what share of an
+            unscreened squad returned twice is a question with no meaning.
+          </dd>
+        </div>
+      </dl>
+    </div>
+  );
+}
+
 export default function AdminActivity() {
   const f = useCohortFilters();
   const [grain, setGrain] = useState<Grain>('quarter');
@@ -229,6 +476,18 @@ export default function AdminActivity() {
         sports={sports}
         note="Period averages mix cohorts — a period with a different intake reads differently for that reason alone. Narrow the filters for a like-for-like comparison."
       />
+
+      {/* FIRST, above throughput, and that ordering is the argument. Every other
+          panel on this page measures whether the institution SCREENED. This one
+          measures whether anybody ACTED on what the screening found — and a
+          programme that flags nine athletes and assesses none of them looks
+          identical, on all the panels below, to one that assessed all nine. */}
+      {data?.escalationResponse && <EscalationResponsePanel r={data.escalationResponse} />}
+
+      {/* Beneath the response panel and above throughput: the response panel is
+          about the institution's duty of care, this is about who is keeping up.
+          Both are "is the programme working", which throughput is not. */}
+      {data?.sportCompliance && <SportCompliancePanel c={data.sportCompliance} />}
 
       <div className="card" style={{ marginBottom: 20 }}>
         <div className="card-header" style={{ alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>

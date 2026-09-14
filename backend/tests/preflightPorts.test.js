@@ -32,6 +32,28 @@ const hold = (port) => new Promise((resolve, reject) => {
   srv.listen(port, '0.0.0.0', () => resolve(srv));
 });
 
+// Is something ALREADY serving this port, independently of the test?
+//
+// The two "describes the right failure" cases below assert that one branch of
+// the message appears and the OTHER does not — which is only a meaningful
+// question when exactly one port is busy. A developer with `npm run dev` up has
+// BOTH, so both branches print correctly and the negative assertions fail
+// against working code.
+//
+// That is the spurious failure this file's header warns about in its own terms:
+// a guard that cries wolf gets turned off. So the pair skips instead, loudly
+// enough to be noticed. CONNECT rather than bind, for the same reason
+// preflight-ports.js does — see the note on `hold` above.
+const inUse = (port) => new Promise((resolve) => {
+  const sock = new net.Socket();
+  const done = (v) => { sock.destroy(); resolve(v); };
+  sock.setTimeout(700);
+  sock.once('connect', () => done(true));
+  sock.once('timeout', () => done(false));
+  sock.once('error', () => done(false));
+  sock.connect(port, '127.0.0.1');
+});
+
 describe('when the ports are free', () => {
   it('exits 0 and says nothing', async () => {
     // Silence matters: a preflight that chatters on every start gets skipped,
@@ -68,7 +90,11 @@ describe('when a port is held', () => {
     expect(r.stderr).toMatch(/previous build/i);
   });
 
-  it('refuses for the backend port too', async () => {
+  it('refuses for the backend port too, and describes the BACKEND failure', async () => {
+    if (await inUse(3000)) {
+      console.warn('[preflightPorts] :3000 is also in use; backend-only message not exercised');
+      return;
+    }
     try {
       srv = await hold(5000);
     } catch {
@@ -78,5 +104,37 @@ describe('when a port is held', () => {
     const r = run();
     expect(r.status).toBe(1);
     expect(r.stderr).toMatch(/5000/);
+    expect(r.stderr).toMatch(/previous build/i);
+
+    // THE BUG THIS PINS (found in real use, 2026-09-14). The message used to
+    // tell the stale-frontend story unconditionally, so holding ONLY :5000
+    // produced "would leave the OLD server on :3000 while `next dev` moved to
+    // the next free port" — describing a frontend that was not running and a
+    // port that was free.
+    //
+    // The two failures are genuinely different: `next dev` BUMPS to another
+    // port, while the backend EXITS on EADDRINUSE (server.js), so the old
+    // backend keeps answering and a new frontend reads through it. A
+    // diagnostic that names the wrong one costs more time than none.
+    expect(r.stderr).not.toMatch(/OLD frontend/i);
+    expect(r.stderr).toMatch(/backend does not move|keeps answering/i);
+  });
+
+  it('describes the FRONTEND failure when only the web port is held', async () => {
+    // The mirror of the case above — neither message may leak into the other.
+    if (await inUse(5000)) {
+      console.warn('[preflightPorts] :5000 is also in use; frontend-only message not exercised');
+      return;
+    }
+    try {
+      srv = await hold(3000);
+    } catch {
+      console.warn('[preflightPorts] :3000 already in use; held-port case not exercised');
+      return;
+    }
+    const r = run();
+    expect(r.status).toBe(1);
+    expect(r.stderr).toMatch(/OLD frontend/i);
+    expect(r.stderr).not.toMatch(/backend does not move/i);
   });
 });

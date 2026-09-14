@@ -505,6 +505,140 @@ const MUTATIONS = [
     replace: '    const src = read(file);',
     test: 'tests/systemMap.test.js',
   },
+  {
+    guard: 'email: the address an activation code is sent to has a SHAPE',
+    why: 'a typo delivers a credential-establishing code to a stranger (§85, §97.1)',
+    pkg: 'backend',
+    file: 'src/utils/emailAddress.js',
+    // The realistic regression: somebody "simplifies" the rule to the usual
+    // one-liner, which accepts "nurin@isn" (no TLD) and every doubled dot.
+    find: '  if (!SHAPE.test(email)) return \'That does not look like an email address — check for a typo.\';',
+    replace: '  if (!/.+@.+/.test(email)) return \'That does not look like an email address — check for a typo.\';',
+    test: 'tests/emailAddress.test.js',
+  },
+  {
+    guard: 'email: normalising does not strip a "+" tag',
+    why: 'it would merge the two deliverable demo inboxes into one account',
+    pkg: 'backend',
+    file: 'src/utils/emailAddress.js',
+    find: '  return String(value).trim().toLowerCase();',
+    replace: '  return String(value).trim().toLowerCase().replace(/\\+[^@]*/, \'\');',
+    test: 'tests/emailAddress.test.js',
+  },
+  {
+    guard: 'vision throttle: the paid endpoint is actually MOUNTED behind it',
+    why: 'the ONE endpoint that bills per request had no cap at all (§97.2)',
+    pkg: 'backend',
+    file: 'src/routes/upload.js',
+    // Un-wiring it, which is what a refactor does by accident. The limiter
+    // stays defined, exported and unit-tested — the winAnsiSafe shape.
+    find: "router.post('/screening/pdf/preview', auth, rbac('medical', 'admin'), requirePermission('uploadData'), visionThrottle, uploadPdf.single('file'), async (req, res) => {",
+    replace: "router.post('/screening/pdf/preview', auth, rbac('medical', 'admin'), requirePermission('uploadData'), uploadPdf.single('file'), async (req, res) => {",
+    test: 'tests/visionThrottle.test.js',
+  },
+  {
+    guard: 'vision throttle: accounting is per USER, not per IP',
+    why: 'one address is the whole institution — the §48 NAT lesson',
+    pkg: 'backend',
+    file: 'src/utils/visionThrottle.js',
+    find: "const visionKey = (req) => (req.user && req.user.id ? `u:${req.user.id}` : 'anon');",
+    replace: "const visionKey = (req) => String(req.ip || 'anon');",
+    test: 'tests/visionThrottle.test.js',
+  },
+  {
+    guard: 'athlete dashboard: the body map is not filed under "how you have changed"',
+    why: 'deleting the closing heading silently mislabels a clinical figure (§98.2)',
+    pkg: 'frontend',
+    file: 'src/app/athlete/dashboard/page.tsx',
+    // Removing the third heading. The page still renders, e2e still finds 155
+    // body-map regions, and the only symptom is that the figure now sits under
+    // a heading that describes a change view.
+    find: '      <SectionHeading note="Flags from that same latest screening, drawn on the figure">',
+    replace: '      <SectionHeading_REMOVED note="Flags from that same latest screening, drawn on the figure">',
+    test: 'src/app/sectionHeadings.test.ts',
+  },
+  {
+    guard: 'preflight: the refusal describes the port that is ACTUALLY held',
+    why: 'it told the stale-frontend story while only :5000 was busy — found in real use',
+    pkg: 'backend',
+    file: 'scripts/preflight-ports.js',
+    from: ROOT,
+    find: '  if (webBusy) {',
+    replace: '  if (true) {',
+    test: 'tests/preflightPorts.test.js',
+  },
+  {
+    guard: 'escalation response: a green band is not owed one',
+    why: 'counting greens would drown the rate that matters — most athletes are green',
+    pkg: 'backend',
+    file: 'src/utils/escalationResponse.js',
+    find: "const OWED_BANDS = new Set(['amber', 'red']);",
+    replace: "const OWED_BANDS = new Set(['amber', 'red', 'green']);",
+    test: 'tests/escalationResponse.test.js',
+  },
+  {
+    guard: 'escalation response: the rate is null, never 0, when nothing was owed',
+    why: '0% reads as total failure where the answer is "nothing to answer" (§71)',
+    pkg: 'backend',
+    file: 'src/utils/escalationResponse.js',
+    find: '    rate: owed.length ? answered.length / owed.length : null,',
+    replace: '    rate: owed.length ? answered.length / owed.length : 0,',
+    test: 'tests/escalationResponse.test.js',
+  },
+  {
+    guard: 'escalation response: reads the EFFECTIVE band, so an override counts',
+    why: 'reading overallBand would miss every clinician-raised flag and chase answered ones',
+    pkg: 'backend',
+    file: 'src/utils/escalationResponse.js',
+    find: '    if (!OWED_BANDS.has(effectiveBand(s))) continue;',
+    replace: '    if (!OWED_BANDS.has(s.overallBand)) continue;',
+    test: 'tests/escalationResponse.test.js',
+  },
+  {
+    guard: 'sport compliance: ranks on SHARE, not on headcount',
+    why: 'ranking by count sorts by squad size and calls it compliance (§71)',
+    pkg: 'backend',
+    file: 'src/utils/sportCompliance.js',
+    // BOTH sides, because changing one produces a broken comparator rather than
+    // a different ranking — and for this fixture it happened to yield the SAME
+    // order, so the mutation survived while proving nothing. (V8's sort calls
+    // the comparator as (Hockey, Badminton), not the written order.) A mutation
+    // has to express the realistic mistake — "rank by headcount" — not a
+    // corruption the data cannot see.
+    find: '    const av = a.currentShare ?? -1;\n    const bv = b.currentShare ?? -1;',
+    replace: '    const av = a.current ?? -1;\n    const bv = b.current ?? -1;',
+    test: 'tests/sportCompliance.test.js',
+  },
+  {
+    guard: 'sport compliance: the repeat rate divides by those EVER SCREENED',
+    why: 'dividing by the roster punishes a squad for athletes with no first assessment',
+    pkg: 'backend',
+    file: 'src/utils/sportCompliance.js',
+    find: '      repeatShare: screened ? s.repeat / screened : null,',
+    replace: '      repeatShare: s.rostered ? s.repeat / s.rostered : null,',
+    test: 'tests/sportCompliance.test.js',
+  },
+  {
+    guard: 'sport compliance: the caveat names what the measure CANNOT separate',
+    why: 'without it the table reads as a league table of athlete cooperation',
+    pkg: 'backend',
+    file: 'src/utils/sportCompliance.js',
+    find: "    caveat: 'Measures whether screenings happened, which depends on scheduling, '",
+    replace: "    caveat: 'Screening compliance per squad. '",
+    test: 'tests/sportCompliance.test.js',
+  },
+  {
+    guard: 'activity report: the PDF draws every KPI group the util returns',
+    why: 'the document quoted a poorer set than the page for a whole release (§105)',
+    pkg: 'backend',
+    file: 'src/routes/screeningReports.js',
+    // The realistic regression: a KPI group is added to the util and the report
+    // is never updated. Renaming the reference reproduces "the report does not
+    // know this group exists" exactly.
+    find: '    const sc = data.sportCompliance;',
+    replace: '    const sc = data.sportComplianceMISSING;',
+    test: 'tests/activityReportParity.test.js',
+  },
 ];
 
 function pkgDir(pkg) {

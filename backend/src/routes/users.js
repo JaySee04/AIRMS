@@ -7,6 +7,7 @@ const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
 const { PERMISSION_KEYS, PERMISSION_LABELS, sanitizePermissions } = require('../utils/permissions');
 const { validatePassword } = require('../utils/passwordPolicy');
+const { validateEmail } = require('../utils/emailAddress');
 const { recordAudit } = require('../utils/audit');
 const { sendInvite, inviteBlockedReason, unusablePassword } = require('../utils/invite');
 const { Op } = require('sequelize');
@@ -87,7 +88,10 @@ router.post('/', async (req, res) => {
     const errors = [];
     if (!wantRole) errors.push(`Role must be one of: ${INVITABLE_ROLES.join(', ')}`);
     if (!name || !String(name).trim()) errors.push('Name is required');
-    if (!email || !String(email).trim()) errors.push('Email is required');
+    // SHAPE, not just presence — this is where an activation code is about to
+    // be sent. See utils/emailAddress.js.
+    const emailError = validateEmail(email);
+    if (emailError) errors.push(emailError);
     // An invited account needs no password from the administrator; one set by
     // hand still faces the SAME policy as a user-chosen one, so an admin-minted
     // account cannot be the weak one.
@@ -100,7 +104,9 @@ router.post('/', async (req, res) => {
 
     const user = await User.create({
       name: String(name).trim(),
-      email: String(email).trim().toLowerCase(),
+      // The model's setter normalises; passing the raw value keeps ONE
+      // definition of the stored form rather than a second one here.
+      email,
       // Replaced immediately by sendInvite when inviting; a value is needed here
       // because the column is NOT NULL and the model hashes on save.
       password: wantInvite ? unusablePassword() : String(password),

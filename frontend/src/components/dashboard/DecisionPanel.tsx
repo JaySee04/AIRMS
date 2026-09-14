@@ -21,7 +21,17 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, isAuthError } from '@/lib/api';
 import { getSession } from '@/lib/auth';
 import { BAND_LABEL } from '@/lib/bands';
+import { RESPONSE_OUTCOMES } from '@/lib/shared/facts';
 import CompareAthletes from './CompareAthletes';
+
+/**
+ * The label for a recorded outcome.
+ *
+ * Falls back to the raw key rather than to a friendly placeholder: a value the
+ * shared list does not know is a real disagreement between the database and
+ * this build, and printing "Recorded" over it would hide exactly that.
+ */
+const outcomeLabel = (key: string) => RESPONSE_OUTCOMES.find((o) => o.key === key)?.label ?? key;
 
 // "Since you last looked" — remembered HERE, in the reader's browser.
 //
@@ -90,6 +100,14 @@ export interface WorklistEntry {
   reasons: string[];
   screeningId: number | string | null;
   reviewed: boolean;
+  /**
+   * The INSTITUTION's answer to this escalation (§103) — distinct from
+   * `reviewed`, which is this reader's private tick. One of
+   * RESPONSE_OUTCOME_KEYS, or null when nobody has recorded one.
+   */
+  responseOutcome: string | null;
+  responseBy: string | null;
+  responseAt: string | null;
 }
 
 interface BandChange {
@@ -108,6 +126,7 @@ interface DecisionPayload {
   changesBasis: 'since' | 'clamped' | 'window';
   changesFrom: string;
   canMarkReviewed: boolean;
+  canRecordResponse: boolean;
   headline: { verb: string; count: number; parts: string[] } | null;
   worklist: WorklistEntry[];
   changes: BandChange[];
@@ -154,6 +173,14 @@ export default function DecisionPanel({
   // list of changes they had not yet read. The control has to describe THEIR
   // action, not the presence of state.
   const [justMarked, setJustMarked] = useState(false);
+
+  // Which entry has its response form open, and what is typed into it. Keyed by
+  // athleteId rather than a boolean, so opening one form closes any other —
+  // two open forms invite a note being typed into the wrong athlete's.
+  const [responding, setResponding] = useState<string | null>(null);
+  const [outcome, setOutcome] = useState<string>('');
+  const [note, setNote] = useState('');
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -203,6 +230,48 @@ export default function DecisionPanel({
       await load();
     } catch {
       setError('That could not be saved. Your list is unchanged.');
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  /** Open the response form for one entry, pre-filled if it already has one. */
+  function openResponse(entry: WorklistEntry) {
+    setResponding(entry.athleteId);
+    // Pre-selecting the existing outcome makes "change my answer" the same
+    // gesture as "record one", and means a re-open cannot silently blank a
+    // previous decision by submitting the placeholder.
+    setOutcome(entry.responseOutcome ?? '');
+    setNote('');
+    setSaveError(null);
+  }
+
+  /**
+   * Record what was DONE about this escalation.
+   *
+   * Writes to the screening, not to the reader's tick list. That endpoint is
+   * audited (`escalation.response`) and is the reason this control exists —
+   * "Mark reviewed" beside it records only that somebody looked.
+   */
+  async function submitResponse(entry: WorklistEntry) {
+    if (!data?.canRecordResponse || !entry.screeningId || !outcome) return;
+    setBusy(entry.athleteId);
+    setSaveError(null);
+    try {
+      await api.post(`/screenings/${entry.screeningId}/response`, {
+        outcome,
+        note: note.trim() || undefined,
+      });
+      setResponding(null);
+      setNote('');
+      await load();
+    } catch (e) {
+      // Kept local to the form rather than raised to the panel-level `error`,
+      // which replaces the whole worklist with a warning — losing the note the
+      // clinician just typed, and their place in the list, over one failed save.
+      setSaveError(isAuthError(e)
+        ? 'You do not have permission to record a clinical response.'
+        : 'That could not be saved. Nothing was recorded.');
     } finally {
       setBusy(null);
     }
@@ -270,12 +339,96 @@ export default function DecisionPanel({
                     disabled={busy === w.athleteId}
                     onClick={() => toggleReviewed(w)}
                     // Said plainly, because the difference matters clinically.
-                    title="Marks that YOU have looked at this screening. It is not a clinical decision — to record one, set the band override on the athlete."
+                    title="Marks that YOU have looked at this screening. It is not a clinical decision — to record one, use Record response."
                   >
                     {busy === w.athleteId ? 'Saving…' : 'Mark reviewed'}
                   </button>
                 )}
+                {/* Offered only where there is something to answer. A green or
+                    never-screened entry is not an escalation, and inviting a
+                    clinical response to one would manufacture records of
+                    decisions nobody was asked to make. */}
+                {data.canRecordResponse && w.screeningId
+                  && (w.band === 'red' || w.band === 'amber') && (
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-sm"
+                    disabled={busy === w.athleteId}
+                    onClick={() => (responding === w.athleteId
+                      ? setResponding(null) : openResponse(w))}
+                    title="Records what was DONE about this escalation. Audited and attributed to you."
+                  >
+                    {w.responseOutcome ? 'Change response' : 'Record response'}
+                  </button>
+                )}
               </div>
+
+              {/* ANSWERED, stated on the entry itself. Without this the list
+                  looks identical whether nine escalations were dealt with or
+                  none were — which is the gap §103 exists to close. */}
+              {w.responseOutcome && responding !== w.athleteId && (
+                <p className="decision-response">
+                  <strong>{outcomeLabel(w.responseOutcome)}</strong>
+                  {w.responseBy ? ` · ${w.responseBy}` : ''}
+                  {w.responseAt ? ` · ${new Date(w.responseAt).toLocaleDateString('en-GB', {
+                    day: 'numeric', month: 'short', year: 'numeric',
+                  })}` : ''}
+                </p>
+              )}
+
+              {responding === w.athleteId && (
+                <div className="decision-respond">
+                  <p className="decision-respond-lead">
+                    What was done about this? Recorded against the screening,
+                    attributed to you, and written to the Activity Log.
+                  </p>
+                  <div className="decision-respond-options">
+                    {RESPONSE_OUTCOMES.map((o) => (
+                      <label key={o.key} className="decision-respond-option">
+                        <input
+                          type="radio"
+                          name={`outcome-${w.athleteId}`}
+                          value={o.key}
+                          checked={outcome === o.key}
+                          onChange={() => setOutcome(o.key)}
+                        />
+                        <span>{o.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                  <label className="decision-respond-note">
+                    <span className="text-muted">Note (optional)</span>
+                    <textarea
+                      className="band-override-textarea"
+                      rows={2}
+                      value={note}
+                      onChange={(e) => setNote(e.target.value)}
+                      placeholder="Anything the next clinician should know"
+                    />
+                  </label>
+                  {saveError && (
+                    <div className="alert alert-warning" style={{ marginBottom: 0 }}>{saveError}</div>
+                  )}
+                  <div className="decision-actions">
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      disabled={!outcome || busy === w.athleteId}
+                      onClick={() => submitResponse(w)}
+                    >
+                      {busy === w.athleteId ? 'Saving…' : 'Record response'}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm"
+                      disabled={busy === w.athleteId}
+                      onClick={() => setResponding(null)}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
             </li>
           ))}
         </ul>

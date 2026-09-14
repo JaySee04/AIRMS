@@ -154,6 +154,41 @@ const RISK_INDICATORS = [
 /** Peer count below which a cohort caveats itself, on every surface. */
 const SMALL_COHORT = 10;
 
+/**
+ * What a clinician recorded doing about an escalation.
+ *
+ * SHARED because both packages must agree exactly: the backend validates the
+ * submitted value against this list and the frontend renders the picker from
+ * it, so a value offered on screen that the route rejects — or accepted by the
+ * route and never offered — is the §42 defect (an endpoint taking four roles
+ * while the form offered two) in a clinical setting.
+ *
+ * ORDERED least to most intervention, which is the order the picker shows and
+ * the order Programme Activity stacks them. Not a severity scale and must never
+ * be drawn as one: "monitoring" is not a worse answer than "no action", it is a
+ * different decision.
+ *
+ * `assessed-none` exists and matters. Without it the only way to close an
+ * escalation is to claim treatment, so a clinician who looks properly and finds
+ * nothing wrong has no honest option — and the screen would push them toward
+ * over-recording intervention. A screening flags RISK, not injury (§33); the
+ * verdict "I checked and there is nothing to do" is a real clinical outcome.
+ *
+ * These are RESPONSES, not diagnoses. Nothing here records what is wrong with
+ * the athlete, only what the clinician did about the flag. The clinical finding
+ * remains the band override, which is separately audited and carries its own
+ * required note.
+ */
+const RESPONSE_OUTCOMES = [
+  { key: 'assessed-none', label: 'Assessed — no action needed' },
+  { key: 'monitoring', label: 'Monitoring — re-check next screening' },
+  { key: 'treating', label: 'Assessed — now treating' },
+  { key: 'referred', label: 'Referred on' },
+];
+
+/** Just the keys, for validation and for a DB enum. */
+const RESPONSE_OUTCOME_KEYS = RESPONSE_OUTCOMES.map((o) => o.key);
+
 module.exports = {
   INSTITUTION_TZ,
   BANDS,
@@ -168,4 +203,6 @@ module.exports = {
   EXCLUDED_RISK_KEYS,
   RISK_INDICATORS,
   SMALL_COHORT,
+  RESPONSE_OUTCOMES,
+  RESPONSE_OUTCOME_KEYS,
 };

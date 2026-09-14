@@ -1019,7 +1019,6 @@ export default function MedicalDashboard() {
                 <ScreeningHistory athleteId={selectedAthlete.athleteId} canReinstate />
               </div>
 
-              {/* Body map */}
               <div className="card" style={{ marginTop: 20, marginBottom: 20 }}>
                 <div className="card-header">
                   <div>

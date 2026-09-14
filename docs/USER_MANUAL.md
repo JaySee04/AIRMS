@@ -17,7 +17,7 @@
 | Medical | `medical@isn.gov.my` | airms2026 (Medical Demo 01) |
 | Medical (alert inbox) | `23005005@siswa.um.edu.my` | airms2026 (Medical Demo 02 — a real deliverable inbox, so import-commit alerts demo against something checkable) |
 | Coach | `coach@isn.gov.my` | airms2026 (read-only, **sport-scoped** — squad readiness, team + individual report download for their own sport's athletes) |
-| Executive | `executive@isn.gov.my` | airms2026 (Datuk Executive — read-only institutional oversight: admin analytics + PDF reports, and **nothing that writes**) |
+| Executive | `executive@isn.gov.my` | airms2026 (Executive Demo 01 — read-only institutional oversight: admin analytics + PDF reports, and **nothing that writes**) |
 | Admin | `admin@isn.gov.my` | airms2026 |
 | Admin (SMTP demo) | `poseidonapollo11@gmail.com` | airms2026 (real Gmail, so the email-reset flow demos against an inbox you can check) |
 

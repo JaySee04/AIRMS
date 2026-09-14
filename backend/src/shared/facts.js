@@ -68,6 +68,20 @@ const RISK_INDICATORS = [
 /** Peer count below which a cohort caveats itself, on every surface. */
 const SMALL_COHORT = 10;
 
+/**
+ * What a clinician recorded DOING about an escalation — ordered least to most
+ * intervention. Not a severity scale. These are responses, never diagnoses.
+ */
+const RESPONSE_OUTCOMES = [
+  { key: 'assessed-none', label: 'Assessed — no action needed' },
+  { key: 'monitoring', label: 'Monitoring — re-check next screening' },
+  { key: 'treating', label: 'Assessed — now treating' },
+  { key: 'referred', label: 'Referred on' },
+];
+
+/** Just the keys, for validation and for the DB enum. */
+const RESPONSE_OUTCOME_KEYS = ['assessed-none', 'monitoring', 'treating', 'referred'];
+
 module.exports = {
   INSTITUTION_TZ,
   BANDS,
@@ -83,4 +97,6 @@ module.exports = {
   EXCLUDED_RISK_KEYS,
   RISK_INDICATORS,
   SMALL_COHORT,
+  RESPONSE_OUTCOMES,
+  RESPONSE_OUTCOME_KEYS,
 };

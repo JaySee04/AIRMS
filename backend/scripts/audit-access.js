@@ -188,6 +188,11 @@ const ROUTES = [
   ['DELETE', `/athletes/${BOGUS}`],
   ['PATCH', `/athletes/${BOGUS}/injury`, { isInjured: false }],
   ['PATCH', `/screenings/${BOGUS}/override`, { band: 'green', note: 'audit' }],
+  // The clinical response to an escalation (§103). A WRITE about somebody's
+  // care, so coach and executive must be refused here exactly as they are on
+  // the override beside it — the probe carries a VALID outcome on purpose, so a
+  // refusal is the role being stopped rather than the payload being rejected.
+  ['POST', `/screenings/${BOGUS}/response`, { outcome: 'assessed-none' }],
   ['POST', `/screenings/${BOGUS}/reinstate`, {}],
   ['PATCH', `/cohorts/${BOGUS}`, {}],
   ['PATCH', `/cohorts/members/${BOGUS}`, {}],

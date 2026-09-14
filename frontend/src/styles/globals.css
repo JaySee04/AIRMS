@@ -7,10 +7,26 @@
   --brand-gold: #f5c518;
   --brand-gold-light: #ffd86b;
 
-  --bg: #f4f6fa;
+  /* ── Surfaces and edges ──────────────────────────────────────────────
+     A panel reads as SOLID when two things are true: its edge is visible, and
+     it sits on a ground darker than itself. Both were nearly absent, and the
+     numbers say so — measured as contrast ratios rather than judged by eye:
+
+                            was        now
+       card vs its border   1.30:1  ->  1.92:1
+       page vs card         1.08:1  ->  1.17:1
+
+     At 1.30:1 a card edge is a suggestion; at 1.08:1 the page behind it is
+     effectively the same white, so twelve stacked cards read as one sheet of
+     paper with faint scoring. The ratio that matters for a UI boundary is
+     WCAG 1.4.11's 3:1, which applies to CONTROLS rather than decorative
+     panels — 1.92:1 is deliberately short of it, because a card outline at
+     full control contrast competes with the buttons and inputs inside the
+     card. The edge should be findable, not loud. */
+  --bg: #e9edf4;
   --bg-card: #ffffff;
   --bg-sidebar: var(--brand-navy);
-  --border: #dde2ea;
+  --border: #b0bccf;
   --text: #1a2533;
   --text-muted: #6b7280;
   --text-sidebar: #c8d8e8;
@@ -50,8 +66,33 @@
   --chart-grid: #e6eaf1;
   --chart-track: #eef1f6;
 
-  --shadow-sm: 0 1px 3px rgba(0,0,0,.08);
-  --shadow-md: 0 4px 12px rgba(0,0,0,.10);
+  /* ── Elevation ───────────────────────────────────────────────────────
+     LAYERED rather than single-offset: a tight contact shadow that grounds the
+     element plus a wider ambient one, which is how a real light source behaves.
+     A lone `0 1px 3px` gives one hard grey edge and nothing else, which is what
+     made every surface read as a rectangle drawn on paper. Alphas stay <= .10 —
+     this is a clinical tool read for hours.
+     --shadow-xs is for elements sitting ON a card, which must not compete with
+     the card's own elevation. */
+  --shadow-xs: 0 1px 2px rgba(16,32,53,.05);
+  --shadow-sm: 0 1px 2px rgba(16,32,53,.06), 0 1px 3px rgba(16,32,53,.05);
+  --shadow-md: 0 2px 4px rgba(16,32,53,.05), 0 8px 20px rgba(16,32,53,.08);
+  --shadow-lg: 0 4px 8px rgba(16,32,53,.06), 0 16px 40px rgba(16,32,53,.12);
+
+  /* Hairlines INSIDE a card. --border is the structural line that separates
+     one surface from another; reusing it for a rule between two rows of the
+     same table draws the row as though it were a new panel.
+     It steps up with --border (1.14:1 -> 1.26:1) but must stay CLEARLY lighter:
+     the whole point of the darker outline is that a card edge now outranks the
+     rules inside it, and matching them would flatten that back out. */
+  --border-subtle: #e0e5ee;
+
+  /* ── Motion ──────────────────────────────────────────────────────────
+     One duration and one curve, so a button, a row and a card do not each ease
+     differently. Standard "decelerate" — reads as responsive rather than
+     floaty. Collapsed to ~0 by the prefers-reduced-motion block at the end. */
+  --dur: 0.16s;
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
 
   --sidebar-width: 256px;
   --topbar-height: 60px;
@@ -92,11 +133,26 @@
   --bg: #0f1923;
   --bg-card: #1a2535;
   --bg-sidebar: #0a1a2a;
-  --border: #2a3a4a;
+  /* Matched to the light ramp by RATIO, not by hue: 1.33:1 -> 1.91:1 against
+     the card. Dark mode needs the edge more than light mode does, because a
+     shadow on near-black is invisible, so the border is doing all of the work
+     of separating one panel from the next. */
+  --border: #3d5265;
   --text: #e8edf2;
   --text-muted: #8899aa;
-  --shadow-sm: 0 1px 3px rgba(0,0,0,.3);
-  --shadow-md: 0 4px 12px rgba(0,0,0,.4);
+  /* Elevation on a dark surface cannot work the way it does on a light one:
+     a shadow on near-black is invisible, so depth has to come from the
+     surface being LIGHTER than its background (which --bg-card already does)
+     with the shadow only deepening the separation. Kept stronger in alpha and
+     tighter in spread than the light ramp for that reason. */
+  --shadow-xs: 0 1px 2px rgba(0,0,0,.25);
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.3), 0 1px 3px rgba(0,0,0,.22);
+  --shadow-md: 0 2px 4px rgba(0,0,0,.3), 0 8px 20px rgba(0,0,0,.35);
+  --shadow-lg: 0 4px 8px rgba(0,0,0,.35), 0 16px 40px rgba(0,0,0,.45);
+  /* Stays where it was: it was already subordinate to the old --border, and the
+     new one is stronger, so the gap the inner/outer distinction depends on
+     widened on its own. */
+  --border-subtle: #2a3a4a;
 
   /* Risk palette for dark mode. Foregrounds are lifted so risk-coloured text
      and badges stay legible on dark surfaces; the tinted backgrounds become
@@ -147,7 +203,12 @@ button { cursor: pointer; font-family: inherit; }
 /* ── Sidebar ──────────────────────────────────────────────────────────────────── */
 .sidebar {
   width: var(--sidebar-width);
-  background: var(--bg-sidebar);
+  /* A wash of black/white alphas over the flat navy rather than a second
+     colour, so it deepens whatever --bg-sidebar is and needs no dark-mode
+     counterpart. The brand colour is locked; this only lights it. */
+  background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(0,0,0,.14)), var(--bg-sidebar);
+  /* So the shell reads as two planes rather than two adjacent fills. */
+  box-shadow: 1px 0 0 rgba(0,0,0,.16), var(--shadow-md);
   display: flex;
   flex-direction: column;
   position: fixed;
@@ -194,7 +255,8 @@ button { cursor: pointer; font-family: inherit; }
   color: var(--text-sidebar);
   font-size: var(--fs-md);
   font-weight: 500;
-  transition: background 0.15s, color 0.15s;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease),
+              box-shadow var(--dur) var(--ease);
 }
 .sidebar-link:hover:not(.active) {
   background: rgba(255,255,255,.1);
@@ -204,6 +266,10 @@ button { cursor: pointer; font-family: inherit; }
   background: var(--brand-gold);
   color: var(--brand-navy);
   font-weight: 600;
+  /* The active item is the only saturated block on the column, so it should
+     sit ABOVE it rather than be inlaid into it. Tinted with the gold rather
+     than plain black, which would grey the edge. */
+  box-shadow: 0 1px 2px rgba(0,0,0,.18), 0 4px 10px rgba(245,197,24,.22);
 }
 .sidebar-icon { display: flex; align-items: center; }
 
@@ -247,6 +313,11 @@ button { cursor: pointer; font-family: inherit; }
   margin: 0;
   font-size: var(--fs-xl);
   font-weight: 700;
+  /* Same optical correction as .card-title, one step stronger because this is
+     the largest string on the page outside a stat value. Display-size text set
+     at default tracking looks loose; the correction is what makes a heading
+     read as set rather than typed. */
+  letter-spacing: -0.02em;
   color: var(--text);
 }
 .topbar-role-info {
@@ -343,18 +414,32 @@ button { cursor: pointer; font-family: inherit; }
 .user-dropdown-item:hover { background: var(--bg); }
 
 /* ── Page Content ──────────────────────────────────────────────────────────────── */
-.page-content { padding: 28px 32px; flex: 1; }
+/* A MEASURE for the content column. Several cards here are prose (the worklist
+   reasons, every caveat, §96's provenance note), and past ~2200px those become
+   single lines the eye cannot track back from. Deliberately generous: at the
+   1440px demo resolution the column is 1184px, so this changes nothing about
+   how the system is presented. */
+.page-content { padding: 28px 32px; flex: 1; max-width: 1680px; width: 100%; }
 .text-muted { color: var(--text-muted); font-size: var(--fs-md); margin: 0; }
 
 /* ── Cards ─────────────────────────────────────────────────────────────────────── */
 .card {
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  /* At 8px a 1400px-wide panel reads as a square with the corners filed off —
+     the curve has to scale with the element. A different STEP, not a new one. */
+  border-radius: var(--r-lg);
   padding: var(--sp-lg);
   box-shadow: var(--shadow-sm);
 }
-.card-title { font-size: var(--fs-lg); font-weight: 600; margin: 0 0 var(--sp-md); }
+.card-title {
+  font-size: var(--fs-lg);
+  font-weight: 650;
+  /* Without it a 0.95rem semibold heading sits at the same optical density as
+     the 0.875rem prose beneath it. */
+  letter-spacing: -0.011em;
+  margin: 0 0 var(--sp-md);
+}
 
 /* ── Grid Layouts ────────────────────────────────────────────────────────────── */
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
@@ -529,7 +614,7 @@ label:has(> input[type='radio']) {
 .stat-tile {
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--r-lg);
   padding: 18px 20px;
   box-shadow: var(--shadow-sm);
 }
@@ -1558,7 +1643,12 @@ label:has(> input[type='radio']) {
 .medical-rail {
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  /* Matches .card: the rail sits BESIDE cards at the same level of the page,
+     so a smaller radius here reads as two different kinds of surface. The
+     nested rule is the opposite — .medical-rail-search and the list rows
+     inside it keep --r-md, because an inner corner must be tighter than the
+     one containing it or the two curves fight. */
+  border-radius: var(--r-lg);
   overflow: hidden;
   position: sticky;
   top: 76px; /* top bar (60) + a bit of breathing room */
@@ -2165,7 +2255,9 @@ tr.row-flash > td { animation: row-flash 1.6s ease-out; }
 .screening-alert {
   border: 1px solid var(--border);
   border-left: 4px solid var(--risk-mod);
-  border-radius: var(--radius);
+  /* Card-level surface — it spans the content column above the cards, so it
+     matches .card rather than the nested scale. */
+  border-radius: var(--r-lg);
   padding: 14px 16px;
   margin-bottom: 20px;
 }
@@ -2229,18 +2321,28 @@ tr.row-flash > td { animation: row-flash 1.6s ease-out; }
   font-size: var(--fs-md);
   font-weight: 600;
   border: none;
-  transition: opacity 0.15s;
+  /* `transition: opacity` was animating the ONE property no button variant
+     changes. Every hover here swaps `background` (and `.btn-outline` also its
+     border), so the eased transition was decorative and the actual change
+     snapped. Naming the properties that move is the whole fix. */
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease),
+              color var(--dur) var(--ease), box-shadow var(--dur) var(--ease),
+              transform var(--dur) var(--ease);
 }
+/* A press should be felt. 1px is enough to register as a button going down and
+   small enough that it never reflows the row it sits in. */
+.btn:active:not(:disabled) { transform: translateY(1px); }
 .btn:disabled { opacity: 0.6; cursor: not-allowed; }
-.btn-primary { background: var(--brand-navy); color: #fff; }
-.btn-primary:hover:not(:disabled) { background: var(--brand-navy-mid); }
-.btn-gold { background: var(--brand-gold); color: var(--brand-navy); }
+.btn-primary { background: var(--brand-navy); color: #fff; box-shadow: var(--shadow-xs); }
+.btn-primary:hover:not(:disabled) { background: var(--brand-navy-mid); box-shadow: var(--shadow-sm); }
+.btn-gold { background: var(--brand-gold); color: var(--brand-navy); box-shadow: var(--shadow-xs); }
+.btn-gold:hover:not(:disabled) { background: var(--brand-gold-light); box-shadow: var(--shadow-sm); }
 .btn-outline {
   background: transparent;
   border: 1px solid var(--border);
   color: var(--text);
 }
-.btn-outline:hover { background: var(--bg); }
+.btn-outline:hover:not(:disabled) { background: var(--bg); border-color: var(--text-muted); }
 .btn-sm { padding: 5px 12px; font-size: var(--fs-sm); }
 .btn-full { width: 100%; justify-content: center; }
 
@@ -2571,10 +2673,35 @@ tr.row-flash > td { animation: row-flash 1.6s ease-out; }
 .table-legend dt::after { content: '—'; margin-left: 6px; color: var(--text-muted); font-weight: 400; }
 .table-legend dd { margin: 0; }
 
-table { width: 100%; border-collapse: collapse; font-size: var(--fs-md); }
-th { text-align: left; padding: 10px 12px; font-weight: 600; border-bottom: 2px solid var(--border); color: var(--text-muted); font-size: var(--fs-sm); text-transform: uppercase; letter-spacing: 0.04em; }
-td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-md);
+  /* TABULAR FIGURES. Nearly every table here is a column of scores read DOWN,
+     and in a proportional face `1` is narrower than `8` — so 74.9 and 16.4 do
+     not align on the decimal and a column cannot be compared without reading
+     every number. Changes what the reader can DO, not how it looks. */
+  font-variant-numeric: tabular-nums;
+}
+th {
+  text-align: left;
+  padding: 10px 12px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  /* One step down from --fs-sm. Uppercase with positive tracking already
+     occupies more width and reads larger than its point size; at --fs-sm the
+     header competed with the data it labels. */
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+/* The rule between two rows of one table is not the same kind of line as the
+   rule around the card holding it — see --border-subtle. */
+td { padding: 10px 12px; border-bottom: 1px solid var(--border-subtle); }
 tr:last-child td { border-bottom: none; }
+tbody tr { transition: background var(--dur) var(--ease); }
 tbody tr:hover { background: var(--bg); }
 .flex { display: flex; }
 
@@ -3684,3 +3811,165 @@ textarea:focus-visible,
 .compare-picker .is-picked {
   border-color: var(--brand-navy); border-width: 2px; font-weight: 700;
 }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   BROWSER CHROME AND PRINT (2026-09-13)
+
+   The parts of a page nobody designs because the browser supplies a default:
+   the scrollbar, the selection colour, the placeholder, the checkbox tint, and
+   what comes out of Ctrl+P. Defaults are not neutral — they are Chrome's house
+   style, and leaving them is the difference between an application and a page.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* ── Scrollbars ──────────────────────────────────────────────────────────────
+   Many panes here scroll independently (table wrappers, the medical rail, chart
+   overflow containers), and at Windows' default width each draws a 17px
+   light-grey gutter through a dark-mode card — where dark themes usually give
+   themselves away. Both syntaxes: Chrome honours `scrollbar-color` only from
+   121, so the ::-webkit rules are the fallback. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 999px;
+  /* Inset by a transparent border so the thumb reads as a floating pill
+     rather than filling the gutter edge to edge. */
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); background-clip: padding-box; }
+::-webkit-scrollbar-corner { background: transparent; }
+
+/* ── Selection ───────────────────────────────────────────────────────────────
+   Chrome's default is a saturated blue that belongs to no palette here. Gold at
+   low alpha so selected text stays readable in BOTH themes — a solid highlight
+   would need a matching foreground, and setting one breaks the risk-coloured
+   text this app deliberately relies on. */
+::selection { background: rgba(245,197,24,.32); }
+
+/* ── Placeholders ────────────────────────────────────────────────────────────
+   Explicit rather than the UA's near-black-at-54%, which lands too close to
+   real input and makes an empty field look filled at a glance. */
+::placeholder { color: var(--text-muted); opacity: 1; }
+
+/* Native controls (checkboxes, radios, range) pick up the brand instead of the
+   OS accent, which is otherwise whatever colour the user set for Windows. */
+:root { accent-color: var(--brand-navy); }
+[data-theme="dark"] { accent-color: var(--brand-gold); }
+
+/* Numbers that are read as a set should align as one. Same argument as the
+   `table` rule above, applied to the tiles and the chart furniture that quote
+   figures outside a table. */
+.stat-tile-value, .stat-tile-delta { font-variant-numeric: tabular-nums; }
+
+/* ── Print ───────────────────────────────────────────────────────────────────
+   AIRMS generates its own PDFs, and they are the supported way to take
+   anything off screen. But a clinician WILL press Ctrl+P on a dashboard, and
+   the default result is a navy sidebar burned across the first page, a sticky
+   topbar repeated nowhere useful, and cards split across the fold.
+
+   Presentation only: hides the shell, flattens elevation, stops a card being
+   broken in half. It deliberately does NOT reproduce the report layout —
+   utils/pdfDraw.js owns that, and a print stylesheet pretending to be a second
+   report generator is the two-definitions problem again. */
+@media print {
+  .sidebar, .topbar { display: none !important; }
+  .main-area { margin-left: 0 !important; }
+  .page-content { padding: 0 !important; }
+  body { background: #fff; }
+  .card, .stat-tile {
+    box-shadow: none !important;
+    border: 1px solid #ccc;
+    /* Keep a panel and its heading on one sheet. `break-inside` is the
+       current property; `page-break-inside` is the legacy alias still needed
+       by some print engines. */
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  a[href]::after { content: ''; }
+}
+
+/* ── Section headings in a long card stack ───────────────────────────────────
+   components/layout/SectionHeading.tsx. See DESIGN_DECISIONS §98.2.
+
+   The RULE does the work, not the type size — so grouping costs no new step on
+   the §29 scale and no re-weighting of card titles.
+
+   The top margin is deliberately larger than the 20px between cards. That
+   asymmetry IS the grouping: cards inside a section sit closer to each other
+   than any of them sits to the next section. A section break with the same
+   spacing as a card break separates nothing. */
+.section-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--sp-xs) var(--sp-sm);
+  margin: var(--sp-xl) 0 var(--sp-md);
+  padding-bottom: var(--sp-xs);
+  border-bottom: 1px solid var(--border);
+}
+/* No top margin on the first one: it would push the whole page down by a gap
+   that has nothing above it to separate from. */
+.section-head:first-child { margin-top: 0; }
+.section-head-title {
+  margin: 0;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  text-transform: uppercase;
+  /* Wide tracking is what makes a short uppercase string read as a label rather
+     than as shouting. */
+  letter-spacing: 0.09em;
+  color: var(--text);
+}
+.section-head-note {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+@media print {
+  /* Keep a section label with the panels it introduces rather than stranded at
+     the foot of a sheet. */
+  .section-head { break-after: avoid; page-break-after: avoid; }
+}
+
+/* ── Clinical response to an escalation (DecisionPanel, §103) ────────────────
+   Visually SUBORDINATE to the band chip and the athlete's name: the escalation
+   is the finding, the response is what was done about it. Giving the response
+   its own colour would put it in competition with the band, and a reader
+   scanning for red must not have to filter past four more hues to find it. */
+.decision-response {
+  margin: var(--sp-xs) 0 0;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+.decision-response strong { color: var(--text); font-weight: 600; }
+
+.decision-respond {
+  margin-top: var(--sp-sm);
+  padding: var(--sp-md);
+  border: 1px solid var(--border);
+  /* Marked on the leading edge like every other panel that is about to WRITE
+     something (see .role-note). */
+  border-left: 3px solid var(--brand-navy);
+  border-radius: var(--r-sm);
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-sm);
+}
+.decision-respond-lead { margin: 0; font-size: var(--fs-sm); color: var(--text-muted); }
+/* One per line, never a row of chips. These are four similar sentences and a
+   horizontal layout makes them scan as a severity scale, which they are not. */
+.decision-respond-options { display: flex; flex-direction: column; gap: var(--sp-xs); }
+.decision-respond-option {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-sm);
+  font-size: var(--fs-md);
+  cursor: pointer;
+}
+.decision-respond-note { display: flex; flex-direction: column; gap: 4px; font-size: var(--fs-sm); }

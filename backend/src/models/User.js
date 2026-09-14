@@ -1,6 +1,7 @@
 const { DataTypes } = require('sequelize');
 const bcrypt = require('bcryptjs');
 const { sequelize } = require('../config/db');
+const { validateEmail, normalizeEmail } = require('../utils/emailAddress');
 
 const User = sequelize.define('User', {
   id: {
@@ -16,8 +17,24 @@ const User = sequelize.define('User', {
     type: DataTypes.STRING(160),
     allowNull: false,
     unique: true,
+    // ONE definition of the stored form, shared with every route that writes an
+    // address — it used to be spelled out here and inline at three call sites.
     set(value) {
-      this.setDataValue('email', String(value).trim().toLowerCase());
+      this.setDataValue('email', normalizeEmail(value));
+    },
+    validate: {
+      // THE BACKSTOP, not the primary check — the routes validate first so the
+      // administrator gets a sentence rather than a Sequelize string. It lives
+      // here because the routes are not the only writers: athletes.js reassigns
+      // `existing.email` on a re-invite, the seeder creates ten accounts, and
+      // the next writer has not been written yet.
+      //
+      // Custom rather than Sequelize's `isEmail`, which is validator.js's and
+      // accepts `a@b` — no dot, no TLD. See utils/emailAddress.js.
+      shape(value) {
+        const problem = validateEmail(value);
+        if (problem) throw new Error(problem);
+      },
     },
   },
   password: {

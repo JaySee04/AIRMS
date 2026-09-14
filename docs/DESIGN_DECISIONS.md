@@ -2336,6 +2336,13 @@ Coach Demo 01 (coach)         0 changes    2 downloads
 Datuk Executive (executive)   0 changes    2 downloads
 ```
 
+> The executive fixture was renamed to **Executive Demo 01** on 2026-09-14
+> (§102). This block is left exactly as it printed, because it is a record of
+> what the rollup showed on the day — and editing a recorded output to match a
+> later rename is the same mistake as rewriting an audit row, which §20 exists
+> to refuse. The audit rows from that session still carry the old name for the
+> identical reason.
+
 The two read-only roles appear with downloads and no changes, which is the whole
 argument for counting reads separately: for an account that cannot write, reading
 is the only auditable act it has.
@@ -8411,3 +8418,951 @@ backend 53 suites / 761 tests (7 new provenance cases) · frontend 21 / 346
 e2e 110/110 · verify:schema 0 findings · typecheck + lint clean · map current
 caveat verified in real Chrome: shown at month and quarter, silent at year
 ```
+
+---
+
+## 97. Nine security questions, answered by probing rather than by reading (2026-09-13)
+
+JC handed a checklist: rate limiting, API keys server-side, row-level security,
+environment variables in GitHub, input validation, tables defaulting to public,
+authenticated routes, stack traces in error messages, audit logs.
+
+The full measured answer is **[`docs/SECURITY.md`](SECURITY.md)**, which is the
+artefact — this section records only the two things that turned out to be
+*wrong*, and the one that turned out to be the wrong question.
+
+Seven of the nine already passed, and passed for reasons already written down
+(§20 audit logs, §43 scoped refusals, §48 query shapes and error messages, §51
+logged reads, §84b the anonymous probe, §91.1 the last-resort handler, §92 the
+CSP). That is worth stating: the checklist mostly confirmed existing decisions
+rather than finding new work, and a pass that was already argued out is a
+stronger answer in a viva than one discovered on the day.
+
+### 97.1 The email address was never validated — and two earlier fixes had already worked around it
+
+`users.email` was `VARCHAR(160) NOT NULL UNIQUE` and nothing else. Measured
+against the live model by building a `User` and calling `validate()`:
+
+```
+"not-an-email"     ACCEPTED
+"jc@@isn"          ACCEPTED
+"a b@c.d"          ACCEPTED
+"<script>@x.com"   ACCEPTED
+```
+
+**What makes this more than a tidiness fix is where the field is used.** §85
+shortened the invitation TTL from 7 days to 24 hours, and the argument it turned
+on was precisely this: AIRMS's address is *"typed by an administrator and
+validated by nothing — so a typo puts a credential-establishing code in a
+stranger's inbox for exactly as long as the TTL says"*. §88 then added a confirm
+step to the athlete invite for the same stated reason.
+
+So two separate decisions had already identified the unvalidated address as the
+hazard, and **both had mitigated around it rather than fixed it** — one by
+shortening the exposure window, one by asking a human to re-read the value.
+Neither checked the value. That is its own small lesson: a mitigation that names
+the root cause in its own rationale is a signpost to unfinished work.
+
+`utils/emailAddress.js` holds ONE definition, wired in two places for two
+different reasons:
+
+- **the model, as a backstop** — because the routes are not the only writers.
+  `routes/athletes.js` reassigns `existing.email` on a re-invite, the seeder
+  creates ten accounts, and the next writer has not been written yet. A rule
+  that lives only in a handler is a rule the next handler will not have.
+- **both invite routes, for the message** — so an administrator gets "check for
+  a typo" rather than a Sequelize validation string.
+
+**Sequelize's built-in `isEmail` was deliberately not used.** It is
+validator.js's, which accepts `a@b` — no dot, no TLD. Deliverable in theory, a
+typo in every case that matters here.
+
+**RFC 5322 is deliberately not implemented.** The grammar admits quoted local
+parts, comments and address literals; the canonical regex is ~6,000 characters
+and every practical implementation either rejects real addresses or accepts
+nonsense anyway. This is a **typo catcher, not an authenticity check** — only a
+round trip proves an address, and AIRMS's round trip *is* the activation code.
+
+The `+` tag is explicitly preserved and explicitly tested. Stripping it is a
+common "normalisation" and it would have merged
+`poseidonapollo11+coach@gmail.com` and `poseidonapollo11+exec@gmail.com` into
+the personal account — silently breaking the one-email-per-sport demo those two
+inboxes exist to show. It is registered as a mutation for that reason.
+
+### 97.2 The one endpoint that spends money had no cap
+
+`express-rate-limit` was mounted on `/api/auth` and nowhere else. For 63 of the
+67 endpoints that remains right and §48's reasoning stands — they touch this
+institution's own database, they are all behind `auth`, and rating them would
+ration a clinician's ordinary navigation.
+
+`POST /upload/screening/pdf/preview` is not like the other 63. It ships up to
+six rendered pages to a **third-party vision model that bills per call**
+(~11,400 tokens per report). It is the only endpoint where a request costs real
+money, and it had no cap of any kind.
+
+**It is not a brute-force hole and the fix is not pretending to be one.** The
+route sits behind `auth` + `rbac('medical','admin')` + `requirePermission`. The
+realistic failures are duller and likelier: a stuck retry in the batch uploader,
+a backlog-import script run twice, one careless account emptying the quota and
+taking the feature down for everybody until the billing period rolls. All three
+are indistinguishable from legitimate use at request level, which is exactly why
+a cap is the only thing that bounds them — its job is to make the bill finite,
+not to decide who was right.
+
+**60 / hour, keyed per USER.** Per-user rather than per-IP is the §48 NAT lesson
+applied on purpose: ISN's clinicians share one outbound address, so an IP key
+would hand the whole institution one budget and refuse the second person to
+import that afternoon. The endpoint is authenticated, so `req.user.id` exists by
+the time the limiter runs and is the honest unit of accounting — and the limit
+then follows the person rather than the desk.
+
+The number is deliberately loose. A realistic batch is 15 PDFs; 60 allows four
+of them in an hour. **A cap that fires during honest work is removed within a
+week and then protects nothing**, so "generous" is the design rather than an
+oversight, and a test asserts the headroom rather than the constant.
+
+**Loopback is NOT exempt, unlike the auth throttle.** That exemption exists
+because `audit:access` and `e2e` generate deliberate streams of failed logins
+from this machine. Neither generates a stream here — and more to the point, a
+development machine with `VISION_API_KEY` set spends the *same money* as the
+deployed one. Exempting localhost would exempt the only place a runaway loop is
+actually written.
+
+**Mounted after the permission gate and before multer**, both asserted. After,
+so an unauthorised caller is refused on permission rather than having the
+refusal charged to a quota they were never entitled to spend. Before, so an
+over-quota caller is answered without this process first buffering 20 MB into
+memory to reach the same answer.
+
+The wiring is tested by reading `routes/upload.js` as TEXT, because a rate
+limiter has the `winAnsiSafe` shape exactly: `visionThrottle` is a valid
+middleware in isolation no matter which routes reference it, so every unit test
+passes while the guard does nothing. Un-wiring it is a registered mutation.
+
+### 97.3 "Row-level security" is the wrong question for MySQL, and saying so is the answer
+
+RLS is a PostgreSQL feature — and, through it, what Supabase exposes. **MySQL
+8.4 has no equivalent.** There is nothing to switch on and no policy to write,
+so claiming AIRMS "has RLS" would be false, and quietly re-interpreting the
+question as "do you have access control" would be worse: it would answer a
+different question in the same words.
+
+The honest framing is that **the trust boundary is the API process, not the
+database** — which is a genuinely weaker guarantee than RLS, because a
+SQL-injection hole or a direct database connection bypasses it entirely. That is
+volunteered in SECURITY.md §3 rather than hidden, alongside the three things
+that actually carry the weight: Sequelize parameterises (11 raw-query sites, none
+interpolating a user value), the scoping is proven by *calling* every endpoint as
+every role, and a refusal is itself scoped (§43).
+
+### 97.4 What was found and deliberately NOT changed
+
+**The application connects to MySQL as `root`.** Least privilege says it should
+hold `SELECT/INSERT/UPDATE/DELETE` on `airms.*` and nothing else — no `DROP`, no
+`GRANT`, no reach into other schemas. Not changed unilaterally: it alters JC's
+local setup, and the seeder legitimately issues DDL (`npm run seed` drops and
+recreates; `sequelize.sync()` under `SQL_SYNC=1`). The exact `CREATE USER` /
+`GRANT` is written out in SECURITY.md §6.2 so it is a decision waiting to be
+taken rather than a finding waiting to be re-discovered.
+
+It is a **known deviation with a written remedy**, and the right move in a viva
+is to say so plainly rather than hope it is not asked.
+
+---
+
+## 98. A visual pass that stayed inside the design system (2026-09-13)
+
+JC asked for the site to be beautified and made to look professional. The
+constraint that shaped the work: the Figma-derived UI is **locked**
+(`MASTER_CLARIFICATIONS` §12), Module 1's components are audit-fixed, and §29
+established a type/spacing/radius scale specifically to stop new literals being
+invented. So this is a **refinement layer, not a redesign** — every change is in
+`globals.css`, no component was touched, and no new font-size literal was added.
+
+**Nothing here is a new idea; each item is a default that had never been
+chosen.** That framing matters, because "make it prettier" is the kind of
+instruction that produces a rewrite nobody asked for.
+
+- **Elevation became layered.** A single `0 1px 3px` gives an element one hard
+  grey edge and nothing else, which is what made every surface read as a
+  rectangle drawn on paper rather than a panel above it. Two shadows per step —
+  a tight contact shadow plus a wider ambient one — is how a real light source
+  behaves. Alphas stay at or below .10: this is a clinical tool read for hours.
+  Dark mode gets its own ramp, because a shadow on near-black is invisible and
+  the separation has to come from the surface being lighter than its ground.
+- **Nested radii.** `.card` moved from `--r-md` (8px) to `--r-lg` (12px) — at
+  8px a 1400px panel is a square with the corners filed off. `.medical-rail`
+  and `.screening-alert` followed because they sit *beside* cards at the same
+  level; everything inside a card deliberately did **not**, because an inner
+  corner must be tighter than the one containing it or the two curves fight.
+- **`transition: opacity` was animating the one property no button changes.**
+  Every `.btn` variant swaps `background` on hover, so the eased transition was
+  decorative and the actual change snapped. A small bug, and the kind that only
+  shows up when somebody looks.
+- **Tabular figures on every table.** This is the one typographic change that
+  alters what a reader can *do* rather than how it looks: nearly every table in
+  AIRMS is a column of scores read downward, and in a proportional face `1` is
+  narrower than `8`, so 74.9 and 16.4 do not align on the decimal.
+- **A measure for the content column** (`max-width: 1680px`). Several cards are
+  prose — the worklist reasons, every caveat, §96's provenance note — and on a
+  2560px display those become single lines the eye cannot track back from.
+  Deliberately generous: at the 1440px demo resolution the column is 1184px, so
+  it changes **nothing** about how the system is presented.
+- **Browser chrome**: scrollbars, `::selection`, `::placeholder`, `accent-color`.
+  Left at their defaults these are Chrome's house style, not a decision — and
+  the scrollbar is where a dark theme usually gives itself away, since Windows
+  draws a 17px light-grey gutter through a dark card.
+- **A print stylesheet.** AIRMS generates its own PDFs and they are the
+  supported export, but a clinician *will* press Ctrl+P, and the default result
+  burns a navy sidebar across page one. It hides the shell, flattens elevation
+  and keeps a card whole across the fold — and deliberately does **not** try to
+  reproduce the report layout, because a print stylesheet pretending to be a
+  second report generator is the two-definitions problem this codebase keeps
+  writing rules against.
+
+**What was NOT done, on purpose.** The login card, the sidebar branding and the
+topbar dropdown are locked and were not touched. No section headings were added
+to the admin dashboard's twelve-card stack — that is a real hierarchy problem,
+but fixing it means editing every page, and an aesthetic instruction is not
+authority to restructure a graded artifact. Flagged for JC rather than taken.
+
+**Verified**: frontend 21 suites / 346 tests, `npm run e2e` 110/110,
+`npm run verify:csp` 20/20 in real Chrome against a production build, typecheck
+and lint clean. `cssTokens.test.ts` pins every `var(--token)` to a definition,
+so the six new tokens are declared in both themes or the suite fails.
+
+### 98.2 Section headings — the thing §98 declined, then authorised (2026-09-13)
+
+§98 above closed by saying the twelve-card stack was a real hierarchy problem
+left untaken, because "an aesthetic instruction is not authority to restructure
+a graded artifact". JC gave that authority. This is what was done with it.
+
+**The problem, stated precisely.** `/admin/dashboard` renders **twelve
+full-width cards in one column — 5,570px of page** — and every `.card-title` is
+set at the same size and weight as the last. Nothing on the screen said that
+*Left–Right Asymmetry* and *Squad Body Map* are two views of one question while
+*Indicator Distribution* answers a different one. The grouping existed in the
+author's head and in the source comments, and nowhere the reader could see it.
+
+**The heading is an EYEBROW, and the rule does the work.** The instinct is to
+set a section heading larger than the card titles under it. That works, and it
+also means adding an eighth step to a type scale §29 deliberately cut to seven,
+*and* re-weighting every card title against it. A short label sitting on a
+horizontal rule is a section break in every reference book ever set and costs no
+new step. The grouping is carried by **spacing asymmetry**: `--sp-xl` above a
+section against the 20px between cards, so cards inside a group sit closer to
+each other than any of them sits to the next group. A section break with the
+same spacing as a card break separates nothing.
+
+**Each heading carries a `note` saying why those panels are together.** A
+grouping is an editorial claim, and a heading that only names a category
+("Charts") makes the reader do the work the heading exists to do. The admin
+page's fourth group is the clearest case — *"What an average hides · every panel
+above is an average, these two show the spread underneath it"* is §25's own
+argument for why the scatter and the histogram exist at all, so the heading
+states the premise rather than labelling the shape.
+
+**One heading is REQUIRED rather than decorative, and it is worth recording
+why.** On `/athlete/dashboard` the body map draws the LATEST screening but sits
+*after* the history panel. Adding "How you have changed" above the history
+therefore put the body map under a heading that misdescribes it — a reader would
+take the figure for a change view. Reordering was not on the table (Module 1 is
+audit-fixed), so a third heading closes the group. **A grouping label is a claim
+about what is beneath it, and an unclosed group is a false one** — which makes
+this the same defect class as everything else in `SILENT_FAILURES`: a wrong
+answer that looks like a right one, introduced by a change meant to help.
+
+**Where it was NOT applied, and why that is not an inconsistency.**
+`/medical/dashboard` already solves this its own way — its landing pane uses
+`h3.quick-heading` groups ("Jump to a squad", "Who the cohort verdict flags",
+"Highest exercise risk"). Adding a second grouping idiom over the top would give
+one page two vocabularies for one concept, which is the §53/§56 defect written
+in CSS. It was checked and deliberately left.
+
+**Accessibility, stated as a limitation rather than claimed.** `SectionHeading`
+renders an `<h2>`, and so do the card titles it groups — so the outline gains a
+heading in the right place but not a true nesting level. The correct markup is
+`<section aria-labelledby>`, which means wrapping every group's cards in a new
+element: a structural edit across four pages to fix an outline nobody has
+reported, and beyond what was asked. A screen-reader user still gets a heading
+announcing each group, which is strictly better than twelve flat siblings. It is
+written into the component's own comment so the next person finds it there
+rather than assuming it was handled.
+
+Applied to `/admin/dashboard` (4), `/athlete/dashboard` (3) and
+`/coach/dashboard` (2). **Verified**: frontend 21 suites / 346 tests, e2e
+110/110, `verify:csp` 20/20 against a production build, typecheck and lint
+clean. The e2e content-length check is a floor (`> 400` chars), so added text
+cannot make it pass for the wrong reason.
+
+---
+
+## 99. An optimisation pass that found nothing to optimise, and a comment cull that had to define "unnecessary" first (2026-09-13)
+
+JC asked to optimise the code, document everything, and remove unnecessary
+comments. Two of those three went differently than the instruction implies, and
+the reason is worth recording because the same instruction will come again.
+
+### 99.1 There was nothing to optimise, and that is the finding
+
+Measured against the running instance rather than guessed at — median of five
+calls each, local, 62 athletes and 75 screenings:
+
+```
+GET /athletes                                9 ms   45,261 bytes
+GET /athletes/analytics/cohort               2 ms      168 bytes
+GET /athletes/analytics/periods?grain=…     36 ms   16,805 bytes
+GET /cohorts                                 9 ms   81,110 bytes
+GET /audit?limit=50                          5 ms   17,191 bytes
+GET /decisions/worklist                      1 ms      161 bytes
+GET /screenings/reliability                  4 ms      981 bytes
+```
+
+Nothing here is slow, and nothing here will be slow at ISN's scale. **§93
+already records what happens when this project optimises anyway** — an
+optimisation that was measured and then thrown away because the measurement did
+not support it. Writing a cache, a memo or an index against a 36 ms endpoint
+would add a thing that can be wrong to a thing that is not.
+
+**The one place a real hazard was suspected, it was timed rather than
+reasoned about.** `emailAddress.js`'s `SHAPE` regex contains
+`[X]+(?:\.[X]+)*` — the classic catastrophic-backtracking shape. Against
+deliberate backtracking bait at the length cap it runs at **0.0003 ms/call**,
+and the `MAX_LENGTH` check that precedes it is what bounds the input. That
+ordering is now noted in the file as load-bearing rather than incidental.
+
+**Dead CSS: none.** A scan of all 551 class selectors in `globals.css` against
+every non-test source file reported 51 unused. All 51 are `--suffix` modifiers
+composed at runtime (`` `${base}--${state}` ``), so the scan's literal-string
+search could never see them; each of the 15 prefixes was then traced to the
+component that builds it. `bodymap-region-group--` survived the first trace,
+appearing only in the stylesheet — and turned out to be built from a *variable*
+base in `BodyMap.groupClassForState`. **Nothing was deleted.** The scan is kept
+in the scratchpad, not the repo: a dead-code detector with a known blind spot
+this large is a liability as a committed guard, because the next person will
+trust its output.
+
+### 99.2 "Unnecessary comment" needed a definition before anything was deleted
+
+This is the risk in the instruction. **This codebase's comments ARE the
+artifact** — CLAUDE.md is built on them, `docs/SILENT_FAILURES.md` cross-
+references them, and a large share of them exist because somebody measured a
+defect and wrote down what they measured. Stripping those to hit a density
+target would delete the viva defence to make the diff look tidy.
+
+So the cut was made on one test: **does this comment restate the code, or does
+it record something the code cannot say?**
+
+**Removed** — ten JSX label comments whose entire content was repeated by the
+`card-title` two lines below (`{/* Coaches */}` above a card headed "Coaches",
+`{/* Body map */}` above `<BodyMap>`, and eight more).
+
+**Compressed, not removed** — the prose I had written earlier the same day.
+`emailAddress.js` and `visionThrottle.js` opened at 80% and 75% comment, and
+much of that was the same rationale stated in the file, at the call site, *and*
+in §97. The rationale now lives once, in the util, and the call sites point at
+it. Roughly 60 lines of restatement went; every measured fact stayed.
+
+**Deliberately kept** — anything of these four kinds:
+
+- a **measured** defect and its numbers (the four addresses the model accepted;
+  `remaining` 29→28→27→26; 18 rows scored 2026-08-23 beside 21 scored
+  2026-09-10);
+- a **"do not simplify this"** warning, because each marks a change somebody
+  already tried (the lock's `where: { value: token }`, the shared-facts
+  generator, the §70.4 field resolution);
+- a **limitation stated honestly** (SectionHeading's heading-level note, the
+  audit log's fire-and-forget trade);
+- the `bodymap-data/*.ts` part labels — `// Neck`, `// Trapezius` — which look
+  exactly like the restating comments that were removed and are the opposite:
+  they name which anonymous SVG path blob is which body part, and nothing else
+  in those files does.
+
+**The rule, for the next pass:** a comment that would still be true if the code
+beneath it were deleted is describing the code. A comment carrying a number, a
+date, a refused alternative or a measurement is carrying evidence. Cut the
+first; the second is why this project can answer questions about itself.
+
+### 99.3 Documentation
+
+`docs/SECURITY.md` (§97) is the one new document and is the answer to the
+nine-point checklist. Everything else was updated in place: CLAUDE.md's suite
+counts (backend 55/809, frontend 22/357, 52 mutations), its rate-limiting note —
+which had said "do not add a second one" and now distinguishes the auth throttle
+from the budget cap — and the new required-reading entry for SECURITY.md.
+
+**Verified after the cull**: backend 55 suites / 809 tests, frontend 22 / 357,
+e2e 110/110, **52/52 mutations caught**, typecheck and lint clean, map current.
+The mutation run is the load-bearing check here: it proves the comment edits did
+not disturb any line a guard's `find` string depends on.
+
+---
+
+## 100. Two dev instances, and the orphan that came back from the dead (2026-09-14)
+
+JC asked for a second pair of ports so he could inspect the app while an agent
+was using the default pair. The ports were the easy half; what the work exposed
+was more useful.
+
+### 100.1 A second instance needs THREE values to move, not one
+
+`npm run dev:alt` runs the frontend on **:3100** and the backend on **:5100**.
+The ports themselves are trivial. What makes a second instance *correct* rather
+than merely *running* is that three values move together, and each has a
+distinct silent-failure mode if it does not:
+
+| | if it does not move |
+|---|---|
+| `PORT` | the backend exits — loud, and therefore harmless |
+| `FRONTEND_URL` | CORS refuses the new origin: every page renders its shell with **empty panels**, which looks exactly like the CSP failure CLAUDE.md warns about and is not it |
+| `NEXT_PUBLIC_API_URL` | the alternate frontend quietly drives the **PRIMARY** backend — two instances on one session, and nothing on screen says so |
+
+Only the first fails loudly. The other two are this project's defect class, so
+both precedence assumptions were **verified rather than trusted**: `dotenv` does
+not override an already-set variable, and Next's `loadEnvConfig` likewise lets a
+real environment variable beat `.env.local`. Then the whole thing was checked in
+a real browser — :3100 called **:5100 and nothing else**, no CORS failure, cohort
+data rendered.
+
+**This is not the CORS workaround gotcha 1 forbids.** That rule is about widening
+CORS to paper over a *stale* server still holding :3000. Here the second origin
+is real, deliberate and running.
+
+**3100/5100 rather than 3001/5001** because `next dev` bumps to :3001 by itself
+when :3000 is taken — the exact confusion gotcha 1 exists to stop. A pair nothing
+auto-selects cannot be mistaken for that bump. 3210 is taken by `verify:csp`.
+
+**`--` does not survive two npm layers.** The first wiring passed the port as
+`npm run dev:frontend -- --port 3100`, and since `dev:frontend` is itself
+`npm --prefix frontend run dev`, npm ate `--port` as its own config and handed
+`next` a bare `3100`, which `next dev` read as a **directory**. The frontend
+started, logged no error, and listened on **:3000** — the port the command exists
+to avoid. Fixed by calling the frontend package directly. Same family as
+CLAUDE.md's existing note that `npm exec --prefix` does not change the working
+directory.
+
+### 100.2 The preflight described the wrong failure
+
+Found in real use, not by testing. With only **:5000** held, the refusal said:
+
+```
+Starting anyway would leave the OLD server on :3000 while `next dev`
+moved to the next free port
+```
+
+— describing a frontend that was not running and a port that was free. The two
+failures are genuinely different and the message now picks:
+
+- **web port held** — `next dev` BUMPS, so a stale frontend keeps answering :3000;
+- **api port held** — the backend does NOT bump, it *exits* on `EADDRINUSE`, so
+  the OLD backend keeps answering and anything new reads through it.
+
+`tests/preflightPorts.test.js` had a hole exactly the shape of this bug: the
+backend case asserted only that "5000" appeared. It now asserts each message
+excludes the other's wording, and the mutation registry carries it.
+
+A second, smaller lesson: the phrase "previous build" must not be wrapped across
+a line, because the test matches it. Hand-wrapped console output is a place where
+a cosmetic edit silently breaks an assertion.
+
+### 100.3 The orphan that came back — and it was `npm run mutate` that raised it
+
+The real find. Ports were verified free; minutes later, with nobody having
+started anything, :5000 was held again — by a process whose creation timestamp
+was **identical** to a second orphan on :5100.
+
+The first explanation written down was "nodemon immediately respawns it". That
+was **wrong, and reproducing it disproved it**: killing the listener leaves the
+port free and nodemon idle, printing
+
+```
+[nodemon] app crashed - waiting for file changes before starting...
+```
+
+Nodemon restarts the server on the next change to a **watched file**, and it
+watches `backend/src/**`. **`npm run mutate` is precisely that** — it breaks a
+guard file, runs jest, restores it, 53 times over. So running the mutation suite
+resurrects *every* orphaned dev server on the machine simultaneously, which is
+exactly why two orphans shared a creation timestamp.
+
+Measured to confirm: kill the listener → :5000 free, nodemon idle; rewrite
+`backend/src/utils/num.js` **byte-identically** → :5000 back within seconds.
+
+`npm run dev:stop` is the fix: it kills tree **roots**, so nothing survives to
+restart anything. `taskkill /T` cannot do this — `/T` kills a process's
+*children*, and nodemon is the *parent*.
+
+**It excludes shells, and that exclusion is not theoretical.** While testing it,
+`Get-CimInstance ... -match 'nodemon src/server'` matched the very PowerShell
+process running the query, because the pattern appeared in its own command line.
+Searching command lines for a string finds every process that merely *mentions*
+it — including the terminal somebody is typing in. Verified with a deliberate
+decoy shell: the dev trees died, the decoy survived. A stop command that kills a
+developer's terminal would be removed within a day, and then nothing would stop
+dev servers at all.
+
+It also **re-checks the ports afterwards** and reports anything it cannot
+explain, rather than printing success and leaving a busy port behind.
+
+---
+
+## 101. Cards that read as panels, not as scoring on a sheet of paper (2026-09-14)
+
+JC: *"Make the dashboards look more solid and easy to spot, like having darker
+outlines and stuff."*
+
+Diagnosed as contrast rather than taste, because "solid" has a measurable
+definition here: a panel reads as solid when its **edge is visible** and it sits
+on a **ground darker than itself**. Measured before touching anything:
+
+```
+                        was        now
+  card vs its border   1.30:1  ->  1.92:1
+  page vs card         1.08:1  ->  1.17:1
+  dark card vs border  1.33:1  ->  1.91:1
+```
+
+At 1.30:1 a card edge is a suggestion. At 1.08:1 the page behind it is
+effectively the same white — so twelve stacked cards read as one sheet of paper
+with faint scoring on it, which is exactly the complaint.
+
+**Four tokens moved, and nothing else.** `--bg` `#f4f6fa` → `#e9edf4`,
+`--border` `#dde2ea` → `#b0bccf`, `--border-subtle` `#edf0f5` → `#e0e5ee`, and
+dark-mode `--border` `#2a3a4a` → `#3d5265`. `--border` alone is used in 87
+places, so this reaches every card, tile, input, select and table header without
+a single rule being rewritten — which is the argument for having had the tokens
+in the first place (§29).
+
+### 101.1 Why 1.92:1 and not 3:1
+
+WCAG 1.4.11 asks **3:1** for the boundary of a UI component, and it would have
+been easy to quote that as the target. It does not apply here: 1.4.11 governs
+**controls** — the things you click and type into — not the decorative panel
+they sit inside. Taking a card outline to full control contrast makes it compete
+with the buttons and inputs within it, and the reader loses the hierarchy the
+outline was added to create.
+
+So the edge is deliberately short of the control threshold: **findable, not
+loud**. The controls inside a card still out-rank their container, which is the
+correct order.
+
+### 101.2 The hierarchy that had to keep descending
+
+Three edge weights exist and they mean different things, so the change had to
+preserve their ORDER rather than just darken everything:
+
+```
+  card border    1.92:1   separates one surface from another
+  border-subtle  1.26:1   rules between rows INSIDE one card
+  chart-grid     1.21:1   gridlines behind data
+```
+
+`--border-subtle` was stepped up with `--border` precisely so it stayed clearly
+*behind* it — the point of a darker outline is that a card edge now outranks the
+rules inside it, and matching them would flatten that straight back out.
+Dark-mode `--border-subtle` needed no change: the gap widened on its own when
+`--border` moved. Asserted numerically, in both themes, rather than eyeballed.
+
+### 101.3 The before/after was nearly fabricated
+
+Worth recording as method. The first "before" screenshots were captured, and the
+first "after" set was taken immediately after editing the stylesheet — which
+left the dev server serving stale chunks, so **both** the admin captures were a
+Next.js `ChunkLoadError` overlay rather than the page. Two screenshots that
+showed nothing, one of which was going to be presented as evidence of an
+improvement.
+
+The replacement does not rely on two runs at all: one page load, screenshot the
+current tokens, push the OLD values back onto `:root` at runtime, screenshot
+again. And it **verifies the override took** by reading the computed border
+colour of a real `.card` each time — `rgb(176,188,207)` against
+`rgb(221,226,234)` — failing loudly if the two readings match, because two
+identical screenshots presented as a comparison is worse than no comparison.
+
+**Verified**: frontend 22 suites / 357 tests, `npm run e2e` 110/110 against the
+alternate instance, `verify:csp` 20/20 against a production build, typecheck and
+lint clean, and the token contract test (`cssTokens.test.ts`) passes — every
+`var(--…)` still resolves.
+
+---
+
+## 102. Renaming a demo fixture, and a principle applied one step too far (2026-09-14)
+
+JC asked for the seeded executive account to be called anything other than
+"Datuk Executive". Renamed to **Executive Demo 01**, which matches
+`Coach Demo 01` / `Medical Demo 01` and closes a numbering gap — `Executive
+Demo 02` already existed with no 01.
+
+Changed in `seeder.js`, `CLAUDE.md`, `USER_MANUAL.md`, a `pdfDraw.test.js`
+fixture, and the live `users` row so it takes effect without a reseed.
+
+### 102.1 The audit rows: right principle, wrong subject
+
+The first answer was that the 420 audit rows carrying the old name should stay,
+because `utils/audit.js` copies the actor's name onto the row rather than
+joining `users` — *"a trail that changes when someone is renamed or deleted is
+not a trail"* (§20). That is correct, and it was the wrong call here.
+
+**What the property protects is accountability for a REAL person's REAL
+actions.** These rows record probe and demo traffic performed by fabricated
+fixtures against fabricated athletes. "Datuk Executive" never existed, so
+nothing about anyone's conduct was being preserved — while the name JC had just
+asked to remove sat on 420 rows of the Activity Log, a screen shown to the
+stakeholder. Holding the line there defended a principle at the cost of the
+thing the principle exists to serve.
+
+The distinction worth keeping is **subject, not mechanism**: rewrite a fixture's
+copied name, never a real actor's. `scripts/rename-demo-actor.js` enforces
+exactly that, and **adds no update path to the application** — `audit.js` still
+only writes and reads, so the deployed system's append-only property is
+untouched. 420 actor rows + 2 summary rows renamed; **row count unchanged at
+1,119**, asserted, because a rename that adds or drops a row is not a rename.
+
+`DESIGN_DECISIONS.md` §20a's recorded rollup output is still left verbatim with
+a note. That one *is* a record of what a screen printed on a given day, which is
+a different kind of artefact from a database fixture.
+
+### 102.2 The guard failed OPEN, and an athlete found it
+
+The first version of the script refused a name belonging to a non-demo user, and
+otherwise proceeded — so a name resolving to **no** user account fell straight
+through. Exercised with `--from "Adam Karim"`, who is an **athlete** rather than
+a login: no User row, no refusal, and it reported **255 summary rows** it was
+ready to rewrite — every *"Opened Adam Karim's screening record"* in the
+clinical trail.
+
+That is the corruption the script's own preamble calls unacceptable, reachable
+by one argument, and it existed because the guard was written as *"refuse if I
+can prove this is wrong"* instead of *"proceed only if I can prove this is
+right"*.
+
+Inverted to fail closed, with a second check the first design had no reason to
+need:
+
+- the name must **positively resolve** to a user account, or it is refused;
+- that account's address must be a **seeded demo domain**;
+- and the name must **not also belong to an athlete** on the roster —
+  `isnDirectory.test.js` exists because ISN names genuinely collide, so a
+  fixture sharing a real athlete's name is a live possibility rather than a
+  hypothetical.
+
+All three refusal paths were exercised, not reasoned about: an athlete name, a
+name matching nothing, and the legitimate case (now a clean no-op, so the script
+is idempotent).
+
+**Verified**: backend 55 suites / 810 tests, map current, and the live Activity
+Log API re-read afterwards — five distinct actors, none of them the old name.
+
+---
+
+## 103. The escalation nobody had to answer (2026-09-14)
+
+JC: make the most of the HoloMotion data on the medical and admin dashboards,
+and *"when escalations happen, they should be reacted by medical staff and those
+can be audited, so that should be reflected in the right places such as the
+programme activity page."*
+
+### 103.1 The gap, stated precisely
+
+The only audited clinical act on a screening was the **override** — which says
+*the band is wrong*. A clinician who agreed with a red band and acted on it left
+**no institutional record at all**. Only disagreeing was recorded.
+
+"Mark reviewed" looks like the missing piece and is not. `utils/reviewed.js` is
+explicit: a private bookmark, keyed `reviewed:<userId>` in `settings`,
+deliberately unaudited because *"marking an athlete reviewed is a working note
+about the reader, not an act on the institution's data"*. That reasoning is
+right and was kept — the fix is a **new** act beside it, not a change of meaning
+to the old one.
+
+And `programmeActivity.js` never touched `AuditLog`, so responsiveness had
+nowhere to appear. Measured consequence: the page could show that 18 athletes
+were flagged and could not show that **nobody had done anything about them**.
+
+That is this project's defect class at the scale of the whole system — a screen
+that is confidently green about a question it is not asking. A programme that
+flags nine athletes for immediate assessment and assesses none of them produced,
+on every panel that existed, exactly the numbers of one that assessed all nine.
+
+### 103.2 The response model
+
+JC chose a **structured outcome plus an optional note** over a bare
+acknowledgement. The vocabulary lives in `shared/facts.js` as
+`RESPONSE_OUTCOMES`, because the route validates against it and the picker
+renders from it — a value offered on screen that the route rejects is §42 (an
+endpoint accepting four roles while the form offered two) in a clinical setting.
+
+```
+assessed-none   Assessed — no action needed
+monitoring      Monitoring — re-check next screening
+treating        Assessed — now treating
+referred        Referred on
+```
+
+Ordered **least to most intervention**, and that order is used everywhere the
+outcomes are drawn. It is **not a severity scale** and the copy says so:
+"monitoring" is a different decision from "no action", not a worse one.
+
+`assessed-none` is load-bearing. Without it the only way to close an escalation
+is to claim treatment, so a clinician who looks properly and finds nothing has
+no honest option — and the screen would push them toward over-recording
+intervention. A screening flags RISK, not injury (§33); "I checked and there is
+nothing to do" is a real clinical outcome.
+
+The note is **optional here and required on the override**, deliberately.
+Overriding contradicts the system and has to be justified; responding agrees
+with it, and forcing prose onto "assessed, nothing to do" buys invented text
+rather than information.
+
+### 103.3 Where it is stored, and what is NOT stored
+
+Four columns on `screenings`, shaped exactly like the override block above them:
+`response_outcome` (ENUM, generated from the shared list), `response_note`,
+`response_by`, `response_at`. The row holds the **latest** response; the audit
+log holds the **history** — the same division the override uses, which is why a
+second response overwriting the first loses nothing.
+
+**The note is deliberately not copied into the audit `meta`.** It is clinical
+free text about a named athlete and the Activity Log is a page two roles can
+open; the row carries `hasNote` instead. The worklist payload omits it too — a
+roster-scale list view is not where clinical prose belongs.
+
+`npm run migrate:escalation-response` adds the columns. All four are nullable,
+so a migrated database serves the old code unchanged: **expand, then deploy**.
+The reverse is unsafe — the model now SELECTs them, so an unmigrated database
+answers "Unknown column 'response_outcome'" on every screening query.
+
+### 103.4 What Programme Activity now measures
+
+`utils/escalationResponse.js`, drawn above throughput because everything below
+it measures whether the institution *screened* and this measures whether it
+*responded*.
+
+Two exclusions decide whether the number is honest:
+
+- **Only the latest screening per athlete.** An athlete flagged in May who was
+  re-screened in September is a September question; leaving May in the
+  denominator would make the programme permanently look behind on work that no
+  longer exists.
+- **Only the EFFECTIVE band.** A clinician who overrode red to green has already
+  answered, through a different audited act, and must not also be chased. The
+  reverse matters as much: reading `overallBand` instead would miss every
+  clinician-RAISED flag. Both directions are pinned by mutation.
+
+`rate` is **null, never 0**, when nothing was owed — the §71 rule again, since
+0% reads as total failure where the truthful answer is "nothing to answer".
+`oldestOutstandingDays` is carried because a rate of 80% says nothing about
+whether the missing fifth is a day old or five months old, and that is the
+number a clinical lead acts on. Time-to-respond is measured from `assessedAt`
+rather than from when the band was computed, so a rescore cannot silently
+improve it, and a response recorded *before* its screening is dropped rather
+than clamped to zero — folding a back-dated import to 0 would flatter the median
+with a number describing a data fault.
+
+Measured on the seeded data after one recorded response: 18 owed, 1 answered,
+17 outstanding, oldest waiting 88 days.
+
+### 103.5 Two guards caught this on the way in
+
+**`npm run audit:access` refused to pass** with *"1 endpoint(s) exist but are
+never probed"*. The matrix declines to make a claim about a route it has not
+called, which is precisely the property that makes it worth running. Probed with
+a VALID outcome on purpose, so a refusal is the role being stopped rather than
+the payload being rejected. Result: medical 404 (through the guard, nothing to
+find), coach / executive / athlete **403**.
+
+**`npm run e2e` refused the first copy.** The caveat read "Green is not owed a
+response" — a band named by COLOUR alone, which is SILENT_FAILURES 3i, because a
+colour word carries no clinical meaning and "Green" reads as "you are fine". It
+now renders `BAND_LABEL`, so the sentence cannot drift from the chips it
+describes.
+
+A third guard fired on the docs: the endpoint count moved 67 → 68 and
+`codebaseHygiene` failed both CLAUDE.md and PERMISSIONS.md until they agreed.
+
+**Verified**: backend 56 suites / 829 tests, frontend 22 / 357, e2e 110/110,
+**56/56 mutations**, `audit:access` clean at 68 endpoints, typecheck + lint
+clean, map current — plus the whole loop driven against a live instance: a
+bogus outcome refused 400, a real one recorded, the worklist showing it, and the
+audit row reading *"Clinical response recorded — Medical Demo 01"*.
+
+### 103.6 Still open
+
+**`prescription` is extracted, stored, and never aggregated.** HoloMotion's own
+two-week programme — days, exercises, reps, sets, rest — renders on one
+athlete's card and nowhere else. A squad-level view of what the instrument
+itself is prescribing is the clearest remaining "make the most of the data"
+item, and it is not built. Named here rather than left to be rediscovered.
+
+---
+
+## 104. Comparing squads — and refusing to call it cooperation (2026-09-14)
+
+JC asked for a sport-by-sport comparison on Programme Activity, *"basically to
+compare which sport profession has more cooperative athletes."*
+
+The comparison is genuinely useful and is built. **The framing is not, and the
+panel is named for what it measures instead.**
+
+### 104.1 Why not "cooperative"
+
+A screening happens only when four things line up: ISN schedules the session,
+the coach releases the athlete from training, the athlete attends, and the
+report is imported. **Nothing in this dataset separates them.** A squad that was
+never booked produces exactly the numbers of a squad that did not turn up.
+
+So a table headed *least cooperative squads* would hand a coach a figure that
+looks like an indictment of their athletes and is, at least as often, a record
+of the institution's own scheduling. That is the §33 reassurance failure pointed
+the other way — a confident verdict the data cannot support, aimed at people who
+cannot answer it.
+
+It is called **Screening compliance by squad**, and the caveat travels in the
+PAYLOAD rather than living on the page, so every surface that draws the table —
+screen or PDF — has to render the limit with it. A mutation breaks that sentence
+and the suite fails.
+
+This is not a refusal of the request. The question underneath it — *which squads
+are keeping up, and who needs chasing* — is answered directly, worst-first,
+which is the actionable form of what was asked for.
+
+### 104.2 What it measures
+
+Four figures per squad, all from the SAME recall rows the institution-wide
+numbers use, so a squad's slice can never disagree with the total it sits
+beneath — the one-computation-sliced rule the rescreen reminder is built on.
+
+| | |
+|---|---|
+| **Current** | share whose last screening is inside the recall interval |
+| **Ever screened** | share with any screening — a first assessment is a different gap from a lapsed recall (§ recall) |
+| **Came back** | share of those EVER screened with two or more |
+| **Median age** | days since last screening |
+
+Measured live on the seeded roster: Athletics 83% current / 20% came back
+through to Football and Swimming at 100% / 44% and 43%.
+
+Three decisions carry the panel and each is pinned by mutation:
+
+- **Ranked on SHARE, never headcount.** Badminton has 16 athletes and Swimming
+  7; ranking on the count sorts by squad size and calls it compliance. Same rule
+  as seasonality (§71).
+- **"Came back" divides by those EVER SCREENED.** Dividing by the roster
+  punishes a squad for athletes who have not had a first assessment yet, and
+  asks what share of an unscreened squad returned twice — a question with no
+  meaning.
+- **A squad below 5 is MARKED, not dropped.** A percentage swings ~20 points per
+  athlete down there. A squad omitted from a comparison is a squad nobody asks
+  about.
+
+An athlete with no sport recorded is counted in **no** squad rather than an
+"Unknown" one, which would appear in the ranking beside real squads and be
+compared against them.
+
+### 104.3 A mutation that survived, and why it was the mutation's fault
+
+The first registered mutation for "ranks on share" changed one side of the sort
+comparator (`av`) and left the other. It **survived** — and the test was right.
+
+V8 calls the comparator as `(Hockey, Badminton)` rather than in written order,
+so corrupting one side produced a comparator that is incoherent but happened to
+return the same ordering for this fixture. The mutation was expressing a
+corruption rather than the realistic mistake.
+
+Rewritten to change **both** sides — which is what "rank by headcount" actually
+looks like — it is caught. Worth recording because the instinct on a surviving
+mutation is to strengthen the test, and here the test was already correct: a
+mutation has to express a change somebody would plausibly make, or a survival
+says nothing about the guard.
+
+**Verified**: backend 57 suites / 844 tests, frontend 22 / 357, e2e 110/110,
+**59/59 mutations**, typecheck + lint clean, map current, and the panel read back
+off a live instance.
+
+---
+
+## 105. The document quietly stopped matching the page (2026-09-14)
+
+Two things were outstanding. One turned out not to be worth building; the other
+was a defect introduced two sections earlier and found by fetching a PDF and
+reading it.
+
+### 105.1 The prescription aggregation, measured and NOT built
+
+§103.6 named squad-level aggregation of HoloMotion's own prescribed programme as
+the clearest remaining "make the most of the data" item. Measured before
+building:
+
+```
+screenings total          74
+carrying a prescription    1
+```
+
+**One.** `seeder.js` attaches Nazwan's real parsed programme to a single row and
+says so — `null` is the normal state, because the compact HoloMotion layout
+carries no prescription section at all (`utils/prescription.js`). So a squad
+panel would rank exercises across a sample of one and draw "Half Squat — 1
+athlete" as though it were a finding.
+
+That is the failure this codebase writes guards against, arrived at from the
+other direction: `reliability.js` declines below MIN_PAIRS, seasonality declines
+below two years, and a cohort under SMALL_COHORT caveats itself. An aggregation
+over n=1 should not exist rather than decline.
+
+It also depends on something ISN controls and AIRMS does not: which report
+layout they export. If the compact one, the panel is permanently empty whatever
+is built. **Not built, and the reason recorded** — the measurement is the
+deliverable here, not a panel.
+
+### 105.2 The real defect: a report that quoted less than its own page
+
+`utils/programmeActivity.js` exists for one stated reason — *"two code paths
+computing the programme's KPIs would be free to disagree, and the report is
+precisely the artefact someone files or signs off."* Sharing the util guarantees
+the NUMBERS agree. It guarantees nothing about whether the report **draws** them.
+
+§103 and §104 added `escalationResponse` and `sportCompliance` to the util and
+to the page. The PDF kept printing the older, smaller set. It rendered, streamed
+200, and quoted a strictly poorer set of facts than the screen it claims to
+mirror — for a whole release, with every test green.
+
+Found by fetching `programme-activity.pdf` and reading its text layer back, not
+by anything automated. The same class as §30 ("found by printing six reports and
+reading them") and §70 (HoloMotion's summary stored for the life of the pipeline
+and rendered only in the PDF) — this one simply ran the other way.
+
+Both groups are now drawn: six escalation-response KPI rows in the KPI block,
+and a *Screening Compliance by Squad* section with the caveat printed **from the
+payload** rather than retyped, so the page and the document state the same
+limit. Verified by reading the rendered PDF back — all seven expected strings
+present across 3 pages.
+
+Drawn with the label/value idiom the file already uses rather than a new pdfDraw
+table primitive: a new helper needs its own paint-op tests and a mutation, and
+inventing one to print five rows buys a maintenance surface, not a better page.
+
+### 105.3 The guard, and the over-claim it caught in itself
+
+`tests/activityReportParity.test.js` reads both files as text and requires every
+DIRECT key of the payload to be referenced by the report handler. It fails when
+the defect is reintroduced (verified by renaming the reference), and is
+registered as a mutation.
+
+It also caught **itself** over-claiming. The first version asserted it would
+find `seasonality` among the payload keys; it does not, because the payload is
+`{ ...result, escalationResponse, sportCompliance, coverage, recall, scope }`
+and seasonality arrives through the spread from `screeningPeriods()`. The canary
+— borrowed from §56.3, where a route parser silently found 15 of 59 endpoints
+and rendered a plausible table — fired before the test could ship pretending to
+cover five groups while checking four.
+
+The scope is now stated in the file rather than implied: it guards keys added
+DIRECTLY to this payload, which is precisely the mistake that occurred. Keys
+arriving through the spread are drawn by long-standing named helpers and are a
+different surface.
+
+**Verified**: backend 58 suites / 852 tests, frontend 22 / 357, e2e 110/110,
+**60/60 mutations**, `audit:access` clean at 68 endpoints, `verify:schema` 0
+findings after the §103 columns, map current — and the PDF itself read back
+rather than assumed from a 200.

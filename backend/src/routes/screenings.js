@@ -19,6 +19,7 @@ const { effectiveBand } = require('../utils/bands');
 const { toIndicator } = require('../utils/indicatorPayload');
 const { numOr } = require('../utils/num');
 const { sendError } = require('../utils/httpError');
+const { RESPONSE_OUTCOMES, RESPONSE_OUTCOME_KEYS } = require('../shared/facts');
 
 const router = express.Router();
 
@@ -214,6 +215,74 @@ router.patch('/:id/override', auth, rbac('medical', 'admin'), requirePermission(
       meta: { band: band || null, note: band ? String(note).trim() : null, computed: row.overallBand },
     });
     res.json(row);
+  } catch (err) { sendError(res, err, 'screenings.js'); }
+});
+
+// POST /api/screenings/:id/response — what a clinician DID about the escalation.
+//
+// THE GAP THIS CLOSES (§103). The only audited clinical act on a screening was
+// the OVERRIDE — which says the band is wrong. A clinician who agreed with a red
+// band and acted on it left no institutional record at all. "Mark reviewed"
+// looks like one and is not: it is a private bookmark in `settings`, per reader,
+// deliberately unaudited (utils/reviewed.js).
+//
+// So the institution could show that 9 athletes were flagged, and could not show
+// that anybody had done anything about them.
+//
+// Deliberately NOT merged into the override route. They answer opposite
+// questions — "the band is wrong" versus "the band is right and here is what I
+// did" — and a single endpoint doing both would let a response silently change
+// a band, which is the one edit here that must stay explicit and attributed.
+//
+// `coach` is absent, and that is the §12 read-only lock rather than an
+// oversight: recording a clinical response is a write about somebody's care.
+// `npm run audit:access` enforces it.
+router.post('/:id/response', auth, rbac('medical', 'admin'), requirePermission('viewRecords'), async (req, res) => {
+  try {
+    const { outcome, note } = req.body || {};
+    const row = await Screening.findByPk(req.params.id);
+    if (!row) return res.status(404).json({ message: 'Screening not found' });
+
+    if (!RESPONSE_OUTCOME_KEYS.includes(outcome)) {
+      return res.status(400).json({
+        message: `outcome must be one of: ${RESPONSE_OUTCOME_KEYS.join(', ')}`,
+      });
+    }
+
+    // The note is OPTIONAL here, unlike the override where it is required.
+    // Overriding contradicts the system and has to be justified; responding
+    // agrees with it, and forcing prose onto "assessed, nothing to do" would
+    // buy invented text rather than information.
+    const text = String(note || '').trim() || null;
+    const label = RESPONSE_OUTCOMES.find((o) => o.key === outcome)?.label || outcome;
+
+    await row.update({
+      responseOutcome: outcome,
+      responseNote: text,
+      responseBy: req.user?.name || null,
+      responseAt: new Date(),
+    });
+
+    // The row holds the LATEST response; this is the history. A second response
+    // overwrites the columns and loses nothing, because every one is here.
+    //
+    // The note is deliberately NOT copied into `meta`: it is clinical free text
+    // about a named athlete, and the audit log is rendered on a page two roles
+    // can open. The summary names the outcome, which is what the trail needs.
+    recordAudit(req, {
+      action: 'escalation.response',
+      entity: 'screening',
+      entityId: row.id,
+      summary: `Recorded a clinical response for ${row.athleteId}: ${label}`,
+      meta: {
+        outcome,
+        hasNote: Boolean(text),
+        band: effectiveBand(row),
+        escalations: row.escalations,
+      },
+    });
+
+    res.json(toIndicator(row, (await getSettings()).rescreen_due_days));
   } catch (err) { sendError(res, err, 'screenings.js'); }
 });
 

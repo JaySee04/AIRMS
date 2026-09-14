@@ -379,7 +379,6 @@ export default function AdminPersonnelPage() {
     <DashboardLayout allowedRoles={['admin']} title="Personnel">
       {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
 
-      {/* Add account */}
       <div className="card" style={{ marginBottom: 20 }}>
         <div className="card-header"><div>
           <h2 className="card-title" style={{ marginBottom: 0 }}>Add Personnel</h2>
@@ -487,7 +486,6 @@ export default function AdminPersonnelPage() {
         </form>
       </div>
 
-      {/* Athlete logins */}
       <div className="card" style={{ marginBottom: 20 }}>
         <div className="card-header"><div>
           <h2 className="card-title" style={{ marginBottom: 0 }}>Athlete logins</h2>
@@ -560,7 +558,6 @@ export default function AdminPersonnelPage() {
         )}
       </div>
 
-      {/* Coaches */}
       <div className="card" style={{ marginBottom: 20 }}>
         <div className="card-header"><div>
           <h2 className="card-title" style={{ marginBottom: 0 }}>Coaches</h2>
@@ -624,7 +621,6 @@ export default function AdminPersonnelPage() {
         )}
       </div>
 
-      {/* Medical staff */}
       <div className="card">
         <div className="card-header"><div>
           <h2 className="card-title" style={{ marginBottom: 0 }}>Medical Staff Access</h2>

@@ -10,6 +10,7 @@ const {
 } = require('../utils/overallIndicator');
 const { notifyInjuryToCoach } = require('../utils/notifications');
 const { sendInvite, inviteBlockedReason, unusablePassword } = require('../utils/invite');
+const { validateEmail, normalizeEmail } = require('../utils/emailAddress');
 const { programmeActivityData } = require('../utils/programmeActivity');
 const { aggregateSubitems } = require('../utils/subitemAggregate');
 const { effectiveBand } = require('../utils/bands');
@@ -755,8 +756,16 @@ router.post('/:id/invite', auth, rbac('admin'), async (req, res) => {
       return res.status(409).json({ message: 'That athlete is not on the active roster.' });
     }
 
-    const email = String(req.body?.email || '').trim().toLowerCase();
-    if (!email) return res.status(400).json({ message: 'An email address is required to send an invitation.' });
+    // Shape-checked, not merely present: §88's confirm step and this are the
+    // two halves of one fix. The blank case keeps its own wording, which names
+    // the action rather than the field.
+    const email = normalizeEmail(req.body?.email || '');
+    const emailError = validateEmail(email);
+    if (emailError) {
+      return res.status(400).json({
+        message: email ? emailError : 'An email address is required to send an invitation.',
+      });
+    }
 
     // An account already bound to this roster row: re-send rather than mint a
     // second one. Two User rows carrying the same athleteId would both pass the

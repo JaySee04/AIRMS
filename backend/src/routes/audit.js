@@ -17,6 +17,10 @@ const router = express.Router();
 const ACTION_LABELS = {
   'screening.import': 'Screening imported',
   'screening.override': 'Risk band overridden',
+  // Distinct from the override on purpose: one says the band was WRONG, the
+  // other says it was right and names what the clinician did about it. Wording
+  // them alike would make the trail unable to tell disagreement from action.
+  'escalation.response': 'Clinical response recorded',
   'screening.reinstate': 'Screening reinstated',
   'athlete.injury': 'Injury status changed',
   'norm.restore': 'Norm set restored',

@@ -164,7 +164,6 @@ export default function ProfileShell({ stats: initialStats, onLoadStats, roleBlu
 
   return (
     <>
-      {/* Hero */}
       <div className="card profile-hero">
         <div className="profile-hero-avatar">{getInitials(user.name) || '??'}</div>
         <div className="profile-hero-info">

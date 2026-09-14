@@ -20,6 +20,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import DashboardLayout from '@/components/layout/DashboardLayout';
+import SectionHeading from '@/components/layout/SectionHeading';
 import CohortFilters, { useCohortFilters } from '@/components/admin/CohortFilters';
 import TrendStrip from '@/components/admin/TrendStrip';
 import DistributionBar from '@/components/admin/DistributionBar';
@@ -425,6 +426,10 @@ export default function AdminDashboard() {
           Previously four flat stat tiles and a separate distribution card, which
           gave the page no dominant element — the reader's eye had nothing to land
           on and every panel competed at the same weight. */}
+      <SectionHeading note="Who was screened, and how they band">
+        The squad, counted
+      </SectionHeading>
+
       {/* Programme comparison — Module 5's last deferred item. Sits directly
           above the institute headline because it SPLITS that figure rather than
           replacing it. */}
@@ -538,6 +543,10 @@ export default function AdminDashboard() {
         )}
       </div>
 
+      <SectionHeading note="Averaged across the filtered cohort — the instrument's readings, not a verdict">
+        What the screening measured
+      </SectionHeading>
+
       {/* Row 1 — physical quality (zoomed) + indicator counts (shared axis) */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 20, marginTop: 20 }}>
         <div className="card">
@@ -643,6 +652,10 @@ export default function AdminDashboard() {
           )}
         </div>
       </div>
+
+      <SectionHeading note="The same cohort described anatomically — region, side, and the figure itself">
+        Where on the body
+      </SectionHeading>
 
       {/* ── What the report actually measures, at squad grain ─────────────────
           The 25-cell Physical Fitness Subitem table is the densest thing
@@ -763,6 +776,13 @@ export default function AdminDashboard() {
           </>
         )}
       </div>
+
+      {/* The heading states §25's own argument — a mean of 50 is produced
+          equally by everyone at 50 and by half at 30 / half at 70 — rather than
+          labelling the chart type. */}
+      <SectionHeading note="Every panel above is an average — these two show the spread underneath it">
+        What an average hides
+      </SectionHeading>
 
       {/* ── Risk vs movement quality ─────────────────────────────────────────
           One dot per athlete. Every other panel here is an average, and an

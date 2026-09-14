@@ -90,7 +90,6 @@ export default function CoachReportsPage() {
         <div className="card"><div className="empty-state">No sport assigned to your account yet. An administrator assigns your sport.</div></div>
       ) : (
         <div className="grid-1-2" style={{ gap: 20 }}>
-          {/* Individual */}
           <div className="card">
             <div className="card-header"><div>
               <h2 className="card-title" style={{ marginBottom: 0 }}>Individual report</h2>
@@ -113,7 +112,6 @@ export default function CoachReportsPage() {
             </button>
           </div>
 
-          {/* Team */}
           <div className="card">
             <div className="card-header"><div>
               <h2 className="card-title" style={{ marginBottom: 0 }}>Team report</h2>

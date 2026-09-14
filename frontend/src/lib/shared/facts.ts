@@ -96,3 +96,21 @@ export const RISK_INDICATORS: RiskIndicator[] = [
 
 /** Peer count below which a cohort caveats itself, on every surface. */
 export const SMALL_COHORT = 10;
+
+/** One recorded clinical response to an escalation. */
+export type ResponseOutcome = { key: string; label: string };
+
+/**
+ * What a clinician recorded DOING about an escalation — ordered least to most
+ * intervention. NOT a severity scale and must never be drawn as one; these are
+ * responses, never diagnoses.
+ */
+export const RESPONSE_OUTCOMES: ResponseOutcome[] = [
+  { key: 'assessed-none', label: 'Assessed — no action needed' },
+  { key: 'monitoring', label: 'Monitoring — re-check next screening' },
+  { key: 'treating', label: 'Assessed — now treating' },
+  { key: 'referred', label: 'Referred on' },
+];
+
+/** Just the keys, for validation. */
+export const RESPONSE_OUTCOME_KEYS = ['assessed-none', 'monitoring', 'treating', 'referred'];

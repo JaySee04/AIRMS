@@ -20,10 +20,17 @@ The project ships its own extensive docs. Treat these as the source of truth —
 4. [`docs/PROJECT_GUIDE.md`](docs/PROJECT_GUIDE.md) — file-level map (models, routes, components, pages)
 5. [`docs/DESIGN_DECISIONS.md`](docs/DESIGN_DECISIONS.md) — read before suggesting "improvements" that may have already been considered and rejected
 6. [`docs/FYP_RUBRICS.md`](docs/FYP_RUBRICS.md) — current rubric weighting + pre-viva punch list
-7. [`docs/PERMISSIONS.md`](docs/PERMISSIONS.md) — **who can actually do what**, measured by calling all 67 endpoints as every role rather than described. Read before touching RBAC, and before answering a viva question about access. Its §3 records four things that **were** open and how each was settled — they are decided, not pending
+7. [`docs/PERMISSIONS.md`](docs/PERMISSIONS.md) — **who can actually do what**, measured by calling all 68 endpoints as every role rather than described. Read before touching RBAC, and before answering a viva question about access. Its §3 records four things that **were** open and how each was settled — they are decided, not pending
 8. [`docs/SILENT_FAILURES.md`](docs/SILENT_FAILURES.md) — **the defect class this project keeps producing** (a wrong answer that looks like a right one), its six sub-patterns, the hypotheses that sweep for each, and the standing guards. Read before an audit or a bug hunt; add to it when a new instance is found
-9. [`docs/SYSTEM_MAP.md`](docs/SYSTEM_MAP.md) — **every attribute of the system, GENERATED from the code**: 9 models with all 138 columns and their enum values, 67 endpoints with their rbac list and permission gate, 25 pages with their allowedRoles, every setting and default, audited action, shared fact, env var and npm script. Regenerate with `cd backend; npm run map`. This is the *what*; DESIGN_DECISIONS is the *why*
-10. [`docs/fyp/VIVA_FYP2.md`](docs/fyp/VIVA_FYP2.md) — **the FYP II viva dossier**: the thesis, the fifteen hard questions with citations, the weaknesses to volunteer, the demo landmines, and every headline number measured against the live database rather than quoted from a doc. `VIVA_SCRIPT.md` / `VIVA_ANSWERS.md` are frozen FYP I artefacts — this is their successor. Re-measure §2 before quoting it.
+9. [`docs/SYSTEM_MAP.md`](docs/SYSTEM_MAP.md) — **every attribute of the system, GENERATED from the code**: 9 models with all 138 columns and their enum values, 68 endpoints with their rbac list and permission gate, 25 pages with their allowedRoles, every setting and default, audited action, shared fact, env var and npm script. Regenerate with `cd backend; npm run map`. This is the *what*; DESIGN_DECISIONS is the *why*
+10. [`docs/SECURITY.md`](docs/SECURITY.md) — **the security posture, MEASURED**: nine
+    checks (rate limiting, secrets, RLS, env vars in git, input validation, public
+    tables, protected routes, stack traces, audit logs), each with the command that
+    produced the answer. Two gaps were found and fixed on 2026-09-13; one item —
+    the app connecting to MySQL as `root` — is **open by decision** with the
+    `GRANT` written out. Read it before answering a viva question about security,
+    and re-run the commands before quoting a number. DD §97 records the reasoning
+11. [`docs/fyp/VIVA_FYP2.md`](docs/fyp/VIVA_FYP2.md) — **the FYP II viva dossier**: the thesis, the fifteen hard questions with citations, the weaknesses to volunteer, the demo landmines, and every headline number measured against the live database rather than quoted from a doc. `VIVA_SCRIPT.md` / `VIVA_ANSWERS.md` are frozen FYP I artefacts — this is their successor. Re-measure §2 before quoting it.
 
 ## Commands
 
@@ -38,7 +45,7 @@ npm run sync:shared        # regenerate backend/src/shared/facts.js and
                            # suites fail if a committed copy is stale (DD 53).
 npm run install:all        # installs root + backend + frontend
 npm run seed               # drops + reseeds MySQL with deterministic PRNG (seed=42)
-cd backend; npm run audit:access     # call all 67 endpoints as each non-admin role and print
+cd backend; npm run audit:access     # call all 68 endpoints as each non-admin role and print
                                      # the matrix. Needs `npm run dev` running. FAILS if any
                                      # read-only role REACHES a write (403 expected, not 404 -
                                      # a 404 means it got past the guard). ALSO calls every
@@ -50,7 +57,7 @@ cd backend; npm run audit:access     # call all 67 endpoints as each non-admin r
                                      # the anonymous caller - a route registered without
                                      # `auth` would have shown up working for all four roles,
                                      # exactly as intended, with nothing saying it was also
-                                     # open to the internet. All 67 refuse; the point is that
+                                     # open to the internet. All 68 refuse; the point is that
                                      # it stays that way. The open-by-design set is DERIVED
                                      # from the EXEMPT map's reason rather than listed twice.
                                      # See DESIGN_DECISIONS 43 and docs/SILENT_FAILURES.md 3b.
@@ -65,7 +72,7 @@ cd backend; npm run coverage         # 79.6% statements / 67.8% branches. Route 
                                      # a missing transitive dep (fs.realpath) before it would run.
 cd backend; npm run mutate           # BREAK each registered guard on purpose and prove its
                                      # test fails. A surviving mutation exits non-zero: the
-                                     # test is not testing what it claims. 45 guards across
+                                     # test is not testing what it claims. 60 guards across
                                      # both packages. NOT part of `npx jest` — it spawns a
                                      # jest run per mutation (tens of seconds). Run it before
                                      # committing a change to a guard, and add an entry when
@@ -90,6 +97,26 @@ cd backend; npm run measure:facts    # print the headline numbers MEASURED from 
                                      # the report or the viva - the docs have carried four
                                      # different band splits, all true when written. See
                                      # docs/SILENT_FAILURES.md H7.
+cd backend; npm run migrate:escalation-response   # add screenings.response_outcome /
+                                     # response_note / response_by / response_at (DD 103).
+                                     # WHAT A CLINICIAN DID about an escalation. The only audited
+                                     # clinical act used to be the OVERRIDE — which says the band is
+                                     # WRONG — so a clinician who AGREED with a red band and acted on
+                                     # it left no institutional record at all. "Mark reviewed" is not
+                                     # that record and must not be made into one: it is a private
+                                     # bookmark keyed `reviewed:<userId>` in settings, unaudited on
+                                     # purpose (utils/reviewed.js). This is a separate, audited act
+                                     # (`escalation.response`), and Programme Activity now draws
+                                     # response rate / outstanding / median days from it.
+                                     # The OUTCOME VOCABULARY is in shared/facts.js
+                                     # (RESPONSE_OUTCOMES) because the route validates against it and
+                                     # the picker renders from it — offered-but-rejected is §42 in a
+                                     # clinical setting. Ordered least to most intervention and NOT a
+                                     # severity scale. All four columns are nullable, so EXPAND THEN
+                                     # DEPLOY: a migrated database serves the old code, but the model
+                                     # now SELECTs them, so deploying first answers "Unknown column
+                                     # 'response_outcome'" on every screening query. LOCAL ONLY so
+                                     # far; hosted still needs it (`-- --url ... --ca ...`).
 cd backend; npm run migrate:norm-stamp   # add screenings.norm_version_id + scored_at (DD 96).
                                      # WHICH RULER measured each band, and when. recomputeIndicators()
                                      # rescores only each athlete's LATEST screening, so older rows keep
@@ -165,6 +192,52 @@ cd backend/scripts; ./install-mail-task.ps1 -Uninstall # remove it
 
 # Day-to-day
 npm run dev                # backend :5000 + frontend :3000 via concurrently
+npm run dev:alt            # a SECOND instance on :3100 / :5100, beside the first.
+                           # For when the default pair is held by somebody else's
+                           # instance and freeing it is the wrong move — two people on
+                           # one checkout, or a person inspecting while an agent runs
+                           # e2e. THREE values move together (scripts/dev.js) or the
+                           # second instance is subtly wrong rather than plainly
+                           # broken: PORT, FRONTEND_URL (the backend's CORS allow-list
+                           # must name the new web origin) and NEXT_PUBLIC_API_URL.
+                           # Miss the second and every page renders its shell with
+                           # empty panels, which looks exactly like the CSP failure and
+                           # is not it; miss the third and the alternate frontend
+                           # quietly drives the PRIMARY backend, so both instances
+                           # share one session. This is NOT the CORS workaround gotcha
+                           # 1 forbids — that is about widening CORS to paper over a
+                           # STALE server; here the second origin is real and running.
+                           # Verified in a real browser: :3100 called :5100 and nothing
+                           # else, no CORS failure, cohort data rendered.
+                           # Override for a third instance:
+                           #   $env:AIRMS_WEB_PORT=3300; $env:AIRMS_API_PORT=5300; npm run dev
+                           # 3100/5100 rather than 3001/5001 because `next dev` BUMPS to
+                           # :3001 by itself, which is the exact confusion gotcha 1
+                           # exists to stop; 3210 is taken by `npm run verify:csp`.
+                           # WARNING: e2e / audit:access / verify:claims / verify:csp all
+                           # target the DEFAULT pair. For an alt instance:
+                           #   E2E_WEB=http://localhost:3100 `
+                           #   E2E_API=http://localhost:5100/api npm run e2e
+npm run dev:stop           # stop EVERY AIRMS dev server, both pairs. Kills the tree
+                           # ROOTS, which is the whole point: killing the process that
+                           # HOLDS the port stops the server but leaves `nodemon` alive
+                           # ("app crashed - waiting for file changes before starting"),
+                           # and nodemon restarts it the instant anything under
+                           # backend/src changes. `npm run mutate` IS that — it edits a
+                           # guard file, runs jest and restores it, 53 times — so running
+                           # the mutation suite RESURRECTS every orphaned dev server on
+                           # the machine at once. That is how two orphans with identical
+                           # creation timestamps appeared after the ports had been
+                           # verified free (2026-09-14). Reproduced deliberately: kill the
+                           # listener -> :5000 free, nodemon idle; rewrite
+                           # backend/src/utils/num.js byte-identically -> :5000 back.
+                           # `taskkill /T` does not help — /T kills CHILDREN, and nodemon
+                           # is the parent. It deliberately does NOT match shells: a
+                           # command line containing "nodemon src/server.js" as an
+                           # ARGUMENT matched the very PowerShell query searching for it,
+                           # and killing somebody's terminal is worse than a stray server.
+                           # Re-checks the ports afterwards and reports anything it could
+                           # not explain rather than claiming success.
 npm run dev:backend        # backend only
 npm run dev:frontend       # frontend only
 
@@ -242,7 +315,30 @@ cd frontend; npm run e2e   # END-TO-END smoke: a real Chrome against the running
 cd frontend; npm run build
 
 # Unit tests (jest, in both packages — no linter configured for the backend)
-cd backend; npx jest      # 53 suites / 754 tests: cohorts, overallIndicator, permissions, rbac, pdfDraw,
+cd backend; npx jest      # 58 suites / 852 tests: cohorts, overallIndicator, permissions, rbac, pdfDraw,
+                          # emailAddress (the address an activation code is SENT to. It was
+                          # VARCHAR(160) UNIQUE and nothing else — "not-an-email", "jc@@isn",
+                          # "a b@c.d" and "<script>@x.com" all validated and would have been
+                          # stored, measured against the live model. §85 shortened the
+                          # invitation TTL to 24h and §88 added a confirm step, BOTH citing
+                          # the unvalidated address as the hazard, and neither checked it.
+                          # A typo catcher, NOT an authenticity check — only the activation
+                          # code proves an address. The "+" tag is preserved and tested:
+                          # stripping it merges the two deliverable demo inboxes into the
+                          # personal Gmail and silently breaks the one-email-per-sport demo.
+                          # See DD 97.1),
+                          # visionThrottle (WHICH endpoint bills money, and whether the cap is
+                          # actually MOUNTED. /upload/screening/pdf/preview ships six rendered
+                          # pages to a paid vision model (~11,400 tokens/report) and had no
+                          # limit of any kind; express-rate-limit was on /api/auth and nowhere
+                          # else. 60/hour keyed per USER, not per IP — ISN is one outbound
+                          # address, so an IP key hands the institution ONE budget (the §48 NAT
+                          # lesson). The route file is read as TEXT because a limiter has the
+                          # winAnsiSafe shape exactly: it is a valid middleware in isolation
+                          # however many routes reference it, so every unit test passes while
+                          # the guard does nothing. Loopback is deliberately NOT exempt here,
+                          # unlike the auth throttle — a dev machine with VISION_API_KEY set
+                          # spends the same money. See DD 97.2),
                           # authHardening (two properties of the RUNNING process, not of any
                           # function: the JWT verifier NAMES its algorithm rather than
                           # inheriting the restriction from the key's type - not a live hole,
@@ -317,7 +413,7 @@ cd backend; npx jest      # 53 suites / 754 tests: cohorts, overallIndicator, pe
                           # other suite. Static: it reads both files as text and never
                           # require()s the target, because several modules build a Sequelize
                           # instance at import time)
-cd frontend; npx jest     # 21 suites / 346 tests (the run is pinned to UTC by
+cd frontend; npx jest     # 22 suites / 357 tests (the run is pinned to UTC by
                           # jest.globalSetup.js - this machine sits IN the institution
                           # zone, which made the date tests pass for the wrong reason
                           # until mutation testing said so; see DD 62): lib/risk.ts, lib/screeningUploadStore.ts, bodymap-data/muscles.ts,
@@ -761,7 +857,7 @@ deliberately sit outside.
 | admin | `admin@isn.gov.my` | Admin User — **Dr Thung's role**; the admin surface was built at his request (`MASTER_CLARIFICATIONS` §12) |
 | admin (SMTP demo) | `poseidonapollo11@gmail.com` | (real-Gmail account so the email-reset flow demos against an inbox you can check) |
 | coach | `coach@isn.gov.my` | Coach Demo 01 — Badminton, the squad John Doe and Thung are in, so the coach view overlaps the athlete logins |
-| executive | `executive@isn.gov.my` | (Datuk Executive — **read-only oversight**: admin analytics + PDF reports, and nothing that writes) |
+| executive | `executive@isn.gov.my` | (Executive Demo 01 — **read-only oversight**: admin analytics + PDF reports, and nothing that writes) |
 | coach (deliverable inbox) | `poseidonapollo11+coach@gmail.com` | (Coach Demo 02 — same Badminton squad as Coach Demo 01 **on purpose**: the rescreen reminder sends one email per SPORT, not per coach, so the pair demonstrates that rule into a checkable inbox) |
 | executive (deliverable inbox) | `poseidonapollo11+exec@gmail.com` | (Executive Demo 02 — so the digest's executive copy can be seen arriving; the `@isn.gov.my` addresses bounce) |
 
@@ -903,7 +999,7 @@ Forgetting the sync is the one hazard the design trades for, so **both** test su
   and shown on the Activity Log row. A HoloMotion report costs ~11,400 tokens
   (~9,288 image + ~700 prompt + ~1,400 reply) at the default 6 pages
 - **The seven shown risk indicators have one definition PER PACKAGE** — `utils/riskIndicators.js` on the backend and the `INDICATORS` list in `frontend/src/lib/screeningAlerts.ts` (2026-08-18). This list is not a display detail: it encodes Dr Thung's instruction that `spinalDiscHerniation` (LDH) is stored but **never** scored, charted, printed or named, so "which indicators are shown" and "LDH is excluded" are the same decision — and it had been hand-maintained in **eight** places (five backend, three frontend), each with a comment pointing at the others. `routes/athletes.js` held an inline copy *and* the shared import, one per handler. Two label vocabularies are kept on purpose and are not synonyms: `label` is the terse UI wording ("Knee"), `reportLabel` is HoloMotion's own printed wording ("Ligament Strain") so a clinician can check a line against the PDF in hand. `EXCLUDED_RISK_KEYS` names the exclusion as a value so it can be **asserted** rather than left as an absence; `riskIndicators.test.js` and `screeningAlerts.indicators.test.ts` pin the packages together. Verified byte-identical report output. See `docs/DESIGN_DECISIONS.md §31`
-- **A failed request reveals nothing it was not asked to, and a query parameter has a SHAPE** (2026-09-02, `DESIGN_DECISIONS.md §48`). 49 handlers returned `err.message` on a 500, so `?from=not-a-date` answered "Incorrect DATETIME value" and `?gender[$ne]=Male` answered "Invalid value { '$ne': 'Male' }". `utils/httpError.js` decides once, on INTENT rather than status: a 4xx keeps its message, an `expose`d error keeps its message (the operator needs "Could not render any pages from the PDF"), everything else gets one generic sentence while the real error goes to stderr with its route. `utils/queryParams.js` rejects the array Express builds from `?p[]=` and the object from `?p[k]=` with a **400** — the array form had been a silent, undocumented multi-select — and `likeTerm` escapes `%` and `_`, which had made a search for `%` return the whole roster. **There is already an `express-rate-limit` on `/api/auth`** (30 failures / 15 min / IP) — do not add a second one. It is database-backed (`utils/rateLimitStore.js`, 2026-09-10) because the in-process Map counted per serverless instance. **It does NOT use `skipSuccessfulRequests`** (removed 2026-09-11): that option un-counts a success from a `res.on('finish')` handler, i.e. after the response is flushed, and on Vercel post-response work is **deferred until the instance is thawed by another request** (measured: an unref'd 1.5s timer landed 7.25s later, on the next call) — so the decrement lands eventually and never in time, the next login having already read the un-decremented count. On the deployed API five successful logins took `remaining` 28 → 27 → 26 → 25 → 24 and never recovered, making the real policy "30 **requests**" while the header and every doc said "failures". The same limiter on a long-lived process holds flat at 999/999 — same code, same store, the host is the only variable. A clinic behind one NAT address would have locked itself out with correct passwords. A successful sign-in now **awaits `clearRateLimit()` inside the request** instead, and the key comes from one shared `authThrottleKey` so the reset provably clears the counter the limiter reads. Verified on the hosted API: failures 29→28→27→26, then the request after a success is back to a full window. See `SILENT_FAILURES.md` 3r. **`server.js`'s last-resort handler routes through `sendError` too** (2026-09-13, §91.1): it used to `console.error(err.stack)` and answer a flat 500, which reported body-parser's `status: 400` as a server fault, gave the API a FOURTH message vocabulary, and skipped the one structured `request.failed` line that `logger.js` calls the alert condition for the whole API. **Under Express 5 this is the catch-all for every unhandled async rejection in all 67 routes**, not just a body-parser backstop. Its log context is the ROUTER (`GET /api/athletes`), never `req.path` — `context` is not in `logger.js`'s FORBIDDEN_KEY list, so a full path would write an **IC number** into a third-party log viewer. See `SILENT_FAILURES.md` 3w
+- **A failed request reveals nothing it was not asked to, and a query parameter has a SHAPE** (2026-09-02, `DESIGN_DECISIONS.md §48`). 49 handlers returned `err.message` on a 500, so `?from=not-a-date` answered "Incorrect DATETIME value" and `?gender[$ne]=Male` answered "Invalid value { '$ne': 'Male' }". `utils/httpError.js` decides once, on INTENT rather than status: a 4xx keeps its message, an `expose`d error keeps its message (the operator needs "Could not render any pages from the PDF"), everything else gets one generic sentence while the real error goes to stderr with its route. `utils/queryParams.js` rejects the array Express builds from `?p[]=` and the object from `?p[k]=` with a **400** — the array form had been a silent, undocumented multi-select — and `likeTerm` escapes `%` and `_`, which had made a search for `%` return the whole roster. **There is already an `express-rate-limit` on `/api/auth`** (30 failures / 15 min / IP) — do not add a second one *there*. (Since 2026-09-13 there is exactly one other limiter in the app, and it is a different kind of thing: `utils/visionThrottle.js` caps `POST /upload/screening/pdf/preview` at **60/hour keyed per USER**, because that is the only endpoint whose every call bills a third-party vision provider. It is a **budget** cap, not a brute-force one — the route is already behind `auth` + `rbac` + `requirePermission` — and per-user rather than per-IP precisely because of the NAT lesson below. The other 63 endpoints stay unthrottled and that is still the right answer: they touch this institution's own database, and rating them would ration a clinician's ordinary navigation. See DD §97.2 and `docs/SECURITY.md` §1.) The auth limiter is database-backed (`utils/rateLimitStore.js`, 2026-09-10) because the in-process Map counted per serverless instance. **It does NOT use `skipSuccessfulRequests`** (removed 2026-09-11): that option un-counts a success from a `res.on('finish')` handler, i.e. after the response is flushed, and on Vercel post-response work is **deferred until the instance is thawed by another request** (measured: an unref'd 1.5s timer landed 7.25s later, on the next call) — so the decrement lands eventually and never in time, the next login having already read the un-decremented count. On the deployed API five successful logins took `remaining` 28 → 27 → 26 → 25 → 24 and never recovered, making the real policy "30 **requests**" while the header and every doc said "failures". The same limiter on a long-lived process holds flat at 999/999 — same code, same store, the host is the only variable. A clinic behind one NAT address would have locked itself out with correct passwords. A successful sign-in now **awaits `clearRateLimit()` inside the request** instead, and the key comes from one shared `authThrottleKey` so the reset provably clears the counter the limiter reads. Verified on the hosted API: failures 29→28→27→26, then the request after a success is back to a full window. See `SILENT_FAILURES.md` 3r. **`server.js`'s last-resort handler routes through `sendError` too** (2026-09-13, §91.1): it used to `console.error(err.stack)` and answer a flat 500, which reported body-parser's `status: 400` as a server fault, gave the API a FOURTH message vocabulary, and skipped the one structured `request.failed` line that `logger.js` calls the alert condition for the whole API. **Under Express 5 this is the catch-all for every unhandled async rejection in all 68 routes**, not just a body-parser backstop. Its log context is the ROUTER (`GET /api/athletes`), never `req.path` — `context` is not in `logger.js`'s FORBIDDEN_KEY list, so a full path would write an **IC number** into a third-party log viewer. See `SILENT_FAILURES.md` 3w
 - **A screening belongs to ISN's calendar, and committing it twice is not a retest** (2026-09-02, `DESIGN_DECISIONS.md §45`). Two latent defects, both found by sweeping rather than by a bug report. Periods bucketed on `getUTC*()` while the frontend dated the same row in the VIEWER's zone — hosted, the API runs UTC and a clinician's browser runs MYT, so a screening between 00:00 and 07:59 local falls on the previous UTC day and, across a month end, is drawn in one column and dated into the next month. Both packages now name one `INSTITUTION_TZ = 'Asia/Kuala_Lumpur'`; re-bucketing all 74 rows in that zone was verified to move **none** of them, so it changes no published number. Separately, the screening commit was an unconditional INSERT against a NON-unique `(athlete_id, assessed_at)` index, so the same report committed twice appended an identical row that `consecutivePairs()` paired as a retest with a difference of **zero on every score** — two such commits take the dead band from the documented fallback of 2, correctly labelled an assumption, to a DERIVED 5.7–11.5. That is the failure `reliability.js` exists to prevent, reached by inflating the numerator rather than lowering the floor, and the demo hands **the same three reports to two people**. Fixed at both layers: the commit is idempotent on `(athleteId, assessedAt)`, and same-instant readings are collapsed before pairing. **Do not "simplify" either back** — and do not add a unique index without an `ALTER TABLE` on both the local and hosted databases
 - **A scoped role's REFUSAL is an answer, and its payload is a grant** (2026-09-02, `DESIGN_DECISIONS.md §43`). Auditing the four non-admin roles by *calling* every endpoint as each of them (46 at the time) found the role model sound — every write refused for coach, executive and athlete; `executive` with no write reach anywhere — and two disclosures beneath it. A coach could separate a real IC number from an invented one, because their scope compares `sport` and so cannot refuse before the row is loaded: unknown gave 404, foreign gave 403. `notFoundStatusFor(user)` now returns **403 for coach and athlete** at all three scoped lookups (`/athletes/:id`, `/screening-reports/individual/:id.pdf`, `/screenings/:id/full`) and fails closed on a missing user — the IC encodes date of birth, birth state and sex, which is why `/teammates` withholds it. Separately, both athlete serialisers built their result by SPREADING the row, so `injuryNote` / `injuryBy` / `injuryAt` — the clinician's free text — shipped to coach and executive; they now take a `viewer` and strip those unless it is `medical` or `admin`. **`isInjured` stays for everyone**: it is a roster fact a coach needs and coverage rests on. `viewer` is optional and the omitted case **withholds**, so a forgetful call site under-discloses. Do not "tidy" the 404s back: a bare 404 elsewhere in those files is correct, because nothing a medical-only route looks up is scoped. `tests/athleteDisclosure.test.js` reads the route SOURCE for the wiring — the predicates are pure and pass whether or not anything calls them
 - **Risk band vocabulary now comes from `shared/facts.js`** and is generated into `utils/bands.js` (backend) and `frontend/src/lib/bands.ts` (frontend) — see the shared-facts note in the architecture overview. Unified 2026-08-11 because six frontend files had their own map and the red band was "Immediate assessment" in the risk hero but "Immediate" in the trend legend and admin distribution bar; moved to one generated source 2026-09-04, which immediately found a **fourth** copy in `ScreeningHistory.tsx` spelling the bands `Green`/`Amber`/`Red`. The frontend module still exports BOTH a full `BAND_LABEL` and a compact `BAND_SHORT` deliberately — a legend has no room for the long form, and `BAND_SHORT` is local because the backend has no legend. Grain labels live in `lib/periods.ts` for the same reason (the grain KEYS are shared, their labels are not). Backend: (`BAND_RANK`,
@@ -1067,7 +1163,7 @@ NEXT_PUBLIC_API_URL=http://localhost:5000/api
 
 ## Known dev-environment gotchas
 
-1. **Stale Next.js process holds port 3000** → new instance auto-bumps to 3001 → CORS blocks API calls. **`npm run dev` now REFUSES to start in this state** (`scripts/preflight-ports.js`, 2026-09-10): it names the port, the PID and the command to free it. That is not tidiness — the old behaviour left the *stale* frontend answering `:3000`, which is exactly where `npm run e2e` and every browser probe point, so the suite would test the **previous build and pass**. It cost a false nine-failure report on 2026-09-09. Never edit CORS as a workaround; free the port.
+1. **Stale Next.js process holds port 3000** → new instance auto-bumps to 3001 → CORS blocks API calls. **`npm run dev` now REFUSES to start in this state** (`scripts/preflight-ports.js`, 2026-09-10): it names the port, the PID and the command to free it. **Check WHOSE process it is before killing it** (2026-09-14): the holder may be a second, deliberate instance rather than a stale one — an agent running `npm run e2e`, or a colleague. The refusal offers `npm run dev:alt` for that case, and only when the DEFAULT pair is what is blocked. The preflight reads `AIRMS_WEB_PORT` / `AIRMS_API_PORT`, so it guards the pair actually about to start rather than always 3000/5000. That is not tidiness — the old behaviour left the *stale* frontend answering `:3000`, which is exactly where `npm run e2e` and every browser probe point, so the suite would test the **previous build and pass**. It cost a false nine-failure report on 2026-09-09. Never edit CORS as a workaround; free the port.
 2. **MySQL password with special characters** (`#`, `$`, `%`, `^`) must be wrapped in single quotes in `backend/.env` so `dotenv` doesn't interpret them.
 3. **Seeder enum errors** — the classic offender (`Injury` enums) went with the model. The live enums to check seed data against are:
    - `User.role` — `athlete` | `medical` | `admin` | `coach` | `executive` (adding a value needs an `ALTER TABLE users MODIFY COLUMN role ENUM(...)` on an existing dev DB; a fresh clone gets it from `npm run seed`)
@@ -1150,6 +1246,40 @@ Commit cadences are independent — JC will commit many times in this repo betwe
    what you are inserting. `git commit -F <file>`, never `-m` with prose.
    `backend/tests/sourceHygiene.test.js` catches the invisible-character half of
    this in under a second, naming the file, line and character.
+
+## Comments: which ones are load-bearing (2026-09-13, `DESIGN_DECISIONS.md §99.2`)
+
+This codebase is comment-heavy **on purpose** — the comments are a large part of
+what makes it defensible in a viva, and `SILENT_FAILURES.md` cross-references
+them. A tidying pass that strips them to hit a density target deletes the
+defence to make the diff look neat. The test for whether one earns its place:
+
+> **A comment that would still be true if the code beneath it were deleted is
+> describing the code — cut it. A comment carrying a number, a date, a refused
+> alternative or a measurement is carrying evidence — keep it.**
+
+**Cut freely:** anything restated by the next line or two. `{/* Coaches */}`
+above a card headed "Coaches"; `{/* Body map */}` above `<BodyMap>`. Ten of
+these went on 2026-09-13. Also cut the *same* rationale repeated at the util, the
+call site and in DESIGN_DECISIONS — keep it in the util, point at it from the
+call site.
+
+**Do not cut:**
+- a **measured** defect and its numbers (the four malformed addresses the User
+  model accepted; `remaining` 29→28→27→26; 138/138 extraction values);
+- a **"do not simplify this"** warning — each one marks a change somebody
+  already tried and that broke something (the lock's `where: { value: token }`,
+  the shared-facts generator, §70.4's field resolution);
+- a **limitation stated honestly** (`SectionHeading`'s heading-level note, the
+  audit log's fire-and-forget trade);
+- `bodymap-data/*.ts`'s `// Neck` / `// Trapezius` part labels. They look
+  exactly like the restating comments above and are the opposite: they name
+  which anonymous SVG path blob is which body part, and nothing else in those
+  files does.
+
+**Run `npm run mutate` after any comment pass.** Several guards' `find` strings
+are exact source lines that sit next to comments; the mutation run is what
+proves an edit did not disturb one.
 
 ## Working norms for this repo
 

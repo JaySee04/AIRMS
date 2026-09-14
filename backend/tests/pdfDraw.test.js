@@ -274,7 +274,7 @@ describe('pdfDraw toolkit', () => {
   it('draws downloads, with and without the comparison column', async () => {
     const LABELS = { 'report.download': 'Report downloaded', 'export.backup': 'Backup exported' };
     const staff = [
-      { actor: 'Datuk Executive', role: 'executive', actions: 0, downloads: 12, previousActions: 0, change: 0, byAction: { 'report.download': 12 }, screeningsImported: 0 },
+      { actor: 'Executive Demo 01', role: 'executive', actions: 0, downloads: 12, previousActions: 0, change: 0, byAction: { 'report.download': 12 }, screeningsImported: 0 },
       { actor: 'Coach Demo 01', role: 'coach', actions: 0, downloads: 3, previousActions: 1, change: -1, byAction: { 'report.download': 3 }, screeningsImported: 0 },
     ];
     for (const comparable of [true, false]) {

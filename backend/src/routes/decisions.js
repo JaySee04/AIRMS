@@ -38,6 +38,13 @@ const VIEW_ROLES = ['medical', 'admin', 'coach', 'athlete'];
 // applies here, and `npm run audit:access` enforces it.
 const MARK_ROLES = ['medical', 'admin'];
 
+// Who may record a CLINICAL RESPONSE to an escalation (§103). The same two
+// roles, written separately rather than aliased: marking is a private bookmark
+// and responding is an audited act on the institution's record, so if either
+// list ever moves it must move on its own. Must stay in step with the rbac list
+// on POST /screenings/:id/response, which is the actual enforcement.
+const RESPOND_ROLES = ['medical', 'admin'];
+
 const MAX_WINDOW_DAYS = 90;
 
 /** The rows this viewer is allowed to reason about. */
@@ -110,12 +117,24 @@ router.get('/', auth, rbac(...VIEW_ROLES), requirePermission('viewRecords'), asy
     const worklist = rankRoster(withScreening, { dueDays }).map((w) => {
       const pair = byAthlete.get(w.athleteId) || [];
       const screeningId = pair[0] ? pair[0].id : null;
+      const s = pair[0];
       return {
         ...w,
         screeningId,
         // Keyed on the SCREENING: a tick taken in July must not silence an
         // athlete whose September import went red.
         reviewed: isReviewed(reviewedMap, w.athleteId, screeningId),
+        // The INSTITUTION's answer, beside the reader's private tick (§103).
+        // Both travel because they mean different things and the panel must not
+        // let them be confused: `reviewed` is "I have looked at this", the three
+        // below are "a clinician recorded what was done about it".
+        //
+        // The note is deliberately NOT sent. This payload is the roster-scale
+        // worklist, and clinical free text about every flagged athlete does not
+        // belong on a list view — it is on the athlete's own record.
+        responseOutcome: s ? (s.responseOutcome ?? null) : null,
+        responseBy: s ? (s.responseBy ?? null) : null,
+        responseAt: s ? (s.responseAt ?? null) : null,
       };
     });
 
@@ -144,6 +163,13 @@ router.get('/', auth, rbac(...VIEW_ROLES), requirePermission('viewRecords'), asy
       changesBasis: basis,
       changesFrom: new Date(cutoff).toISOString(),
       canMarkReviewed: MARK_ROLES.includes(req.user.role),
+      // Same roles as marking today, and a SEPARATE flag on purpose: these
+      // gate different acts (a private tick versus an audited clinical record),
+      // and one flag serving both would silently change who can do which if
+      // either list ever moves. The authority is POST /screenings/:id/response,
+      // which enforces it server-side; this only decides whether to draw the
+      // control.
+      canRecordResponse: RESPOND_ROLES.includes(req.user.role),
       headline: headline(open, req.user.role),
       worklist,
       changes,

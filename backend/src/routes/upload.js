@@ -8,6 +8,7 @@ const rbac = require('../middleware/rbac');
 const requirePermission = require('../middleware/permission');
 const { extractFromPdf } = require('../utils/holomotionExtract');
 const { isVisionConfigured, visionConfig } = require('../utils/visionClient');
+const { visionThrottle } = require('../utils/visionThrottle');
 const { queuePostImport } = require('../utils/postImport');
 const { sendError } = require('../utils/httpError');
 const { GENDERS, PROGRAMMES } = require('../shared/facts');
@@ -57,7 +58,11 @@ router.get('/screening/pdf/status', auth, rbac('medical', 'admin'), (_req, res) 
 // POST /api/upload/screening/pdf/preview — render + extract, DO NOT commit.
 // Returns the extracted athlete payload for the operator to review and to
 // attach athleteId / sport / program before committing.
-router.post('/screening/pdf/preview', auth, rbac('medical', 'admin'), requirePermission('uploadData'), uploadPdf.single('file'), async (req, res) => {
+// `visionThrottle` sits AFTER the permission gate (an unauthorised caller is
+// refused on permission, not charged quota) and BEFORE multer (an over-quota
+// caller is answered without first buffering 20 MB). Both orderings are pinned
+// by tests/visionThrottle.test.js.
+router.post('/screening/pdf/preview', auth, rbac('medical', 'admin'), requirePermission('uploadData'), visionThrottle, uploadPdf.single('file'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
     if (!isVisionConfigured()) {
