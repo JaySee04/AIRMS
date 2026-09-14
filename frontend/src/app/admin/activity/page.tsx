@@ -291,12 +291,6 @@ function EscalationResponsePanel({ r }: { r: NonNullable<PeriodsPayload['escalat
                   ))}
                 </tbody>
               </table>
-              <p className="text-muted" style={{ fontSize: 'var(--fs-xs)', marginBottom: 0 }}>
-                These record what a clinician <strong>did</strong>, not what is wrong with the
-                athlete. Not a severity scale — &ldquo;monitoring&rdquo; is a different decision
-                from &ldquo;no action&rdquo;, not a worse one. Every entry is in the Activity
-                Log as <em>Clinical response recorded</em>.
-              </p>
             </>
           )}
         </>

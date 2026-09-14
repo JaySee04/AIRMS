@@ -189,11 +189,11 @@ async function programmeActivityData(query = {}) {
     attributes: [
       'id', 'athleteId', 'assessedAt', 'totalScore', 'rom', 'stability', 'symmetry',
       'exerciseRisks', 'overallIndicator', 'overallBand', 'overrideBand',
-      // Band PROVENANCE (§96). Without these two the period tally cannot tell
-      // whether the bands it is comparing were measured against the same ruler,
-      // and screeningPeriods would report every window as comparable — which is
-      // the silent-success shape this pair exists to prevent.
-      'normVersionId', 'scoredAt',
+      // `normVersionId` / `scoredAt` were selected here for the band-mix
+      // provenance caveat, which went with the band mix itself (§106).
+      // The COLUMNS remain and are still written at scoring time — they record
+      // which ruler produced each band, which matters wherever a band is shown.
+      // Nothing READS them here any more, so nothing fetches them.
     ],
     order: [['assessedAt', 'ASC'], ['id', 'ASC']],
     raw: true,

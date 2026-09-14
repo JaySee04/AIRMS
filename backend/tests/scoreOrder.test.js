@@ -51,7 +51,16 @@ const EXPECTED = PERIOD_SCORES.map(([k]) => k);
  */
 function entriesOf(file, constName) {
   const src = fs.readFileSync(file, 'utf8');
-  const start = src.indexOf(constName);
+  // Anchor on the DECLARATION, not on the first mention of the name.
+  //
+  // This read `src.indexOf(constName)`, which finds the constant wherever it
+  // appears first — including inside a comment. This codebase is comment-heavy
+  // on purpose, so a note ABOVE the declaration explaining why the list is
+  // ordered the way it is moved the anchor into the prose, and the parser then
+  // took the next `[` it found and read a different array entirely. Three
+  // assertions failed against code that was correct (2026-09-14).
+  const declared = src.indexOf(`const ${constName}`);
+  const start = declared >= 0 ? declared : src.indexOf(constName);
   expect(start).toBeGreaterThanOrEqual(0); // the constant still exists
   const open = src.indexOf('[', src.indexOf('=', start));
   expect(open).toBeGreaterThanOrEqual(0);
@@ -161,5 +170,40 @@ describe('the six tracked scores are read in one order everywhere', () => {
     // the first (§33: one clinical measure, one name).
     const full = Object.fromEntries(PERIOD_SCORES.map(([k, l]) => [k, l]));
     found.forEach((e) => expect(e.label.length).toBeLessThanOrEqual(full[e.key].length));
+  });
+});
+
+// ── What the ADMIN is not shown (§107) ──────────────────────────────────────
+//
+// `overallIndicator` is AIRMS's own cohort-normed score — the machinery that
+// decides the band, orders the worklist and fires the alerts. It is not a
+// reading anybody took, and §21 already demoted it off the athlete hero for
+// that reason. It stayed in the admin change table by inertia, reading like a
+// sixth HoloMotion measurement beside five that genuinely are.
+//
+// Asserted rather than left as an absence, the same way EXCLUDED_RISK_KEYS
+// names the LDH exclusion: a hidden score that quietly came back would look
+// exactly like a score that was always meant to be there.
+describe('the admin change table hides AIRMS\'s own indicator', () => {
+  const TREND = fs.readFileSync(
+    path.join(FRONTEND, 'components', 'admin', 'TrendStrip.tsx'), 'utf8',
+  );
+
+  it('names the exclusion as a value', () => {
+    expect(TREND).toMatch(/const HIDDEN_FROM_ADMIN = new Set\(\[[^\]]*'overallIndicator'/);
+  });
+
+  it('applies it where the table is built', () => {
+    // Declared-but-unapplied is the winAnsiSafe shape: the constant would read
+    // as a decision while the row kept rendering.
+    expect(TREND).toMatch(/COMPARED_METRICS\.filter\(\(\[key\]\) => !HIDDEN_FROM_ADMIN\.has\(key\)\)/);
+  });
+
+  it('keeps COMPARED_METRICS complete, so the shared order stays guarded', () => {
+    // The exclusion is a DISPLAY decision. Deleting the entry instead would
+    // break the cross-package order this file exists to pin, and would lose the
+    // record that the score is still computed.
+    const found = entriesOf(path.join(FRONTEND, 'components', 'admin', 'TrendStrip.tsx'), 'COMPARED_METRICS');
+    expect(found.map((e) => e.key)).toContain('overallIndicator');
   });
 });

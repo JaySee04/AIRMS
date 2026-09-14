@@ -76,6 +76,30 @@ interface PeriodsResponse {
 // place. Where a label legitimately differs it is because the SPACE differs, and
 // it is compact by intent: ScreeningHistory's sparkline cells say "Total" and
 // "Ex. Risks" the way BAND_SHORT exists alongside BAND_LABEL.
+// Scores the ADMIN is not shown (§107).
+//
+// `overallIndicator` is AIRMS's OWN cohort-normed 0-100 score — every component
+// z-scored against the athlete's peer cohort and recombined. It is the
+// machinery: it decides the band, orders the worklist, fires the alerts and
+// ranks the reports. It is not a reading anybody took.
+//
+// §21 already demoted it once, off the athlete hero, on the grounds that
+// "what is 54?" is a question the abstract score cannot answer — and put
+// HoloMotion's printed Total Score there instead, because that is the one value
+// a clinician can check against the PDF in their hand. It stayed in this table
+// by inertia rather than by decision, sitting beside five numbers that ARE on
+// the report and reading exactly like a sixth.
+//
+// NAMED rather than deleted from COMPARED_METRICS, so the exclusion can be
+// ASSERTED — the same reason `EXCLUDED_RISK_KEYS` names the LDH exclusion as a
+// value instead of leaving it as an absence. COMPARED_METRICS stays the
+// canonical order that `backend/tests/scoreOrder.test.js` pins across both
+// packages; this only decides what is DRAWN.
+//
+// Still computed, still persisted, still doing all of the above. Just not
+// presented to an administrator as though it were a measurement.
+const HIDDEN_FROM_ADMIN = new Set(['overallIndicator']);
+
 const COMPARED_METRICS: Array<[string, string, boolean]> = [
   ['totalScore', 'Total Score', true],
   ['exerciseRisks', 'Exercise Risks', false],
@@ -199,7 +223,8 @@ export default function TrendStrip({ query }: { query: string }) {
               with one, two and many periods. */}
           {first && latestPeriod && periods.length >= 2 && (
           <MetricDeltas
-            metrics={COMPARED_METRICS.map(([key, label, higherBetter]) => ({
+            metrics={COMPARED_METRICS.filter(([key]) => !HIDDEN_FROM_ADMIN.has(key))
+              .map(([key, label, higherBetter]) => ({
               key,
               label,
               from: typeof first.averages?.[key] === 'number' ? (first.averages[key] as number) : null,
