@@ -213,10 +213,20 @@ describe('a small comparison group says so', () => {
     ],
   });
 
-  it(`caveats below ${SMALL_COHORT} peers`, () => {
+  // THE CAVEAT PARAGRAPH WAS REMOVED ON 2026-09-14, on JC's instruction, as part
+  // of cutting explanatory prose from the dashboards. What it said — that a group
+  // mean and spread computed from fewer than ${SMALL_COHORT} athletes are themselves
+  // uncertain — is no longer on screen.
+  //
+  // What REMAINS is the cohort SIZE in the header (`n=6`), so a clinician can
+  // still see the comparison is small; they are no longer told what that implies.
+  // §33c argued the implication is the part that matters, so this is a real
+  // reduction and is recorded rather than quietly dropped. Restoring it is one
+  // block in OverallRiskBadge.tsx.
+  it('still states the group SIZE, small or not', () => {
     const { container } = render(<OverallRiskBadge screening={withDeltas(SMALL_COHORT - 1)} />);
-    expect(container.textContent).toMatch(/indicative/i);
-    expect(container.textContent).toContain(`Only ${SMALL_COHORT - 1} athletes`);
+    expect(container.textContent).toContain(`n=${SMALL_COHORT - 1}`);
+    expect(container.textContent).not.toMatch(/indicative/i);
   });
 
   it(`does not caveat at ${SMALL_COHORT} peers or above`, () => {
@@ -237,9 +247,15 @@ describe('the comparison table keeps its orientation', () => {
     { key: 'riskGood', label: 'Injury risk', value: 19, mean: 14.1, delta: -4.9, z: -1.2, lowerIsBetter: true },
   ];
 
-  it('states that a positive difference is the better one', () => {
+  // The sentence 'A positive difference is better than the group on every row'
+  // was removed on 2026-09-14 (JC). The orientation now has to be carried by the
+  // ROW ITSELF — an inverted measure says so in its own label — because the
+  // signed difference is pre-oriented and would otherwise be ambiguous on
+  // exactly those rows.
+  it('marks an inverted measure in its own row label', () => {
     const { container } = render(<OverallRiskBadge screening={base({ cohortDeltas: deltas })} />);
-    expect(container.textContent).toMatch(/positive difference is better/i);
+    expect(container.textContent).toMatch(/lower is better/i);
+    expect(container.textContent).not.toMatch(/positive difference is better/i);
   });
 
   it('shows the lower-is-better row un-negated, as the clinician reads it', () => {
@@ -265,7 +281,11 @@ describe('the comparison table keeps its orientation', () => {
         { key: 'rom', label: 'ROM', value: 58, mean: 71.4, delta: -13.4, z: -1.45 },
       ],
     })} />);
-    expect(container.textContent).toMatch(/Reasons to assess/i);
+    // Renamed from "Reasons to assess" on 2026-09-14 (JC): that framing made the
+    // panel a decision about WHETHER to assess, and a flagged athlete is always
+    // assessed. The column now names the findings, not a case to be argued.
+    expect(container.textContent).toMatch(/Concerns/i);
+    expect(container.textContent).not.toMatch(/Reasons to assess/i);
     // "worse than", never "below" — the deltas are oriented, so "below" states
     // the opposite of the truth on the lower-is-better rows.
     expect(container.textContent).toMatch(/ROM 13\.4 worse than the group/);

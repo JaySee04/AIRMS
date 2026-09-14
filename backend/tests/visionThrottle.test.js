@@ -1,4 +1,4 @@
-// The cap on the one endpoint that spends money per request.
+// The quota cap on the one endpoint that consumes a third-party allowance.
 //
 // Half unit test, half WIRING test, and the second half is the point: a rate
 // limiter has the `winAnsiSafe` shape exactly — `visionThrottle` is a valid
@@ -27,10 +27,10 @@ function routeLine(routePath) {
   return line;
 }
 
-describe('the limiter is actually MOUNTED on the paid endpoint', () => {
+describe('the limiter is actually MOUNTED on the metered endpoint', () => {
   it('the preview route carries visionThrottle', () => {
     // The whole guard is this one word appearing in this one line. If a
-    // refactor drops it, every unit test below still passes and the budget cap
+    // refactor drops it, every unit test below still passes and the quota cap
     // is gone — which is precisely why the assertion is here and not only
     // on the middleware's behaviour.
     expect(routeLine('/screening/pdf/preview')).toContain('visionThrottle');
@@ -55,8 +55,8 @@ describe('the limiter is actually MOUNTED on the paid endpoint', () => {
 
   it('does NOT throttle the commit route, which calls no provider', () => {
     // The commit takes the ALREADY-extracted JSON and writes it. Throttling it
-    // would ration the half of the flow that costs nothing, and — worse — a
-    // clinician who had paid for an extraction could be blocked from saving it.
+    // would ration the half of the flow that draws no quota, and — worse — a
+    // clinician whose extraction already succeeded could be blocked from saving it.
     expect(routeLine('/screening/pdf')).not.toContain('visionThrottle');
   });
 

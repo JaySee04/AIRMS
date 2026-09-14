@@ -19,7 +19,6 @@ const { INDICATOR_ATTRS, toIndicator } = require('../utils/indicatorPayload');
 const {
   rankRoster, changesSince, resolveCutoff, headline,
 } = require('../utils/decisionSupport');
-const { getReviewed, markReviewed, clearReviewed, isReviewed } = require('../utils/reviewed');
 const { getSettings } = require('../utils/settings');
 const { sendError } = require('../utils/httpError');
 const { num: numParam, str, assertPlainQuery } = require('../utils/queryParams');
@@ -32,17 +31,9 @@ const router = express.Router();
 // capability is not lost, it is funnelled through the audited report path.
 const VIEW_ROLES = ['medical', 'admin', 'coach', 'athlete'];
 
-// Who may MARK one reviewed. A write, so `coach` is absent — read-only by a
-// LOCKED decision (MASTER_CLARIFICATIONS §12). The watchlist hit this exact
-// wall and the lock was kept in preference to the feature; the same answer
-// applies here, and `npm run audit:access` enforces it.
-const MARK_ROLES = ['medical', 'admin'];
-
-// Who may record a CLINICAL RESPONSE to an escalation (§103). The same two
-// roles, written separately rather than aliased: marking is a private bookmark
-// and responding is an audited act on the institution's record, so if either
-// list ever moves it must move on its own. Must stay in step with the rbac list
-// on POST /screenings/:id/response, which is the actual enforcement.
+// Who may record a CLINICAL RESPONSE to an escalation (§103). Must stay in step
+// with the rbac list on POST /screenings/:id/response, which is the actual
+// enforcement; this only decides whether the athlete page draws the control.
 const RESPOND_ROLES = ['medical', 'admin'];
 
 const MAX_WINDOW_DAYS = 90;
@@ -113,7 +104,6 @@ router.get('/', auth, rbac(...VIEW_ROLES), requirePermission('viewRecords'), asy
       return { ...r, screening: pair[0] ? toIndicator(pair[0], dueDays) : null };
     });
 
-    const reviewedMap = await getReviewed(req.user.id);
     const worklist = rankRoster(withScreening, { dueDays }).map((w) => {
       const pair = byAthlete.get(w.athleteId) || [];
       const screeningId = pair[0] ? pair[0].id : null;
@@ -121,13 +111,8 @@ router.get('/', auth, rbac(...VIEW_ROLES), requirePermission('viewRecords'), asy
       return {
         ...w,
         screeningId,
-        // Keyed on the SCREENING: a tick taken in July must not silence an
-        // athlete whose September import went red.
-        reviewed: isReviewed(reviewedMap, w.athleteId, screeningId),
-        // The INSTITUTION's answer, beside the reader's private tick (§103).
-        // Both travel because they mean different things and the panel must not
-        // let them be confused: `reviewed` is "I have looked at this", the three
-        // below are "a clinician recorded what was done about it".
+        // The INSTITUTION's answer (§103). Recorded on the athlete's own page;
+        // the queue only reports it.
         //
         // The note is deliberately NOT sent. This payload is the roster-scale
         // worklist, and clinical free text about every flagged athlete does not
@@ -148,9 +133,10 @@ router.get('/', auth, rbac(...VIEW_ROLES), requirePermission('viewRecords'), asy
       { windowDays, since, now },
     );
 
-    // The headline describes what is still OPEN, so working the queue empties
-    // it — otherwise "see 3 next" would stare back after all three were done.
-    const open = worklist.filter((w) => !w.reviewed);
+    // Everything flagged is open. The private "reviewed" tick that used to
+    // narrow this was removed (§107) — it let a reader empty their own queue
+    // without opening a single record.
+    const open = worklist;
     res.json({
       scope: label,
       windowDays,
@@ -162,7 +148,6 @@ router.get('/', auth, rbac(...VIEW_ROLES), requirePermission('viewRecords'), asy
       // showing "everything since you last looked" when it was not.
       changesBasis: basis,
       changesFrom: new Date(cutoff).toISOString(),
-      canMarkReviewed: MARK_ROLES.includes(req.user.role),
       // Same roles as marking today, and a SEPARATE flag on purpose: these
       // gate different acts (a private tick versus an audited clinical record),
       // and one flag serving both would silently change who can do which if
@@ -177,37 +162,5 @@ router.get('/', auth, rbac(...VIEW_ROLES), requirePermission('viewRecords'), asy
   } catch (err) { sendError(res, err, 'decisions.js'); }
 });
 
-// Marking is scoped to the caller: there is deliberately no route by which one
-// account can tick another's list, for the same reason there is none for
-// notification preferences.
-router.post('/reviewed/:athleteId', auth, rbac(...MARK_ROLES), requirePermission('viewRecords'), async (req, res) => {
-  try {
-    const screeningId = req.body && req.body.screeningId;
-    if (screeningId === undefined || screeningId === null || String(screeningId).trim() === '') {
-      // Required on purpose: a tick with no screening attached could never
-      // expire, and would silence the athlete for ever.
-      return res.status(400).json({ message: 'screeningId is required — a review is of one screening, not of an athlete.' });
-    }
-    // The athlete must EXIST before a tick is stored against them. Without this
-    // the endpoint accepted any string and quietly filled the reader's map with
-    // keys naming nobody — `npm run audit:access` caught it by aiming the write
-    // at a deliberately invalid id and getting 200 where the convention is that
-    // an allowed role reaches "not found" instead of changing anything.
-    const athlete = await Athlete.findOne({
-      where: { athleteId: req.params.athleteId }, attributes: ['athleteId'], raw: true,
-    });
-    if (!athlete) return res.status(404).json({ message: 'Athlete not found' });
-
-    const map = await markReviewed(req.user.id, athlete.athleteId, screeningId);
-    res.json({ reviewed: Object.keys(map).length });
-  } catch (err) { sendError(res, err, 'decisions.js'); }
-});
-
-router.delete('/reviewed/:athleteId', auth, rbac(...MARK_ROLES), requirePermission('viewRecords'), async (req, res) => {
-  try {
-    const map = await clearReviewed(req.user.id, req.params.athleteId);
-    res.json({ reviewed: Object.keys(map).length });
-  } catch (err) { sendError(res, err, 'decisions.js'); }
-});
 
 module.exports = router;

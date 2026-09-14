@@ -23,7 +23,7 @@ hardening item is **open by decision**: the application connects to MySQL as
 
 | # | Check | Verdict |
 |---|---|---|
-| 1 | Rate limiting | **Pass**, and widened — the paid vision endpoint had none |
+| 1 | Rate limiting | **Pass**, and widened — the metered vision endpoint had none |
 | 2 | API keys / secrets server-side | **Pass** |
 | 3 | Row-level security | **N/A for MySQL** — app-layer equivalent, audited |
 | 4 | Environment variables not in GitHub | **Pass** — whole history scanned |
@@ -58,13 +58,21 @@ Three properties are non-obvious and each was a real defect:
   one bucket; with `true` a caller can forge `X-Forwarded-For` and skip the
   limiter entirely.
 
-### 1.2 The paid endpoint — GAP FOUND AND FIXED (2026-09-13)
+### 1.2 The metered endpoint — GAP FOUND AND FIXED (2026-09-13)
 
 `POST /upload/screening/pdf/preview` renders up to six PDF pages and ships them
-to a third-party vision model, which **bills per call** (~11,400 tokens per
-HoloMotion report). It is the only endpoint in AIRMS where a request costs the
-institution money, and it had **no cap of any kind** — `express-rate-limit` was
-mounted on `/api/auth` and nowhere else.
+to a third-party vision model — ~11,400 tokens per HoloMotion report, measured.
+
+> **Corrected 2026-09-14.** This originally said the endpoint *bills per call*.
+> It does not: AIRMS runs on Gemini's FREE tier. A free tier still carries
+> per-minute and per-day quotas, so exhausting it produces an **outage** rather
+> than an invoice — screening import stops for everybody until the window
+> resets. It becomes a money question only if the provider is ever changed,
+> which is one env var.
+
+It is the only endpoint in AIRMS that consumes a third-party allowance, and it
+had **no cap of any kind** — `express-rate-limit` was mounted on `/api/auth` and
+nowhere else.
 
 Not a brute-force hole: the route sits behind `auth` + `rbac('medical','admin')`
 + `requirePermission('uploadData')`. The realistic failures are duller — a stuck
@@ -131,7 +139,7 @@ asserted:
    through the model layer.
 2. **The scoping is enforced in the handler and AUDITED by calling it.**
    `npm run audit:access` signs in as each of the four non-admin roles and calls
-   all 67 endpoints, then calls all 67 again with **no token**. It fails if a
+   all 66 endpoints, then calls all 66 again with **no token**. It fails if a
    read-only role reaches a write, or if any endpoint but the four sign-in
    routes answers anything other than 401 anonymously.
 3. **A refusal is itself scoped.** A coach asking for an unknown IC used to get

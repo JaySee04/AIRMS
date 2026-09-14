@@ -1,19 +1,31 @@
-// A budget cap on the one endpoint that spends money per request.
+// A QUOTA cap on the one endpoint that consumes a third-party allowance.
 //
-// `POST /upload/screening/pdf/preview` ships up to six rendered pages to a
-// third-party vision model, which BILLS PER CALL (~11,400 tokens per HoloMotion
-// report). It is the only endpoint in AIRMS where a request costs the
-// institution real money, and until 2026-09-13 it had no cap of any kind —
-// express-rate-limit was mounted on /api/auth and nowhere else. See DD §97.2.
+// CORRECTED 2026-09-14 (JC). This file originally called it a BUDGET cap and
+// said the endpoint "bills per call" and "costs the institution real money".
+// That was never checked against the actual configuration and is wrong: AIRMS
+// runs on Gemini's FREE tier (`gemini-flash-lite-latest` through the
+// OpenAI-compatible endpoint), so no call is billed. The cap is still right;
+// the reason given for it was not.
+//
+// WHAT IS ACTUALLY AT STAKE. `POST /upload/screening/pdf/preview` ships up to
+// six rendered pages to the vision provider — ~11,400 tokens per HoloMotion
+// report, measured. A free tier is not an unlimited one: it carries per-minute
+// and per-day request quotas, and exhausting them does not produce a bill, it
+// produces an OUTAGE. Screening import stops working for everybody until the
+// window resets, in the middle of a clinic or a demo.
+//
+// So the cost is AVAILABILITY, and it becomes money only if VISION_BASE_URL and
+// VISION_MODEL are ever pointed at a paid provider — which is one env var, with
+// no code change and nothing to remind anybody the cap was sized for a free
+// tier. Being in place before that happens is the point.
 //
 // NOT a brute-force control: the route sits behind auth + rbac('medical',
 // 'admin') + requirePermission('uploadData'), so an anonymous caller never
 // reaches it. The realistic failures are duller and likelier — a stuck retry in
 // the batch uploader, a backlog-import script run twice, one careless account
-// emptying the quota and taking the feature down for everybody. All three are
-// indistinguishable from legitimate use at request level, which is why a cap is
-// the only thing that bounds them: its job is to make the bill finite, not to
-// decide who was right.
+// burning the daily allowance. All three are indistinguishable from legitimate
+// use at request level, which is why a cap is the only thing that bounds them:
+// its job is to keep the feature ALIVE, not to decide who was right.
 //
 // The other 63 endpoints stay unthrottled and that is still correct (§48) —
 // they touch this institution's own database, and rating them would ration a

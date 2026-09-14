@@ -3973,3 +3973,35 @@ textarea:focus-visible,
   cursor: pointer;
 }
 .decision-respond-note { display: flex; flex-direction: column; gap: 4px; font-size: var(--fs-sm); }
+
+/* ── The worklist entry opens the record (§107) ──────────────────────────────
+   The whole name bar is the control. It replaced an "Open record" button beside
+   a "Mark reviewed" one — the second of which cleared the reader's own queue
+   without the record ever being opened, which is the wrong SOP for a clinical
+   worklist.
+
+   A button rather than a div with a click handler, so it is reachable by
+   keyboard and announced as a control, and `text-align: left` because a button
+   centres its content by default and this is a row of prose. */
+.decision-open {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--sp-xs) var(--sp-sm);
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: var(--sp-xs) var(--sp-xs) var(--sp-xs) 0;
+  margin: 0 0 0 calc(var(--sp-xs) * -1);
+  border-radius: var(--r-sm);
+  font: inherit;
+  color: inherit;
+  transition: background var(--dur) var(--ease);
+}
+.decision-open:hover:not(:disabled) { background: var(--bg); }
+/* A row that cannot be opened must not pretend otherwise — `onOpenAthlete` is
+   absent on surfaces that have no detail view to open. */
+.decision-open:disabled { cursor: default; }
+.decision-open:not(:disabled) .decision-name { text-decoration: underline; text-decoration-color: var(--border); text-underline-offset: 3px; }
+.decision-open:hover:not(:disabled) .decision-name { text-decoration-color: var(--text-muted); }

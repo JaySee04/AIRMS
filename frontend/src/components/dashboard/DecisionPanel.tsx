@@ -174,13 +174,6 @@ export default function DecisionPanel({
   // action, not the presence of state.
   const [justMarked, setJustMarked] = useState(false);
 
-  // Which entry has its response form open, and what is typed into it. Keyed by
-  // athleteId rather than a boolean, so opening one form closes any other —
-  // two open forms invite a note being typed into the wrong athlete's.
-  const [responding, setResponding] = useState<string | null>(null);
-  const [outcome, setOutcome] = useState<string>('');
-  const [note, setNote] = useState('');
-  const [saveError, setSaveError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -221,61 +214,8 @@ export default function DecisionPanel({
     setJustMarked(true);
   }
 
-  async function toggleReviewed(entry: WorklistEntry) {
-    if (!data?.canMarkReviewed) return;
-    setBusy(entry.athleteId);
-    try {
-      if (entry.reviewed) await api.delete(`/decisions/reviewed/${entry.athleteId}`);
-      else await api.post(`/decisions/reviewed/${entry.athleteId}`, { screeningId: entry.screeningId });
-      await load();
-    } catch {
-      setError('That could not be saved. Your list is unchanged.');
-    } finally {
-      setBusy(null);
-    }
-  }
 
-  /** Open the response form for one entry, pre-filled if it already has one. */
-  function openResponse(entry: WorklistEntry) {
-    setResponding(entry.athleteId);
-    // Pre-selecting the existing outcome makes "change my answer" the same
-    // gesture as "record one", and means a re-open cannot silently blank a
-    // previous decision by submitting the placeholder.
-    setOutcome(entry.responseOutcome ?? '');
-    setNote('');
-    setSaveError(null);
-  }
 
-  /**
-   * Record what was DONE about this escalation.
-   *
-   * Writes to the screening, not to the reader's tick list. That endpoint is
-   * audited (`escalation.response`) and is the reason this control exists —
-   * "Mark reviewed" beside it records only that somebody looked.
-   */
-  async function submitResponse(entry: WorklistEntry) {
-    if (!data?.canRecordResponse || !entry.screeningId || !outcome) return;
-    setBusy(entry.athleteId);
-    setSaveError(null);
-    try {
-      await api.post(`/screenings/${entry.screeningId}/response`, {
-        outcome,
-        note: note.trim() || undefined,
-      });
-      setResponding(null);
-      setNote('');
-      await load();
-    } catch (e) {
-      // Kept local to the form rather than raised to the panel-level `error`,
-      // which replaces the whole worklist with a warning — losing the note the
-      // clinician just typed, and their place in the list, over one failed save.
-      setSaveError(isAuthError(e)
-        ? 'You do not have permission to record a clinical response.'
-        : 'That could not be saved. Nothing was recorded.');
-    } finally {
-      setBusy(null);
-    }
-  }
 
   if (error) {
     return (
@@ -288,7 +228,6 @@ export default function DecisionPanel({
 
   const open = data.worklist.filter((w) => !w.reviewed && w.band !== 'green' && w.band !== 'none');
   const shown = showAll ? open : open.slice(0, limit);
-  const done = data.worklist.filter((w) => w.reviewed).length;
 
   return (
     <div className="card decision-panel" style={{ marginBottom: 20 }}>
@@ -315,58 +254,44 @@ export default function DecisionPanel({
         <ul className="decision-list">
           {shown.map((w) => (
             <li key={w.athleteId} className="decision-item">
-              <div className="decision-item-main">
+              {/* THE NAME BAR IS THE CONTROL (§107, JC).
+                  Previously this row carried "Open record" and "Mark reviewed"
+                  side by side. "Mark reviewed" was a private bookmark — it hid
+                  the athlete from THIS reader's queue, wrote nothing to their
+                  record, and was invisible to every other clinician — and it
+                  sat next to a real clinical decision looking like one. Worse,
+                  it let the queue be cleared WITHOUT the record ever being
+                  opened.
+
+                  The SOP is now the obvious one: open the athlete, read the
+                  screening, decide there. So the whole bar opens the record and
+                  there is nothing else to press.
+
+                  A <button> wrapping only the bar, not the <li> — a button's
+                  content model is phrasing content, so the reasons <ul> below
+                  cannot legally live inside one. This also keeps the reasons
+                  selectable text rather than swallowing them into a control. */}
+              <button
+                type="button"
+                className="decision-open"
+                onClick={() => onOpenAthlete && onOpenAthlete(w.athleteId)}
+                disabled={!onOpenAthlete}
+                aria-label={`Open ${w.name ?? w.athleteId}'s record`}
+              >
                 <span className={`decision-band decision-band--${w.band}`}>{entryLabel(w.band)}</span>
                 <strong className="decision-name">{w.name ?? w.athleteId}</strong>
                 {w.isInjured && <span className="decision-flag">flagged injured</span>}
                 {w.ageDays !== null && (
                   <span className="text-muted decision-age">{w.ageDays}d ago</span>
                 )}
-              </div>
+              </button>
               <ul className="decision-reasons">
                 {w.reasons.map((r) => <li key={r}>{r}</li>)}
               </ul>
-              <div className="decision-actions">
-                {onOpenAthlete && (
-                  <button type="button" className="btn btn-outline btn-sm" onClick={() => onOpenAthlete(w.athleteId)}>
-                    Open record
-                  </button>
-                )}
-                {data.canMarkReviewed && (
-                  <button
-                    type="button"
-                    className="btn btn-outline btn-sm"
-                    disabled={busy === w.athleteId}
-                    onClick={() => toggleReviewed(w)}
-                    // Said plainly, because the difference matters clinically.
-                    title="Marks that YOU have looked at this screening. It is not a clinical decision — to record one, use Record response."
-                  >
-                    {busy === w.athleteId ? 'Saving…' : 'Mark reviewed'}
-                  </button>
-                )}
-                {/* Offered only where there is something to answer. A green or
-                    never-screened entry is not an escalation, and inviting a
-                    clinical response to one would manufacture records of
-                    decisions nobody was asked to make. */}
-                {data.canRecordResponse && w.screeningId
-                  && (w.band === 'red' || w.band === 'amber') && (
-                  <button
-                    type="button"
-                    className="btn btn-outline btn-sm"
-                    disabled={busy === w.athleteId}
-                    onClick={() => (responding === w.athleteId
-                      ? setResponding(null) : openResponse(w))}
-                    title="Records what was DONE about this escalation. Audited and attributed to you."
-                  >
-                    {w.responseOutcome ? 'Change response' : 'Record response'}
-                  </button>
-                )}
-              </div>
-
-              {/* ANSWERED, stated on the entry itself. Without this the list
-                  looks identical whether nine escalations were dealt with or
-                  none were — which is the gap §103 exists to close. */}
-              {w.responseOutcome && responding !== w.athleteId && (
+              {/* What was DONE about this one, read-only. The queue reports the
+                  institution's answer; recording it happens on the athlete's
+                  own page, where the clinician can see what they are answering. */}
+              {w.responseOutcome && (
                 <p className="decision-response">
                   <strong>{outcomeLabel(w.responseOutcome)}</strong>
                   {w.responseBy ? ` · ${w.responseBy}` : ''}
@@ -374,60 +299,6 @@ export default function DecisionPanel({
                     day: 'numeric', month: 'short', year: 'numeric',
                   })}` : ''}
                 </p>
-              )}
-
-              {responding === w.athleteId && (
-                <div className="decision-respond">
-                  <p className="decision-respond-lead">
-                    What was done about this? Recorded against the screening,
-                    attributed to you, and written to the Activity Log.
-                  </p>
-                  <div className="decision-respond-options">
-                    {RESPONSE_OUTCOMES.map((o) => (
-                      <label key={o.key} className="decision-respond-option">
-                        <input
-                          type="radio"
-                          name={`outcome-${w.athleteId}`}
-                          value={o.key}
-                          checked={outcome === o.key}
-                          onChange={() => setOutcome(o.key)}
-                        />
-                        <span>{o.label}</span>
-                      </label>
-                    ))}
-                  </div>
-                  <label className="decision-respond-note">
-                    <span className="text-muted">Note (optional)</span>
-                    <textarea
-                      className="band-override-textarea"
-                      rows={2}
-                      value={note}
-                      onChange={(e) => setNote(e.target.value)}
-                      placeholder="Anything the next clinician should know"
-                    />
-                  </label>
-                  {saveError && (
-                    <div className="alert alert-warning" style={{ marginBottom: 0 }}>{saveError}</div>
-                  )}
-                  <div className="decision-actions">
-                    <button
-                      type="button"
-                      className="btn btn-primary btn-sm"
-                      disabled={!outcome || busy === w.athleteId}
-                      onClick={() => submitResponse(w)}
-                    >
-                      {busy === w.athleteId ? 'Saving…' : 'Record response'}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-outline btn-sm"
-                      disabled={busy === w.athleteId}
-                      onClick={() => setResponding(null)}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
               )}
             </li>
           ))}
@@ -440,12 +311,6 @@ export default function DecisionPanel({
         </button>
       )}
 
-      {done > 0 && (
-        <p className="card-sub" style={{ marginTop: 12, marginBottom: 0 }}>
-          {done} marked reviewed by you. A new screening brings an athlete back — a
-          review is of one assessment, not of a person.
-        </p>
-      )}
 
       {open.length >= 2 && <CompareAthletes entries={open} />}
 

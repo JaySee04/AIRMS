@@ -527,7 +527,7 @@ const MUTATIONS = [
   },
   {
     guard: 'vision throttle: the paid endpoint is actually MOUNTED behind it',
-    why: 'the ONE endpoint that bills per request had no cap at all (§97.2)',
+    why: 'the ONE endpoint that consumes a third-party quota had no cap at all (§97.2)',
     pkg: 'backend',
     file: 'src/routes/upload.js',
     // Un-wiring it, which is what a refactor does by accident. The limiter

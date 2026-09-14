@@ -257,15 +257,23 @@ async function visit(browser, route, session) {
       // An entry without a reason is an instruction a clinician cannot check.
       check(`${role}: every entry carries a reason`,
         /below cohort average|never screened|overdue|override in force|flagged by the cohort/i.test(r.text));
-      // Marking is a WRITE; coach is read-only by a locked decision.
-      const buttons = await r.page.evaluate(
-        () => [...document.querySelectorAll('.decision-actions button')].map((b) => b.textContent.trim()),
+      // THE ENTRY OPENS THE RECORD (§107). 'Mark reviewed' was removed: it was a
+      // private bookmark that cleared the reader's own queue WITHOUT the record
+      // ever being opened, which is the wrong SOP for a clinical worklist. The
+      // name bar is now the only control, and every decision is made on the
+      // athlete's page.
+      const bars = await r.page.evaluate(
+        () => [...document.querySelectorAll('.decision-open')].map((b) => ({
+          text: b.textContent.trim(), disabled: b.disabled,
+        })),
       );
-      if (role === 'coach') {
-        check('coach is offered no way to mark an entry reviewed', !buttons.includes('Mark reviewed'));
-      } else {
-        check('a clinician can mark an entry reviewed', buttons.includes('Mark reviewed'));
-      }
+      check(`${role}: every entry is openable from its name bar`,
+        bars.length > 0 && bars.every((b) => b.text.length > 0));
+      // The old tick must not come back by another name.
+      const stale = await r.page.evaluate(
+        () => [...document.querySelectorAll('button')].some((b) => /Mark reviewed/i.test(b.textContent || '')),
+      );
+      check(`${role}: the private 'Mark reviewed' tick is gone`, !stale);
       await r.page.close();
     }
     {

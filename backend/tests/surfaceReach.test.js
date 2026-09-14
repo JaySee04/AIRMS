@@ -49,15 +49,6 @@ const CAPABILITIES = [
     },
   },
   {
-    name: 'marking a screening reviewed',
-    routeFile: 'routes/decisions.js',
-    roleConst: 'MARK_ROLES',
-    endpoint: '/decisions/reviewed',
-    reachWithoutSurface: {
-      admin: 'Follows the worklist above — no admin surface to mark from.',
-    },
-  },
-  {
     name: 'the personal watchlist',
     routeFile: 'routes/watchlist.js',
     roleConst: 'ROLES',

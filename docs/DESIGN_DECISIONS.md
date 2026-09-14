@@ -8489,25 +8489,40 @@ common "normalisation" and it would have merged
 the personal account — silently breaking the one-email-per-sport demo those two
 inboxes exist to show. It is registered as a mutation for that reason.
 
-### 97.2 The one endpoint that spends money had no cap
+### 97.2 The one endpoint that consumes a third-party quota had no cap
 
 `express-rate-limit` was mounted on `/api/auth` and nowhere else. For 63 of the
 67 endpoints that remains right and §48's reasoning stands — they touch this
 institution's own database, they are all behind `auth`, and rating them would
 ration a clinician's ordinary navigation.
 
+> **CORRECTED 2026-09-14 (JC).** This section originally said the endpoint
+> "bills per call" and was "the only endpoint where a request costs real money".
+> **That was wrong and was never checked against the configuration.** AIRMS runs
+> on Gemini's FREE tier (`gemini-flash-lite-latest` through the
+> OpenAI-compatible endpoint) — no call is billed. The cap is still right; the
+> reason given for it was not. Corrected in place rather than appended, because a
+> wrong factual claim left standing in the reference is worse than an untidy one.
+
 `POST /upload/screening/pdf/preview` is not like the other 63. It ships up to
-six rendered pages to a **third-party vision model that bills per call**
-(~11,400 tokens per report). It is the only endpoint where a request costs real
-money, and it had no cap of any kind.
+six rendered pages to the vision provider — ~11,400 tokens per report, measured.
+A free tier is not an unlimited one: it carries per-minute and per-day request
+quotas, and exhausting them does not produce a bill, it produces an **outage**.
+Screening import stops working for everybody until the window resets, in the
+middle of a clinic or a demo. It had no cap of any kind.
+
+The cost is therefore **availability**, and it becomes money only if
+`VISION_BASE_URL` and `VISION_MODEL` are pointed at a paid provider — one env
+var, no code change, and nothing to remind anybody the cap was sized for a free
+tier. Being in place before that happens is the point.
 
 **It is not a brute-force hole and the fix is not pretending to be one.** The
 route sits behind `auth` + `rbac('medical','admin')` + `requirePermission`. The
 realistic failures are duller and likelier: a stuck retry in the batch uploader,
 a backlog-import script run twice, one careless account emptying the quota and
-taking the feature down for everybody until the billing period rolls. All three
+taking the feature down for everybody until the quota window resets. All three
 are indistinguishable from legitimate use at request level, which is exactly why
-a cap is the only thing that bounds them — its job is to make the bill finite,
+a cap is the only thing that bounds them — its job is to keep the feature ALIVE,
 not to decide who was right.
 
 **60 / hour, keyed per USER.** Per-user rather than per-IP is the §48 NAT lesson
@@ -8525,8 +8540,8 @@ oversight, and a test asserts the headroom rather than the constant.
 **Loopback is NOT exempt, unlike the auth throttle.** That exemption exists
 because `audit:access` and `e2e` generate deliberate streams of failed logins
 from this machine. Neither generates a stream here — and more to the point, a
-development machine with `VISION_API_KEY` set spends the *same money* as the
-deployed one. Exempting localhost would exempt the only place a runaway loop is
+development machine with `VISION_API_KEY` set draws on the *same shared quota* as
+the deployed one. Exempting localhost would exempt the only place a runaway loop is
 actually written.
 
 **Mounted after the permission gate and before multer**, both asserted. After,
@@ -8790,7 +8805,7 @@ first; the second is why this project can answer questions about itself.
 nine-point checklist. Everything else was updated in place: CLAUDE.md's suite
 counts (backend 55/809, frontend 22/357, 52 mutations), its rate-limiting note —
 which had said "do not add a second one" and now distinguishes the auth throttle
-from the budget cap — and the new required-reading entry for SECURITY.md.
+from the quota cap — and the new required-reading entry for SECURITY.md.
 
 **Verified after the cull**: backend 55 suites / 809 tests, frontend 22 / 357,
 e2e 110/110, **52/52 mutations caught**, typecheck and lint clean, map current.
@@ -9445,3 +9460,106 @@ code" is exactly the kind of false signal that gets a suite ignored.
 
 **Verified**: backend 58 suites / 852 tests, frontend 22 / 357, e2e 110/110,
 60/60 mutations with the ports free, typecheck + lint clean.
+
+---
+
+## 107. The tick that let a queue be cleared without opening a record (2026-09-14)
+
+JC, on seeing the worklist entry: *"What does the mark reviewed button serve for
+here? Shouldn't the right SOP be that they must check all the stats and toggle
+within the athlete's dashboard?"*
+
+### 107.1 What it was, and why it was wrong
+
+`utils/reviewed.js` was honest about itself: a private bookmark, keyed
+`reviewed:<userId>` in `settings`, **deliberately unaudited** — *"a working note
+about the reader, not an act on the institution's data."* Its only effect was to
+drop an athlete out of **that reader's** queue. Another clinician still saw them.
+Nothing reached the athlete's record.
+
+Two problems, and the second is the serious one:
+
+1. It sat beside a real clinical decision and **looked like one**. The tooltip
+   had to explain, in the product, that pressing it meant nothing clinically —
+   which is the tell that the affordance was wrong rather than the wording.
+2. **It let the worklist be cleared without a single record being opened.** A
+   clinician could work the whole queue to empty from the summary rows.
+
+The SOP JC described is the obvious one and was never what the UI encouraged:
+open the athlete, read the screening, decide there, come back.
+
+### 107.2 What replaced it
+
+- **The name bar is the control.** The whole `.decision-open` row opens the
+  record. A `<button>` wrapping only the bar rather than the `<li>`, because a
+  button's content model is phrasing content and the reasons `<ul>` cannot
+  legally live inside one — that also keeps the reasons selectable rather than
+  swallowed into a control.
+- **"← Back to worklist"** on the athlete page. Offered whether or not a
+  decision was recorded: leaving without one is a legitimate outcome, and a
+  control that appeared only *after* a decision would read as a gate.
+- **Recording moved to the athlete's page** (`EscalationResponse.tsx`). Removing
+  the inline form from the queue left NO way to record a response at all — a
+  regression caught by asking "where does this happen now" rather than by any
+  test, since a removed control breaks nothing.
+
+### 107.3 The guard that refused to let me be lazy
+
+Removing the control left `POST`/`DELETE /decisions/reviewed` reachable by
+`rbac` and offered by nothing. `tests/surfaceReach.test.js` exists for exactly
+that shape, and its stated contract is that a gap must be **declared with a
+reason** rather than left silent — so declaring it looked like the cheap correct
+move.
+
+It failed. The file carries a canary — `expect(hosts.length).toBeGreaterThan(0)`
+— with the note that *"a capability whose pages all vanished would look like a
+declared gap; the whole file would pass while asserting nothing."* Every other
+entry is ONE role lacking a page; this was NO role having a surface, which is
+not a defensible gap, it is dead reach.
+
+So the endpoints, `utils/reviewed.js`, the `reviewed` field, `MARK_ROLES` and
+`canMarkReviewed` are gone. **Endpoint count 68 → 66**, through CLAUDE.md,
+PERMISSIONS.md, SECURITY.md, `audit-access.js` and the generated map.
+
+The `open` filter is now simply `worklist` — everything flagged is open, because
+nothing can privately hide a row any more.
+
+### 107.4 Concerns and reassuring findings
+
+Renamed from **"Reasons to assess" / "Reasons not to"** on JC's instruction, with
+his reasoning: *athletes should always be assessed*.
+
+The old pair framed the panel as a decision about **whether** to assess, and so
+quietly offered the option of not doing it — on the one screen where a clinician
+is deciding what to do about a flagged athlete. The columns now describe the
+FINDINGS the clinician walks in with.
+
+The two-column split is kept. §21 added the second column precisely so the
+reader sees what runs the other way before examining, and a one-sided list reads
+as a prosecution.
+
+### 107.5 Explanatory copy removed, and what it cost
+
+JC highlighted five blocks of prose on the medical athlete view and asked for
+them gone — the same complaint as §99.2, now on a clinical surface. All five
+removed. Two had tests behind them, and rather than delete those guards they
+were re-pointed at what still protects the reader, with the loss recorded:
+
+- **The small-cohort caveat** (§33c) is gone. The header still states `n=6`, so
+  the reader can see the group is small; they are no longer told what that
+  implies for a ±1.66 SD figure computed from six people. §33c argued the
+  implication is the part that matters, so this is a real reduction. One block
+  in `OverallRiskBadge.tsx` restores it.
+- **"A positive difference is better than the group"** is gone. Orientation now
+  rests entirely on `(lower is better)` in the row label of an inverted measure.
+  The test pins that instead.
+
+Both are recorded here rather than left as a silent narrowing, because the next
+person to read those tests will otherwise see a weaker assertion and assume it
+was always the intent.
+
+**Verified**: backend 58 suites / 852 tests, frontend 22 / 357, e2e **112/112**,
+60/60 mutations, `audit:access` clean at 66 endpoints with every guarded one
+answering 401 anonymously, typecheck + lint clean, map current — and the whole
+loop driven in a real browser: name bar opens the record, response recorded on
+the athlete page, back button returns to the queue.

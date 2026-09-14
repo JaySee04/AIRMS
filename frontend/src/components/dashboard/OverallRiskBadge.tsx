@@ -52,6 +52,11 @@ export interface ScreeningIndicator {
   overrideBand?: 'green' | 'amber' | 'red' | null;
   overrideNote?: string | null;
   overrideBy?: string | null;
+  /** What a clinician DID about the escalation (§103). Distinct from the
+   *  override above, which says the band is wrong. */
+  responseOutcome?: string | null;
+  responseBy?: string | null;
+  responseAt?: string | null;
   subitems?: Subitems | null;
 }
 
@@ -84,7 +89,7 @@ function gapWord(z: number): string {
   return z > 0 ? 'far better' : 'far behind';
 }
 
-/** Reasons to assess: the stored escalation reasons, plus any component clearly
+/** Concerns (was "reasons to assess" — §107): the stored escalation reasons, plus any component clearly
  *  below the group that no rule happened to cover. */
 function whyAssess(screening: ScreeningIndicator, audience: 'self' | 'staff' = 'staff'): string[] {
   const out = [...(screening.factors ?? [])];
@@ -367,12 +372,6 @@ export default function OverallRiskBadge({
                   </span>
                 )}
             </div>
-            {smallCohort && (
-              <p className="cohort-profile-caveat">
-                Only {size} athletes in this comparison group, so the group average and
-                spread are themselves uncertain — read these differences as indicative.
-              </p>
-            )}
             <table className="cohort-profile-table">
               <thead>
                 <tr>
@@ -415,31 +414,34 @@ export default function OverallRiskBadge({
                 })}
               </tbody>
             </table>
-            <div className="cohort-profile-note">
-              A positive difference is better than the group on every row.
-              {pct != null && (
-                <> {audience === 'self' ? 'You sit' : 'They sit'} at the <strong>{ordinal(pct)} percentile</strong>{' '}
-                  of this group &mdash; ranked {rank} of {size}, where 1 is the lowest.</>
-              )}
-            </div>
           </div>
         )}
+        {/* WHAT THE SCREENING FOUND, BOTH WAYS (§107, JC).
+            These were "Reasons to assess" and "Reasons not to", which framed the
+            panel as a decision about WHETHER to assess — and so quietly offered
+            the option of not doing it. The SOP is that a flagged athlete is
+            always assessed, so the two columns describe the FINDINGS the
+            clinician is walking in with, not a case to be argued.
+
+            The split itself is kept: a one-sided list reads as a prosecution,
+            and §21 added the second column precisely so the reader sees what
+            runs the other way before they examine the athlete. */}
         {(forList.length > 0 || againstList.length > 0) && (
           <div className="reason-cols">
             <div className="reason-col reason-col--for">
-              <div className="reason-col-head">Reasons to assess</div>
+              <div className="reason-col-head">Concerns</div>
               {forList.length ? (
                 <ul>{forList.map((f) => <li key={f}>{f}</li>)}</ul>
               ) : (
-                <p className="reason-col-empty">Nothing in this screening argues for an assessment.</p>
+                <p className="reason-col-empty">No concerns flagged in this screening.</p>
               )}
             </div>
             <div className="reason-col reason-col--against">
-              <div className="reason-col-head">Reasons not to</div>
+              <div className="reason-col-head">Reassuring findings</div>
               {againstList.length ? (
                 <ul>{againstList.map((f) => <li key={f}>{f}</li>)}</ul>
               ) : (
-                <p className="reason-col-empty">Nothing in this screening argues against one.</p>
+                <p className="reason-col-empty">None in this screening.</p>
               )}
             </div>
           </div>

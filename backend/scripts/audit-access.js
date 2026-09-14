@@ -137,12 +137,13 @@ const ROUTES = [
   ['DELETE', '/watchlist/__nope__', null],
   // The decision worklist. A READ for medical/admin/coach/athlete, each scoped
   // by their own role; executive is refused on the §51 reasoning (a per-athlete
-  // worklist is a clinical record in list form). Marking one reviewed is a
-  // WRITE and so is medical+admin only — coach is read-only by a locked
-  // decision, exactly as with the watchlist.
+  // worklist is a clinical record in list form).
+  //
+  // The two /decisions/reviewed writes were removed with the 'Mark reviewed'
+  // control (§107) — a private per-reader tick that let the queue be cleared
+  // without a record being opened. The only write that answers an escalation is
+  // now POST /screenings/:id/response, probed above.
   ['GET', '/decisions'],
-  ['POST', '/decisions/reviewed/__nope__', { screeningId: '1' }],
-  ['DELETE', '/decisions/reviewed/__nope__', null],
   ['GET', '/coach/readiness'],
   ['GET', '/cohorts'],
   ['GET', '/cohorts/versions'],

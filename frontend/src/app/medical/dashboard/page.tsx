@@ -6,6 +6,7 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import type { MuscleEntry } from '@/components/dashboard/BodyMap';
 import OverallRiskBadge, { ScreeningIndicator } from '@/components/dashboard/OverallRiskBadge';
 import ClinicianBandOverride from '@/components/dashboard/ClinicianBandOverride';
+import EscalationResponse from '@/components/dashboard/EscalationResponse';
 import type { AthleteRisks } from '@/lib/screeningAlerts';
 import { INSTRUMENT_BANDS, RADAR_LABELS, highThresholdsFor, riskBand, riskRadarSeries } from '@/lib/screeningAlerts';
 
@@ -846,6 +847,21 @@ export default function MedicalDashboard() {
                       refuses to shrink, so the row held its content width and pushed
                       past the card on a phone. */}
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end', minWidth: 0 }}>
+                    {/* BACK TO THE QUEUE (§107, JC). The worklist is the page a
+                        clinician works FROM: they open an athlete, decide, and
+                        come back for the next one. Without this the only way
+                        back was the browser button or re-picking from the rail,
+                        and neither reads as "I am finished with this one".
+                        Offered whether or not a decision was recorded — leaving
+                        without one is a legitimate outcome, and a control that
+                        appeared only after a decision would read as a gate. */}
+                    <button
+                      type="button"
+                      className="btn btn-outline"
+                      onClick={() => setSelectedId(null)}
+                    >
+                      &larr; Back to worklist
+                    </button>
                     {selectedAthlete.screening && (
                       <button
                         type="button"
@@ -906,6 +922,18 @@ export default function MedicalDashboard() {
                   overrideNote={selectedAthlete.screening.overrideNote}
                   overrideBy={selectedAthlete.screening.overrideBy}
                   overrideAt={selectedAthlete.screening.overrideAt}
+                  onSaved={reloadSelectedAthlete}
+                />
+              )}
+              {/* The AUDITED response, beneath the override (§107). Same rule:
+                  the latest screening only — you cannot answer history. */}
+              {!picked && selectedAthlete.screening?.screeningId && (
+                <EscalationResponse
+                  screeningId={selectedAthlete.screening.screeningId}
+                  band={selectedAthlete.screening.effectiveBand}
+                  outcome={selectedAthlete.screening.responseOutcome ?? null}
+                  by={selectedAthlete.screening.responseBy ?? null}
+                  at={selectedAthlete.screening.responseAt ?? null}
                   onSaved={reloadSelectedAthlete}
                 />
               )}

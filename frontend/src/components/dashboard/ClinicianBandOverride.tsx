@@ -76,11 +76,6 @@ export default function ClinicianBandOverride({
       <div className="band-override-head">
         <div>
           <h3 className="band-override-title" id="band-override-title">Clinical assessment</h3>
-          <p className="band-override-help">
-            The status above is calculated from this athlete&apos;s latest screening against their comparison
-            group. After you examine them, record your own verdict — it replaces the calculated status on the
-            athlete&apos;s and their coach&apos;s dashboard until the next HoloMotion report is imported.
-          </p>
         </div>
         <span className={`band-override-source band-override-source--${overridden ? 'manual' : 'auto'}`}>
           {overridden
@@ -116,8 +111,7 @@ export default function ClinicianBandOverride({
       {pending && (
         <div className="band-override-note">
           <label htmlFor="band-override-note-input">
-            Why are you setting this athlete to <strong>{LABEL(pending)}</strong>? The athlete and their coach
-            see this note on their dashboard.
+            Note
           </label>
           <textarea
             id="band-override-note-input"
@@ -139,7 +133,6 @@ export default function ClinicianBandOverride({
               {busy ? 'Saving…' : `Set to ${LABEL(pending)}`}
             </button>
             <button type="button" className="btn btn-outline btn-sm" onClick={reset} disabled={busy}>Cancel</button>
-            {!note.trim() && <span className="band-override-hint">A note is required — it is the clinical record for this decision.</span>}
           </div>
         </div>
       )}
