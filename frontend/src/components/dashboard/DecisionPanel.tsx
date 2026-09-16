@@ -125,7 +125,6 @@ interface DecisionPayload {
   /** What the change list covers — reported by the server, not inferred here. */
   changesBasis: 'since' | 'clamped' | 'window';
   changesFrom: string;
-  canMarkReviewed: boolean;
   canRecordResponse: boolean;
   headline: { verb: string; count: number; parts: string[] } | null;
   worklist: WorklistEntry[];

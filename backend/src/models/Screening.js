@@ -121,10 +121,11 @@ const Screening = sequelize.define('Screening', {
   // this, agreeing with a red band and acting on it left no institutional
   // record at all — only disagreeing did.
   //
-  // NOT the same as `reviewed:<userId>` in settings. That is a private
-  // bookmark, per reader, unaudited on purpose (utils/reviewed.js). This is the
-  // institution's record, and every write of it is an `escalation.response`
-  // audit row.
+  // NOT a "mark reviewed" tick. That existed as `reviewed:<userId>` in
+  // settings — a private per-reader bookmark, deliberately unaudited — and was
+  // REMOVED in §107 precisely because it let a queue be cleared without a
+  // record ever being opened. This is the institution's record instead, and
+  // every write of it is an `escalation.response` audit row.
   //
   // These four hold the LATEST response; the audit log holds the history. Same
   // division as the override, and the reason a second response overwriting the

@@ -29,7 +29,7 @@ hardening item is **open by decision**: the application connects to MySQL as
 | 4 | Environment variables not in GitHub | **Pass** — whole history scanned |
 | 5 | Validate and sanitise user input | **Was partial** — query params yes, email address no. Fixed |
 | 6 | No table defaults to public | **Pass** on grants; `root` connection is open by decision |
-| 7 | Authenticated protected routes | **Pass** — 67/67 proven live |
+| 7 | Authenticated protected routes | **Pass** — 66/66 proven live |
 | 8 | Error messages carry no stack trace | **Pass** |
 | 9 | Audit logs | **Pass** — 18 write sites, append-only |
 
@@ -86,7 +86,7 @@ Mounted *after* the permission gate (so an unauthorised caller is refused on
 permission, not quota) and *before* multer (so an over-quota caller does not
 first cause a 20 MB buffer).
 
-> **Deliberately NOT extended to the other 63 endpoints.** They read and write
+> **Deliberately NOT extended to the other 65 endpoints.** They read and write
 > this institution's own database, they are all behind `auth`, and rating them
 > would ration a clinician's ordinary work. §48 says so and stands.
 
@@ -306,7 +306,7 @@ with a written remedy, not an oversight.
 
 ```
 coverage: every endpoint in the route table is probed.
-anonymous: all 67 endpoints probed with no token; every guarded one answered 401.
+anonymous: all 66 endpoints probed with no token; every guarded one answered 401.
 no read-only role completed a write.
 ```
 
@@ -417,7 +417,7 @@ filters, a Staff-activity rollup and a PDF export.
 
 ```powershell
 cd backend;  npm run dev                    # needed by the two live audits
-cd backend;  npm run audit:access           # §7 — 67 endpoints x 4 roles + anonymous
+cd backend;  npm run audit:access           # §7 — 66 endpoints x 4 roles + anonymous
 cd backend;  npm run verify:claims          # operational claims against a running instance
 cd backend;  npm run verify:claims -- --hosted   # ...and against the deployment
 cd backend;  npx jest                       # includes emailAddress + visionThrottle

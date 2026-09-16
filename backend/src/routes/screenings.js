@@ -223,8 +223,8 @@ router.patch('/:id/override', auth, rbac('medical', 'admin'), requirePermission(
 // THE GAP THIS CLOSES (§103). The only audited clinical act on a screening was
 // the OVERRIDE — which says the band is wrong. A clinician who agreed with a red
 // band and acted on it left no institutional record at all. "Mark reviewed"
-// looks like one and is not: it is a private bookmark in `settings`, per reader,
-// deliberately unaudited (utils/reviewed.js).
+// looked like one and was not — a private per-reader bookmark in `settings`,
+// deliberately unaudited — and it was removed in §107 for exactly that reason.
 //
 // So the institution could show that 9 athletes were flagged, and could not show
 // that anybody had done anything about them.

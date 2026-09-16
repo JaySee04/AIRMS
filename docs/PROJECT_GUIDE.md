@@ -368,8 +368,8 @@ cd frontend; npx tsc --noEmit -p tsconfig.json
 cd frontend; npm run lint
 
 # Tests
-cd backend;  npx jest      # 5 suites
-cd frontend; npx jest      # 2 suites
+cd backend;  npx jest      # 58 backend suites
+cd frontend; npx jest      # 22 frontend suites
 
 # Health check
 curl http://localhost:5000/api/health
@@ -388,8 +388,8 @@ curl http://localhost:5000/api/health
 
 Jest still covers mostly **pure logic**, and there is still no linter for the
 backend. What exists beyond it, and what genuinely remains unguarded, is the
-table below plus the four verification commands — `npm run mutate` (47 guards),
-`npm run audit:access` (67 endpoints × every role, plus anonymous),
+table below plus the four verification commands — `npm run mutate` (60 guards),
+`npm run audit:access` (66 endpoints × every role, plus anonymous),
 `npm run verify:claims` (a *running* instance) and `npm run verify:csp`
 (real Chrome, production build). The honest gap is **route handlers and pages**:
 most are covered by e2e or by nobody.
@@ -422,15 +422,20 @@ most are covered by e2e or by nobody.
 
 **Continuous integration — [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)** (2026-09-13).
 Three jobs on push/PR to `feat/mysql-migration` and `main`: **checks** (both jest
-suites, typecheck, lint), **mutate** (the 47 guards — separate because it exceeds
+suites, typecheck, lint), **mutate** (the 60 guards — separate because it exceeds
 two minutes), and **csp** (build + real Chrome + `verify:csp`). **No database
 service**, because every backend suite is DB-free. `audit:access`,
 `verify:claims` and `e2e` need a *live* instance and are deliberately **left out
 rather than half-wired** — a green tick that quietly skipped them is a worse
-signal than no tick at all. Until this existed, ~1,100 tests and 47 guards ran
+signal than no tick at all. Until this existed, every test and every guard ran
 only when somebody remembered, on a branch where a push **is** a deploy.
 
-Counts as of 2026-08-18: **18 backend suites / 270 tests**, **8 frontend suites / 119 tests**.
+Counts as of 2026-09-16: **58 backend suites / 857 tests**, **22 frontend suites / 357 tests**.
+
+The **suite** counts above are guarded (`codebaseHygiene.test.js`); the test
+totals are not, deliberately — measuring them means running jest inside jest,
+and they move on almost every commit. The suite count is the stable proxy, and
+it is the one a stale document actually misleads anyone about.
 
 **The pattern worth noticing.** The suites added since 2026-08-10 nearly all guard the same class of bug: a wrong answer that *looks like* a right one. A band that ranks differently in two files, an opt-out that reads as consent, a threshold that invents a number it has not earned, a coach's recall list that disagrees with the institution's, an excluded clinical indicator that leaks back into a display. None of these throw; all of them read as ordinary output. That is why they are tested and, say, the CRUD routes are not.
 
@@ -477,4 +482,4 @@ The other seeded athletes all have random Malaysian-style names per the seeder P
 
 ---
 
-*Last updated: 2026-08-18 — **every source file in the tree is now named here.** An audit found 29 that were not: seven backend utils (`riskIndicators`, `reliability`, `periodScores`, `subitemAggregate`, `postImport`, `passwordPolicy`, `disciplines`), thirteen components and eight lib modules. Three new sections were added for directories the guide had no home for — `components/ui/`, `components/charts/` and `components/auth/` — plus the missing dashboard rows (`AcwrGauge`, `ScreeningDatePicker`, `InjuryStatusControl`, `SportContext`), admin rows (`StaffActivity`, `TrendStrip`, `NormChangeNotice`), `IsnLookup` and `app/layout.tsx`. The `pdfDraw` and `screeningAlerts` entries were updated for the squad body map / dead-band change chart (§30) and the derived indicator lists (§31), and the **Test coverage** table was rebuilt (18 backend suites / 270 tests, 8 frontend / 119) with a note on the class of bug those suites actually guard: a wrong answer that looks like a right one. Previous: 2026-08-06 — routes/pages/components/lib tables re-synced against the live tree: deleted the injury-era pages (`/athlete/injury-report`, `/medical/injury-log`, `/medical/review-reports`, `/admin/trends`), added `/athlete/history`, `/athlete/squad`, `/admin/settings`, `routes/isn.js`, `utils/pdfDraw.js` and `bodymap-data/muscles.ts`. Documented the radar single-source (`RADAR_AXES` in `screeningAlerts.ts`), the batched `latestIndicatorsFor()` on `/athletes/teammates`, the IC-number athlete key, and a new **Test coverage** section (what jest guards and what is still manual-only). Previous: 2026-06-28 — HoloMotion PDF (vision-AI) ingestion, per-user medical-staff permissions, Excel data backup; SMTP + VISION env vars.*
+*Last updated: 2026-08-18 — **every source file in the tree is now named here.** An audit found 29 that were not: seven backend utils (`riskIndicators`, `reliability`, `periodScores`, `subitemAggregate`, `postImport`, `passwordPolicy`, `disciplines`), thirteen components and eight lib modules. Three new sections were added for directories the guide had no home for — `components/ui/`, `components/charts/` and `components/auth/` — plus the missing dashboard rows (`AcwrGauge`, `ScreeningDatePicker`, `InjuryStatusControl`, `SportContext`), admin rows (`StaffActivity`, `TrendStrip`, `NormChangeNotice`), `IsnLookup` and `app/layout.tsx`. The `pdfDraw` and `screeningAlerts` entries were updated for the squad body map / dead-band change chart (§30) and the derived indicator lists (§31), and the **Test coverage** table was rebuilt with a note on the class of bug those suites actually guard: a wrong answer that looks like a right one. Previous: 2026-08-06 — routes/pages/components/lib tables re-synced against the live tree: deleted the injury-era pages (`/athlete/injury-report`, `/medical/injury-log`, `/medical/review-reports`, `/admin/trends`), added `/athlete/history`, `/athlete/squad`, `/admin/settings`, `routes/isn.js`, `utils/pdfDraw.js` and `bodymap-data/muscles.ts`. Documented the radar single-source (`RADAR_AXES` in `screeningAlerts.ts`), the batched `latestIndicatorsFor()` on `/athletes/teammates`, the IC-number athlete key, and a new **Test coverage** section (what jest guards and what is still manual-only). Previous: 2026-06-28 — HoloMotion PDF (vision-AI) ingestion, per-user medical-staff permissions, Excel data backup; SMTP + VISION env vars.*

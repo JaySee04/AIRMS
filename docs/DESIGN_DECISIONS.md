@@ -9563,3 +9563,360 @@ was always the intent.
 answering 401 anonymously, typecheck + lint clean, map current — and the whole
 loop driven in a real browser: name bar opens the record, response recorded on
 the athlete page, back button returns to the queue.
+
+---
+
+## 108. The guard that could not see five of its own targets (2026-09-14)
+
+An optimise-and-document pass over §107. As in §99, the optimisation half found
+almost nothing — and the documentation half found a guard that had been passing
+while missing most of what it was written to catch.
+
+### 108.1 Five stale counts, past a check that exists to stop exactly that
+
+Removing the `reviewed` endpoints moved the count 68 → 66. `codebaseHygiene`
+has a check for precisely this — *"no document claims a different number of
+audited endpoints"* — and it passed.
+
+It matched one phrasing, `calling all N endpoints`, and scanned four files.
+Everything else went through:
+
+```
+CLAUDE.md        "The other 63 endpoints stay unthrottled"
+SECURITY.md      "67/67 proven live"
+SECURITY.md      "all 67 endpoints probed with no token"
+SECURITY.md      "the other 63 endpoints"
+SECURITY.md      "# §7 — 67 endpoints x 4 roles + anonymous"
+PROJECT_GUIDE.md "(67 endpoints × every role, plus anonymous)"
+```
+
+`SECURITY.md` and `PROJECT_GUIDE.md` were not in the list at all — and
+`SECURITY.md` is the document whose own header says *"re-run the commands before
+quoting a number."*
+
+Note the `63`: it was wrong before this session too. The total was 67 with one
+endpoint throttled, so "the other 63" was never right by any arithmetic. A check
+that only looks at one sentence shape cannot notice a number that was never
+correct.
+
+### 108.2 Two kinds of document, checked differently
+
+The fix needed a distinction the old check did not make.
+
+A **reference** describes the system as it is now, so every count in it must be
+current. A **log** records what was true on a date: *"audit:access clean at 68
+endpoints"* inside a dated verification block was true when written, and
+rewriting it would falsify the record — the same call §102 made about a
+historical audit rollup, and the reason §97.2's correction carries a visible
+note rather than silently replacing the old claim.
+
+So `REFERENCE_DOCS` (CLAUDE.md, PERMISSIONS.md, SECURITY.md, PROJECT_GUIDE.md)
+get the new scan; `LOG_DOCS` (DESIGN_DECISIONS.md, SILENT_FAILURES.md) keep the
+narrow one. `n - 1` is allowed, because *"the other N endpoints"* legitimately
+means every endpoint except the single throttled one.
+
+### 108.3 The first version of the fix was the §56.3 mistake
+
+The scan started as a proximity window: any two- or three-digit number within 24
+characters of the word "endpoint". It found all five real defects — and also:
+
+- `§42` in a section reference,
+- the `12` in `2026-09-12`,
+- *"27 role-boundary write endpoints"*, which is a real and different count.
+
+A parser that produces a plausible-looking list of findings, most of which are
+wrong, is §56.3 — where a route parser silently found 15 of 59 endpoints and
+rendered a perfectly convincing table. This file exists to catch that class, not
+to add to it.
+
+Replaced with six **enumerated phrasings** (`all N endpoints`, `the other N
+endpoints`, `N/N proven`, `N endpoints ×`, `N endpoints probed`, `clean at N
+endpoints`). A new way of writing it costs a line here, which is the right
+price: a pattern nobody can enumerate is a pattern nobody can trust.
+
+It carries its own canary — a sample string containing all six forms, asserted
+to yield `[99, 98, 97, 96, 95, 94]` — so a regex set that quietly stopped
+matching would fail rather than pass against everything.
+
+### 108.4 The optimisation: one measurement, one real finding
+
+Measured, not assumed (§93, §99):
+
+```
+GET /decisions                              7 ms   18.0 KB
+GET /athletes/analytics/periods?grain=…    36 ms   18.3 KB   (74 screening rows)
+GET /athletes                               8 ms   45.3 KB
+```
+
+Nothing is slow and nothing was optimised for speed. One thing was worth fixing
+anyway: §103/§104 added a **third** full scan of `screenings` inside
+`programmeActivityData` — in a file whose own `rescreenRecall` comment argues
+against exactly that, saying the caller *"already holds every screening for this
+roster whenever the report is unwindowed."*
+
+So the responsiveness pass now reuses those rows when unwindowed and keeps its
+own query only when a from/to window makes them a subset. Three columns were
+added to the main query to make that possible. **Not a speed fix** — it saves a
+couple of milliseconds — it is that the file already had the pattern and the new
+code did not follow it.
+
+Verified by reading both paths back off a live instance rather than trusting the
+suite: windowed and unwindowed agree exactly (owed 18, answered 1, outstanding
+17, oldest 90 days, five squads), which is the property that matters since these
+are all-time facts regardless of the window.
+
+One false alarm worth recording: the first timing run showed the periods
+endpoint returning **46 bytes**, against 18 KB earlier. It was a correct **403**
+— the measurement used a medical token on an admin-only analytics route. Checked
+before concluding, rather than filed as a regression.
+
+**Verified**: backend 58 suites / 854 tests, frontend 22 / 357, e2e 112/112,
+60/60 mutations, `audit:access` clean at 66 endpoints, `verify:schema` 0
+findings, typecheck + lint clean, map current.
+
+---
+
+## 109. The lesson that did not generalise (2026-09-16)
+
+A second optimise-and-document pass, two days after §108. §108 found a guard
+that had been passing while missing five of its own targets, fixed the endpoint
+count, and stopped there. This pass found that the *shape* of that defect was
+still everywhere, because the fix had been applied to one number rather than to
+the class.
+
+### 109.1 Four more stale counts, in the documents that teach people to verify
+
+Every number below is derived from code and quoted in prose. Every one had
+drifted exactly the way the endpoint count did:
+
+```
+PROJECT_GUIDE.md           "npx jest  # 5 suites" / "# 2 suites"    actual 58 / 22
+PROJECT_GUIDE.md           "npm run mutate (47 guards)", x3         actual 60
+README_FOR_CLAUDE_CODE.md  "npx jest  # 5 suites" / "# 2 suites"    actual 58 / 22
+CLAUDE.md                  "9 models with all 138 columns"          actual 144
+```
+
+The suite counts are the ones worth pausing on. Both files put them under a
+heading that says, in effect, *run these before you say you are done* — so a
+reader ran the command, saw 58 suites where the page promised 5, and had
+nothing on the page to tell them which number was wrong. An order-of-magnitude
+error in the instructions for verifying the project is not a typo; it is the
+§108 defect reappearing in the document whose whole job is to be trusted.
+
+`README_FOR_CLAUDE_CODE.md` was not in `REFERENCE_DOCS` at all — the same
+omission §108 found for `SECURITY.md` and `PROJECT_GUIDE.md`, which is the
+third time that particular list has turned out to be short. It is the entry
+point named first in CLAUDE.md's own reading order.
+
+### 109.2 Guarding the class instead of the instance
+
+`codebaseHygiene.test.js` now carries a table — `GENERATED_COUNTS` — of every
+count that is derived from code and quoted in prose: backend suites, frontend
+suites, mutation guards, model columns. Each entry is a `measure()` that reads
+the code and a list of **enumerated phrasings**, never a proximity window
+(§108.3, where "any number near the word endpoint" duly flagged `§42` and the
+day part of a date). `all N columns` rather than `N columns` for that reason:
+PROJECT_GUIDE legitimately says a query names "~11 columns".
+
+Two measures are worth defending:
+
+- **Suite counts are file counts.** `tests/*.test.js` and `src/**/*.test.tsx`
+  match what jest reports exactly, because that is what each package's
+  `testMatch` resolves to.
+- **Columns come from `SYSTEM_MAP.md`**, not from the models. The map is
+  generated from the models and held current by `systemMap.test.js`, so this
+  compares a hand-written document against a code-derived artefact rather than
+  against another sentence somebody typed. Requiring the models directly would
+  build a Sequelize instance at import time.
+
+**Test totals are deliberately NOT guarded.** Measuring them means running jest
+inside jest, and they move on nearly every commit. The suite count is the stable
+proxy, and it is the one a stale document actually misleads anyone about. That
+is stated in PROJECT_GUIDE rather than left for somebody to rediscover — and
+this entry's own "854 tests" became 857 while it was being written, which is the
+argument made for us.
+
+Three checks, not one: the scan; a canary asserting every `measure()` returns
+non-zero and every phrase set still matches; and a check that each count is
+quoted **somewhere**, so deleting the sentences cannot make the scan pass. All
+five plantings were confirmed to fail the guard, against a control run that
+passes — a guard nobody has watched fail is a guess about what it covers.
+
+### 109.3 A live verification pointing at a route that no longer exists
+
+`verify:claims` §5 probed `POST /decisions/reviewed/:id` and asserted **403**,
+proving a coach gets the feature and is still refused the write. §107 deleted
+that route. Express answers **404** for a path with no handler regardless of
+role, so the claim had stopped testing a role boundary and started testing that
+a deleted route is deleted — and would have reported a FAILED claim.
+
+It is worth being precise about why this survived. `verify:claims` needs a live
+instance, so CI deliberately does not run it (§91.6): the check that would have
+caught this is the one that cannot run where checks are run. It was last green
+at 10/10 on 2026-09-11, before the removal.
+
+Retargeted to `POST /screenings/:id/response`, which is what `audit-access.js`
+had already been updated to say is *"the only write that answers an escalation"*
+— the two scripts had disagreed for nine days. The screening id is deliberately
+arbitrary: `rbac` runs before the handler loads the row, so a refused coach never
+reaches the lookup, and using a real id would make the probe look more thorough
+while testing the identical boundary.
+
+### 109.4 A required field the server had stopped sending
+
+`DecisionPayload.canMarkReviewed: boolean` was still declared in
+`DecisionPanel.tsx` and set in its test fixture. Nothing in the backend has sent
+it since §107, and nothing in the component reads it.
+
+This is the quiet half of the same removal. The payload type is a **cast over
+JSON** (`api.get<DecisionPayload>`), not a validation — so TypeScript cannot
+notice that a required field never arrives, and the suite passed because the
+fixture supplied by hand what the server does not. A required field that is
+always `undefined` at runtime is indistinguishable from a working one until
+something reads it.
+
+### 109.5 What was checked and deliberately left alone
+
+- **`AcwrGauge.tsx` / `WorkloadChart.tsx`** have no importer and stay. Protected
+  retention (§B1, `ACWR_REBUILD.md`), decided, not pending. The one real defect
+  nearby was CLAUDE.md listing `WorkloadChart` among the components Modules 1
+  and 6 *share* — contradicted 270 lines later in the same file by the note that
+  it renders on no page. The list, not the retention, was wrong.
+- **`MONGO_RECOVERY.md` / `MYSQL_MIGRATION_PLAN.md`** stay. Already reviewed in
+  `DELETION_REVIEW.md`: cross-referenced by four documents, both already marked
+  `Status: EXECUTED`. Re-deleting a settled question is not tidying.
+- **56 "dead" CSS classes were NOT removed.** A scan for classes never named in
+  any `.ts`/`.tsx` returned 56, and every one sampled was built dynamically —
+  ``className={`risk-hero--${HERO_CLS[band]}`}``. Acting on that list would have
+  been §56.3 exactly: a plausible set of findings, mostly wrong. Recorded here
+  as checked so the next pass does not re-run it and believe it.
+- **Markdown links**: all file links across every `.md` in the tree resolve.
+- Comments citing the deleted `utils/reviewed.js` were rewritten to past tense
+  rather than cut — they carry a **refused alternative** (why an audited response
+  is not a private bookmark), which §99.2 says to keep, but a comment pointing at
+  a file that no longer exists sends the next reader to a dead end.
+
+**Verified**: backend 58 suites / 857 tests, frontend 22 / 357, 60/60 mutations,
+typecheck + lint clean, map current, all markdown links resolve, five planted
+stale counts each caught against a passing control.
+
+---
+
+## 110. The front door was giving out credentials that do not work (2026-09-16)
+
+A "organise the files for handovers" pass. The conclusion was that the files did
+not need moving; the **entry points needed to stop lying**.
+
+### 110.1 Why nothing was moved
+
+The obvious reading of "organise the files" is to restructure `docs/` — group
+the reference pages, put the historical ones somewhere marked historical, split
+the FYP artefacts from the engineering ones. That was measured before it was
+attempted: **201 inbound textual references** to `docs/` paths across `.md`,
+`.js`, `.ts` and `.ps1` files, several of them inside tests that read paths as
+strings (`codebaseHygiene`'s `REFERENCE_DOCS`, the submission scrub's
+`Edit-File` targets).
+
+Moving files means rewriting all 201 and re-proving every guard, to put
+documents in tidier folders. Nobody handing this project over is blocked by
+`docs/` being flat. They are blocked by not knowing **which document to open**,
+and by the front door being wrong.
+
+The seven `.html` slide assets in `docs/fyp/` were checked for the same reason
+and left alone: 20 inbound references, no gain.
+
+### 110.2 What the README actually said
+
+`README.md` had not been revised since the FYP I era, and it is the first file
+anybody opens:
+
+| It said | Actually |
+|---|---|
+| `john.doe@isn.gov.my` / `password123` | `athlete@isn.gov.my` / `airms2026` — **verified against `seeder.js`** |
+| `dr.lim@isn.gov.my` | No such account |
+| Modules: "Activity Tracking", "Injury & Recovery Logging" | Both **removed** (2026-07-20, 2026-08-02); the six were renumbered |
+| Three roles | Five — `coach` and `executive` missing entirely |
+| `docs/data-samples/` in the folder tour | Does not exist |
+| ACWR as *the* differentiator | No live callers since 2026-07-20 |
+
+A newcomer following the quick-start **cannot sign in**. That is worse than an
+absent README, because it reads as authoritative and fails at the first step —
+and it is the exact failure mode this project documents everywhere else: a wrong
+answer that looks like a right one, here on the page that introduces the system.
+
+Rewritten around a **"Where to go next" table keyed by audience** — successor,
+examiner, deployer, stakeholder, Claude session — because "which of these thirty
+documents do I read" is the actual handover question.
+
+### 110.3 `docs/README.md`, and the column that matters
+
+New, and the useful column is not the description — it is **what kind of
+document each one is**:
+
+- **Reference** — describes the system now; every number must be current; edit freely.
+- **Log** — records what was true on a date; **do not rewrite the numbers**.
+- **Generated** — produced by a script; never hand-edit.
+
+That is the §108.2 distinction, which until now lived only inside a test file as
+`REFERENCE_DOCS` versus `LOG_DOCS`. A successor could not have known it, and
+would reasonably have "fixed" a stale-looking number inside a dated verification
+block, destroying the record. The index also marks the five **historical**
+documents that describe removed subsystems, so nobody acts on their
+instructions.
+
+### 110.4 The rewrite nearly broke the submission scrub, silently
+
+`sync-to-submission.ps1` mirrors this repo to the academic submission and
+scrubs the AI-tooling references. Its `README.md` rule matched **one exact
+sentence** from the old intro callout — which the rewrite deleted. It would have
+matched nothing, reported no change, and passed two links to files the mirror
+does not ship straight into the submission.
+
+`Edit-File` prints nothing when a pattern misses, and "no change" is
+indistinguishable from "already clean". The step-4 grep would still have flagged
+it in yellow, so this was a near-miss rather than a leak — but a scrub that
+quietly stops applying is the same defect class as everything in
+`SILENT_FAILURES.md`, and leaving it resting on a downstream warning is not the
+standard here.
+
+Re-anchored on the table **row** rather than on prose, since the row's two links
+(`CLAUDE.md`, excluded by robocopy; `README_FOR_CLAUDE_CODE.md`, deleted at step
+2) are both worthless in the submission.
+
+Two things found while proving the fix, both worth keeping:
+
+- **A tree-glyph anchor does not survive the encoding.** A pattern anchored on
+  the `├──` that begins a folder-tour line matched nothing: Windows PowerShell
+  5.1 reads these files as ANSI unless told otherwise, so the character in the
+  script and the character in the file can arrive as different bytes. The
+  existing `PROJECT_GUIDE` rules carry that glyph and work because script and
+  content mangle *identically* — a coincidence, not a design. The new rule
+  anchors on the surrounding words instead.
+- **One of the new patterns matched nothing, and was deleted rather than left.**
+  A second rule was written for `docs/README.md` to drop a "Claude Code session"
+  table row; testing showed that row lives in the ROOT README. Keeping a
+  decorative pattern that matches nothing would have reintroduced, in the same
+  commit, the exact defect the commit exists to fix.
+
+Simulated read-only rather than by running the sync, which is
+destructive-by-default: both files scrub to **zero** residual references.
+
+### 110.5 Both new files were guarded the day they were written
+
+`README.md` and `docs/README.md` quote suite counts and endpoint counts, so both
+went into `REFERENCE_DOCS` immediately. That list has now been too short
+**three times** — `SECURITY.md` and `PROJECT_GUIDE.md` (§108),
+`README_FOR_CLAUDE_CODE.md` (§109) — and the pattern in every case was a
+reference page written without anyone adding it to the scan.
+
+One consequence worth recording: `docs/README.md` *explains* the reference/log
+rule, and its natural illustrations were real sentences containing real stale
+counts. Those would have tripped the very scan the paragraph describes, so the
+figures are spelled out in words, with a parenthetical saying why. A document
+about a guard should not be exempt from it.
+
+Proven by planting: `5 backend suites` in `README.md` and `all 67 endpoints` in
+`docs/README.md` are both caught, against a control run that passes.
+
+**Verified**: backend 58 suites / 857 tests, frontend 22 / 357, 529 markdown
+links resolve, submission scrub simulated clean on both files.

@@ -230,12 +230,37 @@ describe('the docs quote the real endpoint count', () => {
   // on any endpoint that is neither probed nor explicitly exempt.
   const endpointCount = () => require('../scripts/system-map').routes().length;
 
-  const DOCS = [
+  // TWO KINDS OF DOCUMENT, checked differently — the distinction is the point.
+  //
+  // A REFERENCE describes the system as it is now, so every endpoint number in
+  // it must be current. A LOG records what was true on a date: "audit:access
+  // clean at 68 endpoints" inside a dated verification block was true when it
+  // was written, and rewriting it would falsify the record — the same call §102
+  // made about a historical audit rollup.
+  //
+  // So references get the WIDE scan below and logs keep the narrow one, which
+  // only catches the present-tense "calling all N endpoints" phrasing.
+  const REFERENCE_DOCS = [
     'CLAUDE.md',
     path.join('docs', 'PERMISSIONS.md'),
+    path.join('docs', 'SECURITY.md'),
+    path.join('docs', 'PROJECT_GUIDE.md'),
+    // Added 2026-09-16. It is the documented ENTRY POINT — reading order and a
+    // "before you say you're done" command block — and it had been quoting 5
+    // backend and 2 frontend suites against a real 58 and 22.
+    path.join('docs', 'README_FOR_CLAUDE_CODE.md'),
+    // The two front doors, added the same day they were written. This list has
+    // now been too short THREE times (SECURITY.md and PROJECT_GUIDE.md in §108,
+    // README_FOR_CLAUDE_CODE.md above), so a new reference page goes in here
+    // when it is created, not after it has gone stale.
+    'README.md',
+    path.join('docs', 'README.md'),
+  ];
+  const LOG_DOCS = [
     path.join('docs', 'DESIGN_DECISIONS.md'),
     path.join('docs', 'SILENT_FAILURES.md'),
   ];
+  const DOCS = [...REFERENCE_DOCS, ...LOG_DOCS];
 
   it('audit-access.js still has a readable ROUTES list', () => {
     // A floor, so a parser that stops matching cannot make the check below pass
@@ -257,6 +282,57 @@ describe('the docs quote the real endpoint count', () => {
     expect(probeCount()).toBeGreaterThanOrEqual(endpointCount() - 10);
   });
 
+  // THE PHRASE SCAN, added 2026-09-14 after five stale claims survived the
+  // narrow check below. That one only matched "calling all N endpoints", so
+  // "67/67 proven live", "the other 63 endpoints", "67 endpoints x 4 roles"
+  // and two more went unnoticed when the count moved 68 -> 66 — and
+  // SECURITY.md and PROJECT_GUIDE.md were not even in the list being scanned.
+  //
+  // EXPLICIT PHRASINGS, not a proximity window. The first attempt matched any
+  // number within a few characters of "endpoint" and duly flagged "§42", the
+  // day part of a 2026-09-12 date, and "27 role-boundary write endpoints" —
+  // which is a real and different count. Enumerating the phrasings costs a
+  // line when somebody invents a new one, and that is the right cost.
+  //
+  // `n - 1` is allowed because "the other N endpoints" means every endpoint
+  // except the single throttled one, and that sentence is worth keeping.
+  const TOTAL_PHRASES = [
+    /all\s+(\d{2,3})\s+endpoints/gi,
+    /the other\s+(\d{2,3})\s+endpoints/gi,
+    /(\d{2,3})\s*\/\s*\d{2,3}\s+proven/gi,
+    /(\d{2,3})\s+endpoints\s*(?:x|×)/gi,
+    /(\d{2,3})\s+endpoints\s+probed/gi,
+    /clean at\s+(\d{2,3})\s+endpoints/gi,
+  ];
+
+  it('no REFERENCE document quotes a stale endpoint count', () => {
+    const n = endpointCount();
+    const allowed = new Set([n, n - 1]);
+    const wrong = [];
+    for (const rel of REFERENCE_DOCS) {
+      const file = path.join(ROOT, rel);
+      if (!fs.existsSync(file)) continue;
+      const src = fs.readFileSync(file, 'utf8');
+      for (const re of TOTAL_PHRASES) {
+        for (const m of src.matchAll(re)) {
+          if (!allowed.has(Number(m[1]))) {
+            wrong.push(`${rel}: "${m[0]}" — code declares ${n}`);
+          }
+        }
+      }
+    }
+    expect(wrong).toEqual([]);
+  });
+
+  it('the phrase scan can actually find something', () => {
+    // The canary. A regex set that silently stops matching would make the
+    // check above pass against any prose at all — §56.3, where a route parser
+    // found 15 of 59 endpoints and rendered a perfectly plausible table.
+    const sample = `calling all 99 endpoints, the other 98 endpoints, 97/97 proven,`
+      + ` 96 endpoints x 4 roles, 95 endpoints probed, clean at 94 endpoints`;
+    const hits = TOTAL_PHRASES.flatMap((re) => [...sample.matchAll(re)].map((m) => Number(m[1])));
+    expect(hits.sort((a, b) => b - a)).toEqual([99, 98, 97, 96, 95, 94]);
+  });
   it('no document claims a different number of audited endpoints', () => {
     const n = endpointCount();
     const wrong = [];
@@ -273,5 +349,126 @@ describe('the docs quote the real endpoint count', () => {
     // the usual answer; editing the prose to match a shrunken list is only right
     // when the endpoint genuinely went away.
     expect(wrong).toEqual([]);
+  });
+
+  // EVERY OTHER GENERATED COUNT, checked the same way (2026-09-16).
+  //
+  // §108 widened the endpoint scan and stopped at endpoints. The lesson did not
+  // generalise, and it should have: every number below is derived from code and
+  // quoted in prose, so every one drifts exactly the way the endpoint count did.
+  // Four of them had, by the time this was written:
+  //
+  //   PROJECT_GUIDE.md          "npx jest  # 5 suites" / "# 2 suites"   (58 / 22)
+  //   PROJECT_GUIDE.md          "npm run mutate (47 guards)", x3        (60)
+  //   README_FOR_CLAUDE_CODE.md "# 5 suites" / "# 2 suites"             (58 / 22)
+  //   CLAUDE.md                 "all 138 columns"                       (144)
+  //
+  // The suite counts are the ones worth pausing on. Both files put them in a
+  // block headed "before you say you're done" — so a reader ran the command,
+  // saw 58 where the page promised 5, and had nothing to tell them which number
+  // was wrong. That is the endpoint defect again, in the document that teaches
+  // people how to verify this project.
+  const countFiles = (dir, re) => {
+    if (!fs.existsSync(dir)) return 0;
+    let n = 0;
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (e.isDirectory()) {
+        if (e.name === 'node_modules' || e.name === '.next') continue;
+        n += countFiles(path.join(dir, e.name), re);
+      } else if (re.test(e.name)) n += 1;
+    }
+    return n;
+  };
+
+  // Phrasings are ENUMERATED, never a proximity window — §108.3, where "any
+  // number near the word endpoint" duly flagged "§42" and the day part of a
+  // date. `all N columns` rather than `N columns` for the same reason:
+  // PROJECT_GUIDE legitimately says a query names "~11 columns", which is a
+  // different and correct number.
+  const GENERATED_COUNTS = [
+    {
+      what: 'backend test suites',
+      // Matches what jest reports (58/58 when written) because this package's
+      // testMatch is tests/*.test.js and nothing else.
+      measure: () => countFiles(path.join(ROOT, 'backend', 'tests'), /\.test\.js$/),
+      phrases: [/(\d{1,3})\s+backend\s+suites/gi],
+    },
+    {
+      what: 'frontend test suites',
+      measure: () => countFiles(path.join(ROOT, 'frontend', 'src'), /\.test\.tsx?$/),
+      phrases: [/(\d{1,3})\s+frontend\s+suites/gi],
+    },
+    {
+      what: 'mutation guards',
+      measure: () => (fs.readFileSync(
+        path.join(__dirname, '..', 'scripts', 'mutation-check.js'), 'utf8',
+      ).match(/^\s*find:/gm) || []).length,
+      phrases: [/(\d{1,3})\s+guards/gi],
+    },
+    {
+      what: 'model columns',
+      // From SYSTEM_MAP.md, which is GENERATED from the models and held current
+      // by systemMap.test.js — so this compares one doc against a code-derived
+      // artefact, not against another sentence somebody typed. Reading the
+      // models directly here would build a Sequelize instance at import time.
+      measure: () => {
+        const map = fs.readFileSync(path.join(ROOT, 'docs', 'SYSTEM_MAP.md'), 'utf8');
+        const m = map.match(/\*\*(\d+)\s+columns\*\*/);
+        expect(m).toBeTruthy();
+        return Number(m[1]);
+      },
+      phrases: [/all\s+(\d{2,3})\s+columns/gi],
+    },
+  ];
+
+  it('no REFERENCE document quotes a stale generated count', () => {
+    const wrong = [];
+    for (const c of GENERATED_COUNTS) {
+      const n = c.measure();
+      for (const rel of REFERENCE_DOCS) {
+        const file = path.join(ROOT, rel);
+        if (!fs.existsSync(file)) continue;
+        const src = fs.readFileSync(file, 'utf8');
+        for (const re of c.phrases) {
+          for (const m of src.matchAll(re)) {
+            if (Number(m[1]) !== n) {
+              wrong.push(`${rel}: "${m[0].trim()}" — code declares ${n} ${c.what}`);
+            }
+          }
+        }
+      }
+    }
+    // As above: decide which side is right before editing either.
+    expect(wrong).toEqual([]);
+  });
+
+  it('every generated count is measurable, and its phrases can find something', () => {
+    // TWO canaries in one. A measure that silently returned 0, or a phrase set
+    // that stopped matching, would make the check above pass against any prose
+    // at all — the §56.3 failure, where a parser found 15 of 59 routes and
+    // rendered a perfectly plausible table.
+    for (const c of GENERATED_COUNTS) {
+      expect(c.measure()).toBeGreaterThan(0);
+      const sample = `77 backend suites, 77 frontend suites, 77 guards, all 77 columns`;
+      const hits = c.phrases.flatMap((re) => [...sample.matchAll(re)].map((m) => Number(m[1])));
+      expect(hits).toContain(77);
+    }
+  });
+
+  it('the reference docs actually contain the counts being guarded', () => {
+    // Without this, deleting every sentence would also make the scan pass.
+    // Each count must be quoted SOMEWHERE in the reference set.
+    for (const c of GENERATED_COUNTS) {
+      const found = REFERENCE_DOCS.some((rel) => {
+        const file = path.join(ROOT, rel);
+        if (!fs.existsSync(file)) return false;
+        const src = fs.readFileSync(file, 'utf8');
+        // matchAll, not test(): these patterns carry /g, and `test` advances
+        // lastIndex, so a second call against the same regex starts mid-string
+        // and can answer false about a document that plainly contains it.
+        return c.phrases.some((re) => [...src.matchAll(re)].length > 0);
+      });
+      expect(`${c.what}: ${found}`).toBe(`${c.what}: true`);
+    }
   });
 });

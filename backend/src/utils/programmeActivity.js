@@ -189,6 +189,10 @@ async function programmeActivityData(query = {}) {
     attributes: [
       'id', 'athleteId', 'assessedAt', 'totalScore', 'rom', 'stability', 'symmetry',
       'exerciseRisks', 'overallIndicator', 'overallBand', 'overrideBand',
+      // Carried so the UNWINDOWED case can answer §103/§104 from these rows
+      // instead of scanning the table again — see the reuse below. Three short
+      // columns on a query that already returns every screening for the roster.
+      'escalations', 'responseOutcome', 'responseAt',
       // `normVersionId` / `scoredAt` were selected here for the band-mix
       // provenance caveat, which went with the band mix itself (§106).
       // The COLUMNS remain and are still written at scoring time — they record
@@ -213,15 +217,33 @@ async function programmeActivityData(query = {}) {
   // responded outside the window, which is the §24-shaped mistake of letting a
   // filter change a fact rather than the view of it. Its own query for that
   // reason: `rows` is windowed and may hold none of the current screenings.
-  const latestRows = await Screening.findAll({
-    where: { athleteId: { [Op.in]: ids } },
-    attributes: [
-      'id', 'athleteId', 'assessedAt', 'escalations',
-      'overallBand', 'overrideBand', 'responseOutcome', 'responseAt',
-    ],
-    order: [['athleteId', 'ASC'], ['assessedAt', 'DESC'], ['id', 'DESC']],
-    raw: true,
-  });
+  //
+  // REUSED when the report is unwindowed, which is the common case — exactly
+  // what `rescreenRecall` above does, and for the same stated reason: `rows` IS
+  // every screening for this roster then, so a second full scan of the same
+  // table buys nothing. A windowed caller still pays for its own query, because
+  // its rows are a subset and this must see all of them.
+  //
+  // Not a speed fix — the whole endpoint is 36 ms against 74 rows. It is that
+  // this file already argues against re-scanning the same table and I had added
+  // a third pass over it.
+  const windowed = Boolean(from || to);
+  const latestRows = windowed
+    ? await Screening.findAll({
+      where: { athleteId: { [Op.in]: ids } },
+      attributes: [
+        'id', 'athleteId', 'assessedAt', 'escalations',
+        'overallBand', 'overrideBand', 'responseOutcome', 'responseAt',
+      ],
+      order: [['athleteId', 'ASC'], ['assessedAt', 'DESC'], ['id', 'DESC']],
+      raw: true,
+    })
+    // `rows` is ordered by assessedAt ASC; this pass wants newest-first within
+    // each athlete, so it is re-sorted rather than assumed.
+    : [...rows].sort((a, b) => (
+      a.athleteId < b.athleteId ? -1 : a.athleteId > b.athleteId ? 1
+        : new Date(b.assessedAt) - new Date(a.assessedAt) || b.id - a.id
+    ));
   const latestByAthlete = [];
   const screeningCounts = new Map();
   let lastSeen = null;

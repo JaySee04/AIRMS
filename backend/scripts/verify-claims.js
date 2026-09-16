@@ -211,11 +211,25 @@ const login = async (email, password = PW) =>
   const coachView = await call(`/decisions?since=${encodeURIComponent(new Date(Date.now() - 60 * 864e5).toISOString())}`, { token: coach });
   claim('a coach gets a real "since you last looked"',
     coachView.status === 200 && coachView.json?.changesBasis !== 'window',
+    // canMarkReviewed was printed here until 2026-09-16 and had been reporting
+    // `undefined` since §107 removed it — a measurement of a field that no
+    // longer exists, sitting inside the output that is supposed to be evidence.
     `scope ${coachView.json?.scope}, basis ${coachView.json?.changesBasis},`
-    + ` ${coachView.json?.changes?.length} changes, canMarkReviewed=${coachView.json?.canMarkReviewed}`);
+    + ` ${coachView.json?.changes?.length} changes,`
+    + ` canRecordResponse=${coachView.json?.canRecordResponse}`);
 
-  const coachWrite = await call(`/decisions/reviewed/${athleteId || 'x'}`, {
-    method: 'POST', token: coach, body: { screeningId: 1 },
+  // RETARGETED 2026-09-16. This probed POST /decisions/reviewed/:id, which was
+  // removed with the 'Mark reviewed' control (§107) — so it had become a check
+  // that a DELETED route refuses, which Express answers 404 for whatever the
+  // role. It would have reported a FAILED claim rather than a passing one, but
+  // only on a live instance, and nothing in CI runs this. The write that
+  // answers an escalation is now POST /screenings/:id/response; rbac there is
+  // medical+admin, so a coach reaching it is the same boundary as before.
+  // The id is deliberately arbitrary: rbac runs before the handler loads the
+  // screening, so a refused coach never reaches the lookup. A real id would
+  // make this LOOK more thorough while testing the identical boundary.
+  const coachWrite = await call('/screenings/1/response', {
+    method: 'POST', token: coach, body: { outcome: 'monitoring' },
   });
   claim('a coach still cannot write', coachWrite.status === 403, `POST -> ${coachWrite.status}`);
 

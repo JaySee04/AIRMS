@@ -57,7 +57,6 @@ function payload(over: Record<string, unknown> = {}) {
     windowDays: 7,
     changesBasis: 'window',
     changesFrom: '2026-09-04T00:00:00.000Z',
-    canMarkReviewed: true,
     headline: null,
     worklist: [],
     changes: [CHANGE],
