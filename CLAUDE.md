@@ -125,8 +125,11 @@ cd backend; npm run migrate:escalation-response   # add screenings.response_outc
                                      # severity scale. All four columns are nullable, so EXPAND THEN
                                      # DEPLOY: a migrated database serves the old code, but the model
                                      # now SELECTs them, so deploying first answers "Unknown column
-                                     # 'response_outcome'" on every screening query. LOCAL ONLY so
-                                     # far; hosted still needs it (`-- --url ... --ca ...`).
+                                     # 'response_outcome'" on every screening query. APPLIED ON HOSTED
+                                     # TOO — measured 2026-09-16, not assumed: GET /screenings/:id/full
+                                     # on the deployed API does a bare findByPk (no `attributes` list),
+                                     # so it SELECTs every model column; it answered 200. This line
+                                     # read "LOCAL ONLY so far; hosted still needs it" until that probe.
 cd backend; npm run migrate:norm-stamp   # add screenings.norm_version_id + scored_at (DD 96).
                                      # WHICH RULER measured each band, and when. recomputeIndicators()
                                      # rescores only each athlete's LATEST screening, so older rows keep
@@ -138,8 +141,12 @@ cd backend; npm run migrate:norm-stamp   # add screenings.norm_version_id + scor
                                      # Existing rows are deliberately NOT back-filled: inventing
                                      # provenance for verdicts whose provenance is unknown is the exact
                                      # defect class this project exists to avoid. They report as
-                                     # `unknown`, and the card says so. LOCAL ONLY so far - the hosted
-                                     # database still needs it (`-- --url ... --ca ...`).
+                                     # `unknown`, and the card says so. APPLIED ON HOSTED TOO — same
+                                     # 2026-09-16 probe as above; the full-column SELECT that would
+                                     # answer "Unknown column 'norm_version_id'" returned 200 instead.
+                                     # NOTE these two columns are no longer SELECTed by any read path
+                                     # (§106 took the band mix), so the routes that would surface a
+                                     # missing column are now the WRITES — including the import commit.
 cd backend; npm run verify:schema    # compare the LIVE database's indexes against what the models
                                      # declare. READ-ONLY. Three sections: redundant indexes in the
                                      # database, DRIFT between models and database, and redundancy
