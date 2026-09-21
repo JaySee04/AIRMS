@@ -412,6 +412,7 @@ Generated into both packages from `shared/facts.js` — see DESIGN_DECISIONS §5
 | backend | `map` | `node scripts/system-map.js` |
 | backend | `mutate` | `node scripts/mutation-check.js` |
 | backend | `verify:claims` | `node scripts/verify-claims.js` |
+| backend | `verify:textlayer` | `node scripts/verify-textlayer-extract.js` |
 | frontend | `dev` | `next dev` |
 | frontend | `build` | `next build` |
 | frontend | `start` | `next start` |

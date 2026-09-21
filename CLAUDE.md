@@ -332,7 +332,7 @@ cd frontend; npm run e2e   # END-TO-END smoke: a real Chrome against the running
 cd frontend; npm run build
 
 # Unit tests (jest, in both packages — no linter configured for the backend)
-cd backend; npx jest      # 58 suites / 858 tests: cohorts, overallIndicator, permissions, rbac, pdfDraw,
+cd backend; npx jest      # 59 suites / 865 tests: cohorts, overallIndicator, permissions, rbac, pdfDraw,
                           # emailAddress (the address an activation code is SENT to. It was
                           # VARCHAR(160) UNIQUE and nothing else — "not-an-email", "jc@@isn",
                           # "a b@c.d" and "<script>@x.com" all validated and would have been

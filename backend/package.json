@@ -25,7 +25,8 @@
     "migrate:hosted": "node scripts/migrate-hosted.js",
     "map": "node scripts/system-map.js",
     "mutate": "node scripts/mutation-check.js",
-    "verify:claims": "node scripts/verify-claims.js"
+    "verify:claims": "node scripts/verify-claims.js",
+    "verify:textlayer": "node scripts/verify-textlayer-extract.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
