@@ -51,7 +51,9 @@ const CAPABILITIES = [
   {
     name: 'the personal watchlist',
     routeFile: 'routes/watchlist.js',
-    roleConst: 'ROLES',
+    // Renamed from `ROLES` on 2026-09-17 (§111.6): the role SET became a shared
+    // fact, and two meanings under one name is the drift crossPackage refuses.
+    roleConst: 'WATCHLIST_ROLES',
     endpoint: '/watchlist',
     reachWithoutSurface: {
       admin: 'The only UI is on medical/dashboard, which admin cannot open. '

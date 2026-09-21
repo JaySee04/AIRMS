@@ -72,6 +72,9 @@ const BAND_LABEL = {
 ${bandLabelRows}
 };
 
+/** users.role enum. ORDER IS LOAD-BEARING — MySQL stores an ENUM by index. */
+const ROLES = ${list(F.ROLES)};
+
 /** Athlete.gender enum. */
 const GENDERS = ${list(F.GENDERS)};
 
@@ -120,6 +123,7 @@ const RESPONSE_OUTCOME_KEYS = ${list(F.RESPONSE_OUTCOME_KEYS)};
 
 module.exports = {
   INSTITUTION_TZ,
+  ROLES,
   BANDS,
   BAND_RANK,
   BAND_LABEL,
@@ -178,6 +182,18 @@ export const BAND_RANK: Record<Band, number> = { ${bandRankRows} };
 export const BAND_LABEL: Record<Band, string> = {
 ${bandLabelRows}
 };
+
+export type Role = ${union(F.ROLES)};
+
+/**
+ * users.role enum. The set is exported as a VALUE, not only as a type, because
+ * the role arrives from localStorage and from the API — places no type reaches,
+ * and where lib/auth.ts has to ask "is this one of ours?" at runtime (§111.6).
+ *
+ * (No backticks in this comment on purpose: the renderer is a template literal,
+ * so one would end the string. It cost a SyntaxError to find out.)
+ */
+export const ROLES: Role[] = ${list(F.ROLES)};
 
 export type Gender = ${union(F.GENDERS)};
 

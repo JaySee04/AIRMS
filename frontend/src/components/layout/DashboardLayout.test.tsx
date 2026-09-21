@@ -80,6 +80,12 @@ const SECRET = <p>roster and clinical scores</p>;
 
 beforeEach(() => {
   localStorage.clear();
+  // The "already confirmed this token" marker lives in sessionStorage (§111.7).
+  // Without this line the first test to confirm a session silences the
+  // /auth/me call in every test after it, and the suite still passes — the
+  // assertions that would notice are `toHaveBeenCalled`, and a test that
+  // reuses a cached confirmation never reaches them.
+  sessionStorage.clear();
   replace.mockClear();
   push.mockClear();
   mockGet.mockReset().mockResolvedValue({ user: ADMIN });
@@ -101,7 +107,12 @@ describe('before the server has answered', () => {
       <DashboardLayout allowedRoles={['admin']} title="T">{SECRET}</DashboardLayout>,
     );
     expect(container).toBeEmptyDOMElement();
-    expect(replace).toHaveBeenCalledWith('/');
+    // TO THEIR OWN DASHBOARD, NOT TO THE SIGN-IN FORM (2026-09-16, §111).
+    // This person is authenticated; they are simply not allowed HERE. Sending
+    // them to '/' showed a password prompt to someone holding a valid session,
+    // which reads as "you have been logged out" and is the opposite of what
+    // happened. The no-session case above still goes to '/', and must.
+    expect(replace).toHaveBeenCalledWith('/coach/dashboard');
     // and it must not even ask the server on behalf of a role it already refused
     expect(mockGet).not.toHaveBeenCalled();
   });
@@ -123,7 +134,11 @@ describe('the server settles who this is', () => {
 
     render(<DashboardLayout allowedRoles={['admin']} title="T">{SECRET}</DashboardLayout>);
 
-    await waitFor(() => expect(replace).toHaveBeenCalledWith('/'));
+    // The server's role wins, and the destination is that role's OWN landing
+    // page: the session is real, so a sign-in prompt would misdescribe it. The
+    // 401 case below still clears the session and goes to '/', which is the
+    // distinction — refused identity versus refused page.
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/coach/dashboard'));
     // NOT asserting the content has gone. The gate renders OPTIMISTICALLY from
     // the snapshot and corrects when the server answers — that is deliberate,
     // and the shell it briefly shows is empty because every panel's own request
@@ -175,6 +190,87 @@ describe('the server settles who this is', () => {
     // ...and the session survives.
     expect(localStorage.getItem('airms_token')).toBe('a.b.c');
     expect(replace).not.toHaveBeenCalled();
+  });
+});
+
+describe('a session this build cannot place', () => {
+  // MEASURED IN A REAL BROWSER, 2026-09-17. With the role set to "superuser",
+  // the gate refused the page, asked `landingPathFor` where to send them, got
+  // `undefined`, and handed that to the router — which threw `Cannot read
+  // properties of undefined (reading 'startsWith')`. The result was a BLANK
+  // page on the original URL with the token still in localStorage: no content,
+  // no sign-out, no redirect. Reloading reproduced it.
+  //
+  // Reachable without devtools: a release that renames or retires a role leaves
+  // every unexpired session in the institute carrying one this build has never
+  // heard of.
+  it('sends a snapshot with an unknown role back to sign in, and does not throw', () => {
+    signedInAs({ ...ADMIN, role: 'superuser' });
+    const { container } = render(
+      <DashboardLayout allowedRoles={['admin']} title="T">{SECRET}</DashboardLayout>,
+    );
+    expect(container).toBeEmptyDOMElement();
+    expect(replace).toHaveBeenCalledWith('/');
+    // Every argument the router is given must be a route. `undefined` here was
+    // the whole defect.
+    for (const [arg] of replace.mock.calls) expect(typeof arg).toBe('string');
+    expect(mockGet).not.toHaveBeenCalled();
+  });
+
+  it('does not leave the refused snapshot behind for the next page load', () => {
+    signedInAs({ ...ADMIN, role: 'superuser' });
+    render(<DashboardLayout allowedRoles={['admin']} title="T">{SECRET}</DashboardLayout>);
+    expect(localStorage.getItem('airms_token')).toBeNull();
+  });
+
+  // The same value, arriving from the API instead of from storage. `getSession`
+  // cannot screen this one, so it is checked where it lands.
+  it('ends the session when the SERVER names a role this build does not know', async () => {
+    signedInAs(ADMIN);
+    mockGet.mockResolvedValue({ user: { ...ADMIN, role: 'superuser' } });
+
+    render(<DashboardLayout allowedRoles={['admin']} title="T">{SECRET}</DashboardLayout>);
+
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/'));
+    expect(localStorage.getItem('airms_token')).toBeNull();
+  });
+});
+
+describe('how often the server is asked', () => {
+  // §111.7. This component mounts on every page, so the confirmation fired once
+  // per navigation: eight calls for one admin opening five pages, measured
+  // against the dev server. Each one can be a cold start on the deployed API,
+  // and it sits in front of the paint.
+  it('confirms once per tab, not once per page', async () => {
+    signedInAs(ADMIN);
+    const page = () => <DashboardLayout allowedRoles={['admin']} title="T">{SECRET}</DashboardLayout>;
+
+    const first = render(page());
+    expect(await screen.findByText(/roster and clinical scores/)).toBeInTheDocument();
+    await waitFor(() => expect(mockGet).toHaveBeenCalledTimes(1));
+    first.unmount();
+
+    // Navigating to another page: a fresh mount of the same gate.
+    render(page());
+    expect(await screen.findByText(/roster and clinical scores/)).toBeInTheDocument();
+    expect(mockGet).toHaveBeenCalledTimes(1);
+  });
+
+  // The cache must never turn "we could not check" into "we checked" — that
+  // would let an expired token survive a whole browsing session on the strength
+  // of one failed request.
+  it('asks again after a failure, because nothing was confirmed', async () => {
+    signedInAs(ADMIN);
+    mockGet.mockRejectedValue(new TypeError('Failed to fetch'));
+
+    const first = render(
+      <DashboardLayout allowedRoles={['admin']} title="T">{SECRET}</DashboardLayout>,
+    );
+    await waitFor(() => expect(mockGet).toHaveBeenCalledTimes(1));
+    first.unmount();
+
+    render(<DashboardLayout allowedRoles={['admin']} title="T">{SECRET}</DashboardLayout>);
+    await waitFor(() => expect(mockGet).toHaveBeenCalledTimes(2));
   });
 });
 
@@ -234,6 +330,19 @@ describe('a revoked capability', () => {
 describe('the session is confirmed once, not once per render', () => {
   it('does not re-ask the server when the parent re-renders with an equal roles array', async () => {
     signedInAs(ADMIN);
+    // A CONFIRMATION THAT NEVER ARRIVES, DELIBERATELY (2026-09-17, §111.7).
+    //
+    // The "already confirmed" marker is written when the ANSWER lands, so with a
+    // resolving mock the first call populates the cache and every later effect
+    // run is short-circuited before the network. This test would then count the
+    // CACHE and pass no matter how many times the effect ran — and the mutation
+    // registered against it survived, which is how that was found rather than
+    // reasoned about.
+    //
+    // Left pending, nothing is ever cached, so every run of the effect reaches
+    // `api.get` and the call count measures effect runs again, exactly as it did
+    // before the cache existed.
+    mockGet.mockReturnValue(new Promise(() => {}));
     const { rerender } = render(
       <DashboardLayout allowedRoles={['admin']} title="T">{SECRET}</DashboardLayout>,
     );
@@ -252,21 +361,34 @@ describe('the session is confirmed once, not once per render', () => {
     expect(total).toBe(1);
   });
 
-  it('DOES re-ask when the allowed roles actually change', async () => {
+  it('DOES re-run the gate when the allowed roles actually change', async () => {
     // The optimisation must not become "check once and never again". Comparing
     // by value has to stay a comparison — if the page genuinely changes which
     // roles it admits, the gate re-runs.
+    //
+    // THIS ASSERTED A SECOND `/auth/me` UNTIL 2026-09-17, and that was always a
+    // proxy: the gate re-running and the server being re-asked were the same
+    // event, so counting the cheap one stood in for the one that matters. The
+    // confirmation cache (§111.7) separated them — within 60 seconds the gate
+    // re-runs and the network does not — so the proxy now measures the cache
+    // instead of the gate, which is not what this test is for.
+    //
+    // It asserts the refusal directly instead, which is both the property §80.2
+    // cared about and a stronger one: the local role check is the half that
+    // must never be skipped, and here it fires against a session the server
+    // confirmed moments ago.
     signedInAs(ADMIN);
     const { rerender } = render(
       <DashboardLayout allowedRoles={['admin']} title="T">{SECRET}</DashboardLayout>,
     );
-    await waitFor(() => expect(mockGet).toHaveBeenCalledWith('/auth/me'));
+    expect(await screen.findByText(/roster and clinical scores/)).toBeInTheDocument();
+    expect(replace).not.toHaveBeenCalled();
 
+    // The page now admits medical only. This admin must be turned away.
     await act(async () => {
-      rerender(<DashboardLayout allowedRoles={['admin', 'medical']} title="T">{SECRET}</DashboardLayout>);
+      rerender(<DashboardLayout allowedRoles={['medical']} title="T">{SECRET}</DashboardLayout>);
     });
 
-    const total = mockGet.mock.calls.filter(([p]) => p === '/auth/me').length;
-    expect(total).toBe(2);
+    expect(replace).toHaveBeenCalledWith('/admin/dashboard');
   });
 });

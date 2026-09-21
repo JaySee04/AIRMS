@@ -24,6 +24,9 @@ const BAND_LABEL = {
   red: 'Immediate assessment',
 };
 
+/** users.role enum. ORDER IS LOAD-BEARING — MySQL stores an ENUM by index. */
+const ROLES = ['athlete', 'medical', 'admin', 'coach', 'executive'];
+
 /** Athlete.gender enum. */
 const GENDERS = ['Male', 'Female'];
 
@@ -84,6 +87,7 @@ const RESPONSE_OUTCOME_KEYS = ['assessed-none', 'monitoring', 'treating', 'refer
 
 module.exports = {
   INSTITUTION_TZ,
+  ROLES,
   BANDS,
   BAND_RANK,
   BAND_LABEL,

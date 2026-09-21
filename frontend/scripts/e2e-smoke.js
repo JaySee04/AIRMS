@@ -148,10 +148,26 @@ async function visit(browser, route, session) {
     }
 
     console.log('\n2. a coach typing an admin URL');
+    // THE DESTINATION CHANGED ON 2026-09-16 (§111), AND THE ASSERTION HAD TO
+    // CHANGE WITH IT — deliberately, not to make a red check go green.
+    //
+    // A refused page used to redirect to '/', so "no successful API call at
+    // all" was a fair proxy for "no admin data reached the coach": the sign-in
+    // screen fetches nothing. A signed-in user is now sent to their OWN
+    // dashboard instead, which legitimately loads coach data, so that proxy now
+    // reports a leak where there is none.
+    //
+    // Asserting the real property directly instead: the coach never lands on
+    // the admin page, and nothing the ADMIN page is made of comes back 2xx.
+    // `/users` is that page's data (its roster call is shared with pages a
+    // coach may see, so naming the endpoint is what makes this precise).
     const v = await visit(browser, '/admin/personnel', sessions.coach);
-    check('/admin/personnel bounces a coach', v.url === '/', `landed on ${v.url}`);
-    check('/admin/personnel gives a coach no data', v.leaked.length === 0,
-      v.leaked.map((c) => `${c.status} ${c.path}`).join(', '));
+    check('/admin/personnel bounces a coach', v.url !== '/admin/personnel', `landed on ${v.url}`);
+    check('a bounced coach is sent to their own dashboard, not the sign-in form',
+      v.url === '/coach/dashboard', `landed on ${v.url}`);
+    const adminData = v.leaked.filter((c) => c.path.startsWith('/users'));
+    check('/admin/personnel gives a coach no admin data', adminData.length === 0,
+      adminData.map((c) => `${c.status} ${c.path}`).join(', '));
     await v.page.close();
 
     console.log('\n3. the pages a role owns actually render');

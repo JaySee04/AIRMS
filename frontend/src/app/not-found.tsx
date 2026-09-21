@@ -1,4 +1,8 @@
+'use client';
+
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { getSession, landingPathFor } from '@/lib/auth';
 
 // The page a wrong URL lands on.
 //
@@ -19,7 +23,24 @@ import Link from 'next/link';
 // guess at a role this page cannot know — an unauthenticated visitor has none,
 // and `/` is the sign-in screen that already routes each role correctly after
 // login.
+// The way OUT depends on whether anybody is signed in, and it used to assume
+// nobody was: the only link went to '/' under the words "Sign in to reach your
+// dashboard". An administrator who mistyped a URL was therefore told to sign in
+// while already holding a valid session — the page describing the opposite of
+// the user's actual state.
+//
+// Resolved on the CLIENT, after mount, which keeps the two requirements from
+// fighting: the server HTML — all a stranger, a crawler or a probe ever sees —
+// is still the signed-out wording, and the signed-in variant only ever appears
+// to a browser that already holds the session it is reading. It still names no
+// route and no role.
 export default function NotFound() {
+  const [home, setHome] = useState<string | null>(null);
+  useEffect(() => {
+    const session = getSession();
+    if (session) setHome(landingPathFor(session.user.role));
+  }, []);
+
   return (
     <main
       style={{
@@ -48,10 +69,10 @@ export default function NotFound() {
         </h1>
         <p style={{ color: 'var(--text-muted)', margin: '0 0 var(--sp-lg)' }}>
           The address may have been mistyped, or the page may have been moved.
-          Sign in to reach your dashboard.
+          {home ? ' Your dashboard is still where you left it.' : ' Sign in to reach your dashboard.'}
         </p>
-        <Link href="/" className="btn btn-primary">
-          Go to sign in
+        <Link href={home ?? '/'} className="btn btn-primary">
+          {home ? 'Back to my dashboard' : 'Go to sign in'}
         </Link>
       </div>
     </main>

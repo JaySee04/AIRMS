@@ -4,16 +4,8 @@ import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '@/lib/api';
-import { saveSession } from '@/lib/auth';
+import { saveSession, landingPathFor, Role } from '@/lib/auth';
 import LoginBrand from '@/components/auth/LoginBrand';
-
-const ROLE_REDIRECTS: Record<string, string> = {
-  athlete: '/athlete/dashboard',
-  medical: '/medical/dashboard',
-  admin: '/admin/dashboard',
-  coach: '/coach/dashboard',
-  executive: '/admin/dashboard',
-};
 
 export default function LoginPage() {
   const router = useRouter();
@@ -28,9 +20,9 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
     try {
-      const data = await api.post<{ token: string; user: { role: string } }>('/auth/login', { email, password });
+      const data = await api.post<{ token: string; user: { role: Role } }>('/auth/login', { email, password });
       saveSession((data as any).token, (data as any).user);
-      router.push(ROLE_REDIRECTS[(data as any).user.role] ?? '/athlete/dashboard');
+      router.push(landingPathFor((data as any).user.role));
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Login failed');
     } finally {

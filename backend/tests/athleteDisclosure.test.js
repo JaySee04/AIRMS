@@ -22,7 +22,10 @@ const {
 } = require('../src/utils/permissions');
 const { serializeAthlete, serializeAthleteList } = require('../src/utils/serialize');
 
-const ROLES = ['athlete', 'medical', 'admin', 'coach', 'executive'];
+// The role set, from the shared fact (2026-09-17, §111.6). Written out here
+// until then — which meant a new role could be added to the system and this
+// suite would go on proving disclosure for the old five without saying so.
+const { ROLES } = require('../src/shared/facts');
 
 const athleteRow = (over = {}) => ({
   athleteId: '890202021001',

@@ -4,8 +4,23 @@ import { useCallback } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import ProfileShell from '@/components/profile/ProfileShell';
 import { api } from '@/lib/api';
+import { getSession } from '@/lib/auth';
 
 interface AthleteListItem { athleteId: string; sport?: string; isActive?: boolean; overallActivityScore?: number | null }
+
+// This page serves TWO roles, and the blurb must not describe the wrong one.
+// It read "System administrator — screening analytics, reporting, data
+// management" for both, so an executive — a role whose defining property is
+// that it writes NOTHING, and which MASTER_CLARIFICATIONS §12 says must not be
+// described as an administrator — was told it was one, on the page that states
+// its identity. Read from the session snapshot rather than a prop because
+// DashboardLayout owns the server confirmation; a wrong guess here is a
+// sentence, not an access decision.
+function roleBlurbFor(role: string | undefined): string {
+  return role === 'executive'
+    ? 'Executive oversight — institution-wide analytics, reporting and the activity log. Read-only.'
+    : 'System administrator — screening analytics, reporting, data management';
+}
 
 export default function AdminProfile() {
   // Admin system-wide vitals: roster size, sport coverage, and HoloMotion
@@ -33,7 +48,7 @@ export default function AdminProfile() {
           { label: 'Awaiting a screening', value: '…' },
         ]}
         onLoadStats={loadStats}
-        roleBlurb="System administrator — screening analytics, reporting, data management"
+        roleBlurb={roleBlurbFor(getSession()?.user.role)}
       />
     </DashboardLayout>
   );

@@ -81,7 +81,7 @@ cd backend; npm run mutate           # BREAK each registered guard on purpose an
                                      # skip is right; the consequence is that the guard
                                      # reports SURVIVED while a dev server runs, which
                                      # is environmental and not a real regression.
-                                     # test is not testing what it claims. 60 guards across
+                                     # test is not testing what it claims. 65 guards across
                                      # both packages. NOT part of `npx jest` — it spawns a
                                      # jest run per mutation (tens of seconds). Run it before
                                      # committing a change to a guard, and add an entry when
@@ -332,7 +332,7 @@ cd frontend; npm run e2e   # END-TO-END smoke: a real Chrome against the running
 cd frontend; npm run build
 
 # Unit tests (jest, in both packages — no linter configured for the backend)
-cd backend; npx jest      # 58 suites / 857 tests: cohorts, overallIndicator, permissions, rbac, pdfDraw,
+cd backend; npx jest      # 58 suites / 858 tests: cohorts, overallIndicator, permissions, rbac, pdfDraw,
                           # emailAddress (the address an activation code is SENT to. It was
                           # VARCHAR(160) UNIQUE and nothing else — "not-an-email", "jc@@isn",
                           # "a b@c.d" and "<script>@x.com" all validated and would have been
@@ -433,14 +433,34 @@ cd backend; npx jest      # 58 suites / 857 tests: cohorts, overallIndicator, pe
                           # other suite. Static: it reads both files as text and never
                           # require()s the target, because several modules build a Sequelize
                           # instance at import time)
-cd frontend; npx jest     # 22 suites / 357 tests (the run is pinned to UTC by
+cd frontend; npx jest     # 24 suites / 415 tests (the run is pinned to UTC by
                           # jest.globalSetup.js - this machine sits IN the institution
                           # zone, which made the date tests pass for the wrong reason
                           # until mutation testing said so; see DD 62): lib/risk.ts, lib/screeningUploadStore.ts, bodymap-data/muscles.ts,
                           # components/charts (rendered via react-dom/server — no jsdom needed),
                           # lib/bands.ts, lib/athleteSearch.ts, lib/rank.ts,
                           # lib/screeningAlerts.indicators.ts, lib/cssTokens.ts, lib/periods.ts,
-                          # lib/num.ts (ONE table run through both packages' toNum), 
+                          # lib/num.ts (ONE table run through both packages' toNum),
+                          # lib/auth.ts (THE SESSION BOUNDARY — added 2026-09-17,
+                          # DD 111.6. It had no test, which is awkward for the module
+                          # that decides who the app thinks you are. `getSession()`
+                          # ended in `JSON.parse(raw) as SessionUser` — a CAST, which
+                          # asserts a shape rather than checking one — and the snapshot
+                          # is written by us but STORED BY THE BROWSER, so it comes back
+                          # as input. Measured in a real browser with role "superuser":
+                          # the gate refused the page, asked landingPathFor where to send
+                          # them, got undefined, handed it to the router, and threw
+                          # "Cannot read properties of undefined (reading 'startsWith')" —
+                          # a BLANK page on the original URL, token still set, no sign-out.
+                          # Worse than the bug DD 111 was opened about, and INTRODUCED BY
+                          # ITS FIX: 111.3 removed a fallback because "the type makes an
+                          # unhandled role impossible", and the type reached no part of
+                          # that path. A release that renames a role does this to every
+                          # unexpired session. Pins: the role is checked and only the role
+                          # (validating every field would force a sign-out on anyone
+                          # holding a session an older build wrote), a refused snapshot is
+                          # DISCARDED rather than ignored, and the /auth/me confirmation
+                          # cache EXPIRES — see SILENT_FAILURES 3y), 
                           # lib/shared/facts.ts (the generated file matches its source, and
                           # matches the backend's copy), components/layout/DashboardLayout
                           # (jsdom - the access gate; opt in per file with a @jest-environment
@@ -470,6 +490,26 @@ cd frontend; npx jest     # 22 suites / 357 tests (the run is pinned to UTC by
                           # exempt: it renders no prose. Brace-aware tag scan, because
                           # `historical={!!picked}` breaks a naive scan to the next '>'.
                           # All 4 mutations caught, including the OMITTED-prop case),
+                          # components/layout/roleRouting (SOURCE check, added 2026-09-16:
+                          # every role has a topbar label, a profile route and a
+                          # landing page, AND each of those pages' allowedRoles
+                          # admits that role. Topbar's two maps were typed
+                          # `Record<string, string>` and both omitted `executive`
+                          # — indexing a string-keyed record yields `string`,
+                          # never `string | undefined`, so TS said nothing. The
+                          # profile route came back undefined, `<Link
+                          # href={undefined}>` THREW during render, and the
+                          # account dropdown never mounted. SIGN OUT LIVES ONLY
+                          # IN THAT DROPDOWN: an executive could not sign out and
+                          # could not open their profile, on the DEPLOYED
+                          # instance, from 2026-08-08 to 2026-09-16. Production
+                          # fails too, differently — Next compiles the href check
+                          # out, so the minified Link throws "Cannot destructure
+                          # property 'auth' of 'e'" instead. Typing the maps
+                          # `Record<Role, …>` makes a missing role a BUILD error,
+                          # which is the stronger half; this test covers the half
+                          # a type cannot — that the route pointed AT admits the
+                          # role. See DESIGN_DECISIONS §111),
                           # components/dashboard/DecisionPanel (jsdom, added 2026-09-11:
                           # what the "what moved" list CLAIMS to cover. The heading has
                           # three forms and the server says which applies (`changesBasis`);
@@ -898,7 +938,21 @@ deliberately sit outside.
 
 Three-tier monorepo orchestrated by `concurrently` from the root `package.json`. Frontend and backend each maintain their own type definitions, with one exception: the **shared facts** below.
 
-**`shared/facts.js` is the single source for the values both packages must agree on** (2026-09-04, `DESIGN_DECISIONS.md §53`): `INSTITUTION_TZ`, `BANDS`, `BAND_RANK`, `BAND_LABEL`, `GENDERS`, `PROGRAMMES`, `AGE_GROUPS`, `GRAINS`, `RISK_AXIS_MAX`, `WATCH_THRESHOLD`, `HIGH_THRESHOLD`, `EXCLUDED_RISK_KEYS`, `RISK_INDICATORS`, `SMALL_COHORT`.
+**`shared/facts.js` is the single source for the values both packages must agree on** (2026-09-04, `DESIGN_DECISIONS.md §53`): `INSTITUTION_TZ`, `ROLES`, `BANDS`, `BAND_RANK`, `BAND_LABEL`, `GENDERS`, `PROGRAMMES`, `AGE_GROUPS`, `GRAINS`, `RISK_AXIS_MAX`, `WATCH_THRESHOLD`, `HIGH_THRESHOLD`, `EXCLUDED_RISK_KEYS`, `RISK_INDICATORS`, `SMALL_COHORT`.
+
+**`ROLES` joined the list on 2026-09-17 (`§111.6`)**, and how it got there is the
+design working rather than a decision anybody made: the frontend needed the role
+set as a runtime VALUE (a bare union cannot be enumerated, so nothing could ask
+"is this role one of ours?" of a snapshot out of `localStorage`), that put the
+same name in both packages, and `crossPackage.test.js` refused to pass. It had
+been **three** copies — the `Role` union, the `User.role` ENUM, and the list two
+backend suites wrote out to iterate roles. `User.role` now renders its ENUM from
+the shared list; it is byte-identical, so no migration, but **the order is
+load-bearing and the list is append-only** — MySQL stores an ENUM by index, so
+reordering rewrites what existing rows mean. `routes/watchlist.js` had a
+colliding `const ROLES = ['medical', 'admin']` — a *permission*, not the role set
+— now `WATCHLIST_ROLES`, per that test's rule that a second meaning under a
+shared name is the drift, not the duplication.
 
 **Adding a fact takes TWO edits, and the second is easy to miss (2026-09-06, `DESIGN_DECISIONS.md §60`).** `shared/generate.js` renders each package from a **hand-written template naming every constant**, so adding a value to `shared/facts.js` alone is a **no-op** — and `npm run sync:shared` reports `already in sync`, because its staleness check compares the committed file against that same template. Add the constant to `shared/facts.js` **and** to both renderers in `shared/generate.js`, then sync. The backend suite has always caught a forgotten backend renderer; the FRONTEND half was unguarded until 2026-09-06 (proven by mutation: dropping a constant from the frontend template left backend 11/11 and frontend 19/19 green with the value missing from `facts.ts`). `frontend/src/lib/shared/facts.test.ts` now enumerates the source's keys against a **namespace import** rather than a written-down list, so both halves fail loudly.
 
@@ -1046,7 +1100,7 @@ Forgetting the sync is the one hazard the design trades for, so **both** test su
 - Pages live under `frontend/src/app/<role>/<slug>/page.tsx` — the URL hierarchy is the role-based access boundary (`/athlete/*`, `/medical/*`, `/admin/*`)
 - Every authenticated page wraps its content in `<DashboardLayout allowedRoles={[...]} title="...">` (`components/layout/`). The layout enforces client-side role gating; backend RBAC is the actual security
 - Auth state is JWT in `localStorage`, managed via `lib/auth.ts` (`saveSession` / `getSession` / `clearSession`). API calls go through `lib/api.ts` which auto-attaches the bearer token. **`lib/api.ts` throws `ApiError` carrying the HTTP status**, and `isAuthError()` tells a refusal (401/403) from a network failure — a bare `Error` collapsed those into one, and they need opposite handling
-- **`DashboardLayout` confirms the session with the SERVER, for every role** (2026-09-01). The gate reads `airms_user` from `localStorage`, which is a login-time snapshot the browser owns — it answers "what does this browser claim?", not "who is this?". Measured with a real browser against 20 protected routes: with no session every route already bounced to `/`, nothing painted, and all 46 API calls returned 401; as a coach, every admin/medical route bounced and every call 403'd. What did NOT hold was an **expired** token (7-day JWT: on day 8 the snapshot still said "admin", so the shell rendered and every panel failed 401 — a broken page instead of the sign-in screen) and a hand-edited snapshot, which rendered an empty admin shell. `/auth/me` on mount settles both; only `isAuthError` ends the session, because signing everyone out whenever the API blinks would be its own outage
+- **`DashboardLayout` confirms the session with the SERVER, for every role** (2026-09-01). The gate reads `airms_user` from `localStorage`, which is a login-time snapshot the browser owns — it answers "what does this browser claim?", not "who is this?". Measured with a real browser against 20 protected routes: with no session every route already bounced to `/`, nothing painted, and all 46 API calls returned 401; as a coach, every admin/medical route bounced and every call 403'd. What did NOT hold was an **expired** token (7-day JWT: on day 8 the snapshot still said "admin", so the shell rendered and every panel failed 401 — a broken page instead of the sign-in screen) and a hand-edited snapshot, which rendered an empty admin shell. `/auth/me` on mount settles both; only `isAuthError` ends the session, because signing everyone out whenever the API blinks would be its own outage. **Since 2026-09-17 that confirmation is cached for 60 seconds per tab** (`§111.7`): this component mounts on every page, so it fired on every navigation — measured A/B against a production build, one admin opening five pages cost **7** calls and now costs **2**. It does not weaken the guarantee, which was only ever "within one navigation" and is already unbounded for anyone who sits on one page; the backend re-reads the user row on every request regardless. Keyed by token in `sessionStorage`, and marked **only when the server answers**, so a refusal or a network failure is never mistaken for a confirmation. Note the trap it exposed: with the cache in place, §80.2's mutation guard SURVIVED, because its test counted `/auth/me` calls as a proxy for effect re-runs and the cache separated the two — that test now mocks a reply that never arrives
 - Modules 1 and 6 (Athlete Dashboard & Overall Risk Indicator, Clinical & Squad Monitoring) share the same dashboard components (`BodyMap`, `RiskRadar`, `ScreeningPanel` — the embedded HoloMotion report with threshold strips; there are no standalone screening pages) and the same `classifyCompositeRisk()` from `lib/risk.ts` — the medical view is "the athlete dashboard with a clinician's affordances added"
 - **Security headers are set in `next.config.js`** (2026-09-13, `DESIGN_DECISIONS.md §91.5`). The API had the full helmet set for months while the WEB APP — the half that actually paints names, ICs and clinical notes — sent none. Five now: `frame-ancestors 'none'` + `X-Frame-Options: DENY` (verified no `<iframe>`/`<embed>` anywhere; PDFs download via blob URL, never framed — and the controls a clickjack would bait include *declare injured* and *override a band*), `Referrer-Policy: strict-origin-when-cross-origin` (routes carry ICs), `nosniff`, and a `Permissions-Policy` denying camera/mic/geolocation. **The full CSP is in `src/middleware.ts`** (2026-09-13, `§92`), not next.config — it carries a per-request nonce, which a static header cannot. Declared in ONE place on purpose: two `Content-Security-Policy` headers are enforced as an *intersection*, so a second copy would silently change the effective policy. **`export const dynamic = 'force-dynamic'` in `src/app/layout.tsx` is REQUIRED by it and is the one-line rollback point** — with routes statically prerendered the HTML carries no nonce, and Chrome blocked all 16 inline scripts: pages rendered their server HTML and never hydrated, i.e. a dead page that looks alive. **Verify with `cd frontend; npm run verify:csp`** (real Chrome, production build — `next dev` needs `'unsafe-eval'`, so a dev run proves nothing). 20/20, and `npm run e2e` is 110/110 against that same hardened build — both re-run against the HOSTED instance after deploy, not just locally. `connect-src` is derived from `NEXT_PUBLIC_API_URL` because web and API are always different origins; **if dashboards render but every panel is empty, check CORS/`FRONTEND_URL` before the CSP — the two failures look identical from the page.** `outputFileTracingRoot: __dirname` is also set: three lockfiles made Next infer the REPO ROOT as its build root, which is not the Vercel build context.
 - Styling: a single `frontend/src/styles/globals.css` with CSS custom properties. Dark mode via `[data-theme="dark"]` on `<html>`. **Do not introduce CSS-in-JS, Tailwind, or component libraries.**

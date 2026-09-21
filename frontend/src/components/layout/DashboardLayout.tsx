@@ -6,8 +6,9 @@ import Sidebar from './Sidebar';
 import Topbar from './Topbar';
 import { api, isAuthError } from '@/lib/api';
 import {
-  getSession, saveSession, clearSession,
-  SessionUser, PermissionKey, Role, hasPermission, firstPermittedPath,
+  getSession, saveSession, clearSession, isRole,
+  sessionConfirmedRecently, markSessionConfirmed,
+  SessionUser, PermissionKey, Role, hasPermission, firstPermittedPath, landingPathFor,
 } from '@/lib/auth';
 
 interface DashboardLayoutProps {
@@ -58,8 +59,32 @@ export default function DashboardLayout({ children, allowedRoles, title, require
     // genuinely has no dependency on the prop's identity.
     const roles = rolesKey.split('|') as Role[];
     const session = getSession();
-    if (!session || !roles.includes(session.user.role)) {
+    if (!session) {
+      // No session at all: the sign-in screen is the correct destination.
       router.replace('/');
+      return;
+    }
+    if (!roles.includes(session.user.role)) {
+      // SIGNED IN, BUT NOT FOR THIS PAGE — send them to their OWN landing page,
+      // not to '/' (2026-09-16, §111).
+      //
+      // Both cases used to redirect to the sign-in form, which for an
+      // authenticated person reads as "you have been logged out": a coach
+      // opening a colleague's bookmark to /admin/dashboard was shown a password
+      // prompt while holding a perfectly good session. Nobody was stuck — you
+      // can sign in again — but the screen said the opposite of what happened,
+      // which is this project's whole defect class.
+      //
+      // Guarded against redirecting a page to itself: if the landing page is the
+      // one that just refused us, the role model is inconsistent and '/' is the
+      // only safe answer. Unreachable today (every landing page names its own
+      // role in allowedRoles) and deliberately not left to be discovered.
+      // `window.location.pathname`, not the `pathname` hook, on purpose: adding
+      // it to this effect's dependency list would re-run the session check —
+      // and the /auth/me call with it — on navigation, which is the exact cost
+      // the `rolesKey` comment above exists to have removed.
+      const landing = landingPathFor(session.user.role);
+      router.replace(landing === window.location.pathname ? '/' : landing);
       return;
     }
     setUser(session.user);
@@ -83,10 +108,33 @@ export default function DashboardLayout({ children, allowedRoles, title, require
     //
     // Asking the server settles both. It also picks up a permission an admin
     // revoked mid-session, which is why this call already existed for medical.
+    //
+    // ...but not more than once a minute per tab. This component mounts on every
+    // page, so the confirmation was firing on every navigation — eight calls for
+    // five pages, measured. See `sessionConfirmedRecently` for what that does and
+    // does not weaken (§111.7).
+    if (sessionConfirmedRecently(session.token)) return;
     api.get<{ user: SessionUser }>('/auth/me')
       .then(({ user: fresh }) => {
-        if (!roles.includes(fresh.role)) { router.replace('/'); return; }
+        // A role this build does not know. The snapshot path cannot produce one
+        // any more (getSession refuses it), but this value comes from the API,
+        // so it is checked where it ARRIVES rather than assumed to be clean —
+        // `landingPathFor` would hand the router `undefined` and blank the page.
+        // Nothing here can place them, so nothing is guessed: end the session.
+        if (!isRole(fresh.role)) { clearSession(); router.replace('/'); return; }
+        // The server disagrees with the snapshot about this user's role — most
+        // plausibly an admin changed it mid-session. They are authenticated, so
+        // the same rule applies: their own landing page, not a password prompt.
+        if (!roles.includes(fresh.role)) {
+          const landing = landingPathFor(fresh.role);
+          router.replace(landing === window.location.pathname ? '/' : landing);
+          return;
+        }
         saveSession(session.token, fresh);
+        // Marked only on a CONFIRMED answer. A refusal or a network failure
+        // leaves no marker, so the next navigation asks again rather than
+        // treating "we could not check" as "we checked".
+        markSessionConfirmed(session.token);
         setUser(fresh);
       })
       .catch((err) => {

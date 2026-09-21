@@ -9920,3 +9920,250 @@ Proven by planting: `5 backend suites` in `README.md` and `all 67 endpoints` in
 
 **Verified**: backend 58 suites / 857 tests, frontend 22 / 357, 529 markdown
 links resolve, submission scrub simulated clean on both files.
+
+---
+
+## 111. The role that could not sign out (2026-09-16)
+
+A navigation audit: walk every route as every role and find anywhere a user ends
+up stuck. It found one genuinely stuck state, live on the deployed instance for
+five weeks, plus three places where the app described the user's situation
+backwards.
+
+### 111.1 The stuck state
+
+`Topbar.tsx` keys two maps by role — the label under "Signed in as", and the
+target of the **My Profile** link. Both were written before `executive` existed
+(added 2026-08-08, §42) and neither gained an entry for it.
+
+```ts
+const PROFILE_ROUTES: Record<string, string> = { athlete: …, medical: …, admin: …, coach: … };
+```
+
+`PROFILE_ROUTES['executive']` is therefore `undefined`, and
+`<Link href={undefined}>` **throws while rendering**. The throw takes down the
+whole dropdown — which is the only place in the entire application where
+**Sign out** exists. The sidebar has no profile entry for any role, so:
+
+- an executive could not sign out;
+- an executive could not open their profile, even though `/admin/profile`'s
+  `allowedRoles` names them explicitly;
+- the topbar read "Signed in as" followed by nothing.
+
+The only exit was to type `/admin/profile` by hand, or to clear site data.
+
+**Measured, in both builds, rather than reasoned about.** In dev, Chrome reports
+`Failed prop type: The prop 'href' expects a string or object in <Link>, but got
+undefined instead`. Next compiles that check out of a production build, so the
+hosted instance fails *differently and just as fatally*: the minified Link
+internals throw `Cannot destructure property 'auth' of 'e' as it is undefined`.
+Confirmed against `airms-web.vercel.app` on 2026-09-16 — the dropdown did not
+render there either. This was not a dev-only artefact.
+
+### 111.2 Why nothing caught it
+
+`Record<string, string>` is the whole story. Indexing a string-keyed record
+yields `string`, never `string | undefined`, so the compiler had nothing to say
+about a missing key — and `strict` mode does not change that without
+`noUncheckedIndexedAccess`.
+
+The contrast is in the same folder. `Sidebar.tsx` declares
+`NAV: Record<Role, NavItem[]>`, and it has all five roles — not because anybody
+was more careful there, but because omitting one would not compile. Of the
+**three** role-keyed maps in the app typed `Record<string, …>`, two were missing
+`executive`; both maps typed `Record<Role, …>` were complete.
+
+`npm run e2e` logs in as executive and never visits a page as one — it uses that
+session for a single API assertion. Every page-rendering check runs as the other
+four roles. And the dropdown only fails **once opened**, which no check did.
+
+### 111.3 What was changed
+
+Both Topbar maps are now `Record<Role, …>`, so a sixth role fails the build.
+`executive` maps to `/admin/profile` — the role has no pages of its own, it reads
+the admin ones it is permitted to see.
+
+The login page's redirect map had the same `Record<string, string>` shape and
+*did* list all five, but carried `?? '/athlete/dashboard'` as a fallback: an
+unrecognised role would have been sent to a page that immediately bounces it,
+i.e. a sign-in that silently appears to fail. It moved to `lib/auth.ts` as
+`landingPathFor()`, typed `Record<Role, string>` with **no fallback**, because
+the type now makes an unhandled role impossible. One definition, which the login
+page and the layout share.
+
+### 111.4 Three screens that described the situation backwards
+
+Not stuck, but each said the opposite of what had happened — which is this
+project's defect class applied to prose.
+
+- **A refused page showed a password prompt.** `DashboardLayout` redirected to
+  `/` both when there was no session *and* when the session was fine but the
+  role was wrong. A coach opening a colleague's bookmark to `/admin/dashboard`
+  was shown a sign-in form while holding a perfectly good session — which reads
+  as "you have been logged out". Now: no session → `/` (unchanged, and that is
+  the security boundary); signed in but not for this page → **their own
+  dashboard**. Measured across all 20 pages × 5 roles: 73 wrong-role redirects,
+  all of which previously landed on the sign-in form, now land on the user's own
+  dashboard. Signed-**out** access still bounces to `/` on every route.
+- **The 404 told signed-in users to sign in.** Its only link went to `/` under
+  the words "Sign in to reach your dashboard". Resolved on the client after
+  mount, which keeps the page's stated requirement intact: the server HTML — all
+  a stranger, a crawler or a probe ever sees — is still the signed-out wording,
+  and it still names no route and no role.
+- **The executive was called a system administrator.** `/admin/profile` serves
+  both roles and passed one hard-coded blurb, so the role whose defining
+  property is that it writes nothing was described as "System administrator —
+  … data management" on the page that states its identity. §12 says in terms
+  that this role must not be described as an administrator.
+
+### 111.5 The guard
+
+`frontend/src/components/layout/roleRouting.test.ts` (16 cases) pins what the
+type cannot: that the route each map **points at** actually admits that role.
+Setting executive's profile to `/coach/profile` compiles perfectly and bounces
+the user straight back out.
+
+Its map parser asserts it found exactly as many entries as there are roles, and
+fails loudly if a map is missing, rather than returning a plausible subset —
+§56.3 is the standing reason.
+
+Two entries added to `npm run mutate` (60 → 62), both caught. Four mutations
+were checked in total against a comment-only control that correctly survived:
+dropping the executive key, pointing it at a refusing page, blanking the label,
+and landing the role on a page that refuses it.
+
+One note for whoever writes the next mutation: the first attempt reported
+`find string not present, guard registry is stale` because the pattern ended in
+`\n` and these files are **CRLF**. That is the runner working — a stale anchor
+must never be silently skipped.
+
+**Verified**: backend 58 suites / 857 tests, frontend 23 / 373, `npm run e2e`
+113/113, typecheck and lint clean, and the executive dropdown re-probed in a real
+browser — label "Executive", profile link `/admin/profile`, **Sign out present**.
+
+### 111.6 The fix that introduced a worse stuck state (2026-09-17)
+
+§111.3 removed the login page's `?? '/athlete/dashboard'` fallback on the
+grounds that "the type now makes an unhandled role impossible". The type does
+nothing of the kind, and the follow-up pass measured what that cost.
+
+`getSession()` ended in `JSON.parse(raw) as SessionUser` — a **cast**, which
+asserts a shape rather than establishing one. Everything downstream is typed
+`Role` on the strength of that one word. So with `airms_user.role` set to
+`"superuser"`, in a real browser against a production build:
+
+- the gate correctly refused the page;
+- it asked `landingPathFor('superuser')` where to send them;
+- got `undefined`, because `LANDING` is a `Record<Role, string>` and there is no
+  such key;
+- and handed that to the router, which threw
+  `Cannot read properties of undefined (reading 'startsWith')`.
+
+**A blank page, on the original URL, with the token still in localStorage.** No
+content, no sign-out, no redirect; reloading reproduced it exactly. That is
+worse than the executive dropdown this section was opened about — there, at
+least, the page rendered.
+
+Before §111.3 the same session landed on the sign-in form, because
+`DashboardLayout` sent every refusal to `/`. **The navigation fix made this
+case worse**, and it was found only because the audit was re-run against its own
+output rather than declared finished.
+
+**Reachable without devtools.** A release that renames or retires a role leaves
+every unexpired session in the institute — the JWT lasts seven days — carrying a
+role the new build has never heard of. `coach` and `executive` were both added
+mid-project; the reverse operation is ordinary.
+
+**Fixed at the boundary, not at the map.** The tempting repair is `?? '/'` in
+`landingPathFor`, and it is the wrong one: it silences this crash and leaves
+every other reader of `session.user.role` — `NAV[role]` in the sidebar, the
+topbar's two maps — holding the same `undefined`. `getSession()` is the one
+place browser-held data becomes a `SessionUser`, so it is the one place that
+checks. An unknown role is now not a session at all: the snapshot is
+**discarded** (not merely ignored — left in place, the browser holds a
+credential it can never use and every page load re-reads it) and the user gets
+the sign-in screen, which is true.
+
+It validates the **role and nothing else**. Validating `id`/`email`/`name` would
+reject sessions written by an older build that omitted a field this one added —
+trading a rare crash for a routine forced sign-out. `role` is the only field the
+app branches on.
+
+The same value arriving from the *API* is checked where it lands, in the
+`/auth/me` handler, for the same reason and with a different answer: nothing can
+place that user, so nothing is guessed — the session ends.
+
+**And the role set became a shared fact, which is how this was found.** Making
+`Role` enumerable at runtime meant declaring `ROLES` as a value; that made the
+same name exist in both packages; and `crossPackage.test.js` — which exists to
+notice exactly this — refused to pass. Its own instructions name the honest
+answer: a fact both halves must agree on belongs in `shared/facts.js`. It had
+been **three** independent copies (the `Role` union, the `User.role` ENUM, and
+the list two backend suites wrote out to iterate roles), and a role the backend
+accepts that the frontend cannot place is §111 again with a login attached.
+
+`ROLES` is now generated into both packages. `User.role` renders its ENUM from
+it — byte-identical, so no migration, and `shared/facts.js` records that MySQL
+stores an ENUM **by index** and the list is append-only. `routes/watchlist.js`
+had a colliding `const ROLES = ['medical', 'admin']`, which is a *permission*
+rather than the role set; it is now `WATCHLIST_ROLES`, per that test's own rule
+that a second meaning under a shared name is the drift.
+
+### 111.7 Confirming a session once a minute instead of once a page
+
+`DashboardLayout` calls `GET /auth/me` on mount, and it mounts on every page, so
+the confirmation fired on every navigation. §80.2 had already taken this from
+three calls per page load to one by comparing `allowedRoles` as a value; what it
+could not remove is that moving between pages is a fresh mount.
+
+**Measured A/B against a production build** — one admin opening five admin
+pages, with the cache TTL as the only variable (dev is not the number that
+matters; StrictMode double-invokes effects on purpose):
+
+| | before | after |
+|---|---|---|
+| five full page loads | 7 | 2 |
+| five in-app link clicks | 6 | 2 |
+
+The residual two are the tab's first confirmation plus one race — the marker is
+written when the answer *arrives*, so a second mount that starts before the
+first reply lands asks again. Correct, and not worth a lock: the race costs one
+duplicate request, a lock costs a page waiting on a request it does not need.
+
+**What it must not weaken.** The call catches an expired token, a role an admin
+changed, and a capability an admin revoked. The guarantee was "within one
+navigation" — and it is *already* unbounded for anyone who stays on one page,
+which is most of a clinic's day. A 60-second ceiling does not loosen that worst
+case; it removes the repeats inside it. The backend re-reads the user row on
+every request regardless, which is what actually stops a deactivated account.
+
+Held in `sessionStorage`, keyed by token: per-tab, so a second tab confirms for
+itself, and signing out and in as somebody else cannot inherit the previous
+person's confirmation. Only the last 24 characters of the token are used in the
+key, so a credential is not copied into a second storage area.
+
+**The part worth keeping: the optimisation hid the defect underneath it.** With
+the cache in place, §80.2's guard SURVIVED its mutation. That test asserted a
+second `/auth/me`, which had always been a proxy — the gate re-running and the
+server being re-asked were the same event, so counting the cheap one stood for
+the one that matters. The cache separated them, and the proxy started measuring
+the cache. Both halves were repaired rather than one: the "equal roles array"
+test now mocks a reply that **never arrives**, so nothing is ever cached and the
+call count measures effect runs again; and the "roles actually change" test
+asserts the **refusal** directly, which is stronger than what it replaced.
+
+Three guards added (62 → 65): an unknown role is refused, a refused snapshot is
+discarded, and the confirmation **expires** rather than standing for ever.
+
+### 111.8 Measured and left alone
+
+A refused session still fires the page's own data requests — three on
+`/admin/dashboard`, all answered **401**. The page component's `useEffect` runs
+at its own top level; `DashboardLayout` is something it *returns*, so the gate
+governs rendering, not fetching.
+
+Not fixed, and the reasoning is recorded rather than the fix deferred silently:
+the API is the boundary and it held, so this is wasted work on a rare path, not
+a disclosure. Fixing it properly means every page consulting the session before
+it fetches — twenty pages — which is a real change to how pages are written and
+JC's call, not a side effect of a navigation audit.

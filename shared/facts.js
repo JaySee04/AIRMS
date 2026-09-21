@@ -56,6 +56,31 @@ const BAND_LABEL = {
   red: 'Immediate assessment',
 };
 
+/**
+ * WHO THE SYSTEM HAS (users.role enum), in the order the role model grew.
+ *
+ * A shared fact since 2026-09-17 (§111.6), and it arrived here the way the
+ * design intends: the frontend needed the set as a runtime VALUE rather than a
+ * bare type, `crossPackage.test.js` saw the same name declared in both packages,
+ * and the rule it enforces says a fact both halves must agree on belongs in one
+ * file. It had been three independent copies — the `Role` union in
+ * `lib/auth.ts`, the `User.role` ENUM, and the list two backend suites wrote out
+ * to iterate the roles.
+ *
+ * The cost of disagreement is not hypothetical. §111 is a role the frontend
+ * knew about and two of its own lookup tables did not; a role the BACKEND
+ * accepts and the frontend cannot place is the same defect with a login
+ * attached. Adding one is now a single edit that both packages' suites check.
+ *
+ * ORDER IS LOAD-BEARING: it renders the `users.role` ENUM, and MySQL stores an
+ * ENUM by index. Reordering rewrites what the existing rows mean. Append only.
+ *
+ * NOT the same as the role lists scattered through the routes — `rbac(...)`
+ * arguments name who may reach ONE endpoint, which is a permission, not the
+ * set of roles that exist.
+ */
+const ROLES = ['athlete', 'medical', 'admin', 'coach', 'executive'];
+
 /** Athlete.gender enum. A filter offering anything else returns nothing. */
 const GENDERS = ['Male', 'Female'];
 
@@ -191,6 +216,7 @@ const RESPONSE_OUTCOME_KEYS = RESPONSE_OUTCOMES.map((o) => o.key);
 
 module.exports = {
   INSTITUTION_TZ,
+  ROLES,
   BANDS,
   BAND_LABEL,
   GENDERS,

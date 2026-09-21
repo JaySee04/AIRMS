@@ -2,6 +2,7 @@ const { DataTypes } = require('sequelize');
 const bcrypt = require('bcryptjs');
 const { sequelize } = require('../config/db');
 const { validateEmail, normalizeEmail } = require('../utils/emailAddress');
+const { ROLES } = require('../shared/facts');
 
 const User = sequelize.define('User', {
   id: {
@@ -44,7 +45,13 @@ const User = sequelize.define('User', {
   role: {
     // 'executive' is a READ-ONLY oversight role: the admin analytics and the PDF
     // reports, and nothing that writes. See middleware/rbac.js.
-    type: DataTypes.ENUM('athlete', 'medical', 'admin', 'coach', 'executive'),
+    //
+    // Read from the shared fact rather than written out again (2026-09-17,
+    // §111.6) — this column and the frontend's `Role` union are the same
+    // statement about the institution, and they were two. The ENUM this renders
+    // is byte-identical to the list it replaced, so no migration: MySQL stores
+    // an ENUM BY INDEX, which is also why shared/facts.js says to append only.
+    type: DataTypes.ENUM(...ROLES),
     allowNull: false,
   },
   athleteId: {

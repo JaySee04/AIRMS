@@ -40,11 +40,15 @@ const router = express.Router();
 // Extending to coach is this one line plus an audit-script category for
 // preference writes — deliberately left as a decision for JC rather than taken
 // here, because it changes what a locked role means.
-const ROLES = ['medical', 'admin'];
+// NAMED FOR WHAT IT IS, not `ROLES` (2026-09-17, §111.6). The role SET is now a
+// shared fact; this is the two roles allowed to keep a watchlist, which is a
+// permission. Two different meanings under one name is the drift that
+// crossPackage.test.js exists to refuse.
+const WATCHLIST_ROLES = ['medical', 'admin'];
 
 // GET /api/watchlist — the caller's own list, with enough of each athlete to
 // render a row without a second request per entry.
-router.get('/', auth, rbac(...ROLES), async (req, res) => {
+router.get('/', auth, rbac(...WATCHLIST_ROLES), async (req, res) => {
   try {
     const ids = await getWatchlist(req.user.id);
     if (!ids.length) return res.json({ athletes: [] });
@@ -78,7 +82,7 @@ router.get('/', auth, rbac(...ROLES), async (req, res) => {
 });
 
 // POST /api/watchlist/:athleteId — start watching.
-router.post('/:athleteId', auth, rbac(...ROLES), async (req, res) => {
+router.post('/:athleteId', auth, rbac(...WATCHLIST_ROLES), async (req, res) => {
   try {
     const athlete = await Athlete.findOne({
       where: { athleteId: req.params.athleteId }, attributes: ['athleteId', 'sport'], raw: true,
@@ -99,7 +103,7 @@ router.post('/:athleteId', auth, rbac(...ROLES), async (req, res) => {
 // No existence or scope check: removing an id from your own list cannot disclose
 // anything, and a coach reassigned out of a sport must still be able to clear
 // entries they can no longer see. Refusing here would leave them stuck.
-router.delete('/:athleteId', auth, rbac(...ROLES), async (req, res) => {
+router.delete('/:athleteId', auth, rbac(...WATCHLIST_ROLES), async (req, res) => {
   try {
     const ids = await removeFromWatchlist(req.user.id, req.params.athleteId);
     res.json({ watching: false, count: ids.length });

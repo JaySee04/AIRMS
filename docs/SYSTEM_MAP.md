@@ -276,9 +276,9 @@ refused inside the handler — see PERMISSIONS.md for what each role actually re
 | PATCH | `/api/users/:id` | PUBLIC |  | backend/src/routes/users.js |
 | POST | `/api/users/:id/invite` | PUBLIC |  | backend/src/routes/users.js |
 | GET | `/api/users/permission-meta` | PUBLIC |  | backend/src/routes/users.js |
-| GET | `/api/watchlist` | ...ROLES |  | backend/src/routes/watchlist.js |
-| DELETE | `/api/watchlist/:athleteId` | ...ROLES |  | backend/src/routes/watchlist.js |
-| POST | `/api/watchlist/:athleteId` | ...ROLES |  | backend/src/routes/watchlist.js |
+| GET | `/api/watchlist` | ...WATCHLIST_ROLES |  | backend/src/routes/watchlist.js |
+| DELETE | `/api/watchlist/:athleteId` | ...WATCHLIST_ROLES |  | backend/src/routes/watchlist.js |
+| POST | `/api/watchlist/:athleteId` | ...WATCHLIST_ROLES |  | backend/src/routes/watchlist.js |
 
 ## 3. Pages
 
@@ -360,6 +360,7 @@ Generated into both packages from `shared/facts.js` — see DESIGN_DECISIONS §5
 | Fact | Value |
 |---|---|
 | `INSTITUTION_TZ` | `Asia/Kuala_Lumpur` |
+| `ROLES` | `["athlete","medical","admin","coach","executive"]` |
 | `BANDS` | `["green","amber","red"]` |
 | `BAND_RANK` | `{"green":0,"amber":1,"red":2}` |
 | `BAND_LABEL` | `{"green":"No indicators flagged","amber":"Needs attention","red":"Immediate assessment"}` |

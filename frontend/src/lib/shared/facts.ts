@@ -26,6 +26,18 @@ export const BAND_LABEL: Record<Band, string> = {
   red: 'Immediate assessment',
 };
 
+export type Role = 'athlete' | 'medical' | 'admin' | 'coach' | 'executive';
+
+/**
+ * users.role enum. The set is exported as a VALUE, not only as a type, because
+ * the role arrives from localStorage and from the API — places no type reaches,
+ * and where lib/auth.ts has to ask "is this one of ours?" at runtime (§111.6).
+ *
+ * (No backticks in this comment on purpose: the renderer is a template literal,
+ * so one would end the string. It cost a SyntaxError to find out.)
+ */
+export const ROLES: Role[] = ['athlete', 'medical', 'admin', 'coach', 'executive'];
+
 export type Gender = 'Male' | 'Female';
 
 /** Athlete.gender enum. A filter offering anything else returns nothing. */

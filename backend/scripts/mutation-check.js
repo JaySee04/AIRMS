@@ -295,6 +295,57 @@ const MUTATIONS = [
     test: 'src/components/layout/DashboardLayout.test.tsx',
   },
   {
+    guard: 'role routing: every role reaches a profile page that admits it',
+    why: 'executive had no entry, so <Link href={undefined}> threw and the account '
+       + 'menu — the only sign-out in the app — never rendered. Live for five weeks.',
+    pkg: 'frontend',
+    file: 'src/components/layout/Topbar.tsx',
+    find: "  executive: '/admin/profile',",
+    replace: "  executive: '/coach/profile',",
+    test: 'src/components/layout/roleRouting.test.ts',
+  },
+  {
+    guard: 'role routing: every role lands on a page that admits it',
+    why: 'a landing page that refuses its own role bounces the user between two routes',
+    pkg: 'frontend',
+    file: 'src/lib/auth.ts',
+    find: "  executive: '/admin/dashboard',",
+    replace: "  executive: '/medical/dashboard',",
+    test: 'src/components/layout/roleRouting.test.ts',
+  },
+  {
+    guard: 'session boundary: a role this build does not know is refused',
+    why: 'the snapshot is browser-held, so the role is INPUT. Measured 2026-09-17: with '
+       + 'role "superuser" the gate refused the page, asked landingPathFor where to send '
+       + 'them, got undefined and handed it to the router — blank page, token still set, '
+       + 'no sign-out. A release that renames a role does this to every live session.',
+    pkg: 'frontend',
+    file: 'src/lib/auth.ts',
+    find: "  if (!parsed || typeof parsed !== 'object' || !isRole((parsed as { role?: unknown }).role)) {",
+    replace: '  if (false) {',
+    test: 'src/lib/auth.test.ts',
+  },
+  {
+    guard: 'session boundary: a refused snapshot is DISCARDED, not just ignored',
+    why: 'left in place the browser holds a credential it can never use, and every page '
+       + 'load re-reads it — bounced to sign-in from a state that still looks signed in',
+    pkg: 'frontend',
+    file: 'src/lib/auth.ts',
+    find: '    // Refused snapshots are DISCARDED, not merely ignored. Left in place, the',
+    replace: '    if (false)',
+    test: 'src/lib/auth.test.ts',
+  },
+  {
+    guard: 'session confirmation EXPIRES rather than standing for ever',
+    why: 'the /auth/me cache must bound staleness, not remove the check. An unbounded '
+       + 'marker would let an expired token survive a whole browsing session',
+    pkg: 'frontend',
+    file: 'src/lib/auth.ts',
+    find: 'const CONFIRM_TTL_MS = 60_000;',
+    replace: 'const CONFIRM_TTL_MS = Infinity;',
+    test: 'src/lib/auth.test.ts',
+  },
+  {
     guard: 'auth throttle: /auth/me is exempt, so navigation is not rationed',
     why: 'DashboardLayout calls it per page mount — 30 page views locked a clinician out',
     pkg: 'backend',
@@ -447,8 +498,12 @@ const MUTATIONS = [
     why: 'the watchlist named admin as an actor in Chapter 4 and admin cannot open it',
     pkg: 'backend',
     file: 'src/routes/watchlist.js',
-    find: "const ROLES = ['medical', 'admin'];",
-    replace: "const ROLES = ['medical', 'admin', 'executive'];",
+    // Renamed from `ROLES` on 2026-09-17 (§111.6) — the role SET became a
+    // shared fact and this is a permission, not the set. The rename left this
+    // anchor stale and the runner ERRORED rather than reporting a pass, which
+    // is the behaviour a stale registry is supposed to produce.
+    find: "const WATCHLIST_ROLES = ['medical', 'admin'];",
+    replace: "const WATCHLIST_ROLES = ['medical', 'admin', 'executive'];",
     test: 'tests/surfaceReach.test.js',
   },
   {

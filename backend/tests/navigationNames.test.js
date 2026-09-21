@@ -30,7 +30,9 @@ const SIDEBAR = path.join(ROOT, 'frontend', 'src', 'components', 'layout', 'Side
 const MANUAL = path.join(ROOT, 'docs', 'USER_MANUAL.md');
 const APP = path.join(ROOT, 'frontend', 'src', 'app');
 
-const ROLES = ['athlete', 'medical', 'admin', 'coach', 'executive'];
+// The role set, from the shared fact (2026-09-17, §111.6) — so a sixth role
+// must get navigation names rather than silently not be checked for them.
+const { ROLES } = require('../src/shared/facts');
 
 /** { role: [{ href, label }] } read out of the NAV literal in Sidebar.tsx. */
 function sidebarNav() {

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { SessionUser } from '@/lib/auth';
+import { SessionUser, Role } from '@/lib/auth';
 import { getInitials } from '@/lib/name';
 
 interface TopbarProps {
@@ -16,18 +16,45 @@ interface TopbarProps {
   onLogout: () => void;
 }
 
-const ROLE_LABELS: Record<string, string> = {
+// BOTH MAPS ARE `Record<Role, …>`, AND THAT IS THE WHOLE POINT (2026-09-16, §111).
+//
+// They were `Record<string, string>` and both were missing `executive`. An index
+// into a string-keyed record is typed `string`, never `string | undefined`, so
+// TypeScript had nothing to say — and the fifth role had been live since
+// 2026-08-08.
+//
+// What that produced, measured in a real browser rather than reasoned about:
+// `PROFILE_ROUTES['executive']` is `undefined`, and `<Link href={undefined}>`
+// THROWS during render, so the account dropdown never mounted at all. Sign out
+// lives only in that dropdown. An executive could not sign out, and could not
+// reach their profile — /admin/profile permits them, but nothing linked to it.
+// The topbar also read "Signed in as" followed by nothing.
+//
+// It fails in the production build too, differently and just as fatally: Next
+// compiles the href check out, so instead of the prop error the minified Link
+// internals throw "Cannot destructure property 'auth' of 'e' as it is
+// undefined". Confirmed against the DEPLOYED instance on 2026-09-16 — this was
+// live, not a dev-only artefact.
+//
+// Typed against `Role`, omitting a role is a build error. Do not loosen these
+// back to `Record<string, …>`, and do not "fix" a future miss with a `?? ''`
+// default — a blank label and a dead link are exactly what this cost.
+const ROLE_LABELS: Record<Role, string> = {
   athlete: 'Athlete',
   medical: 'Medical Staff',
   admin: 'Administrator',
   coach: 'Coach',
+  executive: 'Executive',
 };
 
-const PROFILE_ROUTES: Record<string, string> = {
+// `executive` has no pages of its own; it reads the admin surfaces it is
+// permitted to see, and /admin/profile's allowedRoles already names it.
+const PROFILE_ROUTES: Record<Role, string> = {
   athlete: '/athlete/profile',
   medical: '/medical/profile',
   admin: '/admin/profile',
   coach: '/coach/profile',
+  executive: '/admin/profile',
 };
 
 const IconMenu = () => (

@@ -1762,3 +1762,148 @@ Two further notes, both cheap and both general:
   list is a **denylist**: it covers the fields somebody already thought of, and
   the next leak comes through whatever the next contributor names their field.
   See `DESIGN_DECISIONS.md §91.2`.
+
+---
+
+### 3x. The type that stopped checking because the key was a string (2026-09-16)
+
+**The shape.** A lookup table keyed by a closed set — roles, bands, grains — but
+typed `Record<string, T>` instead of `Record<ClosedSet, T>`. Indexing a
+string-keyed record yields `T`, never `T | undefined`, so the compiler never
+mentions a missing key and `strict` does not change that. The map then silently
+answers `undefined` for the member nobody added, and whatever consumes it fails
+somewhere else entirely.
+
+**The instance.** `Topbar.tsx` held the role label and the profile-link target as
+`Record<string, string>`. Both predate `executive` (2026-08-08) and neither
+gained an entry. `PROFILE_ROUTES['executive']` returned `undefined`,
+`<Link href={undefined}>` threw during render, and the account dropdown never
+mounted — **the only Sign out in the application**. An executive could not sign
+out and could not reach their profile, on the deployed instance, for five weeks.
+
+**Why it is in this file and not merely a bug.** Nothing looked wrong. The
+sidebar rendered, the dashboard rendered, the data was right, the API refused
+nothing it should have allowed. The failure needed a *click on a menu* to appear,
+and the screen's only visible symptom beforehand was "Signed in as" followed by
+a blank — which reads as a styling detail, not a broken control.
+
+**And it failed differently in production, which is the part worth keeping.**
+Next compiles its `href` validation out of a production build, so the two
+environments throw different errors from the same defect: the readable prop error
+in dev, `Cannot destructure property 'auth' of 'e' as it is undefined` from the
+minified Link on the hosted instance. Diagnosing from the deployed symptom alone
+would not have led here. Same family as 3r — a claim that is only true or false
+of a *deployed* system.
+
+**The sweep.** Enumerate every object literal keyed by a member of a closed set
+and check its declared type, not its contents:
+
+```powershell
+cd frontend
+Get-ChildItem -Recurse src -Include *.ts,*.tsx |
+  Select-String -Pattern 'Record<string,' |
+  Where-Object { $_.Line -notmatch '^\s*//' }
+```
+
+Sixty hits on 2026-09-16, and **most are correct** — settings bags, extracted
+score maps, sport-name lookups and API metadata all have genuinely open keys.
+The sweep does not find defects; it produces the list on which you ask, per hit,
+*is this key set closed?* That is the judgement no regex makes for you.
+
+(The first version of this command was `rg "Record<string," src --type ts --type
+tsx`. Ripgrep has no `tsx` type, so it exited non-zero and printed **nothing** —
+a sweep that reports a clean repo because its own flag was wrong, which is 3l
+exactly. It is written in PowerShell here because that is what the repo's
+commands assume, and it was run before being written down.)
+
+On the same date there were three role-keyed maps typed `Record<string, …>` and
+two typed `Record<Role, …>`.
+**Both of the typed ones were complete; two of the three untyped ones were not.**
+That is the whole finding — the discipline was not in anybody's attention, it was
+in the annotation.
+
+**The standing guard.** Type it against the closed set, which turns the next
+omission into a build error — `frontend/src/components/layout/roleRouting.test.ts`
+then covers the half a type cannot, that the route each entry *points at* admits
+that role. Do not paper over a future miss with `?? 'something'`: a fallback here
+produces a blank label and a dead link, which is exactly what this cost.
+
+**A closed set the code cannot ENUMERATE is only half-typed.** `Role` was a bare
+union, which the compiler understands and nothing else can iterate — so the
+runtime had no way to ask "is this one of ours?", and 3y below is what that cost
+one day later. Declare the set as a value and derive the union from it. Doing so
+here also revealed the set belonged in `shared/facts.js` rather than in one
+package, which `crossPackage.test.js` said out loud.
+
+See `DESIGN_DECISIONS.md` §111, and **3y** for the same failure approached from
+the other side — there the type system was not missing a key, it was told not to
+look.
+
+---
+
+### 3y. The cast that vouched for data it had never seen (2026-09-17)
+
+**The shape.** A value crosses into the program from outside — `localStorage`,
+an API reply, a query string, a JSON file — and is admitted with `as T` rather
+than checked. From that word onward every type in the system is correct about a
+value nothing verified. The compiler is not wrong; it was asked to assume, and
+it did. **TypeScript describes what you wrote, not what arrives.**
+
+This is 3x's sibling and the pair is worth holding together: 3x is the type
+system failing to *notice* a gap, this is the type system being *told* not to
+look. Both end with `undefined` in a variable annotated as present.
+
+**The instance.** `getSession()` ended in `JSON.parse(raw) as SessionUser`. The
+snapshot is written by us, which is what makes the cast feel safe — but it is
+**stored by the browser**, so by the time it comes back it is input. With
+`role` set to `"superuser"`, measured in a real browser against a production
+build: the gate refused the page, asked `landingPathFor('superuser')` where to
+send the user, got `undefined` from a `Record<Role, string>`, and passed it to
+the router, which threw `Cannot read properties of undefined (reading
+'startsWith')`. A blank page, on the original URL, token still present, no
+sign-out. Reloading reproduced it.
+
+**Why it is here.** Three things make it this file's business rather than an
+ordinary bug:
+
+1. **It was introduced by a fix.** §111.3 deleted a `?? '/athlete/dashboard'`
+   fallback, reasoning that the type made an unhandled role impossible. The type
+   reached no part of the path the value actually took. The same session used to
+   land on the sign-in form; afterwards it landed nowhere.
+2. **It was found by re-running the audit against its own output.** Nothing in
+   the test suite, the typechecker or the linter moved. The audit that produced
+   the change would have reported success.
+3. **The trigger is a release, not an attacker.** Rename or retire a role and
+   every unexpired session in the institute — seven-day JWT — is carrying one
+   this build has never heard of. `coach` and `executive` were both *added*
+   mid-project.
+
+**The sweep.** Find every cast applied to data entering the program:
+
+```powershell
+cd frontend
+Get-ChildItem -Recurse src -Include *.ts,*.tsx |
+  Select-String -Pattern 'JSON\.parse|localStorage\.getItem|sessionStorage\.getItem' |
+  Where-Object { $_.Line -notmatch '^\s*//' }
+```
+
+As with 3x, the command does not find defects — it produces the list on which
+you ask, per hit, *did anything check this?* Most hits are fine: a cast on a
+value the code then range-checks, or one whose only use is display. The ones
+that matter are casts whose result **indexes something**, because that is where
+`undefined` stops being a value and becomes a crash three frames away.
+
+**The standing guard.** Check at the boundary, once, not at each use site — the
+tempting `?? '/'` in `landingPathFor` would have silenced the crash and left the
+sidebar's `NAV[role]` and the topbar's two maps holding the same `undefined`.
+Validate only what the code **branches on**: checking every field would reject
+sessions written by an older build that lacked one, trading a rare crash for a
+routine forced sign-out. And **discard** what you refuse — an ignored bad
+snapshot is re-read on every page load, so the user is bounced to sign-in from a
+state that still looks signed in.
+
+`frontend/src/lib/auth.test.ts` pins it, and three mutations in `npm run mutate`
+prove those tests can fail.
+
+See `DESIGN_DECISIONS.md` §111.6, and 3x for the same failure approached from
+the other side.
