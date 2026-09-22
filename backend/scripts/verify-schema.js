@@ -199,6 +199,72 @@ function declaredIndexes(M) {
   }
   if (!modelRedundant) console.log('   none');
 
+  // 4. COLUMN drift — the model declares a column the database does not have.
+  //
+  // Sections 1-3 compare INDEXES, which is what this script was written for. A
+  // missing column is the more damaging drift and was invisible here until
+  // 2026-09-22, when it took the hosted API down for six days:
+  //
+  //   migrate:norm-stamp added screenings.norm_version_id + scored_at locally
+  //   and was never run against Aiven. Every path that selects the full column
+  //   set answered 500 — /athletes/:id, /screenings/:id/full, /decisions, the
+  //   holistic report — while every path with an explicit narrow attribute list
+  //   answered 200, so the roster rendered and opening any athlete failed.
+  //
+  // CLAUDE.md had it recorded as applied, on a probe that ran against a build
+  // predating the columns; a bare findByPk proves a column exists only if the
+  // MODEL doing the selecting declares it. This section needs no such reasoning
+  // — it asks information_schema directly.
+  //
+  // MISSING is the finding that matters. EXTRA (a column no model declares) is
+  // reported too but is usually a retired field, harmless until someone writes
+  // a migration that assumes it is gone.
+  console.log('\n4. column drift between models and database');
+  const colRows = await sequelize.query(
+    `SELECT TABLE_NAME AS t, COLUMN_NAME AS c
+       FROM information_schema.COLUMNS
+      WHERE TABLE_SCHEMA = :db`,
+    { replacements: { db: dbName }, type: QueryTypes.SELECT },
+  );
+  const liveCols = new Map();
+  for (const r of colRows) {
+    if (!liveCols.has(r.t)) liveCols.set(r.t, new Set());
+    liveCols.get(r.t).add(r.c);
+  }
+
+  let colDrift = false;
+  for (const M of Object.values(models)) {
+    if (!M || typeof M !== 'function' || !M.tableName) continue;
+    const table = M.tableName;
+    const actual = liveCols.get(table);
+    // A model with no table in this database at all is a different (louder)
+    // problem than drift, and sync/seed is what creates it. Say so once.
+    if (!actual) {
+      colDrift = true;
+      note('NO TABLE', `${table} is declared by a model and does not exist in the database`);
+      continue;
+    }
+    // VIRTUAL attributes are computed in JS and back no column, so they are not
+    // drift when absent.
+    const declared = Object.entries(M.rawAttributes || {})
+      .filter(([, a]) => !(a.type && a.type.key === 'VIRTUAL'))
+      .map(([k, a]) => a.field || k);
+
+    for (const col of declared) {
+      if (!actual.has(col)) {
+        colDrift = true;
+        note('MISSING', `${table}.${col} is declared by the model and absent from the database`);
+      }
+    }
+    for (const col of actual) {
+      if (!declared.includes(col)) {
+        colDrift = true;
+        note('EXTRA', `${table}.${col} exists in the database and no model declares it`);
+      }
+    }
+  }
+  if (!colDrift) console.log('   none');
+
   console.log(`\n${findings.length} finding(s)`);
   await sequelize.close();
   process.exit(findings.length ? 1 : 0);

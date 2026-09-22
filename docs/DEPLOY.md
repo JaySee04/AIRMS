@@ -459,3 +459,62 @@ cd backend; npm install xlsx@0.18.5
 That restores the npm version and the two advisories with it — acceptable for an
 emergency deploy, because AIRMS only ever calls `XLSX.write` on its own database
 rows and never parses a spreadsheet (the Excel *import* was retired 2026-07-12).
+
+## Deploying a change that adds a database column (2026-09-22)
+
+**Migrate the hosted database BEFORE pushing, every time, and verify it with
+`information_schema` rather than with an endpoint.** This is the order `§96` and
+`§103` both call *expand then deploy*, and it was not followed on 2026-09-16:
+`migrate:norm-stamp` was never run against Aiven, the build that selects
+`norm_version_id` deployed anyway, and the API answered 500 on every path
+reading a full screening row for six days. `DESIGN_DECISIONS.md §113` and
+`SILENT_FAILURES.md 3z` are the record.
+
+The columns are additive and nullable, so a migrated database serves the old
+code perfectly — there is no window where migrating early hurts. Migrating
+*late* is the only failure.
+
+### The order
+
+```powershell
+# 1. What does the hosted database actually have? READ-ONLY.
+cd backend; npm run verify:schema -- --url "mysql://user:pass@host:port/db" --ca ./ca.pem
+
+# 2. Apply anything section 4 reports as MISSING. Dry run first — it prints the
+#    statements without executing them, and re-derives what is missing rather
+#    than trusting a doc.
+cd backend; npm run migrate:norm-stamp -- --url "…" --ca ./ca.pem --dry-run
+cd backend; npm run migrate:norm-stamp -- --url "…" --ca ./ca.pem
+
+# 3. Confirm: section 4 should now report `none`.
+cd backend; npm run verify:schema -- --url "…" --ca ./ca.pem
+
+# 4. Only now push. A push to the production branch deploys BOTH projects.
+git push origin feat/mysql-migration
+
+# 5. After the deploy finishes (minutes, not seconds), check the live system.
+cd backend; $env:VERIFY_PACE_MS=1500; npm run verify:claims -- --hosted
+```
+
+The connection string comes from the Aiven console. A password containing
+`@ : / # ? %` must be percent-encoded; `--insecure` skips certificate
+verification when the CA file is not to hand. Every migration script here prints
+the target host (password removed) before doing anything, because running one
+against the wrong database is the mistake worth making loud.
+
+### Do not accept an endpoint 200 as proof a migration landed
+
+This is the specific trap that cost the six days. `GET /screenings/:id/full` does
+a bare `findByPk` and therefore selects every model column — which looks like an
+ideal probe, and is, **only if the deployed build declares the column**. Probe a
+build that predates the migration and it selects the old columns, answers 200,
+and proves nothing whatever about the database. Step 1 above asks
+`information_schema` and cannot be fooled this way.
+
+### The scheduled check
+
+`.github/workflows/hosted-health.yml` runs `verify:claims --hosted` daily at
+23:10 UTC (07:10 MYT) and can be triggered by hand from the Actions tab after a
+deploy. It needs no secrets for the API half. To have it check the **schema**
+too, set the repository secret `MYSQL_URL` to the Aiven connection string;
+without it that step prints `SKIPPED` rather than passing quietly.

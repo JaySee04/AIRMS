@@ -1,0 +1,103 @@
+# Does the DEPLOYED system still work?
+#
+# WHY THIS IS A SEPARATE WORKFLOW, and not a job in ci.yml.
+#
+# ci.yml deliberately runs no live-instance check, for a stated reason: a green
+# tick that quietly skipped `audit:access` / `verify:claims` / `e2e` is a worse
+# signal than no tick. That reasoning is right and this workflow does not
+# weaken it — nothing here gates a commit or a pull request. It answers a
+# different question, at a different time: *is the thing that is currently live
+# still working?*
+#
+# WHAT HAPPENED WITHOUT IT (2026-09-22, docs/SILENT_FAILURES.md 3z). A migration
+# that was never applied to the hosted database met a deploy that selects the
+# columns it would have added. For SIX DAYS the deployed API answered 500 on
+# every path that reads a full screening row — opening an athlete, the decision
+# worklist, the holistic report — while the roster answered 200, so the app
+# looked alive. Every CI check was green the whole time, correctly: the code was
+# fine. The DATABASE had not moved with it, and nothing asked.
+#
+# `verify:claims --hosted` already had a check that would have failed. Nobody
+# ran it, because running it was somebody remembering to. That is the same
+# failure shape ci.yml was written to remove, one layer further out.
+#
+# SCHEDULED, NOT PUSH-TRIGGERED. A Vercel deploy finishes some minutes after the
+# push that caused it, so a push-triggered run races the thing it is checking
+# and would report the PREVIOUS build. Daily is the honest cadence for "is it
+# still up"; run it by hand from the Actions tab straight after a deploy.
+#
+# PACED. Probing the hosted API in a burst tripped Vercel's bot protection on
+# 2026-09-11 and locked a machine out for ~20 minutes. VERIFY_PACE_MS=1500 is
+# the documented hosted pacing; the whole run is a few dozen requests.
+#
+# NO SECRETS NEEDED for the API half. It signs in with the seeded demo account,
+# whose password is in CLAUDE.md on purpose — the seeded dataset is fabricated
+# and is explicitly not a security boundary. The SCHEMA half does need a
+# database URL and is skipped without one, loudly (see below).
+
+name: Hosted health
+
+on:
+  schedule:
+    # 23:10 UTC = 07:10 Asia/Kuala_Lumpur, so a failure is waiting at the start
+    # of the working day rather than discovered by a clinician.
+    - cron: '10 23 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hosted-health
+  cancel-in-progress: false
+
+jobs:
+  hosted:
+    name: the deployed API answers
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend deps
+        working-directory: backend
+        run: npm ci
+
+      # Every claim prints the number it measured, so a failure here is a
+      # diagnosis rather than a red cross. §7 in particular contrasts a narrow
+      # select against a full one, which separates "the database is missing a
+      # column" from "the host is down".
+      - name: verify:claims against the deployed API
+        working-directory: backend
+        env:
+          VERIFY_PACE_MS: '1500'
+        run: npm run verify:claims -- --hosted
+
+      # THE HALF THAT NEEDS A CREDENTIAL.
+      #
+      # verify:schema asks information_schema directly, which is the only thing
+      # that can actually prove a migration was applied — 3z is the record of an
+      # endpoint probe appearing to prove it and being unable to.
+      #
+      # It needs the Aiven connection string. Set it as the repository secret
+      # MYSQL_URL (mysql://user:pass@host:port/db, password percent-encoded) and
+      # this runs; leave it unset and the step SAYS it did not run. A skip that
+      # looks like a pass is the defect this whole file is about, so the absent
+      # case prints and is never silent.
+      - name: verify:schema against the hosted database
+        working-directory: backend
+        env:
+          MYSQL_URL: ${{ secrets.MYSQL_URL }}
+        run: |
+          if [ -z "$MYSQL_URL" ]; then
+            echo "SKIPPED: no MYSQL_URL secret is set, so the hosted SCHEMA was NOT checked."
+            echo "The API checks above passed, which does NOT mean the database matches the models."
+            echo "See docs/SILENT_FAILURES.md 3z."
+            exit 0
+          fi
+          npm run verify:schema -- --url "$MYSQL_URL" --insecure

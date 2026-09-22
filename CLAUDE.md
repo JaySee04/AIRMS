@@ -126,10 +126,15 @@ cd backend; npm run migrate:escalation-response   # add screenings.response_outc
                                      # DEPLOY: a migrated database serves the old code, but the model
                                      # now SELECTs them, so deploying first answers "Unknown column
                                      # 'response_outcome'" on every screening query. APPLIED ON HOSTED
-                                     # TOO — measured 2026-09-16, not assumed: GET /screenings/:id/full
-                                     # on the deployed API does a bare findByPk (no `attributes` list),
-                                     # so it SELECTs every model column; it answered 200. This line
-                                     # read "LOCAL ONLY so far; hosted still needs it" until that probe.
+                                     # TOO — but NOT for the reason this line used to give, and the
+                                     # reasoning was retracted 2026-09-22 even though the conclusion
+                                     # survived. It cited a 2026-09-16 GET /screenings/:id/full (a bare
+                                     # findByPk) answering 200; that probe ran before the push, against
+                                     # a build predating these columns, so it proved nothing either way
+                                     # (see the norm-stamp note below, where the same evidence supported
+                                     # a conclusion that was FALSE). The standing evidence is different:
+                                     # INDICATOR_ATTRS names response_outcome/note/by/at explicitly and
+                                     # GET /athletes answers 200 on hosted — measured 2026-09-22.
 cd backend; npm run migrate:norm-stamp   # add screenings.norm_version_id + scored_at (DD 96).
                                      # WHICH RULER measured each band, and when. recomputeIndicators()
                                      # rescores only each athlete's LATEST screening, so older rows keep
@@ -141,16 +146,44 @@ cd backend; npm run migrate:norm-stamp   # add screenings.norm_version_id + scor
                                      # Existing rows are deliberately NOT back-filled: inventing
                                      # provenance for verdicts whose provenance is unknown is the exact
                                      # defect class this project exists to avoid. They report as
-                                     # `unknown`, and the card says so. APPLIED ON HOSTED TOO — same
-                                     # 2026-09-16 probe as above; the full-column SELECT that would
-                                     # answer "Unknown column 'norm_version_id'" returned 200 instead.
-                                     # NOTE these two columns are no longer SELECTed by any read path
-                                     # (§106 took the band mix), so the routes that would surface a
-                                     # missing column are now the WRITES — including the import commit.
-cd backend; npm run verify:schema    # compare the LIVE database's indexes against what the models
-                                     # declare. READ-ONLY. Three sections: redundant indexes in the
-                                     # database, DRIFT between models and database, and redundancy
-                                     # declared in the models. Takes --url/--ca/--insecure like the
+                                     # `unknown`, and the card says so. NOT APPLIED ON HOSTED — this
+                                     # line claimed it WAS, on the 2026-09-16 probe described above,
+                                     # and that was wrong twice. RETRACTED 2026-09-22.
+                                     #   1. The probe ran BEFORE the push (its own commit message says
+                                     #      "checked before pushing"), so it measured the build then
+                                     #      deployed — which PREDATED these columns and therefore could
+                                     #      not select them. A bare findByPk proves a column exists only
+                                     #      if the MODEL DOING THE SELECTING declares it. Same endpoint
+                                     #      today: 500.
+                                     #   2. "no longer SELECTed by any read path (§106 took the band
+                                     #      mix), so the routes that would surface a missing column are
+                                     #      now the WRITES" — false. latestScreeningsByAthlete() in
+                                     #      utils/cohorts.js selects with `attributes: { exclude:
+                                     #      ['summaryText','muscleFlags'] }`, and an EXCLUDE clause makes
+                                     #      Sequelize name every OTHER column explicitly. Printed SQL:
+                                     #      `norm_version_id` AS `normVersionId`, `scored_at` AS
+                                     #      `scoredAt`. A grep for the column NAME finds nothing, which
+                                     #      is how the claim survived being written down.
+                                     # MEASURED on the hosted API 2026-09-22: /athletes 200 and
+                                     # /screenings/athlete/:id 200 (explicit narrow attribute lists),
+                                     # /athletes/:id 500, /screenings/:id/full 500, /decisions 500 — the
+                                     # failing set is exactly the paths that run the exclude-form query.
+                                     # escalation-response IS applied (INDICATOR_ATTRS names the four
+                                     # response_* columns and /athletes answers 200); norm-stamp is not.
+                                     # RUN THIS AGAINST HOSTED BEFORE THE NEXT DEPLOY — --dry-run first,
+                                     # which reports definitively which columns are missing.
+cd backend; npm run verify:schema    # compare the LIVE database against what the models declare.
+                                     # READ-ONLY. FOUR sections: redundant indexes in the database,
+                                     # index DRIFT between models and database, redundancy declared
+                                     # in the models, and — since 2026-09-22 — COLUMN DRIFT.
+                                     # The column section is the one that matters before a deploy:
+                                     # it asks information_schema whether every model-declared column
+                                     # exists, which is the ONLY thing that proves a migration landed.
+                                     # An endpoint answering 200 does not, and six days of a broken
+                                     # hosted API turned on exactly that mistake (DD 113,
+                                     # SILENT_FAILURES 3z). MISSING is the finding that matters;
+                                     # EXTRA is usually a retired field. Point it at hosted with
+                                     # --url/--ca BEFORE pushing — see docs/DEPLOY.md. Takes --url/--ca/--insecure like the
                                      # migrations, so it can be pointed at the hosted Aiven database.
                                      # EVERY OTHER GUARD HERE READS THE CODE - schema is STATE, and
                                      # it drifts where nothing can see it. It found `screenings`

@@ -10309,3 +10309,92 @@ Three mutation guards registered (65 → 68), all caught.
 - **The 4.5 MB hosted upload cap is untouched and now matters more**: 12 of the
   15 real reports measured are 7.7–13.2 MB, so the deployed uploader would
   reject them today regardless of which extractor runs.
+
+## 113. The migration that was recorded as applied, and was not (2026-09-22)
+
+**For six days the deployed API could list athletes and could not open one.**
+`GET /athletes/:id`, `GET /screenings/:id/full` and `GET /decisions` all answered
+500; `GET /athletes` and `GET /screenings/athlete/:id` answered 200. The roster
+rendered, so the app looked alive.
+
+The cause is one line that was never run against the hosted database:
+
+```powershell
+cd backend; npm run migrate:norm-stamp -- --url "mysql://…" --ca ./ca.pem
+```
+
+`§96` added `screenings.norm_version_id` and `scored_at` on 2026-09-13 — WHICH
+RULER measured each band, and when. The migration's own commit message says the
+hosted Aiven database had not been migrated, and writes out the command. The
+build that selects those columns deployed on 2026-09-16.
+
+### Why every guard was green
+
+The columns are additive and nullable, which is why `§103` and `§96` both say
+**expand then deploy**: a migrated database serves the old code fine. The
+failure is the other order, and nothing in this repository could see it. jest,
+`npm run map`, `npm run mutate` and `npm run audit:access` all check the CODE,
+and the code was correct. `npm run verify:schema` checks STATE — but only
+indexes. The one guard that would have failed, `verify:claims --hosted`, is run
+by somebody remembering to run it.
+
+### The two claims that made it invisible, both retracted in place
+
+**"Applied on hosted — measured, not assumed."** The measurement was
+`GET /screenings/:id/full`, a bare `findByPk`, chosen precisely because it
+selects every model column, answering 200. The reasoning even rejected a
+`GET /athletes` probe as proving only half the question. It still could not
+work: **a full-column select proves a column exists only if the model doing the
+selecting declares it**, and the build deployed at that moment predated the
+columns — the probe's own commit says it ran *before* pushing. It asked a build
+that had never heard of the column, and recorded a fact about the database.
+
+**"No longer SELECTed by any read path."** `§106` removed the band mix, and a
+search for `norm_version_id` / `normVersionId` across routes and utils returns
+nothing — exactly what the claim predicts. But `latestScreeningsByAthlete()`
+selects with `attributes: { exclude: ['summaryText', 'muscleFlags'] }`, and an
+**exclude clause names every other column explicitly**. The printed SQL carries
+`` `norm_version_id` AS `normVersionId` ``. The query selects a column it never
+mentions, so the identifier search that would refute the claim finds nothing.
+
+Both are `SILENT_FAILURES.md`'s recurring shape: evidence equally consistent
+with the conclusion and its opposite. Recorded there as **3z**.
+
+### What was built instead of a one-line fix
+
+The migration is the fix and needs a credential that is not on the development
+machine (`DEPLOY.md` — Vercel's sensitive env vars are write-only). What could
+be built without it was the part that stops a recurrence.
+
+**`verify:schema` gained a column-drift section.** It asks `information_schema`
+for the live column list and compares it against what each model declares —
+needing none of the inference above. `MISSING` is the finding that matters;
+`EXTRA` is reported too and is usually a retired field. VIRTUAL attributes back
+no column and are excluded. Proven by declaring a column the database lacks:
+`MISSING screenings.mutation_canary …`, exit 1.
+
+**`verify:claims` gained §7, and it is deliberately a separate claim from the
+audit one.** Section 3 already opens a record, so it was already failing — as
+`athlete.view rows 17 -> 17`, which reads as a broken audit trail. *A guard that
+fails for the right reason under the wrong name costs the next reader the same
+afternoon it cost this one.* The **contrast is the diagnosis**: a narrow
+explicit select answering 200 beside a full select answering 500 localises the
+fault to a column; both failing means the host, and the claim says which it saw.
+Seen to fail against the real instance, and 10/10 locally.
+
+**A scheduled `Hosted health` workflow**, separate from `ci.yml` on purpose.
+That file deliberately runs no live-instance check, because a green tick that
+skipped one is worse than no tick — sound reasoning that this does not weaken,
+since nothing here gates a commit. It answers a different question at a
+different time: *is what is currently live still working?* Daily rather than
+push-triggered, because a Vercel deploy lands minutes after the push and a
+push-triggered run would check the previous build. The schema half needs a
+`MYSQL_URL` secret and, without it, **prints that it did not run** — a silent
+skip is the very defect the file is about.
+
+### The rule
+
+A migration is applied when `information_schema` says the column is there — not
+when a document says so, and not when an endpoint answered 200. **Ask the
+database about the database.** And a claim that something is *not* referenced
+has to account for `exclude` lists, which reference everything they do not name.

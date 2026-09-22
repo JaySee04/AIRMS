@@ -1907,3 +1907,99 @@ prove those tests can fail.
 
 See `DESIGN_DECISIONS.md` §111.6, and 3x for the same failure approached from
 the other side.
+
+### 3z. The probe that proved the column existed by not asking for it (2026-09-22)
+
+**The institute could list its athletes and could not open one, for six days,
+and every guard in this repository was green.**
+
+`migrate:norm-stamp` added `screenings.norm_version_id` and `scored_at` on
+2026-09-13. Its own commit message says the hosted Aiven database had not been
+migrated and writes out the command. It was never run. The build that selects
+those columns deployed on 2026-09-16.
+
+Measured on the hosted API 2026-09-22:
+
+| path | how it selects | hosted |
+|---|---|---|
+| `GET /athletes` | explicit `INDICATOR_ATTRS` | 200 |
+| `GET /screenings/athlete/:id` | explicit narrow list | 200 |
+| `GET /athletes/:id` | `latestScreeningsByAthlete()` | **500** |
+| `GET /screenings/:id/full` | bare `findByPk` | **500** |
+| `GET /decisions` | same cohort helper | **500** |
+
+The roster rendered. Opening any athlete, the clinician's worklist, and the
+holistic report did not.
+
+**The first wrong thing: a probe that could not have failed.** CLAUDE.md
+recorded both migrations as applied on hosted, "measured, not assumed". The
+measurement was `GET /screenings/:id/full` — a bare `findByPk`, chosen
+deliberately because it selects *every* model column — answering 200. The
+reasoning was careful enough to reject a `GET /athletes` probe as proving only
+half the question.
+
+It still could not work. **A `SELECT *`-shaped query proves a column exists only
+if the model doing the selecting declares it**, and the build deployed at that
+moment predated both columns by days — `normVersionId` landed 2026-09-13,
+`responseOutcome` 2026-09-14, and the probe's own commit says it ran *before*
+pushing. It asked a build that had never heard of the column whether the column
+was there, got 200, and recorded a fact about the database. The push then
+deployed a build that does select them, and nothing re-measured.
+
+**The second wrong thing: a claim that grep agreed with.** The same note said
+the two columns "are no longer SELECTed by any read path (§106 took the band
+mix), so the routes that would surface a missing column are now the WRITES". A
+search for `norm_version_id` and `normVersionId` across the route and util files
+returns nothing, which is exactly what the claim predicts.
+
+`latestScreeningsByAthlete()` selects them anyway:
+
+```js
+Screening.findAll({ attributes: { exclude: ['summaryText', 'muscleFlags'] }, … })
+```
+
+An **exclude** clause is not a narrowing — it makes Sequelize name every *other*
+column explicitly. The printed SQL carries `` `norm_version_id` AS
+`normVersionId`, `scored_at` AS `scoredAt` ``. The columns are selected by a
+query that never mentions them, so the identifier search that would refute the
+claim finds nothing, and the claim reads as verified.
+
+**The shape.** Both halves are this file's recurring pattern — evidence that is
+consistent with the conclusion and also consistent with its opposite. 3l was a
+guard whose pattern could not match; 3u was a test that agreed with its own
+mutation; 3r was a header that described a policy the host did not implement.
+Here the probe and the grep both returned exactly what a healthy system returns.
+
+**Why nothing caught it.** Every guard checks the *code*: jest, `npm run map`,
+`npm run mutate`, `npm run audit:access`. `verify:schema` checks *state* — but
+only indexes, never columns. `verify:claims --hosted` does open a record and
+*would* have failed, and was simply not run after the deploy; worse, its failure
+reads `athlete.view rows 17 -> 17`, which looks like a broken audit trail rather
+than a missing column.
+
+**The standing guards, all three added 2026-09-22.**
+
+1. `npm run verify:schema` gained a **column-drift section** that asks
+   `information_schema` directly, so it needs none of the inference above.
+   Points at hosted with `--url` / `--ca`. Seen to fail: declaring a column the
+   database lacks reports
+   `MISSING screenings.mutation_canary …` and exits 1.
+2. `npm run verify:claims` gained **§7, "the deployed build and the deployed
+   database agree"** — and it is a separate claim from the audit one on purpose.
+   *A guard that fails for the right reason under the wrong name costs the next
+   reader the same afternoon it cost this one.* The **contrast is the
+   diagnosis**: a narrow select answering 200 beside a full select answering 500
+   localises the fault to a column; both failing means the host, and it says
+   which it saw. Seen to fail against the real broken instance:
+   `roster (narrow select) -> 200, detail (full select) -> 500`.
+3. CLAUDE.md's two claims are **retracted in place** rather than deleted, with
+   what the evidence actually supported.
+
+**The rule this leaves.** A migration is not applied because a doc says so, and
+not because an endpoint answered 200 — it is applied because
+`information_schema` says the column is there. Ask the database about the
+database. And when a claim is that something is *not* referenced, remember that
+an `exclude` list references everything it does not name.
+
+See `DESIGN_DECISIONS.md` §96 for the columns, §113 for this, and 3r for the
+other defect only a deployed request could reveal.

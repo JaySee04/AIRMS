@@ -233,6 +233,52 @@ const login = async (email, password = PW) =>
   });
   claim('a coach still cannot write', coachWrite.status === 403, `POST -> ${coachWrite.status}`);
 
+  // ── 7. The deployed BUILD and the deployed DATABASE agree ────────────────
+  //
+  // Added 2026-09-22, after six days of a broken hosted API that every other
+  // guard was blind to. `migrate:norm-stamp` added screenings.norm_version_id +
+  // scored_at locally and was never run against Aiven; the build that selects
+  // them shipped anyway, and every path reading the full column set answered
+  // 500 while the roster answered 200. The institute could list athletes and
+  // could not open one.
+  //
+  // WHY IT IS A SEPARATE CLAIM RATHER THAN LEFT TO SECTION 3. That section
+  // already opens a record — so it was already failing, but as "athlete.view
+  // rows 41 -> 41", which reads as a broken audit trail. The cause is a missing
+  // COLUMN, and nothing said so. A guard that fails for the right reason under
+  // the wrong name costs the next reader the same afternoon it cost this one.
+  //
+  // THE CONTRAST IS THE DIAGNOSIS. A narrow explicit attribute list (the
+  // roster) and a full-column select (the detail) differ in exactly one way, so
+  // roster-200 beside detail-500 localises the fault to a column the model
+  // declares and the database lacks. Both 500 means something else — the host,
+  // the credentials, a cold start — and the claim says which it saw.
+  //
+  // Run `npm run verify:schema -- --url "mysql://…" --ca ./ca.pem` to name the
+  // column; this only reports that build and database have diverged.
+  // eslint-disable-next-line no-console
+  console.log('\n7. the deployed build and the deployed database agree');
+  const rosterProbe = await call('/athletes?limit=1', { token: medical });
+  const probeRow = (rosterProbe.json?.athletes || rosterProbe.json?.data || rosterProbe.json || [])[0];
+  const probeId = probeRow && (probeRow.athleteId || probeRow._id);
+  if (!probeId) {
+    claim('a single athlete record can be opened', null, 'no athlete on the roster to open');
+  } else {
+    const detail = await call(`/athletes/${probeId}`, { token: medical });
+    const narrowOk = rosterProbe.status === 200;
+    claim('a single athlete record can be opened',
+      detail.status === 200,
+      `roster (narrow select) -> ${rosterProbe.status}, detail (full select) -> ${detail.status}`,
+      detail.status === 200 ? ''
+        : narrowOk
+          ? 'roster 200 beside detail 500 = the model declares a column the database lacks; run verify:schema against this database'
+          : 'both failed — not schema drift; check the host, the credentials and whether the API is up');
+  }
+  // The worklist reads the same full column set through the cohort helper, and
+  // is the clinician's landing queue — so it is named rather than left implied.
+  const worklist = await call('/decisions', { token: medical });
+  claim('the decision worklist loads', worklist.status === 200, `GET /decisions -> ${worklist.status}`);
+
   // ── summary ──────────────────────────────────────────────────────────────
   const failed = results.filter((r) => r.ok === false);
   const skipped = results.filter((r) => r.ok === null);
