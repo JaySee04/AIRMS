@@ -1,0 +1,148 @@
+# Apply a pending migration to the HOSTED database, from the Actions tab.
+#
+# WHY THIS EXISTS. The hosted database credentials cannot be read back — Vercel
+# marks them Sensitive, which is write-only by design (DEPLOY.md). So the
+# migrations that must run against Aiven can only be run by somebody holding the
+# Aiven connection string, and on 2026-09-16 that meant `migrate:norm-stamp` was
+# never run at all: the build that selects norm_version_id deployed, and the API
+# answered 500 on every full-column read for six days (DESIGN_DECISIONS §113,
+# SILENT_FAILURES 3z).
+#
+# Setting the connection string once as a repository secret turns that from a
+# task somebody has to remember, on one particular laptop, into a button.
+#
+# WHY NOT `npm run migrate:hosted`. That script exists and is the better idea —
+# it pulls the credentials from the linked Vercel project so nobody types one.
+# It cannot work here, and says so itself: the MYSQL_* variables are marked
+# Sensitive, `vercel env pull` substitutes the literal string "[SENSITIVE]" for
+# each, and nobody can read them back. That is the feature, not a permissions
+# problem. This workflow is the remaining option that keeps the credential out
+# of a terminal history and out of any transcript — GitHub stores it encrypted
+# and masks it in logs.
+#
+# SETUP (once): Settings -> Secrets and variables -> Actions -> New repository
+# secret, named MYSQL_URL, value
+#
+#     mysql://user:pass@host:port/defaultdb
+#
+# from the Aiven console. A password containing @ : / # ? % must be
+# percent-encoded. The secret is never printed by this workflow — GitHub masks
+# it, and every script here prints the target HOST with the password removed.
+#
+# SAFETY.
+#   * Manual dispatch only. Nothing here runs on a push.
+#   * DRY RUN IS THE DEFAULT. The first run prints the statements and changes
+#     nothing; applying takes a deliberate second run with dry_run unchecked.
+#   * The migrations are idempotent and additive — nullable columns, no
+#     back-fill, no drops. Running one twice is a no-op.
+#   * verify:schema runs BEFORE and AFTER, so the job shows what was missing and
+#     proves what changed. Read-only both times.
+#
+# THIS WORKFLOW DOES NOT DEPLOY. That is the whole point of the ordering: expand
+# the database first, deploy second (§96, §103). Push the branch yourself once
+# this is green.
+
+name: Hosted migrate
+
+on:
+  workflow_dispatch:
+    inputs:
+      # ONLY the migrations that support --dry-run are offered here, because the
+      # dry run is this workflow's main safety property and a flag silently
+      # ignored is worse than one refused. migrate:screening-unique has no
+      # --dry-run (it does a duplicate pre-check and refuses instead) and is
+      # already applied to both databases, so it is deliberately absent. Run it
+      # by hand if it is ever needed again.
+      migration:
+        description: 'Which migration to apply'
+        required: true
+        default: norm-stamp
+        type: choice
+        options:
+          - norm-stamp
+          - escalation-response
+      dry_run:
+        description: 'Dry run — print the statements without applying them'
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  # Never let two migration runs touch the same database at once.
+  group: hosted-migrate
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    # QUOTED: the ": " inside the parentheses is a mapping to YAML otherwise,
+    # and the file would parse only when somebody pressed Run.
+    name: "${{ inputs.migration }} — dry run: ${{ inputs.dry_run }}"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend deps
+        working-directory: backend
+        run: npm ci
+
+      # Fail early and in plain words. Without this the migration script's own
+      # error ("Invalid URL") is technically accurate and tells the operator
+      # nothing about what to do next.
+      - name: Check the secret is set
+        env:
+          MYSQL_URL: ${{ secrets.MYSQL_URL }}
+        run: |
+          if [ -z "$MYSQL_URL" ]; then
+            echo "::error::MYSQL_URL is not set. Add it under Settings -> Secrets and variables -> Actions."
+            echo "Value: mysql://user:pass@host:port/defaultdb  (percent-encode @ : / # ? % in the password)"
+            exit 1
+          fi
+          echo "MYSQL_URL is set."
+
+      # BEFORE: section 4 names every column the models declare and the database
+      # lacks. This is the only evidence that actually proves a migration is
+      # needed, or was applied — an endpoint answering 200 does not (3z).
+      - name: Schema before
+        working-directory: backend
+        continue-on-error: true
+        env:
+          MYSQL_URL: ${{ secrets.MYSQL_URL }}
+        run: npm run verify:schema -- --url "$MYSQL_URL" --insecure
+
+      - name: Apply the migration
+        working-directory: backend
+        env:
+          MYSQL_URL: ${{ secrets.MYSQL_URL }}
+          DRY: ${{ inputs.dry_run }}
+        run: |
+          FLAG=""
+          if [ "$DRY" = "true" ]; then FLAG="--dry-run"; fi
+          echo "Running migrate:${{ inputs.migration }} $FLAG"
+          npm run migrate:${{ inputs.migration }} -- --url "$MYSQL_URL" --insecure $FLAG
+
+      # AFTER: on a real run section 4 should report `none`. On a dry run it
+      # will still report the column as MISSING, which is correct and is what
+      # tells the operator the dry run changed nothing.
+      - name: Schema after
+        working-directory: backend
+        env:
+          MYSQL_URL: ${{ secrets.MYSQL_URL }}
+        run: npm run verify:schema -- --url "$MYSQL_URL" --insecure
+
+      - name: What to do next
+        run: |
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            echo "DRY RUN — nothing was changed. Re-run with dry_run unchecked to apply."
+          else
+            echo "Applied. 'Schema after' should report 0 findings in section 4."
+            echo "Now push the production branch to deploy, then run the Hosted health workflow."
+          fi
