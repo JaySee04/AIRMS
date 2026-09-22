@@ -314,6 +314,37 @@ const MUTATIONS = [
     test: 'src/components/layout/roleRouting.test.ts',
   },
   {
+    guard: 'ingestion: the text-layer fast path is actually consulted',
+    why: 'a pure extractor is correct whether or not anybody calls it — winAnsiSafe '
+       + 'shipped exported, unit-tested and never called. Unwired, every import '
+       + 'silently goes back to ~11,400 vision tokens and nothing fails.',
+    pkg: 'backend',
+    file: 'src/utils/holomotionExtract.js',
+    find: '  const fast = await extractFromTextLayer(buffer).catch((err) => {',
+    replace: '  const fast = await Promise.resolve({ ok: false }).catch((err) => {',
+    test: 'tests/textLayerExtract.test.js',
+  },
+  {
+    guard: 'ingestion: the Summary top-up renders ONE page, not six',
+    why: 'the saving IS the page count. Dropping the limit leaves the fast path '
+       + 'costing what the slow path costs while reporting itself as fast',
+    pkg: 'backend',
+    file: 'src/utils/holomotionExtract.js',
+    find: '  const images = await renderForExtraction(buffer, undefined, 1);',
+    replace: '  const images = await renderForExtraction(buffer);',
+    test: 'tests/textLayerExtract.test.js',
+  },
+  {
+    guard: 'ingestion: the compact layout can still reach the vision path',
+    why: 'the 12-page report carries no text at all. A fast path that swallowed '
+       + 'the fallback would turn a readable report into an empty one',
+    pkg: 'backend',
+    file: 'src/utils/holomotionExtract.js',
+    find: "    method: 'vision',",
+    replace: "    method: 'text-layer',",
+    test: 'tests/textLayerExtract.test.js',
+  },
+  {
     guard: 'session boundary: a role this build does not know is refused',
     why: 'the snapshot is browser-held, so the role is INPUT. Measured 2026-09-17: with '
        + 'role "superuser" the gate refused the page, asked landingPathFor where to send '

@@ -37,9 +37,23 @@ const uploadPdf = multer({
 });
 
 // ───────────────────────────── PDF (HoloMotion) flow ─────────────────────────
-// The vision-model-backed ingestion path — AIRMS' sole screening import.
-// HoloMotion PDFs have no text layer (jsPDF bakes everything in as graphics),
-// so a vision model reads the rendered pages and returns structured JSON.
+// AIRMS' sole screening import, and since 2026-09-22 it READS the report where
+// it can and looks at it where it cannot (§112).
+//
+// This comment used to say "HoloMotion PDFs have no text layer (jsPDF bakes
+// everything in as graphics)". That is true of the COMPACT 12-page layout —
+// scripts/samples/thung.pdf, which was the first sample and the one the whole
+// pipeline was built around — and false of every other layout ISN produces.
+// Measured across 17 real reports: 0 text items on the 12-page layout, a
+// complete text layer on all 15 of the 28- and 38-page ones.
+//
+// So `extractFromPdf` tries utils/textLayerExtract.js first. When it succeeds
+// the numbers are read EXACTLY and only page 1 is rendered, for HoloMotion's
+// written Summary, which the text layer cannot give up (it is letter-spaced and
+// the word boundaries are gone). When it fails — the compact layout — the
+// original six-page vision path runs unchanged. Both were verified end to end
+// against ground truth.
+//
 // Three fields the report never contains — athleteId, sport, program — are
 // supplied by the operator at commit time (auto-filled client-side when the
 // extracted name matches an existing athlete).

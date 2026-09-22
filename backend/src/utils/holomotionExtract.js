@@ -8,7 +8,8 @@
 // input at commit time. This module only extracts what is actually on the page.
 
 const { renderForExtraction } = require('./pdfRender');
-const { visionComplete } = require('./visionClient');
+const { visionComplete, isVisionConfigured } = require('./visionClient');
+const { extractFromTextLayer } = require('./textLayerExtract');
 const { expose } = require('./httpError');
 
 // The model is asked to return exactly this shape. Keys mirror the HoloMotion
@@ -148,7 +149,88 @@ const { prescriptionFromPdf } = require('./prescription');
 
 // Full pipeline: PDF buffer → mapped Athlete payload (+ screening extras + raw).
 // Sends the first N full pages of the report (layout-robust — see pdfRender).
+/**
+ * HoloMotion's written Summary, and nothing else, from page 1.
+ *
+ * The text-layer path reads every NUMBER exactly and cannot read the Summary at
+ * all: the report letter-spaces it and the word boundaries are not recoverable
+ * (see utils/textLayerExtract.js). §70 reproduces that text verbatim as the
+ * instrument's own verdict, so dropping it would trade a real clinical surface
+ * for a saving — which is not the deal.
+ *
+ * So the model is still asked, but for ONE page instead of six: ~1,500 image
+ * tokens against ~9,300. It reuses EXTRACTION_PROMPT and parseJsonReply rather
+ * than introducing a second prompt — a summary-only prompt would be a second
+ * vocabulary for the same document, and the fields it returns for the pages it
+ * cannot see are simply ignored.
+ *
+ * Page 1 is also the page carrying the name, so redaction still runs on it
+ * exactly as before — renderForExtraction does that unconditionally.
+ */
+async function summaryFromPage1(buffer) {
+  const images = await renderForExtraction(buffer, undefined, 1);
+  if (!images.length) return { summary: null, usage: null };
+  const { text, usage } = await visionComplete(EXTRACTION_PROMPT, images);
+  const extracted = parseJsonReply(text);
+  const summary = extracted && extracted.summary ? String(extracted.summary).trim() : null;
+  return { summary: summary || null, usage: usage || null, pagesRead: images.map((i) => i.page) };
+}
+
 async function extractFromPdf(buffer) {
+  // THE FAST PATH: read the report rather than look at it (2026-09-22, §112).
+  //
+  // Tried FIRST and gated on its own answer. `{ ok: false }` means the compact
+  // layout, which carries no text at all and always needs the model — so this
+  // is a fast path with a fallback, never a replacement.
+  const fast = await extractFromTextLayer(buffer).catch((err) => {
+    // A reader that throws must not cost the operator their import. Fall
+    // through to vision, which is what would have happened anyway.
+    console.error('[extract] text-layer read failed, using vision:', err.message);
+    return { ok: false, reason: 'text-layer-error' };
+  });
+
+  if (fast.ok) {
+    let summary = null;
+    let usage = null;
+    let summaryPages = [];
+    if (isVisionConfigured()) {
+      try {
+        const top = await summaryFromPage1(buffer);
+        summary = top.summary;
+        usage = top.usage;
+        summaryPages = top.pagesRead || [];
+      } catch (err) {
+        // The numbers are already read and exact. Losing the Summary is a
+        // missing section, which §70's renderer already handles — losing the
+        // import would be worse.
+        console.error('[extract] summary top-up failed:', err.message);
+      }
+    }
+    let prescription = null;
+    try {
+      prescription = await prescriptionFromPdf(buffer);
+    } catch (err) {
+      console.error('[extract] prescription parse failed:', err.message);
+    }
+    return {
+      athlete: fast.athlete,
+      myodynamia: fast.myodynamia,
+      tension: fast.tension,
+      assessedAt: fast.assessedAt,
+      summary,
+      // Through the SAME normaliser the vision path uses, so the two producers
+      // cannot hand the commit route two different shapes for one document —
+      // it fills every region and metric, nulling what is absent, and returns
+      // null when nothing was read at all.
+      subitems: normaliseSubitems(fast.subitems),
+      raw: { method: 'text-layer', textLayerChars: fast.textLayerChars },
+      method: 'text-layer',
+      prescription,
+      pagesRead: summaryPages,
+      usage,
+    };
+  }
+
   const images = await renderForExtraction(buffer);
   if (!images.length) throw expose(new Error('Could not render any pages from the PDF'), 502);
   const { text, usage } = await visionComplete(EXTRACTION_PROMPT, images);
@@ -169,6 +251,11 @@ async function extractFromPdf(buffer) {
   return {
     ...mapped,
     raw: extracted,
+    // Which reader produced this. Carried to the preview response so the
+    // operator — and the Activity Log — can tell an exact read from a
+    // model-read one, rather than the two being indistinguishable after the
+    // fact.
+    method: 'vision',
     prescription,
     pagesRead: images.map((i) => i.page),
     usage: usage || null,

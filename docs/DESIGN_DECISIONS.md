@@ -10167,3 +10167,145 @@ the API is the boundary and it held, so this is wasted work on a rare path, not
 a disclosure. Fixing it properly means every page consulting the session before
 it fetches — twenty pages — which is a real change to how pages are written and
 JC's call, not a side effect of a navigation audit.
+
+---
+
+## 112. The report was readable all along, on every layout but the one we tested (2026-09-22)
+
+Module 3 has sent rendered page images to a vision model since it was built, on
+a premise repeated in `CLAUDE.md`, in `routes/upload.js` and in §13:
+
+> HoloMotion PDFs have no text layer (jsPDF bakes everything in as graphics).
+
+It is true of one layout. Measured across 17 real reports:
+
+| layout | text on pages 1–6 |
+|---|---|
+| 12 pages (compact) | **0 items, on every page** |
+| 28 pages | complete — 3 of 3 |
+| 38 pages | complete — 12 of 12 |
+
+`scripts/samples/thung.pdf` is the 12-page compact report. It was the **first**
+sample, the pipeline was built around it, and its property was generalised to
+the format. `scripts/samples/nazwan.pdf` — this project's own 38-page fixture,
+verified 1:1 by hand on 2025-08-13 — has carried a complete text layer the
+entire time, every value labelled and column-aligned.
+
+### 112.1 What it is worth
+
+Measured through the real endpoint, not reasoned about:
+
+| | before | after |
+|---|---|---|
+| tokens per report | ~11,400 (documented) | **2,490** (measured) |
+| pages sent to the provider | 6 | **1** |
+| wall clock | 480.7s for the 6-page path | **3.5s** |
+
+The numbers are also *exact* rather than model-read, which removes a whole class
+of question about whether a figure on a clinician's screen is what the
+instrument printed.
+
+The wall-clock figures are not a clean A/B: the 480.7s run overlapped with
+another render job on this machine, so it is inflated. The order of magnitude is
+the point, and the token counts are clean.
+
+### 112.2 Why it is a fast path and not a replacement
+
+The compact layout carries no text at all, so it will always need the model.
+`extractFromPdf` tries `utils/textLayerExtract.js` first and falls through on
+`{ ok: false }`. Verified end to end: `thung.pdf` still reproduces **24 of 24**
+ground-truth fields through the vision path, unchanged.
+
+A reader that *throws* also falls through rather than failing the import — the
+model is what would have run anyway.
+
+### 112.3 The Summary is asked for separately, and that is the whole design
+
+HoloMotion letter-spaces the Summary. pdfjs returns the line as one item reading
+`A c c o r d i n g t o s c o r e s o f R O M ,` and every one of the 44
+space-runs on it is length 1 — `According|to` is encoded exactly like `A|c`. The
+word boundaries are gone before pdfjs sees them; `disableCombineTextItems`,
+`disableNormalization` and both together return the identical item.
+
+§70 reproduces that text **verbatim** and attributes it to the instrument. So
+the first attempt — collapsing runs of single characters — was deleted: it
+produced `AccordingtoscoresofROM , stability`, which is mangled clinical prose
+presented as HoloMotion's own words. **Mangled is worse than absent, because
+absent is visibly absent.**
+
+Rather than drop the section, the model is asked for **page 1 alone**: ~1,500
+image tokens against ~9,300, reusing `EXTRACTION_PROMPT` and `parseJsonReply`
+instead of inventing a second prompt for the same document. Page 1 is also the
+page carrying the name, so the on-device redaction runs exactly as before.
+
+If the top-up fails the numbers are already read and the import stands; the
+Summary is simply missing, which §70's renderer already handles (all 74 seeded
+rows are null on purpose).
+
+### 112.4 And AIRMS's own verifier passed the mush
+
+On the first run `verify-holomotion-extract.js` reported
+`summary read … 533 chars ✓ PASS` **against the mangled string**. The check is
+`mapped.summary.length > 20` — a presence check, deliberately, with the stated
+reason that wording varies.
+
+The consequence is not hypothetical and is not about this path: **garbage prose
+returned by the VISION model would pass it too.** It is recorded here rather
+than tightened, because an exact-match assertion on prose that genuinely varies
+between reports would be worse. `verify-textlayer-extract.js` now prints the
+caveat beside the row, so a red line does not read as a regression and a green
+one does not read as proof.
+
+### 112.5 Three bugs, one shape
+
+All three produced a payload that parsed and was quietly incomplete:
+
+- **`buffer instanceof Uint8Array` is `true` for a Node `Buffer`**, which pdfjs
+  then rejects by name — a type check that looks right and tests nothing.
+- **Two fields share a row.** `Gender ： Male   Age ： 21`, so taking "the rest of
+  the row" gave gender `"Male Age 21"` and age `null`.
+- **Page 6 centres each label 100pt LEFT of its score.** pdfjs reports left
+  edges, so an x-window on left edges put them 118pt apart and returned **zero
+  of eight** indicators while every other field parsed normally.
+
+The fix for the third is to compare **centres** (`x + width/2`) and to split the
+two columns midway between the *score* columns — not at the page midpoint, which
+sits at ~306 while the right column's labels centre at ~321 and would file
+`Herniation` under the left column.
+
+### 112.6 The guards, and the two that fired during the work
+
+`hasTextLayer()` was written, exported, and called by nothing —
+`tests/codebaseHygiene.test.js` caught it within the hour. It was **deleted**
+rather than wired: it duplicated the check `extractFromTextLayer` already
+performs, and the gate is the return value. That is the `winAnsiSafe` defect
+exactly, and this codebase now finds it automatically.
+
+`tests/textLayerExtract.test.js` then pins the property no unit test of the
+extractor can see — **that the fast path is reached from the ingestion entry
+point at all**, that it is tried *before* rendering, that the vision fallback
+still exists, and that the Summary top-up renders one page. A pure extractor is
+correct whether or not anybody calls it; unwired, every import would silently go
+back to 11,400 tokens and nothing would fail.
+
+That guard earned itself immediately: a multi-line `python` patch tagging the
+vision branch `method: 'vision'` **silently matched nothing** — the file is CRLF
+and the pattern used `\n` — and the test failed within a minute. Gotcha 9, live.
+The edit was redone with the Edit tool, which writes bytes literally.
+
+Three mutation guards registered (65 → 68), all caught.
+
+### 112.7 Not done
+
+- **Nothing changed in the UI**, and `GET /screening/pdf/status` still gates the
+  uploader on `isVisionConfigured()`. An expanded report could in principle be
+  ingested with **no AI provider at all** — everything but the Summary — but
+  claiming that would mean shipping a route path the interface can never reach,
+  which is the defect above wearing a different hat. Wiring it is a UI decision.
+- **Recovering the Summary deterministically** needs per-glyph positions. The
+  Rust engine behind `pdf-inspector` keeps them, which is how the reference
+  prototype reconstructs the sentences. That is a dependency decision, not a
+  parsing one.
+- **The 4.5 MB hosted upload cap is untouched and now matters more**: 12 of the
+  15 real reports measured are 7.7–13.2 MB, so the deployed uploader would
+  reject them today regardless of which extractor runs.

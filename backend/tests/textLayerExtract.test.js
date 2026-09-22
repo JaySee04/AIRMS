@@ -12,7 +12,53 @@
 // So the PDF-dependent assertions live in scripts/verify-textlayer-extract.js,
 // which runs both fixtures, diffs the payload against the existing ground truth
 // and checks the refusals. This file covers what can be checked without one.
+const fs = require('fs');
+const path = require('path');
 const { looksLetterSpaced, parseMuscle } = require('../src/utils/textLayerExtract');
+
+// IS THE FAST PATH ACTUALLY WIRED?
+//
+// A pure function is correct whether or not anybody calls it — `winAnsiSafe`
+// shipped defined, exported, unit-tested and never called, and every test
+// passed. This extractor has exactly that shape: all the tests above would go
+// on passing if `extractFromPdf` never consulted it and every import silently
+// went back to costing ~11,400 vision tokens.
+//
+// Read as TEXT, because the alternative is mounting the whole ingestion path.
+describe('the text-layer fast path is reachable from the ingestion entry point', () => {
+  const src = fs.readFileSync(
+    path.join(__dirname, '..', 'src', 'utils', 'holomotionExtract.js'), 'utf8',
+  );
+
+  it('extractFromPdf consults the text layer', () => {
+    expect(src).toContain("require('./textLayerExtract')");
+    expect(src).toMatch(/await extractFromTextLayer\(buffer\)/);
+  });
+
+  // The order is the whole design: read first, look only if reading failed.
+  it('tries the text layer BEFORE rendering pages for the model', () => {
+    const fast = src.indexOf('extractFromTextLayer(buffer)');
+    const render = src.indexOf('renderForExtraction(buffer)');
+    expect(fast).toBeGreaterThan(-1);
+    expect(render).toBeGreaterThan(-1);
+    expect(fast).toBeLessThan(render);
+  });
+
+  // The compact layout carries no text at all, so the model must still be
+  // reachable. A fast path that swallowed the fallback would turn a readable
+  // report into an empty one.
+  it('still falls back to the vision path', () => {
+    expect(src).toMatch(/const images = await renderForExtraction\(buffer\);/);
+    expect(src).toMatch(/method: 'vision'/);
+  });
+
+  // The Summary top-up must render ONE page, not six. Passing the limit is the
+  // entire saving; dropping it would leave the fast path costing what the slow
+  // path costs while reporting itself as fast.
+  it('tops the Summary up from page 1 alone', () => {
+    expect(src).toMatch(/renderForExtraction\(buffer, undefined, 1\)/);
+  });
+});
 
 describe('the letter-spacing detector', () => {
   // §70 reproduces HoloMotion's Summary VERBATIM and attributes it to the

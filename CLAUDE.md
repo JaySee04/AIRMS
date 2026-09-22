@@ -81,7 +81,7 @@ cd backend; npm run mutate           # BREAK each registered guard on purpose an
                                      # skip is right; the consequence is that the guard
                                      # reports SURVIVED while a dev server runs, which
                                      # is environmental and not a real regression.
-                                     # test is not testing what it claims. 65 guards across
+                                     # test is not testing what it claims. 68 guards across
                                      # both packages. NOT part of `npx jest` — it spawns a
                                      # jest run per mutation (tens of seconds). Run it before
                                      # committing a change to a guard, and add an entry when
@@ -332,7 +332,7 @@ cd frontend; npm run e2e   # END-TO-END smoke: a real Chrome against the running
 cd frontend; npm run build
 
 # Unit tests (jest, in both packages — no linter configured for the backend)
-cd backend; npx jest      # 59 suites / 865 tests: cohorts, overallIndicator, permissions, rbac, pdfDraw,
+cd backend; npx jest      # 59 suites / 869 tests: cohorts, overallIndicator, permissions, rbac, pdfDraw,
                           # emailAddress (the address an activation code is SENT to. It was
                           # VARCHAR(160) UNIQUE and nothing else — "not-an-email", "jc@@isn",
                           # "a b@c.d" and "<script>@x.com" all validated and would have been
@@ -696,10 +696,19 @@ as a physiologist would rather than by reading the backlog:
 
 The report's last pages carry HoloMotion's own two-week programme: day by day,
 each exercise with reps, sets and rest. `utils/prescription.js` reads it and
-`screenings.prescription` (JSON) stores it. **This needs no vision model**:
-pages 1–6 are rendered graphics with no text layer, which is why they need one;
-the prescription pages are ordinary text. No tokens, no extra pages transmitted,
-and it works with no AI provider configured.
+`screenings.prescription` (JSON) stores it. **This needs no vision model** — the
+prescription pages are ordinary text. No tokens, no extra pages transmitted, and
+it works with no AI provider configured.
+
+**This paragraph used to justify itself with "pages 1–6 are rendered graphics
+with no text layer, which is why they need one". That was true of ONE layout and
+was generalised to the format — see `DESIGN_DECISIONS.md §112`.** Measured across
+17 real reports on 2026-09-21: the compact 12-page layout (`scripts/samples/thung.pdf`,
+the first sample and the one the pipeline was built around) has **0** text items on
+every page; all 15 of the 28- and 38-page reports carry a **complete** text layer on
+the data pages, with every value labelled and column-aligned. `utils/textLayerExtract.js`
+now reads them, and the technique this section describes was simply never pointed at
+the data pages.
 
 Parsed strictly, because the output is a programme somebody may follow — a row
 read loosely looks complete and is wrong. Rows must match the printed shape or
@@ -1092,7 +1101,7 @@ Forgetting the sync is the one hazard the design trades for, so **both** test su
   files and `BAND_LABEL` in two; new code should call `effectiveBand(screening)`
   rather than inline `overrideBand || overallBand`, which is the one expression
   here that could be written backwards and silently ignore every clinical override
-- Module 3 (Screening Data Ingestion) is **HoloMotion PDF only** (the Excel import was retired 2026-07-12; code archived in `archive/excel-upload/`). Two-step flow: `POST /api/upload/screening/pdf/preview` (render + vision-extract, no commit) → `POST /api/upload/screening/pdf` (commit the previewed JSON). The uploader is batch-capable (sequential extraction). **The athlete's name is redacted on-device (page-1 OCR locates it, blacks out the value) before any image reaches the vision model** — so the sole direct identifier never leaves the machine (`utils/redactName.js`; see `docs/DESIGN_DECISIONS.md §18`). The operator then attaches each report to a roster athlete by **name search** (`AthleteSearchSelect`), which fills Athlete ID/sport/programme from the roster; the commit backfills the name server-side. The Excel **backup export** (`GET /api/export/backup.xlsx`, Module 4 — Cohort Norms & Governance) remains
+- Module 3 (Screening Data Ingestion) is **HoloMotion PDF only** (the Excel import was retired 2026-07-12; code archived in `archive/excel-upload/`). Two-step flow: `POST /api/upload/screening/pdf/preview` (extract, no commit) → `POST /api/upload/screening/pdf` (commit the previewed JSON). The uploader is batch-capable (sequential extraction). **Since 2026-09-22 extraction READS the report where it can and looks at it where it cannot (`DESIGN_DECISIONS.md §112`).** `utils/textLayerExtract.js` is tried first; when the report carries a text layer — all 15 of the 28-/38-page reports measured — every number is read **exactly** and only **page 1** is rendered for the model, for HoloMotion's written Summary, which the text layer cannot give up (it is letter-spaced and the word boundaries are gone; `looksLetterSpaced` declines it rather than mangling §70's verbatim text). When there is no text layer — the compact 12-page layout — the original six-page vision path runs **unchanged**. Measured end to end through the real endpoint: nazwan.pdf ingests in **3.5s for 2,490 tokens** against the documented ~11,400, with the values exact; thung.pdf falls through to vision and still reproduces **24/24** ground truth. The payload gains a `method` of `text-layer` or `vision` so an exact read and a model-read one are distinguishable after the fact. **Do not "simplify" this into text-only** — the compact layout has no text at all, and the fallback is the reason it still works. **The athlete's name is redacted on-device (page-1 OCR locates it, blacks out the value) before any image reaches the vision model** — so the sole direct identifier never leaves the machine (`utils/redactName.js`; see `docs/DESIGN_DECISIONS.md §18`). The operator then attaches each report to a roster athlete by **name search** (`AthleteSearchSelect`), which fills Athlete ID/sport/programme from the roster; the commit backfills the name server-side. The Excel **backup export** (`GET /api/export/backup.xlsx`, Module 4 — Cohort Norms & Governance) remains
 
 **Frontend** (`frontend/`, Next.js 15.5 App Router, **React 19**, **TypeScript 6**, plain CSS with variables):
 - **TypeScript 7 is NOT available to this project** (2026-09-13, `DESIGN_DECISIONS.md §89`). Next 15.5 fails the build on it outright — the native compiler does not expose the JS compiler API Next needs — and every `@typescript-eslint` package under `eslint-config-next@15` declares `typescript: ">=4.8.4 <6.1.0"`, so TS 7 installs as `invalid` and the type-aware lint rules would run on an unsupported compiler. **6.0.3 is the ceiling until Next 16**, which is its own refused decision (§82.3). `npm outdated` will keep offering 7 — that is not an oversight.

@@ -99,14 +99,20 @@ async function renderPdfPages(buffer, pages = DATA_PAGES, scale = renderScale())
 // the first N pages (see maxPages), each as a full captioned page. Robust to
 // layout variation because it doesn't assume which page a section is on.
 // Returns [{ page, label, base64, mediaType }].
-async function renderForExtraction(buffer, scale = renderScale()) {
+// `pageLimit` caps the pages rendered BELOW the configured maximum. It exists
+// for the text-layer fast path (§112): when the report's numbers have already
+// been read deterministically, the only thing still needing a model is
+// HoloMotion's written Summary, which lives on page 1 — so that path renders
+// ONE page instead of six. It cannot raise the limit, only lower it, so
+// VISION_MAX_PAGES stays the ceiling it has always been.
+async function renderForExtraction(buffer, scale = renderScale(), pageLimit = Infinity) {
   const pdfjs = await getPdfjs();
   const data = new Uint8Array(buffer);
   const task = pdfjs.getDocument({ data });
   try {
     const doc = await task.promise;
     const total = doc.numPages;
-    const n = Math.min(maxPages(), total);
+    const n = Math.min(maxPages(), total, Math.max(1, pageLimit));
 
     const out = [];
     for (let pageNum = 1; pageNum <= n; pageNum++) {
