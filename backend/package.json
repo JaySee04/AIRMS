@@ -26,7 +26,8 @@
     "map": "node scripts/system-map.js",
     "mutate": "node scripts/mutation-check.js",
     "verify:claims": "node scripts/verify-claims.js",
-    "verify:textlayer": "node scripts/verify-textlayer-extract.js"
+    "verify:textlayer": "node scripts/verify-textlayer-extract.js",
+    "bootstrap:admin": "node scripts/bootstrap-admin.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

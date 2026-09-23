@@ -631,12 +631,83 @@ Demo credentials - one password for every account: ${DEMO_PASSWORD}`);
 // `npm run seed` runs the file directly, so require.main is this module and
 // nothing else can trigger it — including a test that transitively requires it.
 // See docs/DESIGN_DECISIONS.md §34c.
+// REFUSE TO DESTROY A REAL INSTALLATION (2026-09-22).
+//
+// `npm run seed` DROPS the database and inserts ~60 fabricated athletes, demo
+// screenings and five accounts whose password is published in this repository's
+// documentation. That is exactly right for development and catastrophic against
+// an institution's live data — and it is one command away, in every developer's
+// muscle memory, with no confirmation of any kind.
+//
+// docs/DEPLOY_ISN.md had to list this as a known hazard of self-hosting, which
+// is the wrong place to solve it. Two independent signals, because either alone
+// is easy to get wrong on a real server:
+//
+//   * NODE_ENV=production — the setting a deployed install already has;
+//   * a database holding data this seeder did not write — measured rather than
+//     declared, so it protects an installation whose NODE_ENV was never set.
+//
+// `--force` overrides both, so the escape hatch exists and has to be typed.
+// Deliberately not an interactive prompt: this also runs in scripts and CI,
+// where a prompt is a hang rather than a safeguard.
+async function refuseIfProduction() {
+  if (process.argv.includes('--force')) return;
+
+  const reasons = [];
+  if (process.env.NODE_ENV === 'production') reasons.push('NODE_ENV is "production"');
+
+  // A seeded database has exactly the demo accounts. Anything else means
+  // somebody's real work is in here. Counted rather than assumed, and a failure
+  // to count is itself a reason to stop.
+  try {
+    const { User } = require('../models');
+    // DERIVED from the seeder's own account list, not written out again. A
+    // hand-typed copy drifts the first time a demo account is added, and it
+    // drifts in the dangerous direction: an unrecognised demo database starts
+    // looking like a production one, the refusal fires on a developer machine,
+    // and the next person reaches for --force by habit.
+    const seededEmails = buildUsers().map((u) => u.email);
+    const total = await User.count();
+    const demo = await User.count({ where: { email: seededEmails } });
+    if (total > 0 && demo === 0) {
+      reasons.push(`the database holds ${total} user account(s), none of them seeded demo accounts`);
+    }
+  } catch (err) {
+    if (!/doesn't exist|Unknown table|no such table/i.test(err.message)) {
+      reasons.push(`the existing database could not be inspected (${err.message})`);
+    }
+    // A missing users table means an empty install. Seeding is the point.
+  }
+
+  if (!reasons.length) return;
+
+  console.error('\n  REFUSING TO SEED.\n');
+  for (const r of reasons) console.error(`    - ${r}`);
+  console.error([
+    '',
+    '  This command DROPS every table and replaces the contents with fabricated',
+    '  demo data, including accounts whose password is published in the project',
+    '  documentation. On a real installation that destroys the institution\'s data.',
+    '',
+    `  Target: ${process.env.MYSQL_USER}@${process.env.MYSQL_HOST}/${process.env.MYSQL_DATABASE}`,
+    '',
+    '  To create an EMPTY schema instead:   cd backend; $env:SQL_SYNC=1; npm start',
+    '  To create the first administrator:    npm run bootstrap:admin -- --email ... --name ...',
+    '',
+    '  If you genuinely mean to wipe this database, re-run with --force.',
+    '',
+  ].join('\n'));
+  process.exit(2);
+}
+
 if (require.main === module) {
-  seed().catch(async (err) => {
-    console.error(err);
-    try { await sequelize.close(); } catch (_) {}
-    process.exit(1);
-  });
+  refuseIfProduction()
+    .then(seed)
+    .catch(async (err) => {
+      console.error(err);
+      try { await sequelize.close(); } catch (_) {}
+      process.exit(1);
+    });
 }
 
 module.exports = { seed };

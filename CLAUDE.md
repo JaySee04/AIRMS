@@ -172,6 +172,32 @@ cd backend; npm run migrate:norm-stamp   # add screenings.norm_version_id + scor
                                      # response_* columns and /athletes answers 200); norm-stamp is not.
                                      # RUN THIS AGAINST HOSTED BEFORE THE NEXT DEPLOY — --dry-run first,
                                      # which reports definitively which columns are missing.
+cd backend; npm run bootstrap:admin -- --email "x@isn.gov.my" --name "Name"
+                                     # create the FIRST administrator on an EMPTY database, and
+                                     # print a one-time activation code. Added 2026-09-22 for the
+                                     # ISN self-hosted install (docs/DEPLOY_ISN.md), because there
+                                     # was NO way to get an account on a database that had not been
+                                     # SEEDED: there is no self-registration by design, POST
+                                     # /api/users needs a signed-in admin, and seeder.js was the
+                                     # only other source. So a real deployment had to choose between
+                                     # an institution's live database holding ~60 fabricated
+                                     # athletes plus five accounts whose password is published in
+                                     # these docs, or a schema nobody could ever log in to.
+                                     # No password is set — a random one is hashed and discarded, so
+                                     # whoever runs it CANNOT sign in as the admin they created; the
+                                     # owner sets the first real credential at /activate. The code is
+                                     # PRINTED rather than emailed because a fresh install usually
+                                     # has no SMTP, and an invitation that silently fails to send —
+                                     # for the one account that creates all the others — locks the
+                                     # institution out. REFUSES if any user exists (--force-second-admin
+                                     # is the recovery path): a script that could mint an admin on a
+                                     # live system would undo the whole access model.
+#   `npm run seed` REFUSES to run against what looks like a real installation
+#   (2026-09-22): NODE_ENV=production, or a database holding user accounts that are
+#   not the demo ones — the demo list DERIVED from buildUsers(), not retyped. It
+#   prints the target it was pointed at. `--force` overrides. It drops every table
+#   and inserts fabricated data, which is right for development and catastrophic
+#   against an institution's; it was one command away with no confirmation.
 cd backend; npm run verify:schema    # compare the LIVE database against what the models declare.
                                      # READ-ONLY. FOUR sections: redundant indexes in the database,
                                      # index DRIFT between models and database, redundancy declared
