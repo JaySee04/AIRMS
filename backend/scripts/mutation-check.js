@@ -345,6 +345,30 @@ const MUTATIONS = [
     test: 'tests/textLayerExtract.test.js',
   },
   {
+    guard: 'ingestion: a text layer is not by itself a HoloMotion report',
+    why: 'the gate WAS textLayerChars >= 400 and nothing else. Measured: '
+       + 'AIRMS-System-Guide.pdf (21,017 chars) and reports/FYP-I-Report.pdf (3,622) '
+       + 'both returned ok:true with every value null — and ok:true suppresses the '
+       + 'vision fallback, so the path that would have read a real report never ran. '
+       + 'The live hazard is a HoloMotion layout that keeps its text and moves the data',
+    pkg: 'backend',
+    file: 'src/utils/textLayerExtract.js',
+    find: '  const shortfall = completenessShortfall({ cover, screening, risks });',
+    replace: '  const shortfall = [];',
+    test: 'tests/textLayerExtract.test.js',
+  },
+  {
+    guard: 'ingestion: a real 0 is a reading, not a missing value',
+    why: '§54 — an unknown value stays unknown and 0 is not unknown. A falsy test '
+       + 'here sends a correctly-read report to the vision model, and teaches the '
+       + 'gate that a genuine zero score means the parse failed',
+    pkg: 'backend',
+    file: 'src/utils/textLayerExtract.js',
+    find: '  const need = (label, value) => { if (value == null) missing.push(label); };',
+    replace: '  const need = (label, value) => { if (!value) missing.push(label); };',
+    test: 'tests/textLayerExtract.test.js',
+  },
+  {
     guard: 'session boundary: a role this build does not know is refused',
     why: 'the snapshot is browser-held, so the role is INPUT. Measured 2026-09-17: with '
        + 'role "superuser" the gate refused the page, asked landingPathFor where to send '

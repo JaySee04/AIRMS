@@ -425,6 +425,51 @@ function parseExerciseRisk(page) {
   return out;
 }
 
+// WHAT A HOLOMOTION REPORT MUST YIELD BEFORE THE FAST PATH IS TRUSTED.
+//
+// Pure and exported so it can be tested without opening a PDF — the jest
+// transform rewrites the dynamic `import()` this file needs for pdfjs, so
+// anything that reads a real document is verified in scripts/ instead. This is
+// the part worth pinning, and it is reachable.
+//
+// The list is the fields a clinician's screen and the cohort scorer both need,
+// and nothing more:
+//
+//   * the two HEADLINE scores, because they are what the hero prints and what
+//     §21 rests on (Total Score and Exercise Risks, as HoloMotion spells them);
+//   * the three MOVEMENT components, which Total Score is the mean of;
+//   * ALL EIGHT indicators — they share one page and one table, so seven means
+//     the parse is drifting, not that the report omitted one. LDH is included
+//     here deliberately: it is STORED and never shown (§31), so its absence is
+//     evidence about the parse even though nothing displays it;
+//   * assessedAt, without which the screening cannot be placed in a period and
+//     the idempotent (athleteId, assessedAt) commit key collapses (§45).
+//
+// Subitems are NOT required. They are a 25-cell table on the same page as the
+// movement trio, so the trio already covers that page, and requiring them would
+// send a report to vision over a table the dashboards degrade gracefully
+// without.
+//
+// A value of 0 is a real reading and must pass — hence `== null` rather than a
+// falsy test. §54: an unknown value stays unknown, and 0 is not unknown.
+function completenessShortfall({ cover, screening, risks }) {
+  const missing = [];
+  const need = (label, value) => { if (value == null) missing.push(label); };
+
+  need('totalScore', cover.overallActivityScore);
+  need('exerciseRisks', cover.injuryRiskIndex);
+  need('assessedAt', cover.assessedAt);
+  need('mobility', screening.mobility);
+  need('stability', screening.stability);
+  need('symmetry', screening.symmetry);
+  for (const ind of RISK_INDICATORS) need(ind.key, risks[ind.key]);
+  // spinalDiscHerniation is excluded from RISK_INDICATORS by §31 but is still
+  // parsed and stored, so it is checked by name rather than left unasserted.
+  need('spinalDiscHerniation', risks.spinalDiscHerniation);
+
+  return missing;
+}
+
 // ---------------------------------------------------------------- public
 
 /**
@@ -461,6 +506,41 @@ async function extractFromTextLayer(buffer, { pdfjs } = {}) {
   const screening = parseRiskScreening(byNumber(5));
   const risks = parseExerciseRisk(byNumber(6));
 
+  // DID WE ACTUALLY READ A HOLOMOTION REPORT, or just a PDF with words in it?
+  //
+  // Until 2026-09-22 the only gate was `textLayerChars >= MIN_TEXT_CHARS`, and
+  // everything after it returned `ok: true` unconditionally. Measured against
+  // two text-bearing PDFs sitting in this repository:
+  //
+  //   AIRMS-System-Guide.pdf   ok: true, 21,017 chars, every value null
+  //   reports/FYP-I-Report.pdf ok: true,  3,622 chars, every value null
+  //
+  // `ok: true` is what suppresses the vision fallback, so the model — which
+  // would have read the thing correctly — never ran. The operator got a
+  // confident, complete-looking preview of nothing.
+  //
+  // The real hazard is not somebody uploading a dissertation. It is that the
+  // page numbers and label wordings below are read off the layouts ISN produces
+  // TODAY. A HoloMotion release that keeps its text layer and moves the data
+  // one page would land exactly here: text present, parsers silent, nulls
+  // committed to an athlete's clinical record, and no error anywhere.
+  //
+  // So completeness is checked, and failing it returns `ok: false` — which
+  // costs a vision call and is precisely the behaviour before this file
+  // existed. STRICT ON PURPOSE, the same argument utils/prescription.js makes:
+  // a report read loosely looks complete and is wrong. A false negative spends
+  // ~11,400 tokens; a false positive puts nulls in a clinical record.
+  const shortfall = completenessShortfall({ cover, screening, risks });
+  if (shortfall.length) {
+    return {
+      ok: false,
+      reason: 'text-layer-incomplete',
+      missing: shortfall,
+      textLayerChars: score,
+      totalPages,
+    };
+  }
+
   return {
     ok: true,
     method: 'text-layer',
@@ -492,6 +572,7 @@ module.exports = {
   // exported for tests
   looksLetterSpaced,
   parseMuscle,
+  completenessShortfall,
   MIN_TEXT_CHARS,
   LABEL_TO_KEY,
 };

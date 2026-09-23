@@ -14,7 +14,7 @@
 // and checks the refusals. This file covers what can be checked without one.
 const fs = require('fs');
 const path = require('path');
-const { looksLetterSpaced, parseMuscle } = require('../src/utils/textLayerExtract');
+const { looksLetterSpaced, parseMuscle, completenessShortfall } = require('../src/utils/textLayerExtract');
 
 // IS THE FAST PATH ACTUALLY WIRED?
 //
@@ -116,5 +116,133 @@ describe('muscle flags carry their side', () => {
     expect(parseMuscle('Muscle Tension')).toBeNull();
     expect(parseMuscle('Gluteus medius')).toBeNull();
     expect(parseMuscle('')).toBeNull();
+  });
+});
+
+// WHAT MAKES A PARSE GOOD ENOUGH TO SUPPRESS THE VISION FALLBACK.
+//
+// The fast path's `ok` used to mean only "this PDF has more than 400 characters
+// of text in it". Measured against two text-bearing PDFs in this repository:
+// AIRMS-System-Guide.pdf (21,017 chars) and reports/FYP-I-Report.pdf (3,622)
+// both returned ok:true with EVERY value null — and ok:true is what stops the
+// model running, so the path that would have read a real report correctly never
+// executed. An operator picking the wrong file got a confident empty preview.
+//
+// The live hazard is not a dissertation. The page numbers and label wordings
+// this file parses are read off the layouts ISN produces today; a HoloMotion
+// release that keeps its text layer and moves the data would land exactly here.
+//
+// Verified after the gate: all 24 real reports still take the fast path (no
+// false negatives), and both non-reports fall through to vision.
+describe('the fast path is only taken when the report was actually read', () => {
+  const full = () => ({
+    cover: { overallActivityScore: 78, injuryRiskIndex: 14, assessedAt: '2025-07-29T00:00:00.000Z' },
+    screening: { mobility: 72, stability: 75, symmetry: 80 },
+    risks: {
+      neckInjuryRisk: 10, shoulderInjuryRisk: 12, scoliosis: 8, spinalDiscHerniation: 5,
+      lumbarPelvisInjury: 15, jointPain: 9, kneeInjuryRisk: 21, ankleInjuryRisk: 11,
+    },
+  });
+
+  it('accepts a complete parse', () => {
+    expect(completenessShortfall(full())).toEqual([]);
+  });
+
+  it.each([
+    ['totalScore', (p) => { p.cover.overallActivityScore = null; }],
+    ['exerciseRisks', (p) => { p.cover.injuryRiskIndex = null; }],
+    ['assessedAt', (p) => { p.cover.assessedAt = null; }],
+    ['mobility', (p) => { p.screening.mobility = null; }],
+    ['stability', (p) => { p.screening.stability = null; }],
+    ['symmetry', (p) => { p.screening.symmetry = null; }],
+    ['kneeInjuryRisk', (p) => { p.risks.kneeInjuryRisk = null; }],
+  ])('refuses the fast path when %s is missing', (label, break_) => {
+    const payload = full();
+    break_(payload);
+    expect(completenessShortfall(payload)).toContain(label);
+  });
+
+  // LDH is stored and never displayed (§31). That makes its absence evidence
+  // about the PARSE rather than about the report, so it is checked even though
+  // nothing renders it — and it is absent from RISK_INDICATORS, so a loop over
+  // that list alone would miss it.
+  it('requires the excluded LDH indicator too, because it is evidence about the parse', () => {
+    const payload = full();
+    payload.risks.spinalDiscHerniation = null;
+    expect(completenessShortfall(payload)).toContain('spinalDiscHerniation');
+  });
+
+  // §54: an unknown value stays unknown, and 0 is not unknown. A real 0 on any
+  // of these is a reading, and a falsy test would send a perfectly-read report
+  // to the vision model — or worse, teach the gate that 0 means missing.
+  it('treats a real 0 as a reading, not as missing', () => {
+    const payload = full();
+    payload.cover.overallActivityScore = 0;
+    payload.risks.kneeInjuryRisk = 0;
+    payload.screening.symmetry = 0;
+    expect(completenessShortfall(payload)).toEqual([]);
+  });
+
+  it('names every missing field, so the reason is diagnosable after the fact', () => {
+    const shortfall = completenessShortfall({ cover: {}, screening: {}, risks: {} });
+    expect(shortfall).toContain('totalScore');
+    expect(shortfall).toContain('spinalDiscHerniation');
+    // 2 headline + assessedAt + 3 movement + 7 shown indicators + LDH
+    expect(shortfall).toHaveLength(14);
+  });
+
+  // Subitems are deliberately NOT required: they sit on the same page as the
+  // movement trio, which already covers that page, and the dashboards degrade
+  // without them. Pinned so "be stricter" is a decision rather than a drift.
+  it('does not require subitems', () => {
+    expect(completenessShortfall(full())).toEqual([]);
+  });
+
+  // AND THE GATE IS ACTUALLY WIRED IN.
+  //
+  // Everything above tests the pure function, and all of it passed while the
+  // call site was replaced with `const shortfall = []` — `npm run mutate`
+  // reported SURVIVED. That is the winAnsiSafe defect exactly: a function
+  // defined, exported, unit-tested and not consulted. The tests were checking
+  // that the rule is correct, not that anything obeys it.
+  //
+  // Read as SOURCE because a real check needs a PDF, and jest's CJS transform
+  // rewrites the dynamic `import()` this module needs for pdfjs — the same
+  // reason the wiring guard at the top of this file reads text. Behaviour
+  // against real documents is verified in scripts/.
+  describe('and the extractor actually consults it', () => {
+    const src = fs.readFileSync(
+      path.join(__dirname, '..', 'src', 'utils', 'textLayerExtract.js'), 'utf8',
+    );
+
+    it('calls completenessShortfall on the parsed payload', () => {
+      expect(src).toMatch(/completenessShortfall\(\{ cover, screening, risks \}\)/);
+    });
+
+    it('refuses the fast path when the shortfall is non-empty', () => {
+      expect(src).toMatch(/if \(shortfall\.length\)/);
+      expect(src).toMatch(/reason: 'text-layer-incomplete'/);
+    });
+
+    // The refusal must come BEFORE the success return, or it refuses nothing.
+    //
+    // Anchored on `    ok: true,` — the indented, comma-terminated RETURN
+    // property. The first version searched for the bare string `ok: true` and
+    // failed against correct code, because the comment above the gate discusses
+    // `ok: true` and comments come first. A source-reading test has to match
+    // code rather than prose about the code.
+    it('decides before declaring the parse good', () => {
+      const refusal = src.indexOf('if (shortfall.length)');
+      const success = src.indexOf('\n    ok: true,');
+      expect(refusal).toBeGreaterThan(-1);
+      expect(success).toBeGreaterThan(-1);
+      expect(refusal).toBeLessThan(success);
+    });
+
+    // Naming what was missing is what makes a future layout change diagnosable
+    // rather than just "it went to vision again".
+    it('reports WHICH fields were missing', () => {
+      expect(src).toMatch(/missing: shortfall/);
+    });
   });
 });

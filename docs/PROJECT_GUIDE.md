@@ -388,7 +388,7 @@ curl http://localhost:5000/api/health
 
 Jest still covers mostly **pure logic**, and there is still no linter for the
 backend. What exists beyond it, and what genuinely remains unguarded, is the
-table below plus the four verification commands — `npm run mutate` (68 guards),
+table below plus the four verification commands — `npm run mutate` (70 guards),
 `npm run audit:access` (66 endpoints × every role, plus anonymous),
 `npm run verify:claims` (a *running* instance) and `npm run verify:csp`
 (real Chrome, production build). The honest gap is **route handlers and pages**:
@@ -422,7 +422,7 @@ most are covered by e2e or by nobody.
 
 **Continuous integration — [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)** (2026-09-13).
 Three jobs on push/PR to `feat/mysql-migration` and `main`: **checks** (both jest
-suites, typecheck, lint), **mutate** (the 68 guards — separate because it exceeds
+suites, typecheck, lint), **mutate** (the 70 guards — separate because it exceeds
 two minutes), and **csp** (build + real Chrome + `verify:csp`). **No database
 service**, because every backend suite is DB-free. `audit:access`,
 `verify:claims` and `e2e` need a *live* instance and are deliberately **left out
