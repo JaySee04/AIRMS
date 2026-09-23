@@ -358,6 +358,19 @@ const MUTATIONS = [
     test: 'tests/textLayerExtract.test.js',
   },
   {
+    guard: 'ingestion: no vision provider still imports a readable report',
+    why: 'the preview route refused EVERY import when VISION_API_KEY was unset — right '
+       + 'while every report had to be looked at, wrong once most can be read. Measured '
+       + 'with the provider unset: nazwan.pdf ingests fully at 0 tokens, thung.pdf is '
+       + 'refused 503. Restoring the up-front refusal locks an ISN installation with no '
+       + 'key out of a path that needs nothing',
+    pkg: 'backend',
+    file: 'src/utils/holomotionExtract.js',
+    find: '  if (!isVisionConfigured()) {',
+    replace: '  if (false) {',
+    test: 'tests/textLayerExtract.test.js',
+  },
+  {
     guard: 'ingestion: a real 0 is a reading, not a missing value',
     why: '§54 — an unknown value stays unknown and 0 is not unknown. A falsy test '
        + 'here sends a correctly-read report to the vision model, and teaches the '

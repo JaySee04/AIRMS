@@ -36,9 +36,17 @@ const BodyMap = dynamic(() => import('@/components/dashboard/BodyMap'), {
 });
 
 interface StatusResponse {
+  /** A vision provider is set up. NOT the same as "ingestion works" — see canIngest. */
   configured: boolean;
   provider: string;
   model: string | null;
+  /** The text-layer reader is always available; it is code, not a service. */
+  textLayer?: boolean;
+  /** Whether anything can be imported at all. Optional: a backend older than
+   *  §112 does not send it, and there the old meaning still holds. */
+  canIngest?: boolean;
+  /** Capabilities reduced without a provider, named so the notice can say which. */
+  needsVisionFor?: string[];
 }
 
 export default function PdfScreeningUpload() {
@@ -92,7 +100,9 @@ export default function PdfScreeningUpload() {
       try {
         const s = await api.get<StatusResponse>('/upload/screening/pdf/status');
         setStatus(s);
-        uploadStore.setConfigured(s.configured); // gate the store's loop
+        // Gate the store's loop on whether ANYTHING can be imported, not on
+        // whether a vision provider exists (§112).
+        uploadStore.setCanIngest(s.canIngest ?? s.configured);
       } catch { /* status stays null → treated as unknown/disabled */ }
       try {
         // Roster for name-matching. Optional: if this user can't view records,
@@ -148,7 +158,20 @@ export default function PdfScreeningUpload() {
     promptThresholdUpdate(await uploadStore.commitAllReady());
   }
 
-  const disabled = status !== null && !status.configured;
+  // GATED ON "CAN ANYTHING BE IMPORTED", NOT "IS THERE AN API KEY" (§112).
+  //
+  // Reports with a text layer — every expanded layout ISN produces — are read
+  // in-process with no provider. Disabling the dropzone because VISION_API_KEY
+  // is unset locked an installation out of a path that needs nothing, which is
+  // a route the interface could not reach.
+  //
+  // `?? status.configured` keeps this correct against a backend that predates
+  // the field, where a missing key really did mean no ingestion.
+  const disabled = status !== null && !(status.canIngest ?? status.configured);
+  // Reduced, not broken: the compact layout and the written Summary still need
+  // the model. Worth saying plainly, because the operator will meet it as a
+  // per-file refusal later otherwise.
+  const visionMissing = status !== null && !status.configured && (status.canIngest ?? false);
   const errorCount = items.filter((it) => it.status === 'error').length;
   const readyCount = items.filter((it) => it.status === 'ready').length;
   const completeReady = items.filter((it) => it.status === 'ready' && it.name.trim() && it.athleteId.trim() && it.sport.trim() && it.program).length;
@@ -178,11 +201,21 @@ export default function PdfScreeningUpload() {
         </div>
       )}
 
+      {visionMissing && (
+        <div className="alert alert-warning" style={{ marginBottom: 14 }}>
+          <strong>Reading reports directly.</strong> No vision provider is configured, so reports are
+          read from the PDF&apos;s own text — nothing is sent anywhere, and the values are exact.
+          {' '}<strong>The compact 12-page layout cannot be read this way</strong> and will be refused
+          per file; HoloMotion&apos;s written Summary will also be missing. To enable both, set
+          {' '}<code>VISION_API_KEY</code> and <code>VISION_MODEL</code> in the backend environment —
+          any OpenAI-compatible provider (Gemini, OpenAI, Qwen, OpenRouter, local Ollama) or Anthropic works.
+        </div>
+      )}
+
       {disabled && (
         <div className="alert alert-error" style={{ marginBottom: 14 }}>
-          <strong>Not configured.</strong> Set <code>VISION_API_KEY</code> and <code>VISION_MODEL</code>
-          {' '}in the backend environment to enable PDF ingestion. Any OpenAI-compatible provider
-          (Gemini, OpenAI, Qwen, OpenRouter, local Ollama) or Anthropic works.
+          <strong>Import unavailable.</strong> The server reports that it cannot ingest reports in any
+          form. Check the backend is running and up to date.
         </div>
       )}
 

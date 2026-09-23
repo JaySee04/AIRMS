@@ -110,7 +110,7 @@ let state: UploadState = { items: [], busy: false, roster: null };
 const listeners = new Set<() => void>();
 let nextId = 1;
 let running = false;          // extraction loop guard
-let configured: boolean | null = null; // vision provider availability (null = unknown)
+let canIngest: boolean | null = null; // can the server import AT ALL (null = unknown)
 
 function emit() { for (const l of listeners) l(); }
 function setState(patch: Partial<UploadState>) { state = { ...state, ...patch }; emit(); }
@@ -241,7 +241,7 @@ async function extractOne(item: QueueItem): Promise<void> {
 // keeps processing while the upload page is unmounted. Re-reads the queue each
 // iteration, so files dropped mid-run are picked up; vision calls stay spaced.
 async function runExtraction() {
-  if (running || configured === false) return;
+  if (running || canIngest === false) return;
   running = true;
   setState({ busy: true });
   try {
@@ -265,9 +265,16 @@ export function subscribe(cb: () => void): () => void {
 
 export function getSnapshot(): UploadState { return state; }
 
-// Config gate. The component sets this once it fetches the vision status; the
-// loop refuses to run when the provider is explicitly unconfigured.
-export function setConfigured(v: boolean) { configured = v; }
+// Capability gate. The component sets this once it fetches the upload status,
+// and the loop refuses to run only when the server cannot ingest AT ALL.
+//
+// It was `setConfigured(status.configured)` — "is a VISION PROVIDER set up" —
+// which stopped the extraction loop dead on an installation with no API key.
+// Since §112 most reports are read from the PDF's own text layer and need no
+// provider, so that gate was refusing work that requires nothing. Renamed for
+// the question it actually answers: a name that means the wrong thing is how
+// the next reader reintroduces this.
+export function setCanIngest(v: boolean) { canIngest = v; }
 
 export function setRoster(list: RosterAthlete[] | null) { setState({ roster: list }); }
 

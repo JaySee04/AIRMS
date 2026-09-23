@@ -60,6 +60,58 @@ describe('the text-layer fast path is reachable from the ingestion entry point',
   });
 });
 
+// AN INSTALLATION WITH NO VISION PROVIDER CAN STILL IMPORT (§112, 2026-09-22).
+//
+// The preview route refused every import when VISION_API_KEY was unset. That
+// was right while every report had to be looked at, and became wrong the moment
+// most of them could be read: it refused, without opening the file, work that
+// needs nothing configured. ISN with no API key could not reach a path that
+// works perfectly.
+//
+// Measured with the provider explicitly unset:
+//   nazwan.pdf (38p)  -> method text-layer, 78 / 14, knee 21, 5 subitem rows,
+//                        prescription 6 days, 0 tokens, summary null
+//   thung.pdf  (12p)  -> refused 503, naming the compact layout
+//
+// Source-read for the same reason as the wiring guard above: driving the route
+// needs a PDF and a running vision client.
+describe('a missing vision provider does not disable ingestion', () => {
+  const route = fs.readFileSync(
+    path.join(__dirname, '..', 'src', 'routes', 'upload.js'), 'utf8',
+  );
+  const extract = fs.readFileSync(
+    path.join(__dirname, '..', 'src', 'utils', 'holomotionExtract.js'), 'utf8',
+  );
+
+  // The exact shape that caused it: an early return keyed on the provider,
+  // before the file has been looked at.
+  it('the preview route does not refuse up front on a missing provider', () => {
+    expect(route).not.toMatch(/if \(!isVisionConfigured\(\)\)\s*\{[\s\S]{0,200}?res\.status\(503\)/);
+  });
+
+  // The refusal belongs where it is known that THIS report cannot be read.
+  it('the extractor refuses only at the point it must fall back to vision', () => {
+    expect(extract).toMatch(/if \(!isVisionConfigured\(\)\) \{/);
+    const refusal = extract.indexOf('if (!isVisionConfigured()) {');
+    const fastPath = extract.indexOf('extractFromTextLayer(buffer)');
+    expect(fastPath).toBeGreaterThan(-1);
+    expect(refusal).toBeGreaterThan(fastPath);
+  });
+
+  // A per-file message, not a per-feature one. An operator holding a readable
+  // 38-page report was told the whole feature was off, which was untrue.
+  it('names the compact layout rather than calling the feature unconfigured', () => {
+    expect(extract).toMatch(/compact 12-page HoloMotion/);
+  });
+
+  // The UI reads canIngest; without it the page falls back to `configured` and
+  // the old lockout returns.
+  it('the status endpoint reports whether anything can be ingested', () => {
+    expect(route).toMatch(/canIngest: true/);
+    expect(route).toMatch(/textLayer: true/);
+  });
+});
+
 describe('the letter-spacing detector', () => {
   // §70 reproduces HoloMotion's Summary VERBATIM and attributes it to the
   // instrument. The word boundaries are NOT in the text layer — measured: every

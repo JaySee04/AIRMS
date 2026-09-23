@@ -60,12 +60,33 @@ const uploadPdf = multer({
 
 // GET /api/upload/screening/pdf/status — lets the UI show whether the feature
 // is usable before the user picks a file. No secrets are returned.
+// `configured` answers "is a VISION PROVIDER set up", which until 2026-09-22 was
+// the same question as "can this institution import a report at all". It is not
+// any more (§112): a report carrying a text layer — every 28- and 38-page layout
+// measured — is read with no model, no tokens and no third-party request.
+//
+// `textLayer` is therefore reported separately and is unconditionally true: the
+// reader is code in this process and needs nothing configured. An installation
+// with no API key can ingest the expanded layouts and will be refused only on
+// the compact one, which genuinely has no text to read.
+//
+// Both are sent because they gate different things, and collapsing them is what
+// made an installation with no key unable to reach a path that works.
 router.get('/screening/pdf/status', auth, rbac('medical', 'admin'), (_req, res) => {
   const cfg = visionConfig();
+  const vision = isVisionConfigured();
   res.json({
-    configured: isVisionConfigured(),
+    configured: vision,
     provider: cfg.provider,
     model: cfg.model || null,
+    textLayer: true,
+    // What the operator can actually do right now, so the UI does not have to
+    // re-derive the policy and reach a different answer.
+    canIngest: true,
+    // The compact layout, and HoloMotion's written Summary on every layout,
+    // both need the model. Named so the UI can say WHICH capability is reduced
+    // rather than "not configured".
+    needsVisionFor: vision ? [] : ['the compact 12-page layout', "HoloMotion's written Summary"],
   });
 });
 
@@ -79,11 +100,18 @@ router.get('/screening/pdf/status', auth, rbac('medical', 'admin'), (_req, res) 
 router.post('/screening/pdf/preview', auth, rbac('medical', 'admin'), requirePermission('uploadData'), visionThrottle, uploadPdf.single('file'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
-    if (!isVisionConfigured()) {
-      return res.status(503).json({
-        message: 'PDF ingestion is not configured. Set VISION_API_KEY and VISION_MODEL in the backend environment.',
-      });
-    }
+    // NO BLANKET REFUSAL ON A MISSING PROVIDER (§112, 2026-09-22).
+    //
+    // This used to 503 here whenever VISION_API_KEY was unset, which was right
+    // when every report had to be looked at and is wrong now that most are
+    // read. It refused, without opening the file, imports that need nothing
+    // configured — so an ISN installation with no API key could not use a path
+    // that works perfectly.
+    //
+    // extractFromPdf decides: text layer first, and it raises an exposed 503
+    // naming the compact layout only when it genuinely has to fall back and
+    // cannot. The refusal now describes THIS report rather than the whole
+    // feature.
     const result = await extractFromPdf(req.file.buffer);
     // Deliberately does NOT echo the filename back: it can carry PII (the
     // sample's name + phone number live in the filename) and the UI shows the

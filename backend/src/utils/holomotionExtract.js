@@ -231,6 +231,24 @@ async function extractFromPdf(buffer) {
     };
   }
 
+  // THE ONLY POINT AT WHICH A VISION PROVIDER IS ACTUALLY REQUIRED.
+  //
+  // Checked here rather than at the route, because only here is it known that
+  // this particular report cannot be read. The route used to refuse every
+  // import when no key was set, which since §112 refuses work that needs no key
+  // at all.
+  //
+  // The message names what went wrong WITH THIS FILE. "PDF ingestion is not
+  // configured" told an operator holding a perfectly readable 38-page report
+  // that the feature was off, which was both discouraging and untrue.
+  if (!isVisionConfigured()) {
+    throw expose(new Error(
+      'This report carries no readable text layer — the compact 12-page HoloMotion '
+      + 'layout is rendered graphics — so it needs a vision provider to be read. '
+      + 'Set VISION_API_KEY and VISION_MODEL in the backend environment. Reports in '
+      + 'the expanded 28- and 38-page layouts are read directly and need no provider.',
+    ), 503);
+  }
   const images = await renderForExtraction(buffer);
   if (!images.length) throw expose(new Error('Could not render any pages from the PDF'), 502);
   const { text, usage } = await visionComplete(EXTRACTION_PROMPT, images);

@@ -81,7 +81,7 @@ cd backend; npm run mutate           # BREAK each registered guard on purpose an
                                      # skip is right; the consequence is that the guard
                                      # reports SURVIVED while a dev server runs, which
                                      # is environmental and not a real regression.
-                                     # test is not testing what it claims. 70 guards across
+                                     # test is not testing what it claims. 71 guards across
                                      # both packages. NOT part of `npx jest` — it spawns a
                                      # jest run per mutation (tens of seconds). Run it before
                                      # committing a change to a guard, and add an entry when
