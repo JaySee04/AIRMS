@@ -215,8 +215,21 @@ describe('the fast path is only taken when the report was actually read', () => 
       path.join(__dirname, '..', 'src', 'utils', 'textLayerExtract.js'), 'utf8',
     );
 
+    // ANCHORED ON THE ASSIGNMENT, not on the bare call text.
+    //
+    // The obvious pattern — /completenessShortfall\(\{ cover, screening, risks \}\)/
+    // — matches the function's own DEFINITION, because the parameter is a
+    // destructured object with the same property names:
+    //
+    //   function completenessShortfall({ cover, screening, risks }) {   <- matches
+    //   const shortfall = completenessShortfall({ cover, screening, risks });
+    //
+    // So it passed with the call site replaced by `const shortfall = []`, and
+    // `npm run mutate` reported SURVIVED — the winAnsiSafe defect inside the
+    // test written to catch the winAnsiSafe defect. `const shortfall =` appears
+    // only at the call.
     it('calls completenessShortfall on the parsed payload', () => {
-      expect(src).toMatch(/completenessShortfall\(\{ cover, screening, risks \}\)/);
+      expect(src).toMatch(/const shortfall = completenessShortfall\(\{ cover, screening, risks \}\);/);
     });
 
     it('refuses the fast path when the shortfall is non-empty', () => {
