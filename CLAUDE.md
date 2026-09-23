@@ -125,16 +125,23 @@ cd backend; npm run migrate:escalation-response   # add screenings.response_outc
                                      # severity scale. All four columns are nullable, so EXPAND THEN
                                      # DEPLOY: a migrated database serves the old code, but the model
                                      # now SELECTs them, so deploying first answers "Unknown column
-                                     # 'response_outcome'" on every screening query. APPLIED ON HOSTED
-                                     # TOO — but NOT for the reason this line used to give, and the
-                                     # reasoning was retracted 2026-09-22 even though the conclusion
-                                     # survived. It cited a 2026-09-16 GET /screenings/:id/full (a bare
-                                     # findByPk) answering 200; that probe ran before the push, against
-                                     # a build predating these columns, so it proved nothing either way
-                                     # (see the norm-stamp note below, where the same evidence supported
-                                     # a conclusion that was FALSE). The standing evidence is different:
-                                     # INDICATOR_ATTRS names response_outcome/note/by/at explicitly and
-                                     # GET /athletes answers 200 on hosted — measured 2026-09-22.
+                                     # 'response_outcome'" on every screening query. NOT APPLIED ON
+                                     # HOSTED as of 2026-09-22. This line has now been wrong TWICE, in
+                                     # the same direction, by the same mistake:
+                                     #   1st: "measured 2026-09-16" — a bare findByPk answering 200,
+                                     #        run before the push, against a build predating the
+                                     #        columns. A build cannot select what it does not declare.
+                                     #   2nd: "INDICATOR_ATTRS names the four response_* columns and
+                                     #        GET /athletes answers 200" — same error wearing a new
+                                     #        hat. INDICATOR_ATTRS names them in the CURRENT source;
+                                     #        the DEPLOYED build predates 14ee432 (2026-09-14) and its
+                                     #        copy does not, which is exactly why /athletes still 200s.
+                                     # Reasoning about a deployed build from the working tree is the
+                                     # trap, and knowing about it was not enough to avoid it.
+                                     # SETTLED BY information_schema, which cannot be fooled this way:
+                                     # `npm run verify:schema -- --url … --insecure` §4 reports SIX
+                                     # missing columns on hosted — norm_version_id, scored_at AND all
+                                     # four response_*. Ask the database about the database.
 cd backend; npm run migrate:norm-stamp   # add screenings.norm_version_id + scored_at (DD 96).
                                      # WHICH RULER measured each band, and when. recomputeIndicators()
                                      # rescores only each athlete's LATEST screening, so older rows keep
