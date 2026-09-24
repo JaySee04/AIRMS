@@ -358,6 +358,43 @@ const MUTATIONS = [
     test: 'tests/textLayerExtract.test.js',
   },
   {
+    guard: 'summary: the recovered text is bounded by the paragraph, not the window',
+    why: 'a fixed character window ran past the summary on nazwan.pdf and swept in '
+       + '"Joint Illustration Wall Angel… Muscle Imbalance Myodynamia Deficiency ： '
+       + 'Gluteus medius L". §70 renders this VERBATIM as the instrument\'s verdict on '
+       + 'the athlete, so the overrun would have been shown to a clinician as clinical text',
+    pkg: 'backend',
+    file: 'src/utils/summaryRecover.js',
+    find: '  const summary = pointsOnly(collapsed);',
+    replace: '  const summary = collapsed;',
+    test: 'tests/summaryRecover.test.js',
+  },
+  {
+    guard: 'summary: a lone capital is never merged into the word before it',
+    why: 'protects "weak In" from collapsing to "weakIn" when a spaced run meets a '
+       + 'capital without terminating punctuation. MEASURED HONESTLY: across all 24 real '
+       + 'reports this rule changes nothing inside the kept summary — it fires only in '
+       + 'the muscle text pointsOnly discards — so it guards a shape not present in '
+       + 'today\'s sample rather than a live defect. The obvious test for it ("E.G. In") '
+       + 'does NOT exercise it, because the preceding "d;" already ends the run, and that '
+       + 'test duly reported SURVIVED',
+    pkg: 'backend',
+    file: 'src/utils/summaryRecover.js',
+    find: "    if (merging && /^\\w+$/.test(token) && !/^[A-Z]$/.test(token)) {",
+    replace: "    if (merging && /^\\w+$/.test(token)) {",
+    test: 'tests/summaryRecover.test.js',
+  },
+  {
+    guard: 'summary: recovery is tried BEFORE the model is paid',
+    why: 'the entire saving is not making the call. Recovering after a successful '
+       + 'vision top-up spends ~1,500 image tokens and then discards the answer',
+    pkg: 'backend',
+    file: 'src/utils/holomotionExtract.js',
+    find: '    const recovered = recoverSummary(buffer);',
+    replace: '    const recovered = { ok: false };',
+    test: 'tests/summaryRecover.test.js',
+  },
+  {
     guard: 'ingestion: no vision provider still imports a readable report',
     why: 'the preview route refused EVERY import when VISION_API_KEY was unset — right '
        + 'while every report had to be looked at, wrong once most can be read. Measured '

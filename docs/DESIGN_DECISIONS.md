@@ -10398,3 +10398,105 @@ A migration is applied when `information_schema` says the column is there — no
 when a document says so, and not when an endpoint answered 200. **Ask the
 database about the database.** And a claim that something is *not* referenced
 has to account for `exclude` lists, which reference everything they do not name.
+
+## 114. The Summary was readable too, and the model was reading it for us (2026-09-22)
+
+§112 made every number on an expanded report readable without a model. One
+thing still needed one: HoloMotion's written Summary — the numbered comment the
+instrument makes about the athlete, which §70 reproduces **verbatim** because it
+is the clinician's check that AIRMS read the same report they are holding.
+
+It needed a model because pdfjs concatenates a letter-spaced run into a single
+string item, and the word boundaries are gone before any of our code sees it.
+`looksLetterSpaced` therefore declined it rather than emit
+`AccordingtoscoresofROM`, on the standing principle that mangled is worse than
+absent.
+
+**The boundaries are not gone in the PDF.** They are gone in pdfjs's *output*.
+`@firecrawl/pdf-inspector` (Rust) keeps per-glyph geometry, and the reference
+prototype in `Downloads/PDF-JSON` had been reconstructing the sentences from it
+all along.
+
+### What it costs to say plainly
+
+A **second PDF engine**. It reads but does not render — no page-to-image API —
+so pdfjs and `@napi-rs/canvas` stay exactly as they are for the compact layout
+and for name redaction. This is an addition, not a replacement. Native bindings
+exist for win32 and linux-x64 (ISN's server is covered) with a 5 MB WASM
+fallback, and a missing binding is treated as one more reason to fall back to
+vision rather than as an import error.
+
+### What it buys
+
+An expanded report spent ~1,500 image tokens on page 1 for this paragraph
+alone. Measured end to end with **no vision provider configured**:
+
+```
+nazwan.pdf  method=text-layer  total=78  risks=14  knee=21
+            subitems 5 rows    summary 478 chars   prescription 6 days
+            usage=null         pagesRead=[]
+```
+
+So an ISN installation with no API key now ingests those reports **completely**,
+and no part of the report leaves the institution — with no exception left to
+explain in a viva.
+
+### The evidence, and its limit
+
+The collapse is a **heuristic**: merge a run of single-character tokens, never
+merge a lone capital. Three things were measured rather than argued.
+
+1. **Two independent extractors agree byte for byte.** `nazwan.pdf` recovered
+   **478 characters identical** to what the vision model read from the rendered
+   page — including HoloMotion's own oddities (`left lumbosacrum ,` with the
+   stray space, and the truncated `stabil` / `symme`). A Rust glyph engine plus
+   a text heuristic, against a multimodal LLM reading an image, producing the
+   same string is much stronger than either alone.
+2. **25 of 26 reports recovered**, the one decline being the compact layout,
+   which has no text at all and correctly falls through to vision.
+3. **The safety property is asserted, not assumed.** Collapsing may only ever
+   change whitespace; if the non-space characters differ, the result is
+   discarded. This is the technique `lib/reportSummary.ts` already uses.
+
+**What that property does not prove** is that a boundary is in the right
+*place*. It cannot distinguish `lower limbs` from `lowerlimbs`. It catches
+corruption, not mis-segmentation — which is exactly why every failure returns
+`null` and the vision top-up runs unchanged.
+
+### Two defects the verification found, both in code written that day
+
+- **A fixed character window has no end.** The first version took 900 characters
+  from "According to" and swept in the following sections: *"Joint Illustration
+  Wall Angel Single Leg Raises… Muscle Imbalance Myodynamia Deficiency ：
+  Gluteus medius L…"*. That would have been stored and rendered to a clinician
+  as the instrument's verdict on the athlete. The text is now bounded by its own
+  **structure** — the numbered points, ending where the last point's sentence
+  ends — which also avoids hardcoding a section name that the next layout may
+  rename. Found only because the cross-check against the model was run.
+- **`lastIndexOf('.')` found the point's own number.** `1. Your physical quality
+  is good` has no terminator, but the dot in `1.` is one, so the point was
+  truncated to the string `"1."`. The search now skips the marker.
+
+### The guard that had to be written three times
+
+`npm run mutate` reported SURVIVED twice against tests that looked right:
+
+- the unit tests exercised `pointsOnly` directly and passed with the **call
+  site** replaced by `const summary = collapsed`;
+- the ordering test matched `summaryFromPage1`'s own `async function`
+  declaration rather than its call, and so reported the wrong order against
+  correct code.
+
+Both are the `winAnsiSafe` defect. Source-reading guards must anchor on
+something that occurs **only at a use** — `const recovered = …`, `await …` —
+never on a bare identifier that a definition also matches.
+
+### One honest correction recorded rather than quietly kept
+
+The lone-capital rule was justified as protecting `E.G. In` from becoming
+`E.G.In`. Measured: it changes **nothing** inside the kept summary on any of the
+24 real reports — the preceding `d;` already ends the run — and the test
+asserting it duly reported SURVIVED. It fires only in the muscle text that
+`pointsOnly` discards. It is kept as protection against a spaced run meeting a
+capital without terminating punctuation (`weakIn` for `weak In`), and the
+mutation registry now says so instead of claiming a live defect.

@@ -10,6 +10,7 @@
 const { renderForExtraction } = require('./pdfRender');
 const { visionComplete, isVisionConfigured } = require('./visionClient');
 const { extractFromTextLayer } = require('./textLayerExtract');
+const { recoverSummary } = require('./summaryRecover');
 const { expose } = require('./httpError');
 
 // The model is asked to return exactly this shape. Keys mirror the HoloMotion
@@ -193,12 +194,32 @@ async function extractFromPdf(buffer) {
     let summary = null;
     let usage = null;
     let summaryPages = [];
-    if (isVisionConfigured()) {
+    let summaryMethod = null;
+
+    // READ THE SUMMARY BEFORE PAYING FOR IT (§114).
+    //
+    // The numbers already came from the text layer; this was the last thing on
+    // an expanded report that still needed the model, and it needed it only
+    // because pdfjs collapses a letter-spaced run into one item with the word
+    // boundaries already lost. A per-glyph engine keeps them.
+    //
+    // Tried FIRST and silently: a failure here is not an error, it is the
+    // ordinary case for any report this technique cannot read, and the vision
+    // top-up below is exactly what ran before. Ordering matters — attempting
+    // this after a successful model call would spend the tokens anyway.
+    const recovered = recoverSummary(buffer);
+    if (recovered.ok) {
+      summary = recovered.summary;
+      summaryMethod = 'text-layer';
+    }
+
+    if (!summary && isVisionConfigured()) {
       try {
         const top = await summaryFromPage1(buffer);
         summary = top.summary;
         usage = top.usage;
         summaryPages = top.pagesRead || [];
+        summaryMethod = summary ? 'vision' : null;
       } catch (err) {
         // The numbers are already read and exact. Losing the Summary is a
         // missing section, which §70's renderer already handles — losing the
@@ -225,6 +246,11 @@ async function extractFromPdf(buffer) {
       subitems: normaliseSubitems(fast.subitems),
       raw: { method: 'text-layer', textLayerChars: fast.textLayerChars },
       method: 'text-layer',
+      // WHICH producer the Summary came from. §70 reproduces it verbatim as the
+      // instrument's own verdict, so "read from the glyphs" and "read by a
+      // model" are different provenance and are distinguishable after the fact
+      // rather than merged into one field nobody can audit.
+      summaryMethod,
       prescription,
       pagesRead: summaryPages,
       usage,

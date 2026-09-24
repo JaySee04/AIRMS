@@ -30,6 +30,7 @@
     "bootstrap:admin": "node scripts/bootstrap-admin.js"
   },
   "dependencies": {
+    "@firecrawl/pdf-inspector": "^1.17.0",
     "bcryptjs": "^3.0.3",
     "canvas": "npm:@napi-rs/canvas@^1.0.9",
     "cors": "^2.8.5",
