@@ -144,6 +144,15 @@ describe('the recovery pipeline is wired to its own guards', () => {
   it('checks characters are preserved before trusting the collapse', () => {
     expect(mod).toMatch(/if \(!preservesCharacters\(raw, collapsed\)\)/);
   });
+
+  // The trim check must compare the WHOLE returned summary. Its first version
+  // compared only `.slice(0, 60)` — which `pointsOnly` reproduces by
+  // construction, making it a tautology wearing a safety check's clothes: a
+  // corruption anywhere after the first point would have passed.
+  it('re-checks the trimmed result over its full length, not a prefix', () => {
+    expect(mod).toMatch(/stripSpace\(collapsed\)\.includes\(stripSpace\(summary\)\)/);
+    expect(mod).not.toMatch(/stripSpace\(summary\)\.slice\(/);
+  });
 });
 
 describe('the extractor consults it, and does so first', () => {

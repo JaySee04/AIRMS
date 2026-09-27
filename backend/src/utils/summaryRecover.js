@@ -32,9 +32,13 @@
 // the vision top-up runs exactly as it did before.
 
 const SUMMARY_MARKER = 'according to';
-// Enough to hold the longest summary measured (5 numbered points, ~640 chars)
-// with room to spare, and short enough that it cannot run into the next
-// section's prose.
+// A CONTAINER, not a boundary — and the difference is the whole of §114's
+// second defect. This comment previously claimed the window was "short enough
+// that it cannot run into the next section's prose", which is false and was
+// measured to be false: 900 characters from "According to" on nazwan.pdf swept
+// in "Joint Illustration … Muscle Imbalance Myodynamia Deficiency ： Gluteus
+// medius L". `pointsOnly` decides where the summary ENDS. This only has to be
+// long enough to hold it — longest measured 566 characters, across 25 reports.
 const SUMMARY_WINDOW = 900;
 
 /**
@@ -76,9 +80,11 @@ function collapseSpaced(text) {
  * distinguish "lower limbs" from "lowerlimbs". It catches corruption, not
  * mis-segmentation, and the difference is why this returns null on any doubt.
  */
+/** The non-space characters of a string — what "only whitespace changed" means. */
+const stripSpace = (s) => String(s).replace(/\s+/g, '');
+
 function preservesCharacters(before, after) {
-  const strip = (s) => String(s).replace(/\s+/g, '');
-  return strip(before) === strip(after);
+  return stripSpace(before) === stripSpace(after);
 }
 
 /** A stranded single lowercase letter means the collapse ran out mid-word. */
@@ -193,11 +199,16 @@ function recoverSummary(buffer) {
   const summary = pointsOnly(collapsed);
   if (!summary) return { ok: false, reason: 'no-numbered-points' };
 
-  // The character check above ran on the whole window, so re-assert it on what
-  // is actually returned: trimming to the points must still only ever remove
-  // text, never alter it. `pointsOnly` slices and rejoins, and a slice that
-  // dropped a character mid-word would otherwise pass silently.
-  if (!collapsed.replace(/\s+/g, '').includes(summary.replace(/\s+/g, '').slice(0, 60))) {
+  // The character check above ran on the whole WINDOW; this re-asserts it on
+  // what is actually returned. Trimming to the points may only ever REMOVE
+  // text, never alter it — `pointsOnly` slices and rejoins, so a slice landing
+  // mid-word would otherwise pass silently.
+  //
+  // Checked over the FULL length. The first version compared only the leading
+  // 60 characters, which `pointsOnly` reproduces by construction — so it was
+  // close to a tautology dressed as a safety check, and would have waved
+  // through a corruption anywhere after the first point.
+  if (!stripSpace(collapsed).includes(stripSpace(summary))) {
     return { ok: false, reason: 'trim-altered-text' };
   }
 
