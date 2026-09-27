@@ -389,6 +389,7 @@ Generated into both packages from `shared/facts.js` — see DESIGN_DECISIONS §5
 | root | `dev:frontend` | `npm --prefix frontend run dev` |
 | root | `dev` | `node scripts/dev.js` |
 | root | `dev:alt` | `node scripts/dev-alt.js` |
+| root | `dev:isn` | `node scripts/dev-isn.js` |
 | root | `dev:stop` | `node scripts/dev-stop.js` |
 | root | `install:all` | `npm install && npm --prefix backend install && npm --prefix frontend install` |
 | root | `seed` | `npm --prefix backend run seed` |

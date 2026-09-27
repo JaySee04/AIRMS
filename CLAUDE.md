@@ -301,6 +301,37 @@ npm run dev:alt            # a SECOND instance on :3100 / :5100, beside the firs
                            # target the DEFAULT pair. For an alt instance:
                            #   E2E_WEB=http://localhost:3100 `
                            #   E2E_API=http://localhost:5100/api npm run e2e
+npm run dev:isn            # the ISN INSTALLATION, locally, on :3100 / :5100 —
+                           # the same code with VISION_API_KEY cleared, which is
+                           # the configuration an ISN server actually has
+                           # (docs/DEPLOY_ISN.md). Runs BESIDE `npm run dev`, so
+                           # the same report can be dropped into each and the
+                           # difference observed rather than trusted.
+                           #   npm run dev      :3000/:5000  provider configured,
+                           #                                 mirrors Vercel
+                           #   npm run dev:isn  :3100/:5100  no provider
+                           # NOT a second version of the app and must not become
+                           # one. Every ISN-mode behaviour is reached through
+                           # isVisionConfigured(), so a divergence between the
+                           # two can only ever be CONFIGURATION. An AIRMS_MODE
+                           # flag with its own branches would be a simulation,
+                           # and a simulation is where "works locally, fails
+                           # there" lives — so the key is genuinely absent
+                           # instead. dotenv cannot put it back: it does not
+                           # override an already-set variable and '' counts as
+                           # set. Measured, both running at once (2026-09-22):
+                           #   :5000  configured=true  gemini-flash-lite-latest
+                           #          expanded 38p -> 200, 518ms, 0 tokens
+                           #   :5100  configured=false model=null
+                           #          expanded 38p -> 200, 476ms, 0 tokens
+                           #          compact 12p  -> 503,  17ms
+                           # THE ONLY BEHAVIOURAL DIFFERENCE IS THE COMPACT
+                           # LAYOUT. Since §114 an expanded report costs zero
+                           # tokens on BOTH instances — the text layer wins even
+                           # when a key is present — so the key now buys exactly
+                           # one thing: the 12-page report ISN's older exports
+                           # use. Collides with dev:alt (same ports); the
+                           # preflight refuses by name.
 npm run dev:stop           # stop EVERY AIRMS dev server, both pairs. Kills the tree
                            # ROOTS, which is the whole point: killing the process that
                            # HOLDS the port stops the server but leaves `nodemon` alive

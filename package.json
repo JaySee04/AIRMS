@@ -2,7 +2,7 @@
   "name": "airms",
   "version": "0.1.0",
   "private": true,
-  "description": "Athlete Injury Risk Management System — Institut Sukan Negara Malaysia",
+  "description": "Athlete Injury Risk Management System \u2014 Institut Sukan Negara Malaysia",
   "engines": {
     "node": ">=22.0.0"
   },
@@ -11,6 +11,7 @@
     "dev:frontend": "npm --prefix frontend run dev",
     "dev": "node scripts/dev.js",
     "dev:alt": "node scripts/dev-alt.js",
+    "dev:isn": "node scripts/dev-isn.js",
     "dev:stop": "node scripts/dev-stop.js",
     "install:all": "npm install && npm --prefix backend install && npm --prefix frontend install",
     "seed": "npm --prefix backend run seed",
