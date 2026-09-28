@@ -10297,18 +10297,73 @@ Three mutation guards registered (65 → 68), all caught.
 
 ### 112.7 Not done
 
-- **Nothing changed in the UI**, and `GET /screening/pdf/status` still gates the
-  uploader on `isVisionConfigured()`. An expanded report could in principle be
-  ingested with **no AI provider at all** — everything but the Summary — but
+The first two were **done by §114 the same week**; they are left here rather
+than deleted, because what this section is *about* is a claim that stopped being
+true and went on being read. Striking them out is the honest form.
+
+- ~~**Nothing changed in the UI**, and `GET /screening/pdf/status` still gates
+  the uploader on `isVisionConfigured()`. An expanded report could in principle
+  be ingested with **no AI provider at all** — everything but the Summary — but
   claiming that would mean shipping a route path the interface can never reach,
-  which is the defect above wearing a different hat. Wiring it is a UI decision.
-- **Recovering the Summary deterministically** needs per-glyph positions. The
+  which is the defect above wearing a different hat. Wiring it is a UI
+  decision.~~ — **done (§114).** The status endpoint reports `canIngest` and
+  `needsVisionFor`; the blanket 503 became a per-FILE one, so the compact layout
+  is refused by name while the rest of a batch imports.
+- ~~**Recovering the Summary deterministically** needs per-glyph positions. The
   Rust engine behind `pdf-inspector` keeps them, which is how the reference
   prototype reconstructs the sentences. That is a dependency decision, not a
-  parsing one.
+  parsing one.~~ — **done (§114).** `utils/summaryRecover.js`, with the
+  dependency taken deliberately and loaded lazily so its absence degrades to the
+  vision top-up rather than failing an import.
 - **The 4.5 MB hosted upload cap is untouched and now matters more**: 12 of the
   15 real reports measured are 7.7–13.2 MB, so the deployed uploader would
   reject them today regardless of which extractor runs.
+
+### 112.8 The three demo reports, re-measured against print (2026-09-28)
+
+§112 was proven on `nazwan.pdf` — this project's own fixture. The three reports
+**Dr Thung and Dr Hoo actually upload** (CLAUDE.md's demo set: 77/14, 70/19,
+68/21) had only ever been verified through the *vision* path, at 138/138. They
+are 28-page expanded reports, so §112/§114 now read them from the text layer,
+and that claim was worth checking against the paper rather than inferred from
+the layout.
+
+Driven through the real preview endpoint on **both local instances at once**
+(`npm run dev` and `npm run dev:isn`):
+
+| | :5000 (key configured) | :5100 (no key) |
+|---|---|---|
+| all three | 200 | 200 |
+| wall clock | ~230 ms (first call 970 ms) | ~230 ms (first 616 ms) |
+| `method` / `summaryMethod` | `text-layer` | `text-layer` |
+| `usage` | **null** | **null** |
+
+**The payloads are byte-identical per report.** That is the property `dev:isn`
+exists to make checkable, and it is the answer to "does the institution get a
+lesser system": on these reports the configured instance and the unconfigured
+one do not merely agree, they emit the same bytes. The key buys the compact
+layout and nothing else.
+
+**330/330 values**, 165 per instance — up from 138 because less is left to
+judgement once a value is *read* rather than inferred: both headline scores, the
+three movement components, 8 indicators plus LDH, 25 subitem cells, gender, age,
+the timestamp to the second, every muscle flag with side **and in order**, 6
+prescription days / 48 exercises, and the Summary verbatim — including the stray
+space in `"left flank , relatively"`, which is how HoloMotion prints it.
+
+Two properties of the check itself, both of which are the point:
+
+- **Ground truth was read off the PDFs, not from an earlier run of this
+  pipeline.** A run compared against its own output proves determinism and
+  nothing else — and the pipeline had changed underneath, which is exactly when
+  that distinction stops being pedantic.
+- **The check was seen to fail**, and the first attempt to see it fail *didn't*.
+  The mutation edited `"overallActivityScore": 77` — spelled as it appears in a
+  pretty-printed dump — while the payload on disk is minified. It matched
+  nothing, and the run reported 330/330 green, which reads as confirmation.
+  Against `"overallActivityScore":77` it prints `FAIL aina overallActivityScore:
+  got 78 want 77` and exits 1. `SILENT_FAILURES.md` 3l is that shape, and it
+  occurred here *inside the verification of it*.
 
 ## 113. The migration that was recorded as applied, and was not (2026-09-22)
 

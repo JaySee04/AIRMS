@@ -330,8 +330,14 @@ npm run dev:isn            # the ISN INSTALLATION, locally, on :3100 / :5100 —
                            # tokens on BOTH instances — the text layer wins even
                            # when a key is present — so the key now buys exactly
                            # one thing: the 12-page report ISN's older exports
-                           # use. Collides with dev:alt (same ports); the
-                           # preflight refuses by name.
+                           # use. Re-measured 2026-09-28 on the THREE DEMO
+                           # REPORTS through both at once (DD 112.8): 200 in
+                           # ~230ms each, usage null on both, and the payloads
+                           # are BYTE-IDENTICAL per report — 330/330 values
+                           # against what is printed on the paper. "Configured"
+                           # and "not configured" do not merely agree there,
+                           # they emit the same bytes. Collides with dev:alt
+                           # (same ports); the preflight refuses by name.
 npm run dev:stop           # stop EVERY AIRMS dev server, both pairs. Kills the tree
                            # ROOTS, which is the whole point: killing the process that
                            # HOLDS the port stops the server but leaves `nodemon` alive
@@ -996,6 +1002,28 @@ reports** across all three (scalars, 8 indicators, 25 subitem cells, muscle
 flags with sides, prescription, timestamp). ~2.1 MB each, under the 4.5 MB
 hosted cap. The extracted name comes back `null` — that is the redaction
 working, not a failure.
+
+**Re-measured 2026-09-28, and these three no longer reach a model at all.** They
+are 28-page expanded reports, so §112/§114 read them from the text layer: driven
+through the real preview endpoint on BOTH local instances at once, all three
+answered 200 in ~230 ms (the first call is 970 ms — module load, not work) with
+`method: text-layer`, `summaryMethod: text-layer` and **`usage: null`**. The
+Gemini-configured instance spends **zero tokens on them too**; its log never
+reaches the provider. The :5000 and :5100 payloads are **byte-identical** per
+report, which is the property `dev:isn` exists to make checkable.
+**330/330 values** — 165 per instance, up from 138 because nothing is a
+judgement call once it is read rather than inferred: both headline scores, the
+three movement components, 8 indicators plus LDH, all 25 subitem cells, gender,
+age, the timestamp to the second, every muscle flag with side AND in order, 6
+prescription days / 48 exercises, and the Summary verbatim — including the stray
+space in `"left flank , relatively"`, which is how HoloMotion prints it. Ground
+truth was read off the PDFs, NOT from an earlier run of this pipeline: a run
+compared against its own output proves only that it is deterministic.
+**The check was proven able to fail**, and the first attempt to prove it could
+not: the mutation edited `"overallActivityScore": 77` where the payload is
+minified, matched nothing, and reported 330/330 green — this repo's own defect
+class, inside the verification of it (`SILENT_FAILURES.md` 3l). Against
+`"overallActivityScore":77` it reports the failure and exits 1.
 
 ## The stakeholder guide is generated and CHECKED (2026-09-01)
 
