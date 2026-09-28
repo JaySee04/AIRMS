@@ -31,12 +31,49 @@
 // they touch this institution's own database, and rating them would ration a
 // clinician's ordinary navigation.
 
-const rateLimit = require('express-rate-limit');
+// WHAT IS COUNTED CHANGED ON 2026-09-28, AND THIS IS THE WHOLE FIX.
+//
+// Until now the cap counted REQUESTS to /preview, which was exactly right while
+// every preview shipped six rendered pages to the provider. Since §112/§114 it
+// is no longer true of most reports, and had become wrong in two directions:
+//
+//   * ON AN ISN INSTALL there is no key, so NOTHING can draw a quota — and the
+//     limiter still rationed the import to 60/hour. A cap protecting an
+//     allowance that does not exist is pure obstruction, and it would have
+//     fired in the middle of onboarding a squad.
+//   * WITH A KEY CONFIGURED, an expanded report costs ZERO tokens (measured:
+//     the three demo reports answer 200 with `usage: null` on both instances,
+//     DD 112.8). Counting those against the quota rations honest work for no
+//     protective benefit.
+//
+// So the cap now counts PROVIDER CALLS, which is what it was always for. The
+// accounting is split in two, and both halves run INSIDE the request:
+//
+//   visionThrottle(req,res,next)   the GATE. Reads the counter and refuses at
+//                                  the limit. Does NOT increment.
+//   chargeVisionQuota(req, calls)  the CHARGE. Incremented only when the
+//                                  provider was actually called, AWAITED by the
+//                                  route before it responds.
+//
+// SPLITTING IT THIS WAY IS FORCED BY THE PLATFORM, not a preference. The
+// obvious shape — count on the way in, refund on the way out — is exactly
+// `skipSuccessfulRequests`, which decrements from a `res.on('finish')` handler,
+// i.e. after the response. On Vercel that work is deferred until another
+// request thaws the instance, so the refund lands eventually and never in time.
+// That is SILENT_FAILURES 3r, measured on the hosted API, and the reason
+// tests/serverlessLifecycle.test.js forbids the pattern outright. Charging
+// after the fact instead means a caller sitting exactly on the limit can spend
+// one call over it. That is the honest cost of the trade and it is bounded at
+// one.
+const { isVisionConfigured } = require('./visionClient');
 const { SettingsRateLimitStore } = require('./rateLimitStore');
+const logger = require('./logger');
 
 // 60/hour. A realistic batch is 15 PDFs, so this allows four of them — more
 // than a clinic does in a day. Deliberately loose: a cap that fires during
-// honest work is removed within a week and then protects nothing.
+// honest work is removed within a week and then protects nothing. Now that only
+// provider calls are counted it is looser still, which is the intended
+// direction: a compact-layout report costs one, an expanded one costs none.
 const LIMIT = 60;
 const WINDOW_MS = 60 * 60 * 1000;
 
@@ -55,24 +92,89 @@ const WINDOW_MS = 60 * 60 * 1000;
  */
 const visionKey = (req) => (req.user && req.user.id ? `u:${req.user.id}` : 'anon');
 
-const visionThrottle = rateLimit({
-  windowMs: WINDOW_MS,
-  limit: LIMIT,
-  keyGenerator: visionKey,
-  standardHeaders: 'draft-7',
-  legacyHeaders: false,
-  // The database-backed store, like the auth limiter: an in-process Map counts
-  // per serverless instance, which on Vercel means it counts almost nothing
-  // (SILENT_FAILURES 3r).
-  store: new SettingsRateLimitStore(),
-  // Addressed to a clinician mid-import, not to an attacker. Deliberately names
-  // neither the provider nor the quota — that is operator information (§48).
-  message: {
-    message: 'Too many screening extractions in the last hour. '
-      + 'Wait a few minutes and continue the batch — reports already committed are unaffected.',
-  },
-});
+// The database-backed store, like the auth limiter: an in-process Map counts
+// per serverless instance, which on Vercel means it counts almost nothing
+// (SILENT_FAILURES 3r). `init` is what sets the window — its own default is the
+// auth limiter's 15 minutes, and a store quietly running a quarter of the
+// documented window is the kind of disagreement this project keeps finding.
+const store = new SettingsRateLimitStore();
+store.init({ windowMs: WINDOW_MS });
+
+// Addressed to a clinician mid-import, not to an attacker. Deliberately names
+// neither the provider nor the quota — that is operator information (§48).
+const OVER_LIMIT_MESSAGE = {
+  message: 'Too many screening extractions in the last hour. '
+    + 'Wait a few minutes and continue the batch — reports already committed are unaffected.',
+};
+
+/** What the counter says right now, without touching it. */
+async function readQuota(key, now = Date.now()) {
+  const row = await store.read(key);
+  // `read` FAILS OPEN — it returns null when the settings table cannot be read
+  // and logs loudly. A fresh window allows the request, which is the same
+  // posture as the auth limiter: a database hiccup must not stop an import.
+  const fresh = !row || !row.resetAt || row.resetAt <= now;
+  return {
+    hits: fresh ? 0 : Number(row.hits || 0),
+    resetAt: fresh ? now + WINDOW_MS : row.resetAt,
+  };
+}
+
+/**
+ * The gate. Refuses at the limit; never increments.
+ *
+ * Skipped entirely when no provider is configured, because then no request can
+ * possibly draw the allowance this exists to protect. That is not a loosening
+ * — it is the cap finally matching what it is a cap ON.
+ */
+async function visionThrottle(req, res, next) {
+  try {
+    if (!isVisionConfigured()) return next();
+    const key = visionKey(req);
+    const { hits, resetAt } = await readQuota(key);
+    const resetSeconds = Math.max(0, Math.ceil((resetAt - Date.now()) / 1000));
+    // draft-7 shape, as express-rate-limit emitted before, so anything reading
+    // these headers sees the same thing.
+    res.setHeader('RateLimit-Policy', `${LIMIT};w=${Math.round(WINDOW_MS / 1000)}`);
+    res.setHeader(
+      'RateLimit',
+      `limit=${LIMIT}, remaining=${Math.max(0, LIMIT - hits)}, reset=${resetSeconds}`,
+    );
+    if (hits >= LIMIT) return res.status(429).json(OVER_LIMIT_MESSAGE);
+    return next();
+  } catch (err) {
+    // Fails open like every other path in this file. An import must not be lost
+    // to the accounting for it.
+    logger.error('vision_quota.gate_failed', { err: err.message });
+    return next();
+  }
+}
+
+/**
+ * The charge. Called by the route AFTER extraction, with the number of provider
+ * calls that actually happened, and AWAITED.
+ *
+ * `calls` comes from the extractor rather than being inferred from `usage`: a
+ * provider that returns no usage block would otherwise read as a free call, and
+ * the one thing this must not do is under-count the very thing it meters.
+ */
+async function chargeVisionQuota(req, calls = 0) {
+  const n = Number(calls) || 0;
+  if (n <= 0) return 0;
+  const key = visionKey(req);
+  try {
+    for (let i = 0; i < n; i += 1) {
+      // Sequential on purpose: the store is read-modify-write, so parallel
+      // increments on one key would overwrite each other and under-count.
+      // eslint-disable-next-line no-await-in-loop
+      await store.increment(key);
+    }
+  } catch (err) {
+    logger.error('vision_quota.charge_failed', { err: err.message, calls: n });
+  }
+  return n;
+}
 
 module.exports = {
-  visionThrottle, visionKey, LIMIT, WINDOW_MS,
+  visionThrottle, chargeVisionQuota, readQuota, visionKey, LIMIT, WINDOW_MS, store,
 };

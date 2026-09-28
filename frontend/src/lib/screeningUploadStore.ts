@@ -276,6 +276,37 @@ export function getSnapshot(): UploadState { return state; }
 // the next reader reintroduces this.
 export function setCanIngest(v: boolean) { canIngest = v; }
 
+// The largest file this SERVER will accept, reported by /pdf/status.
+//
+// Null until the status call answers, and a null means "do not refuse anything"
+// — guessing a cap the server did not state would reject files it would have
+// taken, which is worse than the round trip we are trying to save.
+let maxUploadBytes: number | null = null;
+export function setMaxUploadBytes(v: number | null) {
+  maxUploadBytes = typeof v === 'number' && v > 0 ? v : null;
+}
+
+const mb = (bytes: number) => `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+
+/**
+ * Why this file cannot be uploaded, or null.
+ *
+ * WHY IT IS CHECKED HERE AT ALL. A HoloMotion export runs 7.6–13.7 MB and the
+ * hosted deployment's platform caps a request body at 4.5 MB — refusing it
+ * BEFORE the request, not after. So without this the operator watches a
+ * progress bar push 13 MB at a host that was never going to take it, and gets
+ * a platform error page this app cannot interpret.
+ *
+ * The wording is the server's own, fetched with the limit, so the browser and
+ * the API cannot give two different accounts of the same refusal.
+ */
+export function tooLargeReason(file: File): string | null {
+  if (maxUploadBytes === null || file.size <= maxUploadBytes) return null;
+  return `This report is ${mb(file.size)} and this server accepts ${mb(maxUploadBytes)}. `
+    + 'The full-size report imports normally on an installation running on your own '
+    + 'server; a compact 12-page export is small enough to use here.';
+}
+
 export function setRoster(list: RosterAthlete[] | null) { setState({ roster: list }); }
 
 export function patchItem(id: number, patch: Partial<QueueItem>) { patchItemInternal(id, patch); }
@@ -326,12 +357,18 @@ export function addFiles(files: FileList | File[] | null) {
   setState({
     items: [
       ...state.items,
-      ...pdfs.map((file): QueueItem => ({
+      ...pdfs.map((file): QueueItem => {
+        // An oversize file enters the queue ALREADY FAILED rather than being
+        // dropped silently or blocking the batch. Same shape as §114's per-file
+        // 503: the rest of the drop still imports, and the one that cannot says
+        // why on its own row.
+        const tooLarge = tooLargeReason(file);
+        return {
         id: nextId++,
         file,
-        status: 'queued',
+        status: tooLarge ? 'error' : 'queued',
         preview: null,
-        error: null,
+        error: tooLarge,
         doneNote: null,
         matched: null,
         matchSource: null,
@@ -344,7 +381,8 @@ export function addFiles(files: FileList | File[] | null) {
         name: '',
         age: '',
         gender: '',
-      })),
+        };
+      }),
     ],
   });
   void runExtraction();
@@ -352,7 +390,17 @@ export function addFiles(files: FileList | File[] | null) {
 
 // Re-queue any failed extractions; the loop re-reads them.
 export function retryFailed() {
-  setState({ items: state.items.map((it) => (it.status === 'error' ? { ...it, status: 'queued' as ItemStatus, error: null } : it)) });
+  setState({
+    items: state.items.map((it) => {
+      if (it.status !== 'error') return it;
+      // A file that is too large is still too large. Re-queueing it would send
+      // it at the server, have it refused again, and present as a retry loop
+      // the operator cannot break — so the refusal stands and keeps its reason.
+      const tooLarge = tooLargeReason(it.file);
+      if (tooLarge) return { ...it, error: tooLarge };
+      return { ...it, status: 'queued' as ItemStatus, error: null };
+    }),
+  });
   void runExtraction();
 }
 

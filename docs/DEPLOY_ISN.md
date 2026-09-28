@@ -94,6 +94,12 @@ SMTP_FROM='AIRMS <injriskdashboard@isn.gov.my>'
 
 # Leave blank unless ISN produces the compact 12-page layout.
 VISION_API_KEY=
+
+# Largest report the API will accept, in bytes. Optional — the default is 20 MB,
+# which takes every report measured (largest 13.67 MB). Set it only if a reverse
+# proxy in front of the app imposes its own limit, and set THAT to match:
+# nginx's `client_max_body_size` defaults to 1 MB and would refuse every report.
+# AIRMS_MAX_UPLOAD_BYTES=
 ```
 
 `frontend/.env.local`:

@@ -692,8 +692,8 @@ const MUTATIONS = [
     file: 'src/routes/upload.js',
     // Un-wiring it, which is what a refactor does by accident. The limiter
     // stays defined, exported and unit-tested — the winAnsiSafe shape.
-    find: "router.post('/screening/pdf/preview', auth, rbac('medical', 'admin'), requirePermission('uploadData'), visionThrottle, uploadPdf.single('file'), async (req, res) => {",
-    replace: "router.post('/screening/pdf/preview', auth, rbac('medical', 'admin'), requirePermission('uploadData'), uploadPdf.single('file'), async (req, res) => {",
+    find: "router.post('/screening/pdf/preview', auth, rbac('medical', 'admin'), requirePermission('uploadData'), visionThrottle, uploadPdf.single('file'), pdfUploadError, async (req, res) => {",
+    replace: "router.post('/screening/pdf/preview', auth, rbac('medical', 'admin'), requirePermission('uploadData'), uploadPdf.single('file'), pdfUploadError, async (req, res) => {",
     test: 'tests/visionThrottle.test.js',
   },
   {
@@ -703,6 +703,62 @@ const MUTATIONS = [
     file: 'src/utils/visionThrottle.js',
     find: "const visionKey = (req) => (req.user && req.user.id ? `u:${req.user.id}` : 'anon');",
     replace: "const visionKey = (req) => String(req.ip || 'anon');",
+    test: 'tests/visionThrottle.test.js',
+  },
+  {
+    guard: 'vision throttle: the gate does NOT spend the quota on the way in',
+    why: 'since §112/§114 most previews call no provider; counting requests rationed free work (§115)',
+    pkg: 'backend',
+    file: 'src/utils/visionThrottle.js',
+    // The old behaviour, restored. Every unit test on visionKey/LIMIT still
+    // passes and the cap looks identical from outside — it just charges an ISN
+    // install 60/hour for work that draws nothing.
+    //
+    // SINGLE-LINE, like every other entry here, and that is not a style rule.
+    // The first version of this spanned two lines joined with `\r\n` and
+    // reported ERROR: `.gitattributes` normalises the repo to LF, so what a
+    // working copy holds depends on what git last touched — visionThrottle.js
+    // had CRLF in the untouched parts and LF in the block just edited. A
+    // multi-line pattern is matching against that lottery. The sibling
+    // mutation in holomotionExtract.js matched on the same day with the same
+    // `\r\n` and was therefore proving nothing durable either.
+    find: '    const { hits, resetAt } = await readQuota(key);',
+    replace: '    const { hits, resetAt } = await readQuota(key); await store.increment(key);',
+    test: 'tests/visionThrottle.test.js',
+  },
+  {
+    guard: 'vision throttle: no provider configured means no cap at all',
+    why: 'an ISN install has no key, so nothing can draw the allowance the cap protects (§115)',
+    pkg: 'backend',
+    file: 'src/utils/visionThrottle.js',
+    find: '    if (!isVisionConfigured()) return next();',
+    replace: '    if (false) return next();',
+    test: 'tests/visionThrottle.test.js',
+  },
+  {
+    guard: 'vision throttle: the charge is AWAITED inside the request',
+    why: 'post-response work on Vercel is deferred until another request thaws the instance (SILENT_FAILURES 3r)',
+    pkg: 'backend',
+    file: 'src/routes/upload.js',
+    find: 'await chargeVisionQuota(req, result.providerCalls);',
+    replace: 'chargeVisionQuota(req, result.providerCalls);',
+    test: 'tests/visionThrottle.test.js',
+  },
+  {
+    guard: 'vision throttle: the compact layout still reports its one call',
+    why: 'the one path that genuinely spends the allowance must not read as free (§115)',
+    pkg: 'backend',
+    file: 'src/utils/holomotionExtract.js',
+    // `providerCalls: 1` also appears in summaryFromPage1, so this targets the
+    // preceding `usage:` line instead — unique, and on ONE line for the
+    // line-ending reason given above.
+    //
+    // A first attempt inserted a DUPLICATE `providerCalls: 0` key and SURVIVED.
+    // The test was not at fault: a duplicate key in an object literal loses to
+    // the later one, so the mutation changed no behaviour at all. A mutation
+    // that does not mutate proves nothing about the guard.
+    find: '    providerCalls: 1, // the compact layout always costs exactly one',
+    replace: '    providerCalls: 0, // the compact layout always costs exactly one',
     test: 'tests/visionThrottle.test.js',
   },
   {

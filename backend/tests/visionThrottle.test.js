@@ -11,13 +11,38 @@
 const fs = require('fs');
 const path = require('path');
 const {
-  visionKey, LIMIT, WINDOW_MS,
+  visionThrottle, chargeVisionQuota, visionKey, LIMIT, WINDOW_MS, store,
 } = require('../src/utils/visionThrottle');
 
 const UPLOAD_ROUTES = fs.readFileSync(
   path.join(__dirname, '..', 'src', 'routes', 'upload.js'),
   'utf8',
 );
+const EXTRACT_RAW = fs.readFileSync(
+  path.join(__dirname, '..', 'src', 'utils', 'holomotionExtract.js'),
+  'utf8',
+);
+
+/**
+ * The source with `//` comments removed.
+ *
+ * NOT tidiness. `npm run mutate` reported SURVIVED on the compact-layout guard,
+ * and the guard was right — the COMMENT above that line read "`providerCalls: 1`
+ * alone also matches summaryFromPage1", so flipping the code to
+ * `providerCalls: 0` left the assertion's needle sitting in the prose. A
+ * source-reading test that reads comments is asserting on documentation.
+ *
+ * `\r?\n`, and CRLF normalised FIRST: `.` does not match `\r`, so a stripper
+ * written against LF is silently inert on every file in this repo — the exact
+ * defect serverlessLifecycle.test.js records having shipped.
+ */
+const stripComments = (src) => src
+  .replace(/\r\n/g, '\n')
+  .split('\n')
+  .map((l) => l.replace(/\/\/.*$/, ''))
+  .join('\n');
+
+const EXTRACT_SRC = stripComments(EXTRACT_RAW);
 
 /** The `router.post(...)`/`router.get(...)` line for one path, as written. */
 function routeLine(routePath) {
@@ -120,5 +145,222 @@ describe('the policy is loose enough not to fire during honest work', () => {
     // A cap that never resets is an outage with extra steps.
     expect(WINDOW_MS).toBeGreaterThan(0);
     expect(WINDOW_MS).toBeLessThanOrEqual(24 * 60 * 60 * 1000);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// WHAT IS COUNTED (2026-09-28). Until §112/§114 the cap counted REQUESTS, which
+// was right while every preview called the provider. It is now a cap on
+// PROVIDER CALLS, and these pin the difference in both directions: an expanded
+// report must cost nothing, and a compact one must still cost one.
+// ---------------------------------------------------------------------------
+
+/** Minimal res double — only what the gate touches. */
+function fakeRes() {
+  return {
+    headers: {}, statusCode: null, body: null,
+    setHeader(k, v) { this.headers[k] = v; },
+    status(c) { this.statusCode = c; return this; },
+    json(b) { this.body = b; return this; },
+  };
+}
+
+describe('the gate counts provider calls, not requests', () => {
+  const ENV = { key: process.env.VISION_API_KEY, model: process.env.VISION_MODEL };
+  let read; let increment;
+
+  beforeEach(() => {
+    // Spied, not stubbed at the module boundary, so the REAL gate runs. No
+    // database is touched: every store access goes through these two.
+    read = jest.spyOn(store, 'read').mockResolvedValue(null);
+    increment = jest.spyOn(store, 'increment').mockResolvedValue({ totalHits: 1 });
+    process.env.VISION_API_KEY = 'test-key';
+    process.env.VISION_MODEL = 'test-model';
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+    process.env.VISION_API_KEY = ENV.key === undefined ? '' : ENV.key;
+    process.env.VISION_MODEL = ENV.model === undefined ? '' : ENV.model;
+  });
+
+  const req = () => ({ user: { id: 7 }, ip: '10.0.0.1' });
+
+  it('lets a request through WITHOUT incrementing', async () => {
+    // The heart of it. Passing the gate must not spend anything, because at
+    // this point nobody knows whether this report needs the provider at all —
+    // multer has not even read the file yet.
+    const next = jest.fn();
+    await visionThrottle(req(), fakeRes(), next);
+    expect(next).toHaveBeenCalled();
+    expect(increment).not.toHaveBeenCalled();
+  });
+
+  it('SKIPS entirely when no provider is configured', async () => {
+    // The ISN install. With no key nothing can draw the allowance, so rationing
+    // the import to 60/hour obstructed work that was free — it would have fired
+    // in the middle of onboarding a squad.
+    process.env.VISION_API_KEY = '';
+    const next = jest.fn();
+    await visionThrottle(req(), fakeRes(), next);
+    expect(next).toHaveBeenCalled();
+    expect(read).not.toHaveBeenCalled();
+  });
+
+  it('refuses with 429 once the counter is at the limit', async () => {
+    read.mockResolvedValue({ hits: LIMIT, resetAt: Date.now() + 60_000 });
+    const res = fakeRes(); const next = jest.fn();
+    await visionThrottle(req(), res, next);
+    expect(next).not.toHaveBeenCalled();
+    expect(res.statusCode).toBe(429);
+    // Names neither the provider nor the quota — operator information (§48).
+    expect(res.body.message).toMatch(/screening extractions/i);
+    expect(JSON.stringify(res.body)).not.toMatch(/gemini|openai|token|api[_ -]?key/i);
+  });
+
+  it('allows the request one short of the limit', async () => {
+    read.mockResolvedValue({ hits: LIMIT - 1, resetAt: Date.now() + 60_000 });
+    const next = jest.fn();
+    await visionThrottle(req(), fakeRes(), next);
+    expect(next).toHaveBeenCalled();
+  });
+
+  it('treats an EXPIRED window as fresh rather than accumulating', async () => {
+    read.mockResolvedValue({ hits: LIMIT * 5, resetAt: Date.now() - 1 });
+    const next = jest.fn();
+    await visionThrottle(req(), fakeRes(), next);
+    expect(next).toHaveBeenCalled();
+  });
+
+  it('FAILS OPEN when the store cannot be read', async () => {
+    // Same posture as the auth limiter: a settings-table hiccup must not stop
+    // an import. The cost of failing open is an unmetered window; the cost of
+    // failing closed is a clinic that cannot ingest.
+    read.mockRejectedValue(new Error('settings table unavailable'));
+    const next = jest.fn();
+    await visionThrottle(req(), fakeRes(), next);
+    expect(next).toHaveBeenCalled();
+  });
+});
+
+describe('chargeVisionQuota — the other half', () => {
+  let increment;
+  beforeEach(() => { increment = jest.spyOn(store, 'increment').mockResolvedValue({ totalHits: 1 }); });
+  afterEach(() => jest.restoreAllMocks());
+
+  const req = { user: { id: 7 } };
+
+  it('charges NOTHING for a report read from the text layer', async () => {
+    // The measured case: the three demo reports and nazwan.pdf report 0
+    // provider calls even with a key configured (DD 112.8).
+    await chargeVisionQuota(req, 0);
+    expect(increment).not.toHaveBeenCalled();
+  });
+
+  it('charges one call for the compact layout', async () => {
+    await chargeVisionQuota(req, 1);
+    expect(increment).toHaveBeenCalledTimes(1);
+    expect(increment).toHaveBeenCalledWith('u:7');
+  });
+
+  it('charges the summary top-up on an otherwise free report', async () => {
+    await chargeVisionQuota(req, 1);
+    expect(increment).toHaveBeenCalledTimes(1);
+  });
+
+  it('treats a missing or nonsense count as zero rather than as one', async () => {
+    // Fails toward NOT charging, deliberately: an extractor that forgets to
+    // report is a metering bug to fix, not a reason to bill an operator for
+    // work nobody did.
+    await chargeVisionQuota(req);
+    await chargeVisionQuota(req, null);
+    await chargeVisionQuota(req, 'lots');
+    await chargeVisionQuota(req, -3);
+    expect(increment).not.toHaveBeenCalled();
+  });
+
+  it('swallows a store failure rather than losing the extraction', async () => {
+    increment.mockRejectedValue(new Error('settings table unavailable'));
+    await expect(chargeVisionQuota(req, 1)).resolves.toBe(1);
+  });
+});
+
+describe('the charge is actually WIRED, and awaited', () => {
+  // The `winAnsiSafe` shape again: chargeVisionQuota is a perfectly good
+  // function whether or not anything calls it, so every test above passes with
+  // the meter disconnected and the quota never counted.
+  const previewBody = UPLOAD_ROUTES.split("router.post('/screening/pdf/preview'")[1]
+    .split('router.post(')[0];
+
+  it('the preview handler calls it', () => {
+    expect(previewBody).toContain('await chargeVisionQuota(req, result.providerCalls)');
+  });
+
+  it('calls it BEFORE responding', () => {
+    // Not style. Post-response work on Vercel is deferred until another request
+    // thaws the instance, so an increment after res.json lands eventually and
+    // never in time — SILENT_FAILURES 3r, measured.
+    expect(previewBody.indexOf('chargeVisionQuota'))
+      .toBeLessThan(previewBody.indexOf('res.json(result)'));
+  });
+
+  it('the commit route charges nothing', () => {
+    const commitBody = UPLOAD_ROUTES.split("router.post('/screening/pdf',")[1] || '';
+    expect(commitBody.split('router.post(')[0]).not.toContain('chargeVisionQuota');
+  });
+
+  it('the VISION path reports exactly one call', () => {
+    // Anchored inside the `method: 'vision'` return rather than searched for
+    // anywhere in the file: `providerCalls: 1` also appears in
+    // summaryFromPage1, so a bare contains() would pass with the path that
+    // actually spends the allowance reporting nothing.
+    const block = EXTRACT_SRC.split("method: 'vision',")[1] || '';
+    expect(block.split('};')[0]).toContain('providerCalls: 1');
+  });
+
+  it('the TEXT-LAYER path reports the running count, not a literal', () => {
+    // It must be 0 for a report read end to end and 1 when the Summary needed
+    // the model, so a hardcoded value here is wrong in one direction or the
+    // other — and 0 would be the direction that silently stops metering.
+    // Bounded by CODE at both ends — `if (fast.ok) {` opens the text-layer
+    // branch and `method: 'vision'` is the first thing after it. Anchoring on a
+    // comment instead would make this a test of the prose.
+    const fastBranch = (EXTRACT_SRC.split('if (fast.ok) {')[1] || '').split("method: 'vision'")[0];
+    // `\r?\n`, not `\n`. Every source file in this repo is CRLF, so a pattern
+    // ending in a bare `\n` matches nothing and the check reports all clear —
+    // the same trap serverlessLifecycle.test.js documents in its comment
+    // stripper, hit again while writing this.
+    expect(fastBranch).toMatch(/\r?\n\s*providerCalls,\r?\n/);
+    expect(fastBranch).not.toMatch(/providerCalls: [01]/);
+  });
+
+  it('the summary top-up is charged even when the reply carries no summary', () => {
+    // The call was made and the allowance is spent. Metering what came BACK
+    // rather than what was SENT is how a quota cap stops bounding anything.
+    expect(EXTRACT_SRC).toMatch(/providerCalls \+= top\.providerCalls/);
+  });
+});
+
+describe('the comment stripper is not inert', () => {
+  it('removes a // comment but keeps the code', () => {
+    // The whole reason EXTRACT_SRC exists. Without this, a stripper that
+    // matched nothing would leave every source assertion below reading prose
+    // and reporting green — which is what happened.
+    expect(stripComments('const a = 1; // providerCalls: 1')).toBe('const a = 1; ');
+  });
+
+  it('works on CRLF, which is what this repo checks out', () => {
+    // Built from escapes rather than written literally: `\r\n` inside a source
+    // file is the thing under test, and a literal newline in the string is a
+    // syntax error — which is exactly what the first version of this line was.
+    expect(stripComments(['a(); // x', 'b();'].join('\r\n'))).toBe(['a(); ', 'b();'].join('\n'));
+  });
+
+  it('actually removed something from the file under test', () => {
+    // A canary for THIS file rather than for a string literal: if the stripper
+    // ever stops matching, this fails instead of every guard going quiet.
+    expect(EXTRACT_SRC.length).toBeLessThan(EXTRACT_RAW.length);
+    expect(EXTRACT_RAW).toContain('`providerCalls: 1` alone also matches');
+    expect(EXTRACT_SRC).not.toContain('`providerCalls: 1` alone also matches');
   });
 });

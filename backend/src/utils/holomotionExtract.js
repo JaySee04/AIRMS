@@ -170,11 +170,29 @@ const { prescriptionFromPdf } = require('./prescription');
  */
 async function summaryFromPage1(buffer) {
   const images = await renderForExtraction(buffer, undefined, 1);
-  if (!images.length) return { summary: null, usage: null };
+  // Nothing rendered means nothing was SENT, so nothing is chargeable.
+  if (!images.length) return { summary: null, usage: null, providerCalls: 0 };
   const { text, usage } = await visionComplete(EXTRACTION_PROMPT, images);
-  const extracted = parseJsonReply(text);
-  const summary = extracted && extracted.summary ? String(extracted.summary).trim() : null;
-  return { summary: summary || null, usage: usage || null, pagesRead: images.map((i) => i.page) };
+  // PAST THIS LINE THE CALL HAS HAPPENED and the allowance is spent, so nothing
+  // below may throw its way out of the accounting. A malformed reply is a lost
+  // Summary, not a free call — and `parseJsonReply` throwing is exactly how a
+  // caller would otherwise get one.
+  let summary = null;
+  try {
+    const extracted = parseJsonReply(text);
+    summary = extracted && extracted.summary ? String(extracted.summary).trim() : null;
+  } catch (err) {
+    console.error('[extract] summary reply unparseable:', err.message);
+  }
+  return {
+    summary: summary || null,
+    usage: usage || null,
+    pagesRead: images.map((i) => i.page),
+    // COUNTED, not inferred from `usage`. A provider that returns no usage
+    // block would otherwise read as a free call, and the quota cap must never
+    // under-count the thing it meters (utils/visionThrottle.js).
+    providerCalls: 1,
+  };
 }
 
 async function extractFromPdf(buffer) {
@@ -195,6 +213,10 @@ async function extractFromPdf(buffer) {
     let usage = null;
     let summaryPages = [];
     let summaryMethod = null;
+    // How many times a provider was actually called. On an expanded report with
+    // a recoverable Summary this stays 0 — measured on the three demo reports
+    // and on nazwan.pdf (DD 112.8) — which is what the quota cap now counts.
+    let providerCalls = 0;
 
     // READ THE SUMMARY BEFORE PAYING FOR IT (§114).
     //
@@ -220,6 +242,10 @@ async function extractFromPdf(buffer) {
         usage = top.usage;
         summaryPages = top.pagesRead || [];
         summaryMethod = summary ? 'vision' : null;
+        // Charged even when the reply carried no summary: the call was made and
+        // the quota was spent. Metering what was SENT rather than what came
+        // back is the only version that bounds the allowance.
+        providerCalls += top.providerCalls || 0;
       } catch (err) {
         // The numbers are already read and exact. Losing the Summary is a
         // missing section, which §70's renderer already handles — losing the
@@ -254,6 +280,7 @@ async function extractFromPdf(buffer) {
       prescription,
       pagesRead: summaryPages,
       usage,
+      providerCalls,
     };
   }
 
@@ -303,6 +330,12 @@ async function extractFromPdf(buffer) {
     prescription,
     pagesRead: images.map((i) => i.page),
     usage: usage || null,
+    // The compact layout: one call, always. This is the case the quota cap was
+    // written for and the only one that still spends the allowance. The trailing
+    // comment makes this line unique in the file, so the mutation registry can
+    // target it on ONE line — `providerCalls: 1` alone also matches
+    // summaryFromPage1 above.
+    providerCalls: 1, // the compact layout always costs exactly one
   };
 }
 

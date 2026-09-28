@@ -8,9 +8,10 @@ const rbac = require('../middleware/rbac');
 const requirePermission = require('../middleware/permission');
 const { extractFromPdf } = require('../utils/holomotionExtract');
 const { isVisionConfigured, visionConfig } = require('../utils/visionClient');
-const { visionThrottle } = require('../utils/visionThrottle');
+const { visionThrottle, chargeVisionQuota } = require('../utils/visionThrottle');
 const { queuePostImport } = require('../utils/postImport');
-const { sendError } = require('../utils/httpError');
+const { sendError, expose } = require('../utils/httpError');
+const { maxUploadBytes, tooLargeMessage } = require('../utils/uploadLimits');
 const { GENDERS, PROGRAMMES } = require('../shared/facts');
 
 // NOTE: the original Excel screening-upload path (multer excel filter,
@@ -33,7 +34,13 @@ const uploadPdf = multer({
       cb(new Error('Only PDF files (.pdf) are accepted'));
     }
   },
-  limits: { fileSize: 20 * 1024 * 1024 }, // 20 MB — HoloMotion exports run ~1 MB
+  // DERIVED, not written twice. The status endpoint reports this same number so
+  // the uploader can refuse an oversize file before pushing it, and a client
+  // check that disagreed with the server's would be worse than no check.
+  //
+  // "HoloMotion exports run ~1 MB" was true of the first sample and of nothing
+  // else: real expanded reports measure 7.6–13.7 MB (utils/uploadLimits.js).
+  limits: { fileSize: maxUploadBytes() },
 });
 
 // ───────────────────────────── PDF (HoloMotion) flow ─────────────────────────
@@ -87,17 +94,52 @@ router.get('/screening/pdf/status', auth, rbac('medical', 'admin'), (_req, res) 
     // both need the model. Named so the UI can say WHICH capability is reduced
     // rather than "not configured".
     needsVisionFor: vision ? [] : ['the compact 12-page layout', "HoloMotion's written Summary"],
+    // THE LARGEST FILE THIS INSTALLATION CAN RECEIVE (utils/uploadLimits.js).
+    //
+    // Sent so the uploader can refuse a file it already knows will be dropped,
+    // instead of spending a minute pushing 13 MB at a platform that rejects the
+    // request before AIRMS sees it. Real expanded reports are 7.6–13.7 MB and
+    // the hosted cap is 4.5 MB, so this is the routine case rather than an edge
+    // one — and the refusal it produces names the remedy.
+    maxUploadBytes: maxUploadBytes(),
   });
 });
 
 // POST /api/upload/screening/pdf/preview — render + extract, DO NOT commit.
 // Returns the extracted athlete payload for the operator to review and to
 // attach athleteId / sport / program before committing.
+/**
+ * Multer's own failures, answered in this API's vocabulary.
+ *
+ * FOUR ARGUMENTS ON PURPOSE. Express treats a 4-arity function in a route chain
+ * as an error handler: it is skipped on the happy path and reached only when an
+ * earlier middleware calls `next(err)`. That is the only way to catch multer,
+ * which errors BEFORE the route handler runs — so the handler's own try/catch
+ * never saw an oversize file, and `LIMIT_FILE_SIZE` fell through to the
+ * last-resort handler as a flat 500 with the generic message. "Something went
+ * wrong on our side" is a poor answer to a file the operator can see is large.
+ *
+ * `content-length` rather than the file size: on LIMIT_FILE_SIZE multer aborts
+ * mid-stream and there is no `req.file` to measure. It over-reports by the
+ * multipart envelope — a few hundred bytes against megabytes — which is close
+ * enough for a sentence telling somebody their 13 MB report is too big.
+ */
+function pdfUploadError(err, req, res, _next) {
+  if (err && err.code === 'LIMIT_FILE_SIZE') {
+    const size = Number(req.headers['content-length']) || 0;
+    return sendError(res, expose(new Error(tooLargeMessage(size)), 413), 'upload.js');
+  }
+  // The file-type refusal, which is likewise the caller's business and likewise
+  // arrived as a 500.
+  if (err) return sendError(res, expose(err, 400), 'upload.js');
+  return _next();
+}
+
 // `visionThrottle` sits AFTER the permission gate (an unauthorised caller is
 // refused on permission, not charged quota) and BEFORE multer (an over-quota
-// caller is answered without first buffering 20 MB). Both orderings are pinned
-// by tests/visionThrottle.test.js.
-router.post('/screening/pdf/preview', auth, rbac('medical', 'admin'), requirePermission('uploadData'), visionThrottle, uploadPdf.single('file'), async (req, res) => {
+// caller is answered without first buffering the upload). Both orderings are
+// pinned by tests/visionThrottle.test.js.
+router.post('/screening/pdf/preview', auth, rbac('medical', 'admin'), requirePermission('uploadData'), visionThrottle, uploadPdf.single('file'), pdfUploadError, async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
     // NO BLANKET REFUSAL ON A MISSING PROVIDER (§112, 2026-09-22).
@@ -113,6 +155,18 @@ router.post('/screening/pdf/preview', auth, rbac('medical', 'admin'), requirePer
     // cannot. The refusal now describes THIS report rather than the whole
     // feature.
     const result = await extractFromPdf(req.file.buffer);
+    // CHARGE THE QUOTA FOR WHAT WAS ACTUALLY SPENT (2026-09-28).
+    //
+    // `visionThrottle` above is now a gate that refuses at the limit without
+    // incrementing; this is the other half. AWAITED, before the response, for
+    // the reason DEPLOY.md and SILENT_FAILURES 3r spell out: post-response work
+    // on Vercel is deferred until another request thaws the instance, so an
+    // increment scheduled after `res.json` lands eventually and never in time.
+    //
+    // An expanded report reports 0 and costs nothing. A failure to record is
+    // logged and swallowed inside chargeVisionQuota — losing the accounting
+    // must not lose the operator their extraction.
+    await chargeVisionQuota(req, result.providerCalls);
     // Deliberately does NOT echo the filename back: it can carry PII (the
     // sample's name + phone number live in the filename) and the UI shows the
     // browser's local File name instead, so returning it served no purpose.

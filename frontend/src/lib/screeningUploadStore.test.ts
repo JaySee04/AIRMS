@@ -1,4 +1,4 @@
-import { parseNameFromFilename } from './screeningUploadStore';
+import { parseNameFromFilename, setMaxUploadBytes, tooLargeReason } from './screeningUploadStore';
 
 // The athlete is resolved from this name — roster first, then the ISN directory
 // — so anything left clinging to it (a batch number, a hash) makes the lookup
@@ -86,5 +86,77 @@ describe('parseNameFromFilename', () => {
     expect(parseNameFromFilename('')).toBe('');
     expect(parseNameFromFilename('14.pdf')).toBe('');
     expect(parseNameFromFilename('rpt_2025-07-25_.pdf')).toBe('');
+  });
+});
+
+// ── the size gate ───────────────────────────────────────────────────────────
+//
+// A HoloMotion export runs 7.6–13.7 MB (12 of 15 measured are 7.7–13.2) and the
+// hosted deployment's platform caps a request body at 4.5 MB — refusing it
+// BEFORE the request reaches AIRMS. Without this check the operator watches a
+// progress bar push 13 MB at a host that was never going to take it, then gets
+// a platform error page this app cannot interpret.
+//
+// The limit is the SERVER'S, fetched from /pdf/status, never guessed here.
+// See backend/src/utils/uploadLimits.js and DESIGN_DECISIONS §115.
+
+const MB = 1024 * 1024;
+const file = (mb: number) => ({ size: mb * MB, name: 'report.pdf' } as File);
+
+describe('tooLargeReason', () => {
+  afterEach(() => setMaxUploadBytes(null));
+
+  it('refuses NOTHING until the server has stated a limit', () => {
+    // Null means "not answered yet". Guessing a cap would reject files the
+    // server would have taken, which is worse than the round trip this saves —
+    // and it is exactly what a hardcoded 4.5 would do on an ISN install.
+    setMaxUploadBytes(null);
+    expect(tooLargeReason(file(13.7))).toBeNull();
+  });
+
+  it('accepts a real report on a server sized for one', () => {
+    setMaxUploadBytes(20 * MB);
+    expect(tooLargeReason(file(13.67))).toBeNull();
+    expect(tooLargeReason(file(7.58))).toBeNull();
+  });
+
+  it('refuses the same report against the hosted cap', () => {
+    setMaxUploadBytes(4.5 * MB);
+    expect(tooLargeReason(file(13.67))).toMatch(/13\.7 MB/);
+    expect(tooLargeReason(file(7.58))).toBeTruthy();
+  });
+
+  it('still accepts the three demo reports on the hosted cap', () => {
+    // The stakeholder walkthrough runs on the hosted instance, so this is the
+    // case that must not regress.
+    setMaxUploadBytes(4.5 * MB);
+    expect(tooLargeReason(file(2.11))).toBeNull();
+    expect(tooLargeReason(file(1.02))).toBeNull();
+  });
+
+  it('allows a file exactly ON the limit', () => {
+    // `>` not `>=`. A file the server would accept must not be refused by the
+    // browser — the two answers disagreeing is the failure this whole check
+    // exists to avoid.
+    setMaxUploadBytes(4.5 * MB);
+    expect(tooLargeReason(file(4.5))).toBeNull();
+  });
+
+  it('ignores a nonsense limit rather than refusing everything', () => {
+    // A backend that sends 0, or null, or a string, must not disable ingestion
+    // with a message blaming the file.
+    for (const v of [0, -1, NaN]) {
+      setMaxUploadBytes(v);
+      expect(tooLargeReason(file(13.67))).toBeNull();
+    }
+  });
+
+  it('names the remedy, not just the problem', () => {
+    // The failure guarded here is somebody re-exporting the report smaller to
+    // fit, and losing data. The remedy is a different install.
+    setMaxUploadBytes(4.5 * MB);
+    const msg = tooLargeReason(file(13.67)) as string;
+    expect(msg).toMatch(/your own server/i);
+    expect(msg).not.toMatch(/compress|reduce the quality/i);
   });
 });

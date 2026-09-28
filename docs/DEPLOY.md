@@ -284,11 +284,36 @@ Set `MAIL_SCHEDULER=off` so the app does not also try to tick.
 Two things change materially, and neither is a bug to fix later.
 
 **Uploads are capped at 4.5 MB.** That is a platform limit on the request body,
-below the 20 MB the app allows. Typical HoloMotion exports are ~1 MB and are
-unaffected — the sample compact report is 1.02 MB — but the expanded 38-page
-layout in `backend/scripts/samples/nazwan.pdf` is **7.58 MB** and will be
-rejected before it reaches the handler. Generated reports are unaffected in the
-other direction: the largest measured is 0.05 MB.
+below the 20 MB the app allows, and it is refused *before* any AIRMS code runs —
+so nothing in this repository can raise it.
+
+"Typical HoloMotion exports are ~1 MB" was true of the first sample and of
+nothing else. Measured:
+
+| | |
+|---|---|
+| compact 12-page (`thung.pdf`) | 1.02 MB — fine |
+| the three demo reports | 2.05 – 2.11 MB — fine |
+| `nazwan.pdf` (38p) | 7.58 MB — **rejected here** |
+| a real 38-page report | 13.67 MB — **rejected here** |
+
+12 of the 15 expanded reports measured are 7.7–13.2 MB, and **every one of them
+is under the 20 MB an ISN-hosted install accepts** (`docs/DEPLOY_ISN.md`). So
+this is a property of the demo deployment, not of the system.
+
+Since 2026-09-28 the cap is **reported rather than assumed** (§115.3):
+`GET /upload/screening/pdf/status` returns `maxUploadBytes`, derived from the
+environment by `utils/uploadLimits.js`, and the uploader refuses an oversize file
+**before** spending a minute pushing it at a host that will drop it. The refusal
+names the remedy — use the install with no such limit — because "file too large"
+invites somebody to re-export the report smaller and lose data from what the
+mission statement calls the single source of truth. Set
+`AIRMS_MAX_UPLOAD_BYTES` to override; a reverse proxy in front of the app has its
+own limit and nginx defaults `client_max_body_size` to **1 MB**, which would
+refuse every report.
+
+Generated reports are unaffected in the other direction: the largest measured is
+0.05 MB.
 
 **"On-device redaction" becomes "pre-provider redaction".** The privacy property
 the system is designed around is that the athlete's name never leaves the

@@ -10555,3 +10555,149 @@ asserting it duly reported SURVIVED. It fires only in the muscle text that
 `pointsOnly` discards. It is kept as protection against a spaced run meeting a
 capital without terminating punctuation (`weakIn` for `weak In`), and the
 mutation registry now says so instead of claiming a live defect.
+
+## 115. Three leftovers, and what each of them had stopped meaning (2026-09-28)
+
+Three items had been sitting in "known, not fixed" — two of them named in
+§112.7, one in this file's own margins. None was a new defect. All three were
+things that had been *correct when written* and had quietly stopped being so,
+which is the same shape as §112 itself and worth recording as a set rather than
+as three unrelated tickets.
+
+### 115.1 The quota cap was counting the wrong thing
+
+`utils/visionThrottle.js` capped `POST /upload/screening/pdf/preview` at 60 per
+hour per user, keyed on the user because ISN is one outbound address (§48). That
+was exactly right while **every** preview shipped six rendered pages to the
+provider at ~11,400 tokens. §112 and §114 made it wrong in two directions at
+once:
+
+- **On an ISN installation there is no key at all**, so no request can draw any
+  allowance — and the limiter still rationed the import to 60/hour. A cap
+  protecting a quota that does not exist is pure obstruction, and the moment it
+  would have fired is onboarding a squad, which is the first thing the
+  institution will do.
+- **With a key configured, an expanded report now costs nothing.** Measured
+  through the real endpoint: `providerCalls: 0`, `usage: null`. Counting those
+  rationed honest work for no protective benefit.
+
+So the cap counts **provider calls**, which is what it was always a cap on. The
+accounting splits in two, and both halves run inside the request:
+
+| | |
+|---|---|
+| `visionThrottle(req,res,next)` | the GATE — reads the counter, refuses at the limit, never increments |
+| `chargeVisionQuota(req, calls)` | the CHARGE — incremented only when the provider was actually called, **awaited** before the response |
+
+**The split is forced by the platform, not preferred.** The obvious shape —
+count on the way in, refund on the way out — is precisely
+`skipSuccessfulRequests`, which decrements from a `res.on('finish')` handler.
+On Vercel that work is deferred until another request thaws the instance, so the
+refund lands eventually and never in time. That is SILENT_FAILURES 3r, measured
+on the hosted API, and `tests/serverlessLifecycle.test.js` forbids the pattern
+outright. Charging afterwards instead means a caller sitting exactly on the
+limit can spend one call over it; that is the honest cost and it is bounded at
+one.
+
+`providerCalls` is **counted by the extractor, not inferred from `usage`** — a
+provider that returns no usage block would otherwise read as a free call, and
+the one thing a meter must not do is under-count. It is also incremented the
+moment `visionComplete` returns rather than after the reply is parsed: a
+malformed reply is a lost Summary, not a free call, and `parseJsonReply`
+throwing was exactly how a caller would have got one.
+
+**Measured live**, against a running instance: three previews of a 38-page
+report left the counter at 6; one compact 12-page report took it to 7. Under the
+old code those four requests would have cost four.
+
+### 115.2 A 503 that named the database account
+
+`api/index.js` answered `{ message: 'Database unavailable', detail: err.message }`
+when it could not get a connection. `vercel.json` rewrites **every** path to that
+handler, so this is the first thing any caller gets during an outage — before
+`auth` has run. Measured against a real MySQL 8:
+
+| failure | what `detail` carried |
+|---|---|
+| wrong password | `Access denied for user 'root'@'localhost' (using password: YES)` |
+| refused | `connect ECONNREFUSED 127.0.0.1:3999` |
+
+Hosted, the first reads `'avnadmin'@'<the function's egress address>'` — the
+database account name and where the API connects from, to anyone who curls the
+site. Aiven's free tier powers the database off when idle, so "during an outage"
+is a **routine** state for this deployment rather than a rare one.
+
+The detail is now logged and not returned — the same decision `/api/health` had
+already made, for the same reason (§48). `tests/dbUnavailable.test.js` drives the
+handler rather than reading it, because this is a response body and the thing
+itself is testable; four of its cases go red when the `detail` field is put back.
+
+**A second, opposite defect fell out of looking.** `connectDB`'s own diagnostic
+printed `MySQL connection error:` with **nothing after the colon** — Sequelize
+wraps a refused connection in a `ConnectionRefusedError` whose `.message` is the
+empty string, the detail sitting in the mysql2 `AggregateError` beneath it. So
+the log written for the operator said less than nothing at the one moment they
+need it. `dbErrorMessage()` walks `parent`/`original` and falls back to the
+error's code. Note the direction: the response was saying too much and the log
+too little, and both are the same failure to think about who is reading.
+
+### 115.3 The upload cap, and which install the reports actually fit
+
+Real HoloMotion exports, measured:
+
+| | |
+|---|---|
+| `thung.pdf` (compact 12p) | 1.02 MB |
+| the three demo reports | 2.05 – 2.11 MB |
+| `nazwan.pdf` (38p) | 7.58 MB |
+| a real 38p report | 13.67 MB |
+
+12 of the 15 expanded reports measured are 7.7–13.2 MB. The backend accepts
+20 MB, so **every one of them is fine on a server AIRMS actually runs on** — and
+the hosted deployment is not one: Vercel caps a function's request body at
+4.5 MB in the *platform*, refusing the request before any code here sees it.
+
+**This is not fixable from inside the app, and pretending otherwise would be the
+defect.** Making a 13 MB report importable on Vercel needs a different upload
+route — direct-to-blob, or slicing the PDF in the browser — both of which are
+dependency decisions and neither of which is taken here. What *was* wrong is
+that the difference was invisible: a line in DEPLOY.md, and in practice a
+platform error page the uploader could not interpret, on a file that works
+perfectly on the install ISN will actually run.
+
+So the limit is **derived from the environment** (`utils/uploadLimits.js`),
+reported by `/pdf/status`, enforced by multer, and checked by the uploader
+*before* it spends a minute pushing 13 MB at a host that will drop it. One
+definition, because a client check and a server check that disagree produce a
+file refused by the browser that the server would have taken, or the reverse.
+`AIRMS_MAX_UPLOAD_BYTES` overrides both — nginx defaults `client_max_body_size`
+to 1 MB, which would refuse every report, and an institution's IT department is
+likelier to set that than to mention it.
+
+**The message names the remedy, not just the problem**, and that is the point of
+writing it twice: on a hosted instance the answer is *use the install with no
+such limit*, and on a self-hosted one it is *raise this variable*. "File too
+large" invites somebody to re-export the report at lower quality and lose data,
+and the report is this system's single source of truth.
+
+Multer's own failures are answered by a **four-argument** handler in the route
+chain — Express's inline error-handler form, and the only way to catch a
+middleware that errors before the route body. `LIMIT_FILE_SIZE` had been falling
+through to the last-resort handler as a flat 500 with the generic message, which
+is a poor answer to a file the operator can see is large.
+
+One defect in this work was found by its own test: at one decimal, a 4.54 MB
+file rendered "4.5 MB" against a 4.5 MB cap, so the refusal read *"This report
+is 4.5 MB and this server accepts 4.5 MB"* — a sentence that contradicts itself
+and sends the reader to report a bug in the uploader. The size now rounds up and
+the limit down, so the two can never print equal when the file is genuinely over.
+
+### 115.4 What is still not done
+
+- **The hosted 4.5 MB cap itself.** Unchanged and unchangeable from here, as
+  above. The three demo reports are 2.1 MB and import on the hosted instance, so
+  the stakeholder walkthrough is unaffected; a real 13 MB report needs the ISN
+  install, and the uploader now says so.
+- **The vision throttle's one-call overshoot.** Bounded and deliberate (115.1).
+  Removing it means a pre-charge with a refund, and the refund is the pattern
+  serverless makes unreliable.

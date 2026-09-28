@@ -91,12 +91,42 @@ const sequelize = new Sequelize(
   }
 );
 
+/**
+ * A connection failure's message, for a LOG — never for a response.
+ *
+ * Sequelize wraps the driver error, and for the commonest failure of all it
+ * wraps it in one with NO MESSAGE: a refused connection arrives as
+ * `SequelizeConnectionRefusedError` whose `.message` is the empty string,
+ * because the mysql2 side is an AggregateError carrying its detail in
+ * `.errors[]`. So the boot diagnostic printed, verbatim:
+ *
+ *     MySQL connection error:
+ *
+ * — nothing after the colon, at the one moment an operator needs a reason. Seen
+ * on 2026-09-28 while checking something else. This walks `parent`/`original`
+ * and falls back to the error's CODE, which is always present and is the part
+ * that actually distinguishes "wrong password" from "nothing is listening".
+ *
+ * Deliberately NOT sanitised — it is for stderr and the platform log, both of
+ * which are the operator's. The rule that this must not reach a caller lives at
+ * the one place that could return it (api/index.js).
+ */
+function dbErrorMessage(err) {
+  if (!err) return 'unknown error';
+  const chain = [err, err.parent, err.original].filter(Boolean);
+  const named = chain.find((e) => e.message);
+  if (named) return named.message;
+  const coded = chain.find((e) => e.code);
+  if (coded) return `${coded.code}${coded.syscall ? ` (${coded.syscall})` : ''}`;
+  return err.name || 'unknown error';
+}
+
 const connectDB = async () => {
   try {
     await sequelize.authenticate();
     console.log(`MySQL connected: ${sequelize.config.host}:${sequelize.config.port}/${sequelize.config.database}`);
   } catch (err) {
-    console.error(`MySQL connection error: ${err.message}`);
+    console.error(`MySQL connection error: ${dbErrorMessage(err)}`);
     // Exiting is right for a long-running process: fail loudly at boot rather
     // than serve a broken API. It is wrong on serverless, where the "process"
     // is one request — killing it turns a transient database blip into an
@@ -108,4 +138,4 @@ const connectDB = async () => {
   }
 };
 
-module.exports = { sequelize, connectDB };
+module.exports = { sequelize, connectDB, dbErrorMessage };

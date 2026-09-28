@@ -47,6 +47,10 @@ interface StatusResponse {
   canIngest?: boolean;
   /** Capabilities reduced without a provider, named so the notice can say which. */
   needsVisionFor?: string[];
+  /** Largest upload this server accepts, in bytes. Optional: a backend that
+   *  predates this sends nothing, and the store then refuses nothing — the
+   *  server's own 413 is still there behind it. */
+  maxUploadBytes?: number;
 }
 
 export default function PdfScreeningUpload() {
@@ -103,6 +107,10 @@ export default function PdfScreeningUpload() {
         // Gate the store's loop on whether ANYTHING can be imported, not on
         // whether a vision provider exists (§112).
         uploadStore.setCanIngest(s.canIngest ?? s.configured);
+        // So a file too big for this deployment is refused before it is pushed
+        // at it. Real reports run 7.6–13.7 MB and the hosted platform caps a
+        // request body at 4.5 MB.
+        uploadStore.setMaxUploadBytes(s.maxUploadBytes ?? null);
       } catch { /* status stays null → treated as unknown/disabled */ }
       try {
         // Roster for name-matching. Optional: if this user can't view records,
