@@ -11,7 +11,7 @@
 const fs = require('fs');
 const path = require('path');
 const {
-  visionThrottle, chargeVisionQuota, visionKey, LIMIT, WINDOW_MS, store,
+  visionThrottle, reserveVisionCall, visionKey, LIMIT, WINDOW_MS, store,
 } = require('../src/utils/visionThrottle');
 
 const UPLOAD_ROUTES = fs.readFileSync(
@@ -243,70 +243,111 @@ describe('the gate counts provider calls, not requests', () => {
   });
 });
 
-describe('chargeVisionQuota — the other half', () => {
+describe('reserveVisionCall — claimed BEFORE the call, not after', () => {
   let increment;
-  beforeEach(() => { increment = jest.spyOn(store, 'increment').mockResolvedValue({ totalHits: 1 }); });
+  beforeEach(() => { increment = jest.spyOn(store, 'increment'); });
   afterEach(() => jest.restoreAllMocks());
 
   const req = { user: { id: 7 } };
 
-  it('charges NOTHING for a report read from the text layer', async () => {
-    // The measured case: the three demo reports and nazwan.pdf report 0
-    // provider calls even with a key configured (DD 112.8).
-    await chargeVisionQuota(req, 0);
-    expect(increment).not.toHaveBeenCalled();
-  });
-
-  it('charges one call for the compact layout', async () => {
-    await chargeVisionQuota(req, 1);
-    expect(increment).toHaveBeenCalledTimes(1);
+  it('counts the call and allows it while under the limit', async () => {
+    increment.mockResolvedValue({ totalHits: 1 });
+    await expect(reserveVisionCall(req)).resolves.toBe(true);
     expect(increment).toHaveBeenCalledWith('u:7');
   });
 
-  it('charges the summary top-up on an otherwise free report', async () => {
-    await chargeVisionQuota(req, 1);
+  it('allows the call that lands exactly ON the limit', async () => {
+    // The 60th call in the window is the last permitted one, not the first
+    // refused one. Off by one here either wastes a call a clinician paid for
+    // or hands out one more than the policy says.
+    increment.mockResolvedValue({ totalHits: LIMIT });
+    await expect(reserveVisionCall(req)).resolves.toBe(true);
+  });
+
+  it('refuses the one after it', async () => {
+    increment.mockResolvedValue({ totalHits: LIMIT + 1 });
+    await expect(reserveVisionCall(req)).resolves.toBe(false);
+  });
+
+  it('counts BEFORE deciding, so a refusal is not a free retry', async () => {
+    // The ordering is the whole point of §115.6. Test-then-increment would let
+    // a caller sitting on the limit spend one over; increment-then-test cannot.
+    increment.mockResolvedValue({ totalHits: LIMIT + 1 });
+    await reserveVisionCall(req);
     expect(increment).toHaveBeenCalledTimes(1);
   });
 
-  it('treats a missing or nonsense count as zero rather than as one', async () => {
-    // Fails toward NOT charging, deliberately: an extractor that forgets to
-    // report is a metering bug to fix, not a reason to bill an operator for
-    // work nobody did.
-    await chargeVisionQuota(req);
-    await chargeVisionQuota(req, null);
-    await chargeVisionQuota(req, 'lots');
-    await chargeVisionQuota(req, -3);
-    expect(increment).not.toHaveBeenCalled();
+  it('FAILS OPEN when the counter cannot be written', async () => {
+    // Same posture as every other path in this file: losing the accounting must
+    // not lose the operator their import.
+    increment.mockRejectedValue(new Error('settings table unavailable'));
+    await expect(reserveVisionCall(req)).resolves.toBe(true);
   });
 
-  it('swallows a store failure rather than losing the extraction', async () => {
-    increment.mockRejectedValue(new Error('settings table unavailable'));
-    await expect(chargeVisionQuota(req, 1)).resolves.toBe(1);
+  it('treats a store returning nonsense as permission, not refusal', async () => {
+    // A store that answers without totalHits is broken, and a broken meter must
+    // not become an outage.
+    for (const v of [{}, { totalHits: undefined }, { totalHits: null }]) {
+      increment.mockResolvedValue(v);
+      // eslint-disable-next-line no-await-in-loop
+      await expect(reserveVisionCall(req)).resolves.toBe(true);
+    }
   });
 });
 
-describe('the charge is actually WIRED, and awaited', () => {
+describe('the claim is actually WIRED into the extractor', () => {
   // The `winAnsiSafe` shape again: chargeVisionQuota is a perfectly good
   // function whether or not anything calls it, so every test above passes with
   // the meter disconnected and the quota never counted.
   const previewBody = UPLOAD_ROUTES.split("router.post('/screening/pdf/preview'")[1]
     .split('router.post(')[0];
 
-  it('the preview handler calls it', () => {
-    expect(previewBody).toContain('await chargeVisionQuota(req, result.providerCalls)');
+  it('the preview handler hands the extractor a way to claim a call', () => {
+    // The winAnsiSafe shape: reserveVisionCall is a perfectly good function
+    // whether or not anything calls it, so every behavioural test above
+    // passes with the meter disconnected and the quota never counted.
+    expect(previewBody).toContain('reserveProviderCall: () => reserveVisionCall(req)');
   });
 
-  it('calls it BEFORE responding', () => {
+  it('claims it BEFORE responding', () => {
     // Not style. Post-response work on Vercel is deferred until another request
     // thaws the instance, so an increment after res.json lands eventually and
     // never in time — SILENT_FAILURES 3r, measured.
-    expect(previewBody.indexOf('chargeVisionQuota'))
+    expect(previewBody.indexOf('reserveVisionCall'))
       .toBeLessThan(previewBody.indexOf('res.json(result)'));
   });
 
-  it('the commit route charges nothing', () => {
+  it('the commit route claims nothing', () => {
     const commitBody = UPLOAD_ROUTES.split("router.post('/screening/pdf',")[1] || '';
-    expect(commitBody.split('router.post(')[0]).not.toContain('chargeVisionQuota');
+    expect(commitBody.split('router.post(')[0]).not.toContain('reserveVisionCall');
+  });
+
+
+  it('BOTH provider call sites claim first', () => {
+    // There are exactly two places a request is sent: the compact-layout
+    // extraction and the Summary top-up. A new one added without a claim would
+    // spend the allowance silently, which is the failure this whole section is
+    // about — so the count is asserted, not the presence.
+    const calls = (EXTRACT_SRC.match(/await visionComplete\(/g) || []).length;
+    const claims = (EXTRACT_SRC.match(/await reserve(?:ProviderCall)?\(\)/g) || []).length;
+    expect(calls).toBe(2);
+    expect(claims).toBe(2);
+  });
+
+  it('the compact layout REFUSES when the claim fails', () => {
+    // It has no text to fall back on, so being out of quota is a refusal rather
+    // than a degraded read — and a 429, because the cause is this caller's own
+    // rate of use rather than the server's configuration.
+    const block = EXTRACT_SRC.split('reserveProviderCall && !(await reserveProviderCall())')[1] || '';
+    expect(block.slice(0, 400)).toContain('429');
+  });
+
+  it('the Summary top-up DEGRADES when the claim fails', () => {
+    // The numbers are already read and exact. Losing the Summary is a missing
+    // section §70's renderer handles; losing the import would be worse.
+    const block = EXTRACT_SRC.split('reserve && !(await reserve())')[1] || '';
+    expect(block.slice(0, 200)).toContain('refused: true');
+    expect(block.slice(0, 200)).not.toContain('throw');
   });
 
   it('the VISION path reports exactly one call', () => {

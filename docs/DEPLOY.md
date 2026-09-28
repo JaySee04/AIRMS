@@ -303,14 +303,30 @@ this is a property of the demo deployment, not of the system.
 
 Since 2026-09-28 the cap is **reported rather than assumed** (§115.3):
 `GET /upload/screening/pdf/status` returns `maxUploadBytes`, derived from the
-environment by `utils/uploadLimits.js`, and the uploader refuses an oversize file
-**before** spending a minute pushing it at a host that will drop it. The refusal
-names the remedy — use the install with no such limit — because "file too large"
-invites somebody to re-export the report smaller and lose data from what the
-mission statement calls the single source of truth. Set
-`AIRMS_MAX_UPLOAD_BYTES` to override; a reverse proxy in front of the app has its
-own limit and nginx defaults `client_max_body_size` to **1 MB**, which would
-refuse every report.
+environment by `utils/uploadLimits.js`. Set `AIRMS_MAX_UPLOAD_BYTES` to override;
+a reverse proxy in front of the app has its own limit and nginx defaults
+`client_max_body_size` to **1 MB**, which would refuse every report.
+
+**The rows marked "rejected here" no longer are** (§115.5). The uploader sends
+the pages the extractor reads — 1–6 plus the last 20 — rather than the whole
+file, because the middle of an expanded report is chart images nothing in AIRMS
+reads. Measured against a running API with this cap in force:
+
+```
+report: 13.67 MB   server cap: 4.50 MB
+  WHOLE FILE      -> HTTP 413  (names the remedy)
+  SLICED (1.71 MB) -> HTTP 200, 653 ms
+                      total 78 / risks 14, method text-layer, providerCalls 0
+                      summary 484 ch, prescription 6d/48ex
+```
+
+The extracted values are identical to the unsliced read — verified field by
+field on three reports. Slicing runs **only** when the file does not already
+fit, so on an ISN-hosted install nothing is ever sliced and the bytes uploaded
+are exactly the file the operator chose. When even a slice will not fit, the
+refusal still names the remedy rather than saying "file too large", which would
+invite somebody to re-export the report smaller and lose data from what the
+mission statement calls the single source of truth.
 
 Generated reports are unaffected in the other direction: the largest measured is
 0.05 MB.

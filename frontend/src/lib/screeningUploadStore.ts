@@ -16,6 +16,7 @@
 // deliberately ships no client-state dependency (see CLAUDE.md).
 
 import { api } from './api';
+import { sliceForUpload } from './pdfSlice';
 
 // ── shared types (imported by the component) ────────────────────────────────
 export interface MuscleEntry { muscle: string; side: 'L' | 'R' | 'B'; }
@@ -194,8 +195,20 @@ export function parseNameFromFilename(filename: string): string {
 async function extractOne(item: QueueItem): Promise<void> {
   patchItemInternal(item.id, { status: 'extracting', error: null });
   try {
+    // REDUCE THE UPLOAD IF THIS SERVER WILL NOT TAKE THE WHOLE FILE (§115.5).
+    //
+    // A no-op unless the file exceeds the server's stated limit, which on an
+    // ISN-hosted install (20 MB) it never does. When it does, the pages the
+    // extractor actually reads are sent instead of the chart pages nothing
+    // reads — verified to produce identical values. See lib/pdfSlice.ts.
+    //
+    // Throws with a message naming the remedy when even that will not fit; the
+    // catch below puts it on the row.
+    const { file: toSend, note } = await sliceForUpload(item.file, maxUploadBytes);
+    if (note) patchItemInternal(item.id, { doneNote: note });
+
     const formData = new FormData();
-    formData.append('file', item.file);
+    formData.append('file', toSend);
     const preview = await api.upload<PreviewResponse>('/upload/screening/pdf/preview', formData);
     // Name is redacted from the IMAGE, so it isn't in the extraction. Recover a
     // pre-fill from the LOCAL filename instead (never sent to the model): a unique
@@ -289,23 +302,26 @@ export function setMaxUploadBytes(v: number | null) {
 const mb = (bytes: number) => `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 
 /**
- * Why this file cannot be uploaded, or null.
+ * Whether this file will need reducing before it can be uploaded.
  *
- * WHY IT IS CHECKED HERE AT ALL. A HoloMotion export runs 7.6–13.7 MB and the
- * hosted deployment's platform caps a request body at 4.5 MB — refusing it
- * BEFORE the request, not after. So without this the operator watches a
- * progress bar push 13 MB at a host that was never going to take it, and gets
- * a platform error page this app cannot interpret.
+ * NOT a refusal any more (§115.5). It was: an oversize file entered the queue
+ * already failed, because the hosted platform caps a request body at 4.5 MB and
+ * a real report is 7.6–13.7 MB. `lib/pdfSlice.ts` now sends the pages the
+ * extractor reads instead — verified to extract identically — so the file is
+ * queued and reduced at upload time, and only genuinely refused if even that
+ * will not fit.
  *
- * The wording is the server's own, fetched with the limit, so the browser and
- * the API cannot give two different accounts of the same refusal.
+ * Kept as a predicate because the UI wants to say "this one will be reduced"
+ * before the operator presses anything, and because a queue that silently
+ * altered an upload would be worse than one that says so.
  */
-export function tooLargeReason(file: File): string | null {
-  if (maxUploadBytes === null || file.size <= maxUploadBytes) return null;
-  return `This report is ${mb(file.size)} and this server accepts ${mb(maxUploadBytes)}. `
-    + 'The full-size report imports normally on an installation running on your own '
-    + 'server; a compact 12-page export is small enough to use here.';
+export function needsReducing(file: File): boolean {
+  if (maxUploadBytes === null || !Number.isFinite(maxUploadBytes) || maxUploadBytes <= 0) return false;
+  return file.size > maxUploadBytes;
 }
+
+/** How large this file is, for a message. */
+export const fileSizeLabel = (file: File) => mb(file.size);
 
 export function setRoster(list: RosterAthlete[] | null) { setState({ roster: list }); }
 
@@ -358,18 +374,21 @@ export function addFiles(files: FileList | File[] | null) {
     items: [
       ...state.items,
       ...pdfs.map((file): QueueItem => {
-        // An oversize file enters the queue ALREADY FAILED rather than being
-        // dropped silently or blocking the batch. Same shape as §114's per-file
-        // 503: the rest of the drop still imports, and the one that cannot says
-        // why on its own row.
-        const tooLarge = tooLargeReason(file);
+        // Every PDF is QUEUED, including an oversize one. It used to enter the
+        // queue already failed; since §115.5 the upload is reduced to the pages
+        // the extractor reads, so the file is perfectly importable and only
+        // `extractOne` can decide otherwise. The note below is set up front
+        // because the operator should know before the row starts moving.
+        const willReduce = needsReducing(file);
         return {
         id: nextId++,
         file,
-        status: tooLarge ? 'error' : 'queued',
+        status: 'queued',
         preview: null,
-        error: tooLarge,
-        doneNote: null,
+        error: null,
+        doneNote: willReduce
+          ? `${fileSizeLabel(file)} — larger than this server accepts, so a reduced copy will be sent.`
+          : null,
         matched: null,
         matchSource: null,
         matchedName: '',
@@ -393,11 +412,11 @@ export function retryFailed() {
   setState({
     items: state.items.map((it) => {
       if (it.status !== 'error') return it;
-      // A file that is too large is still too large. Re-queueing it would send
-      // it at the server, have it refused again, and present as a retry loop
-      // the operator cannot break — so the refusal stands and keeps its reason.
-      const tooLarge = tooLargeReason(it.file);
-      if (tooLarge) return { ...it, error: tooLarge };
+      // Everything is retryable again. A size failure now means slicing could
+      // not get it under the cap either, and that IS worth another attempt: the
+      // limit is re-read from the server on every mount, so an operator who
+      // moved to the ISN install gets a different answer rather than a row
+      // permanently stuck on a refusal from somewhere else.
       return { ...it, status: 'queued' as ItemStatus, error: null };
     }),
   });

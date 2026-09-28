@@ -10692,12 +10692,133 @@ is 4.5 MB and this server accepts 4.5 MB"* — a sentence that contradicts itsel
 and sends the reader to report a bug in the uploader. The size now rounds up and
 the limit down, so the two can never print equal when the file is genuinely over.
 
-### 115.4 What is still not done
+### 115.4 → superseded
 
-- **The hosted 4.5 MB cap itself.** Unchanged and unchangeable from here, as
-  above. The three demo reports are 2.1 MB and import on the hosted instance, so
-  the stakeholder walkthrough is unaffected; a real 13 MB report needs the ISN
-  install, and the uploader now says so.
-- **The vision throttle's one-call overshoot.** Bounded and deliberate (115.1).
-  Removing it means a pre-charge with a refund, and the refund is the pattern
-  serverless makes unreliable.
+The section that stood here listed the two things 115.1–115.3 had left undone.
+Both were solved the same day; it is now **115.7**, which records what remains
+and strikes what does not. Kept as a pointer rather than renumbered away,
+because a §115.4 reference written before this edit should land somewhere.
+
+### 115.5 The hosted upload cap, solved rather than explained
+
+§115.3 ended by saying the 4.5 MB platform cap was "not fixable from inside the
+app". That was true of *sending the whole file* and was taken to be true of the
+problem, which is the §112 mistake in miniature: a property of one approach
+generalised to the question.
+
+**Where the bytes actually are.** An expanded report's middle is Angle Change
+Tendency and Deviation Within Recommended Angle Range — dozens of chart images,
+and **nothing in AIRMS reads any of them**. The extractor reads the data pages
+at the front and the Training Prescription at the back. Measured:
+
+| | whole | sliced (pages 1–6 + last 20) |
+|---|---|---|
+| `nazwan.pdf` | 7.58 MB, 38p | **1.70 MB**, 26p |
+| a real 38-page report | 13.67 MB, 38p | **1.71 MB**, 26p |
+| a 28-page report | 2.11 MB, 28p | **1.77 MB**, 26p |
+
+**And the extraction is unchanged.** Each of those three was run through the
+real extractor twice — whole and sliced — and every field matched: both headline
+scores, the three movement components, all indicators, all 25 subitem cells,
+muscle flags with sides, the verbatim Summary, and the prescription at 6 days /
+48 exercises. That equivalence is the entire justification: a smaller upload
+that changed one value would be worthless.
+
+**End to end against a running API with the hosted cap in force**, the case that
+was previously impossible:
+
+```
+report: 13.67 MB   server cap: 4.50 MB
+  WHOLE FILE      -> HTTP 413  (names the remedy)
+  SLICED (1.71 MB) -> HTTP 200, 653 ms
+                      total 78 / risks 14, method text-layer, providerCalls 0
+                      summary 484 ch, prescription 6d/48ex
+```
+
+**The tail window is 20 pages and that is deliberate.** The prescription starts
+at page 35 of 38 and 25 of 28 on the reports measured — the last four — so 20 is
+five times the room needed, and the measurements say the width is nearly free
+(1.70 MB at 20 against 1.62 MB at 14). Cutting the prescription would silently
+drop a clinical programme; paying 80 KB not to is not a trade. Narrower windows
+follow in a ladder so a report heavier than any measured still gets under the
+cap instead of being refused, and every window begins with the same six data
+pages — narrowing may lose the prescription, which degrades an import, but can
+never lose the pages every score comes from, which would produce a *wrong*
+record rather than an incomplete one.
+
+**It only ever runs when it has to.** A file already under the limit is returned
+untouched — `sliceForUpload` returns the same `File` object, and pdf-lib is not
+even loaded. An ISN-hosted install accepts 20 MB and slices nothing; the compact
+12-page layout is ~1 MB and is never touched. Slicing is a hosted-only
+degradation and stays one.
+
+**The operator is told.** The row carries a note naming the pages sent, both
+sizes, and that the values are identical. An upload that silently differed from
+the file somebody chose would be a worse defect than the one being fixed.
+
+**The cost is a dependency**: `pdf-lib`, the first frontend dependency outside
+the framework and chart.js. It is imported **dynamically**, so it is a lazy
+chunk a normal import never downloads. Named here because adding one is a
+decision and should not be discovered later in a lockfile.
+
+### 115.6 The quota is claimed before the call, not charged after it
+
+§115.1 shipped with a stated cost: counting after the extraction returned left a
+caller sitting exactly on the limit able to spend one call over it. Bounded at
+one, documented — and avoidable, which makes "documented" the wrong place to
+stop.
+
+The count now happens **immediately before each provider call**, inside the
+extractor, through a `reserveProviderCall` callback the route supplies.
+Increment first, then test the result: the 61st claim in a window sees 61 and is
+refused before anything is sent. Test-then-increment is the version with the
+overshoot.
+
+The two call sites degrade differently, and that difference is the design:
+
+- **The Summary top-up** loses the Summary and imports anyway. The numbers are
+  already read and exact; a missing Summary is what §70's renderer already
+  handles, and is the same degradation as having no provider configured.
+- **The compact layout** is refused with **429**, because it carries no text at
+  all and there is nothing to fall back on. 429 rather than 503 because the
+  cause is this caller's own rate of use, not the server's configuration.
+
+`visionThrottle` stays mounted as a cheap gate that refuses an already-over
+caller before multer buffers the upload, and still does not count.
+
+**What this does not fix, stated plainly:** `SettingsRateLimitStore.increment`
+is a read-modify-write in JavaScript, so two truly simultaneous claims can lose
+an update and both see the same total. That is a property of the store, shared
+with the auth limiter, and a different problem from the ordering one solved
+here.
+
+One robustness defect fell out of writing the test: `Number(undefined) <= LIMIT`
+is `false`, so a store answering without a usable total would have been read as
+a refusal — turning a broken meter into an outage for every import. It now fails
+open like every other path in that file.
+
+### 115.7 What is still not done
+
+Both items this section originally listed were solved the same day, in 115.5 and
+115.6. They are struck rather than deleted, because a section recording what is
+NOT done is exactly the kind of claim that goes stale and keeps being read —
+which is what 112.7 did, three sections earlier in this same file.
+
+- ~~**The hosted 4.5 MB cap itself.** Unchanged and unchangeable from here.~~ —
+  **solved (115.5)**, by sending the pages the extractor reads instead of the
+  whole file. A 13.67 MB report imports on the hosted cap at 1.71 MB with every
+  value identical.
+- ~~**The vision throttle's one-call overshoot.** Bounded and deliberate.~~ —
+  **solved (115.6)**, by claiming the call before making it rather than charging
+  after. The residual is the store's lost-update race, which is a different
+  problem and is named there.
+
+Still genuinely open:
+
+- **The store's read-modify-write.** Two simultaneous claims can lose an update.
+  Shared with the auth limiter; fixing it means an atomic counter, which
+  `settings.value` being a JSON column makes awkward.
+- **Slicing is proven on four real reports, not on a corpus.** The page ladder
+  and the 6-page head are measurements, not guarantees about a layout HoloMotion
+  has not shipped yet. The head is never narrowed, so the failure mode is a lost
+  prescription rather than a wrong score.

@@ -710,9 +710,10 @@ const MUTATIONS = [
     why: 'since §112/§114 most previews call no provider; counting requests rationed free work (§115)',
     pkg: 'backend',
     file: 'src/utils/visionThrottle.js',
-    // The old behaviour, restored. Every unit test on visionKey/LIMIT still
-    // passes and the cap looks identical from outside — it just charges an ISN
-    // install 60/hour for work that draws nothing.
+    // The old behaviour, restored: counting at the door rather than at the
+    // point of spend. Every unit test on visionKey/LIMIT still passes and the
+    // cap looks identical from outside — it just charges an ISN install
+    // 60/hour for work that draws nothing.
     //
     // SINGLE-LINE, like every other entry here, and that is not a style rule.
     // The first version of this spanned two lines joined with `\r\n` and
@@ -736,12 +737,12 @@ const MUTATIONS = [
     test: 'tests/visionThrottle.test.js',
   },
   {
-    guard: 'vision throttle: the charge is AWAITED inside the request',
-    why: 'post-response work on Vercel is deferred until another request thaws the instance (SILENT_FAILURES 3r)',
+    guard: 'vision throttle: the extractor is actually given a way to claim a call',
+    why: 'reserveVisionCall is valid whether or not anything calls it — the winAnsiSafe shape (§115.6)',
     pkg: 'backend',
     file: 'src/routes/upload.js',
-    find: 'await chargeVisionQuota(req, result.providerCalls);',
-    replace: 'chargeVisionQuota(req, result.providerCalls);',
+    find: '      reserveProviderCall: () => reserveVisionCall(req),',
+    replace: '      reserveProviderCall: null,',
     test: 'tests/visionThrottle.test.js',
   },
   {

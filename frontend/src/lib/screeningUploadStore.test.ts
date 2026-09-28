@@ -1,4 +1,4 @@
-import { parseNameFromFilename, setMaxUploadBytes, tooLargeReason } from './screeningUploadStore';
+import { parseNameFromFilename, setMaxUploadBytes, needsReducing } from './screeningUploadStore';
 
 // The athlete is resolved from this name — roster first, then the ISN directory
 // — so anything left clinging to it (a batch number, a hash) makes the lookup
@@ -103,60 +103,52 @@ describe('parseNameFromFilename', () => {
 const MB = 1024 * 1024;
 const file = (mb: number) => ({ size: mb * MB, name: 'report.pdf' } as File);
 
-describe('tooLargeReason', () => {
+
+describe('needsReducing', () => {
   afterEach(() => setMaxUploadBytes(null));
 
-  it('refuses NOTHING until the server has stated a limit', () => {
-    // Null means "not answered yet". Guessing a cap would reject files the
-    // server would have taken, which is worse than the round trip this saves —
-    // and it is exactly what a hardcoded 4.5 would do on an ISN install.
+  it('says no until the server has stated a limit', () => {
+    // Null means "not answered yet". Guessing would reduce an upload the server
+    // would have taken whole, which loses pages for nothing.
     setMaxUploadBytes(null);
-    expect(tooLargeReason(file(13.7))).toBeNull();
+    expect(needsReducing(file(13.7))).toBe(false);
   });
 
-  it('accepts a real report on a server sized for one', () => {
+  it('leaves a real report alone on a server sized for one', () => {
+    // An ISN-hosted install accepts 20 MB, so nothing is ever sliced there and
+    // the uploaded bytes are exactly the file the operator chose.
     setMaxUploadBytes(20 * MB);
-    expect(tooLargeReason(file(13.67))).toBeNull();
-    expect(tooLargeReason(file(7.58))).toBeNull();
+    expect(needsReducing(file(13.67))).toBe(false);
+    expect(needsReducing(file(7.58))).toBe(false);
   });
 
-  it('refuses the same report against the hosted cap', () => {
+  it('flags the same report against the hosted cap', () => {
     setMaxUploadBytes(4.5 * MB);
-    expect(tooLargeReason(file(13.67))).toMatch(/13\.7 MB/);
-    expect(tooLargeReason(file(7.58))).toBeTruthy();
+    expect(needsReducing(file(13.67))).toBe(true);
+    expect(needsReducing(file(7.58))).toBe(true);
   });
 
-  it('still accepts the three demo reports on the hosted cap', () => {
-    // The stakeholder walkthrough runs on the hosted instance, so this is the
-    // case that must not regress.
+  it('leaves the three demo reports and the compact layout alone', () => {
+    // The stakeholder walkthrough runs on the hosted instance and must not be
+    // touching the slicing path at all.
     setMaxUploadBytes(4.5 * MB);
-    expect(tooLargeReason(file(2.11))).toBeNull();
-    expect(tooLargeReason(file(1.02))).toBeNull();
+    expect(needsReducing(file(2.11))).toBe(false);
+    expect(needsReducing(file(1.02))).toBe(false);
   });
 
-  it('allows a file exactly ON the limit', () => {
-    // `>` not `>=`. A file the server would accept must not be refused by the
-    // browser — the two answers disagreeing is the failure this whole check
-    // exists to avoid.
+  it('leaves a file exactly ON the limit alone', () => {
+    // `>` not `>=`. Reducing a file the server would have accepted whole drops
+    // pages for no reason.
     setMaxUploadBytes(4.5 * MB);
-    expect(tooLargeReason(file(4.5))).toBeNull();
+    expect(needsReducing(file(4.5))).toBe(false);
   });
 
-  it('ignores a nonsense limit rather than refusing everything', () => {
-    // A backend that sends 0, or null, or a string, must not disable ingestion
-    // with a message blaming the file.
+  it('ignores a nonsense limit rather than reducing everything', () => {
+    // A backend sending 0, a negative, or NaN must not put every upload through
+    // the slicer.
     for (const v of [0, -1, NaN]) {
       setMaxUploadBytes(v);
-      expect(tooLargeReason(file(13.67))).toBeNull();
+      expect(needsReducing(file(13.67))).toBe(false);
     }
-  });
-
-  it('names the remedy, not just the problem', () => {
-    // The failure guarded here is somebody re-exporting the report smaller to
-    // fit, and losing data. The remedy is a different install.
-    setMaxUploadBytes(4.5 * MB);
-    const msg = tooLargeReason(file(13.67)) as string;
-    expect(msg).toMatch(/your own server/i);
-    expect(msg).not.toMatch(/compress|reduce the quality/i);
   });
 });

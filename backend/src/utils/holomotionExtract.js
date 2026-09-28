@@ -168,10 +168,15 @@ const { prescriptionFromPdf } = require('./prescription');
  * Page 1 is also the page carrying the name, so redaction still runs on it
  * exactly as before — renderForExtraction does that unconditionally.
  */
-async function summaryFromPage1(buffer) {
+async function summaryFromPage1(buffer, reserve) {
   const images = await renderForExtraction(buffer, undefined, 1);
   // Nothing rendered means nothing was SENT, so nothing is chargeable.
   if (!images.length) return { summary: null, usage: null, providerCalls: 0 };
+  // CLAIM THE CALL BEFORE MAKING IT (§115.6). Refused means the caller is out of
+  // quota: the numbers are already read and exact, so the report still imports —
+  // it loses the Summary, which is the same degradation as having no provider
+  // configured at all, and §70's renderer already handles its absence.
+  if (reserve && !(await reserve())) return { summary: null, usage: null, providerCalls: 0, refused: true };
   const { text, usage } = await visionComplete(EXTRACTION_PROMPT, images);
   // PAST THIS LINE THE CALL HAS HAPPENED and the allowance is spent, so nothing
   // below may throw its way out of the accounting. A malformed reply is a lost
@@ -195,7 +200,7 @@ async function summaryFromPage1(buffer) {
   };
 }
 
-async function extractFromPdf(buffer) {
+async function extractFromPdf(buffer, { reserveProviderCall } = {}) {
   // THE FAST PATH: read the report rather than look at it (2026-09-22, §112).
   //
   // Tried FIRST and gated on its own answer. `{ ok: false }` means the compact
@@ -237,7 +242,7 @@ async function extractFromPdf(buffer) {
 
     if (!summary && isVisionConfigured()) {
       try {
-        const top = await summaryFromPage1(buffer);
+        const top = await summaryFromPage1(buffer, reserveProviderCall);
         summary = top.summary;
         usage = top.usage;
         summaryPages = top.pagesRead || [];
@@ -304,6 +309,17 @@ async function extractFromPdf(buffer) {
   }
   const images = await renderForExtraction(buffer);
   if (!images.length) throw expose(new Error('Could not render any pages from the PDF'), 502);
+  // CLAIM THE CALL BEFORE MAKING IT (§115.6). Unlike the Summary top-up there is
+  // no degraded result to fall back on here — this layout carries no text at all
+  // — so being out of quota is a refusal, and it is a 429 rather than a 503
+  // because the cause is this caller's own rate of use.
+  if (reserveProviderCall && !(await reserveProviderCall())) {
+    throw expose(new Error(
+      'Too many screening extractions in the last hour. This report is the compact '
+      + '12-page layout, which has no text to read and so needs the vision provider. '
+      + 'Wait a few minutes and continue the batch — reports already committed are unaffected.',
+    ), 429);
+  }
   const { text, usage } = await visionComplete(EXTRACTION_PROMPT, images);
   const extracted = parseJsonReply(text);
   const mapped = mapToAthlete(extracted);

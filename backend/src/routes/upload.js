@@ -8,7 +8,7 @@ const rbac = require('../middleware/rbac');
 const requirePermission = require('../middleware/permission');
 const { extractFromPdf } = require('../utils/holomotionExtract');
 const { isVisionConfigured, visionConfig } = require('../utils/visionClient');
-const { visionThrottle, chargeVisionQuota } = require('../utils/visionThrottle');
+const { visionThrottle, reserveVisionCall } = require('../utils/visionThrottle');
 const { queuePostImport } = require('../utils/postImport');
 const { sendError, expose } = require('../utils/httpError');
 const { maxUploadBytes, tooLargeMessage } = require('../utils/uploadLimits');
@@ -154,19 +154,20 @@ router.post('/screening/pdf/preview', auth, rbac('medical', 'admin'), requirePer
     // naming the compact layout only when it genuinely has to fall back and
     // cannot. The refusal now describes THIS report rather than the whole
     // feature.
-    const result = await extractFromPdf(req.file.buffer);
-    // CHARGE THE QUOTA FOR WHAT WAS ACTUALLY SPENT (2026-09-28).
+    // THE QUOTA IS CLAIMED AT THE POINT OF SPEND, not here (§115.6).
     //
-    // `visionThrottle` above is now a gate that refuses at the limit without
-    // incrementing; this is the other half. AWAITED, before the response, for
-    // the reason DEPLOY.md and SILENT_FAILURES 3r spell out: post-response work
-    // on Vercel is deferred until another request thaws the instance, so an
-    // increment scheduled after `res.json` lands eventually and never in time.
+    // `visionThrottle` above is a cheap gate that refuses an already-over caller
+    // before multer buffers the upload; it does not count. The counting happens
+    // inside the extractor, immediately before each provider call, via this
+    // callback — so a report read from the text layer costs nothing and a
+    // caller on the limit cannot spend one over it.
     //
-    // An expanded report reports 0 and costs nothing. A failure to record is
-    // logged and swallowed inside chargeVisionQuota — losing the accounting
-    // must not lose the operator their extraction.
-    await chargeVisionQuota(req, result.providerCalls);
+    // Everything is inside the request and awaited. Post-response work on Vercel
+    // is deferred until another request thaws the instance (SILENT_FAILURES 3r),
+    // which is why neither half of this is done after `res.json`.
+    const result = await extractFromPdf(req.file.buffer, {
+      reserveProviderCall: () => reserveVisionCall(req),
+    });
     // Deliberately does NOT echo the filename back: it can carry PII (the
     // sample's name + phone number live in the filename) and the UI shows the
     // browser's local File name instead, so returning it served no purpose.

@@ -172,9 +172,15 @@ describe('the extractor consults it, and does so first', () => {
   // bare occurrences reported the wrong order against correct code — the third
   // time in this branch that a source test matched a definition instead of a
   // use. `await` and `const recovered =` occur only at the call sites.
+  //
+  // The `buffer)` suffix was dropped on 2026-09-28: §115.6 gave the call a
+  // second argument (`summaryFromPage1(buffer, reserveProviderCall)`) and this
+  // duly went red, which is the guard working. Anchoring on `(buffer` keeps the
+  // distinction that matters — a CALL, not the declaration — without pinning the
+  // argument list, which is not what this test is about.
   it('recovers before reaching for the model', () => {
     const recover = src.indexOf('const recovered = recoverSummary(buffer)');
-    const vision = src.indexOf('await summaryFromPage1(buffer)');
+    const vision = src.indexOf('await summaryFromPage1(buffer');
     expect(recover).toBeGreaterThan(-1);
     expect(vision).toBeGreaterThan(-1);
     expect(recover).toBeLessThan(vision);

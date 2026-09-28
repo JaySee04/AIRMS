@@ -151,30 +151,45 @@ async function visionThrottle(req, res, next) {
 }
 
 /**
- * The charge. Called by the route AFTER extraction, with the number of provider
- * calls that actually happened, and AWAITED.
+ * Claim one provider call, BEFORE it is made. Returns whether it may proceed.
  *
- * `calls` comes from the extractor rather than being inferred from `usage`: a
- * provider that returns no usage block would otherwise read as a free call, and
- * the one thing this must not do is under-count the very thing it meters.
+ * WHY THIS REPLACED A POST-HOC CHARGE. The first version of this counted after
+ * the extraction returned, which left a caller sitting exactly on the limit able
+ * to spend one call over it — documented and bounded, but avoidable. Counting
+ * FIRST and testing the result removes it: the 61st claim in a window sees 61
+ * and is refused before anything is sent.
+ *
+ * It is increment-then-test rather than test-then-increment for the same reason
+ * every such counter is: the read and the write are two operations, and the
+ * order that fails safe is the one where the write happens first.
+ *
+ * WHAT IT DOES NOT FIX, said plainly: `SettingsRateLimitStore.increment` is a
+ * read-modify-write in JavaScript, so two truly simultaneous claims can still
+ * lose an update and both see the same total. That is a property of the store,
+ * shared with the auth limiter, and is a different problem from the ordering one
+ * this addresses.
+ *
+ * FAILS OPEN, like everything else in this file: if the counter cannot be
+ * written the call proceeds. A settings-table hiccup must not stop an import.
  */
-async function chargeVisionQuota(req, calls = 0) {
-  const n = Number(calls) || 0;
-  if (n <= 0) return 0;
+async function reserveVisionCall(req) {
   const key = visionKey(req);
   try {
-    for (let i = 0; i < n; i += 1) {
-      // Sequential on purpose: the store is read-modify-write, so parallel
-      // increments on one key would overwrite each other and under-count.
-      // eslint-disable-next-line no-await-in-loop
-      await store.increment(key);
-    }
+    const { totalHits } = (await store.increment(key)) || {};
+    const n = Number(totalHits);
+    // A store that answers without a usable total is BROKEN, not a refusal.
+    // `Number(undefined) <= LIMIT` is false, so the obvious expression turns a
+    // malformed reply into a hard outage for every import — the same fail-open
+    // rule as the catch below, and it needs saying because the wrong answer
+    // here looks like arithmetic rather than like a policy.
+    if (!Number.isFinite(n)) return true;
+    return n <= LIMIT;
   } catch (err) {
-    logger.error('vision_quota.charge_failed', { err: err.message, calls: n });
+    logger.error('vision_quota.reserve_failed', { err: err.message });
+    return true;
   }
-  return n;
 }
 
 module.exports = {
-  visionThrottle, chargeVisionQuota, readQuota, visionKey, LIMIT, WINDOW_MS, store,
+  visionThrottle, reserveVisionCall, readQuota, visionKey, LIMIT, WINDOW_MS, store,
 };

@@ -18,7 +18,7 @@ Vercel, not of AIRMS**, and they disappear here.
 
 | | Vercel | ISN server |
 |---|---|---|
-| Upload size | 4.5 MB — **rejects 19 of 24 real reports** | app's own 20 MB — **rejects none** (largest measured 13.2 MB) |
+| Upload size | 4.5 MB, but the uploader sends a **reduced copy** of anything larger (§115.5) — 13.67 MB becomes 1.71 MB and extracts identically | app's own 20 MB — **rejects none** (largest measured 13.67 MB), and **nothing is ever sliced**: the bytes uploaded are the file the operator chose |
 | Where the PDF goes | browser → third-party host → (maybe) vision provider | browser → ISN server. With no vision key, **it never leaves the institution** |
 | Scheduled email | Hobby plans refuse sub-daily cron | ordinary OS scheduler |
 | Post-response work | deferred until the next request thaws the instance (`SILENT_FAILURES.md` 3r) | a long-lived process; does not arise |
