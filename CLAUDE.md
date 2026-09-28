@@ -81,7 +81,7 @@ cd backend; npm run mutate           # BREAK each registered guard on purpose an
                                      # skip is right; the consequence is that the guard
                                      # reports SURVIVED while a dev server runs, which
                                      # is environmental and not a real regression.
-                                     # test is not testing what it claims. 82 guards across
+                                     # test is not testing what it claims. 83 guards across
                                      # both packages. NOT part of `npx jest` — it spawns a
                                      # jest run per mutation (tens of seconds). Run it before
                                      # committing a change to a guard, and add an entry when
@@ -1556,6 +1556,21 @@ call site.
 **Run `npm run mutate` after any comment pass.** Several guards' `find` strings
 are exact source lines that sit next to comments; the mutation run is what
 proves an edit did not disturb one.
+
+**A comment can also SATISFY a test, and `tests/proseBlindness.test.js` is the
+standing guard** (2026-09-28, `DESIGN_DECISIONS.md §118`). ~13 tests read source
+as TEXT — the technique that catches the `winAnsiSafe` shape — and the needle can
+be sitting in the prose. It happened twice in one day: a comment reading
+"`providerCalls: 1` alone also matches" kept an assertion green after `npm run
+mutate` flipped the code to `0` (§115), and a comment reading "reads `env.NAME`"
+put an environment variable called **NAME** into the generated inventory
+(§117.5). The guard re-checks every positive `toContain`/`toMatch` on file text
+against a COMMENT-STRIPPED copy, and proved itself by planting
+`expect(UPLOAD_ROUTES).toContain('Deliberately does NOT echo the filename
+back')` — a comment-only string — which the suite reported as **37/37 passed**
+and nothing else objected to. **So: when writing a comment next to code a test
+asserts on, do not quote the asserted string in it.** A test asserting a comment
+is intentional must name its variable `raw`, which is the exemption.
 
 ## Working norms for this repo
 

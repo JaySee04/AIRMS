@@ -763,6 +763,18 @@ const MUTATIONS = [
     test: 'tests/visionThrottle.test.js',
   },
   {
+    guard: 'prose blindness: the comment stripper is not inert',
+    why: 'a stripper matching nothing reports every source assertion as code-backed (§118)',
+    pkg: 'backend',
+    file: 'tests/proseBlindness.test.js',
+    // The classic inert-stripper mutation: drop the CRLF normalisation and the
+    // line-comment strip matches nothing on this repo's files, so every
+    // assertion checked below is compared raw against raw and passes.
+    find: "  .replace(/\\r\\n/g, '\\n')\n  .replace(/\\/\\*[\\s\\S]*?\\*\\//g, '')",
+    replace: "  .replace(/\\r\\n/g, '\\r\\n')\n  .replace(/ZZNEVERMATCHZZ/g, '')",
+    test: 'tests/proseBlindness.test.js',
+  },
+  {
     guard: 'build fingerprint: line endings do not make a build look stale',
     why: '.gitattributes checks out eol=lf, so a Windows tree is CRLF and the deploy is LF (§117)',
     pkg: 'backend',

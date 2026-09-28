@@ -11056,3 +11056,88 @@ default is wrong.**
   fingerprint, which is correct — that is what it is running — but means the
   digest answers "what did this process load", not "what is in the directory
   right now".
+
+
+## 118. A source-reading test must be satisfied by code, not by its own documentation (2026-09-28)
+
+This repo reads source as TEXT in ~13 tests. The technique is load-bearing: it
+is what catches the `winAnsiSafe` shape, where a function is defined, exported,
+unit-tested and **never called**. It has one failure mode nobody was checking —
+**the needle can be sitting in a comment** — and on 2026-09-28 it fired twice:
+
+| | |
+|---|---|
+| **§115** | `visionThrottle.test.js` asserted the vision return block contains `providerCalls: 1`. `npm run mutate` flipped the code to `0` and the test still passed: the comment above it read *"`providerCalls: 1` alone also matches summaryFromPage1"*. |
+| **§117.5** | `npm run map` was widened to count `env.NAME`. The comment explaining the widening contains the words *"reads `env.NAME`"*, so the next run added an environment variable called **NAME**. |
+
+One was found by a mutation run, the other by reading a diff. Both by accident.
+Fixing the two instances is not fixing the thing; `tests/proseBlindness.test.js`
+asks the question of every such assertion, every time.
+
+### 118.1 What it checks
+
+For each positive `toContain('…')` / `toMatch(/…/)` whose subject derives from a
+variable holding file text: does the needle still match once comments are
+stripped? If it matches the raw file and not the code, the assertion is passing
+on prose and would keep passing with the code deleted.
+
+**The audit found no existing defect** — the two known cases were already fixed,
+and nothing else in the repo was passing on prose. That negative result is worth
+as much as a positive one and is why the guard is standing rather than one-off.
+
+### 118.2 Three things it got wrong first, each caught by its own floor
+
+The floor — *"found assertions to check at all"* — is the reason this is not
+another vacuous pass. It failed three times before the guard was correct:
+
+- **`const NAME` only.** Matching `[A-Z][A-Z0-9_]*` and `fs.readFileSync` missed
+  `camelCase` names and `require('fs').readFileSync`. **1 assertion resolved of
+  ~50.**
+- **`toContain` only.** These tests lean on `toMatch(/…/)` — 19 in one file —
+  so counting literals alone resolved **3 across 2 files**, and would have
+  missed nothing of interest. Regexes are now constructed and run against both
+  texts.
+- **A bare subject only.** The real §115 defect was a SLICED subject:
+  `expect(block.split('};')[0]).toContain('providerCalls: 1')`. A guard
+  restricted to `expect(VAR)` would have missed the one instance it exists
+  because of. It now walks back from the assertion to its `expect(`.
+
+And one bug in the guard itself: `.not.toContain` was meant to be exempt — prose
+there is a *false alarm*, which is loud, and this file is about the silent
+direction. The exclusion tested `/\.not\./`, but the subject slice ends **at**
+the `.toContain`, so the text arrives as `expect(x).not` with no trailing dot.
+It matched nothing, and the guard mis-flagged another test's canary.
+
+### 118.3 The exemption is a convention that already existed
+
+A test may legitimately assert a comment EXISTS: `visionThrottle` and
+`accountLifecycle` both strip comments and then require the un-stripped text to
+still contain one, proving the stripper is not inert. Both name that variable
+`raw` / `EXTRACT_RAW`, so an assertion on a variable named `raw` (or ending
+`_raw`) is exempt. The convention was discovered, not invented — which is the
+reason to trust it.
+
+### 118.4 Proven by planting the defect
+
+A guard nobody has seen fail is a guess. Planted in `visionThrottle.test.js`:
+
+```js
+expect(UPLOAD_ROUTES).toContain('Deliberately does NOT echo the filename back');
+```
+
+— a string that exists in `upload.js` only as a comment. The suite reported
+**37/37 passed**. Nothing else in the repo objected. `proseBlindness` was the
+only thing that did, naming the file, the assertion and the target. Removing the
+plant returned it to green.
+
+### 118.5 What it does not do
+
+- It sees assertions on a **variable**. A test that reads through a helper —
+  `routeLine(...)` in `visionThrottle.test.js` — is invisible to it. The floor
+  is what keeps that honest: if the derivation stops resolving, the count drops
+  and the suite goes red rather than quiet.
+- It is backend-only. The frontend has source-reading tests (`app/pageWiring`,
+  `roleRouting`) and they are not covered yet.
+- A regex it cannot construct is skipped and **not counted toward the floor**,
+  so a wave of unparseable patterns shows up as finding too little rather than
+  as a pass.
