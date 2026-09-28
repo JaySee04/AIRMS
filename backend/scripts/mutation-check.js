@@ -763,6 +763,27 @@ const MUTATIONS = [
     test: 'tests/visionThrottle.test.js',
   },
   {
+    guard: 'build fingerprint: line endings do not make a build look stale',
+    why: '.gitattributes checks out eol=lf, so a Windows tree is CRLF and the deploy is LF (§117)',
+    pkg: 'backend',
+    file: 'src/utils/buildId.js',
+    // Drop the normalisation and every local-vs-hosted comparison reports
+    // "stale" for a reason that has nothing to do with the code — the false
+    // alarm that gets a check switched off rather than heeded.
+    find: "    h.update(fs.readFileSync(f, 'utf8').replace(/\\r\\n/g, '\\n'));",
+    replace: "    h.update(fs.readFileSync(f, 'utf8'));",
+    test: 'tests/buildId.test.js',
+  },
+  {
+    guard: 'build fingerprint: verify:claims refuses a stale instance',
+    why: 'every claim it prints is read as a fact about the source (§113, §116.5)',
+    pkg: 'backend',
+    file: 'scripts/verify-claims.js',
+    find: '  const fresh = await checkFresh(API);',
+    replace: "  const fresh = { ok: true, reason: 'match', local: 'x', remote: 'x' };",
+    test: 'tests/buildId.test.js',
+  },
+  {
     guard: 'cohorts payload: the parked stats blob is read, not shipped',
     why: '27.5 KB of 80.9 KB that no file in frontend/src names (§116)',
     pkg: 'backend',

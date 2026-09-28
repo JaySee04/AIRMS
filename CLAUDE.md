@@ -81,7 +81,7 @@ cd backend; npm run mutate           # BREAK each registered guard on purpose an
                                      # skip is right; the consequence is that the guard
                                      # reports SURVIVED while a dev server runs, which
                                      # is environmental and not a real regression.
-                                     # test is not testing what it claims. 80 guards across
+                                     # test is not testing what it claims. 82 guards across
                                      # both packages. NOT part of `npx jest` — it spawns a
                                      # jest run per mutation (tens of seconds). Run it before
                                      # committing a change to a guard, and add an entry when
@@ -234,6 +234,26 @@ cd backend; npm run migrate:drop-redundant-indexes   # drop what verify:schema r
                                      # refuses if the covering index is missing or does not actually
                                      # cover. LOCAL ONLY so far; the hosted database is expected to
                                      # hold both and is untouched on purpose (DD 94.6).
+cd backend; node scripts/assert-fresh.js   # IS THE RUNNING SERVER THE CODE YOU ARE READING?
+                                     # Compares /api/health's `build` (utils/buildId.js — a
+                                     # digest of every .js under backend/src) against this
+                                     # working tree, and exits 1 on a mismatch. Added
+                                     # 2026-09-28 (DD 117) after the inference "a running
+                                     # instance reflects the source" was wrong TWICE in one
+                                     # day: the six-day hosted outage probed from the working
+                                     # tree (§113), and a restart that failed on a port the
+                                     # old server still held, so an "after" measurement came
+                                     # from the "before" build and reported no change
+                                     # (§116.5). Neither failed loudly; both produced a
+                                     # plausible number. `--url` for another target,
+                                     # `--strict` to fail rather than warn when the instance
+                                     # predates the field (the HOSTED one does, until the
+                                     # next deploy). verify:claims calls it BEFORE measuring
+                                     # anything. Line endings are normalised before hashing —
+                                     # .gitattributes checks out eol=lf, so without that every
+                                     # local-vs-hosted comparison would cry "stale".
+                                     # 89.5 ms once per process (88 files), then ~0, and only
+                                     # /api/health computes it.
 cd backend; npm run verify:claims    # check the OPERATIONAL claims against a RUNNING instance and
                                      # print the measured number for each. Needs `npm run dev`.
 cd backend; npm run verify:claims -- --hosted   # ...against the deployed API (10/10 on 2026-09-11)

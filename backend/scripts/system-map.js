@@ -179,11 +179,48 @@ function auditActions() {
   return [...set].sort();
 }
 
+// EVERY environment variable, and "every" is the claim SYSTEM_MAP makes.
+//
+// It matched `process.env.NAME` and nothing else, which missed a whole shape:
+// a module that takes the environment as an INJECTED PARAMETER for testability
+// reads `env.NAME`, and the literal never appears. `utils/uploadLimits.js` does
+// exactly that with `AIRMS_MAX_UPLOAD_BYTES`, and the variable was absent from
+// the inventory while being documented in three other files (§117.5).
+//
+// The second pattern is deliberately NARROW: `env.NAME` is only counted in a
+// file that also contains `= process.env`, i.e. one that demonstrably injects
+// the environment. Without that guard it would match any SCREAMING_CASE
+// property access — `facts.RISK_INDICATORS`, `BAND_LABEL.GREEN` — and fill the
+// inventory with things that are not environment variables at all. A generated
+// list that over-reports is no more use than one that under-reports; it just
+// fails differently.
+// COMMENTS ARE STRIPPED FIRST, and that is not tidiness — it is the same defect
+// this scanner was being widened to fix, caught immediately. The comment above
+// contains the words "reads `env.NAME`", and the first run of the widened
+// pattern duly added a variable called NAME to the inventory. A generated list
+// that reads prose is documenting its own documentation.
+//
+// `\r\n` normalised BEFORE the strip: `.` does not match `\r`, so a stripper
+// written against LF is silently inert on every CRLF file in this repo, which is
+// most of them.
+const stripComments = (src) => src
+  .replace(/\r\n/g, '\n')
+  .replace(/\/\*[\s\S]*?\*\//g, '')
+  .split('\n')
+  .map((l) => l.replace(/\/\/.*$/, ''))
+  .join('\n');
+
 function envVars() {
-  const src = walk(path.join(BE, 'src'), (n) => n.endsWith('.js'))
-    .concat(walk(path.join(BE, 'scripts'), (n) => n.endsWith('.js'))).map(read).join('\n');
+  const files = walk(path.join(BE, 'src'), (n) => n.endsWith('.js'))
+    .concat(walk(path.join(BE, 'scripts'), (n) => n.endsWith('.js')));
   const set = new Set();
-  for (const m of src.matchAll(/process\.env\.([A-Z][A-Z0-9_]*)/g)) set.add(m[1]);
+  for (const f of files) {
+    const src = stripComments(read(f));
+    for (const m of src.matchAll(/process\.env\.([A-Z][A-Z0-9_]*)/g)) set.add(m[1]);
+    if (/=\s*process\.env\b/.test(src)) {
+      for (const m of src.matchAll(/\benv\.([A-Z][A-Z0-9_]*)/g)) set.add(m[1]);
+    }
+  }
   return [...set].sort();
 }
 

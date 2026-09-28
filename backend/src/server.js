@@ -13,6 +13,7 @@ const helmet = require('helmet');
 const { connectDB, sequelize } = require('./config/db');
 const { sendError } = require('./utils/httpError');
 const logger = require('./utils/logger');
+const { buildId } = require('./utils/buildId');
 require('./models'); // register models + associations
 
 const authRoutes = require('./routes/auth');
@@ -110,10 +111,26 @@ app.use(express.urlencoded({ extended: true }));
 // SELECT 1 rather than a model query: it proves the pool can reach the server
 // without depending on any table existing, so a schema problem reports itself
 // elsewhere rather than as "unhealthy" here.
+//
+// `build` WIDENS THE STATED SURFACE BY ONE FIELD, and the reason is §117. This
+// endpoint's rule is "an ok flag and whether the database answered", so adding
+// anything needs an argument rather than a shrug:
+//
+//   * it is what makes a measurement trustworthy. Twice in one day a probe
+//     reported on a build that was not the code being read — the six-day hosted
+//     outage (§113) and a stale local server (§116.5) — and in both cases the
+//     running instance could not be asked what it was.
+//   * it discloses nothing. A 12-hex digest of source CONTENT is opaque; it
+//     says the build changed, which anyone watching behaviour already knows.
+//     No path, no version, no dependency is named (§48's rule is that a
+//     response reveals nothing it was not asked to, and this is asked for).
+//   * the alternative was a second endpoint or an authenticated one, and the
+//     callers that need it most are a deploy check and an uptime monitor —
+//     exactly the two that have no session.
 app.get('/api/health', async (_req, res) => {
   try {
     await sequelize.query('SELECT 1');
-    res.json({ ok: true, db: 'up' });
+    res.json({ ok: true, db: 'up', build: buildId() });
   } catch (err) {
     // 503, not 500: the app is fine, its dependency is not — and an uptime
     // monitor should read this as "down" so a sleeping database is visible
@@ -123,7 +140,10 @@ app.get('/api/health', async (_req, res) => {
     // design. Its stated surface is an ok flag and whether the database
     // answered — returning the raw error broke its own rule.
     console.error('[health] database unreachable:', err.message);
-    res.status(503).json({ ok: false, db: 'down' });
+    // The build still answers on the failure path: "which code is this?" is
+    // most worth asking when something is wrong, and a check that could only
+    // read it from a healthy instance would be missing exactly then.
+    res.status(503).json({ ok: false, db: 'down', build: buildId() });
   }
 });
 

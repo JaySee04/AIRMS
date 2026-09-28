@@ -10919,3 +10919,140 @@ testing the previous build and passing. The lesson generalises past ports —
 thing you changed**, and "the number did not move" deserves the same suspicion
 as a number that moved too much. The re-run confirmed the server was fresh by
 reading its own boot line out of the log before probing it.
+
+## 117. A running instance is a claim about code, and nothing was checking it (2026-09-28)
+
+Every probe in this repo — `verify:claims`, `audit:access`, `npm run e2e` — asks
+a RUNNING instance a question and then reports the answer as a fact about the
+source. That step is an inference, it was never examined, and it has been wrong
+twice in one day:
+
+| | what happened |
+|---|---|
+| **§113** | the hosted API was broken for six days. Probes reasoned from the WORKING TREE — *"INDICATOR_ATTRS names those columns"* — about a deployed build that predated them. Every conclusion was confidently wrong, twice, in the same direction. |
+| **§116.5** | a restart failed on a port the previous server still held, so an "after" measurement came from the "before" build and reported no change. |
+
+Neither failed loudly. Both produced a plausible number, which is this project's
+defect class in one sentence (`docs/SILENT_FAILURES.md`): *a wrong answer that
+looks like a right one*. §113 was settled in the end by asking
+`information_schema`, on the principle that you ask the database about the
+database. This is the same move for code: **ask the process what it is running.**
+
+### 117.1 The fingerprint
+
+`utils/buildId.js` hashes every `.js` under `backend/src` by CONTENT, sorted by
+path, and `GET /api/health` reports the first 12 hex characters.
+
+- **Content, not mtime** — a checkout rewrites mtimes and says nothing about
+  what changed.
+- **Content, not the git SHA** — the working tree is usually dirty, and a
+  deployed bundle has no `.git` at all.
+- **The path is hashed alongside the bytes**, so a rename changes the answer. A
+  file that moved is a change to what runs even when every byte survives.
+- **Line endings are normalised first**, and this one is load-bearing rather
+  than tidy: `.gitattributes` checks the repo out with `eol=lf`, so a Windows
+  working copy holds CRLF while the deployed bundle holds LF. Hashing raw bytes
+  would report *every* local-versus-hosted comparison as stale, for a reason
+  that has nothing to do with the code — and a check that cries wolf is a check
+  somebody switches off. It is in the mutation registry for that reason.
+
+Computed once at first call and cached. It must never be the reason a server
+fails to start, so a tree it cannot read yields `'unknown'` rather than throwing.
+
+### 117.2 Why it went on an unauthenticated endpoint
+
+`/api/health`'s stated surface is "an ok flag and whether the database
+answered", so widening it needs an argument rather than a shrug:
+
+- **It discloses nothing.** A digest of source content is opaque. It says the
+  build changed, which anybody watching behaviour already knows. No version, no
+  path, no dependency is named — §48's rule is that a response reveals nothing
+  it was not *asked* for, and this is asked for.
+- **The callers that need it most have no session**: a deploy check and an
+  uptime monitor. Putting it behind auth would have excluded exactly them.
+- It answers on the **503 path too**. "Which code is this?" is most worth asking
+  when something is wrong, and a field readable only from a healthy instance
+  would be missing precisely then.
+
+### 117.3 Lenient on purpose, strict when it can be
+
+`scripts/assert-fresh.js` compares a target's build against the tree it runs
+from. `verify:claims` calls it **before measuring anything** — after the first
+claim it would be an annotation on a bad measurement rather than a reason not to
+take one — and exits on a mismatch.
+
+It does **not** fail when it cannot tell. A server predating the field, or one
+reporting `unknown`, gets a warning and the probe continues. The hosted API is
+exactly such a server until the next deploy, and a check that bricked every
+existing workflow on the day it landed would be deleted rather than heeded.
+`--strict` turns that into a refusal, which is what CI should use once the field
+is everywhere.
+
+That graduation is the point. The failure mode being designed against is not
+"somebody ignores a warning" — it is **a guard so noisy on day one that it never
+reaches day two**.
+
+### 117.4 → 117.7
+
+The "what it does not do" section sorts last rather than fourth, so it reads
+after the findings that arrived while this was being built. Left as a pointer
+because a reference written before the edit should land somewhere — the same
+courtesy §115.4 got.
+
+### 117.5 Two things the repo's own guards caught while this was being written
+
+Both are worth recording because in each case the guard was right and the new
+code was wrong — which is the only evidence that a guard is worth having.
+
+**A test that reimplemented its subject.** The CRLF-normalisation rule was
+proved against a `hashTree` written *inside the test file*, over a temp
+directory. Eighteen tests passed. `npm run mutate` then reported the guard as
+**SURVIVED** — correctly: breaking `buildId.js` could not fail a test that never
+called it. `hashTree` is now exported and the test points at the real
+implementation. The lesson is older than this file (`winAnsiSafe`) and it keeps
+arriving in new clothes: *a test that reimplements its subject is testing the
+reimplementation*.
+
+**A generated inventory that could not see its own subject.** `npm run map`
+builds the environment-variable list by matching the literal `process.env.NAME`.
+`utils/uploadLimits.js` takes the environment as an INJECTED PARAMETER for
+testability and reads `env.AIRMS_MAX_UPLOAD_BYTES`, so that variable was absent
+from a document whose stated claim is *every* env var — while being documented
+in three other files. The scanner now also counts `env.NAME`, but **only in a
+file that contains `= process.env`**, because an unguarded version would match
+every SCREAMING_CASE property access in the codebase and fill the inventory with
+things that are not environment variables. A generated list that over-reports is
+no more use than one that under-reports; it just fails differently.
+
+That widening immediately produced a false positive of its own: the comment
+explaining it contains the words "reads `env.NAME`", and the next run added a
+variable called **NAME**. The scanner was reading prose. It strips comments now
+— the same fix, on the same day, as `visionThrottle.test.js` (§115), where a
+comment containing `providerCalls: 1` satisfied an assertion after the code had
+been mutated to `0`. Twice in one day is a pattern worth naming: **a tool that
+reads source must decide whether it is reading code or documentation, and the
+default is wrong.**
+
+### 117.6 Measured
+
+- The fingerprint costs **89.5 ms** over 88 files, once per process, then
+  ~0.001 ms. It is LAZY — only `/api/health` calls it — so no other request
+  pays it, and a serverless instance pays it only if something asks.
+- `/api/health` now answers `{"ok":true,"db":"up","build":"256ca84d1b4c"}`.
+- End to end: appending one comment line to an unrelated file
+  (`utils/num.js`) moved the tree's digest to `28552ed34b86` while the running
+  server still reported `256ca84d1b4c`, and both `assert-fresh` and
+  `verify:claims` refused with exit 1 **before measuring anything**. Restoring
+  the file made both pass again.
+
+### 117.7 What it does not do
+
+- It fingerprints the **backend**. A stale FRONTEND build is a different
+  question and `npm run e2e` still cannot detect one.
+- It proves the code matches, **not** that the database does. Those are separate
+  failures and §113 was both at once; `npm run verify:schema` is the other half,
+  and the two are complementary rather than overlapping.
+- A server whose source changed on disk after boot still reports its **boot**
+  fingerprint, which is correct — that is what it is running — but means the
+  digest answers "what did this process load", not "what is in the directory
+  right now".

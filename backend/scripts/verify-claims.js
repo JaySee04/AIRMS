@@ -33,6 +33,8 @@
 // one `athlete.view` audit row, which is the ordinary consequence of opening a
 // record and the thing being checked.
 
+const { checkFresh, report } = require('./assert-fresh');
+
 const PACE_MS = Number(process.env.VERIFY_PACE_MS || 700);
 const PW = process.env.VERIFY_PW || 'airms2026';
 
@@ -80,6 +82,21 @@ const login = async (email, password = PW) =>
 (async () => {
   // eslint-disable-next-line no-console
   console.log(`\nverifying claims against ${API}\n`);
+
+  // WHICH BUILD IS ANSWERING (§117), before a single claim is measured.
+  //
+  // Every line below reports on a RUNNING instance and is then read as a fact
+  // about the source. That inference was unexamined and has been wrong twice —
+  // the six-day hosted outage probed from the working tree (§113), and a stale
+  // local server that made an "after" measurement report no change (§116.5).
+  //
+  // Not fatal when it cannot tell: the hosted API predates the field until the
+  // next deploy, and a check that bricked this script on the day it landed
+  // would be deleted rather than heeded. It IS fatal on a genuine mismatch.
+  const fresh = await checkFresh(API);
+  if (report(fresh, { label: API.includes('localhost') ? 'server' : 'deployed API' }) !== 0) {
+    process.exit(1);
+  }
 
   const health = await call('/health');
   if (health.mitigated) {
