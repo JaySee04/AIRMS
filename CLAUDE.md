@@ -81,18 +81,30 @@ cd backend; npm run mutate           # BREAK each registered guard on purpose an
                                      # skip is right; the consequence is that the guard
                                      # reports SURVIVED while a dev server runs, which
                                      # is environmental and not a real regression.
-                                     # test is not testing what it claims. 83 guards across
+                                     # test is not testing what it claims. 84 guards across
                                      # both packages. NOT part of `npx jest` — it spawns a
                                      # jest run per mutation (tens of seconds). Run it before
                                      # committing a change to a guard, and add an entry when
                                      # you write a new one. Four defects (SILENT_FAILURES
                                      # 3l/3n/3o/3p) were a check and its own test agreeing
                                      # while both were wrong; this is the standing answer.
-                                     # The runner is itself verified: a control mutation that
-                                     # edits only a comment reports SURVIVED, a stale registry
-                                     # entry errors rather than passing, and guard files are
-                                     # restored in a finally (checked with `git status` after
-                                     # a deliberately failing run).
+                                     # The runner is itself verified, and since 2026-09-29 that
+                                     # is a STANDING control rather than a one-time check
+                                     # (§119.2). Entry #1 is `control: true`: it edits a
+                                     # COMMENT, which cannot change behaviour, so the test must
+                                     # still PASS — the verdict is inverted, and a control that
+                                     # is "caught" fails the whole run. Without it, a runner
+                                     # whose runTest always reported failure would print
+                                     # "caught" for all 83 others and certify an empty registry
+                                     # as healthy; measured by forcing that break, which made
+                                     # two logger guards report "all 2 mutations caught — every
+                                     # guard listed here can fail" while proving nothing. The
+                                     # older claim here ("a control mutation ... reports
+                                     # SURVIVED") was true as a MANUAL check, done once and
+                                     # never re-run. A stale registry entry still errors rather
+                                     # than passing, and guard files are restored in a finally
+                                     # (checked with `git status` after a deliberately failing
+                                     # run).
 cd backend; npm run map              # regenerate docs/SYSTEM_MAP.md - the inventory of every
                                      # model column, endpoint+roles, page, setting, audit action,
                                      # shared fact, env var and script, READ FROM THE CODE. Needs

@@ -11141,3 +11141,97 @@ plant returned it to green.
 - A regex it cannot construct is skipped and **not counted toward the floor**,
   so a wave of unparseable patterns shows up as finding too little rather than
   as a pass.
+
+
+## 119. A sweep for checks that cannot fail, and the one it found (2026-09-29)
+
+§118 fixed one way a guard can pass for the wrong reason. This asks whether
+there are others, mechanically, rather than waiting for the next accident.
+
+### 119.1 The sweep
+
+Five shapes, across all 89 test files in both packages:
+
+| | shape | found |
+|---|---|---|
+| A | skipped tests (`it.skip`, `xit`) | **0** |
+| B | a test with no assertion at all | 1, a **false positive** |
+| C | tautological assertions | 1, a **false positive** |
+| D | `expect()` in a loop over a collection that could be empty, with no floor | 4, **all protected** |
+| E | a local helper shadowing an export it does not import (the §117.5 shape) | **0** |
+
+B was `cssTokens.test.ts`, where the scanner's brace counter closed early on a
+`{` inside a regex literal and truncated the body it was reading — a defect in
+the sweep, not in the test. C was `expect(html.indexOf(label)).toBeGreaterThanOrEqual(0)`,
+which is not a tautology at all: `indexOf` returns −1.
+
+D is the one worth recording. Three of the four — `codebaseHygiene`,
+`sourceHygiene`, `systemMap` — carry an explicit corpus floor
+(`FILES.length > 30`, `files.length > 150`, `rows.length > 40`). The fourth,
+`accountLifecycle`, has no floor in the case itself but is protected by a
+sibling assertion four lines up: `expect(sorted(INVITABLE_ROLES)).toEqual(['admin',
+'coach', 'executive', 'medical'])`. An empty parse fails there, loudly.
+
+**So the sweep found no defect in the tests.** Recorded because a negative result
+that is not written down gets re-derived, and because the shapes are now named
+for whoever runs this next.
+
+No standing guard was added for D. The narrowed version produced four hits and
+four false positives; a check with that ratio is switched off within a week,
+which is the §115.1 argument about caps applied to guards.
+
+### 119.2 What it DID find: the mutation runner could not report green
+
+`npm run mutate` is the thing that certifies every other guard. Each of its 83
+entries asserts "break this, and a test goes red" — and **nothing was checking
+that the runner could also report GREEN.**
+
+If `runTest` ever returned "the test failed" unconditionally — a bad jest
+invocation, a wrong path, an unrelated non-zero exit — every mutation would
+report `caught` and the script would certify the entire registry as healthy.
+That is the largest possible vacuous pass in this repository, inside the file
+that exists to prevent exactly that shape.
+
+`CLAUDE.md` did claim the runner was verified: *"a control mutation that edits
+only a comment reports SURVIVED"*. That was true, as a **one-time manual check**,
+done once and never re-run. Prose about a past verification is not a
+verification.
+
+There is now a standing CONTROL entry, and it runs first. `control: true`
+inverts the verdict: the mutation edits a comment, which cannot change
+behaviour, so the test **must still pass**. A control that is "caught" fails the
+whole run and says why.
+
+**Measured, by breaking the runner on purpose** (`runTest` forced to return
+`false`):
+
+```
+  BROKEN    CONTROL FAILED: the runner itself can report GREEN
+            tests/numRound.test.js went RED for an edit that changes no behaviour.
+            Every "caught" in this run is therefore untrustworthy.
+```
+
+and, with the same break and the control removed from the selection, the two
+logger guards reported:
+
+```
+  caught    logger: redacts forbidden KEYS
+  caught    logger: refuses to serialise a whole object
+
+all 2 mutations caught — every guard listed here can fail.
+```
+
+— which is a complete falsehood, printed confidently, and was previously
+undetectable. Restored, the control survives and the full run is 84/84.
+
+### 119.3 The rule this leaves
+
+Every layer of checking needs one test that proves it can return the *other*
+answer. A detector only ever observed saying "no problem" is indistinguishable
+from a broken one — that is `SILENT_FAILURES`' whole thesis — and it applies to
+the detectors of detectors too. `guardCanaries.test.js` enforces it for corpus
+scanners, `proseBlindness.test.js` for source-reading assertions (§118), and now
+the control enforces it for the mutation runner. The regress stops there, and
+deliberately: the control is verified by the same means as everything else —
+somebody broke it on purpose and watched it fail, and that run is quoted above
+rather than described.

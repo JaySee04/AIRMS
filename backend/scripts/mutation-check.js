@@ -31,6 +31,33 @@ const ROOT = path.join(__dirname, '..', '..');
 // because a mutation that lands in two places is not the mutation described.
 const MUTATIONS = [
   {
+    // THE CONTROL, and it runs first on purpose (2026-09-29, §119).
+    //
+    // Everything below asserts "break this, and a test goes red". That claim is
+    // only worth anything if the runner can also report GREEN — and nothing was
+    // checking it. If `runTest` ever returned "failed" unconditionally — a bad
+    // jest invocation, a wrong path, a non-zero exit from something unrelated —
+    // all 80-odd mutations would report `caught` and this script would certify
+    // an empty registry as healthy. That is the largest possible vacuous pass
+    // in this repo, and the file exists to prevent exactly that shape.
+    //
+    // CLAUDE.md claimed the runner "is itself verified: a control mutation that
+    // edits only a comment reports SURVIVED". That was true — as a ONE-TIME
+    // manual check, done once and never re-run. This makes it standing.
+    //
+    // `control: true` INVERTS the verdict: editing a comment cannot change
+    // behaviour, so the test must still pass. A control that is "caught" fails
+    // the run and says why.
+    control: true,
+    guard: 'the runner itself can report GREEN (control: a comment-only edit)',
+    why: 'if this is "caught", every other result in the run is meaningless',
+    pkg: 'backend',
+    file: 'src/utils/num.js',
+    find: '// Turning a stored value into a number, once.',
+    replace: '// Turning a stored value into a number, once. (mutation-check control)',
+    test: 'tests/numRound.test.js',
+  },
+  {
     guard: 'preflight-ports: probes by CONNECTING, not by binding',
     why: 'SILENT_FAILURES 3p — binding loopback cannot see a next dev on 0.0.0.0',
     pkg: 'backend',
@@ -955,7 +982,21 @@ function main() {
     try {
       restore = applyMutation(m);
       const passed = runTest(m);
-      if (passed) {
+      // A CONTROL IS INVERTED: it edits something that cannot change behaviour,
+      // so the test MUST still pass. If a control is "caught", the runner is
+      // reporting red for a change that did nothing — at which point every
+      // "caught" above it means nothing either, and this whole script is the
+      // vacuous pass it exists to prevent. See §119.
+      if (m.control) {
+        if (passed) {
+          console.log(`  control   ${m.guard} — survived, as a no-op must`);
+        } else {
+          survived.push(m);
+          console.log(`  BROKEN    CONTROL FAILED: ${m.guard}`);
+          console.log(`            ${m.test} went RED for an edit that changes no behaviour.`);
+          console.log('            Every "caught" in this run is therefore untrustworthy.');
+        }
+      } else if (passed) {
         survived.push(m);
         console.log(`  SURVIVED  ${m.guard}`);
         console.log(`            ${m.test} still passes with the guard broken.`);
