@@ -49,11 +49,24 @@ router.get('/', auth, rbac('admin', 'medical'), canEditNorms, async (_req, res) 
       // separately could render the numbers before it knew they were held, which
       // is the one state this feature must never present silently.
       pin: pinnedVersion ? { ...pinnedVersion, active: true } : null,
-      cohorts: rows.map((r) => ({
-        ...r.get({ plain: true }),
-        review: cohortReview(r),
-        drift: pinDrift(r),
-      })),
+      cohorts: rows.map((r) => {
+        // `freshStats` is READ here and not SHIPPED (2026-09-28, §116).
+        //
+        // It is the parked "what today's data would say" snapshot (§22), and
+        // `pinDrift` below is the whole reason it exists — it turns those
+        // numbers into the `drift` the page actually renders. Measured on the
+        // live payload: freshStats was 27.5 KB of 80.9 KB, 40% of the response,
+        // and NOTHING in the frontend reads it. `drift` is 3.9 KB and is what
+        // the screen shows.
+        //
+        // Removed from the RESPONSE only. It must stay SELECTed, because
+        // pinDrift(r) runs on the row right here — dropping it from the query
+        // would empty the drift indicator instead of shrinking the payload,
+        // which is a silent clinical-governance regression rather than a saving.
+        const { freshStats, ...rest } = r.get({ plain: true });
+        void freshStats;
+        return { ...rest, review: cohortReview(r), drift: pinDrift(r) };
+      }),
     });
   } catch (err) { sendError(res, err, 'cohorts.js'); }
 });

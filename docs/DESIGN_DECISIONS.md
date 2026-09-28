@@ -10822,3 +10822,100 @@ Still genuinely open:
   and the 6-page head are measurements, not guarantees about a layout HoloMotion
   has not shipped yet. The head is never narrowed, so the failure mode is a lost
   prescription rather than a wrong score.
+
+## 116. Optimised what the measurement found, and left the rest (2026-09-28)
+
+"Optimise everything" was answered by measuring first, because this project has
+already recorded what the other order produces: `a8918e7` — *the measurement
+said don't optimise, so this fixes what was wrong instead*.
+
+### 116.1 What was measured, and found healthy
+
+Every read endpoint, warm, with `SQL_LOG=1` counting statements per request:
+
+| endpoint | payload | time | queries |
+|---|---|---|---|
+| `/athletes` | 44.2 KB | 16 ms | 4 |
+| `/cohorts` | 80.9 KB | 30 ms | 4 |
+| `/decisions` | 17.6 KB | 9 ms | 4 |
+| `/athletes/analytics/periods` | 17.9 KB | 39 ms | 4 |
+| `/athletes/analytics/screening` | 13.6 KB | 29 ms | 4 |
+| `/audit?limit=50` | 16.5 KB | 6 ms | 3 |
+| `/audit/staff` | 1.9 KB | 19 ms | 5 |
+| `/screening-reports/holistic.pdf` | 18.3 KB | 111 ms | 7 |
+| `/screening-reports/programme-activity.pdf` | 10.2 KB | 99 ms | 9 |
+| `/export/backup.xlsx` | 155.9 KB | 38 ms | 4 |
+
+**No N+1 anywhere.** The highest count is 9, on a report that legitimately
+aggregates nine different things. `npm run verify:schema` reports 0 findings
+across all four sections — no redundant indexes, no model/database drift, no
+column drift. The first pass of timings looked worse (57–114 ms) because it was
+measuring cold connections; the warm figures are the ones above.
+
+So the performance answer is **there was nothing to do**, and that is recorded
+here rather than quietly dropped — a later reader asking "has anyone checked?"
+should find the numbers instead of repeating the exercise.
+
+### 116.2 The one real finding: 35% of a payload nobody read
+
+`GET /cohorts` shipped `freshStats` — the parked "what today's data would say"
+snapshot from §22 — at **27.5 KB of an 80.9 KB response**, 40% of it, across 49
+cohorts. **No file under `frontend/src` names it.** What the page renders is
+`drift`, which is `pinDrift()`'s derived form of exactly those numbers, at
+3.9 KB.
+
+Measured after: **52.8 KB, a 35% reduction**, with the same 3 cohorts reporting
+drift and every field the page reads — `stats`, `freshN`, `freshAt`, `review`,
+`drift`, `overrides` — untouched.
+
+**It is removed from the RESPONSE, not from the QUERY, and the difference is the
+whole risk.** `pinDrift(r)` consumes `freshStats` on the very next line. Adding
+`attributes: { exclude: ['freshStats'] }` would look like the same optimisation
+and would instead empty the drift indicator on the norms page — a silent
+clinical-governance regression dressed as a saving. Both the fix and that trap
+are in the mutation registry; the trap mutation is caught by the test asserting
+`drift: pinDrift(r)` survives.
+
+### 116.3 The rest, deliberately not done
+
+The same question was then asked of every payload rather than of the one that
+happened to be open — a scan that weighs each field and greps `frontend/src` for
+its name. Results:
+
+| payload | candidate dead weight |
+|---|---|
+| `/athletes/analytics/periods`, `/analytics/screening`, `/meta/roster`, `/audit`, `/decisions`, `/screenings/reliability` | **none** — every field is named client-side |
+| `/athletes` | 2.1 KB / 9% (`updatedAt`, `sex`, `exerciseRiskScore`) |
+| `/cohorts` (after the fix) | 3.7 KB / 9% (`computedAt`, `approvedAt`, `updatedAt`) |
+
+**Left alone on purpose.** These are 0.2–1.6 KB each on payloads of 44 KB and
+53 KB, and two of them are not really spare: `sex` is a genuine Athlete column
+distinct from `gender` (M/F against Male/Female), and the timestamps are the
+kind of field a table sort or a future panel reaches for. Removing record fields
+from an API to save 2 KB is a nonzero chance of breaking something for a benefit
+nobody can perceive — which is the trade `a8918e7` was written about.
+
+The scan itself is a **candidate list, not a verdict**: a key can be read without
+being named — spread into a typed object, indexed dynamically, or consumed by a
+chart library — so every hit was checked by hand before anything moved.
+
+### 116.4 The frontend, and the dependency added in §115.5
+
+`pdf-lib` is 411.8 KB and is imported dynamically. Verified against a production
+build rather than assumed: it lands in `chunks/3394.*.js`, and the upload page's
+own first load is **10 chunks / 427 KB with that chunk absent**. Shared first-load
+JS across the app is 103 KB. Nothing to reclaim.
+
+### 116.5 A stale server nearly produced a false measurement
+
+The first "after" reading said the payload had not changed at all — because the
+restart had failed on a port the previous server still held, and the measurement
+came from the pre-change build. Caught by the payload being byte-identical when
+it had no reason to be.
+
+This is gotcha 1 in a new costume: the documented version is `npm run e2e`
+testing the previous build and passing. The lesson generalises past ports —
+**a measurement is only as trustworthy as the evidence that it ran against the
+thing you changed**, and "the number did not move" deserves the same suspicion
+as a number that moved too much. The re-run confirmed the server was fresh by
+reading its own boot line out of the log before probing it.

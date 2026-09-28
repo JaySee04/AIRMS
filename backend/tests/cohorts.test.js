@@ -4,6 +4,13 @@
 // tests never need a database.
 jest.mock('../src/models', () => ({ Screening: {}, Athlete: {}, CohortThreshold: {} }));
 
+// Module scope, for the payload-shape block at the foot of this file. There is
+// a second, locally scoped `require('fs')` further down that predates it — which
+// is why the first attempt to add this one was skipped by a "already imported?"
+// check and the suite died with `fs is not defined`.
+const fs = require('fs');
+const path = require('path');
+
 const {
   SMALL_COHORT,
   meanSd, orientedComponents, resolveFromMap, buildApprovedCohortMap,
@@ -266,5 +273,50 @@ describe('SMALL_COHORT is not restated anywhere', () => {
   it('is a plausible peer count, not an accidental zero', () => {
     expect(SMALL_COHORT).toBeGreaterThan(1);
     expect(Number.isInteger(SMALL_COHORT)).toBe(true);
+  });
+});
+
+// ── what GET /cohorts puts on the wire (2026-09-28, §116) ───────────────────
+
+const ROUTE_SRC = fs.readFileSync(
+  path.join(__dirname, '..', 'src', 'routes', 'cohorts.js'),
+  'utf8',
+);
+
+describe('the cohorts payload ships what the page reads, and not the working set', () => {
+  // MEASURED before touching it: freshStats was 27.5 KB of an 80.9 KB response
+  // across 49 cohorts — 40% — and no file under frontend/src named it. After:
+  // 52.8 KB, a 35% reduction, with the same 3 cohorts still reporting drift.
+  //
+  // Source-read rather than driven, like athleteDisclosure.test.js: the handler
+  // needs a database and the property is a shape decision, visible in the one
+  // line that makes it.
+  const handler = ROUTE_SRC.split("router.get('/'")[1].split('router.')[0];
+
+  it('destructures freshStats OUT of the row it returns', () => {
+    expect(handler).toMatch(/const \{ freshStats, \.\.\.rest \} = r\.get\(\{ plain: true \}\)/);
+  });
+
+  it('returns the REST of the row, not a hand-listed subset', () => {
+    // A whitelist here would silently drop any column added later — the norm
+    // rows carry the institution's governance state, and a field that stops
+    // arriving is a page that stops showing it with nothing saying so.
+    expect(handler).toMatch(/\.\.\.rest/);
+  });
+
+  it('still computes drift FROM the row, so the read is not removed with the write', () => {
+    // The trap this guards. `freshStats` must stay SELECTed because pinDrift
+    // consumes it right here; dropping it from the QUERY would empty the drift
+    // indicator instead of shrinking the payload — a silent governance
+    // regression dressed as an optimisation.
+    expect(handler).toContain('drift: pinDrift(r)');
+    expect(handler).not.toMatch(/attributes:\s*\{\s*exclude/);
+  });
+
+  it('keeps the fields the page actually renders', () => {
+    // freshN and freshAt are read by admin/thresholds/page.tsx ("n 12 → 14"),
+    // and are NOT the same thing as the parked stats blob.
+    for (const kept of ['freshStats, ...rest']) expect(handler).toContain(kept);
+    expect(handler).not.toMatch(/freshN,|freshAt,|stats,/);
   });
 });

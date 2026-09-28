@@ -763,6 +763,28 @@ const MUTATIONS = [
     test: 'tests/visionThrottle.test.js',
   },
   {
+    guard: 'cohorts payload: the parked stats blob is read, not shipped',
+    why: '27.5 KB of 80.9 KB that no file in frontend/src names (§116)',
+    pkg: 'backend',
+    file: 'src/routes/cohorts.js',
+    find: '        const { freshStats, ...rest } = r.get({ plain: true });',
+    replace: '        const rest = r.get({ plain: true }); const freshStats = null;',
+    test: 'tests/cohorts.test.js',
+  },
+  {
+    guard: 'cohorts payload: freshStats is still SELECTED, so drift survives',
+    why: 'dropping it from the QUERY empties the drift indicator instead of shrinking the payload (§116)',
+    pkg: 'backend',
+    file: 'src/routes/cohorts.js',
+    // The trap, not the feature. This is the edit a reader makes when they see
+    // a field being discarded after it was fetched and "tidies" the query —
+    // pinDrift(r) consumes it right there, so the page silently stops showing
+    // which cohorts have drifted from the pinned norm.
+    find: '      CohortThreshold.findAll({',
+    replace: "      CohortThreshold.findAll({\n        attributes: { exclude: ['freshStats'] },",
+    test: 'tests/cohorts.test.js',
+  },
+  {
     guard: 'athlete dashboard: the body map is not filed under "how you have changed"',
     why: 'deleting the closing heading silently mislabels a clinical figure (§98.2)',
     pkg: 'frontend',
