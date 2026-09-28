@@ -80,7 +80,7 @@ type Band = ReadinessBand;
 
 const BAND_META: Record<Band, { label: string; badge: string; color: string }> = {
   full: { label: 'Full-Go', badge: 'badge-low', color: 'var(--risk-low)' },
-  observation: { label: 'Observation', badge: 'badge-moderate', color: 'var(--risk-moderate)' },
+  observation: { label: 'Observation', badge: 'badge-moderate', color: 'var(--risk-moderate-ink)' },
   restricted: { label: 'Restricted', badge: 'badge-high', color: 'var(--risk-high)' },
 };
 
@@ -784,7 +784,7 @@ export default function CoachDashboard() {
                   {readinessByEvent.map((e) => {
                     const parts = [
                       e.full > 0 ? <span key="f" style={{ color: 'var(--risk-low)' }}>{e.full} full</span> : null,
-                      e.observation > 0 ? <span key="o" style={{ color: 'var(--risk-moderate)' }}>{e.observation} obs</span> : null,
+                      e.observation > 0 ? <span key="o" style={{ color: 'var(--risk-moderate-ink)' }}>{e.observation} obs</span> : null,
                       e.restricted > 0 ? <span key="r" style={{ color: 'var(--risk-high)' }}>{e.restricted} restricted</span> : null,
                       e.unscored > 0 ? <span key="u" className="text-muted">{e.unscored} n/a</span> : null,
                     ].filter(Boolean);

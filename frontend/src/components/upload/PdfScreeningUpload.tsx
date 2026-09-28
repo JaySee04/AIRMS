@@ -412,7 +412,7 @@ export default function PdfScreeningUpload() {
                       inputMode="numeric"
                     />
                     {it.athleteId.trim() && !/^\d{12}$/.test(it.athleteId.trim()) && (
-                      <div className="text-muted" style={{ fontSize: 'var(--fs-xs)', marginTop: 2, color: 'var(--risk-moderate)' }}>
+                      <div className="text-muted" style={{ fontSize: 'var(--fs-xs)', marginTop: 2, color: 'var(--risk-moderate-ink)' }}>
                         An IC number is 12 digits.
                       </div>
                     )}

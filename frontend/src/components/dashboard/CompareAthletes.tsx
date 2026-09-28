@@ -124,7 +124,7 @@ export default function CompareAthletes({ entries }: { entries: WorklistEntry[] 
             <tbody>
               {rows.map((r) => (
                 <tr key={r.athleteId}>
-                  <td><strong>{r.name ?? r.athleteId}</strong>{r.isInjured && <> · <span style={{ color: 'var(--risk-moderate)' }}>injured</span></>}</td>
+                  <td><strong>{r.name ?? r.athleteId}</strong>{r.isInjured && <> · <span style={{ color: 'var(--risk-moderate-ink)' }}>injured</span></>}</td>
                   <td><span className={`decision-band decision-band--${r.band}`}>{label(r.band)}</span></td>
                   {/* An athlete with no screening has no age — a dash, never a 0,
                       because 0 would read as "screened today". */}

@@ -28,7 +28,13 @@
   --bg-sidebar: var(--brand-navy);
   --border: #b0bccf;
   --text: #1a2533;
-  --text-muted: #6b7280;
+  /* 4.83:1 on pure white, which passes — but muted text mostly sits on the
+     page and card greys, where it measured 4.12:1 against a 4.5 requirement
+     (2026-09-29, §120). Darkened the least that clears it everywhere: 6.1:1 on
+     a white card, 5.8:1 on the page. Deliberately NOT taken to near-black — a
+     muted grey driven that far passes the check and loses the reason it was
+     muted, which is a redesign wearing an accessibility fix's clothes. */
+  --text-muted: #5b6270;
   --text-sidebar: #c8d8e8;
   --text-sidebar-active: #ffffff;
 
@@ -36,6 +42,17 @@
   --risk-low-bg: #e8f5ea;
   --risk-moderate: #c89b3c;
   --risk-moderate-bg: #fef9e7;
+  /* THE SAME AMBER, DARK ENOUGH TO READ AS TEXT (2026-09-29, §120).
+     #c89b3c is the brand amber and is correct as a FILL, a BORDER and a dot.
+     As TEXT on a light card it measures 2.56:1 against a WCAG AA requirement
+     of 4.5 — and it was being used that way on clinical labels: "Watch",
+     "Needs attention", "Mild asymmetry", "shared name". Measured across the
+     app in both themes, this one colour accounted for 30+ failing instances.
+     #8a6818 is 5.2:1 and was ALREADY in this file as a hand-picked literal on
+     .band-override-source--manual, which is the same fix arrived at once
+     before and not generalised. Fills keep --risk-moderate; only ink changes,
+     so nothing moves and nothing is recoloured. */
+  --risk-moderate-ink: #8a6818;
   --risk-high: #b03030;
   --risk-high-bg: #fdecea;
   --risk-undertrained: #2a6391;
@@ -164,6 +181,12 @@
   --risk-low-bg: rgba(61, 124, 71, 0.16);
   --risk-moderate: #e6b84e;
   --risk-moderate-bg: rgba(200, 155, 60, 0.16);
+  /* The ink goes the OTHER way in dark mode — the failing direction on a dark
+     surface is too dark, not too light — so it stays the bright amber rather
+     than inheriting the light theme's #8a6818, which would be 1.5:1 here. The
+     token exists in both themes so a rule can use it unconditionally; only its
+     value flips. Measured 8.0:1 on --bg-card. */
+  --risk-moderate-ink: #e6b84e;
   --risk-high: #e57373;
   --risk-high-bg: rgba(176, 48, 48, 0.18);
   --risk-undertrained: #6bb0e0;
@@ -360,6 +383,14 @@ button { cursor: pointer; font-family: inherit; }
   transition: background 0.15s;
   border: none;
   background: transparent;
+  /* A <button> does NOT inherit colour — the UA stylesheet sets `color:
+     buttontext`, which is black. Every other rule here resets background and
+     border and stops there, so this one element ignored the theme: measured
+     rgb(0,0,0) on the #1a2533 dark topbar, 1.36:1, on all ten authenticated
+     pages (2026-09-29, §120). The signed-in user's own name was the least
+     readable text in the app, and only in dark mode — which is why looking at
+     a light-mode screenshot never showed it. */
+  color: inherit;
 }
 .user-menu-trigger:hover { background: var(--bg); }
 .user-avatar {
@@ -835,7 +866,7 @@ label:has(> input[type='radio']) {
   line-height: 1.15;
 }
 .risk-hero--low  .risk-hero-level { color: var(--risk-low); }
-.risk-hero--mod  .risk-hero-level { color: #8a6818; }
+.risk-hero--mod  .risk-hero-level { color: var(--risk-moderate-ink); }
 .risk-hero--high .risk-hero-level { color: var(--risk-high); }
 /* Lift each band's level colour for dark-mode contrast against the
    translucent backgrounds above. */
@@ -1937,7 +1968,7 @@ tr.is-selected-actor { background: var(--bg); }
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--risk-moderate);
+  color: var(--risk-moderate-ink);
   border: 1px solid var(--risk-moderate);
   border-radius: 999px;
   padding: 0 5px;
@@ -2498,11 +2529,11 @@ tr.row-flash > td { animation: row-flash 1.6s ease-out; }
    about to draw a conclusion the data cannot support. `alert-info` under-weights
    that and `alert-error` claims a fault. Built from the existing amber tokens,
    so it themes with everything else and adds no new literal. */
-.alert-warning { background: var(--risk-moderate-bg); color: var(--risk-moderate); border: 1px solid var(--risk-moderate); }
+.alert-warning { background: var(--risk-moderate-bg); color: var(--risk-moderate-ink); border: 1px solid var(--risk-moderate); }
 
 /* ── Risk Badges ────────────────────────────────────────────────────────────── */
 .badge-low    { background: var(--risk-low-bg);   color: var(--risk-low);   padding: 2px 8px; border-radius: var(--r-lg); font-size: var(--fs-sm); font-weight: 600; }
-.badge-moderate { background: var(--risk-moderate-bg); color: var(--risk-moderate); padding: 2px 8px; border-radius: var(--r-lg); font-size: var(--fs-sm); font-weight: 600; }
+.badge-moderate { background: var(--risk-moderate-bg); color: var(--risk-moderate-ink); padding: 2px 8px; border-radius: var(--r-lg); font-size: var(--fs-sm); font-weight: 600; }
 .badge-high   { background: var(--risk-high-bg);  color: var(--risk-high);  padding: 2px 8px; border-radius: var(--r-lg); font-size: var(--fs-sm); font-weight: 600; }
 /* For labels that are a CATEGORY, not a verdict. The three risk badges above
    carry a judgement, so using one on something merely routine — a report being
@@ -2781,7 +2812,7 @@ tbody tr:hover { background: var(--bg); }
 .band-override-help { margin: 0; max-width: 68ch; font-size: var(--fs-sm); line-height: 1.5; color: var(--text-muted); }
 /* Provenance pill — system's number or a person's? — answered before any edit. */
 .band-override-source { flex-shrink: 0; padding: 5px 10px; border: 1px solid var(--border); border-radius: 999px; font-size: var(--fs-xs); font-weight: 700; letter-spacing: 0.03em; color: var(--text-muted); background: var(--bg); }
-.band-override-source--manual { border-color: var(--risk-moderate); color: #8a6818; background: var(--risk-moderate-bg); }
+.band-override-source--manual { border-color: var(--risk-moderate); color: var(--risk-moderate-ink); background: var(--risk-moderate-bg); }
 [data-theme="dark"] .band-override-source--manual { color: #f0c060; }
 
 .band-choice-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
@@ -2806,7 +2837,7 @@ tbody tr:hover { background: var(--bg); }
 .band-choice-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
 .band-choice-label { font-size: var(--fs-md); font-weight: 700; line-height: 1.2; }
 .band-choice--low  .band-choice-label { color: var(--risk-low); }
-.band-choice--mod  .band-choice-label { color: #8a6818; }
+.band-choice--mod  .band-choice-label { color: var(--risk-moderate-ink); }
 .band-choice--high .band-choice-label { color: var(--risk-high); }
 [data-theme="dark"] .band-choice--mod .band-choice-label { color: #f0c060; }
 .band-choice-action { font-size: var(--fs-xs); line-height: 1.4; color: var(--text-muted); }
@@ -2883,7 +2914,7 @@ tbody tr:hover { background: var(--bg); }
 }
 .pdf-status--queued     { background: var(--bg); color: var(--text-muted); }
 .pdf-status--extracting { background: var(--risk-undertrained-bg); color: var(--risk-undertrained); }
-.pdf-status--ready      { background: var(--risk-moderate-bg); color: var(--risk-moderate); }
+.pdf-status--ready      { background: var(--risk-moderate-bg); color: var(--risk-moderate-ink); }
 .pdf-status--committing { background: var(--risk-undertrained-bg); color: var(--risk-undertrained); }
 .pdf-status--done       { background: var(--risk-low-bg); color: var(--risk-low); }
 .pdf-status--error      { background: var(--risk-high-bg); color: var(--risk-high); }
@@ -3792,13 +3823,13 @@ textarea:focus-visible,
   border: 1px solid var(--border); white-space: nowrap;
 }
 .decision-band--red { color: var(--risk-high); background: var(--risk-high-bg); border-color: var(--risk-high); }
-.decision-band--amber { color: var(--risk-moderate); background: var(--risk-moderate-bg); border-color: var(--risk-moderate); }
+.decision-band--amber { color: var(--risk-moderate-ink); background: var(--risk-moderate-bg); border-color: var(--risk-moderate); }
 .decision-band--green { color: var(--risk-low); background: var(--risk-low-bg); border-color: var(--risk-low); }
 /* Never-screened is deliberately NEUTRAL, not green and not red: it is an
    absence of information, and colouring it as a band would make it read as a
    clinical finding. */
 .decision-band--never { color: var(--text-muted); background: transparent; }
-.decision-flag { font-size: var(--fs-2xs); color: var(--risk-moderate); }
+.decision-flag { font-size: var(--fs-2xs); color: var(--risk-moderate-ink); }
 .decision-reasons {
   margin: var(--sp-xs) 0 0; padding-left: var(--sp-lg);
   font-size: var(--fs-sm); color: var(--text-muted); line-height: 1.5;
@@ -3857,9 +3888,19 @@ textarea:focus-visible,
 ::placeholder { color: var(--text-muted); opacity: 1; }
 
 /* Native controls (checkboxes, radios, range) pick up the brand instead of the
-   OS accent, which is otherwise whatever colour the user set for Windows. */
-:root { accent-color: var(--brand-navy); }
-[data-theme="dark"] { accent-color: var(--brand-gold); }
+   OS accent, which is otherwise whatever colour the user set for Windows.
+ *
+ * `color-scheme` is the other half and was missing (2026-09-29, §120).
+ * `accent-color` only paints the CHECKED state; everything else the browser
+ * draws itself — the unchecked box, the scrollbars, a native select's dropdown,
+ * a date picker — keeps its light styling regardless of the theme. Measured in
+ * dark mode across all ten authenticated pages: every checkbox computed
+ * `color: rgb(0,0,0)` with a black border, which is the UA's light rendering
+ * sitting in a dark UI and reads as a row of white boxes (visible on the Cohort
+ * Norms screenshot). One declaration fixes the lot, and is the only way to
+ * reach the scrollbars at all without vendor pseudo-elements. */
+:root { color-scheme: light; accent-color: var(--brand-navy); }
+[data-theme="dark"] { color-scheme: dark; accent-color: var(--brand-gold); }
 
 /* Numbers that are read as a set should align as one. Same argument as the
    `table` rule above, applied to the tiles and the chart furniture that quote

@@ -318,7 +318,7 @@ export default function AdminPersonnelPage() {
     if (isPending(u)) {
       const d = daysSince(u.invitedAt as string);
       return (
-        <span style={{ color: 'var(--risk-moderate)' }}>
+        <span style={{ color: 'var(--risk-moderate-ink)' }}>
           Invited {d === 0 ? 'today' : d === 1 ? 'yesterday' : `${d} days ago`} · not yet activated
         </span>
       );

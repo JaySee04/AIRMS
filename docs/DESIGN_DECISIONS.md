@@ -11235,3 +11235,110 @@ the control enforces it for the mutation runner. The regress stops there, and
 deliberately: the control is verified by the same means as everything else —
 somebody broke it on purpose and watched it fail, and that run is quoted above
 rather than described.
+
+
+## 120. Beautify, measured (2026-09-29)
+
+"Beautify the website" against a **locked Figma-derived UI** (`MASTER_CLARIFICATIONS
+§12`) is not a licence to redesign. It is a licence to fix what is objectively
+wrong, and to find that by LOOKING — the method that produced §30's findings,
+where six PDFs were printed and read and caught a bar overprinting its
+neighbour and a chart contradicting the caveat printed above it, none of which
+any unit test could see.
+
+### 120.1 What was already fine
+
+§29's design scale held. Measured across `frontend/src`:
+
+| | |
+|---|---|
+| raw `px` font sizes in markup | **0** |
+| `fontSize` using a `--fs-*` token | 194 |
+| raw hex colours in markup | 9 — of which 5 are CSS-var **fallbacks** in SVG (`var(--border, #e2e6ea)`), which is correct |
+| raw `borderRadius` px | 1, and it is `999px` — the sanctioned pill |
+
+Every page was then screenshotted at 1440×900 in both themes and checked for
+horizontal overflow and text clipped by its own box: **none**.
+
+### 120.2 The one real bug: the user's own name, invisible in dark mode
+
+`.user-menu-trigger` is a `<button>`. The UA stylesheet gives every button
+`color: buttontext` — black — and **a button does not inherit colour**. The rule
+reset `background` and `border` and stopped there, so the element ignored the
+theme entirely:
+
+```
+span.topbar-username    color=rgb(0, 0, 0)     <- black
+button.user-menu-trigger color=rgb(0, 0, 0)    <- the cause
+div.user-menu-wrap      color=rgb(232, 237, 242) <- correct, and not inherited
+header.topbar           bg=rgb(26, 37, 53)
+```
+
+**1.36:1 against a 4.5 requirement, on all ten authenticated pages, in dark mode
+only** — which is why every light-mode screenshot ever taken of this app looked
+fine. One line: `color: inherit`.
+
+A sweep for the same shape across every `button`, `select` and `input` in dark
+mode found **no other instance**.
+
+### 120.3 The amber that could not be read
+
+`--risk-moderate` (`#c89b3c`) is the brand amber and is right as a fill, a
+border and a dot. As TEXT on a light card it is **2.56:1**, and it was being
+used that way on clinical labels: *Watch*, *Needs attention*, *Mild asymmetry*,
+*shared name*, *injured*. One colour, 30+ failing instances.
+
+`--risk-moderate-ink` (`#8a6818`, 5.2:1) now carries the text role; fills and
+borders keep `--risk-moderate`, so **nothing is recoloured and nothing moves**.
+The value was not invented: `#8a6818` was already in this stylesheet as a
+hand-picked literal on `.band-override-source--manual` — the same fix, reached
+once before and never generalised. That literal is now the token.
+
+In dark mode the failing direction is the opposite one, so the ink stays the
+bright `#e6b84e` there. The token exists in both themes so a rule can use it
+unconditionally; only the value flips.
+
+**A mistake worth recording.** The swap was applied with the pattern
+`color: var(--risk-moderate)`, which also matches `border-color:`,
+`border-left-color:` and `border-top-color:` — so it recoloured four borders
+after this very section said borders keep the fill amber. Caught by reading the
+diff, reverted, and the file now has no `border-*-color` or `background` bound
+to the ink token. A search-and-replace that is one suffix away from a different
+property is the CSS cousin of §115's mutation that matched two places.
+
+### 120.4 `accent-color` without `color-scheme` is half a theme
+
+`accent-color` was set for both themes and paints only the CHECKED state.
+Everything else the browser draws itself — the unchecked box, scrollbars, a
+native select's dropdown, a date picker — kept its light rendering. Measured:
+every checkbox in dark mode computed `color: rgb(0,0,0)` with a black border,
+and they read on screen as a row of stark white squares inside a dark card.
+
+`color-scheme: light` / `color-scheme: dark` fixes all of it in one declaration,
+and is the only way to reach the scrollbars at all without vendor
+pseudo-elements.
+
+### 120.5 Result, and what is left
+
+**27 → 11** distinct low-contrast text styles. Verified after the change: 25
+frontend suites / 434 tests, typecheck and lint clean, and `npm run e2e`
+**113/113** against the modified stylesheet.
+
+Not fixed, and each for a stated reason rather than an oversight:
+
+- **`heatmap-cell`** — white text on the subitem tier colours (1.85–2.56:1). The
+  fix is tier-aware ink, which means the tier palette in `lib/holomotionTiers.ts`
+  decides its own contrast; that is a data-visualisation decision, not a CSS one,
+  and `dataviz` rules should govern it.
+- **`histogram-n`** — number labels drawn ON the bars they describe, so the
+  "background" is the bar. Needs the label moved or given a plate, which is a
+  layout change to a chart.
+- **`quick-list-score`, `em`/`span` on filled chips** — same shape: text on a
+  saturated fill.
+- **`badge-low` at 4.48:1** — a hair under 4.5. Real, and a one-token nudge, but
+  it is the LOW/green band and worth doing with the other band colours together
+  rather than alone.
+
+All four are text-on-fill, which is one coherent piece of work on the band and
+tier palettes. Splitting it across two sittings would leave the palette
+half-migrated, which is worse than either end state.
