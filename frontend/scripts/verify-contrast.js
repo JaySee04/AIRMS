@@ -43,7 +43,18 @@
 // Unlike verify:csp this does NOT need a production build: contrast is a
 // property of the stylesheet, which `next dev` serves unchanged.
 //
-// EXIT CODES  0 no failures · 1 a failure was found · 2 could not run
+// EVERY PAGE MUST PROVE IT WAS MEASURED. This is the failure mode that would
+// make the whole thing worthless, and it is silent by construction: an expired
+// session, a renamed route, a role losing access or a backend that stopped
+// answering all end with the browser on the sign-in screen, which has about six
+// text nodes and no contrast problems. The audit would sweep eleven of those and
+// report a confident, green ZERO. So each visit asserts it LANDED on the route
+// it asked for and that the page carries enough text and enough measurable
+// elements to be the page — and a visit that cannot be measured FAILS the run
+// rather than quietly contributing nothing to it.
+//
+// EXIT CODES  0 no failures · 1 a failure was found, or a page could not be
+//             measured · 2 could not run at all
 const fs = require('fs');
 const puppeteer = require('puppeteer-core');
 
@@ -58,32 +69,93 @@ const CHROMES = [
   process.env.CHROME_PATH,
 ].filter(Boolean);
 
-// Every authenticated page, under the role that can actually reach it. A page
-// missing from this list is a page nobody is measuring, so add one here when you
-// add one to the app.
+// Every authenticated page, under a role that can actually reach it — checked
+// against each page's own `allowedRoles`, and kept honest by
+// scripts/verify-contrast.pages.test.js, which reads src/app and fails if this
+// list and the filesystem disagree in either direction.
+//
+// IT DRIFTED ONCE ALREADY, AND SILENTLY. The first version of this list carried
+// `/executive/dashboard`, which has never existed: `executive` has no pages of
+// its own and lands on /admin/dashboard (lib/auth.ts). Next served its 404 page,
+// 170 characters with no theme and no contrast problems, and the sweep counted
+// it as a clean page for two whole sections of DESIGN_DECISIONS. The same list
+// was missing ten real ones. "Eleven authenticated pages" was ten measured out
+// of twenty-one.
 const PAGES = [
-  ['admin', '/admin/dashboard'], ['admin', '/admin/thresholds'],
-  ['admin', '/admin/activity'], ['admin', '/admin/personnel'],
+  // admin + executive read the same analytics surfaces; executive is the
+  // read-only one, so it renders FEWER controls — measured under both, because
+  // the difference is exactly the buttons a contrast audit cares about.
+  ['admin', '/admin/dashboard'], ['executive', '/admin/dashboard'],
+  ['admin', '/admin/activity'], ['executive', '/admin/activity'],
+  ['admin', '/admin/audit'], ['executive', '/admin/audit'],
+  ['admin', '/admin/reports'], ['executive', '/admin/reports'],
+  ['admin', '/admin/profile'], ['executive', '/admin/profile'],
+  ['admin', '/admin/data-upload'],
+  ['admin', '/admin/personnel'],
   ['admin', '/admin/settings'],
+  ['admin', '/admin/thresholds'], ['medical', '/admin/thresholds'],
+  // /medical/cohort-norms re-exports /admin/thresholds, so it is the same tree
+  // under a different URL — measured anyway, because the layout it mounts under
+  // is the medical one.
+  ['medical', '/medical/cohort-norms'],
   ['medical', '/medical/dashboard'], ['medical', '/medical/data-upload'],
-  ['coach', '/coach/dashboard'],
+  ['medical', '/medical/profile'],
+  ['coach', '/coach/dashboard'], ['coach', '/coach/reports'],
+  ['coach', '/coach/profile'],
   ['athlete', '/athlete/dashboard'], ['athlete', '/athlete/history'],
-  ['executive', '/executive/dashboard'],
+  ['athlete', '/athlete/squad'], ['athlete', '/athlete/profile'],
 ];
 
 // The canary is a real rule on a real element, not a synthetic node: it has to
 // travel the same path a genuine defect would. Grey-on-white at ~1.4:1.
 const CANARY_CSS = '.card, .card * { color: #eef0f3 !important; }';
+const CANARY_INK = '#eef0f3';
+// The same colour as getComputedStyle reports it. Written out rather than
+// derived, so the two can be read side by side and checked by eye.
+const CANARY_RGB = 'rgb(238, 240, 243)';
 const CANARY_MIN = 8;   // a page full of cards yields far more than this
 
+// A measured page must clear both. MEASURED, not guessed, because the first
+// pass guessed and the floors then failed three pages that had rendered
+// perfectly well:
+//
+//   signed-out sign-in screen    8 elements /  218 characters
+//   Next's 404 page              4 elements /  153 characters
+//   /medical/data-upload        12 elements /  555 characters  <- leanest real page
+//   /admin/settings             32 elements / 2369 characters
+//
+// So the floors sit in the gap between a non-page and the thinnest real one. The
+// route assertion is the primary guard — a bounce lands on '/' and is caught by
+// path alone — and these are the backstop for the case it cannot see: the right
+// URL rendering nothing but its shell.
+const MIN_TEXT = 300;
+const MIN_ELEMENTS = 10;
+
+/** First line of an error, for a one-line report. Puppeteer's messages carry a
+ *  whole stack and the useful part is always the first line. */
+const firstLine = (e) => String(e && e.message ? e.message : e).split(/\r?\n/)[0];
+
 async function login(email) {
-  const r = await fetch(`${API}/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password: 'airms2026' }),
-  });
-  if (!r.ok) throw new Error(`login ${email}: ${r.status}`);
-  return r.json();
+  let r;
+  try {
+    r = await fetch(`${API}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: 'airms2026' }),
+    });
+  } catch (e) {
+    // fetch rejects for a dead host with a message that names no host at all
+    // ("fetch failed"), which sends the reader to the wrong place entirely.
+    throw new Error(`cannot reach the API at ${API} (${e.cause?.code || e.message})`);
+  }
+  if (r.status === 401) throw new Error(`login ${email} -> 401. The demo accounts are seeded by \`npm run seed\`; this needs the seeded password.`);
+  if (r.status === 429) throw new Error(`login ${email} -> 429. The auth throttle is engaged — wait for the window to clear, or run against a loopback instance, which is exempt.`);
+  if (!r.ok) throw new Error(`login ${email} -> ${r.status}`);
+  const s = await r.json();
+  // A 200 with no token would let every page boot signed-OUT and the sweep would
+  // measure eleven sign-in screens. Refuse here, where the cause is still legible.
+  if (!s || !s.token || !s.user) throw new Error(`login ${email} -> 200 but no token in the reply`);
+  return s;
 }
 
 const IN_PAGE = () => {
@@ -122,6 +194,10 @@ const IN_PAGE = () => {
   };
 
   const out = [];
+  // COUNTED, NOT ASSUMED. `scanned` is how many elements actually reached the
+  // contrast test — the denominator behind a "0 findings" result. Without it,
+  // zero findings and zero elements examined print the same thing.
+  let scanned = 0;
   for (const el of document.querySelectorAll('body *')) {
     // Leaf nodes only: a wrapper's textContent is its children's, and blaming
     // the wrapper reports one defect per level of nesting.
@@ -140,6 +216,7 @@ const IN_PAGE = () => {
     const weight = parseInt(cs.fontWeight, 10) || 400;
     const large = size >= 18.66 || (size >= 14 && weight >= 700);
     const need = large ? 3 : 4.5;
+    scanned += 1;
     const r = ratio(fg, bgOf(el));
     if (r < need) {
       out.push({
@@ -154,14 +231,66 @@ const IN_PAGE = () => {
       });
     }
   }
-  return out;
+  return {
+    findings: out,
+    scanned,
+    path: location.pathname,
+    textLen: (document.body?.innerText || '').trim().length,
+    theme: document.documentElement.getAttribute('data-theme'),
+  };
 };
 
 async function sweep(browser, who, canary) {
   const all = new Map();
-  for (const theme of ['light', 'dark']) {
-    for (const [role, route] of PAGES) {
-      const page = await browser.newPage();
+  // Pages that could not be MEASURED, as opposed to pages that measured clean.
+  // Kept apart on purpose: collapsing them is how a sweep of eleven sign-in
+  // screens reports "no contrast problems".
+  const unmeasured = [];
+  let scannedTotal = 0;
+
+  // Each visit is INDEPENDENT — its own tab, its own session seed, its own
+  // reading — so they can run several at a time. Correcting the page list took
+  // the sweep from 22 visits to 52 and the wall clock from 75s to 3m30, which is
+  // long enough that people stop running it, and a check nobody runs is the same
+  // as no check.
+  //
+  // Unlike the theme optimisation this changes nothing about WHAT is measured:
+  // no page reads another's DOM, scrollIntoView is per-document, and the
+  // elementsFromPoint surface lookup is a property of one page's own layout.
+  // Verified rather than argued — serial and concurrent runs agree exactly on
+  // the element count (8004) and on the findings.
+  //
+  // Four, not more: every tab holds a real Chrome renderer and its own React
+  // tree, and past ~6 the settle stops being enough on a loaded machine, which
+  // WOULD change the reading. CONTRAST_JOBS=1 forces the serial order back if a
+  // result ever needs reproducing exactly.
+  const jobs = Math.max(1, Number(process.env.CONTRAST_JOBS || 4));
+  const queue = [];
+  for (const theme of ['light', 'dark']) for (const [role, route] of PAGES) queue.push({ theme, role, route });
+
+  let cursor = 0;
+  async function worker() {
+    for (;;) {
+      const job = queue[cursor];
+      cursor += 1;
+      if (!job) return;
+      const { theme, role, route } = job;
+      // The role is part of the label because the same route is now measured
+      // under two of them, and 'dark /admin/dashboard' failing would otherwise
+      // not say WHICH reader saw it.
+      const label = `${theme} ${role} ${route}`;
+      // ITS OWN BROWSER CONTEXT, NOT JUST ITS OWN TAB.
+      //
+      // localStorage is per-ORIGIN, and every page here is the same origin — so
+      // concurrent tabs share one `airms_token` and one `airms_theme` and
+      // trample each other's seeds. Measured: with plain newPage() and four
+      // workers, /athlete/profile and /athlete/squad landed on /admin/dashboard
+      // and both coach pages landed on /athlete/dashboard. Four visits reading a
+      // different role's screen, and the ONLY reason that is a failure line
+      // rather than a silently smaller clean sweep is the landing assertion.
+      // A context is an isolated storage partition, so each visit gets its own.
+      const ctx = await browser.createBrowserContext();
+      const page = await ctx.newPage();
       try {
         // SEED THE SESSION BEFORE THE DOCUMENT EXISTS. The obvious shape is to
         // navigate to the origin, write localStorage, then navigate to the page
@@ -173,7 +302,11 @@ async function sweep(browser, who, canary) {
           localStorage.setItem('airms_user', JSON.stringify(s.user));
           localStorage.setItem('airms_theme', th);
         }, who[role], theme);
-        await page.goto(WEB + route, { waitUntil: 'networkidle2' });
+        // A navigation timeout is not fatal to the RUN — the other pages are
+        // still worth measuring — but it must never pass for a measured page,
+        // so it falls through to the landing assertions below, which refuse it.
+        await page.goto(WEB + route, { waitUntil: 'networkidle2', timeout: 60000 })
+          .catch((e) => { unmeasured.push(`${label} — navigation: ${firstLine(e)}`); });
         await new Promise((r) => { setTimeout(r, SETTLE); });
 
         // THE THEME IS SET AT BOOT, NOT FLIPPED AFTERWARDS, and that is not
@@ -185,18 +318,88 @@ async function sweep(browser, who, canary) {
         // exist, including .btn-outline reported at 1.18:1 in "light" while
         // holding the dark theme's #e8edf2. Halving the navigations is not worth
         // a measurement that reports the wrong theme's colours.
-        if (canary) await page.addStyleTag({ content: CANARY_CSS });
-        for (const f of await page.evaluate(IN_PAGE)) {
+        if (canary) {
+          // A silently-failing addStyleTag would make the control report CLEAN,
+          // i.e. "the audit is broken" — the exact wrong answer, from the check
+          // whose whole job is to be trustworthy about that.
+          await page.addStyleTag({ content: CANARY_CSS });
+          // VERIFIED BY EFFECT, NOT BY PRESENCE. The obvious check — find the
+          // rule in document.styleSheets and match its cssText — does not work
+          // and fails in the direction that matters: Chrome serialises cssText
+          // with the colour NORMALISED to rgb(), so a search for the hex never
+          // matches and every visit reports "the canary did not attach". It read
+          // as the control refusing to vouch for the run when in fact the
+          // control's own detector was broken.
+          //
+          // Asking whether a real element actually COMPUTES to the canary colour
+          // is both correct and stronger: it proves the rule attached, survived
+          // the CSP, and won the cascade.
+          const applied = await page.evaluate((rgb) => {
+            for (const el of document.querySelectorAll('.card *')) {
+              if (getComputedStyle(el).color === rgb) return true;
+            }
+            return false;
+          }, CANARY_RGB);
+          if (!applied) {
+            unmeasured.push(`${label} — the canary stylesheet did not attach`);
+            continue;
+          }
+        }
+
+        const res = await page.evaluate(IN_PAGE);
+
+        // DID WE MEASURE THE PAGE WE ASKED FOR?
+        //
+        // Three independent ways to end up somewhere else, all of them quiet:
+        // the session was refused and DashboardLayout bounced to '/'; the route
+        // was renamed and Next served a 404; the page threw on mount and
+        // rendered its shell only. Each leaves a document that scans cleanly.
+        if (res.path !== route) {
+          unmeasured.push(`${label} — landed on ${res.path} instead (session refused, or the route moved)`);
+          continue;
+        }
+        if (res.theme !== theme) {
+          unmeasured.push(`${label} — the page is in the ${res.theme || 'default'} theme, so this reading is of the wrong palette`);
+          continue;
+        }
+        if (res.textLen < MIN_TEXT || res.scanned < MIN_ELEMENTS) {
+          unmeasured.push(`${label} — only ${res.scanned} measurable elements / ${res.textLen} characters (floor ${MIN_ELEMENTS}/${MIN_TEXT}); the page did not render`);
+          continue;
+        }
+
+        scannedTotal += res.scanned;
+        for (const f of res.findings) {
           const key = `${theme}|${f.cls || f.tag}|${f.color}|${f.ratio}`;
-          if (!all.has(key)) all.set(key, { ...f, theme, where: route, count: 1 });
+          if (!all.has(key)) all.set(key, { ...f, theme, where: `${route} (${role})`, count: 1 });
           else all.get(key).count += 1;
         }
+      } catch (e) {
+        // One page crashing must not discard the ten already measured, and must
+        // not be mistaken for one that measured clean.
+        unmeasured.push(`${label} — ${firstLine(e)}`);
       } finally {
-        await page.close();
+        // A close failure is noise once the reading is taken; swallowing it here
+        // keeps it from masking the result the run is actually about. The
+        // context must go too, or a 52-visit run leaks 52 storage partitions.
+        await page.close().catch(() => {});
+        await ctx.close().catch(() => {});
       }
     }
   }
-  return [...all.values()].sort((a, b) => a.ratio - b.ratio);
+
+  // A worker that throws would otherwise take its whole share of the queue with
+  // it and leave the run reporting a clean sweep of whatever survived.
+  const results = await Promise.allSettled(Array.from({ length: jobs }, worker));
+  for (const r of results) {
+    if (r.status === 'rejected') unmeasured.push(`a sweep worker died — ${firstLine(r.reason)}`);
+  }
+
+  return {
+    rows: [...all.values()].sort((a, b) => a.ratio - b.ratio),
+    unmeasured: unmeasured.sort(),
+    scannedTotal,
+    pages: queue.length - unmeasured.length,
+  };
 }
 
 function report(rows, limit = 24) {
@@ -207,35 +410,68 @@ function report(rows, limit = 24) {
   if (rows.length > limit) console.log(`  … and ${rows.length - limit} more`);
 }
 
+function reportUnmeasured(unmeasured) {
+  if (!unmeasured.length) return;
+  console.log(`\n${unmeasured.length} of ${PAGES.length * 2} page-visits COULD NOT BE MEASURED:\n`);
+  for (const u of unmeasured) console.log(`  ✗ ${u}`);
+  console.log('\nThese are not passes. A page that did not render has no contrast');
+  console.log('problems in the same way an unplugged monitor has no dead pixels.');
+}
+
 (async () => {
-  const chromePath = CHROMES.find((p) => fs.existsSync(p));
+  // existsSync can throw on a malformed path from CHROME_PATH rather than
+  // returning false, which would exit 2 with a stack instead of the one line
+  // that tells the reader what to set.
+  const chromePath = CHROMES.find((p) => { try { return fs.existsSync(p); } catch { return false; } });
   if (!chromePath) {
-    console.error('Could not find Chrome. Set CHROME_PATH.');
+    console.error('No Chrome found. Set CHROME_PATH to the executable.');
     process.exit(2);
   }
 
-  const who = {};
-  for (const role of ['admin', 'medical', 'coach', 'athlete', 'executive']) {
-    who[role] = await login(`${role}@isn.gov.my`);
+  let who;
+  try {
+    who = {};
+    for (const role of ['admin', 'medical', 'coach', 'athlete', 'executive']) {
+      who[role] = await login(`${role}@isn.gov.my`);
+    }
+  } catch (e) {
+    console.error(`${e.message}\nAre both servers running (npm run dev) and the database seeded (npm run seed)?`);
+    process.exit(2);
   }
 
-  const browser = await puppeteer.launch({
-    executablePath: chromePath,
-    headless: 'new',
-    args: ['--no-sandbox', '--disable-dev-shm-usage'],
-    defaultViewport: { width: 1440, height: 900 },
-  });
+  let browser;
+  try {
+    browser = await puppeteer.launch({
+      executablePath: chromePath,
+      headless: 'new',
+      args: ['--no-sandbox', '--disable-dev-shm-usage'],
+      defaultViewport: { width: 1440, height: 900 },
+    });
+  } catch (e) {
+    console.error(`Could not start Chrome at ${chromePath}: ${e.message}`);
+    process.exit(2);
+  }
+
+  // Chrome outlives this process if it is killed mid-sweep, and a stray headless
+  // browser per interrupted run is a slow leak on a dev machine.
+  const bail = () => { browser.close().catch(() => {}); process.exit(2); };
+  process.on('SIGINT', bail);
+  process.on('SIGTERM', bail);
 
   let failed = false;
   try {
     if (CANARY) {
       // THE CONTROL. Plant a known-bad rule and require the audit to see it.
       // The verdict is INVERTED: a clean run here means the check is broken.
-      console.log(`\ncanary — every .card descendant forced to ${CANARY_CSS.match(/#\w+/)[0]}`);
-      const rows = await sweep(browser, who, true);
+      console.log(`\ncanary — every .card descendant forced to ${CANARY_INK}`);
+      const { rows, unmeasured, pages } = await sweep(browser, who, true);
       const total = rows.reduce((n, r) => n + r.count, 0);
-      console.log(`  caught ${rows.length} distinct styles / ${total} instances`);
-      if (rows.length < CANARY_MIN) {
+      console.log(`  caught ${rows.length} distinct styles / ${total} instances across ${pages} page-visits`);
+      reportUnmeasured(unmeasured);
+      if (unmeasured.length) {
+        console.log('\nCANARY INCONCLUSIVE — it cannot vouch for pages it never measured.');
+        failed = true;
+      } else if (rows.length < CANARY_MIN) {
         console.log(`\nCANARY NOT CAUGHT — expected at least ${CANARY_MIN} distinct styles, saw ${rows.length}.`);
         console.log('The audit is not measuring what it claims to. Do not trust a clean run.');
         failed = true;
@@ -243,21 +479,34 @@ function report(rows, limit = 24) {
         console.log('\ncanary caught — a real failure of this shape would be reported.');
       }
     } else {
-      const rows = await sweep(browser, who, false);
-      console.log(`\n${rows.length} text styles below WCAG AA\n`);
+      const { rows, unmeasured, scannedTotal, pages } = await sweep(browser, who, false);
+      console.log(`\n${rows.length} text styles below WCAG AA`);
+      console.log(`  (${scannedTotal} text elements across ${pages} page-visits)\n`);
       report(rows);
+      reportUnmeasured(unmeasured);
+
+      // AN INCOMPLETE SWEEP IS A FAILURE, NOT A SMALLER PASS. Reporting "0
+      // findings" over eight of twenty-two pages would be the most dangerous
+      // output this script could produce — green, and about almost nothing.
+      if (unmeasured.length) failed = true;
       if (rows.length) {
         console.log('\nSee DESIGN_DECISIONS §120/§121 for the three colour roles');
         console.log('(--risk-* fill · --risk-*-ink text on a card · --on-risk-* text on the fill).');
         failed = true;
-      } else {
+      } else if (!unmeasured.length) {
         console.log('  none — every page, both themes.');
         console.log('\n  Re-run with --canary before trusting this: a clean result and a');
         console.log('  broken audit look identical from here.');
       }
     }
   } finally {
-    await browser.close();
+    await browser.close().catch(() => {});
   }
   process.exit(failed ? 1 : 0);
-})().catch((e) => { console.error(e); process.exit(2); });
+})().catch((e) => {
+  // Anything that reaches here is a fault in the harness, not a finding about
+  // the app — exit 2, so a caller can tell "the UI has a contrast problem" from
+  // "this check did not run".
+  console.error(e);
+  process.exit(2);
+});

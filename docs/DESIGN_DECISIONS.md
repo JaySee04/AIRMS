@@ -11346,8 +11346,15 @@ half-migrated, which is worse than either end state.
 ## 121. Text on a fill is a third colour role (2026-09-29)
 
 §120.5 left four items open and argued they were one job. They were, and it is
-this one. **11 → 0** distinct low-contrast text styles across the eleven
-authenticated pages in both themes.
+this one. **11 → 0** distinct low-contrast text styles across the authenticated
+pages in both themes.
+
+> **Coverage correction (§121.8).** "Eleven authenticated pages" was the claim
+> here and in §120, and it was wrong: ten were measured, one of the eleven was a
+> route that does not exist, and ten more real pages were never in the list. The
+> findings below are unaffected — they are all real and all still fixed — but
+> read the coverage figure as ten of twenty-one until §121.8, and 52 page-visits
+> after it.
 
 It is also the section where the fix was wrong first, in the project's own
 characteristic way, and the write-up is mostly about that.
@@ -11551,3 +11558,83 @@ the audit looks at. Against CI's databaseless environment it would report a
 confident zero about pages that drew nothing, which is the exact signal the CI
 comment says is worse than no signal at all. It joins `audit:access`,
 `verify:claims` and `e2e` in the stated excluded set.
+
+### 121.8 What the error handling found the moment it existed (2026-09-29)
+
+§121.7 landed the audit as a command. Hardening its failure paths — the point
+being that a check which cannot distinguish "clean" from "did not run" is not a
+check — turned up four defects in the first run, three of them in the audit
+itself and none visible before.
+
+**The coverage claim was wrong. §120 and §121 say "eleven authenticated pages";
+it was ten, and one of the eleven was an error page.**
+
+`/executive/dashboard` has never existed. `executive` has no pages of its own
+and lands on `/admin/dashboard` (`lib/auth.ts`). Next served its 404 — 170
+characters, no `data-theme`, no contrast problems — and the sweep counted it as
+a clean page through every run behind both sections. The same list was missing
+**ten** real authenticated pages: `/admin/audit`, `/admin/reports`,
+`/admin/data-upload`, `/admin/profile`, `/medical/cohort-norms`,
+`/medical/profile`, `/coach/reports`, `/coach/profile`, `/athlete/squad` and
+`/athlete/profile`. Twenty-one authenticated pages exist; eleven were named; ten
+were measured.
+
+The numbers in §120 and §121 stand for what they measured — the `--on-risk-*`
+work, the chart line, the three colour roles are all real and all still correct.
+The *coverage sentence* was not. The corrected list is **26 page-visits × 2
+themes = 52**, and it re-runs clean: 8004 text elements, 0 findings. Nothing new
+was found on the eleven pages nobody had been measuring, which is luck rather
+than vindication.
+
+`src/app/contrastPages.test.ts` is the durable half. It reads `src/app`,
+extracts the script's `PAGES` list, and fails if they disagree **in either
+direction** — a missing page (the silent one) or a route the app does not serve
+(the 404 one). It also checks each entry's ROLE against that page's own
+`allowedRoles`, because a page listed under a role that cannot reach it bounces
+to that role's landing page and yields a green reading of a page never opened.
+It follows a re-export to find `allowedRoles`, since `/medical/cohort-norms` is
+`export { default } from '../../admin/thresholds/page'` and would otherwise read
+as public and drop out of the comparison entirely. All three assertions were
+mutated and confirmed to fail; the first mutation was itself a no-op — a `sed`
+anchored on leading whitespace against a mid-line entry — and reported 6/6
+passing, which is this repo's own defect class arriving inside the verification
+of the verification, again.
+
+**Concurrency broke the sessions, and only the landing assertion said so.**
+Correcting the page list took the sweep from 22 visits to 52 and from 75s to
+3m30 — long enough that people stop running it. Four parallel tabs is the
+obvious fix and each visit is genuinely independent, but `localStorage` is
+per-ORIGIN and every page here is one origin, so the tabs trampled each other's
+`airms_token`. Measured: `/athlete/profile` and `/athlete/squad` landed on
+`/admin/dashboard`, both coach pages on `/athlete/dashboard`. Four visits
+reading a different role's screen — and with the old code that would have been a
+slightly smaller clean sweep with nothing to show for it. Each visit now gets
+its own `browser.createBrowserContext()`, an isolated storage partition.
+**52s, and 8004 elements — identical to the serial run**, which is how the
+optimisation was accepted rather than assumed; `CONTRAST_JOBS=1` forces the
+serial order back and agrees exactly.
+
+**The control's own detector was broken.** The canary verifies its stylesheet
+attached before trusting the result. The first implementation searched
+`document.styleSheets` for the rule's `cssText` containing `#eef0f3` — and
+Chrome serialises `cssText` with the colour normalised to `rgb(238, 240, 243)`,
+so it never matched and all 52 visits reported "the canary stylesheet did not
+attach". That failed *safely* — it refused to vouch rather than falsely
+vouching — but it was still a check whose detector could not see the thing it
+was detecting. It now asks whether a real element actually COMPUTES to the
+canary colour, which proves the rule attached, survived the CSP and won the
+cascade. 107 distinct styles / 3197 instances across all 52.
+
+**The floors were guesses and three real pages tripped them.** `MIN_ELEMENTS`
+was set to 40 by eye; `/medical/data-upload` has 12 and `/admin/settings` has 32,
+both rendering perfectly. Re-derived by measuring the things the floor exists to
+exclude — sign-in screen 8 elements / 218 characters, Next's 404 page 4 / 153 —
+against the leanest real page, 12 / 555. Floors sit in that gap: 10 and 300.
+
+Beyond that: an incomplete sweep now FAILS rather than reporting a smaller pass;
+a worker that throws is collected by `Promise.allSettled` instead of taking its
+share of the queue silently; a dead API is named with its URL rather than
+`fetch failed`; a 200 login with no token is refused where the cause is still
+legible, instead of booting 52 signed-out pages; SIGINT closes Chrome; and exit
+2 is reserved for "this check did not run" so a caller can tell that from
+"the UI has a contrast problem".
