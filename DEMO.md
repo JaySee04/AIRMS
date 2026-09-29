@@ -182,3 +182,32 @@ B offers `4/4`.
 > the same `build` on `/api/health`, which was a neat way to show the extraction
 > was identical. B now has a backend change, so they differ. The extraction
 > itself is still untouched — what was added is a roster lookup after it.
+
+## The batch no longer waits for nothing
+
+The uploader paused **three seconds between every file**, to stay inside the
+vision provider's free-tier rate limit. That was right when every report meant a
+vision call. Since the text-layer work nearly none of them do — there is no
+network request to pace.
+
+Measured on the four-report deck:
+
+| | time |
+|---|---|
+| A — pauses after every file | **10.5 s** |
+| B — pauses only after a file that called the provider | **1.3 s** |
+
+Roughly 1.2 s of that is the actual reading; the rest was waiting. On a session
+of sixty reports the pause costs about **three minutes** of nothing.
+
+**The rate-limit protection is still there**, and this was checked rather than
+assumed: with the server made to claim a provider call on every file, the batch
+goes straight back to **10.7 s**. The pause now fires on what a report actually
+spent instead of on the fact that a report happened. A failed read is paced like
+a call, because from the browser you cannot tell whether the request died before
+or after reaching the provider, and a retry storm into a rate limit is the thing
+being avoided.
+
+This is the same shape as the quota cap that was counting requests after most of
+them stopped costing anything: when the cost moves, everything sized to it needs
+re-checking — a delay is a cost model just as much as a limit is.

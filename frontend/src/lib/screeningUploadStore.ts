@@ -50,6 +50,10 @@ export interface PreviewResponse {
    *  A second, independent source to the filename — the two fail differently —
    *  and the name itself never travels. Absent when nothing matched uniquely. */
   suggestedAthleteId?: string | null;
+  /** How many times the extractor actually called the vision provider. Zero for
+   *  a report read from the text layer, which is nearly all of them since §112.
+   *  The batch loop paces itself on this. */
+  providerCalls?: number;
   summary?: string | null;
   subitems?: Record<string, Record<string, number | null>> | null;
   // What the vision call cost. Passed back on commit so the Activity Log can
@@ -105,8 +109,21 @@ interface UploadState {
 }
 
 // ── config / helpers ────────────────────────────────────────────────────────
-// Pause between sequential vision calls — stays inside free-tier RPM limits
-// when a whole squad's reports are dropped at once.
+// Pause after a report that ACTUALLY CALLED THE PROVIDER — that is what the
+// free-tier RPM limit counts, and nothing else (§121).
+//
+// This used to run after EVERY file, and was right when every file meant a
+// vision call. Since §112 nearly all reports are read from the PDF's own text
+// layer: no network, no quota, nothing to pace. The pause was protecting a
+// limit the batch was no longer approaching.
+//
+// Measured on four reports: 10.2 s, of which 9 s was this sleep and ~1.2 s was
+// work. On a realistic session of sixty that is about three minutes of waiting
+// for nothing.
+//
+// Same shape as §115.1, where the quota CAP was counting requests after most of
+// them stopped costing anything. When the cost moves, everything sized to it
+// has to be re-checked — a delay is as much a cost model as a limit is.
 export const BATCH_SPACING_MS = 3000;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -196,7 +213,8 @@ export function parseNameFromFilename(filename: string): string {
   return s;
 }
 
-async function extractOne(item: QueueItem): Promise<void> {
+/** @returns how many provider calls this report cost — 0 for a text-layer read. */
+async function extractOne(item: QueueItem): Promise<number> {
   patchItemInternal(item.id, { status: 'extracting', error: null });
   try {
     // REDUCE THE UPLOAD IF THIS SERVER WILL NOT TAKE THE WHOLE FILE (§115.5).
@@ -264,8 +282,14 @@ async function extractOne(item: QueueItem): Promise<void> {
       age: fromReport.age || (isn?.age != null ? String(isn.age) : ''),
       gender: fromReport.gender || isn?.gender || '',
     });
+    return preview.providerCalls ?? 0;
   } catch (e) {
     patchItemInternal(item.id, { status: 'error', error: e instanceof Error ? e.message : 'Failed to read PDF' });
+    // A FAILURE PACES LIKE A CALL. We cannot tell from here whether the request
+    // died before or after reaching the provider, and the safe assumption is
+    // after — a retry storm against a rate limit is exactly what the pause
+    // exists to prevent.
+    return 1;
   }
 }
 
@@ -280,8 +304,13 @@ async function runExtraction() {
     for (;;) {
       const next = state.items.find((it) => it.status === 'queued');
       if (!next) break;
-      await extractOne(next);
-      if (state.items.some((it) => it.status === 'queued')) await sleep(BATCH_SPACING_MS);
+      const providerCalls = await extractOne(next);
+      // Pace on what the LAST report actually spent, not on the fact that a
+      // report happened. A text-layer read touches no third party and needs no
+      // gap; a vision call does (§121).
+      if (providerCalls > 0 && state.items.some((it) => it.status === 'queued')) {
+        await sleep(BATCH_SPACING_MS);
+      }
     }
   } finally {
     running = false;
