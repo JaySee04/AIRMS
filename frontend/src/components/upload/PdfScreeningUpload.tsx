@@ -57,6 +57,14 @@ export default function PdfScreeningUpload() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [status, setStatus] = useState<StatusResponse | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  // Which settled rows the operator has opened anyway. Collapsed is the
+  // default; this is the escape hatch, not a mode.
+  const [expanded, setExpanded] = useState<Set<number>>(new Set());
+  const toggleExpanded = (id: number) => setExpanded((prev) => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
   // Disciplines already on record, grouped by sport — offered as autocomplete in
   // the events picker so an operator can reuse an existing event or type a new one.
   const [knownDisc, setKnownDisc] = useState<Record<string, string[]>>({});
@@ -184,6 +192,27 @@ export default function PdfScreeningUpload() {
   const readyCount = items.filter((it) => it.status === 'ready').length;
   const completeReady = items.filter((it) => it.status === 'ready' && it.name.trim() && it.athleteId.trim() && it.sport.trim() && it.program).length;
 
+  // ── VARIANT B: the queue is EXCEPTIONS first, not a flat list ──────────────
+  //
+  // Nothing here changes WHAT is imported, or how it is read — only what the
+  // operator is asked to look at. A report whose athlete resolved from the
+  // roster already has its name, IC, sport and programme filled in, so the row
+  // needs no human input at all; the current build still renders it as a full
+  // editing card identical to one that does. On a 60-report session that is 60
+  // cards to read in order to find the six that matter.
+  //
+  // So a settled row collapses to one line, and the queue is ordered
+  // needs-you-first: the work is bounded by the exceptions rather than by the
+  // size of the batch. Expanding a settled row is one click, because "it
+  // auto-filled the wrong athlete" has to stay correctable — the whole point is
+  // to make the exceptions visible, not to hide the rest.
+  const isSettled = (it: QueueItem) => it.status === 'ready'
+    && Boolean(it.name.trim() && it.athleteId.trim() && it.sport.trim() && it.program);
+  const needsYou = items.filter((it) => it.status === 'error' || (it.status === 'ready' && !isSettled(it)));
+  const settled = items.filter(isSettled);
+  const inFlight = items.filter((it) => !needsYou.includes(it) && !settled.includes(it));
+  const ordered = [...needsYou, ...settled, ...inFlight];
+
   // Client-side navigation no longer loses the queue (it lives in the store),
   // but a hard reload / tab close still would — and 'extracting'/'ready' items
   // represent real vision-API calls not yet committed. Warn only when such
@@ -275,9 +304,74 @@ export default function PdfScreeningUpload() {
         </div>
       )}
 
+      {/* ── VARIANT B: what is left to DO, before the list of what there is ── */}
+      {items.length > 0 && (needsYou.length > 0 || settled.length > 0) && (
+        <div
+          className="card"
+          style={{
+            marginTop: 14,
+            padding: 'var(--sp-md)',
+            display: 'flex',
+            gap: 'var(--sp-lg)',
+            alignItems: 'baseline',
+            flexWrap: 'wrap',
+            borderLeft: `3px solid ${needsYou.length ? 'var(--risk-moderate)' : 'var(--risk-low)'}`,
+          }}
+        >
+          <div>
+            <div style={{ fontSize: 'var(--fs-2xl)', fontWeight: 700, lineHeight: 1.1 }}>{settled.length}</div>
+            <div className="text-muted" style={{ fontSize: 'var(--fs-xs)' }}>ready · nothing to fill in</div>
+          </div>
+          <div>
+            <div
+              style={{
+                fontSize: 'var(--fs-2xl)',
+                fontWeight: 700,
+                lineHeight: 1.1,
+                color: needsYou.length ? 'var(--risk-moderate-ink)' : undefined,
+              }}
+            >
+              {needsYou.length}
+            </div>
+            <div className="text-muted" style={{ fontSize: 'var(--fs-xs)' }}>need you</div>
+          </div>
+          <p className="text-muted" style={{ fontSize: 'var(--fs-sm)', margin: 0, flex: 1, minWidth: 220 }}>
+            {needsYou.length === 0
+              ? 'Every report matched an athlete on the roster. Import them all, or open any row to check it first.'
+              : 'The ones that need you are listed first. The rest matched the roster and are collapsed — open one to check or correct it.'}
+          </p>
+        </div>
+      )}
+
       {/* ── Queue ── */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: items.length ? 16 : 0 }}>
-        {items.map((it) => (
+        {ordered.map((it) => {
+          // A settled row is one line until asked otherwise. The full card is
+          // unchanged below — this returns EARLY rather than rendering a second
+          // variant of it, so the editing surface has exactly one definition.
+          if (isSettled(it) && !expanded.has(it.id)) {
+            return (
+              <div
+                key={it.id}
+                className="pdf-queue-item"
+                style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-sm)', padding: 'var(--sp-sm) var(--sp-md)' }}
+              >
+                <span className="pdf-status pdf-status--ready" style={{ flexShrink: 0 }}>Ready</span>
+                <strong style={{ fontSize: 'var(--fs-md)', minWidth: 0, overflowWrap: 'anywhere' }}>{it.name}</strong>
+                <span className="text-muted" style={{ fontSize: 'var(--fs-xs)' }}>
+                  {it.athleteId} · {it.sport} · {it.program}
+                  {it.matchSource === 'roster' && ' · matched on the roster'}
+                  {it.matchSource === 'isn' && ' · from the ISN directory'}
+                </span>
+                <span style={{ flex: 1 }} />
+                <button type="button" className="btn btn-outline btn-sm" onClick={() => toggleExpanded(it.id)}>
+                  Check
+                </button>
+                <button type="button" className="btn btn-outline btn-sm" onClick={() => removeItem(it.id)}>✕</button>
+              </div>
+            );
+          }
+          return (
           <div key={it.id} className="pdf-queue-item">
             <div className="pdf-queue-head">
               <div style={{ minWidth: 0 }}>
@@ -474,7 +568,8 @@ export default function PdfScreeningUpload() {
               </div>
             )}
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Shared searchable sport list (one datalist for all queue items) */}
