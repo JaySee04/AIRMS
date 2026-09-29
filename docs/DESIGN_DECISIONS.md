@@ -11342,3 +11342,158 @@ Not fixed, and each for a stated reason rather than an oversight:
 All four are text-on-fill, which is one coherent piece of work on the band and
 tier palettes. Splitting it across two sittings would leave the palette
 half-migrated, which is worse than either end state.
+
+## 121. Text on a fill is a third colour role (2026-09-29)
+
+§120.5 left four items open and argued they were one job. They were, and it is
+this one. **11 → 0** distinct low-contrast text styles across the eleven
+authenticated pages in both themes.
+
+It is also the section where the fix was wrong first, in the project's own
+characteristic way, and the write-up is mostly about that.
+
+### 121.1 Three roles, not two
+
+§120 separated a fill token from a text token: `--risk-moderate` paints, and
+`--risk-moderate-ink` is the same band written on a card. That is two roles and
+the palette needed three, because a band is drawn three ways:
+
+| role | where | example |
+|---|---|---|
+| `--risk-*` | the FILL | a chip, a dot, a heatmap cell, a stack segment |
+| `--risk-*-ink` | text on the **card**, in the band's colour | "Watch", "Mild asymmetry" |
+| `--on-risk-*` | text printed **on that fill** | the number inside the heatmap cell |
+
+The third was the gap. Every consumer of it used a flat `#fff`, which is a
+guess that happens to be right for a dark fill and wrong for a light one — and
+which fill is light **depends on the theme**, because a dark-mode palette
+lightens every fill to make it read on a dark card. So white was correct on the
+light theme's green and red and wrong on all four of the dark theme's.
+
+`--on-risk-low|undertrained|moderate|high` are declared in both theme blocks.
+Each was chosen by giving the fill **two candidates** — white, and a darkened
+tint of its own hue — and taking whichever measured better:
+
+```
+light    fill      white   dark tint   chosen
+low      #3d7c47   5.03    4.17        white     5.03:1
+undert.  #2a6391   6.38    3.29        white     6.38:1
+moderate #c89b3c   2.56    5.56        #3d2f05   5.11:1
+high     #b03030   6.34    3.31        white     6.34:1
+
+dark     fill      white   dark tint   chosen
+low      #5cc47a   2.18    5.53        #1d3d26   5.53:1
+undert.  #6bb0e0   2.36    5.54        #1f3341   5.54:1
+moderate #e6b84e   1.85    5.55        #4e3f1b   5.55:1
+high     #e57373   2.99    5.53        #301818   5.53:1
+```
+
+**Not "white unless it fails".** The light green carries white at 5.03 and
+cannot reach 5.5 with *any* dark ink — black is 4.17 on it — so a rule that
+reached for dark the moment white missed a headroom target would have made that
+one **worse** while reporting a fix. The candidates are compared, not ranked in
+advance.
+
+`--on-risk-moderate` is `#3d2f05` rather than the `#352910` the search returned.
+Both clear the bar; `#3d2f05` is already `pdfDraw.js`'s `BAND_INK` for amber, and
+using it keeps the stated property that a threshold strip **printed** and a
+threshold strip **on screen** are legible the same way. `AMBER_INK` in
+`screeningAlerts.ts` — which held that literal and was read by one consumer — is
+gone; the value now lives in the stylesheet and in `pdfDraw.js`, each pointing at
+the other, which is two copies instead of three.
+
+### 121.2 The fix shipped a regression, and the audit caught it
+
+The first pass gave `--on-risk-undertrained` a dark ink in **both** themes,
+because `#6bb0e0` is plainly a light blue that white cannot sit on.
+
+`#6bb0e0` is the **dark** theme's value. The light theme's `--risk-undertrained`
+is `#2a6391`, a dark navy-blue that carries white at 6.38:1. The dark ink went
+onto it and measured **2.05:1** on the subitem heatmap — worse than the 4.5 it
+was replacing, on twelve cells, as part of a change whose entire purpose was
+contrast.
+
+Nothing in the edit was wrong except the input. The hex was read from memory of
+what that colour looks like rather than from the theme block it belongs to. It
+was caught by re-running the audit and reading the new failure instead of the
+count, and the comment in `globals.css` now says so at the point where the next
+person will be tempted to do it again: **measure the token, not the hue you
+remember.**
+
+### 121.3 The audit was reporting a defect that was not there
+
+Two of the eleven were `.histogram-n` — bin counts over the histogram bars,
+reported at 1.04:1 dark and 1.62:1 light, and §120.5 wrote them up as real
+("number labels drawn ON the bars they describe").
+
+They are not on the bars. `.histogram-n` is `position: absolute; top: -14px`
+with a height of 15px, so it sits **entirely above** its bar, on the card. It
+measures **6.13:1** light and **5.28:1** dark.
+
+The audit walked ANCESTORS for the first opaque background, which is an
+inference about what is behind an element, and the inference does not hold for
+anything positioned outside its parent's box. `bgOf` now takes the element's own
+background first, then asks `document.elementsFromPoint` — the layout engine's
+own answer, positioning included — and only falls back to the ancestor walk for
+a point outside the viewport.
+
+This is the quieter half of the same defect class: a check that reports a fault
+that does not exist costs the same kind of trust as one that misses a fault that
+does. §120.5 acted on it in good faith and recorded a chart-layout change as
+pending work.
+
+### 121.4 The chart line had no dark theme at all
+
+Chasing the two remaining `rgb(15, 44, 74)` failures on Programme Activity found
+something bigger than a contrast number. The score line on the
+direction-of-travel card — its polyline stroke, its dots, the value beside each
+dot, and the right-hand axis it is read against — was `var(--brand-navy)` in all
+four places, and **`--brand-navy` is declared once, outside any theme block.**
+
+Measured: 14.19:1 on the light card, **1.09:1 on the dark one**. In dark mode the
+second series and its axis were not low-contrast, they were invisible.
+
+§95's own argument for that card is that a series sharing a plot must have a
+labelled axis, "because a series without an axis has a slope that is an artefact
+of a scale the reader cannot see". Dark mode had reintroduced exactly that state
+by a different route, and a contrast audit is what found it — which is the case
+for running one on a UI that is otherwise locked.
+
+`--chart-line` themes it: `var(--brand-navy)` in light, so nothing moves there,
+and `var(--series-1)` in dark (6.78:1), borrowing the ramp's own top colour
+rather than adding a literal.
+
+### 121.5 The rest, and one token deliberately not added
+
+- **`.screening-strip-star`** was `var(--secondary, #c89b3c)`. `--secondary` is
+  declared **nowhere in the stylesheet**, so every render took the fallback
+  literal — the brand amber, at 2.56:1, not following the theme either. A
+  fallback that is always used is not a fallback.
+- **`BAND_META` gained `onCard`.** Callers were reaching for `color` — the FILL
+  — and printing it as text: `ScreeningPanel`'s threshold strips drew their value
+  and band word in `var(--risk-moderate)` on a white card. The choice now lives
+  in the map rather than at each call site.
+- **`--risk-low-ink` (`#397342`)** for `.badge-low`, `.alert-success`,
+  `.pdf-status--done` and `.decision-band--green`: `--risk-low` on
+  `--risk-low-bg` is **4.48:1**, which fails by 0.02 and is a fail. 5.02 on the
+  tinted badge, 5.65 on a card. In dark the direction reverses and the token is
+  just the fill colour, so a rule can name it unconditionally.
+- **There is deliberately no `--risk-high-ink`.** Red carries itself as text:
+  6.34:1 on a card, 5.48:1 on `--risk-high-bg`. Adding one for symmetry would be
+  a token with no measurement behind it, and the next reader would have no way to
+  tell which of the three were needed and which were tidiness.
+
+### 121.6 Verification
+
+The audit reports **0** and was **proven able to fail** rather than assumed to be
+working — two canaries planted at once: `.badge-low` reverted to
+`var(--risk-low)`, which it reported at 4.48:1, and `.histogram-n` set to
+`#d8dde5`, which it reported at **1.36:1 against the card** — the second
+confirming the new `elementsFromPoint` path measures the right surface rather
+than having gone quiet.
+
+Frontend 25 suites / 434 tests, backend 64 / 988, typecheck and lint clean,
+`npm run e2e` **113/113**, `npm run mutate` 83 of 84 — the single survivor being
+`preflight: the refusal describes the port that is ACTUALLY held`, which is the
+documented environmental case that reports SURVIVED while a dev server holds the
+ports.

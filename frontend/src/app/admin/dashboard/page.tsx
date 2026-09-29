@@ -25,7 +25,7 @@ import CohortFilters, { useCohortFilters } from '@/components/admin/CohortFilter
 import TrendStrip from '@/components/admin/TrendStrip';
 import DistributionBar from '@/components/admin/DistributionBar';
 import { DotPlot, Heatmap, Histogram, RankedBars, Ring, Scatter } from '@/components/charts/Charts';
-import { TIER_COLOR, TIER_LABEL, TIER_ORDER, TIER_RANGE, tierOf } from '@/lib/holomotionTiers';
+import { TIER_COLOR, TIER_INK, TIER_LABEL, TIER_ORDER, TIER_RANGE, tierOf } from '@/lib/holomotionTiers';
 import { BAND_COLOR, bandSegments } from '@/lib/bands';
 // PROGRAMMES and SMALL_COHORT from the generated shared source (DD 53), so a
 // programme this page compares cannot be one the database column rejects.
@@ -675,6 +675,7 @@ export default function AdminDashboard() {
             <Heatmap
               rows={cohort.subitems.matrix}
               colorFor={(v) => TIER_COLOR[tierOf(v)]}
+              inkFor={(v) => TIER_INK[tierOf(v)]}
               legend={TIER_ORDER.map((t) => (
                 <span key={t} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <span style={{ width: 12, height: 12, borderRadius: 3, background: TIER_COLOR[t] }} />

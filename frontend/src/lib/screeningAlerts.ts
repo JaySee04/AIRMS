@@ -165,23 +165,36 @@ export function bandFor(value: number, t: RegionThresholds): 'ok' | 'watch' | 'h
 }
 
 /**
- * Amber is a light yellow: white on it fails legibility, so a filled amber mark
- * takes dark ink. Same rule as pdfDraw.js BAND_INK, so a strip printed and a
- * strip on screen are legible the same way.
- */
-export const AMBER_INK = '#3d2f05';
-
-/**
  * What a banded value is CALLED and what it is drawn in.
  *
  * Words come from BAND_LABEL so the strips, the alert banner, the admin cohort
  * chart and the PDF reports describe the same number identically. Note
  * "Elevated", not "High" — the report reserves High for 56-100.
  */
+/*
+ * THREE colour roles, because a band gets drawn three ways and only one of them
+ * is the same colour (2026-09-29, §122):
+ *
+ *   color   the FILL — a chip, a dot, a marker. The band's identity.
+ *   ink     text printed ON that fill.
+ *   onCard  text printed on the CARD, in the band's colour.
+ *
+ * `ink` is a TOKEN, not a literal. It was '#fff' for ok and high, which reads on
+ * the LIGHT theme's green and red (5.03 and 6.34) and on neither of the dark
+ * theme's lighter ones (2.18 and 2.99) — so a filled band mark was failing AA in
+ * dark mode on every dashboard that draws one. Amber already had the right shape
+ * and is the reason the fault was only two thirds of the palette.
+ *
+ * `onCard` exists because callers were reaching for `color` and getting a FILL:
+ * ScreeningPanel's threshold strips printed their value and band word in
+ * var(--risk-moderate) on a white card, at 2.56:1. Green and red carry
+ * themselves as text; only amber is darkened, which is the §120 rule with the
+ * choice moved off the call site so it cannot be got wrong again.
+ */
 export const BAND_META = {
-  ok: { label: BAND_LABEL.ok, color: 'var(--risk-low)', ink: '#fff' },
-  watch: { label: BAND_LABEL.watch, color: 'var(--risk-moderate)', ink: AMBER_INK },
-  high: { label: BAND_LABEL.high, color: 'var(--risk-high)', ink: '#fff' },
+  ok: { label: BAND_LABEL.ok, color: 'var(--risk-low)', ink: 'var(--on-risk-low)', onCard: 'var(--risk-low)' },
+  watch: { label: BAND_LABEL.watch, color: 'var(--risk-moderate)', ink: 'var(--on-risk-moderate)', onCard: 'var(--risk-moderate-ink)' },
+  high: { label: BAND_LABEL.high, color: 'var(--risk-high)', ink: 'var(--on-risk-high)', onCard: 'var(--risk-high)' },
 } as const;
 
 /**
