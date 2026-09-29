@@ -438,8 +438,13 @@ cd frontend; npm run verify:csp   # the CSP, in REAL CHROME against a PRODUCTION
 #   no secrets. audit:access / verify:claims / e2e need a LIVE instance and are
 #   deliberately LEFT OUT rather than half-wired - a green tick that skipped them
 #   would be a worse signal than no tick. Node is pinned by each package's
-#   `engines` field (>=22 <23; the upper bound must be raised when 22 goes EOL,
-#   which is the intended loud failure - see DD 91.4).
+#   `engines` field, which is `>=22.0.0` with NO upper bound. This line used to
+#   say ">=22 <23 ... the intended loud failure (DD 91.4)" and that was stale by
+#   a whole decision: §91.4 proposed the ceiling, and §92.1 records JC REMOVING
+#   it, because it guarantees a build break on a date nobody has diarised for a
+#   runtime that would probably have worked. So there is no loud failure to wait
+#   for. Re-adding the ceiling is one edit per package if a future Node ever
+#   breaks the native PDF pipeline (pdfjs + @napi-rs/canvas, gotcha 6).
 
 # Frontend production build
 cd frontend; npm run e2e   # END-TO-END smoke: a real Chrome against the running
