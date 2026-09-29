@@ -10367,6 +10367,15 @@ Two properties of the check itself, both of which are the point:
 
 ## 113. The migration that was recorded as applied, and was not (2026-09-22)
 
+> **RE-MEASURED 2026-09-30 — the outage described below is NOT currently live.**
+> All three endpoints answer **200** on the hosted API today. **Why is not
+> determinable from outside**, and three plausible-looking ways to find out from
+> the client side were each tried and each is confounded — see §121.11. The
+> prerequisite for deploying is unchanged: run `npm run verify:schema` against
+> Aiven first. Do not read this section as a live incident, and do not read the
+> 200s as proof the migration landed — that inference is the entire subject of
+> this section.
+
 **For six days the deployed API could list athletes and could not open one.**
 `GET /athletes/:id`, `GET /screenings/:id/full` and `GET /decisions` all answered
 500; `GET /athletes` and `GET /screenings/athlete/:id` answered 200. The roster
@@ -11784,3 +11793,64 @@ The residue is a rule worth keeping: **a test that skips on ambient state is
 invisible to mutation testing**, so any guard whose test can skip is unverified
 in exactly the runs that are supposed to verify it. Prefer a fixture that owns
 its own resources over one that detects and steps aside.
+
+### 121.11 Re-measuring §113, and three confounded probes (2026-09-30)
+
+§113 has been quoted since **2026-09-22** as a live outage: `/athletes/:id`,
+`/screenings/:id/full` and `/decisions` answering 500 on the hosted API. It was
+cited again as recently as this session without being re-measured — which is the
+habit §113 itself exists to record, having been got wrong twice already.
+
+**Measured, read-only and paced (1500 ms, after the 2026-09-11 bot-protection
+lockout):**
+
+| endpoint | §113, 2026-09-22 | 2026-09-30 |
+|---|---|---|
+| `/athletes` | 200 | 200 |
+| `/athletes/:id` | **500** | **200** |
+| `/screenings/athlete/:id` | 200 | 200 |
+| `/decisions` | **500** | **200** |
+
+**So the outage is not live. Why it is not live is NOT determinable from
+outside**, and that is the part worth writing down, because three separate
+client-side probes each looked decisive and each was confounded:
+
+1. **"The endpoints 200, so the columns exist."** No — this is §113's own thesis.
+   A 200 proves the running build did not select the column, nothing more.
+2. **"Inspect the payload for the column keys."** `/screenings/athlete/:id`
+   returned a 12-key screening with no `normVersionId`/`scoredAt` — which proves
+   nothing, because §113 records that route as using an **explicit narrow
+   attribute list**. Its keys are absent either way.
+3. **"Then inspect an exclude-form route, which names every other column."**
+   `/athletes/:id` returned a 28-key screening carrying all four `response*`
+   keys and neither norm-stamp key — which looks like a clean discriminator and
+   is not: **`utils/serialize.js` never emits `normVersionId` or `scoredAt` at
+   all.** Their absence from the JSON is a fact about the serialiser, not about
+   the model or the database. Verified by grep; the inference was drafted before
+   it was checked, and retracted.
+
+A fourth reading also failed: the production branch's model *does* declare both
+columns, so "the deployed build predates the model change" seemed to follow from
+their absence — but that rests on probe 3, so it falls with it. The model gained
+norm-stamp on 2026-09-13 (`c3b4842`) and the response columns on 2026-09-14
+(`14ee432`), in that order, so no build can carry the second without the first;
+a payload showing one and not the other is therefore evidence about
+**serialisation**, and reading it as evidence about the schema was the error.
+
+**What stands:**
+
+- The three endpoints answer 200 today. That is a fact about the deployed system
+  and it contradicts the sentence §113 has been quoted for.
+- Whether `screenings.norm_version_id` and `scored_at` exist on Aiven is
+  **unknown**, exactly as §113 says it can only be known: `cd backend; npm run
+  verify:schema -- --url … --insecure`, §4, which asks `information_schema`.
+- Therefore the deploy prerequisite is unchanged. The current production branch
+  *and* `feat/text-layer-extraction` both declare those columns, so if the
+  database lacks them, a successful deploy reinstates the 500s. **Migrate first,
+  then deploy** — the expand-then-deploy order §103 already states.
+
+The lesson is narrower than "measure, don't assume", which was already §113's.
+It is: **when a system is observed through a serialiser, the payload is evidence
+about the serialiser.** Every layer between the question and the answer is a
+place for the answer to change meaning, and three of them sat between "does this
+column exist" and "is this key in the JSON".
