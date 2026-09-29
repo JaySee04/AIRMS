@@ -91,6 +91,10 @@ export interface QueueItem {
   /** The resolved name, whatever the source — used for the provenance line. */
   matchedName: string;
   athleteId: string;
+  /** Set when this athlete already has a screening at this exact instant, i.e.
+   *  the report has been imported before (§121). Null means checked and clear;
+   *  undefined means not checked — the two are deliberately different. */
+  alreadyImported?: string | null;
   sport: string;
   program: string;
   disciplines: string[];
@@ -213,6 +217,41 @@ export function parseNameFromFilename(filename: string): string {
   return s;
 }
 
+// HAS THIS REPORT BEEN IMPORTED BEFORE? (§121)
+//
+// The commit is idempotent on (athleteId, assessedAt) since §45, so re-importing
+// REPLACES rather than duplicating and nothing is corrupted. But the operator
+// only found that out after filling the row in and pressing the button. On a
+// session where somebody re-drops a folder "to be safe", that is the whole batch
+// re-entered by hand for no change.
+//
+// Cached per athlete for the run: a squad's reports arrive together and the
+// answer cannot change mid-batch without this uploader having caused it.
+const screeningDates = new Map<string, Set<string>>();
+async function importedAlready(athleteId: string, assessedAt: string | null): Promise<string | null> {
+  if (!athleteId || !assessedAt) return null;
+  try {
+    let dates = screeningDates.get(athleteId);
+    if (!dates) {
+      const rows = await api.get<Array<{ assessedAt: string | null }>>(`/screenings/athlete/${encodeURIComponent(athleteId)}`);
+      dates = new Set(rows.map((r) => String(r.assessedAt ?? '')).filter(Boolean));
+      screeningDates.set(athleteId, dates);
+    }
+    // Compare as instants, not strings: the API returns ISO and the report
+    // prints "2025-07-29 15:42:16". Matching on text would report every repeat
+    // as new, which is the failure that makes a duplicate check pointless.
+    const want = new Date(assessedAt.replace(' ', 'T')).getTime();
+    for (const d of dates) {
+      if (new Date(d).getTime() === want) return d;
+    }
+    return null;
+  } catch {
+    // A permission or network failure must not block an import. Undefined-ish:
+    // we return null, and the row simply carries no duplicate notice.
+    return null;
+  }
+}
+
 /** @returns how many provider calls this report cost — 0 for a text-layer read. */
 async function extractOne(item: QueueItem): Promise<number> {
   patchItemInternal(item.id, { status: 'extracting', error: null });
@@ -265,9 +304,15 @@ async function extractOne(item: QueueItem): Promise<number> {
       gender: preview.athlete.gender ?? '',
     };
 
+    // Only for an athlete already on the roster: an ISN-directory match has no
+    // AIRMS record yet, so by definition nothing has been imported for them.
+    const resolvedId = hit?.athleteId ?? '';
+    const already = resolvedId ? await importedAlready(resolvedId, preview.assessedAt) : null;
+
     patchItemInternal(item.id, {
       status: 'ready',
       preview,
+      alreadyImported: already,
       matched: hit,
       matchSource: hit ? 'roster' : isn ? 'isn' : null,
       matchedName: hit?.name ?? isn?.name ?? '',

@@ -214,3 +214,39 @@ being avoided.
 This is the same shape as the quota cap that was counting requests after most of
 them stopped costing anything: when the cost moves, everything sized to it needs
 re-checking — a delay is a cost model just as much as a limit is.
+
+## Two more things the operator meets on a real session
+
+### A repeat is caught before the work, not after
+
+The commit has been idempotent since §45 — importing the same report twice
+replaces rather than duplicating — but the operator only discovered that after
+filling the row in and pressing the button. On a session where somebody
+re-drops a folder "to be safe", that is the whole batch re-entered by hand for
+no change.
+
+B checks, as soon as the athlete is known, whether that athlete already has a
+screening at exactly that instant, and says so on the row:
+
+> **Already imported.** This athlete already has a screening recorded at exactly
+> this moment, so this is the same report again. Importing replaces the stored
+> one rather than adding a second — if that is what you want, carry on;
+> otherwise remove this row.
+
+A repeat **does not collapse**, even when everything else about it is settled.
+Overwriting a screening you already hold is the operator's decision, not
+something to fold away into a tick.
+
+The instants are compared as **times, not strings** — the API returns ISO and
+the report prints `2025-07-29 15:42:16`, so a textual comparison would call
+every repeat new and the check would be worthless. The answer is cached per
+athlete for the run, and a permission or network failure just leaves the row
+without a notice rather than blocking the import.
+
+**To demo it:** import a report, then drop the same file again.
+
+### A session is a folder
+
+HoloMotion exports one directory per session, and the operator was picking sixty
+files out of it by hand. **Choose a whole session folder** takes the directory;
+anything in it that is not a PDF is ignored.

@@ -56,6 +56,12 @@ interface StatusResponse {
 
 export default function PdfScreeningUpload() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const folderInputRef = useRef<HTMLInputElement | null>(null);
+  // `webkitdirectory` has no React typing, so it is set on the element itself.
+  useEffect(() => {
+    const el = folderInputRef.current;
+    if (el) { el.setAttribute('webkitdirectory', ''); el.setAttribute('directory', ''); }
+  }, []);
   const [status, setStatus] = useState<StatusResponse | null>(null);
   const [dragOver, setDragOver] = useState(false);
   // Which settled rows the operator has opened anyway. Collapsed is the
@@ -227,7 +233,12 @@ export default function PdfScreeningUpload() {
   });
   const isSettled = (it: QueueItem) => it.status === 'ready'
     && Boolean(it.name.trim() && it.athleteId.trim() && it.sport.trim() && it.program)
-    && checkOf(it).verdict === 'agrees';
+    && checkOf(it).verdict === 'agrees'
+    // A REPEAT IS A DECISION, so it does not collapse (§121). The commit is
+    // idempotent and replaces rather than duplicating, so nothing breaks either
+    // way — but "you are about to overwrite a screening you already hold" is the
+    // operator's call, not something to fold away into a tick.
+    && !it.alreadyImported;
   const needsYou = items.filter((it) => it.status === 'error' || (it.status === 'ready' && !isSettled(it)));
   const settled = items.filter(isSettled);
   const inFlight = items.filter((it) => !needsYou.includes(it) && !settled.includes(it));
@@ -298,10 +309,33 @@ export default function PdfScreeningUpload() {
         <p className="text-muted" style={{ fontSize: 'var(--fs-md)', margin: 0 }}>
           or click to browse · one or many .pdf files
         </p>
+        {/* A WHOLE SESSION IS A FOLDER (§121). HoloMotion exports one directory
+            per screening session, and the operator was picking sixty files out
+            of it by hand. `webkitdirectory` is non-standard but is what every
+            current browser implements; it is set through a ref rather than as a
+            JSX attribute because React has no typing for it, and the click is
+            stopped from bubbling so it does not also open the file picker the
+            drop zone owns. Non-PDFs in the folder are filtered by addFiles
+            already, so a stray thumbnail or CSV is simply ignored. */}
+        <button
+          type="button"
+          className="btn btn-outline btn-sm"
+          style={{ marginTop: 'var(--sp-sm)' }}
+          onClick={(e) => { e.stopPropagation(); folderInputRef.current?.click(); }}
+        >
+          Choose a whole session folder
+        </button>
         <input
           ref={fileInputRef}
           type="file"
           accept=".pdf"
+          multiple
+          style={{ display: 'none' }}
+          onChange={(e) => { addFiles(e.target.files); e.target.value = ''; }}
+        />
+        <input
+          ref={folderInputRef}
+          type="file"
           multiple
           style={{ display: 'none' }}
           onChange={(e) => { addFiles(e.target.files); e.target.value = ''; }}
@@ -452,6 +486,14 @@ export default function PdfScreeningUpload() {
                       {' '}
                       {checkOf(it).reason}. Check you have the right person before importing —
                       the scores will be filed against whoever is selected here.
+                    </div>
+                  )}
+                  {it.alreadyImported && (
+                    <div className="alert alert-warning" style={{ marginBottom: 10 }}>
+                      <strong>Already imported.</strong> This athlete already has a screening
+                      recorded at exactly this moment, so this is the same report again.
+                      Importing replaces the stored one rather than adding a second — if that is
+                      what you want, carry on; otherwise remove this row.
                     </div>
                   )}
                   {it.athleteId && checkOf(it).verdict === 'unknown' && (
