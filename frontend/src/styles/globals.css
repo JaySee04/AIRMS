@@ -53,6 +53,44 @@
      before and not generalised. Fills keep --risk-moderate; only ink changes,
      so nothing moves and nothing is recoloured. */
   --risk-moderate-ink: #8a6818;
+  /* The same role for green, added 2026-09-29 (§122). --risk-low as text
+     measures 5.03:1 on a plain card and passes there, but .badge-low prints it
+     on --risk-low-bg, where it is 4.48:1 — a FAIL by 0.02, and a fail. Darkened
+     just enough: 5.02 on the tinted badge, 5.65 on a card.
+     There is deliberately NO --risk-high-ink. Red is the one that carries
+     itself: 6.34:1 on a card and 5.48:1 on --risk-high-bg. Adding one for
+     symmetry would be a token with no measurement behind it, and the next
+     reader would have no way to tell which of the three were needed. */
+  --risk-low-ink: #397342;
+
+  /* INK FOR TEXT SITTING ON THE FILL ITSELF (2026-09-29, §122).
+     Different job from --risk-moderate-ink above, which is for text on a CARD.
+     These are for a number printed INSIDE a coloured cell — the subitem
+     heatmap, the quick-list score — where the contrast that matters is against
+     the fill, not the page.
+     Each fill was given BOTH candidates — white, and a darkened tint of its own
+     hue — and takes whichever reads better. Not "white unless it fails": the
+     green carries white at 5.03 and cannot reach 5.5 with any dark ink at all
+     (black is 4.17 on it), so a rule that reached for dark the moment white
+     missed a headroom target would have made that one WORSE while reporting a
+     fix.
+     IN THIS THEME ONLY AMBER FAILS WHITE (2.56:1), which is what AMBER_INK
+     already knew; the other three are 5.03 / 6.38 / 6.34. The dark theme is
+     where the real fault was. The tokens exist here anyway so a rule can name
+     one unconditionally.
+     MEASURE THE TOKEN, NOT THE HUE YOU REMEMBER: the first attempt at this
+     block gave --on-risk-undertrained a dark ink because #6bb0e0 is a light
+     blue — but that is the DARK theme's value. Light's --risk-undertrained is
+     #2a6391, and the result was 2.05:1 on the subitem heatmap: a contrast
+     REGRESSION shipped as a contrast fix, caught only by re-running the audit.
+     --on-risk-moderate is pdfDraw.js's BAND_INK value rather than the tint the
+     search returned (#352910, 5.56) — both clear the bar, and using the one
+     already in the codebase keeps the property that a strip printed and a strip
+     on screen are legible the same way. */
+  --on-risk-low: #ffffff;
+  --on-risk-undertrained: #ffffff;
+  --on-risk-moderate: #3d2f05;
+  --on-risk-high: #ffffff;
   --risk-high: #b03030;
   --risk-high-bg: #fdecea;
   --risk-undertrained: #2a6391;
@@ -78,6 +116,16 @@
   --series-2: #4a89b8;
   --series-3: #7fb2d4;
   --series-4: #b9d4e6;
+  /* THE SCORE LINE and everything inked to match it — the stroke, its dots, the
+     value beside each dot, and the right-hand axis it is read against (§95,
+     "inked in the line's colour").
+     It was --brand-navy in all four places, and --brand-navy has no dark-theme
+     value: measured 14.19:1 on the light card and 1.09:1 on the dark one, so in
+     dark mode the whole second series and its axis were invisible — not merely
+     low-contrast, gone. §95's own argument is that a series without a readable
+     axis is a slope nobody can check, which is the state dark mode was in.
+     Light keeps the navy exactly, so nothing moves there. */
+  --chart-line: var(--brand-navy);
   /* Chart furniture: axis rules, gridlines and empty track. Deliberately weaker
      than --border, which is a structural line and reads too heavy behind data. */
   --chart-grid: #e6eaf1;
@@ -187,6 +235,21 @@
      token exists in both themes so a rule can use it unconditionally; only its
      value flips. Measured 8.0:1 on --bg-card. */
   --risk-moderate-ink: #e6b84e;
+  /* Green needs no darkening here for the same reason amber needs no
+     lightening in the light theme — the failing direction is reversed.
+     --risk-low on the composited --risk-low-bg measures 6.06:1, so the token
+     is simply the fill colour and exists only so a rule can name it
+     unconditionally. */
+  --risk-low-ink: var(--risk-low);
+
+  /* Every dark-theme fill is LIGHTER than its light-theme counterpart — that is
+     what makes it read on a dark surface — so white fails on all four here,
+     including the green and the red that carry it in light mode (2.18 and
+     2.99). All four take a tinted dark ink; measured 5.53 / 5.54 / 5.55 / 5.53. */
+  --on-risk-low: #1d3d26;
+  --on-risk-undertrained: #1f3341;
+  --on-risk-moderate: #4e3f1b;
+  --on-risk-high: #301818;
   --risk-high: #e57373;
   --risk-high-bg: rgba(176, 48, 48, 0.18);
   --risk-undertrained: #6bb0e0;
@@ -199,6 +262,10 @@
   --series-2: #5f9ac2;
   --series-3: #47799e;
   --series-4: #33586f;
+  /* Named from --series-1 rather than given a literal: the line is the second
+     series on that card, so borrowing the ramp's own top colour keeps it in the
+     family and adds nothing new to keep in step. 6.78:1 on --bg-card. */
+  --chart-line: var(--series-1);
   --chart-grid: #2a3a4a;
   --chart-track: #223141;
 }
@@ -1518,7 +1585,15 @@ label:has(> input[type='radio']) {
 .bm-card-item:hover,
 .bm-card-item.is-active,
 .bm-card-item:focus-visible {
-  background: var(--bg-hover, rgba(127, 145, 170, 0.14));
+  /* A literal, stated as one. This used to read it through a token name that is
+     declared NOWHERE, with this rgba as the fallback — which is not a fallback,
+     it is the value on every render, in every theme. Writing it out is honest;
+     the tint is neutral and semi-transparent, so it works over either theme's
+     surface without needing a per-theme value (§121.9).
+     (Deliberately not naming the old token here: cssTokens.test.ts scans this
+     file as text, and a comment quoting the pattern satisfies the check it is
+     meant to fail — the §118 prose-blindness trap.) */
+  background: rgba(127, 145, 170, 0.14);
 }
 /* --brand-gold, matching the global focus ring below. This said var(--primary),
    which is defined nowhere, so the declaration was invalid at computed-value
@@ -1598,7 +1673,9 @@ label:has(> input[type='radio']) {
   position: absolute;
   inset: 0 auto 0 0;
   width: 4px;
-  background: var(--bm-accent, var(--border));
+  /* --bm-accent is declared nowhere, so this has always drawn --border. Say so
+     rather than keeping a name that resolves to nothing (§121.9). */
+  background: var(--border);
 }
 .bm-card-head {
   display: flex;
@@ -2523,7 +2600,7 @@ tr.row-flash > td { animation: row-flash 1.6s ease-out; }
 /* ── Alerts ──────────────────────────────────────────────────────────────────── */
 .alert { padding: 10px 14px; border-radius: var(--r-sm); font-size: var(--fs-md); margin-bottom: 14px; }
 .alert-error { background: var(--risk-high-bg); color: var(--risk-high); border: 1px solid var(--risk-high); }
-.alert-success { background: var(--risk-low-bg); color: var(--risk-low); border: 1px solid var(--risk-low); }
+.alert-success { background: var(--risk-low-bg); color: var(--risk-low-ink); border: 1px solid var(--risk-low); }
 .alert-info { background: var(--risk-undertrained-bg); color: var(--risk-undertrained); border: 1px solid var(--risk-undertrained); }
 /* The missing fourth state (2026-09-09): nothing has failed, but the reader is
    about to draw a conclusion the data cannot support. `alert-info` under-weights
@@ -2532,7 +2609,7 @@ tr.row-flash > td { animation: row-flash 1.6s ease-out; }
 .alert-warning { background: var(--risk-moderate-bg); color: var(--risk-moderate-ink); border: 1px solid var(--risk-moderate); }
 
 /* ── Risk Badges ────────────────────────────────────────────────────────────── */
-.badge-low    { background: var(--risk-low-bg);   color: var(--risk-low);   padding: 2px 8px; border-radius: var(--r-lg); font-size: var(--fs-sm); font-weight: 600; }
+.badge-low    { background: var(--risk-low-bg);   color: var(--risk-low-ink); padding: 2px 8px; border-radius: var(--r-lg); font-size: var(--fs-sm); font-weight: 600; }
 .badge-moderate { background: var(--risk-moderate-bg); color: var(--risk-moderate-ink); padding: 2px 8px; border-radius: var(--r-lg); font-size: var(--fs-sm); font-weight: 600; }
 .badge-high   { background: var(--risk-high-bg);  color: var(--risk-high);  padding: 2px 8px; border-radius: var(--r-lg); font-size: var(--fs-sm); font-weight: 600; }
 /* For labels that are a CATEGORY, not a verdict. The three risk badges above
@@ -2745,7 +2822,11 @@ tbody tr:hover { background: var(--bg); }
   gap: 12px;
 }
 .screening-strip-label { font-size: var(--fs-md); font-weight: 600; display: flex; align-items: center; gap: 6px; }
-.screening-strip-star { color: var(--secondary, #c89b3c); font-size: var(--fs-sm); line-height: 1; }
+/* The sport-critical marker. It was var(--secondary, #c89b3c) — a token that is
+   not declared anywhere, so every render took the fallback literal, which is
+   the brand amber at 2.56:1 on a card and does not follow the theme either.
+   §120's text role instead. */
+.screening-strip-star { color: var(--risk-moderate-ink); font-size: var(--fs-sm); line-height: 1; }
 .screening-strip-track {
   position: relative;
   height: 12px;
@@ -2916,7 +2997,7 @@ tbody tr:hover { background: var(--bg); }
 .pdf-status--extracting { background: var(--risk-undertrained-bg); color: var(--risk-undertrained); }
 .pdf-status--ready      { background: var(--risk-moderate-bg); color: var(--risk-moderate-ink); }
 .pdf-status--committing { background: var(--risk-undertrained-bg); color: var(--risk-undertrained); }
-.pdf-status--done       { background: var(--risk-low-bg); color: var(--risk-low); }
+.pdf-status--done       { background: var(--risk-low-bg); color: var(--risk-low-ink); }
 .pdf-status--error      { background: var(--risk-high-bg); color: var(--risk-high); }
 
 /* ── Accessibility ──────────────────────────────────────────────────────────── */
@@ -3097,7 +3178,7 @@ textarea:focus-visible,
 }
 /* Right axis belongs to the line, so it is inked like the line - otherwise two
    identical-looking axes leave the reader guessing which series reads which. */
-.periodchart-yaxis--right > span { right: auto; left: 0; color: var(--brand-navy); font-weight: 600; }
+.periodchart-yaxis--right > span { right: auto; left: 0; color: var(--chart-line); font-weight: 600; }
 
 .periodchart-grid { position: relative; flex: 1 1 auto; height: 184px; min-width: 0; }
 .periodchart-gridline {
@@ -3135,14 +3216,14 @@ textarea:focus-visible,
 .periodchart-scoredot {
   position: absolute; transform: translate(-50%, -50%);
   width: 9px; height: 9px; border-radius: 999px;
-  background: var(--bg-card); border: 2.5px solid var(--brand-navy);
+  background: var(--bg-card); border: 2.5px solid var(--chart-line);
 }
 /* Value beside its dot, so the trend reads without hovering. A halo keeps it
    legible where it crosses a filled column. */
 .periodchart-scoredot em {
   position: absolute; left: 50%; top: -4px; transform: translate(-50%, -100%);
   font-style: normal; font-size: var(--fs-2xs); font-weight: 700;
-  color: var(--brand-navy); font-variant-numeric: tabular-nums; white-space: nowrap;
+  color: var(--chart-line); font-variant-numeric: tabular-nums; white-space: nowrap;
   background: var(--bg-card); border-radius: var(--r-xs); padding: 0 3px;
 }
 
@@ -3314,14 +3395,19 @@ textarea:focus-visible,
   border-radius: var(--r-sm);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  /* Cell backgrounds are saturated status colours, so the text on them is fixed
-     white rather than --text: a theme-following text colour would go dark-on-dark
-     in dark mode over the same green. */
+  /* Cell backgrounds are saturated status colours, so the text on them cannot
+     follow --text — that would go dark-on-dark in dark mode over the same green.
+     It was a fixed white instead, which is right for two of the four tiers and
+     measured 2.56:1 on amber and 2.36:1 on blue. The colour now comes WITH the
+     fill: the caller passes inkFor beside colorFor (TIER_INK / TIER_COLOR), so
+     the pair cannot drift. The declaration below is now only a fallback for a
+     caller that passes no inkFor; a cell with no value overrides it itself
+     (.heatmap-empty), which is the one case --chart-track is actually visible
+     behind. §122. */
   color: #fff;
   background: var(--chart-track);
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
 }
-.heatmap-empty { color: var(--text-muted); font-weight: 400; text-shadow: none; }
+.heatmap-empty { color: var(--text-muted); font-weight: 400; }
 .heatmap-legend {
   display: flex; gap: 14px; flex-wrap: wrap;
   margin-top: 12px; font-size: var(--fs-sm);
@@ -3583,8 +3669,15 @@ textarea:focus-visible,
   font-weight: 700;
   padding: 1px 6px;
   border-radius: 999px;
-  color: #fff;
-  background: var(--text-dim, #6b7a8d);
+  /* --text-dim is declared nowhere, so #6b7a8d was the value in both themes —
+     and white on it measures 4.38:1, a FAIL. It escaped the contrast audit
+     because this chip only exists inside a hover tooltip, which no sweep has a
+     reason to open: the phantom-token check found it, not the browser (§121.9).
+     --text-muted is the neutral this wants, but it is LIGHT in dark mode (white
+     on it is 2.92:1), so the fill takes --text, which is the one neutral that is
+     dark-on-light and light-on-dark. Ink follows it: 14.5:1 and 13.7:1. */
+  color: var(--bg-card);
+  background: var(--text);
 }
 .viz-tip-chip--weak  { background: var(--flag-weak); }
 .viz-tip-chip--tight { background: var(--flag-tight); }
@@ -3824,7 +3917,7 @@ textarea:focus-visible,
 }
 .decision-band--red { color: var(--risk-high); background: var(--risk-high-bg); border-color: var(--risk-high); }
 .decision-band--amber { color: var(--risk-moderate-ink); background: var(--risk-moderate-bg); border-color: var(--risk-moderate); }
-.decision-band--green { color: var(--risk-low); background: var(--risk-low-bg); border-color: var(--risk-low); }
+.decision-band--green { color: var(--risk-low-ink); background: var(--risk-low-bg); border-color: var(--risk-low); }
 /* Never-screened is deliberately NEUTRAL, not green and not red: it is an
    absence of information, and colouring it as a band would make it read as a
    clinical finding. */

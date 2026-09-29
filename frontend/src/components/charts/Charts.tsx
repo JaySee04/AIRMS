@@ -423,7 +423,7 @@ export function PeriodChart({
               <svg viewBox="0 0 100 100" preserveAspectRatio="none"
                 className="periodchart-svg" role="img"
                 aria-label={`${lineLabel ?? 'Average'} per period, ${fmt(lLo)} to ${fmt(lHi)}, right axis`}>
-                <polyline points={linePct} fill="none" stroke="var(--brand-navy)" strokeWidth="2.5"
+                <polyline points={linePct} fill="none" stroke="var(--chart-line)" strokeWidth="2.5"
                   vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" />
               </svg>
               {points.map((p, i) => (p.line == null ? null : (
@@ -820,11 +820,15 @@ export interface HeatCell { key: string; label: string; value: number | null }
 export interface HeatRow { key: string; label: string; cells: HeatCell[] }
 
 export function Heatmap({
-  rows, colorFor, legend, rowHeader = 'Region',
+  rows, colorFor, inkFor, legend, rowHeader = 'Region',
 }: {
   rows: HeatRow[];
   /** Cell background for a value — pass the shared tier colours, not a new ramp. */
   colorFor: (v: number) => string;
+  /** Ink for the number printed ON the fill (§122). Optional so an existing
+   *  caller keeps working; without it the cell inherits, which is what the
+   *  stylesheet did before and is still legible on an uncoloured cell. */
+  inkFor?: (v: number) => string;
   legend?: ReactNode;
   rowHeader?: string;
 }) {
@@ -847,7 +851,10 @@ export function Heatmap({
                 <td
                   key={c.key}
                   className="heatmap-cell"
-                  style={c.value === null ? undefined : { background: colorFor(c.value) }}
+                  style={c.value === null ? undefined : {
+                    background: colorFor(c.value),
+                    ...(inkFor ? { color: inkFor(c.value) } : {}),
+                  }}
                   title={`${r.label} · ${c.label}: ${c.value === null ? 'no reading' : c.value}`}
                 >
                   {c.value === null ? <span className="heatmap-empty">—</span> : fmt(c.value)}

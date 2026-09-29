@@ -10367,6 +10367,15 @@ Two properties of the check itself, both of which are the point:
 
 ## 113. The migration that was recorded as applied, and was not (2026-09-22)
 
+> **RE-MEASURED 2026-09-30 — the outage described below is NOT currently live.**
+> All three endpoints answer **200** on the hosted API today. **Why is not
+> determinable from outside**, and three plausible-looking ways to find out from
+> the client side were each tried and each is confounded — see §121.11. The
+> prerequisite for deploying is unchanged: run `npm run verify:schema` against
+> Aiven first. Do not read this section as a live incident, and do not read the
+> 200s as proof the migration landed — that inference is the entire subject of
+> this section.
+
 **For six days the deployed API could list athletes and could not open one.**
 `GET /athletes/:id`, `GET /screenings/:id/full` and `GET /decisions` all answered
 500; `GET /athletes` and `GET /screenings/athlete/:id` answered 200. The roster
@@ -11342,3 +11351,506 @@ Not fixed, and each for a stated reason rather than an oversight:
 All four are text-on-fill, which is one coherent piece of work on the band and
 tier palettes. Splitting it across two sittings would leave the palette
 half-migrated, which is worse than either end state.
+
+## 121. Text on a fill is a third colour role (2026-09-29)
+
+§120.5 left four items open and argued they were one job. They were, and it is
+this one. **11 → 0** distinct low-contrast text styles across the authenticated
+pages in both themes.
+
+> **Coverage correction (§121.8).** "Eleven authenticated pages" was the claim
+> here and in §120, and it was wrong: ten were measured, one of the eleven was a
+> route that does not exist, and ten more real pages were never in the list. The
+> findings below are unaffected — they are all real and all still fixed — but
+> read the coverage figure as ten of twenty-one until §121.8, and 52 page-visits
+> after it.
+
+It is also the section where the fix was wrong first, in the project's own
+characteristic way, and the write-up is mostly about that.
+
+### 121.1 Three roles, not two
+
+§120 separated a fill token from a text token: `--risk-moderate` paints, and
+`--risk-moderate-ink` is the same band written on a card. That is two roles and
+the palette needed three, because a band is drawn three ways:
+
+| role | where | example |
+|---|---|---|
+| `--risk-*` | the FILL | a chip, a dot, a heatmap cell, a stack segment |
+| `--risk-*-ink` | text on the **card**, in the band's colour | "Watch", "Mild asymmetry" |
+| `--on-risk-*` | text printed **on that fill** | the number inside the heatmap cell |
+
+The third was the gap. Every consumer of it used a flat `#fff`, which is a
+guess that happens to be right for a dark fill and wrong for a light one — and
+which fill is light **depends on the theme**, because a dark-mode palette
+lightens every fill to make it read on a dark card. So white was correct on the
+light theme's green and red and wrong on all four of the dark theme's.
+
+`--on-risk-low|undertrained|moderate|high` are declared in both theme blocks.
+Each was chosen by giving the fill **two candidates** — white, and a darkened
+tint of its own hue — and taking whichever measured better:
+
+```
+light    fill      white   dark tint   chosen
+low      #3d7c47   5.03    4.17        white     5.03:1
+undert.  #2a6391   6.38    3.29        white     6.38:1
+moderate #c89b3c   2.56    5.56        #3d2f05   5.11:1
+high     #b03030   6.34    3.31        white     6.34:1
+
+dark     fill      white   dark tint   chosen
+low      #5cc47a   2.18    5.53        #1d3d26   5.53:1
+undert.  #6bb0e0   2.36    5.54        #1f3341   5.54:1
+moderate #e6b84e   1.85    5.55        #4e3f1b   5.55:1
+high     #e57373   2.99    5.53        #301818   5.53:1
+```
+
+**Not "white unless it fails".** The light green carries white at 5.03 and
+cannot reach 5.5 with *any* dark ink — black is 4.17 on it — so a rule that
+reached for dark the moment white missed a headroom target would have made that
+one **worse** while reporting a fix. The candidates are compared, not ranked in
+advance.
+
+`--on-risk-moderate` is `#3d2f05` rather than the `#352910` the search returned.
+Both clear the bar; `#3d2f05` is already `pdfDraw.js`'s `BAND_INK` for amber, and
+using it keeps the stated property that a threshold strip **printed** and a
+threshold strip **on screen** are legible the same way. `AMBER_INK` in
+`screeningAlerts.ts` — which held that literal and was read by one consumer — is
+gone; the value now lives in the stylesheet and in `pdfDraw.js`, each pointing at
+the other, which is two copies instead of three.
+
+### 121.2 The fix shipped a regression, and the audit caught it
+
+The first pass gave `--on-risk-undertrained` a dark ink in **both** themes,
+because `#6bb0e0` is plainly a light blue that white cannot sit on.
+
+`#6bb0e0` is the **dark** theme's value. The light theme's `--risk-undertrained`
+is `#2a6391`, a dark navy-blue that carries white at 6.38:1. The dark ink went
+onto it and measured **2.05:1** on the subitem heatmap — worse than the 4.5 it
+was replacing, on twelve cells, as part of a change whose entire purpose was
+contrast.
+
+Nothing in the edit was wrong except the input. The hex was read from memory of
+what that colour looks like rather than from the theme block it belongs to. It
+was caught by re-running the audit and reading the new failure instead of the
+count, and the comment in `globals.css` now says so at the point where the next
+person will be tempted to do it again: **measure the token, not the hue you
+remember.**
+
+### 121.3 The audit was reporting a defect that was not there
+
+Two of the eleven were `.histogram-n` — bin counts over the histogram bars,
+reported at 1.04:1 dark and 1.62:1 light, and §120.5 wrote them up as real
+("number labels drawn ON the bars they describe").
+
+They are not on the bars. `.histogram-n` is `position: absolute; top: -14px`
+with a height of 15px, so it sits **entirely above** its bar, on the card. It
+measures **6.13:1** light and **5.28:1** dark.
+
+The audit walked ANCESTORS for the first opaque background, which is an
+inference about what is behind an element, and the inference does not hold for
+anything positioned outside its parent's box. `bgOf` now takes the element's own
+background first, then asks `document.elementsFromPoint` — the layout engine's
+own answer, positioning included — and only falls back to the ancestor walk for
+a point outside the viewport.
+
+This is the quieter half of the same defect class: a check that reports a fault
+that does not exist costs the same kind of trust as one that misses a fault that
+does. §120.5 acted on it in good faith and recorded a chart-layout change as
+pending work.
+
+### 121.4 The chart line had no dark theme at all
+
+Chasing the two remaining `rgb(15, 44, 74)` failures on Programme Activity found
+something bigger than a contrast number. The score line on the
+direction-of-travel card — its polyline stroke, its dots, the value beside each
+dot, and the right-hand axis it is read against — was `var(--brand-navy)` in all
+four places, and **`--brand-navy` is declared once, outside any theme block.**
+
+Measured: 14.19:1 on the light card, **1.09:1 on the dark one**. In dark mode the
+second series and its axis were not low-contrast, they were invisible.
+
+§95's own argument for that card is that a series sharing a plot must have a
+labelled axis, "because a series without an axis has a slope that is an artefact
+of a scale the reader cannot see". Dark mode had reintroduced exactly that state
+by a different route, and a contrast audit is what found it — which is the case
+for running one on a UI that is otherwise locked.
+
+`--chart-line` themes it: `var(--brand-navy)` in light, so nothing moves there,
+and `var(--series-1)` in dark (6.78:1), borrowing the ramp's own top colour
+rather than adding a literal.
+
+### 121.5 The rest, and one token deliberately not added
+
+- **`.screening-strip-star`** was `var(--secondary, #c89b3c)`. `--secondary` is
+  declared **nowhere in the stylesheet**, so every render took the fallback
+  literal — the brand amber, at 2.56:1, not following the theme either. A
+  fallback that is always used is not a fallback.
+- **`BAND_META` gained `onCard`.** Callers were reaching for `color` — the FILL
+  — and printing it as text: `ScreeningPanel`'s threshold strips drew their value
+  and band word in `var(--risk-moderate)` on a white card. The choice now lives
+  in the map rather than at each call site.
+- **`--risk-low-ink` (`#397342`)** for `.badge-low`, `.alert-success`,
+  `.pdf-status--done` and `.decision-band--green`: `--risk-low` on
+  `--risk-low-bg` is **4.48:1**, which fails by 0.02 and is a fail. 5.02 on the
+  tinted badge, 5.65 on a card. In dark the direction reverses and the token is
+  just the fill colour, so a rule can name it unconditionally.
+- **There is deliberately no `--risk-high-ink`.** Red carries itself as text:
+  6.34:1 on a card, 5.48:1 on `--risk-high-bg`. Adding one for symmetry would be
+  a token with no measurement behind it, and the next reader would have no way to
+  tell which of the three were needed and which were tidiness.
+
+### 121.6 Verification
+
+The audit reports **0** and was **proven able to fail** rather than assumed to be
+working — two canaries planted at once: `.badge-low` reverted to
+`var(--risk-low)`, which it reported at 4.48:1, and `.histogram-n` set to
+`#d8dde5`, which it reported at **1.36:1 against the card** — the second
+confirming the new `elementsFromPoint` path measures the right surface rather
+than having gone quiet.
+
+Frontend 25 suites / 434 tests, backend 64 / 988, typecheck and lint clean,
+`npm run e2e` **113/113**, `npm run mutate` 83 of 84 — the single survivor being
+`preflight: the refusal describes the port that is ACTUALLY held`, which is the
+documented environmental case that reports SURVIVED while a dev server holds the
+ports.
+
+### 121.7 The measurement became a command (2026-09-29)
+
+§120 and §121 are two sections of the record resting entirely on a script that
+lived in a scratch folder. Every number in both — 27 → 11 → 0, the 2.05:1
+regression, the 1.09:1 chart line — came out of a file that was one `%TEMP%`
+sweep away from gone, in a repo whose whole discipline is that a claim has a
+command behind it and `npm run measure:facts` exists because prose does not
+recompute.
+
+`cd frontend; npm run verify:contrast` now. Three things changed in the move,
+and only one of them is packaging:
+
+**It can fail.** The scratch version printed its findings and exited 0. That is
+the §119 shape — a check that cannot fail is a check that is not checking — and
+it mattered here, because "0 distinct low-contrast text styles" was read as a
+result while the process was incapable of saying otherwise. It exits 1 on any
+finding and 2 when it cannot run, and both paths were exercised rather than
+assumed: a `.card-sub { color: #cfd6de }` planted in the live stylesheet reported
+1.47:1 and exited **1**.
+
+**It has a control.** `--canary` forces every `.card` descendant to `#eef0f3` and
+requires the audit to report it — 101 distinct styles / 1380 instances — with the
+verdict INVERTED, so a canary that comes back clean fails the run. The same shape
+as `npm run mutate`'s entry #1, and for the same reason: this check is one bad
+selector away from silently measuring nothing, and a clean result would look
+exactly the same.
+
+**One optimisation was tried and reverted, which is the part worth keeping.**
+The sweep visits eleven pages twice, once per theme, and measuring both off a
+single navigation looks obviously correct — the theme is a data-attribute on
+`<html>` and every colour resolves from a custom property, so flipping it should
+restyle a page the browser has already built. It does not. Elements keep computed
+colours from the theme the page BOOTED in, and the app re-asserts its own
+attribute on the next render, so the audit measures a mixture. It reported five
+failures that do not exist, the clearest being `.btn-outline` at **1.18:1 in
+"light"** while holding the dark theme's `#e8edf2`.
+
+Halving the navigations is not worth a measurement that reports the wrong
+theme's colours — and note that this failed in the *safe* direction only by luck.
+Five invented failures are obvious; the same mixing could as easily have hidden a
+real one behind a colour from the other theme. The saving was taken from
+somewhere that cannot affect the reading instead: `evaluateOnNewDocument` seeds
+the session before the document exists, so the app boots signed-in and themed in
+ONE navigation rather than two. 75s for 22 page-visits.
+
+**It is deliberately not in CI.** The csp job is also a browser check and needs
+nothing behind it, because it drives the app signed-out. Contrast is measured on
+eleven AUTHENTICATED pages as five roles against real rendered data — a squad
+with no athletes paints no bands, no heatmap and no charts, which is most of what
+the audit looks at. Against CI's databaseless environment it would report a
+confident zero about pages that drew nothing, which is the exact signal the CI
+comment says is worse than no signal at all. It joins `audit:access`,
+`verify:claims` and `e2e` in the stated excluded set.
+
+### 121.8 What the error handling found the moment it existed (2026-09-29)
+
+§121.7 landed the audit as a command. Hardening its failure paths — the point
+being that a check which cannot distinguish "clean" from "did not run" is not a
+check — turned up four defects in the first run, three of them in the audit
+itself and none visible before.
+
+**The coverage claim was wrong. §120 and §121 say "eleven authenticated pages";
+it was ten, and one of the eleven was an error page.**
+
+`/executive/dashboard` has never existed. `executive` has no pages of its own
+and lands on `/admin/dashboard` (`lib/auth.ts`). Next served its 404 — 170
+characters, no `data-theme`, no contrast problems — and the sweep counted it as
+a clean page through every run behind both sections. The same list was missing
+**ten** real authenticated pages: `/admin/audit`, `/admin/reports`,
+`/admin/data-upload`, `/admin/profile`, `/medical/cohort-norms`,
+`/medical/profile`, `/coach/reports`, `/coach/profile`, `/athlete/squad` and
+`/athlete/profile`. Twenty-one authenticated pages exist; eleven were named; ten
+were measured.
+
+The numbers in §120 and §121 stand for what they measured — the `--on-risk-*`
+work, the chart line, the three colour roles are all real and all still correct.
+The *coverage sentence* was not. The corrected list is **26 page-visits × 2
+themes = 52**, and it re-runs clean: 8004 text elements, 0 findings. Nothing new
+was found on the eleven pages nobody had been measuring, which is luck rather
+than vindication.
+
+`src/app/contrastPages.test.ts` is the durable half. It reads `src/app`,
+extracts the script's `PAGES` list, and fails if they disagree **in either
+direction** — a missing page (the silent one) or a route the app does not serve
+(the 404 one). It also checks each entry's ROLE against that page's own
+`allowedRoles`, because a page listed under a role that cannot reach it bounces
+to that role's landing page and yields a green reading of a page never opened.
+It follows a re-export to find `allowedRoles`, since `/medical/cohort-norms` is
+`export { default } from '../../admin/thresholds/page'` and would otherwise read
+as public and drop out of the comparison entirely. All three assertions were
+mutated and confirmed to fail; the first mutation was itself a no-op — a `sed`
+anchored on leading whitespace against a mid-line entry — and reported 6/6
+passing, which is this repo's own defect class arriving inside the verification
+of the verification, again.
+
+**Concurrency broke the sessions, and only the landing assertion said so.**
+Correcting the page list took the sweep from 22 visits to 52 and from 75s to
+3m30 — long enough that people stop running it. Four parallel tabs is the
+obvious fix and each visit is genuinely independent, but `localStorage` is
+per-ORIGIN and every page here is one origin, so the tabs trampled each other's
+`airms_token`. Measured: `/athlete/profile` and `/athlete/squad` landed on
+`/admin/dashboard`, both coach pages on `/athlete/dashboard`. Four visits
+reading a different role's screen — and with the old code that would have been a
+slightly smaller clean sweep with nothing to show for it. Each visit now gets
+its own `browser.createBrowserContext()`, an isolated storage partition.
+**52s, and 8004 elements — identical to the serial run**, which is how the
+optimisation was accepted rather than assumed; `CONTRAST_JOBS=1` forces the
+serial order back and agrees exactly.
+
+**The control's own detector was broken.** The canary verifies its stylesheet
+attached before trusting the result. The first implementation searched
+`document.styleSheets` for the rule's `cssText` containing `#eef0f3` — and
+Chrome serialises `cssText` with the colour normalised to `rgb(238, 240, 243)`,
+so it never matched and all 52 visits reported "the canary stylesheet did not
+attach". That failed *safely* — it refused to vouch rather than falsely
+vouching — but it was still a check whose detector could not see the thing it
+was detecting. It now asks whether a real element actually COMPUTES to the
+canary colour, which proves the rule attached, survived the CSP and won the
+cascade. 107 distinct styles / 3197 instances across all 52.
+
+**The floors were guesses and three real pages tripped them.** `MIN_ELEMENTS`
+was set to 40 by eye; `/medical/data-upload` has 12 and `/admin/settings` has 32,
+both rendering perfectly. Re-derived by measuring the things the floor exists to
+exclude — sign-in screen 8 elements / 218 characters, Next's 404 page 4 / 153 —
+against the leanest real page, 12 / 555. Floors sit in that gap: 10 and 300.
+
+Beyond that: an incomplete sweep now FAILS rather than reporting a smaller pass;
+a worker that throws is collected by `Promise.allSettled` instead of taking its
+share of the queue silently; a dead API is named with its URL rather than
+`fetch failed`; a 200 login with no token is refused where the cause is still
+legible, instead of booting 52 signed-out pages; SIGINT closes Chrome; and exit
+2 is reserved for "this check did not run" so a caller can tell that from
+"the UI has a contrast problem".
+
+### 121.9 Clearing the red flags, and the one that was hiding a fourth defect (2026-09-29)
+
+The two commits before this one left three backend suites failing and a defect
+class half-fixed. Both were found by the repo's own standing guards, which is
+the system working — and both had been committed, which is the system being
+ignored for two commits.
+
+**Three backend failures, shipped.** Adding `verify:contrast` to
+`frontend/package.json` and a 26th frontend suite broke three checks that had
+been green, and neither commit re-ran the backend suite because neither commit
+touched backend code:
+
+- `systemMap.test.js` — `docs/SYSTEM_MAP.md` inventories every npm script, so a
+  new one makes the committed copy stale. `npm run map`.
+- `codebaseHygiene.test.js` — three documents and the README quote "25 frontend
+  suites"; the code declares 26. This is the guard that exists because prose does
+  not recompute, catching prose that did not recompute.
+- `guardCanaries.test.js` — `contrastPages.test.ts` enumerates a directory and
+  asserts its offender list is empty, which makes it a corpus scanner, and a
+  corpus scanner with no positive control is indistinguishable from one that
+  cannot find anything (SILENT_FAILURES 3l). It had been mutated by hand with
+  `sed` and never shown catching anything *in the file*.
+
+The lesson is narrow and worth stating: **`cd frontend; npx jest` is not the
+frontend's test suite.** Several backend guards read the frontend — its scripts,
+its suites, the docs that quote both — so a frontend-only change still needs the
+backend run.
+
+`contrastPages.test.ts` now carries its three detectors as exported functions
+(`findMissing` / `findPhantom` / `findWrongRole`) and aims each at a planted
+offender, including the actual historical one: `/executive/dashboard` added to a
+copy of the real list, asserted to be reported. Each canary also asserts the
+detector stays quiet on the real list, because a checker that flags everything
+passes a positive-only control. A fourth pins `rolesOf`, since a `rolesOf` that
+always returned null would make `findWrongRole` vacuous — it skips what it
+cannot read — and the role canary would pass against a detector incapable of
+reporting.
+
+**The phantom fallback: a literal wearing a token's name.**
+
+§121.5 fixed `.screening-strip-star`, which read a token declared nowhere with
+the brand amber as its fallback. That was recorded as one bug. Sweeping the
+stylesheet for the shape found **four**, and one of them is a live contrast
+failure:
+
+| | |
+|---|---|
+| `--secondary, #c89b3c` | the brand amber as TEXT, 2.56:1, both themes — fixed in §121.5 |
+| `--text-dim, #6b7a8d` | behind white text on the hover-tooltip chip: **4.38:1** |
+| `--bg-hover, rgba(...)` | harmless, and lying about where its value comes from |
+| `--bm-accent, var(--border)` | likewise |
+
+`--text-dim` is the interesting one, because **the browser audit cannot reach
+it**. `.viz-tip-chip` exists only while a hover tooltip is open, and no sweep has
+a reason to open one. A static scan found what 52 browser page-visits could not,
+which is the argument for keeping both kinds of check rather than preferring the
+one that reads the real thing. It now takes `--text` as its fill and `--bg-card`
+as its ink — the one neutral pair that inverts correctly, 15.5:1 light and
+13.1:1 dark.
+
+`cssTokens.test.ts` already guarded the neighbouring class and **deliberately
+skipped this one**, with a stated reason that is correct as far as it goes: "a
+fallback is fine and is not reported: the declaration stays valid". True — but it
+protects against the wrong failure. `var(--x, #ccc)` where `--x` exists is
+belt-and-braces. Where `--x` exists *nowhere*, the fallback is not a fallback: it
+is the value, on every render, in every theme, invisible to a search for the
+literal and immune to theming. `phantomFallbacks()` reports exactly that case and
+leaves real fallbacks alone, proven in both directions, and proven able to fail
+by planting `--ghost-token` — which it reported at both use sites.
+
+**And the guard immediately caught the comment written about it.** The first fix
+explained itself with the old token name and the fallback spelled out, on a line
+that does not begin with a comment marker, so the scanner read the prose as a
+use and reported it. §118's prose-blindness trap from the other side: there, a
+comment satisfied an assertion that should have failed; here, a comment failed
+one that should have passed. Same root — **a test that reads source as text
+cannot tell code from prose about code** — so the rule stands in both
+directions: do not spell an asserted pattern in a comment beside it.
+
+**A flaky assertion is a disabled assertion.** The theme check read
+`data-theme` once, after a fixed settle. The app stamps it after mount, so that
+is a bet on timing, and under concurrency it lost about one visit in three runs —
+`/medical/dashboard` reporting "the page is in the default theme" while nothing
+was wrong. It now waits up to 5s for the attribute before asserting, which is not
+a weakening: a theme that never arrives still fails, with the same message. Three
+consecutive runs now agree exactly: 8004 elements, 52 visits, 0 findings.
+
+### 121.10 The red I explained away three times (2026-09-29)
+
+`npm run mutate` reported **"1 of 84 NOT caught"** at the end of three
+consecutive commits this session. Each time it was reported as green-with-an-
+asterisk — *the survivor is the documented preflight case, which is environmental*
+— and each time that was true, sourced from CLAUDE.md, and exactly the wrong
+response.
+
+A red that is routinely explained away is indistinguishable from one that is
+real. The whole value of an 84/84 line is that 83/84 stops the commit; a standing
+exception converts it into a number nobody reads. And the explanation was never
+verified in the sitting where it was offered: the ports were held, so the claim
+"it passes with them free" was inherited from a document rather than measured.
+
+**Measured, finally:** ports free, `all 84 mutations caught`. So the exception
+was accurate. That makes it worse, not better — it means a genuine 83/84 would
+have been waved through with the same sentence.
+
+**The cause.** `tests/preflightPorts.test.js` probed and held the REAL 3000/5000.
+Its two message-differentiation cases assert that one branch of the refusal
+appears and the other does **not**, which is only meaningful when exactly one
+port is busy — and a developer with `npm run dev` up has both, so both branches
+print correctly and the negative assertions fail against working code. The file
+therefore detected that state and SKIPPED, with a comment explaining that a guard
+which cries wolf gets turned off.
+
+The skip is right for `npx jest`. It is wrong for `npm run mutate`, which breaks
+a guard on purpose and asks whether its test notices: **a skipped test notices
+nothing**, so the runner reported SURVIVED against a guard that works.
+
+**The fix is that the question was wrong.** Those cases never needed to know
+whether the machine's ports were busy; they needed a pair that is *theirs*.
+`preflight-ports.js` already reads `AIRMS_WEB_PORT` / `AIRMS_API_PORT` — it has
+to, because that is how `npm run dev:alt` guards its own pair — so the fixture
+now names 39417/39418, a pair this project never binds. "Exactly one port is
+held" becomes true by construction, the `inUse` helper is deleted rather than
+tidied, and nothing skips.
+
+Measured **both ways**, because the whole point is that the result no longer
+depends on the machine:
+
+| | |
+|---|---|
+| dev servers stopped | all 84 caught |
+| dev servers running | all 84 caught |
+
+**One assertion was mine and wrong.** Moving to a custom pair made the "names the
+port" case fail on `expect(r.stderr).toMatch(/e2e/i)` — because the script gates
+that sentence on `onDefaults`, correctly: `npm run e2e` and every browser probe
+hardcode 3000/5000, so on any other pair the claim would be false. The test had
+been asserting it unconditionally and passing only because it had always run on
+the defaults. It is now its own case, is the one case that may still skip, and is
+not what the mutation exercises.
+
+The residue is a rule worth keeping: **a test that skips on ambient state is
+invisible to mutation testing**, so any guard whose test can skip is unverified
+in exactly the runs that are supposed to verify it. Prefer a fixture that owns
+its own resources over one that detects and steps aside.
+
+### 121.11 Re-measuring §113, and three confounded probes (2026-09-30)
+
+§113 has been quoted since **2026-09-22** as a live outage: `/athletes/:id`,
+`/screenings/:id/full` and `/decisions` answering 500 on the hosted API. It was
+cited again as recently as this session without being re-measured — which is the
+habit §113 itself exists to record, having been got wrong twice already.
+
+**Measured, read-only and paced (1500 ms, after the 2026-09-11 bot-protection
+lockout):**
+
+| endpoint | §113, 2026-09-22 | 2026-09-30 |
+|---|---|---|
+| `/athletes` | 200 | 200 |
+| `/athletes/:id` | **500** | **200** |
+| `/screenings/athlete/:id` | 200 | 200 |
+| `/decisions` | **500** | **200** |
+
+**So the outage is not live. Why it is not live is NOT determinable from
+outside**, and that is the part worth writing down, because three separate
+client-side probes each looked decisive and each was confounded:
+
+1. **"The endpoints 200, so the columns exist."** No — this is §113's own thesis.
+   A 200 proves the running build did not select the column, nothing more.
+2. **"Inspect the payload for the column keys."** `/screenings/athlete/:id`
+   returned a 12-key screening with no `normVersionId`/`scoredAt` — which proves
+   nothing, because §113 records that route as using an **explicit narrow
+   attribute list**. Its keys are absent either way.
+3. **"Then inspect an exclude-form route, which names every other column."**
+   `/athletes/:id` returned a 28-key screening carrying all four `response*`
+   keys and neither norm-stamp key — which looks like a clean discriminator and
+   is not: **`utils/serialize.js` never emits `normVersionId` or `scoredAt` at
+   all.** Their absence from the JSON is a fact about the serialiser, not about
+   the model or the database. Verified by grep; the inference was drafted before
+   it was checked, and retracted.
+
+A fourth reading also failed: the production branch's model *does* declare both
+columns, so "the deployed build predates the model change" seemed to follow from
+their absence — but that rests on probe 3, so it falls with it. The model gained
+norm-stamp on 2026-09-13 (`c3b4842`) and the response columns on 2026-09-14
+(`14ee432`), in that order, so no build can carry the second without the first;
+a payload showing one and not the other is therefore evidence about
+**serialisation**, and reading it as evidence about the schema was the error.
+
+**What stands:**
+
+- The three endpoints answer 200 today. That is a fact about the deployed system
+  and it contradicts the sentence §113 has been quoted for.
+- Whether `screenings.norm_version_id` and `scored_at` exist on Aiven is
+  **unknown**, exactly as §113 says it can only be known: `cd backend; npm run
+  verify:schema -- --url … --insecure`, §4, which asks `information_schema`.
+- Therefore the deploy prerequisite is unchanged. The current production branch
+  *and* `feat/text-layer-extraction` both declare those columns, so if the
+  database lacks them, a successful deploy reinstates the 500s. **Migrate first,
+  then deploy** — the expand-then-deploy order §103 already states.
+
+The lesson is narrower than "measure, don't assume", which was already §113's.
+It is: **when a system is observed through a serialiser, the payload is evidence
+about the serialiser.** Every layer between the question and the answer is a
+place for the answer to change meaning, and three of them sat between "does this
+column exist" and "is this key in the JSON".

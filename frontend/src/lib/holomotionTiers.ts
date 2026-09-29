@@ -38,6 +38,25 @@ export const TIER_COLOR: Record<TierState, string> = {
   below: 'var(--risk-high)',
 };
 
+/**
+ * The ink for text printed ON a tier fill (2026-09-29, §122).
+ *
+ * Parallel to TIER_COLOR and kept beside it, because the pair only works if
+ * both move together — a fill changed without its ink is a cell that still
+ * shows a number and no longer lets you read it.
+ *
+ * Every consumer used a flat white. Measured on the subitem heatmap, that is
+ * 2.56:1 on the amber tier and 2.36:1 on the blue, against a 4.5 requirement.
+ * Each token resolves per theme; the dark theme's fills are lighter, so all
+ * four take a dark ink there while only two do in light.
+ */
+export const TIER_INK: Record<TierState, string> = {
+  excellent: 'var(--on-risk-low)',
+  good: 'var(--on-risk-undertrained)',
+  average: 'var(--on-risk-moderate)',
+  below: 'var(--on-risk-high)',
+};
+
 /** The range shown in legends, e.g. "≥85" / "<60". */
 export const TIER_RANGE: Record<TierState, string> = {
   excellent: '≥85',

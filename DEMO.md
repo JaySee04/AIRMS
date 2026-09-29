@@ -59,6 +59,22 @@ The two instances no longer report the same `build` on `/api/health`, because B
 now has a backend change. The extraction itself is still untouched — see the two
 sections at the foot of this file.
 
+**Everything else is deliberately kept identical**, and that needs maintaining
+rather than assuming. B was branched on 2026-09-29 and the shared line moved
+underneath it the same day: §121's contrast work changed the subitem heatmap's
+ink, the score line's colour in dark mode, the `badge-low` chip and the
+sport-critical star. Left alone, B would have shown a stakeholder a *differently
+coloured* application and invited them to attribute it to the upload redesign.
+`feat/text-layer-extraction` is merged into this branch (2026-09-30) so the only
+difference on screen is the one being compared.
+
+**Re-merge before the next demo** if the main line has moved again:
+
+```powershell
+cd "…\AIRMS-upload-b"
+git merge feat/text-layer-extraction
+```
+
 Measured on the same four reports: **A is 3958 px of page, B is 1762 px — 55%
 shorter — and B leaves nothing to fill in.**
 

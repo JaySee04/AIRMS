@@ -30,6 +30,12 @@ const BAND = { green: '#3d7c47', amber: '#c89b3c', red: '#b03030' };
 const bandColor = (b) => BAND[b] || MUTED;
 // Text drawn ON a band fill. Amber is a light yellow — white on it fails
 // legibility, so it takes dark ink, exactly as the 'Average' tier does below.
+// This is the written-out LIGHT-theme copy of the frontend's --on-risk-* tokens
+// (2026-09-29, §122): paper has no theme and a Node process cannot read a
+// custom property. Measured on these fills — 5.03 / 5.11 / 6.34 — so the white
+// entries are correct HERE even though their dark-theme counterparts are not,
+// which is why the screen needed a token and this does not. Change a value in
+// globals.css and change it here too.
 const BAND_INK = { green: '#ffffff', amber: '#3d2f05', red: '#ffffff' };
 const bandInk = (b) => BAND_INK[b] || '#ffffff';
 // The band colour used as TEXT on white paper. Green and red carry themselves;

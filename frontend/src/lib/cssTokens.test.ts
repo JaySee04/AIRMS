@@ -47,11 +47,14 @@ function definedTokens(): Set<string> {
 }
 
 /**
- * Every var() USE that has no fallback, as [token, file, line].
- * A use with a fallback cannot invalidate its declaration, so it is skipped.
+ * Every var() use, as [token, file, line, hasFallback].
+ *
+ * Both kinds are collected now. The no-fallback ones invalidate their
+ * declaration; the fallback ones are a DIFFERENT defect and were being skipped
+ * entirely — see phantomFallbacks() below.
  */
-function unguardedUses(): Array<[string, string, number]> {
-  const uses: Array<[string, string, number]> = [];
+function allUses(): Array<[string, string, number, boolean]> {
+  const uses: Array<[string, string, number, boolean]> = [];
   for (const file of walk(SRC)) {
     // Don't let this test's own documentation count as a use.
     if (file.endsWith('cssTokens.test.ts')) continue;
@@ -62,12 +65,46 @@ function unguardedUses(): Array<[string, string, number]> {
       const t = line.trim();
       if (t.startsWith('//') || t.startsWith('*') || t.startsWith('/*')) return;
       for (const m of line.matchAll(VAR_USE)) {
-        if (m[2] === ',') continue; // has a fallback
-        uses.push([m[1], path.relative(SRC, file), i + 1]);
+        uses.push([m[1], path.relative(SRC, file), i + 1, m[2] === ',']);
       }
     });
   }
   return uses;
+}
+
+function unguardedUses(): Array<[string, string, number]> {
+  return allUses()
+    .filter(([, , , hasFallback]) => !hasFallback)
+    .map(([t, f, l]) => [t, f, l] as [string, string, number]);
+}
+
+/**
+ * A FALLBACK ON A TOKEN THAT IS DECLARED NOWHERE (2026-09-29, §121.9).
+ *
+ * The check above deliberately skips `var(--x, #ccc)` because the declaration
+ * stays valid — true, and the property it was written to protect. But it hides a
+ * second defect with a different shape: if `--x` is declared NOWHERE, the
+ * fallback is not a fallback. It is the value, on every render, in every theme —
+ * a hardcoded literal wearing a token's name, invisible to a search for the
+ * literal and immune to theming.
+ *
+ * Found by sweeping rather than by a bug report, and it had shipped four times:
+ *   - `--secondary, #c89b3c` on .screening-strip-star — the brand amber as TEXT
+ *     at 2.56:1, in both themes (§121.5);
+ *   - `--text-dim, #6b7a8d` behind white text on the hover-tooltip chip: 4.38:1,
+ *     a FAIL the browser audit cannot reach, because that chip exists only while
+ *     a tooltip is open and no sweep has a reason to open one;
+ *   - `--bg-hover, rgba(...)` and `--bm-accent, var(--border)`, both harmless in
+ *     effect and both lying about where their value came from.
+ *
+ * A fallback on a token that DOES exist is still fine and still unreported —
+ * that is belt-and-braces, not a phantom.
+ */
+function phantomFallbacks(): Array<[string, string, number]> {
+  const defined = definedTokens();
+  return allUses()
+    .filter(([token, , , hasFallback]) => hasFallback && !defined.has(token))
+    .map(([t, f, l]) => [t, f, l] as [string, string, number]);
 }
 
 describe('CSS custom properties', () => {
@@ -77,6 +114,33 @@ describe('CSS custom properties', () => {
     // Reported with file and line, because "some token is missing" is not
     // actionable and this test exists to be actioned.
     expect(missing.map(([t, f, l]) => `${t} used at ${f}:${l}`)).toEqual([]);
+  });
+
+  it('has no fallback standing in for a token that does not exist', () => {
+    // NOT a duplicate of the test above. That one catches `var(--x)`; this one
+    // catches `var(--x, literal)` where --x is declared nowhere — a literal that
+    // reads as a token, never themes, and survives any search for the value.
+    expect(phantomFallbacks().map(([t, f, l]) => `${t} used at ${f}:${l}`)).toEqual([]);
+  });
+
+  it('can detect a phantom fallback — and leaves a real one alone', () => {
+    const defined = definedTokens();
+    // BOTH directions. Asserting only that a phantom is caught would pass
+    // against a checker that flags every fallback in the codebase, which would
+    // be useless in the opposite way.
+    expect(defined.has('--border')).toBe(true);
+    expect(defined.has('--no-such-token-anywhere')).toBe(false);
+
+    const planted: Array<[string, boolean]> = [['--border', true], ['--no-such-token-anywhere', true]];
+    const flagged = planted.filter(([token, fb]) => fb && !defined.has(token)).map(([t]) => t);
+    expect(flagged).toEqual(['--no-such-token-anywhere']);
+  });
+
+  it('collects fallback uses at all — the phantom check has something to sift', () => {
+    // phantomFallbacks() filters `hasFallback`. If VAR_USE stopped capturing the
+    // separator, every use would read as no-fallback, the phantom list would be
+    // permanently empty, and the test above would pass for ever.
+    expect(allUses().filter(([, , , fb]) => fb).length).toBeGreaterThan(5);
   });
 
   // THE CANARY (2026-09-10, backend/tests/guardCanaries.test.js). The check

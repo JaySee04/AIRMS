@@ -174,7 +174,7 @@ function IndicatorStrip({ label, value, t }: { label: string; value: number; t: 
         <div className="screening-strip-zone screening-strip-zone--high" style={{ width: `${100 - okW - watchW}%` }} />
         <div className={`screening-strip-marker screening-strip-marker--${band.cls}`} style={{ left: `${pos}%` }} />
       </div>
-      <div className="screening-strip-value" style={{ color: band.color }}>
+      <div className="screening-strip-value" style={{ color: band.onCard }}>
         {value.toFixed(0)}
         <span className="screening-strip-band">{band.label}</span>
       </div>
@@ -455,7 +455,9 @@ function LateralSymmetry({ rows }: { rows: SymmetryRow[] }) {
             <tr key={r.key}>
               <td><strong>{r.label}</strong></td>
               <td className="num">{r.sym}</td>
-              <td style={{ color: r.sym >= 75 ? 'inherit' : 'var(--risk-moderate)' }}>{r.status}</td>
+              {/* --risk-moderate-ink, not --risk-moderate: this is TEXT on a card,
+                  where the brand amber measures 2.56:1 (§120). */}
+              <td style={{ color: r.sym >= 75 ? 'inherit' : 'var(--risk-moderate-ink)' }}>{r.status}</td>
               <td>
                 {r.weaker === 'Balanced'
                   ? <span className="text-muted">Balanced</span>

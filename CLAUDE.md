@@ -72,15 +72,6 @@ cd backend; npm run coverage         # 79.6% statements / 67.8% branches. Route 
                                      # a missing transitive dep (fs.realpath) before it would run.
 cd backend; npm run mutate           # BREAK each registered guard on purpose and prove its
                                      # test fails. A surviving mutation exits non-zero: the
-                                     # RUN IT WITH THE DEV PORTS FREE (`npm run dev:stop`).
-                                     # tests/preflightPorts.test.js SKIPS its two
-                                     # message cases when the other port is held — a
-                                     # developer with `npm run dev` up has BOTH, so both
-                                     # branches print correctly and the negative
-                                     # assertions would fail against working code. The
-                                     # skip is right; the consequence is that the guard
-                                     # reports SURVIVED while a dev server runs, which
-                                     # is environmental and not a real regression.
                                      # test is not testing what it claims. 84 guards across
                                      # both packages. NOT part of `npx jest` — it spawns a
                                      # jest run per mutation (tens of seconds). Run it before
@@ -88,6 +79,18 @@ cd backend; npm run mutate           # BREAK each registered guard on purpose an
                                      # you write a new one. Four defects (SILENT_FAILURES
                                      # 3l/3n/3o/3p) were a check and its own test agreeing
                                      # while both were wrong; this is the standing answer.
+                                     # IT NO LONGER NEEDS THE DEV PORTS FREE (2026-09-29,
+                                     # DD 121.10). It used to: tests/preflightPorts.test.js
+                                     # probed the REAL 3000/5000 and SKIPPED its message
+                                     # cases when they were held, so the runner reported
+                                     # "1 of 84 NOT caught" against a guard that is in fact
+                                     # perfectly well tested. That false red was waved
+                                     # through as environmental three times in one session
+                                     # — which is precisely how a REAL one gets waved
+                                     # through. The fixture now owns a private pair via
+                                     # AIRMS_WEB_PORT / AIRMS_API_PORT, nothing skips, and
+                                     # 84/84 is measured BOTH with the dev servers up and
+                                     # with them stopped.
                                      # The runner is itself verified, and since 2026-09-29 that
                                      # is a STANDING control rather than a one-time check
                                      # (§119.2). Entry #1 is `control: true`: it edits a
@@ -394,6 +397,13 @@ npm run dev:backend        # backend only
 npm run dev:frontend       # frontend only
 
 # Frontend type-check / lint
+# `cd frontend; npx jest` IS NOT THE FRONTEND'S TEST SUITE (2026-09-29, DD 121.9).
+# Several BACKEND guards read the frontend — systemMap inventories its npm scripts,
+# codebaseHygiene checks the docs' quoted suite counts against it, guardCanaries
+# demands a positive control from every corpus scanner including the frontend's. A
+# frontend-only change shipped three backend failures across two commits because
+# neither commit touched backend code and so neither ran `cd backend; npx jest`.
+# Run BOTH before committing either.
 cd frontend; npm run typecheck   # tsc --noEmit -p tsconfig.json. A NAMED script since
                                  # 2026-09-13 because CI needs one: `npm --prefix frontend
                                  # exec -- tsc` does NOT change the working directory
@@ -1308,7 +1318,30 @@ Forgetting the sync is the one hazard the design trades for, so **both** test su
 - **Security headers are set in `next.config.js`** (2026-09-13, `DESIGN_DECISIONS.md §91.5`). The API had the full helmet set for months while the WEB APP — the half that actually paints names, ICs and clinical notes — sent none. Five now: `frame-ancestors 'none'` + `X-Frame-Options: DENY` (verified no `<iframe>`/`<embed>` anywhere; PDFs download via blob URL, never framed — and the controls a clickjack would bait include *declare injured* and *override a band*), `Referrer-Policy: strict-origin-when-cross-origin` (routes carry ICs), `nosniff`, and a `Permissions-Policy` denying camera/mic/geolocation. **The full CSP is in `src/middleware.ts`** (2026-09-13, `§92`), not next.config — it carries a per-request nonce, which a static header cannot. Declared in ONE place on purpose: two `Content-Security-Policy` headers are enforced as an *intersection*, so a second copy would silently change the effective policy. **`export const dynamic = 'force-dynamic'` in `src/app/layout.tsx` is REQUIRED by it and is the one-line rollback point** — with routes statically prerendered the HTML carries no nonce, and Chrome blocked all 16 inline scripts: pages rendered their server HTML and never hydrated, i.e. a dead page that looks alive. **Verify with `cd frontend; npm run verify:csp`** (real Chrome, production build — `next dev` needs `'unsafe-eval'`, so a dev run proves nothing). 20/20, and `npm run e2e` is 110/110 against that same hardened build — both re-run against the HOSTED instance after deploy, not just locally. `connect-src` is derived from `NEXT_PUBLIC_API_URL` because web and API are always different origins; **if dashboards render but every panel is empty, check CORS/`FRONTEND_URL` before the CSP — the two failures look identical from the page.** `outputFileTracingRoot: __dirname` is also set: three lockfiles made Next infer the REPO ROOT as its build root, which is not the Vercel build context.
 - Styling: a single `frontend/src/styles/globals.css` with CSS custom properties. Dark mode via `[data-theme="dark"]` on `<html>`. **Do not introduce CSS-in-JS, Tailwind, or component libraries.**
 - **There is a design scale — use it (2026-08-16, `DESIGN_DECISIONS.md §29`).** Type `--fs-2xs|xs|sm|md|lg|xl|2xl`, radius `--r-xs|sm|md|lg` (+ `999px` for pills), spacing `--sp-xs|sm|md|lg|xl`. Named for ROLE, not size. The file previously held 31 distinct font-size literals and the markup another 160 inline ones that bypassed the stylesheet entirely — **do not add a new literal**; pick the nearest step, or change what the step means. `--radius` is an alias of `--r-md`, kept because it was already in use.
-- **There are TWO ambers, and the difference is the contrast (2026-09-29, `DESIGN_DECISIONS.md §120`).** `--risk-moderate` (`#c89b3c`) is the brand amber and is correct as a **fill, a border or a dot**. As TEXT on a light card it measures **2.56:1** against WCAG AA's 4.5, and it was being used that way on clinical labels — *Watch*, *Needs attention*, *Mild asymmetry*, *injured*. **`--risk-moderate-ink` is the text role** (`#8a6818`, 5.2:1; in dark mode it stays the bright `#e6b84e`, because there the failing direction is reversed). **Never bind the ink token to `background` or any `border-*-color`** — a search-and-replace on `color: var(--risk-moderate)` also matches `border-left-color:` and duly recoloured four borders on the first attempt. Related: `color-scheme` is declared per theme alongside `accent-color`; the latter paints only a CHECKED control, and without the former every unchecked checkbox, scrollbar and native dropdown renders in the browser's LIGHT styling inside a dark UI. And a bare `<button>` does **not** inherit `color` — the UA sets `buttontext` (black), which is how the signed-in user's own name sat at 1.36:1 on the dark topbar of all ten authenticated pages, in dark mode only.
+- **A risk colour has THREE roles, and only one of them is the colour itself (2026-09-29, `DESIGN_DECISIONS.md §120` and `§121`).**
+
+  | token | role | example |
+  |---|---|---|
+  | `--risk-*` | the **fill** — a chip, a dot, a border, a heatmap cell | the band marker |
+  | `--risk-*-ink` | text on the **card**, in the band's colour | *Watch*, *Mild asymmetry* |
+  | `--on-risk-*` | text printed **on that fill** | the number inside the heatmap cell |
+
+  `--risk-moderate` (`#c89b3c`) as TEXT on a light card measures **2.56:1** against AA's 4.5, and was being used that way on clinical labels; `--risk-moderate-ink` (`#8a6818`) is the text role. `--risk-low-ink` (`#397342`) exists for the same reason — `--risk-low` on `--risk-low-bg` is **4.48:1**, a fail by 0.02. **There is deliberately no `--risk-high-ink`**: red carries itself at 6.34 / 5.48, and a token with no measurement behind it would leave the next reader unable to tell which were needed.
+
+  The `--on-risk-*` set is the one added in §121. Every consumer used a flat `#fff`, which is right for a dark fill and wrong for a light one — **and which fill is light depends on the theme**, because dark mode lightens every fill. So white was correct on the light theme's green and red and wrong on all four of dark's. Each token was chosen by measuring white AND a darkened tint of the fill's own hue and taking the better; it is not "white unless it fails" (light green carries white at 5.03 and cannot beat it with any dark ink). `TIER_INK` in `lib/holomotionTiers.ts` mirrors `TIER_COLOR`, and `BAND_META` in `lib/screeningAlerts.ts` carries all three as `color` / `ink` / `onCard`.
+
+  **Three traps, all already sprung:**
+  - **Never bind an ink token to `background` or any `border-*-color`** — a search-and-replace on `color: var(--risk-moderate)` also matches `border-left-color:` and duly recoloured four borders on the first attempt.
+  - **A fallback on a token declared nowhere is not a fallback — it is the value** (§121.9). `var(--secondary, #c89b3c)` shipped the brand amber as text at 2.56:1 in both themes, and `var(--text-dim, #6b7a8d)` put white on a hover-tooltip chip at **4.38:1** where no browser sweep could reach it. `lib/cssTokens.test.ts` now reports this case as well as the unguarded one; a fallback on a token that *does* exist is still fine and still unreported.
+  - **Measure the token, not the hue you remember.** `#6bb0e0` is obviously a light blue that white cannot sit on — and it is the **dark** theme's `--risk-undertrained`. Light's is `#2a6391`. Giving both a dark ink shipped **2.05:1** onto twelve heatmap cells as part of a contrast fix.
+
+  **Nothing here is guessed — re-measure with `cd frontend; npm run verify:contrast`** (needs `npm run dev`; ~52s; **26 pages × 2 themes = 52 visits**, 8004 text elements; **exits 1** on any finding *or any page it could not measure*, 2 if it could not run at all). It reads computed colours out of a real browser and resolves each surface with `elementsFromPoint` — an ancestor walk mis-reports anything positioned outside its parent's box, which is how `.histogram-n` was written into §120.5 as a defect at 1.04:1 when it measures 5.28.
+
+  **Every visit must prove it was measured, and that is the load-bearing part** (§121.8). An expired session, a renamed route or a role that cannot reach a page all end on a screen with no contrast problems, so the sweep would report a confident green ZERO. Each visit asserts it landed on the route it asked for, in the theme it asked for, with enough text and elements to be that page. It earned its keep immediately: the list named `/executive/dashboard`, **which has never existed** — `executive` has no pages of its own and lands on `/admin/dashboard` — so the audit had been sweeping Next's 404 page and counting it clean, while missing **ten** real authenticated pages. "Eleven pages" was ten of twenty-one. `src/app/contrastPages.test.ts` now fails if the list and `src/app` disagree in either direction, or if a page is listed under a role its `allowedRoles` refuses.
+
+  **Run `npm run verify:contrast -- --canary` before believing a clean result.** It forces every `.card` descendant to a near-white and requires the audit to report it (107 styles / 3197 instances across all 52); the verdict is inverted, so a canary that comes back clean fails. A clean run and a broken audit are indistinguishable otherwise — the §119 lesson. It verifies its own stylesheet attached **by effect** (does a real element compute to that colour), not by searching `cssText` for the hex — Chrome normalises that to `rgb(...)`, and the first version therefore never matched.
+
+  **Two optimisations, one accepted and one reverted — do not retry the reverted one.** Flipping `data-theme` instead of re-navigating *seems* free and is not: elements keep computed colours from the theme the page BOOTED in, and it invented five failures including `.btn-outline` at 1.18:1 in "light" while holding dark's `#e8edf2`. What works is four concurrent visits, **each in its own `browser.createBrowserContext()`** — `localStorage` is per-origin, so plain tabs trample each other's token and four visits silently read another role's screen. Accepted because serial and concurrent agree exactly (8004 elements); `CONTRAST_JOBS=1` forces serial. **Not** in CI — it needs five live logins and a seeded database; against an empty one it would report a confident zero about pages that drew nothing. Related: `color-scheme` is declared per theme alongside `accent-color`; the latter paints only a CHECKED control, and without the former every unchecked checkbox, scrollbar and native dropdown renders in the browser's LIGHT styling inside a dark UI. And a bare `<button>` does **not** inherit `color` — the UA sets `buttontext` (black), which is how the signed-in user's own name sat at 1.36:1 on the dark topbar of all ten authenticated pages, in dark mode only.
 
 **The FYP differentiator — `frontend/src/lib/risk.ts`:**
 
