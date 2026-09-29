@@ -11497,3 +11497,57 @@ Frontend 25 suites / 434 tests, backend 64 / 988, typecheck and lint clean,
 `preflight: the refusal describes the port that is ACTUALLY held`, which is the
 documented environmental case that reports SURVIVED while a dev server holds the
 ports.
+
+### 121.7 The measurement became a command (2026-09-29)
+
+§120 and §121 are two sections of the record resting entirely on a script that
+lived in a scratch folder. Every number in both — 27 → 11 → 0, the 2.05:1
+regression, the 1.09:1 chart line — came out of a file that was one `%TEMP%`
+sweep away from gone, in a repo whose whole discipline is that a claim has a
+command behind it and `npm run measure:facts` exists because prose does not
+recompute.
+
+`cd frontend; npm run verify:contrast` now. Three things changed in the move,
+and only one of them is packaging:
+
+**It can fail.** The scratch version printed its findings and exited 0. That is
+the §119 shape — a check that cannot fail is a check that is not checking — and
+it mattered here, because "0 distinct low-contrast text styles" was read as a
+result while the process was incapable of saying otherwise. It exits 1 on any
+finding and 2 when it cannot run, and both paths were exercised rather than
+assumed: a `.card-sub { color: #cfd6de }` planted in the live stylesheet reported
+1.47:1 and exited **1**.
+
+**It has a control.** `--canary` forces every `.card` descendant to `#eef0f3` and
+requires the audit to report it — 101 distinct styles / 1380 instances — with the
+verdict INVERTED, so a canary that comes back clean fails the run. The same shape
+as `npm run mutate`'s entry #1, and for the same reason: this check is one bad
+selector away from silently measuring nothing, and a clean result would look
+exactly the same.
+
+**One optimisation was tried and reverted, which is the part worth keeping.**
+The sweep visits eleven pages twice, once per theme, and measuring both off a
+single navigation looks obviously correct — the theme is a data-attribute on
+`<html>` and every colour resolves from a custom property, so flipping it should
+restyle a page the browser has already built. It does not. Elements keep computed
+colours from the theme the page BOOTED in, and the app re-asserts its own
+attribute on the next render, so the audit measures a mixture. It reported five
+failures that do not exist, the clearest being `.btn-outline` at **1.18:1 in
+"light"** while holding the dark theme's `#e8edf2`.
+
+Halving the navigations is not worth a measurement that reports the wrong
+theme's colours — and note that this failed in the *safe* direction only by luck.
+Five invented failures are obvious; the same mixing could as easily have hidden a
+real one behind a colour from the other theme. The saving was taken from
+somewhere that cannot affect the reading instead: `evaluateOnNewDocument` seeds
+the session before the document exists, so the app boots signed-in and themed in
+ONE navigation rather than two. 75s for 22 page-visits.
+
+**It is deliberately not in CI.** The csp job is also a browser check and needs
+nothing behind it, because it drives the app signed-out. Contrast is measured on
+eleven AUTHENTICATED pages as five roles against real rendered data — a squad
+with no athletes paints no bands, no heatmap and no charts, which is most of what
+the audit looks at. Against CI's databaseless environment it would report a
+confident zero about pages that drew nothing, which is the exact signal the CI
+comment says is worse than no signal at all. It joins `audit:access`,
+`verify:claims` and `e2e` in the stated excluded set.

@@ -13,9 +13,19 @@
 # nothing under tests/ calls connectDB or sequelize.authenticate), so this needs
 # no MySQL container, no secrets, and no fixture loading. The checks that DO need
 # a running instance — `npm run audit:access`, `npm run verify:claims`,
-# `npm run e2e` — are deliberately left out rather than half-wired: a green tick
-# that skipped them would be a worse signal than no tick, which is this
-# project's signature defect class (docs/SILENT_FAILURES.md).
+# `npm run e2e`, `npm run verify:contrast` — are deliberately left out rather
+# than half-wired: a green tick that skipped them would be a worse signal than no
+# tick, which is this project's signature defect class
+# (docs/SILENT_FAILURES.md).
+#
+# verify:contrast is the newest of those and the reason is worth stating, since
+# it is a BROWSER check and the csp job below is also a browser check. csp builds
+# the app and drives it signed-OUT, so it needs nothing behind it. Contrast is
+# measured on eleven AUTHENTICATED pages as five different roles, against real
+# rendered data — a squad with no athletes in it paints no bands, no heatmap and
+# no charts, which is most of what the audit exists to look at. Running it
+# against an empty database would report a confident zero about pages that drew
+# nothing.
 #
 # Node is pinned to the major each package declares in `engines`.
 
