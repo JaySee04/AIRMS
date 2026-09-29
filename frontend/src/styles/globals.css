@@ -1585,7 +1585,15 @@ label:has(> input[type='radio']) {
 .bm-card-item:hover,
 .bm-card-item.is-active,
 .bm-card-item:focus-visible {
-  background: var(--bg-hover, rgba(127, 145, 170, 0.14));
+  /* A literal, stated as one. This used to read it through a token name that is
+     declared NOWHERE, with this rgba as the fallback — which is not a fallback,
+     it is the value on every render, in every theme. Writing it out is honest;
+     the tint is neutral and semi-transparent, so it works over either theme's
+     surface without needing a per-theme value (§121.9).
+     (Deliberately not naming the old token here: cssTokens.test.ts scans this
+     file as text, and a comment quoting the pattern satisfies the check it is
+     meant to fail — the §118 prose-blindness trap.) */
+  background: rgba(127, 145, 170, 0.14);
 }
 /* --brand-gold, matching the global focus ring below. This said var(--primary),
    which is defined nowhere, so the declaration was invalid at computed-value
@@ -1665,7 +1673,9 @@ label:has(> input[type='radio']) {
   position: absolute;
   inset: 0 auto 0 0;
   width: 4px;
-  background: var(--bm-accent, var(--border));
+  /* --bm-accent is declared nowhere, so this has always drawn --border. Say so
+     rather than keeping a name that resolves to nothing (§121.9). */
+  background: var(--border);
 }
 .bm-card-head {
   display: flex;
@@ -3659,8 +3669,15 @@ textarea:focus-visible,
   font-weight: 700;
   padding: 1px 6px;
   border-radius: 999px;
-  color: #fff;
-  background: var(--text-dim, #6b7a8d);
+  /* --text-dim is declared nowhere, so #6b7a8d was the value in both themes —
+     and white on it measures 4.38:1, a FAIL. It escaped the contrast audit
+     because this chip only exists inside a hover tooltip, which no sweep has a
+     reason to open: the phantom-token check found it, not the browser (§121.9).
+     --text-muted is the neutral this wants, but it is LIGHT in dark mode (white
+     on it is 2.92:1), so the fill takes --text, which is the one neutral that is
+     dark-on-light and light-on-dark. Ink follows it: 14.5:1 and 13.7:1. */
+  color: var(--bg-card);
+  background: var(--text);
 }
 .viz-tip-chip--weak  { background: var(--flag-weak); }
 .viz-tip-chip--tight { background: var(--flag-tight); }

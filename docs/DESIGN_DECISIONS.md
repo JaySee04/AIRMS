@@ -11638,3 +11638,90 @@ share of the queue silently; a dead API is named with its URL rather than
 legible, instead of booting 52 signed-out pages; SIGINT closes Chrome; and exit
 2 is reserved for "this check did not run" so a caller can tell that from
 "the UI has a contrast problem".
+
+### 121.9 Clearing the red flags, and the one that was hiding a fourth defect (2026-09-29)
+
+The two commits before this one left three backend suites failing and a defect
+class half-fixed. Both were found by the repo's own standing guards, which is
+the system working — and both had been committed, which is the system being
+ignored for two commits.
+
+**Three backend failures, shipped.** Adding `verify:contrast` to
+`frontend/package.json` and a 26th frontend suite broke three checks that had
+been green, and neither commit re-ran the backend suite because neither commit
+touched backend code:
+
+- `systemMap.test.js` — `docs/SYSTEM_MAP.md` inventories every npm script, so a
+  new one makes the committed copy stale. `npm run map`.
+- `codebaseHygiene.test.js` — three documents and the README quote "25 frontend
+  suites"; the code declares 26. This is the guard that exists because prose does
+  not recompute, catching prose that did not recompute.
+- `guardCanaries.test.js` — `contrastPages.test.ts` enumerates a directory and
+  asserts its offender list is empty, which makes it a corpus scanner, and a
+  corpus scanner with no positive control is indistinguishable from one that
+  cannot find anything (SILENT_FAILURES 3l). It had been mutated by hand with
+  `sed` and never shown catching anything *in the file*.
+
+The lesson is narrow and worth stating: **`cd frontend; npx jest` is not the
+frontend's test suite.** Several backend guards read the frontend — its scripts,
+its suites, the docs that quote both — so a frontend-only change still needs the
+backend run.
+
+`contrastPages.test.ts` now carries its three detectors as exported functions
+(`findMissing` / `findPhantom` / `findWrongRole`) and aims each at a planted
+offender, including the actual historical one: `/executive/dashboard` added to a
+copy of the real list, asserted to be reported. Each canary also asserts the
+detector stays quiet on the real list, because a checker that flags everything
+passes a positive-only control. A fourth pins `rolesOf`, since a `rolesOf` that
+always returned null would make `findWrongRole` vacuous — it skips what it
+cannot read — and the role canary would pass against a detector incapable of
+reporting.
+
+**The phantom fallback: a literal wearing a token's name.**
+
+§121.5 fixed `.screening-strip-star`, which read a token declared nowhere with
+the brand amber as its fallback. That was recorded as one bug. Sweeping the
+stylesheet for the shape found **four**, and one of them is a live contrast
+failure:
+
+| | |
+|---|---|
+| `--secondary, #c89b3c` | the brand amber as TEXT, 2.56:1, both themes — fixed in §121.5 |
+| `--text-dim, #6b7a8d` | behind white text on the hover-tooltip chip: **4.38:1** |
+| `--bg-hover, rgba(...)` | harmless, and lying about where its value comes from |
+| `--bm-accent, var(--border)` | likewise |
+
+`--text-dim` is the interesting one, because **the browser audit cannot reach
+it**. `.viz-tip-chip` exists only while a hover tooltip is open, and no sweep has
+a reason to open one. A static scan found what 52 browser page-visits could not,
+which is the argument for keeping both kinds of check rather than preferring the
+one that reads the real thing. It now takes `--text` as its fill and `--bg-card`
+as its ink — the one neutral pair that inverts correctly, 15.5:1 light and
+13.1:1 dark.
+
+`cssTokens.test.ts` already guarded the neighbouring class and **deliberately
+skipped this one**, with a stated reason that is correct as far as it goes: "a
+fallback is fine and is not reported: the declaration stays valid". True — but it
+protects against the wrong failure. `var(--x, #ccc)` where `--x` exists is
+belt-and-braces. Where `--x` exists *nowhere*, the fallback is not a fallback: it
+is the value, on every render, in every theme, invisible to a search for the
+literal and immune to theming. `phantomFallbacks()` reports exactly that case and
+leaves real fallbacks alone, proven in both directions, and proven able to fail
+by planting `--ghost-token` — which it reported at both use sites.
+
+**And the guard immediately caught the comment written about it.** The first fix
+explained itself with the old token name and the fallback spelled out, on a line
+that does not begin with a comment marker, so the scanner read the prose as a
+use and reported it. §118's prose-blindness trap from the other side: there, a
+comment satisfied an assertion that should have failed; here, a comment failed
+one that should have passed. Same root — **a test that reads source as text
+cannot tell code from prose about code** — so the rule stands in both
+directions: do not spell an asserted pattern in a comment beside it.
+
+**A flaky assertion is a disabled assertion.** The theme check read
+`data-theme` once, after a fixed settle. The app stamps it after mount, so that
+is a bet on timing, and under concurrency it lost about one visit in three runs —
+`/medical/dashboard` reporting "the page is in the default theme" while nothing
+was wrong. It now waits up to 5s for the attribute before asserting, which is not
+a weakening: a theme that never arrives still fails, with the same message. Three
+consecutive runs now agree exactly: 8004 elements, 52 visits, 0 findings.

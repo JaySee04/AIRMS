@@ -309,6 +309,18 @@ async function sweep(browser, who, canary) {
           .catch((e) => { unmeasured.push(`${label} — navigation: ${firstLine(e)}`); });
         await new Promise((r) => { setTimeout(r, SETTLE); });
 
+        // WAIT FOR THE THEME, DO NOT SNAPSHOT IT. The app stamps data-theme
+        // after mount, and a fixed settle is a bet on how long that takes — one
+        // that loses occasionally under concurrency, which showed up as
+        // /medical/dashboard reporting "the page is in the default theme" on one
+        // run in several. Waiting is not weakening: a theme that never arrives
+        // still fails, on the assertion below, with the same message. A flaky
+        // guard gets disabled by whoever is tired of it, which is the real risk.
+        await page.waitForFunction(
+          (th) => document.documentElement.getAttribute('data-theme') === th,
+          { timeout: 5000 }, theme,
+        ).catch(() => {});
+
         // THE THEME IS SET AT BOOT, NOT FLIPPED AFTERWARDS, and that is not
         // fussiness. Measuring both themes off one navigation looks obviously
         // right — the theme is a data-attribute and every colour resolves from a

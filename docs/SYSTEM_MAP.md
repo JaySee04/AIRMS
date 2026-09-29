@@ -423,4 +423,5 @@ Generated into both packages from `shared/facts.js` — see DESIGN_DECISIONS §5
 | frontend | `test` | `jest` |
 | frontend | `e2e` | `node scripts/e2e-smoke.js` |
 | frontend | `verify:csp` | `node scripts/verify-csp.js` |
+| frontend | `verify:contrast` | `node scripts/verify-contrast.js` |
 

@@ -394,6 +394,13 @@ npm run dev:backend        # backend only
 npm run dev:frontend       # frontend only
 
 # Frontend type-check / lint
+# `cd frontend; npx jest` IS NOT THE FRONTEND'S TEST SUITE (2026-09-29, DD 121.9).
+# Several BACKEND guards read the frontend — systemMap inventories its npm scripts,
+# codebaseHygiene checks the docs' quoted suite counts against it, guardCanaries
+# demands a positive control from every corpus scanner including the frontend's. A
+# frontend-only change shipped three backend failures across two commits because
+# neither commit touched backend code and so neither ran `cd backend; npx jest`.
+# Run BOTH before committing either.
 cd frontend; npm run typecheck   # tsc --noEmit -p tsconfig.json. A NAMED script since
                                  # 2026-09-13 because CI needs one: `npm --prefix frontend
                                  # exec -- tsc` does NOT change the working directory
@@ -1320,8 +1327,9 @@ Forgetting the sync is the one hazard the design trades for, so **both** test su
 
   The `--on-risk-*` set is the one added in §121. Every consumer used a flat `#fff`, which is right for a dark fill and wrong for a light one — **and which fill is light depends on the theme**, because dark mode lightens every fill. So white was correct on the light theme's green and red and wrong on all four of dark's. Each token was chosen by measuring white AND a darkened tint of the fill's own hue and taking the better; it is not "white unless it fails" (light green carries white at 5.03 and cannot beat it with any dark ink). `TIER_INK` in `lib/holomotionTiers.ts` mirrors `TIER_COLOR`, and `BAND_META` in `lib/screeningAlerts.ts` carries all three as `color` / `ink` / `onCard`.
 
-  **Two traps, both already sprung:**
+  **Three traps, all already sprung:**
   - **Never bind an ink token to `background` or any `border-*-color`** — a search-and-replace on `color: var(--risk-moderate)` also matches `border-left-color:` and duly recoloured four borders on the first attempt.
+  - **A fallback on a token declared nowhere is not a fallback — it is the value** (§121.9). `var(--secondary, #c89b3c)` shipped the brand amber as text at 2.56:1 in both themes, and `var(--text-dim, #6b7a8d)` put white on a hover-tooltip chip at **4.38:1** where no browser sweep could reach it. `lib/cssTokens.test.ts` now reports this case as well as the unguarded one; a fallback on a token that *does* exist is still fine and still unreported.
   - **Measure the token, not the hue you remember.** `#6bb0e0` is obviously a light blue that white cannot sit on — and it is the **dark** theme's `--risk-undertrained`. Light's is `#2a6391`. Giving both a dark ink shipped **2.05:1** onto twelve heatmap cells as part of a contrast fix.
 
   **Nothing here is guessed — re-measure with `cd frontend; npm run verify:contrast`** (needs `npm run dev`; ~52s; **26 pages × 2 themes = 52 visits**, 8004 text elements; **exits 1** on any finding *or any page it could not measure*, 2 if it could not run at all). It reads computed colours out of a real browser and resolves each surface with `elementsFromPoint` — an ancestor walk mis-reports anything positioned outside its parent's box, which is how `.histogram-n` was written into §120.5 as a defect at 1.04:1 when it measures 5.28.
