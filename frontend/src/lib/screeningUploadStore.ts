@@ -46,6 +46,10 @@ export interface PreviewResponse {
   tension: MuscleEntry[];
   assessedAt: string | null;
   pagesRead: number[];
+  /** An athleteId the SERVER resolved from the report's own printed name (§121).
+   *  A second, independent source to the filename — the two fail differently —
+   *  and the name itself never travels. Absent when nothing matched uniquely. */
+  suggestedAthleteId?: string | null;
   summary?: string | null;
   subitems?: Record<string, Record<string, number | null>> | null;
   // What the vision call cost. Passed back on commit so the Activity Log can
@@ -214,7 +218,22 @@ async function extractOne(item: QueueItem): Promise<void> {
     // pre-fill from the LOCAL filename instead (never sent to the model): a unique
     // roster name-match attaches the athlete; otherwise the operator picks below.
     const parsedName = parseNameFromFilename(item.file.name);
-    const hit = matchByName(parsedName);
+    // TWO INDEPENDENT SOURCES, BECAUSE THEY FAIL DIFFERENTLY (§121).
+    //
+    // The filename was the only one. Measured over six real reports under this
+    // same exact-unique rule, the filename and the report's own printed name
+    // each resolve 4 — a tie — but not the same 4: the filename is useless for
+    // `nazwan.pdf`, and the printed name truncates when it wraps. Taking either
+    // resolves 5 of 6, and the sixth is the compact layout, which carries no
+    // text for EITHER of them to read.
+    //
+    // The filename goes first only because it costs nothing; the server's
+    // suggestion arrived with the payload and is equally trusted. Both apply the
+    // unique-hit rule, so neither can quietly pick the wrong athlete.
+    const hit = matchByName(parsedName)
+      ?? (preview.suggestedAthleteId
+        ? (state.roster ?? []).find((a) => a.athleteId === preview.suggestedAthleteId) ?? null
+        : null);
 
     // Resolve the athlete FROM THE NAME rather than making the operator search.
     // The roster first — most reports are for athletes we already hold. If they

@@ -148,3 +148,36 @@ Age is compared **at the screening date**, not today, so an old report does not
 read as a mismatch. One year of slack is allowed, because the cover prints whole
 years. If the IC cannot be read, or the report printed no age or gender, the
 verdict is **unknown** — and an unknown is never treated as a pass.
+
+## Two ways to find the athlete, because they fail differently
+
+The current build resolves the athlete from the **filename**. That works while
+ISN's own export naming survives, and stops the moment anyone renames a file or
+saves one out of an email.
+
+Measured over six real reports, under the app's own rule (exact full name,
+unique hit):
+
+| source | resolves |
+|---|---|
+| the filename | 4 of 6 |
+| the name printed on the report | 4 of 6 |
+| **either** | **5 of 6** |
+
+A tie — but not the same four. `nazwan.pdf` has a useless filename; *MOHAMED
+ELFFIE DANISH BIN KHIR JOHARI* truncates on the report because the name wraps
+onto a second line. The sixth is the compact layout, which carries no text for
+either to read.
+
+So B tries **both**, and the matching is done on the server: the printed name is
+used to look up an id and then discarded, so it never reaches the browser and is
+never stored. The athlete's name on the record still comes from the roster, as
+it always has.
+
+**The visible effect on the demo deck:** A offers `Import all ready (3/4)`;
+B offers `4/4`.
+
+> **A note on the build fingerprints.** Up to this point both instances reported
+> the same `build` on `/api/health`, which was a neat way to show the extraction
+> was identical. B now has a backend change, so they differ. The extraction
+> itself is still untouched — what was added is a roster lookup after it.

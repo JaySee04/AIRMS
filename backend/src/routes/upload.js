@@ -9,6 +9,7 @@ const requirePermission = require('../middleware/permission');
 const { extractFromPdf } = require('../utils/holomotionExtract');
 const { isVisionConfigured, visionConfig } = require('../utils/visionClient');
 const { visionThrottle, reserveVisionCall } = require('../utils/visionThrottle');
+const logger = require('../utils/logger');
 const { queuePostImport } = require('../utils/postImport');
 const { sendError, expose } = require('../utils/httpError');
 const { maxUploadBytes, tooLargeMessage } = require('../utils/uploadLimits');
@@ -168,6 +169,41 @@ router.post('/screening/pdf/preview', auth, rbac('medical', 'admin'), requirePer
     const result = await extractFromPdf(req.file.buffer, {
       reserveProviderCall: () => reserveVisionCall(req),
     });
+    // RESOLVE THE ATHLETE FROM THE REPORT'S OWN NAME — HERE, AND SEND ONLY AN ID.
+    //
+    // The uploader matches on the FILENAME. Measured across six real reports
+    // under the app's own rule (exact full name, unique hit), the filename and
+    // the printed name each resolve 4 — a tie — but they fail differently: the
+    // filename is useless for `nazwan.pdf`, and the printed name truncates when
+    // it wraps onto a second line. Trying BOTH resolves 5 of 6; the sixth is the
+    // compact layout, which has no text at all. So this is an extra source, not
+    // a replacement (§121).
+    //
+    // SERVER-SIDE ON PURPOSE. The name is used to look up an id and is then
+    // DELETED from the payload: it never reaches the browser, and it is never
+    // stored — `athlete.name` stays empty and the commit still backfills from
+    // the roster, exactly as §112 requires. The wire carries an athleteId, which
+    // the client is about to send back anyway.
+    const readName = result.readName;
+    delete result.readName;
+    if (readName) {
+      try {
+        const hits = await Athlete.findAll({
+          where: sequelize.where(
+            sequelize.fn('LOWER', sequelize.fn('TRIM', sequelize.col('name'))),
+            String(readName).trim().toLowerCase(),
+          ),
+          attributes: ['athleteId'],
+          limit: 2,
+        });
+        // A UNIQUE hit only, for the reason matchInIsn already gives: filling in
+        // the wrong athlete is far worse than asking the operator to pick.
+        if (hits.length === 1) result.suggestedAthleteId = hits[0].athleteId;
+      } catch (e) {
+        // A lookup failure must not cost the operator their extraction.
+        logger.warn('upload.name_match_failed', { err: e.message });
+      }
+    }
     // Deliberately does NOT echo the filename back: it can carry PII (the
     // sample's name + phone number live in the filename) and the UI shows the
     // browser's local File name instead, so returning it served no purpose.
