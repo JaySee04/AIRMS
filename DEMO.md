@@ -80,9 +80,8 @@ Not "which looks nicer". Ask:
 
 1. On a real session of 40–60 reports, which one tells you **how much work is
    left**?
-2. Is collapsing a matched report **reassuring or worrying**? B assumes you do
-   not want to read 54 identical cards; a clinician may reasonably want to see
-   every one before it enters the record.
+2. When B collapses a report, it has **cross-checked the match** — see below.
+   Is that the right check, and is there another fact it should be using?
 3. Does the **upload step itself** matter to you at all — or would you rather
    AIRMS picked the reports up from a folder and only showed you the
    exceptions?
@@ -108,3 +107,44 @@ git branch -D demo/upload-b
 ```
 
 Neither touches the main branch until you run it.
+
+## Why collapsing a row is safe
+
+Collapsing a matched report looked like a trade — the operator's afternoon
+against their chance to check it. It is not one, because "read the card" was
+never much of a check either: nobody scanning fifty-four cards reliably notices
+that the thirty-seventh says *Male* where the athlete is *Female*.
+
+A Malaysian IC encodes **date of birth and sex** (`YYMMDD-PB-###G`, the final
+digit's parity). The HoloMotion cover prints **age and gender**. So the match can
+be checked against two independent facts that came out of the report itself,
+using an identifier the roster already returns — no new endpoint, no new column,
+nothing for the operator to read.
+
+**A row may only collapse once both agree.** Anything contradicted, or anything
+that could not be checked, stays open and is counted as work. The collapsed row
+says what was compared:
+
+```
+READY  Nur Aina Danish  070322080314 · Badminton · PELAPIS · from the ISN
+       directory   ✓ sex and age match the IC                      [Check] [✕]
+```
+
+### Showing the check catching something
+
+Drop `nazwan.pdf` (its cover reads *age 21 · Male*) and type a female athlete's
+IC into the IC field — `070322080314` will do. The card objects:
+
+> **This report may not belong to this athlete.** the report says Male and this
+> IC is Female; the report says age 21 and this IC gives 18. Check you have the
+> right person before importing — the scores will be filed against whoever is
+> selected here.
+
+Nothing in the current build objects to that at all. So B is not trading safety
+for speed — it is checking something the old screen never did, and only spending
+the operator's attention where the check could not be made.
+
+Age is compared **at the screening date**, not today, so an old report does not
+read as a mismatch. One year of slack is allowed, because the cover prints whole
+years. If the IC cannot be read, or the report printed no age or gender, the
+verdict is **unknown** — and an unknown is never treated as a pass.

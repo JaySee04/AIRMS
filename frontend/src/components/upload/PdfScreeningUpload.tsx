@@ -26,6 +26,7 @@ import IsnLookup from '@/components/upload/IsnLookup';
 import ScreeningPreview from '@/components/upload/ScreeningPreview';
 import * as uploadStore from '@/lib/screeningUploadStore';
 import { parseNameFromFilename } from '@/lib/screeningUploadStore';
+import { checkMatch } from '@/lib/icFacts';
 import type { QueueItem, CommittedEntry, RosterAthlete } from '@/lib/screeningUploadStore';
 
 // The "muscle hero" — the shared body-map figure (front/back) with flag cards.
@@ -206,8 +207,27 @@ export default function PdfScreeningUpload() {
   // size of the batch. Expanding a settled row is one click, because "it
   // auto-filled the wrong athlete" has to stay correctable — the whole point is
   // to make the exceptions visible, not to hide the rest.
+  // CORROBORATION, NOT INSPECTION — the reason collapsing is safe (§121).
+  //
+  // Collapsing a matched report was posed as a trade: the operator's afternoon
+  // against their chance to check. It is not one, because "read the card" was
+  // never much of a check — nobody scanning fifty-four cards reliably notices
+  // that the thirty-seventh says Male where the athlete is Female.
+  //
+  // The IC the roster already returns encodes date of birth and sex, and the
+  // report's own cover prints age and gender. So the match is checked against
+  // two independent facts that came out of the report, and a row may only
+  // collapse once BOTH agree. Anything unchecked or contradicted stays open and
+  // is listed with the work.
+  const checkOf = (it: QueueItem) => checkMatch({
+    athleteId: it.athleteId,
+    reportAge: it.age === '' ? null : Number(it.age),
+    reportGender: it.gender || null,
+    assessedAt: it.preview?.assessedAt ?? null,
+  });
   const isSettled = (it: QueueItem) => it.status === 'ready'
-    && Boolean(it.name.trim() && it.athleteId.trim() && it.sport.trim() && it.program);
+    && Boolean(it.name.trim() && it.athleteId.trim() && it.sport.trim() && it.program)
+    && checkOf(it).verdict === 'agrees';
   const needsYou = items.filter((it) => it.status === 'error' || (it.status === 'ready' && !isSettled(it)));
   const settled = items.filter(isSettled);
   const inFlight = items.filter((it) => !needsYou.includes(it) && !settled.includes(it));
@@ -320,7 +340,7 @@ export default function PdfScreeningUpload() {
         >
           <div>
             <div style={{ fontSize: 'var(--fs-2xl)', fontWeight: 700, lineHeight: 1.1 }}>{settled.length}</div>
-            <div className="text-muted" style={{ fontSize: 'var(--fs-xs)' }}>ready · nothing to fill in</div>
+            <div className="text-muted" style={{ fontSize: 'var(--fs-xs)' }}>checked · nothing to fill in</div>
           </div>
           <div>
             <div
@@ -337,8 +357,8 @@ export default function PdfScreeningUpload() {
           </div>
           <p className="text-muted" style={{ fontSize: 'var(--fs-sm)', margin: 0, flex: 1, minWidth: 220 }}>
             {needsYou.length === 0
-              ? 'Every report matched an athlete on the roster. Import them all, or open any row to check it first.'
-              : 'The ones that need you are listed first. The rest matched the roster and are collapsed — open one to check or correct it.'}
+              ? 'Every report matched an athlete, and each one’s printed age and gender agree with the IC it was matched to. Open any row to see the comparison.'
+              : 'The ones needing you are first. The rest are collapsed only because the age and gender printed on the report agree with the IC they matched — a check nobody can make by eye. Open one to see it.'}
           </p>
         </div>
       )}
@@ -362,6 +382,17 @@ export default function PdfScreeningUpload() {
                   {it.athleteId} · {it.sport} · {it.program}
                   {it.matchSource === 'roster' && ' · matched on the roster'}
                   {it.matchSource === 'isn' && ' · from the ISN directory'}
+                </span>
+                {/* WHAT WAS CHECKED, on the row. The collapse is not asking to
+                    be trusted — it is reporting a comparison the operator could
+                    not have made by eye, between the report's own cover and the
+                    IC it was matched to. */}
+                <span
+                  className="text-muted"
+                  style={{ fontSize: 'var(--fs-2xs)', color: 'var(--risk-low)', whiteSpace: 'nowrap' }}
+                  title={`The report prints ${it.gender} age ${it.age}; this IC encodes the same. Checked at the screening date, not today.`}
+                >
+                  ✓ sex and age match the IC
                 </span>
                 <span style={{ flex: 1 }} />
                 <button type="button" className="btn btn-outline btn-sm" onClick={() => toggleExpanded(it.id)}>
@@ -408,6 +439,28 @@ export default function PdfScreeningUpload() {
                     {it.preview.assessedAt ? ` · assessed ${it.preview.assessedAt}` : ''}
                     <span className="text-muted" style={{ fontWeight: 400 }}> · name redacted before extraction</span>
                   </div>
+
+                  {/* THE CONTRADICTION CASE, and the reason this check earns its
+                      place. A name match can be confidently wrong — two athletes
+                      share a name, or the operator picked the row above the one
+                      they meant. When the report's own cover disagrees with the
+                      IC it has been attached to, that is worth interrupting for,
+                      and no amount of reading the card would have caught it. */}
+                  {it.athleteId && checkOf(it).verdict === 'disagrees' && (
+                    <div className="alert alert-warning" style={{ marginBottom: 10 }}>
+                      <strong>This report may not belong to this athlete.</strong>
+                      {' '}
+                      {checkOf(it).reason}. Check you have the right person before importing —
+                      the scores will be filed against whoever is selected here.
+                    </div>
+                  )}
+                  {it.athleteId && checkOf(it).verdict === 'unknown' && (
+                    <div className="text-muted" style={{ fontSize: 'var(--fs-sm)', marginBottom: 10 }}>
+                      Not cross-checked — this needs an IC number plus an age and gender on the
+                      report, and one of them is missing. Worth a look before importing.
+                    </div>
+                  )}
+
                   {it.matched ? (
                     <div className="alert alert-info" style={{ marginBottom: 10 }}>
                       Attached to <strong>{it.matched.name} ({it.matched.athleteId})</strong> — identity, sport, and programme filled from the roster. Edit below if anything is wrong.
