@@ -43,16 +43,21 @@ that.
 
 ## What is actually different
 
-**Only the queue on the upload page.** The backend is untouched — both report the
-same `build` fingerprint on `/api/health`, so anything a stakeholder notices is
-the interface and not the extraction. The PDF is read identically in both: same
-text-layer reader, same values, same number of tokens.
+**The import screen, and what feeds it.** The PDF is read identically in both —
+same text-layer reader, same values, same number of tokens. What changed is the
+queue, the matching, and the pacing:
 
 - **A** renders every report as a full editing card, in the order they were
-  dropped.
+  dropped, matches the athlete on the filename, and pauses three seconds between
+  files.
 - **B** puts the reports that need a human FIRST and expanded, collapses the
-  ones that resolved by themselves to one line each, and heads the queue with
-  *"N ready · M need you"*.
+  ones that resolved by themselves to one line each, heads the queue with
+  *"N checked · M need you"*, also tries the name printed on the report, and
+  pauses only when a report actually called the vision provider.
+
+The two instances no longer report the same `build` on `/api/health`, because B
+now has a backend change. The extraction itself is still untouched — see the two
+sections at the foot of this file.
 
 Measured on the same four reports: **A is 3958 px of page, B is 1762 px — 55%
 shorter — and B leaves nothing to fill in.**
@@ -61,8 +66,6 @@ shorter — and B leaves nothing to fill in.**
 
 Drop these four together:
 
-| file | what happens | why |
-|---|---|---|
 | file | in A | in B |
 |---|---|---|
 | `backend/scripts/samples/nazwan.pdf` | **needs you** — the filename is just "nazwan" | **ready** — placed from the name printed on the report |
