@@ -54,8 +54,8 @@ text-layer reader, same values, same number of tokens.
   ones that resolved by themselves to one line each, and heads the queue with
   *"N ready · M need you"*.
 
-Measured on the same four reports, same backend: **A is 3958 px of page, B is
-1776 px — 55% shorter.**
+Measured on the same four reports: **A is 3958 px of page, B is 1762 px — 55%
+shorter — and B leaves nothing to fill in.**
 
 ## A demo that shows both halves
 
@@ -63,16 +63,17 @@ Drop these four together:
 
 | file | what happens | why |
 |---|---|---|
-| `backend/scripts/samples/nazwan.pdf` | **needs you** | the file is named `nazwan.pdf`, and "nazwan" matches nothing |
-| the three `rpt_2025-07-29_*.pdf` reports | **ready**, collapsed | they resolve from the ISN directory, so name, IC, sport and programme all fill themselves |
+| file | in A | in B |
+|---|---|---|
+| `backend/scripts/samples/nazwan.pdf` | **needs you** — the filename is just "nazwan" | **ready** — placed from the name printed on the report |
+| the three `rpt_2025-07-29_*.pdf` reports | **ready**, as four full cards | **ready**, collapsed to one line each |
 
-That gives **3 ready · 1 need you** — both states on one screen.
+So **A offers `Import all ready (3/4)` and B offers `4/4`** — and B has nothing
+left for the operator to do at all.
 
-It also demonstrates the weakness worth discussing: `nazwan.pdf` fails only
-because the athlete is currently resolved from the FILENAME. He is on the
-roster, and the report itself carries his full name — AIRMS reads it and
-currently uses it for nothing. Resolving from the report instead is proposal 1
-in the DESIGN_DECISIONS discussion and would turn that row green too.
+To see B's "needs you" state as well, drop a report for somebody who is on
+neither the roster nor the ISN directory, or open any collapsed row with
+**Check**.
 
 ## The question to put to them
 
