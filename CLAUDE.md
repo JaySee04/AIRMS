@@ -72,15 +72,6 @@ cd backend; npm run coverage         # 79.6% statements / 67.8% branches. Route 
                                      # a missing transitive dep (fs.realpath) before it would run.
 cd backend; npm run mutate           # BREAK each registered guard on purpose and prove its
                                      # test fails. A surviving mutation exits non-zero: the
-                                     # RUN IT WITH THE DEV PORTS FREE (`npm run dev:stop`).
-                                     # tests/preflightPorts.test.js SKIPS its two
-                                     # message cases when the other port is held — a
-                                     # developer with `npm run dev` up has BOTH, so both
-                                     # branches print correctly and the negative
-                                     # assertions would fail against working code. The
-                                     # skip is right; the consequence is that the guard
-                                     # reports SURVIVED while a dev server runs, which
-                                     # is environmental and not a real regression.
                                      # test is not testing what it claims. 84 guards across
                                      # both packages. NOT part of `npx jest` — it spawns a
                                      # jest run per mutation (tens of seconds). Run it before
@@ -88,6 +79,18 @@ cd backend; npm run mutate           # BREAK each registered guard on purpose an
                                      # you write a new one. Four defects (SILENT_FAILURES
                                      # 3l/3n/3o/3p) were a check and its own test agreeing
                                      # while both were wrong; this is the standing answer.
+                                     # IT NO LONGER NEEDS THE DEV PORTS FREE (2026-09-29,
+                                     # DD 121.10). It used to: tests/preflightPorts.test.js
+                                     # probed the REAL 3000/5000 and SKIPPED its message
+                                     # cases when they were held, so the runner reported
+                                     # "1 of 84 NOT caught" against a guard that is in fact
+                                     # perfectly well tested. That false red was waved
+                                     # through as environmental three times in one session
+                                     # — which is precisely how a REAL one gets waved
+                                     # through. The fixture now owns a private pair via
+                                     # AIRMS_WEB_PORT / AIRMS_API_PORT, nothing skips, and
+                                     # 84/84 is measured BOTH with the dev servers up and
+                                     # with them stopped.
                                      # The runner is itself verified, and since 2026-09-29 that
                                      # is a STANDING control rather than a one-time check
                                      # (§119.2). Entry #1 is `control: true`: it edits a

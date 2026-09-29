@@ -11725,3 +11725,62 @@ is a bet on timing, and under concurrency it lost about one visit in three runs 
 was wrong. It now waits up to 5s for the attribute before asserting, which is not
 a weakening: a theme that never arrives still fails, with the same message. Three
 consecutive runs now agree exactly: 8004 elements, 52 visits, 0 findings.
+
+### 121.10 The red I explained away three times (2026-09-29)
+
+`npm run mutate` reported **"1 of 84 NOT caught"** at the end of three
+consecutive commits this session. Each time it was reported as green-with-an-
+asterisk — *the survivor is the documented preflight case, which is environmental*
+— and each time that was true, sourced from CLAUDE.md, and exactly the wrong
+response.
+
+A red that is routinely explained away is indistinguishable from one that is
+real. The whole value of an 84/84 line is that 83/84 stops the commit; a standing
+exception converts it into a number nobody reads. And the explanation was never
+verified in the sitting where it was offered: the ports were held, so the claim
+"it passes with them free" was inherited from a document rather than measured.
+
+**Measured, finally:** ports free, `all 84 mutations caught`. So the exception
+was accurate. That makes it worse, not better — it means a genuine 83/84 would
+have been waved through with the same sentence.
+
+**The cause.** `tests/preflightPorts.test.js` probed and held the REAL 3000/5000.
+Its two message-differentiation cases assert that one branch of the refusal
+appears and the other does **not**, which is only meaningful when exactly one
+port is busy — and a developer with `npm run dev` up has both, so both branches
+print correctly and the negative assertions fail against working code. The file
+therefore detected that state and SKIPPED, with a comment explaining that a guard
+which cries wolf gets turned off.
+
+The skip is right for `npx jest`. It is wrong for `npm run mutate`, which breaks
+a guard on purpose and asks whether its test notices: **a skipped test notices
+nothing**, so the runner reported SURVIVED against a guard that works.
+
+**The fix is that the question was wrong.** Those cases never needed to know
+whether the machine's ports were busy; they needed a pair that is *theirs*.
+`preflight-ports.js` already reads `AIRMS_WEB_PORT` / `AIRMS_API_PORT` — it has
+to, because that is how `npm run dev:alt` guards its own pair — so the fixture
+now names 39417/39418, a pair this project never binds. "Exactly one port is
+held" becomes true by construction, the `inUse` helper is deleted rather than
+tidied, and nothing skips.
+
+Measured **both ways**, because the whole point is that the result no longer
+depends on the machine:
+
+| | |
+|---|---|
+| dev servers stopped | all 84 caught |
+| dev servers running | all 84 caught |
+
+**One assertion was mine and wrong.** Moving to a custom pair made the "names the
+port" case fail on `expect(r.stderr).toMatch(/e2e/i)` — because the script gates
+that sentence on `onDefaults`, correctly: `npm run e2e` and every browser probe
+hardcode 3000/5000, so on any other pair the claim would be false. The test had
+been asserting it unconditionally and passing only because it had always run on
+the defaults. It is now its own case, is the one case that may still skip, and is
+not what the mutation exercises.
+
+The residue is a rule worth keeping: **a test that skips on ambient state is
+invisible to mutation testing**, so any guard whose test can skip is unverified
+in exactly the runs that are supposed to verify it. Prefer a fixture that owns
+its own resources over one that detects and steps aside.
