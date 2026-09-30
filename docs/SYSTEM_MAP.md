@@ -338,6 +338,7 @@ client-side; the API's RBAC above is the real boundary.
 | `norm_min_stability` | `0` |
 | `alerts_enabled` | `true` |
 | `alert_on_band` | `'amber'` |
+| `summary_vision_topup` | `false` |
 | `notify_override` | `true` |
 | `notify_injury` | `true` |
 | `digest_enabled` | `true` |

@@ -67,6 +67,31 @@ const DEFAULTS = {
   norm_min_stability: 0,       // minimum Stability
   alerts_enabled: true,        // email medical + coaches on import
   alert_on_band: 'amber',      // fire at this band or worse ('amber' | 'red')
+
+  // MAY AN OTHERWISE ZERO-PROVIDER IMPORT SPEND ONE CALL ON THE SUMMARY?
+  //
+  // §112's headline property is that an expanded report never leaves the
+  // machine: every number is read from the text layer, no tokens, no transfer.
+  // §114 then added a top-up — when the letter-spaced Summary cannot be
+  // recovered locally, page 1 goes to the model for it alone.
+  //
+  // That is a real exception to the stated rule, it fires more readily than
+  // "never" (summaryRecover declines seven different ways), and until 2026-09-30
+  // it was INVISIBLE: the payload carries `providerCalls` and `summaryMethod`
+  // and the uploader displayed neither, so an operator could not tell that a
+  // zero-token import had spent a call and sent a page off the machine.
+  //
+  // DEFAULT OFF, so "the text layer means no provider" is true without an
+  // asterisk. An institution that would rather have HoloMotion's own written
+  // verdict than the guarantee can turn it on, which is the right person to be
+  // making that trade. A missing Summary is already a handled case — §70's
+  // renderer treats it as a missing section, and the numbers are unaffected
+  // either way.
+  //
+  // This does NOT gate the compact layout. That report has no text at all, so
+  // vision is the only way to read any of it, and this setting is about the
+  // SURCHARGE on a report that was already readable.
+  summary_vision_topup: false,
   // Event-driven notifications (utils/notifications.js), each independently
   // governable, default on:
   notify_override: true,       // email the sport's coach when medical overrides an athlete to amber/red

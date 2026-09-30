@@ -10,6 +10,25 @@
 const { renderForExtraction } = require('./pdfRender');
 const { visionComplete, isVisionConfigured } = require('./visionClient');
 const { identifyReport } = require('./reportIdentity');
+
+/**
+ * Is the Summary vision top-up permitted?
+ *
+ * Required lazily and defensively: this module is driven by scripts and tests
+ * that have no database, and a settings read that throws must not cost an import
+ * whose numbers are already extracted and exact. An unreadable setting falls
+ * back to the DEFAULT rather than to "allowed" — failing closed on the path that
+ * decides whether a page leaves the machine.
+ */
+async function summaryTopUpAllowed() {
+  try {
+    const { getSettings } = require('./settings');
+    const s = await getSettings();
+    return Boolean(s.summary_vision_topup);
+  } catch {
+    return false;
+  }
+}
 const { extractFromTextLayer } = require('./textLayerExtract');
 const { recoverSummary } = require('./summaryRecover');
 const { expose } = require('./httpError');
@@ -268,7 +287,21 @@ async function extractFromPdf(buffer, { reserveProviderCall } = {}) {
       summaryMethod = 'text-layer';
     }
 
-    if (!summary && isVisionConfigured()) {
+    // GOVERNED BY THE INSTITUTION, DEFAULT OFF (2026-09-30).
+    //
+    // This is the one path that spends a provider call on a report the text
+    // layer already read — the single exception to §112's "the PDF never leaves
+    // the machine", and it was both invisible and un-opt-out-able. The setting
+    // makes it a decision somebody took rather than a surprise, and off by
+    // default makes the zero-provider guarantee true without an asterisk.
+    //
+    // Read from settings rather than an env var so it sits with the other
+    // institution switches on the admin page, and so the answer is the same for
+    // every deployment of the same build.
+    const allowTopUp = await summaryTopUpAllowed();
+    if (!summary && !allowTopUp) summaryMethod = 'declined:setting';
+
+    if (!summary && allowTopUp && isVisionConfigured()) {
       try {
         const top = await summaryFromPage1(buffer, reserveProviderCall);
         summary = top.summary;
