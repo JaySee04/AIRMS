@@ -538,6 +538,11 @@ async function extractFromTextLayer(buffer, { pdfjs } = {}) {
       missing: shortfall,
       textLayerChars: score,
       totalPages,
+      // The raw text, for utils/reportIdentity.js to decide whether this is a
+      // HoloMotion report at all before the caller falls through to vision.
+      // Carried only on this branch: an `ok` result has no use for it, and a
+      // no-text-layer result has none to give.
+      text: pages.map((p) => p.rows.map((r) => rowText(r)).join(' ')).join('\n'),
     };
   }
 

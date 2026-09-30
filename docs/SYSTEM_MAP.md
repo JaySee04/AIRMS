@@ -338,6 +338,7 @@ client-side; the API's RBAC above is the real boundary.
 | `norm_min_stability` | `0` |
 | `alerts_enabled` | `true` |
 | `alert_on_band` | `'amber'` |
+| `summary_vision_topup` | `false` |
 | `notify_override` | `true` |
 | `notify_injury` | `true` |
 | `digest_enabled` | `true` |
@@ -413,6 +414,8 @@ Generated into both packages from `shared/facts.js` — see DESIGN_DECISIONS §5
 | backend | `map` | `node scripts/system-map.js` |
 | backend | `mutate` | `node scripts/mutation-check.js` |
 | backend | `verify:claims` | `node scripts/verify-claims.js` |
+| backend | `verify:fixture` | `node scripts/verify-synthetic-fixture.js` |
+| backend | `make:fixture` | `node scripts/make-synthetic-report.js` |
 | backend | `verify:textlayer` | `node scripts/verify-textlayer-extract.js` |
 | backend | `bootstrap:admin` | `node scripts/bootstrap-admin.js` |
 | frontend | `dev` | `next dev` |

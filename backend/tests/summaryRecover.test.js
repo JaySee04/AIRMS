@@ -186,10 +186,33 @@ describe('the extractor consults it, and does so first', () => {
     expect(recover).toBeLessThan(vision);
   });
 
-  // The model must stay reachable: a report this technique cannot read is the
-  // ordinary case, not a failure.
-  it('still falls back to the vision top-up', () => {
-    expect(src).toMatch(/if \(!summary && isVisionConfigured\(\)\)/);
+  // The model must stay REACHABLE: a report this technique cannot read is the
+  // ordinary case, not a failure. Since 2026-09-30 reaching it is also GOVERNED
+  // — `summary_vision_topup`, default off — because this is the one path that
+  // spends a provider call on a report the text layer already read, and §112's
+  // guarantee is that such a report never leaves the machine.
+  //
+  // Both halves are asserted. Dropping the first would let the fallback be
+  // deleted outright; dropping the second would let the setting be bypassed.
+  it('still falls back to the vision top-up, when the institution allows it', () => {
+    expect(src).toMatch(/if \(!summary && allowTopUp && isVisionConfigured\(\)\)/);
+    expect(src).toMatch(/await summaryFromPage1\(buffer/);
+  });
+
+  it('asks the setting BEFORE reaching for the model, and fails closed', () => {
+    const asks = src.indexOf('await summaryTopUpAllowed()');
+    const vision = src.indexOf('await summaryFromPage1(buffer');
+    expect(asks).toBeGreaterThan(-1);
+    expect(asks).toBeLessThan(vision);
+    // An unreadable setting must not read as permission on the path that
+    // decides whether a page is transmitted.
+    expect(src).toMatch(/catch \{\s*return false;/);
+  });
+
+  it('says so on the payload when the setting declined it', () => {
+    // Otherwise "no summary" and "a summary we chose not to fetch" look
+    // identical to the operator, which is the invisibility this replaced.
+    expect(src).toMatch(/summaryMethod = 'declined:setting'/);
   });
 
   // §70 reproduces this verbatim, so which producer supplied it is provenance

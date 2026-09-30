@@ -9,6 +9,59 @@
 
 const { renderForExtraction } = require('./pdfRender');
 const { visionComplete, isVisionConfigured } = require('./visionClient');
+const { identifyReport } = require('./reportIdentity');
+
+/**
+ * Is the Summary vision top-up permitted?
+ *
+ * Required lazily and defensively: this module is driven by scripts and tests
+ * that have no database, and a settings read that throws must not cost an import
+ * whose numbers are already extracted and exact. An unreadable setting falls
+ * back to the DEFAULT rather than to "allowed" — failing closed on the path that
+ * decides whether a page leaves the machine.
+ */
+/**
+ * Does page 1 have the ink-density shape of a HoloMotion cover?
+ *
+ * Every failure path returns `known: false`, i.e. "no opinion", which the caller
+ * treats as permission. Rendering one page at low scale, a missing reference,
+ * or a canvas that will not load must never become a refusal — the gate exists
+ * to stop an unrelated document leaving the machine, not to stand between a
+ * clinician and a real report.
+ */
+async function coverLooksRight(buffer) {
+  try {
+    const { signature, looksLikeCover } = require('./layoutFingerprint');
+    const reference = require('../fixtures/coverFingerprint.json');
+    const canvasLib = require('@napi-rs/canvas');
+    // renderPdfPages([1]) — EXACTLY one page — not renderForExtraction, which
+    // renders the whole data section (VISION_MAX_PAGES, default 6) and captions
+    // it. Measured: the extraction form did not return within ten minutes on a
+    // 51-page document, while this returns in seconds. A gate that costs more
+    // than the call it is preventing is not a gate.
+    //
+    // Scale 1 for the same reason: the signature is a 16×16 grid, so anything
+    // larger is rendered and thrown away.
+    const { renderPdfPages } = require('./pdfRender');
+    const [page] = await renderPdfPages(buffer, [1], 1);
+    if (!page || !page.base64) return { known: false, relevant: true };
+    const image = await canvasLib.loadImage(Buffer.from(page.base64, 'base64'));
+    return looksLikeCover(signature(image, canvasLib), reference.signature);
+  } catch (err) {
+    console.error('[extract] cover fingerprint unavailable, allowing:', err.message);
+    return { known: false, relevant: true, why: err.message };
+  }
+}
+
+async function summaryTopUpAllowed() {
+  try {
+    const { getSettings } = require('./settings');
+    const s = await getSettings();
+    return Boolean(s.summary_vision_topup);
+  } catch {
+    return false;
+  }
+}
 const { extractFromTextLayer } = require('./textLayerExtract');
 const { recoverSummary } = require('./summaryRecover');
 const { expose } = require('./httpError');
@@ -213,6 +266,60 @@ async function extractFromPdf(buffer, { reserveProviderCall } = {}) {
     return { ok: false, reason: 'text-layer-error' };
   });
 
+  // VISION IS A FALLBACK FOR AN UNREADABLE REPORT, NOT FOR AN UNREADABLE FILE
+  // (2026-09-30). `extractFromTextLayer` returns two different refusals and this
+  // caller used to collapse them, which is how a 51-page university report was
+  // accepted, rendered and SENT TO GEMINI — measured, one provider call, an
+  // arbitrary document off the machine.
+  //
+  //   no-text-layer          the compact layout. Nothing local left to read, so
+  //                          vision is the only path. Falls through below.
+  //   text-layer-incomplete  text IS present. Ask whether it is a HoloMotion
+  //                          report before spending anything on it.
+  //
+  // Refused here rather than after the render: the point is that nothing leaves
+  // the machine, so the decision has to precede the transmission.
+  // THE NO-TEXT CASE, which reportIdentity cannot speak for (2026-09-30).
+  //
+  // At 0 characters there is nothing to read, so a scanned document or a
+  // photographed page used to reach the model unchallenged — the same hole as
+  // the university report, just entered a different way. The compact HoloMotion
+  // layout is a fixed template, so the question "is this page even that shape?"
+  // is answerable locally from an ink-density signature. See layoutFingerprint:
+  // a perceptual hash was tried first and measured a ONE-BIT margin.
+  //
+  // Refuses only at 2.6x the worst distance any real report has measured, and
+  // fails OPEN if the render or the reference is unavailable: a clinician
+  // blocked from importing a real screening is a worse outcome than one provider
+  // call on a document that was being sent anyway before this existed.
+  if (!fast.ok && fast.reason === 'no-text-layer') {
+    const verdict = await coverLooksRight(buffer);
+    if (verdict.known && !verdict.relevant) {
+      const err = new Error(
+        'This PDF has no readable text and does not look like a HoloMotion '
+        + `screening report (${verdict.why}). Nothing was sent to the extraction `
+        + 'service. Check the file, or import the report exported by HoloMotion.',
+      );
+      err.status = 422;
+      err.expose = true;
+      throw err;
+    }
+  }
+
+  if (!fast.ok && fast.reason === 'text-layer-incomplete') {
+    const id = identifyReport({ text: fast.text, missing: fast.missing });
+    if (!id.relevant) {
+      const err = new Error(
+        'This PDF does not look like a HoloMotion screening report '
+        + `(${id.why}). Nothing was sent to the extraction service. `
+        + 'Check the file, or import the report exported by HoloMotion.',
+      );
+      err.status = 422;
+      err.expose = true;   // the operator needs to read this one (§48)
+      throw err;
+    }
+  }
+
   if (fast.ok) {
     let summary = null;
     let usage = null;
@@ -240,7 +347,21 @@ async function extractFromPdf(buffer, { reserveProviderCall } = {}) {
       summaryMethod = 'text-layer';
     }
 
-    if (!summary && isVisionConfigured()) {
+    // GOVERNED BY THE INSTITUTION, DEFAULT OFF (2026-09-30).
+    //
+    // This is the one path that spends a provider call on a report the text
+    // layer already read — the single exception to §112's "the PDF never leaves
+    // the machine", and it was both invisible and un-opt-out-able. The setting
+    // makes it a decision somebody took rather than a surprise, and off by
+    // default makes the zero-provider guarantee true without an asterisk.
+    //
+    // Read from settings rather than an env var so it sits with the other
+    // institution switches on the admin page, and so the answer is the same for
+    // every deployment of the same build.
+    const allowTopUp = await summaryTopUpAllowed();
+    if (!summary && !allowTopUp) summaryMethod = 'declined:setting';
+
+    if (!summary && allowTopUp && isVisionConfigured()) {
       try {
         const top = await summaryFromPage1(buffer, reserveProviderCall);
         summary = top.summary;

@@ -104,12 +104,6 @@ const height = (d: string) => { const b = bbox(d); return b.maxY - b.minY; };
 const centreX = (d: string) => { const b = bbox(d); return (b.minX + b.maxX) / 2; };
 const topY = (d: string) => bbox(d).minY;
 
-// A circle as a path. `sweep` flips the winding direction, which is what lets
-// two concentric circles fill as a ring under the default nonzero fill rule.
-function circlePath(cx: number, cy: number, r: number, sweep: 0 | 1 = 0): string {
-  return `M ${cx - r} ${cy} a ${r} ${r} 0 1 ${sweep} ${r * 2} 0 a ${r} ${r} 0 1 ${sweep} ${-r * 2} 0 Z`;
-}
-
 // Deep muscles are drawn as oriented ovals in the place the structure occupies,
 // replacing the ring-and-dot marker used until 2026-08-22.
 //

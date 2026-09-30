@@ -178,7 +178,6 @@ export default function ProfileShell({ stats: initialStats, onLoadStats, roleBlu
         </div>
       </div>
 
-      {/* Stats */}
       <div className="stat-grid" style={{ marginTop: 20 }}>
         {stats.map((s) => (
           <div key={s.label} className="stat-tile">

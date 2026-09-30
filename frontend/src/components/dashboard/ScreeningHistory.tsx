@@ -13,6 +13,10 @@ import { api } from '@/lib/api';
 import { Sparkline } from '@/components/charts/Charts';
 import { fmtScreeningDate } from '@/lib/periods';
 import { BAND_BADGE, BAND_LABEL, BAND_SHORT } from '@/lib/bands';
+// MySQL DECIMAL columns arrive as strings, so every score is coerced before
+// arithmetic. Called as `toNum` rather than aliased to a local `num`: §54 swept
+// seventeen private `num()` helpers carrying three different contracts, and a
+// one-line alias puts that name straight back.
 import { toNum } from '@/lib/num';
 
 interface ScreeningRow {
@@ -65,9 +69,6 @@ const TREND_COLS: Array<{ key: ScoreKey | 'overallIndicator'; label: string; hig
 // cannot give. It carried a private BAND_BADGE too. Both now come from
 // lib/bands, which reads the wording from the shared source the emails and the
 // printed reports use.
-
-// MySQL DECIMAL columns arrive as strings — normalise before arithmetic.
-const num = toNum;
 
 // fmtScreeningDate, like every other screening surface. This printed
 // toISOString().slice(0, 10) — day only, and in UTC — which is wrong twice on
@@ -196,7 +197,7 @@ export default function ScreeningHistory({ athleteId, headerAction, canReinstate
         <div className="trend-strip">
           {TREND_COLS.map((c) => {
             // Oldest → newest: the table renders newest-first, a chart must not.
-            const series = [...rows].reverse().map((r) => num(r[c.key]));
+            const series = [...rows].reverse().map((r) => toNum(r[c.key]));
             const real = series.filter((v): v is number => v !== null);
             if (real.length < 2) return null;
             const from = real[0];
@@ -311,9 +312,9 @@ export default function ScreeningHistory({ athleteId, headerAction, canReinstate
                       <span className="text-muted" style={{ fontSize: 'var(--fs-sm)' }}>—</span>
                     )}
                   </td>
-                  <td style={{ textAlign: 'right' }}>{num(r.overallIndicator) ?? '—'}</td>
+                  <td style={{ textAlign: 'right' }}>{toNum(r.overallIndicator) ?? '—'}</td>
                   {COLS.map((c) => (
-                    <td key={c.key} style={{ textAlign: 'right' }}>{num(r[c.key]) ?? '—'}</td>
+                    <td key={c.key} style={{ textAlign: 'right' }}>{toNum(r[c.key]) ?? '—'}</td>
                   ))}
                   {canReinstate && (
                     <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
@@ -337,8 +338,8 @@ export default function ScreeningHistory({ athleteId, headerAction, canReinstate
               <tr style={{ fontWeight: 600 }}>
                 <td colSpan={2}>Change since first</td>
                 {(['overallIndicator', ...COLS.map((c) => c.key)] as Array<'overallIndicator' | ScoreKey>).map((key) => {
-                  const a = num(first[key]);
-                  const b = num(last[key]);
+                  const a = toNum(first[key]);
+                  const b = toNum(last[key]);
                   const d = a !== null && b !== null ? Math.round((b - a) * 100) / 100 : null;
                   // exerciseRisks: lower is better — colour improvement accordingly.
                   const good = key === 'exerciseRisks' ? d !== null && d <= 0 : d !== null && d >= 0;

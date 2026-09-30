@@ -17,7 +17,6 @@ let _seed = 42;
 function rnd() { _seed = (_seed * 9301 + 49297) % 233280; return _seed / 233280; }
 function pick(arr) { return arr[Math.floor(rnd() * arr.length)]; }
 function range(min, max) { return Math.floor(rnd() * (max - min + 1)) + min; }
-function rfloat(min, max, dp = 1) { return parseFloat((rnd() * (max - min) + min).toFixed(dp)); }
 // HoloMotion emits EXACTLY three myodynamia-deficiency and three muscle-tension
 // entries per report, each carrying a single side. Verified against all three
 // real reports we hold (Thung, Nazwan, Elffie — 18 slots, no exceptions).

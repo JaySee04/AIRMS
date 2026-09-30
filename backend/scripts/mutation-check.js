@@ -24,6 +24,7 @@
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
+const { plant } = require('./lib/plantedEdit');
 
 const ROOT = path.join(__dirname, '..', '..');
 
@@ -790,6 +791,62 @@ const MUTATIONS = [
     test: 'tests/visionThrottle.test.js',
   },
   {
+    guard: 'alerts: a coach is told about their OWN sport and no other',
+    why: 'a coach reading another squad\'s flagged athletes is a disclosure, not a nuisance',
+    pkg: 'backend',
+    file: 'src/utils/alerts.js',
+    // Drop the sport comparison and every coach receives every flagged athlete
+    // in the institution. Nothing errors; the emails simply say too much.
+    find: '      if (c && c.coachSport && item.athlete && c.coachSport === item.athlete.sport) add(c.email, item);',
+    replace: '      if (c && c.coachSport && item.athlete) add(c.email, item);',
+    test: 'tests/alerts.test.js',
+  },
+  {
+    guard: 'alerts: the institution\'s band threshold is obeyed',
+    why: 'a red-only policy that still mails every amber is the dial being ignored',
+    pkg: 'backend',
+    file: 'src/utils/alerts.js',
+    find: '    if (!band || BAND_RANK[band] < BAND_RANK[threshold]) {',
+    replace: '    if (!band) {',
+    test: 'tests/alerts.test.js',
+  },
+  {
+    guard: 'alerts: a per-user opt-out is honoured, not just stored',
+    why: 'an opt-out that reads as consent is the failure mailPrefs.js was written about',
+    pkg: 'backend',
+    file: 'src/utils/alerts.js',
+    // Skip the preference filter: everyone gets mail regardless of what they
+    // asked for, and the setting page goes on showing their choice.
+    find: "  const willing = recipientsFor(users, 'import_alerts');",
+    replace: '  const willing = users;',
+    test: 'tests/alerts.test.js',
+  },
+  {
+    guard: 'planted edits: the corpus scan is not looking at an empty set',
+    why: 'a scan that walks nothing reports every canary as guarded (§121.12)',
+    pkg: 'backend',
+    file: 'tests/plantedEdits.test.js',
+    // Point the walker at a directory that does not exist. Every offender check
+    // then iterates an empty list and passes — which is the defect the file is
+    // about, reached through the file itself. The corpus-floor assertion is what
+    // must notice.
+    find: "  path.join(ROOT, 'backend', 'scripts'),",
+    replace: "  path.join(ROOT, 'backend', 'no-such-directory'),",
+    test: 'tests/plantedEdits.test.js',
+  },
+  {
+    guard: 'planted edits: plantedEdit actually refuses an absent needle',
+    why: 'if it silently replaced nothing, every canary in the repo would be inert',
+    pkg: 'backend',
+    file: 'scripts/lib/plantedEdit.js',
+    // Make the count check permissive. plant() then behaves exactly like the
+    // bare String.replace it exists to replace, and every caller goes back to
+    // reporting success on an edit that never applied.
+    find: '  if (hits !== opts.expect) {',
+    replace: '  if (false) {',
+    test: 'tests/plantedEdits.test.js',
+  },
+  {
     guard: 'prose blindness: the comment stripper is not inert',
     why: 'a stripper matching nothing reports every source assertion as code-backed (§118)',
     pkg: 'backend',
@@ -948,14 +1005,12 @@ function applyMutation(m) {
   const file = path.join(m.from || pkgDir(m.pkg), m.file);
   if (!fs.existsSync(file)) throw new Error(`no such file: ${m.file}`);
   const original = fs.readFileSync(file, 'utf8');
-  const hits = original.split(m.find).length - 1;
-  if (hits === 0) {
-    // The registry has drifted from the code. Loud, because a mutation that
-    // applies nothing would otherwise report the guard as healthy.
-    throw new Error(`mutation target not found in ${m.file} — the registry is stale:\n    ${m.find}`);
-  }
-  if (hits > 1) throw new Error(`mutation target appears ${hits} times in ${m.file}; make it unique`);
-  fs.writeFileSync(file, original.replace(m.find, m.replace));
+  // Via the shared helper rather than inline. This logic — refuse on zero hits,
+  // refuse on more than one — was correct here and NOWHERE ELSE, so every
+  // hand-written canary reinvented the bug it prevents (§121.12). One definition,
+  // in scripts/lib/plantedEdit.js, and the message it raises explains itself.
+  const { text } = plant(original, m.find, m.replace, { expect: 1, label: `${m.guard} (${m.file})` });
+  fs.writeFileSync(file, text);
   return { file, original };
 }
 

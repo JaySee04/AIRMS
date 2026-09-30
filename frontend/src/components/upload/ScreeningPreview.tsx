@@ -15,7 +15,7 @@ import { riskBand } from '@/lib/screeningAlerts';
 import { toNum } from '@/lib/num';
 
 interface Props {
-  athlete: Record<string, unknown>; // flat extracted scores (values read via num())
+  athlete: Record<string, unknown>; // flat extracted scores (values read via toNum())
 }
 
 // Headline gauges (0–100, higher better) + Exercise Risks (lower better).
@@ -32,8 +32,6 @@ const HEADLINE: Array<[string, string, boolean]> = [
 const RISKS = REPORT_RISKS;
 
 const RISK_AXIS = 40; // display axis — matches the dashboard strips
-
-const num = toNum;
 
 // riskBand comes from lib/screeningAlerts.ts. It used to be re-declared here
 // with the thresholds inlined, so the preview an operator checks a report
@@ -60,7 +58,7 @@ export default function ScreeningPreview({ athlete }: Props) {
         <div className="screening-block-h">Headline scores</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(84px, 1fr))', gap: 8 }}>
           {HEADLINE.map(([key, label, higherBetter]) => {
-            const v = num(athlete[key]);
+            const v = toNum(athlete[key]);
             const meta = v === null ? null : higherBetter ? tier(v) : riskBand(v);
             return (
               <div key={key} style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '8px 10px', background: 'var(--bg-card)' }}>
@@ -86,7 +84,7 @@ export default function ScreeningPreview({ athlete }: Props) {
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {RISKS.map(([key, label]) => {
-            const v = num(athlete[key]) ?? 0;
+            const v = toNum(athlete[key]) ?? 0;
             const band = riskBand(v);
             const pct = Math.max(2, Math.min(100, (v / RISK_AXIS) * 100));
             return (

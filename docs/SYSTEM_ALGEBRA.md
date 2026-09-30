@@ -147,7 +147,7 @@ vulnerability = 0.30 × iriNorm
 - `mobility`, `stability`, `symmetry` are the three movement-quality components; their deficits drive vulnerability. Together they sum to 0.50, with mobility weighted slightly higher because mobility deficits correlate most directly with injury onset in the screening literature.
 - The two composite inputs together (`iriNorm` + `overDef`) carry 0.50, the three movement-quality inputs the other 0.50 — the structural shape "composites carry half, movement quality the other half" is preserved.
 
-**Why 40 as the cap on `injuryRiskIndex`.** The seeded synthetic athletes draw from `rfloat(8, 35)`; the real ISN sample (John) sits at 10.4. Capping the normalisation at 40 gives genuine outliers headroom without saturating the score at the synthetic maximum.
+**Why 40 as the cap on `injuryRiskIndex`.** The seeded synthetic athletes draw from `range(3, 30)`; the real ISN sample (John) sits at 10.4. Capping the normalisation at 40 gives genuine outliers headroom without saturating the score at the synthetic maximum. (This said `rfloat(8, 35)` until 2026-09-30 — `rfloat` was the seeder's float helper and had become unused, found by a dead-code sweep. The argument survives the correction: 30 is further below 40 than 35 was, so the headroom the cap buys is larger, not smaller.)
 
 **Where it lives:** `computeVulnerability` at [risk.ts:91–104](../frontend/src/lib/risk.ts#L91-L104).
 
