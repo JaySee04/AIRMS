@@ -84,6 +84,30 @@ jobs:
       - name: Frontend unit tests
         run: npm --prefix frontend test
 
+      # THE EXTRACTION PIPELINE AND THE PRIVACY BOUNDARY, in CI for the first
+      # time (2026-09-30). Both were verified only by scripts taking a real
+      # report as an argument — `scripts/samples/*.pdf`, gitignored because they
+      # are real athletes' clinical records — so a fresh clone and this runner
+      # could verify NEITHER. Backend jest reports textLayerExtract.js at 13.7%
+      # statements and redactName.js at 9.2%, not because they are untested but
+      # because their tests could not run here.
+      #
+      # `verify:fixture` drives the real extractor over a committed synthetic
+      # report (fabricated name, fabricated numbers) and checks 27 fields
+      # including that the name is ABSENT from the payload. It needs no database,
+      # no network and no vision key.
+      #
+      # --canary runs second and its verdict is INVERTED: it corrupts a value in
+      # the fixture's content stream and the run FAILS unless the comparator
+      # reports it. Without that, a comparator that had stopped comparing would
+      # print 27/27 and gate nothing — and this one silently did exactly that
+      # twice while being written, matching a needle that was not in the bytes.
+      - name: Screening extraction + redaction (synthetic fixture)
+        run: npm --prefix backend run verify:fixture
+
+      - name: ...and prove that check can fail
+        run: npm --prefix backend run verify:fixture -- --canary
+
       # A named script, not `npm exec -- tsc`: `--prefix` does not change the
       # working directory for `exec`, so that form resolves tsconfig.json
       # against the REPO ROOT and dies with "The specified path does not exist".

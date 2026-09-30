@@ -26,6 +26,8 @@
     "map": "node scripts/system-map.js",
     "mutate": "node scripts/mutation-check.js",
     "verify:claims": "node scripts/verify-claims.js",
+    "verify:fixture": "node scripts/verify-synthetic-fixture.js",
+    "make:fixture": "node scripts/make-synthetic-report.js",
     "verify:textlayer": "node scripts/verify-textlayer-extract.js",
     "bootstrap:admin": "node scripts/bootstrap-admin.js"
   },

@@ -1,0 +1,86 @@
+{
+  "name": "Qelvorin Thrayspindle",
+  "gender": "Female",
+  "age": 24,
+  "assessedAt": "2026-01-15 09:30:00",
+  "totalScore": 74,
+  "exerciseRisks": 18,
+  "rom": 71,
+  "stability": 76,
+  "symmetry": 79,
+  "subitems": {
+    "neck": [
+      80,
+      78,
+      74,
+      72,
+      81
+    ],
+    "shoulder": [
+      88,
+      84,
+      83,
+      81,
+      87
+    ],
+    "torso": [
+      69,
+      66,
+      85,
+      88,
+      90
+    ],
+    "pelvis": [
+      61,
+      70,
+      75,
+      81,
+      85
+    ],
+    "lowerLimbs": [
+      65,
+      67,
+      75,
+      78,
+      90
+    ]
+  },
+  "indicators": {
+    "Neck Pain": 12,
+    "Shoulder Pain": 22,
+    "Scoliosis": 9,
+    "Anterior Pelvic Tilt": 31,
+    "Joint Pain": 15,
+    "Ligament Strain": 20,
+    "Ankle Sprain": 25,
+    "Lumbar Disc Herniation": 40
+  },
+  "myodynamia": [
+    [
+      "Gluteus Medius",
+      "L"
+    ],
+    [
+      "Rectus Abdominis",
+      "B"
+    ],
+    [
+      "Lower Trapezius",
+      "R"
+    ]
+  ],
+  "tension": [
+    [
+      "Iliopsoas",
+      "R"
+    ],
+    [
+      "Piriformis",
+      "L"
+    ],
+    [
+      "Upper Trapezius",
+      "B"
+    ]
+  ]
+}
