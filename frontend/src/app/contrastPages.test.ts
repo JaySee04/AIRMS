@@ -39,7 +39,12 @@ import fs from 'fs';
 import path from 'path';
 
 const APP = path.join(__dirname);
-const SCRIPT = path.join(__dirname, '..', '..', 'scripts', 'verify-contrast.js');
+// The list moved to scripts/lib/pages.js when a SECOND browser sweep
+// (verify:a11y) needed it — one definition rather than two hand-kept copies,
+// which is the drift this whole file exists to catch. This guard is what
+// noticed the move: it parsed an empty list from the old location and failed
+// four assertions rather than passing vacuously.
+const SCRIPT = path.join(__dirname, '..', '..', 'scripts', 'lib', 'pages.js');
 
 /** Routes with no DashboardLayout — sign-in and the account-recovery flow. */
 const PUBLIC_ROUTES = new Set([

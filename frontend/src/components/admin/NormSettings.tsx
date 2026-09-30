@@ -40,7 +40,7 @@ export default function NormSettings({ set, saveSetting, recompute, busy }: Norm
       <div className="stat-grid">
         <div className="stat-tile">
           <div className="stat-tile-label">Min cohort size (n)</div>
-          <input type="number" min={2} max={50} value={Number(set.min_cohort_n ?? 5)}
+          <input type="number" aria-label="Minimum cohort size (n)" min={2} max={50} value={Number(set.min_cohort_n ?? 5)}
             onChange={(e) => saveSetting('min_cohort_n', Number(e.target.value))} style={{ width: 80 }} />
           <div className="stat-tile-delta">Smaller cohorts fall back a tier</div>
         </div>
@@ -48,7 +48,7 @@ export default function NormSettings({ set, saveSetting, recompute, busy }: Norm
           <div className="stat-tile-label">Bottom-k (worst) escalation</div>
           <div><label><input type="checkbox" checked={Boolean(set.escalation_bottom_k ?? true)}
             onChange={(e) => saveSetting('escalation_bottom_k', e.target.checked)} /> enabled</label></div>
-          <input type="number" min={1} max={10} value={Number(set.bottom_k ?? 3)}
+          <input type="number" aria-label="Bottom-k escalation: how many worst in cohort" min={1} max={10} value={Number(set.bottom_k ?? 3)}
             onChange={(e) => saveSetting('bottom_k', Number(e.target.value))} style={{ width: 80, marginTop: 6 }} />
           <div className="stat-tile-delta">Worst k in cohort get +1 escalation. Capped at 20% of the cohort, so the applied share stays 10–20% at every size.</div>
         </div>
@@ -56,7 +56,7 @@ export default function NormSettings({ set, saveSetting, recompute, busy }: Norm
           <div className="stat-tile-label">Below-mean escalation</div>
           <div><label><input type="checkbox" checked={Boolean(set.escalation_below_mean)}
             onChange={(e) => saveSetting('escalation_below_mean', e.target.checked)} /> enabled</label></div>
-          <input type="number" min={-3} max={0} step={0.1} value={Number(set.escalation_below_mean_z ?? -0.5)}
+          <input type="number" aria-label="Below-mean escalation: standard deviations below the cohort mean" min={-3} max={0} step={0.1} value={Number(set.escalation_below_mean_z ?? -0.5)}
             onChange={(e) => saveSetting('escalation_below_mean_z', Number(e.target.value))} style={{ width: 80, marginTop: 6 }} />
           <div className="stat-tile-delta">
             +1 when the athlete is this many SD below the cohort mean. The most
@@ -82,12 +82,12 @@ export default function NormSettings({ set, saveSetting, recompute, busy }: Norm
             onChange={(e) => saveSetting('escalation_indicator', e.target.checked)} /> enabled</label></div>
           <div style={{ display: 'flex', gap: 8, marginTop: 6, alignItems: 'center' }}>
             <label style={{ fontSize: 'var(--fs-2xs)' }}>Elevated at
-              <input type="number" min={0} max={100} value={Number(set.escalation_indicator_high ?? 25)}
+              <input type="number" aria-label="Per-indicator escalation: high threshold" min={0} max={100} value={Number(set.escalation_indicator_high ?? 25)}
                 onChange={(e) => saveSetting('escalation_indicator_high', Number(e.target.value))}
                 style={{ width: 64, marginLeft: 4 }} />
             </label>
             <label style={{ fontSize: 'var(--fs-2xs)' }}>outlier at
-              <input type="number" min={0} max={5} step={0.1} value={Number(set.escalation_indicator_z ?? 1.5)}
+              <input type="number" aria-label="Per-indicator escalation: peer-outlier z-score" min={0} max={5} step={0.1} value={Number(set.escalation_indicator_z ?? 1.5)}
                 onChange={(e) => saveSetting('escalation_indicator_z', Number(e.target.value))}
                 style={{ width: 64, marginLeft: 4 }} /> SD
             </label>
@@ -111,19 +111,19 @@ export default function NormSettings({ set, saveSetting, recompute, busy }: Norm
       <div className="stat-grid">
         <div className="stat-tile">
           <div className="stat-tile-label">Min Total Score</div>
-          <input type="number" min={0} max={100} value={Number(set.norm_min_total ?? 0)}
+          <input type="number" aria-label="Norm eligibility floor: minimum Total Score" min={0} max={100} value={Number(set.norm_min_total ?? 0)}
             onChange={(e) => saveSetting('norm_min_total', Number(e.target.value))} style={{ width: 80 }} />
           <div className="stat-tile-delta">Exclude a screening below this Total Score</div>
         </div>
         <div className="stat-tile">
           <div className="stat-tile-label">Min ROM</div>
-          <input type="number" min={0} max={100} value={Number(set.norm_min_rom ?? 0)}
+          <input type="number" aria-label="Norm eligibility floor: minimum ROM" min={0} max={100} value={Number(set.norm_min_rom ?? 0)}
             onChange={(e) => saveSetting('norm_min_rom', Number(e.target.value))} style={{ width: 80 }} />
           <div className="stat-tile-delta">Exclude a screening below this ROM</div>
         </div>
         <div className="stat-tile">
           <div className="stat-tile-label">Min Stability</div>
-          <input type="number" min={0} max={100} value={Number(set.norm_min_stability ?? 0)}
+          <input type="number" aria-label="Norm eligibility floor: minimum Stability" min={0} max={100} value={Number(set.norm_min_stability ?? 0)}
             onChange={(e) => saveSetting('norm_min_stability', Number(e.target.value))} style={{ width: 80 }} />
           <div className="stat-tile-delta">Exclude a screening below this Stability</div>
         </div>

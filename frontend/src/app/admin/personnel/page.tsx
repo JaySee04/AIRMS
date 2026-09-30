@@ -408,14 +408,14 @@ export default function AdminPersonnelPage() {
               </div>
             </div>
             <div className="form-group">
-              <label>Name <span style={{ color: 'var(--risk-high)' }}>*</span></label>
-              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" />
+              <label htmlFor="new-user-name">Name <span style={{ color: 'var(--risk-high)' }}>*</span></label>
+              <input id="new-user-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" />
             </div>
           </div>
           <div className="form-row-2">
             <div className="form-group">
-              <label>Email <span style={{ color: 'var(--risk-high)' }}>*</span></label>
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@isn.gov.my" autoComplete="off" />
+              <label htmlFor="new-user-email">Email <span style={{ color: 'var(--risk-high)' }}>*</span></label>
+              <input id="new-user-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@isn.gov.my" autoComplete="off" />
             </div>
             {sportRequired ? (
               <div className="form-group">
@@ -425,7 +425,7 @@ export default function AdminPersonnelPage() {
             ) : role === 'medical' ? (
               <div className="form-group">
                 <label>Access</label>
-                <input value="Full clinical access (tune below after creating)" disabled />
+                <input aria-label="Access level for the selected role" value="Full clinical access (tune below after creating)" disabled />
               </div>
             ) : null}
           </div>
@@ -448,9 +448,10 @@ export default function AdminPersonnelPage() {
             </div>
           </div>
           <div className="form-group" style={{ display: byInvite ? 'none' : undefined }}>
-            <label>Password <span style={{ color: 'var(--risk-high)' }}>*</span></label>
+            <label htmlFor="new-user-password">Password <span style={{ color: 'var(--risk-high)' }}>*</span></label>
             <div className="password-input-wrap" style={{ maxWidth: 420 }}>
               <input
+                id="new-user-password"
                 type={showPw ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -538,8 +539,9 @@ export default function AdminPersonnelPage() {
                 )}
               </div>
               <div className="form-group">
-                <label>Email <span style={{ color: 'var(--risk-high)' }}>*</span></label>
+                <label htmlFor="athlete-invite-email">Email <span style={{ color: 'var(--risk-high)' }}>*</span></label>
                 <input
+                  id="athlete-invite-email"
                   type="email"
                   value={athleteEmail}
                   onChange={(e) => setAthleteEmail(e.target.value)}

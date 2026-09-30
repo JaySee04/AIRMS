@@ -514,8 +514,15 @@ export default function CohortThresholdsPage() {
                               const isEdited = Boolean(c.overrides?.[key]);
                               return (
                                 <div key={key} style={{ minWidth: 130 }}>
-                                  <label style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-muted)' }}>{label} (μ)</label>
-                                  <input type="number" step="0.1"
+                                  {/* htmlFor/id rather than aria-label: the visible
+                                      label is already the right words, and tying the
+                                      two together keeps the announced name and the
+                                      printed name from drifting. `editKey` is
+                                      `${cohortId}.${metric}`, unique per field, which
+                                      is what WCAG 4.1.1 needs when three of these
+                                      render side by side. */}
+                                  <label htmlFor={`norm-${editKey}`} style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-muted)' }}>{label} (μ)</label>
+                                  <input id={`norm-${editKey}`} type="number" step="0.1"
                                     value={editKey in edits ? edits[editKey] : String(base.mean)}
                                     onChange={(e) => setEdits((p) => ({ ...p, [editKey]: e.target.value }))} />
                                   <div className="text-muted" style={{ fontSize: 'var(--fs-xs)' }}>
@@ -620,7 +627,11 @@ export default function CohortThresholdsPage() {
           <span className="card-sub">Snapshot the current norms under a name. <strong>Restore</strong> puts a set back once; <strong>Pin</strong> makes it the set in force, so imports stop moving the norms until you release it.{!isAdmin && ' Pinning, restoring and deleting are admin-only.'}</span>
         </div></div>
         <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
-          <input value={versionName} onChange={(e) => setVersionName(e.target.value)} placeholder="Name this norm set (e.g. Pre-season 2026)" style={{ minWidth: 260 }} />
+          {/* aria-label, not the placeholder: a placeholder is not an accessible
+              name — it disappears the moment anyone types, so a screen reader
+              user loses the only thing telling them what the field is. There is
+              no visible label here to associate with, so the name is stated. */}
+          <input aria-label="Name for this norm version" value={versionName} onChange={(e) => setVersionName(e.target.value)} placeholder="Name this norm set (e.g. Pre-season 2026)" style={{ minWidth: 260 }} />
           <button type="button" className="btn btn-primary btn-sm" onClick={saveVersion} disabled={busy || !versionName.trim()}>Save current as version</button>
         </div>
         {versions.length === 0 ? (

@@ -69,42 +69,10 @@ const CHROMES = [
   process.env.CHROME_PATH,
 ].filter(Boolean);
 
-// Every authenticated page, under a role that can actually reach it — checked
-// against each page's own `allowedRoles`, and kept honest by
-// scripts/verify-contrast.pages.test.js, which reads src/app and fails if this
-// list and the filesystem disagree in either direction.
-//
-// IT DRIFTED ONCE ALREADY, AND SILENTLY. The first version of this list carried
-// `/executive/dashboard`, which has never existed: `executive` has no pages of
-// its own and lands on /admin/dashboard (lib/auth.ts). Next served its 404 page,
-// 170 characters with no theme and no contrast problems, and the sweep counted
-// it as a clean page for two whole sections of DESIGN_DECISIONS. The same list
-// was missing ten real ones. "Eleven authenticated pages" was ten measured out
-// of twenty-one.
-const PAGES = [
-  // admin + executive read the same analytics surfaces; executive is the
-  // read-only one, so it renders FEWER controls — measured under both, because
-  // the difference is exactly the buttons a contrast audit cares about.
-  ['admin', '/admin/dashboard'], ['executive', '/admin/dashboard'],
-  ['admin', '/admin/activity'], ['executive', '/admin/activity'],
-  ['admin', '/admin/audit'], ['executive', '/admin/audit'],
-  ['admin', '/admin/reports'], ['executive', '/admin/reports'],
-  ['admin', '/admin/profile'], ['executive', '/admin/profile'],
-  ['admin', '/admin/data-upload'],
-  ['admin', '/admin/personnel'],
-  ['admin', '/admin/settings'],
-  ['admin', '/admin/thresholds'], ['medical', '/admin/thresholds'],
-  // /medical/cohort-norms re-exports /admin/thresholds, so it is the same tree
-  // under a different URL — measured anyway, because the layout it mounts under
-  // is the medical one.
-  ['medical', '/medical/cohort-norms'],
-  ['medical', '/medical/dashboard'], ['medical', '/medical/data-upload'],
-  ['medical', '/medical/profile'],
-  ['coach', '/coach/dashboard'], ['coach', '/coach/reports'],
-  ['coach', '/coach/profile'],
-  ['athlete', '/athlete/dashboard'], ['athlete', '/athlete/history'],
-  ['athlete', '/athlete/squad'], ['athlete', '/athlete/profile'],
-];
+// The page list lives in scripts/lib/pages.js — one definition, shared with
+// verify-a11y.js, and guarded against src/app by src/app/contrastPages.test.ts.
+// It was a hand-kept list here and drifted: see §121.8.
+const { PAGES } = require('./lib/pages');
 
 // The canary is a real rule on a real element, not a synthetic node: it has to
 // travel the same path a genuine defect would. Grey-on-white at ~1.4:1.
