@@ -18,8 +18,6 @@ const SUBITEM_COLS: Array<[string, string]> = [
   ['romL', 'ROM L'], ['romR', 'ROM R'], ['stabL', 'Stab L'], ['stabR', 'Stab R'], ['sym', 'Sym'],
 ];
 
-const num = toNum;
-
 // HoloMotion quality tier for the 0–100 subitem scores (higher is better).
 // Shared with the score gauges above this table and the body map beside it —
 // see lib/holomotionTiers.ts.
@@ -81,7 +79,7 @@ export default function SubitemTable({ subitems, cohort }: {
                 <tr key={rkey}>
                   <td style={{ textAlign: 'left', whiteSpace: 'nowrap' }}>{rlabel}</td>
                   {SUBITEM_COLS.map(([ckey]) => {
-                    const v = num((row as Record<string, unknown>)[ckey]);
+                    const v = toNum((row as Record<string, unknown>)[ckey]);
                     if (v === null) return <td key={ckey} className="text-muted">—</td>;
                     const t = tier(v);
                     const g = cohortCell(cohort, rkey as string, ckey);
