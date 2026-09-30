@@ -63,6 +63,11 @@ backend/scripts/samples/
 
 # Tesseract OCR language-model cache (name-redaction pass)
 backend/.tesseract/
+# Tesseract also drops its model in the CWD when a script creates a worker
+# without passing cachePath — 5 MB of binary, committed by accident on
+# 2026-09-30 and removed in the next commit. Ignored by name so the next
+# ad-hoc OCR script cannot repeat it.
+*.traineddata
 
 # TypeScript incremental build info
 *.tsbuildinfo
