@@ -791,6 +791,37 @@ const MUTATIONS = [
     test: 'tests/visionThrottle.test.js',
   },
   {
+    guard: 'alerts: a coach is told about their OWN sport and no other',
+    why: 'a coach reading another squad\'s flagged athletes is a disclosure, not a nuisance',
+    pkg: 'backend',
+    file: 'src/utils/alerts.js',
+    // Drop the sport comparison and every coach receives every flagged athlete
+    // in the institution. Nothing errors; the emails simply say too much.
+    find: '      if (c && c.coachSport && item.athlete && c.coachSport === item.athlete.sport) add(c.email, item);',
+    replace: '      if (c && c.coachSport && item.athlete) add(c.email, item);',
+    test: 'tests/alerts.test.js',
+  },
+  {
+    guard: 'alerts: the institution\'s band threshold is obeyed',
+    why: 'a red-only policy that still mails every amber is the dial being ignored',
+    pkg: 'backend',
+    file: 'src/utils/alerts.js',
+    find: '    if (!band || BAND_RANK[band] < BAND_RANK[threshold]) {',
+    replace: '    if (!band) {',
+    test: 'tests/alerts.test.js',
+  },
+  {
+    guard: 'alerts: a per-user opt-out is honoured, not just stored',
+    why: 'an opt-out that reads as consent is the failure mailPrefs.js was written about',
+    pkg: 'backend',
+    file: 'src/utils/alerts.js',
+    // Skip the preference filter: everyone gets mail regardless of what they
+    // asked for, and the setting page goes on showing their choice.
+    find: "  const willing = recipientsFor(users, 'import_alerts');",
+    replace: '  const willing = users;',
+    test: 'tests/alerts.test.js',
+  },
+  {
     guard: 'planted edits: the corpus scan is not looking at an empty set',
     why: 'a scan that walks nothing reports every canary as guarded (§121.12)',
     pkg: 'backend',
