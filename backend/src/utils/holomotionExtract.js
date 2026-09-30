@@ -9,6 +9,7 @@
 
 const { renderForExtraction } = require('./pdfRender');
 const { visionComplete, isVisionConfigured } = require('./visionClient');
+const { identifyReport } = require('./reportIdentity');
 const { extractFromTextLayer } = require('./textLayerExtract');
 const { recoverSummary } = require('./summaryRecover');
 const { expose } = require('./httpError');
@@ -212,6 +213,33 @@ async function extractFromPdf(buffer, { reserveProviderCall } = {}) {
     console.error('[extract] text-layer read failed, using vision:', err.message);
     return { ok: false, reason: 'text-layer-error' };
   });
+
+  // VISION IS A FALLBACK FOR AN UNREADABLE REPORT, NOT FOR AN UNREADABLE FILE
+  // (2026-09-30). `extractFromTextLayer` returns two different refusals and this
+  // caller used to collapse them, which is how a 51-page university report was
+  // accepted, rendered and SENT TO GEMINI — measured, one provider call, an
+  // arbitrary document off the machine.
+  //
+  //   no-text-layer          the compact layout. Nothing local left to read, so
+  //                          vision is the only path. Falls through below.
+  //   text-layer-incomplete  text IS present. Ask whether it is a HoloMotion
+  //                          report before spending anything on it.
+  //
+  // Refused here rather than after the render: the point is that nothing leaves
+  // the machine, so the decision has to precede the transmission.
+  if (!fast.ok && fast.reason === 'text-layer-incomplete') {
+    const id = identifyReport({ text: fast.text, missing: fast.missing });
+    if (!id.relevant) {
+      const err = new Error(
+        'This PDF does not look like a HoloMotion screening report '
+        + `(${id.why}). Nothing was sent to the extraction service. `
+        + 'Check the file, or import the report exported by HoloMotion.',
+      );
+      err.status = 422;
+      err.expose = true;   // the operator needs to read this one (§48)
+      throw err;
+    }
+  }
 
   if (fast.ok) {
     let summary = null;
