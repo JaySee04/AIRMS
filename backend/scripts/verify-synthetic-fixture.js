@@ -31,6 +31,7 @@
 // EXIT CODES  0 all fields match · 1 a field diverges · 2 could not run
 const fs = require('fs');
 const path = require('path');
+const { plantInBuffer } = require('./lib/plantedEdit');
 
 const FIXTURE = path.join(__dirname, 'fixtures', 'synthetic-report.pdf');
 const TRUTH_JSON = path.join(__dirname, 'fixtures', 'synthetic-report.truth.json');
@@ -80,14 +81,17 @@ const CELLS = ['romL', 'romR', 'stabL', 'stabR', 'sym'];
     // changes two fields is testing something other than what it says.
     const NEEDLE = '<3138>';
     const REPLACEMENT = '<3939>';                    // same byte length: 99
-    const raw = buf.toString('latin1');
-    const hits = raw.split(NEEDLE).length - 1;
-    if (hits !== 1) {
-      console.error(`canary needle ${NEEDLE} found ${hits} times, expected exactly 1.`);
-      console.error('The fixture encoding changed. Re-derive the needle before trusting this.');
+    try {
+      // Through scripts/lib/plantedEdit.js, which refuses unless the needle
+      // occurs exactly `expect` times — the whole reason this canary is
+      // trustworthy on the third attempt rather than the first.
+      ({ buffer: buf } = plantInBuffer(buf, NEEDLE, REPLACEMENT, {
+        expect: 1, label: 'fixture canary',
+      }));
+    } catch (e) {
+      console.error(`${e.message}\n\nThe fixture encoding changed. Regenerate with npm run make:fixture.`);
       process.exit(2);
     }
-    buf = Buffer.from(raw.replace(NEEDLE, REPLACEMENT), 'latin1');
     console.log(`canary: Exercise Risks 18 overwritten with 99 (${NEEDLE} -> ${REPLACEMENT})\n`);
   }
 

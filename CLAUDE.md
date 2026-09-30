@@ -61,7 +61,9 @@ cd backend; npm run audit:access     # call all 66 endpoints as each non-admin r
                                      # it stays that way. The open-by-design set is DERIVED
                                      # from the EXEMPT map's reason rather than listed twice.
                                      # See DESIGN_DECISIONS 43 and docs/SILENT_FAILURES.md 3b.
-cd backend; npm run coverage         # 79.6% statements / 67.8% branches. Route handlers WERE the
+cd backend; npm run coverage         # 75.2% statements / 65.6% branches (re-measured 2026-09-30; it was
+                                     # 79.6/67.8 and DRIFTED DOWN while the docs kept the old
+                                     # figure — the same class as the rfloat rationale). Route handlers WERE the
                                      # gap (screeningReports 7%, audit 19%); tests/reportRoutes.test.js
                                      # took them to 44% / 42% by driving the real routers with
                                      # supertest. The FRONTEND was the remaining blind spot and is
@@ -72,7 +74,7 @@ cd backend; npm run coverage         # 79.6% statements / 67.8% branches. Route 
                                      # a missing transitive dep (fs.realpath) before it would run.
 cd backend; npm run mutate           # BREAK each registered guard on purpose and prove its
                                      # test fails. A surviving mutation exits non-zero: the
-                                     # test is not testing what it claims. 84 guards across
+                                     # test is not testing what it claims. 86 guards across
                                      # both packages. NOT part of `npx jest` — it spawns a
                                      # jest run per mutation (tens of seconds). Run it before
                                      # committing a change to a guard, and add an entry when

@@ -11854,3 +11854,79 @@ It is: **when a system is observed through a serialiser, the payload is evidence
 about the serialiser.** Every layer between the question and the answer is a
 place for the answer to change meaning, and three of them sat between "does this
 column exist" and "is this key in the JSON".
+
+### 121.12 A planted edit must prove it landed (2026-09-30)
+
+Half the guards in this repo work by breaking something on purpose and checking
+that a check notices. Every one rests on an assumption nobody states: **that the
+edit was applied**. `String.replace` with an absent needle returns the string
+unchanged, silently — so the run breaks nothing, the check passes, and the output
+certifies the guard as healthy.
+
+It has happened five times, three of them in one session:
+
+| | what was planted | why it matched nothing |
+|---|---|---|
+| §112.8 | `"overallActivityScore": 77` | the payload is minified — reported 330/330 green |
+| §121.6 | `cssText.includes('#eef0f3')` | Chrome normalises to `rgb(238, 240, 243)` — all 52 visits said "did not attach" |
+| §121.8 | `sed 's/  \['coach', …/` | anchored on two leading spaces against a mid-line entry — reported 6/6 passing |
+| §121.11 | `replace('(74)', '(99)')` ×2 | first Flate-compressed, then kerned hex — both announced a corruption and reported 27/27 |
+| §121.12 | dead-export scan | excluded `backend/tests` as a consumer — 113 false findings |
+
+The shape is never a typo. It is that **nobody checked the needle was there**,
+and the failure is silent in the direction that reads as success.
+
+**`scripts/mutation-check.js` already had the discipline** — refuse on zero hits,
+refuse on more than one — and it was the only place that had it. So every
+hand-written canary reinvented the bug the runner had already solved.
+
+`scripts/lib/plantedEdit.js` is that logic extracted:
+
+- `plant(text, find, replace, { expect })` throws unless the needle occurs
+  exactly `expect` times, and throws again if the text comes back unchanged when
+  `find !== replace`.
+- **`expect` is required and has no default.** A caller who has not counted the
+  needle is the caller about to plant an edit in the wrong place: `74` occurs
+  twice in the synthetic fixture — Total Score *and* a subitem cell — and a bare
+  replace would have changed the one it did not mean.
+- `plantInBuffer` adds the binary case: latin1, because a PDF is full of bytes
+  above 0x7F that utf8 would corrupt on the way out, and a length assertion,
+  because a PDF carries byte offsets in its xref table.
+
+`mutation-check.js` and `verify-synthetic-fixture.js` both route through it, so
+there is one definition. Proven by planting a stale registry entry: the runner
+now reports the guard, the file, the count and the needle, and exits.
+
+**`tests/plantedEdits.test.js` makes it the rule rather than the fashion.** It
+DERIVES the set — any script under `backend/scripts` or `frontend/scripts` that
+plants an edit (`--canary`, `planted`, `plant(`) and contains a literal
+`.replace('…')` must also show it verified the edit landed. Not a roster: a
+hand-kept list of things to check is what went stale in SILENT_FAILURES 3o, and a
+canary written next month is covered the day it is written.
+
+The browser case is exempt by a different route, not by omission:
+`verify-contrast.js` plants a **stylesheet**, where there is no needle to count,
+so it proves the edit landed **by effect** — does a real element compute to the
+planted colour. `getComputedStyle` / `elementsFromPoint` therefore count as proof
+in the scan.
+
+Two mutation entries make the new file a standing control rather than a one-time
+check, taking the registry to **86**:
+
+- point the corpus walker at a directory that does not exist — every offender
+  check then iterates an empty list and passes, which is the defect reached
+  through the file itself;
+- make `plant`'s count check permissive (`if (false)`) — it then behaves exactly
+  like the `String.replace` it replaces, and every caller in the repo goes back
+  to reporting success on an edit that never applied.
+
+Both caught. And the corpus assertion was proven able to fail by dropping a
+deliberately offending canary into `backend/scripts/` — it was named in the
+failure output and removed again.
+
+**Three stale numbers fell out of the same run**, all caught by
+`codebaseHygiene.test.js` rather than by reading: 64 → 65 backend suites, 84 → 86
+mutation guards, and coverage, which had **drifted DOWN** from the documented
+79.6% / 67.8% to a measured **75.2% / 65.6%** while four documents kept quoting
+the old figure. That is the `rfloat` class again — a number that was true when
+written and is load-bearing in an argument nobody re-ran.
