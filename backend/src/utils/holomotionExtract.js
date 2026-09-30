@@ -20,6 +20,39 @@ const { identifyReport } = require('./reportIdentity');
  * back to the DEFAULT rather than to "allowed" — failing closed on the path that
  * decides whether a page leaves the machine.
  */
+/**
+ * Does page 1 have the ink-density shape of a HoloMotion cover?
+ *
+ * Every failure path returns `known: false`, i.e. "no opinion", which the caller
+ * treats as permission. Rendering one page at low scale, a missing reference,
+ * or a canvas that will not load must never become a refusal — the gate exists
+ * to stop an unrelated document leaving the machine, not to stand between a
+ * clinician and a real report.
+ */
+async function coverLooksRight(buffer) {
+  try {
+    const { signature, looksLikeCover } = require('./layoutFingerprint');
+    const reference = require('../fixtures/coverFingerprint.json');
+    const canvasLib = require('@napi-rs/canvas');
+    // renderPdfPages([1]) — EXACTLY one page — not renderForExtraction, which
+    // renders the whole data section (VISION_MAX_PAGES, default 6) and captions
+    // it. Measured: the extraction form did not return within ten minutes on a
+    // 51-page document, while this returns in seconds. A gate that costs more
+    // than the call it is preventing is not a gate.
+    //
+    // Scale 1 for the same reason: the signature is a 16×16 grid, so anything
+    // larger is rendered and thrown away.
+    const { renderPdfPages } = require('./pdfRender');
+    const [page] = await renderPdfPages(buffer, [1], 1);
+    if (!page || !page.base64) return { known: false, relevant: true };
+    const image = await canvasLib.loadImage(Buffer.from(page.base64, 'base64'));
+    return looksLikeCover(signature(image, canvasLib), reference.signature);
+  } catch (err) {
+    console.error('[extract] cover fingerprint unavailable, allowing:', err.message);
+    return { known: false, relevant: true, why: err.message };
+  }
+}
+
 async function summaryTopUpAllowed() {
   try {
     const { getSettings } = require('./settings');
@@ -246,6 +279,33 @@ async function extractFromPdf(buffer, { reserveProviderCall } = {}) {
   //
   // Refused here rather than after the render: the point is that nothing leaves
   // the machine, so the decision has to precede the transmission.
+  // THE NO-TEXT CASE, which reportIdentity cannot speak for (2026-09-30).
+  //
+  // At 0 characters there is nothing to read, so a scanned document or a
+  // photographed page used to reach the model unchallenged — the same hole as
+  // the university report, just entered a different way. The compact HoloMotion
+  // layout is a fixed template, so the question "is this page even that shape?"
+  // is answerable locally from an ink-density signature. See layoutFingerprint:
+  // a perceptual hash was tried first and measured a ONE-BIT margin.
+  //
+  // Refuses only at 2.6x the worst distance any real report has measured, and
+  // fails OPEN if the render or the reference is unavailable: a clinician
+  // blocked from importing a real screening is a worse outcome than one provider
+  // call on a document that was being sent anyway before this existed.
+  if (!fast.ok && fast.reason === 'no-text-layer') {
+    const verdict = await coverLooksRight(buffer);
+    if (verdict.known && !verdict.relevant) {
+      const err = new Error(
+        'This PDF has no readable text and does not look like a HoloMotion '
+        + `screening report (${verdict.why}). Nothing was sent to the extraction `
+        + 'service. Check the file, or import the report exported by HoloMotion.',
+      );
+      err.status = 422;
+      err.expose = true;
+      throw err;
+    }
+  }
+
   if (!fast.ok && fast.reason === 'text-layer-incomplete') {
     const id = identifyReport({ text: fast.text, missing: fast.missing });
     if (!id.relevant) {
