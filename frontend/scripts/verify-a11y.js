@@ -33,42 +33,16 @@
 //
 // EXIT CODES  0 clean · 1 a violation, or a page that could not be measured
 //             · 2 could not run at all
-const fs = require('fs');
-const puppeteer = require('puppeteer-core');
-const { PAGES } = require('./lib/pages');
+// Visiting, session seeding, concurrency and the proof that each visit actually
+// happened live in lib/sweep.js — shared with verify-contrast.js, which was 91
+// identical lines before they were pulled apart.
+const { run, launch, allSessions, reportUnmeasured } = require('./lib/sweep');
 
 const WEB = process.env.A11Y_WEB || process.env.E2E_WEB || 'http://localhost:3000';
 const API = process.env.A11Y_API || process.env.E2E_API || 'http://localhost:5000/api';
 const SETTLE = Number(process.env.A11Y_SETTLE || 2200);
 const JOBS = Math.max(1, Number(process.env.A11Y_JOBS || 4));
 const CANARY = process.argv.includes('--canary');
-const CHROMES = [
-  'C:/Program Files/Google/Chrome/Application/chrome.exe',
-  'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
-  '/usr/bin/google-chrome',
-  process.env.CHROME_PATH,
-].filter(Boolean);
-
-const MIN_ELEMENTS = 10;
-const firstLine = (e) => String(e && e.message ? e.message : e).split(/\r?\n/)[0];
-
-async function login(email) {
-  let r;
-  try {
-    r = await fetch(`${API}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password: 'airms2026' }),
-    });
-  } catch (e) {
-    throw new Error(`cannot reach the API at ${API} (${e.cause?.code || e.message})`);
-  }
-  if (!r.ok) throw new Error(`login ${email} -> ${r.status}`);
-  const s = await r.json();
-  if (!s || !s.token) throw new Error(`login ${email} -> 200 but no token`);
-  return s;
-}
-
 const IN_PAGE = () => {
   const out = [];
   const seen = (el) => {
@@ -161,116 +135,41 @@ const IN_PAGE = () => {
   };
 };
 
-async function sweep(browser, who, canary) {
-  const all = new Map();
-  const unmeasured = [];
-  let scannedTotal = 0;
-  const queue = PAGES.map(([role, route]) => ({ role, route }));
-  let cursor = 0;
-
-  async function worker() {
-    for (;;) {
-      const job = queue[cursor];
-      cursor += 1;
-      if (!job) return;
-      const { role, route } = job;
-      const label = `${role} ${route}`;
-      // Its own context: localStorage is per-origin, so concurrent plain tabs
-      // trample each other's token and a visit silently reads another role's
-      // screen (§121.8).
-      const ctx = await browser.createBrowserContext();
-      const page = await ctx.newPage();
-      try {
-        await page.evaluateOnNewDocument((s) => {
-          localStorage.setItem('airms_token', s.token);
-          localStorage.setItem('airms_user', JSON.stringify(s.user));
-          // Acknowledge the one-time "What's new" notice. Without this it opens
-          // on every visit — each context is fresh — and its BACKDROP sits over
-          // the page, so the sweep measures the page's own text through a
-          // semi-transparent overlay and reports it as low contrast. Measured:
-          // one such finding, `.text-muted` at 2.32:1 on /coach/dashboard, which
-          // is not a defect — that text is dimmed because a dialog is over it.
-          // These sweeps measure PAGES; the notice is checked on its own.
-          localStorage.setItem('airms_whatsnew_v1:' + s.user.id, '1');
-        }, who[role]);
-        await page.goto(WEB + route, { waitUntil: 'networkidle2', timeout: 60000 })
-          .catch((e) => { unmeasured.push(`${label} — navigation: ${firstLine(e)}`); });
-        await new Promise((r) => { setTimeout(r, SETTLE); });
-
-        if (canary) {
-          // A control with no accessible name, planted in the live page. The
-          // check must report it; a canary that comes back clean fails the run.
-          await page.evaluate(() => {
-            const b = document.createElement('button');
-            b.style.cssText = 'width:20px;height:20px;position:fixed;left:0;top:0';
-            document.body.appendChild(b);
-          });
-        }
-
-        const res = await page.evaluate(IN_PAGE);
-        if (res.path !== route) {
-          unmeasured.push(`${label} — landed on ${res.path} (session refused, or the route moved)`);
-          continue;
-        }
-        if (res.scanned < MIN_ELEMENTS) {
-          unmeasured.push(`${label} — only ${res.scanned} elements; the page did not render`);
-          continue;
-        }
-        scannedTotal += res.scanned;
-        for (const f of res.findings) {
-          const key = `${f.rule}|${f.node}|${f.detail}`;
-          if (!all.has(key)) all.set(key, { ...f, where: `${route} (${role})`, count: 1 });
-          else all.get(key).count += 1;
-        }
-      } catch (e) {
-        unmeasured.push(`${label} — ${firstLine(e)}`);
-      } finally {
-        await page.close().catch(() => {});
-        await ctx.close().catch(() => {});
-      }
-    }
-  }
-
-  const results = await Promise.allSettled(Array.from({ length: JOBS }, worker));
-  for (const r of results) {
-    if (r.status === 'rejected') unmeasured.push(`a sweep worker died — ${firstLine(r.reason)}`);
-  }
-  return {
-    rows: [...all.values()].sort((a, b) => b.count - a.count || a.rule.localeCompare(b.rule)),
-    unmeasured: unmeasured.sort(),
-    scannedTotal,
-    visits: queue.length - unmeasured.length,
-  };
-}
-
 (async () => {
-  const chromePath = CHROMES.find((p) => { try { return fs.existsSync(p); } catch { return false; } });
-  if (!chromePath) { console.error('No Chrome found. Set CHROME_PATH.'); process.exit(2); }
-
   let who;
   try {
-    who = {};
-    for (const role of ['admin', 'medical', 'coach', 'athlete', 'executive']) {
-      who[role] = await login(`${role}@isn.gov.my`);
-    }
+    who = await allSessions(API);
   } catch (e) {
     console.error(`${e.message}\nAre both servers running (npm run dev) and the database seeded?`);
     process.exit(2);
   }
 
-  const browser = await puppeteer.launch({
-    executablePath: chromePath,
-    headless: 'new',
-    args: ['--no-sandbox', '--disable-dev-shm-usage'],
-    defaultViewport: { width: 1440, height: 900 },
-  });
-  const bail = () => { browser.close().catch(() => {}); process.exit(2); };
-  process.on('SIGINT', bail);
-  process.on('SIGTERM', bail);
-
+  const browser = await launch();
   let failed = false;
   try {
-    const { rows, unmeasured, scannedTotal, visits } = await sweep(browser, who, CANARY);
+    const { rows, unmeasured, scannedTotal, visits, total: visited } = await run({
+      web: WEB,
+      api: API,
+      settle: SETTLE,
+      jobs: JOBS,
+      who,
+      browser,
+      inPage: IN_PAGE,
+      keyOf: (f) => `${f.rule}|${f.node}|${f.detail}`,
+      // A control with no accessible name, planted in the live page. The check
+      // must report it; a canary that comes back clean fails the run.
+      beforeMeasure: CANARY
+        ? async (page) => {
+          await page.evaluate(() => {
+            const b = document.createElement('button');
+            b.style.cssText = 'width:20px;height:20px;position:fixed;left:0;top:0';
+            document.body.appendChild(b);
+          });
+          return null;
+        }
+        : undefined,
+    });
+    rows.sort((a, b) => b.count - a.count || a.rule.localeCompare(b.rule));
     const total = rows.reduce((n, r) => n + r.count, 0);
 
     if (CANARY) {
@@ -294,13 +193,8 @@ async function sweep(browser, who, canary) {
       else if (!unmeasured.length) console.log('  none — every authenticated page.\n\n  Re-run with --canary before trusting this.');
     }
 
-    if (unmeasured.length) {
-      console.log(`\n${unmeasured.length} page-visit(s) COULD NOT BE MEASURED:\n`);
-      for (const u of unmeasured) console.log(`  ✗ ${u}`);
-      console.log('\nThese are not passes. A page that did not render has no violations');
-      console.log('in the same way an unplugged monitor has no dead pixels.');
-      failed = true;
-    }
+    reportUnmeasured(unmeasured, visited + unmeasured.length);
+    if (unmeasured.length) failed = true;
   } finally {
     await browser.close().catch(() => {});
   }
