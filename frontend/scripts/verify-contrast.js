@@ -268,6 +268,14 @@ async function sweep(browser, who, canary) {
         await page.evaluateOnNewDocument((s, th) => {
           localStorage.setItem('airms_token', s.token);
           localStorage.setItem('airms_user', JSON.stringify(s.user));
+          // Acknowledge the one-time "What's new" notice. Without this it opens
+          // on every visit — each context is fresh — and its BACKDROP sits over
+          // the page, so the sweep measures the page's own text through a
+          // semi-transparent overlay and reports it as low contrast. Measured:
+          // one such finding, `.text-muted` at 2.32:1 on /coach/dashboard, which
+          // is not a defect — that text is dimmed because a dialog is over it.
+          // These sweeps measure PAGES; the notice is checked on its own.
+          localStorage.setItem('airms_whatsnew_v1:' + s.user.id, '1');
           localStorage.setItem('airms_theme', th);
         }, who[role], theme);
         // A navigation timeout is not fatal to the RUN — the other pages are
