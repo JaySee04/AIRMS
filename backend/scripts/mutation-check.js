@@ -791,6 +791,37 @@ const MUTATIONS = [
     test: 'tests/visionThrottle.test.js',
   },
   {
+    guard: 'extract: an irrelevant PDF is refused BEFORE anything is transmitted',
+    why: 'a 51-page university report reached Gemini — the gate is the only thing stopping it (§121.13)',
+    pkg: 'backend',
+    file: 'src/utils/holomotionExtract.js',
+    // Neuter the relevance check. Every text-bearing non-report then falls
+    // through to the vision path exactly as it did before the gate existed, and
+    // nothing errors — the import simply succeeds on a document that should
+    // never have left the machine.
+    find: '    if (!id.relevant) {',
+    replace: '    if (false) {',
+    test: 'tests/extractGating.test.js',
+  },
+  {
+    guard: 'extract: the no-text cover check still refuses a non-report',
+    why: 'at 0 characters the fingerprint is the only local signal there is',
+    pkg: 'backend',
+    file: 'src/utils/holomotionExtract.js',
+    find: '    if (verdict.known && !verdict.relevant) {',
+    replace: '    if (false) {',
+    test: 'tests/extractGating.test.js',
+  },
+  {
+    guard: 'extract: the Summary top-up stays off unless the institution says otherwise',
+    why: 'the one provider call an already-read report can make, and it was invisible (§121)',
+    pkg: 'backend',
+    file: 'src/utils/holomotionExtract.js',
+    find: '    if (!summary && allowTopUp && isVisionConfigured()) {',
+    replace: '    if (!summary && isVisionConfigured()) {',
+    test: 'tests/extractGating.test.js',
+  },
+  {
     guard: 'alerts: a coach is told about their OWN sport and no other',
     why: 'a coach reading another squad\'s flagged athletes is a disclosure, not a nuisance',
     pkg: 'backend',
