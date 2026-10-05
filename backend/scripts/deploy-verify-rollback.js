@@ -43,6 +43,8 @@
 const { execFileSync } = require('child_process');
 const path = require('path');
 
+const { fetchPdf } = require('./lib/pdfResponse');
+
 const API = process.env.DEPLOY_API || 'https://airms-api.vercel.app/api';
 const BRANCH = process.env.DEPLOY_BRANCH || 'feat/mysql-migration';
 const SOURCE = process.env.DEPLOY_SOURCE || 'deploy-staging';
@@ -85,28 +87,12 @@ async function session() {
  * document was finished rather than cut off.
  */
 async function pdfProbe(token, p) {
-  try {
-    const r = await fetch(`${API}${p}`, { headers: { Authorization: `Bearer ${token}` } });
-    const ct = (r.headers.get('content-type') || '').split(';')[0];
-    if (!ct.includes('application/pdf')) {
-      const t = await r.text();
-      let msg = t.slice(0, 100);
-      try { msg = JSON.parse(t).message || msg; } catch { /* not json */ }
-      return { status: r.status, ok: false, note: `${ct || 'no content-type'} — ${msg}` };
-    }
-    const buf = Buffer.from(await r.arrayBuffer());
-    const magic = buf.slice(0, 5).toString('latin1') === '%PDF-';
-    const eof = buf.slice(-2048).toString('latin1').includes('%%EOF');
-    return {
-      status: r.status,
-      ok: r.status === 200 && magic && eof,
-      note: magic && eof
-        ? `complete PDF, ${(buf.length / 1024).toFixed(0)} KB`
-        : `*** NOT A COMPLETE PDF (${buf.length} B, magic=${magic}, trailer=${eof})`,
-    };
-  } catch (e) {
-    return { status: 'ERR', ok: false, note: e.cause?.code || e.message };
-  }
+  const r = await fetchPdf(`${API}${p}`, { headers: { Authorization: `Bearer ${token}` } });
+  return {
+    status: r.status,
+    ok: r.complete,
+    note: r.complete ? `complete PDF, ${r.note}` : `*** ${r.note}`,
+  };
 }
 
 /**

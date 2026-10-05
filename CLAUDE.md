@@ -99,7 +99,7 @@ cd backend; npm run coverage         # 82.4% statements / 72.3% branches (re-mea
                                      # a missing transitive dep (fs.realpath) before it would run.
 cd backend; npm run mutate           # BREAK each registered guard on purpose and prove its
                                      # test fails. A surviving mutation exits non-zero: the
-                                     # test is not testing what it claims. 99 guards across
+                                     # test is not testing what it claims. 102 guards across
                                      # both packages. NOT part of `npx jest` — it spawns a
                                      # jest run per mutation (tens of seconds). Run it before
                                      # committing a change to a guard, and add an entry when
@@ -536,7 +536,7 @@ cd frontend; npm run e2e   # END-TO-END smoke: a real Chrome against the running
 cd frontend; npm run build
 
 # Unit tests (jest, in both packages — no linter configured for the backend)
-cd backend; npx jest      # 68 suites / 1076 tests: cohorts, overallIndicator, permissions, rbac, pdfDraw,
+cd backend; npx jest      # 69 suites / 1088 tests: cohorts, overallIndicator, permissions, rbac, pdfDraw,
                           # emailAddress (the address an activation code is SENT to. It was
                           # VARCHAR(160) UNIQUE and nothing else — "not-an-email", "jc@@isn",
                           # "a b@c.d" and "<script>@x.com" all validated and would have been
@@ -1627,6 +1627,35 @@ Commit cadences are independent — JC will commit many times in this repo betwe
    what you are inserting. `git commit -F <file>`, never `-m` with prose.
    `backend/tests/sourceHygiene.test.js` catches the invisible-character half of
    this in under a second, naming the file, line and character.
+
+## Writing a check: the nine rules (2026-10-05, `docs/SILENT_FAILURES.md` "The rules")
+
+**A broken check is worse than no check — it answers the question you stopped
+asking.** Each rule below is here because breaking it already cost this project
+something; the full version carries the instance for each.
+
+1. **A check you have never seen fail is a guess.** Break the thing it guards,
+   watch it go red, restore — then register it in `scripts/mutation-check.js` so
+   the proof is *standing* rather than one-time.
+2. **A check that could not measure must never read as clean.** Exit non-zero.
+   An expired session, a renamed route, an unreachable host and a skipped case
+   all end on a screen with no problems on it.
+3. **Assert the artifact, not the transport.** When a response streams, the
+   status is written *before* the work, so it cannot report what happens after.
+4. **Ask "is this the thing I sent", not "is something there".** Identity, never
+   presence — and note the digest is byte-identical across a deploy touching no
+   file under `backend/src`, so "has it changed" is wrong in the other direction.
+5. **Read the payload's real keys.** A wrong key reads as zero, and zero is the
+   most believable wrong answer there is. Print the raw response once first.
+6. **Hand a scoped actor its OWN data,** or you are testing the scope check.
+   A correct refusal is indistinguishable from a broken capability in output.
+7. **An upgrade is "shown to work" only where the environment differs** — by a
+   check that exercises what the upgrade changed, off your laptop.
+8. **One definition, or pin the copies to each other** in the direction that
+   fails silently. The dangerous drift is the one where weakening a copy passes.
+9. **Ask the system of record** — `information_schema`, the audit trail, the
+   deployed function's stderr, `git log -S`. Not the working tree, not a doc,
+   not an endpoint answering 200 for its own reasons.
 
 ## Comments: which ones are load-bearing (2026-09-13, `DESIGN_DECISIONS.md §99.2`)
 

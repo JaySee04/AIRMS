@@ -2114,3 +2114,138 @@ tool exists to prevent.
 **The rule.** A landing check must compare against *what you are deploying*, not
 test a field for existence. "Is it there yet" and "is it the thing I sent" are
 different questions, and only the second one is worth asking.
+
+---
+
+## The rules for writing a check in this repo
+
+Every rule below is here because breaking it already cost this project
+something, and each names the instance. They are about *checks* specifically —
+tests, probes, audits, verify scripts — because a broken check is worse than no
+check: it answers the question you stopped asking.
+
+### 1. A check you have never seen fail is a guess about what it covers
+
+Break the thing it guards, watch it go red, restore. Then register it in
+`scripts/mutation-check.js` so the proof is **standing** rather than a one-time
+observation — §119.2 is the entry that exists because "verified once, manually"
+had quietly become "unverified".
+
+*Evidence:* `winAnsiSafe` shipped defined, exported, unit-tested and **never
+called** — a pure function is correct whether or not anybody calls it. The
+override assertion in `reportRoutes.test.js` passed with the route's own line
+deleted, because `pdfDraw` emits a similar phrase anyway (4a). Both were caught
+by mutation, neither by review.
+
+### 2. A check that could not measure must never read as clean
+
+Exit non-zero. An expired session, a renamed route, an unreachable host, a role
+that cannot reach a page, a skipped case — **all of them end on a screen with no
+problems on it**, and a check that reports findings-only will call that zero.
+
+*Evidence:* §121.8 — the contrast sweep listed `/executive/dashboard`, a route
+that has never existed, and swept Next's 404 page for weeks while reporting it
+clean; "eleven pages" was ten of twenty-one. `verify:reports` exits **2** when it
+cannot sign in. `preflightPorts` once *skipped* its cases when the real ports
+were held, and the runner reported "1 of 84 not caught" against a well-tested
+guard — a false red waved through three times in one session, which is precisely
+how a real one gets waved through.
+
+### 3. Assert the artifact, not the transport
+
+When a response streams, the status code is written **before** the work. It
+cannot report a failure that happens afterwards.
+
+*Evidence:* 4a. The report routes commit to `application/pdf` in `startDoc()`, so
+a mid-draw throw cannot answer 500 — it calls `res.end()`, and the operator gets
+HTTP 200 and a file that may not open. The check is the `%%EOF` trailer
+(`scripts/lib/pdfResponse.js`). The same logic is why `verify-guide-pdf.js` reads
+the rendered PDF back instead of trusting that rendering returned.
+
+### 4. Ask "is this the thing I sent", not "is something there"
+
+Identity, never presence. A freshness or landing check that tests for the
+*existence* of a field passes the moment that field exists anywhere — including
+on the build you are trying to replace.
+
+*Evidence:* 4b — the deploy harness waited for `/api/health` to carry a `build`
+field, on its own reasoning that "the old build does not report it". True when
+written; false once it shipped. It accepted the old build after fifteen seconds
+and force-pushed a rollback over code it had never measured. It now waits for
+`commit` to **equal the SHA being deployed**. Note also that the obvious
+alternative was wrong in the opposite direction: the content digest is
+byte-identical across a deploy that changes no file under `backend/src`, so
+waiting for it to *change* would hang on a perfectly good deploy.
+
+### 5. Read the payload's real keys — a wrong key reads as zero
+
+And **zero is the most believable wrong answer there is**, because it looks like
+a finding rather than a fault. Print the raw response once before building a
+conclusion on a field name.
+
+*Evidence:* 4a — the first probe read the audit endpoint's `.count` / `.rows`;
+it answers `.total` / `.entries`. So "has a report ever been downloaded here?"
+came back **0** and went into a commit message as proof none ever had. There are
+forty rows. That single misread turned a dated regression into a permanent
+mystery and discarded the one clue that made the diagnosis a one-line search.
+
+### 6. Hand a scoped actor its OWN data, or you are testing the scope check
+
+A sport-scoped or self-scoped role refused somebody else's record is the system
+**working**, and it is indistinguishable in output from the capability being
+broken.
+
+*Evidence:* 4a — the probe gave every role the roster's first athlete
+(Athletics) while Coach Demo 01 is Badminton, and counted two correct refusals
+as defects. Worse, a coach is **not on `/athletes`' rbac list** at all — their
+squad comes from `/coach/readiness` — and the 403 body parsed as an empty array,
+which then read as *"the coach sees zero athletes"*. One wrong assumption about
+where a scoped role's data lives produced three confident wrong conclusions.
+
+### 7. An upgrade is "shown to work" only where the environment differs
+
+A dependency change is verified by a check that exercises **what the upgrade
+changed**, in the environment that is **not** your laptop. Otherwise "it works"
+means "the files happen to be present here".
+
+*Evidence:* 4a. `2a07e26` applied a real standard — *upgrade everything that can
+be SHOWN to still work* — and still shipped twenty-three days of broken PDF
+downloads, because pdfkit 0.20 moved its fonts behind the package `exports` map
+and locally the fonts are simply there. Seven guards were green throughout; none
+downloaded a file from the deployed instance.
+
+### 8. One definition, or pin the copies to each other
+
+Two copies of a rule drift, and the dangerous direction is the one where
+weakening a copy still **passes**. If you cannot have one definition — the two
+packages cannot import each other — then assert the copies against each other,
+in the direction that fails silently.
+
+*Evidence:* `BAND_RANK` in three files and `BAND_LABEL` in two, with
+`ScreeningHistory.tsx` found holding a **fourth** private map spelling the bands
+by colour (3i). Seventeen private `num()` helpers carrying three different
+contracts (§54). The `%%EOF` rule in three places until 2026-10-05 — four lines,
+which is exactly the size at which somebody "simplifies" one back to a status
+assertion, an edit that passes on every healthy response. `ENTITLED` in
+`verify-report-downloads.js` is now pinned to the route file's `rbac(...)` lists
+in **both** directions, because a role missing from the matrix is never probed
+and the check still prints 25/25.
+
+### 9. Ask the system of record
+
+Not the working tree, not a doc, not an endpoint that answers 200 for its own
+reasons. Ask the thing that cannot be wrong about itself.
+
+*Evidence:* 3z / §113 — six days of a broken hosted API, with every probe
+reasoning about the deployed build from the **source** ("`INDICATOR_ATTRS` names
+those columns"), which was true of the tree and false of the thing answering.
+Settled by `information_schema`. On 2026-10-05 the same rule did the work three
+times over: the **audit trail** answered "has a report ever been delivered", the
+deployed function's **own stderr** answered "why did it fail" in one line after
+an hour of hypotheses, and `git log -S` on the version string answered "when did
+this break". Guessing was slower than asking every time.
+
+### What this adds up to
+
+A check earns its place by being able to go red for the right reason, and by
+refusing to go green when it did not look. Everything else here is a corollary.

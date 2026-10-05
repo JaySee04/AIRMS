@@ -21,6 +21,7 @@ const express = require('express');
 const request = require('supertest');
 
 const { capturePdfText, unrenderableIn } = require('./helpers/capturePdfText');
+const { inspectPdf } = require('../scripts/lib/pdfResponse');
 
 // ── the seam: one mutable "current user", set per request by as() ───────────
 let mockCurrent = null;
@@ -481,8 +482,12 @@ describe('the reports draw over real data without truncating', () => {
     AD.findAll.mockResolvedValue([]);
   });
 
-  /** The trailer pdfkit writes on `end()`. Absent means the stream was cut. */
-  const isComplete = (body) => body.slice(-1024).toString('latin1').includes('%%EOF');
+  // The SAME definition the deploy check and verify:reports use
+  // (scripts/lib/pdfResponse.js), deliberately shared rather than re-stated.
+  // It was a local one-liner here; three copies of a four-line rule is exactly
+  // the size at which one of them gets "simplified" back to a status assertion,
+  // and that edit passes on every healthy response.
+  const isComplete = (body) => inspectPdf(body).complete;
 
   it.each([
     ['/screening-reports/holistic.pdf'],

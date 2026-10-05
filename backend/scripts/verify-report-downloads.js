@@ -38,6 +38,8 @@ const API = at >= 0 ? args[at + 1]
 const PACE = Number(process.env.VERIFY_PACE_MS || (API.includes('localhost') ? 0 : 1500));
 const PASSWORD = process.env.VERIFY_PASSWORD || 'airms2026';
 
+const { fetchPdf } = require('./lib/pdfResponse');
+
 const sleep = (ms) => (ms ? new Promise((r) => { setTimeout(r, ms); }) : Promise.resolve());
 
 const ACCOUNTS = {
@@ -74,30 +76,9 @@ async function login(email) {
   }
 }
 
-/** Download, and say whether a COMPLETE pdf arrived. */
-async function pdf(token, path) {
-  try {
-    const r = await fetch(`${API}${path}`, { headers: { Authorization: `Bearer ${token}` } });
-    const ct = (r.headers.get('content-type') || '').split(';')[0];
-    if (!ct.includes('application/pdf')) {
-      const t = await r.text();
-      let msg = t.slice(0, 90);
-      try { msg = JSON.parse(t).message || msg; } catch { /* not json */ }
-      return { status: r.status, delivered: false, note: msg };
-    }
-    const b = Buffer.from(await r.arrayBuffer());
-    const magic = b.slice(0, 5).toString('latin1') === '%PDF-';
-    const eof = b.slice(-2048).toString('latin1').includes('%%EOF');
-    return {
-      status: r.status,
-      delivered: true,
-      complete: magic && eof,
-      note: magic && eof ? `${(b.length / 1024).toFixed(0)} KB` : `INCOMPLETE (${b.length} B, magic=${magic}, trailer=${eof})`,
-    };
-  } catch (e) {
-    return { status: 'ERR', delivered: false, note: e.cause?.code || e.message };
-  }
-}
+// What counts as a complete PDF lives in ONE place — see scripts/lib/pdfResponse.js
+// for why the status code cannot answer this.
+const pdf = (token, path) => fetchPdf(`${API}${path}`, { headers: { Authorization: `Bearer ${token}` } });
 
 /**
  * A roster athlete, and a COACH-VISIBLE one.
@@ -133,7 +114,7 @@ async function subjects(sess) {
   return out;
 }
 
-(async () => {
+async function main() {
   console.log(`target: ${API}${PACE ? `  (paced ${PACE}ms)` : ''}\n`);
 
   const sess = {};
@@ -208,4 +189,14 @@ async function subjects(sess) {
   console.log("BUNDLE before the code: pdfkit's font metrics must be named in");
   console.log('backend/vercel.json includeFiles, or the tracer leaves them out.');
   process.exit(1);
-})().catch((e) => { console.error(e); process.exit(2); });
+}
+
+// RUNS ONLY WHEN INVOKED DIRECTLY, so tests/reportDownloadMatrix.test.js can
+// import ENTITLED and pin it against the route file's rbac lists. The same rule
+// seeder.js follows: a `require()` of this must be inert, or importing it to
+// check one constant would start probing a live API.
+if (require.main === module) {
+  main().catch((e) => { console.error(e); process.exit(2); });
+}
+
+module.exports = { ENTITLED, ACCOUNTS };

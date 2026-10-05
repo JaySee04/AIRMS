@@ -1095,6 +1095,42 @@ const MUTATIONS = [
     replace: "      .text((mf.myodynamia || []).map((m) => `${m.muscle}`).join(', ') || 'none');",
     test: 'tests/reportRoutes.test.js',
   },
+  // ── the guard OVER the download check (2026-10-05) ────────────────────────
+  //
+  // verify:reports is the only thing in this repo that can see a broken report
+  // download, and it has two ways to quietly stop working: its idea of a
+  // complete document could weaken to a status check, and its entitlement
+  // matrix could drift from the rbac lists. Neither makes it red; both make it
+  // useless while still printing 25/25.
+  {
+    guard: 'pdf response: a document must have FINISHED, not just started',
+    why: 'these routes stream, so a mid-draw failure arrives as HTTP 200 (§4a)',
+    pkg: 'backend',
+    file: 'scripts/lib/pdfResponse.js',
+    // The exact "simplification" the shared module exists to prevent: trust the
+    // header and stop asking whether the trailer is there.
+    find: '  return { complete: magic && trailer, magic, trailer, bytes };',
+    replace: '  return { complete: magic, magic, trailer, bytes };',
+    test: 'tests/reportDownloadMatrix.test.js',
+  },
+  {
+    guard: 'pdf response: the trailer is looked for at the END, not anywhere',
+    why: 'a report whose TEXT contains %%EOF would otherwise read as finished',
+    pkg: 'backend',
+    file: 'scripts/lib/pdfResponse.js',
+    find: "    && buf.slice(-Math.min(TRAILER_WINDOW, bytes)).toString('latin1').includes('%%EOF');",
+    replace: "    && buf.toString('latin1').includes('%%EOF');",
+    test: 'tests/reportDownloadMatrix.test.js',
+  },
+  {
+    guard: 'download matrix: the entitlement list mirrors the route rbac lists',
+    why: 'a role dropped from the matrix is never probed, and the check still prints green',
+    pkg: 'backend',
+    file: 'scripts/verify-report-downloads.js',
+    find: "  team: ['medical', 'admin', 'coach', 'executive'],",
+    replace: "  team: ['medical', 'admin', 'executive'],",
+    test: 'tests/reportDownloadMatrix.test.js',
+  },
 ];
 
 function pkgDir(pkg) {
