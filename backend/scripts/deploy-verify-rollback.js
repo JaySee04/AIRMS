@@ -201,13 +201,50 @@ function brokenIn(results) {
   git('push', 'origin', `${SOURCE}:${BRANCH}`);
   log('  pushed. waiting for Vercel to serve the new build…');
 
-  // OBSERVED, NOT SLEPT ON. The new code reports `build` on /api/health and the
-  // old one does not, so the arrival of that field IS the deploy landing.
+  // OBSERVED, NOT SLEPT ON — but it has to be observed CORRECTLY, and the first
+  // version of this was not (2026-10-05).
+  //
+  // It waited for `/api/health` to carry a `build` field at all, on the stated
+  // reasoning that "the new code reports build and the old one does not". True
+  // when written; false from the moment that field shipped. So on the very next
+  // deploy it saw the OLD build answering with a build id after 15 seconds —
+  // nowhere near long enough for Vercel to finish — declared the deploy landed,
+  // verified the old code, found the reports broken and rolled back a build it
+  // had never tested. That is §116.5 reproduced inside the tool written to
+  // prevent §116.5.
+  //
+  // THE DIGEST CANNOT STAND IN FOR IT EITHER. `build` hashes every .js under
+  // backend/src, so a deploy that changes only vercel.json, scripts/ or tests/
+  // — which is exactly what a bundle fix is — ships an IDENTICAL digest. Waiting
+  // for the digest to change would hang for ten minutes on a perfectly good
+  // deploy.
+  //
+  // So the only sound signal is the commit: Vercel sets VERCEL_GIT_COMMIT_SHA,
+  // /api/health reports it, and this waits for it to equal the SHA being
+  // deployed. Nothing else proves the instance is running this code.
+  const want = target.slice(0, 12);
   let landed = false;
+  let sawCommitField = false;
   for (let i = 0; i < 40; i += 1) {
     await sleep(15000);
     const h = await (await fetch(`${API}/health`).catch(() => null))?.json?.().catch(() => null) || {};
-    if (h.build) { landed = true; log(`  new build serving: ${h.build} (after ~${(i + 1) * 15}s)`); break; }
+    if (typeof h.commit === 'string' && h.commit) {
+      sawCommitField = true;
+      if (h.commit === want) {
+        landed = true;
+        log(`  new build serving: commit ${h.commit}, build ${h.build} (after ~${(i + 1) * 15}s)`);
+        break;
+      }
+    }
+    if (i === 0) log(`  (still ${h.commit || 'pre-commit-field'} / ${h.build || 'no build field'}…)`);
+  }
+  if (!landed && !sawCommitField) {
+    log('');
+    log('  The instance never reported a `commit`, so this cannot tell whether the');
+    log('  deploy landed. That means the DEPLOYED build predates /api/health');
+    log('  reporting it — i.e. the push did not take effect, or Vercel is still');
+    log('  building. NOT rolling back: there is nothing here to conclude, and');
+    log('  rolling back on an unverified reading is what this tool exists to stop.');
   }
   if (!landed) {
     log('  the new build never started serving within 10 minutes.');
