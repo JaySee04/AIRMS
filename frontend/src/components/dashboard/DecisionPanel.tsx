@@ -228,6 +228,31 @@ export default function DecisionPanel({
   const open = data.worklist.filter((w) => !w.reviewed && w.band !== 'green' && w.band !== 'none');
   const shown = showAll ? open : open.slice(0, limit);
 
+  /**
+   * Open the record from anywhere on the entry — including the reasons.
+   *
+   * TWO GUARDS, and each stops a real misfire rather than a hypothetical one.
+   *
+   * 1. A click that started inside an interactive element is left alone. The
+   *    row's own <button> is the obvious case: without this it fires here AND
+   *    there. It is idempotent today, so the symptom would be nothing at all —
+   *    which is exactly why it is worth excluding now rather than after
+   *    somebody gives the entry a second control and it fires both.
+   *
+   * 2. A DRAG THAT SELECTED TEXT IS NOT A CLICK. The reasons are deliberately
+   *    selectable prose — a clinician copies "Exercise risks 27, above the
+   *    cohort mean" into a note — and finishing that drag would otherwise
+   *    navigate away from the thing they were quoting, losing the selection
+   *    with it. mouseup lands on the <li>, so without this check the feature
+   *    being added here would break the property the comment above protects.
+   */
+  function onEntryClick(e: React.MouseEvent<HTMLLIElement>, athleteId: string) {
+    if (!onOpenAthlete) return;
+    if ((e.target as HTMLElement).closest('button, a, input, select, textarea, [role="button"]')) return;
+    if ((window.getSelection()?.toString() ?? '').trim()) return;
+    onOpenAthlete(athleteId);
+  }
+
   return (
     <div className="card decision-panel" style={{ marginBottom: 20 }}>
       <div className="card-header"><div>
@@ -252,7 +277,11 @@ export default function DecisionPanel({
       {shown.length > 0 && (
         <ul className="decision-list">
           {shown.map((w) => (
-            <li key={w.athleteId} className="decision-item">
+            <li
+              key={w.athleteId}
+              className={`decision-item${onOpenAthlete ? ' decision-item--open' : ''}`}
+              onClick={(e) => onEntryClick(e, w.athleteId)}
+            >
               {/* THE NAME BAR IS THE CONTROL (§107, JC).
                   Previously this row carried "Open record" and "Mark reviewed"
                   side by side. "Mark reviewed" was a private bookmark — it hid
@@ -269,7 +298,18 @@ export default function DecisionPanel({
                   A <button> wrapping only the bar, not the <li> — a button's
                   content model is phrasing content, so the reasons <ul> below
                   cannot legally live inside one. This also keeps the reasons
-                  selectable text rather than swallowing them into a control. */}
+                  selectable text rather than swallowing them into a control.
+
+                  THE WHOLE ENTRY IS STILL CLICKABLE (2026-10-05, JC). The
+                  reasons are the only part of an entry that says WHY this
+                  athlete is in the queue, so they are what a clinician reads and
+                  therefore what their cursor is over when they decide to open
+                  the record — and that was the one region that did nothing. The
+                  <li> carries an onClick (see onEntryClick) rather than becoming
+                  a control: the rule above has not changed, and the real
+                  <button> stays the single thing focus and a screen reader see,
+                  so this adds a mouse target WITHOUT adding a second
+                  announcement of the same action. */}
               <button
                 type="button"
                 className="decision-open"

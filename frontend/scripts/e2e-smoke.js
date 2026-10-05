@@ -583,6 +583,66 @@ async function visit(browser, route, session) {
     await drawn('athlete dashboard', sessions.athlete, '/athlete/dashboard', null);
     await drawn('coach detail', sessions.coach, '/coach/dashboard', '.athlete-row');
     await drawn('medical detail', sessions.medical, '/medical/dashboard', '.athlete-row');
+
+    // ── 9. The rail folds away once an athlete is open (2026-10-05) ─────────
+    //
+    // An E2E CHECK AND NOT A JSDOM ONE, deliberately. What is being claimed is
+    // that the search box is GONE and the record has the room — a statement
+    // about layout and about elements existing on a real rendered page, with
+    // real CSS and a real grid. jsdom computes no layout, so a mounted test
+    // could assert the markup and say nothing about whether anything moved.
+    //
+    // The '/' case is the one worth the most here. The input does not exist
+    // while the rail is folded, so the shortcut had to learn to unfold first;
+    // get that wrong and "/" is a silent no-op on exactly the screen where
+    // reaching for the search is most likely. Nothing else would catch it.
+    {
+      const r = await visit(browser, '/medical/dashboard', sessions.medical);
+      const q = () => r.page.evaluate(() => ({
+        search: !!document.querySelector('#med-search'),
+        rows: document.querySelectorAll('.athlete-row').length,
+        folded: !!document.querySelector('.medical-rail--folded'),
+        toggle: !!document.querySelector('.rail-fold'),
+        expanded: document.querySelector('.rail-fold')?.getAttribute('aria-expanded') ?? null,
+        paneWidth: Math.round(document.querySelector('.medical-pane')?.getBoundingClientRect().width ?? 0),
+        focused: document.activeElement?.id ?? null,
+      }));
+
+      const before = await q();
+      check('medical rail: the search is there before an athlete is picked',
+        before.search && before.rows > 0 && !before.folded,
+        `search=${before.search} rows=${before.rows} folded=${before.folded}`);
+
+      await r.page.evaluate(() => document.querySelector('.athlete-row')?.click());
+      await r.page.waitForFunction(() => !!document.querySelector('.medical-rail--folded'), { timeout: SETTLE_MS * 3 })
+        .catch(() => {});
+      const after = await q();
+      check('medical rail: picking an athlete folds the search away',
+        after.folded && !after.search && after.rows === 0,
+        `folded=${after.folded} search=${after.search} rows=${after.rows}`);
+      // The point of folding is the room it frees. Asserted as a real
+      // measurement rather than trusting the class: a grid column that did not
+      // actually shrink would leave the fold cosmetic.
+      check('medical rail: the record gains the width the rail gave up',
+        after.paneWidth > before.paneWidth,
+        `pane ${before.paneWidth}px -> ${after.paneWidth}px`);
+      check('medical rail: the folded rail still offers a way back',
+        after.toggle && after.expanded === 'false',
+        `toggle=${after.toggle} aria-expanded=${after.expanded}`);
+
+      // "/" must still reach the search, which means unfolding first.
+      await r.page.keyboard.press('/');
+      await r.page.waitForFunction(() => !!document.querySelector('#med-search'), { timeout: SETTLE_MS * 3 })
+        .catch(() => {});
+      const reopened = await q();
+      check('medical rail: "/" unfolds the rail and focuses the search',
+        reopened.search && !reopened.folded && reopened.focused === 'med-search',
+        `search=${reopened.search} folded=${reopened.folded} focus=${reopened.focused}`);
+      // And the box is left empty rather than carrying the "/" that opened it.
+      const typed = await r.page.evaluate(() => document.querySelector('#med-search')?.value ?? null);
+      check('medical rail: the shortcut key does not land in the search box',
+        typed === '', `value=${JSON.stringify(typed)}`);
+    }
   } finally {
     await browser.close();
   }

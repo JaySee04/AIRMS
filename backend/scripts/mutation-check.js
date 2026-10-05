@@ -1131,6 +1131,34 @@ const MUTATIONS = [
     replace: "  team: ['medical', 'admin', 'executive'],",
     test: 'tests/reportDownloadMatrix.test.js',
   },
+  // ── the whole worklist entry opens the record (2026-10-05) ────────────────
+  {
+    guard: 'worklist entry: finishing a text selection is not a click',
+    why: 'the reasons are selectable prose a clinician copies into a note',
+    pkg: 'frontend',
+    file: 'src/components/dashboard/DecisionPanel.tsx',
+    find: "    if ((window.getSelection()?.toString() ?? '').trim()) return;",
+    replace: '',
+    test: 'src/components/dashboard/DecisionPanel.test.tsx',
+  },
+  {
+    guard: 'worklist entry: a click inside the row button is left to the button',
+    why: 'otherwise the same action fires twice, invisibly, until a second control exists',
+    pkg: 'frontend',
+    file: 'src/components/dashboard/DecisionPanel.tsx',
+    find: '    if ((e.target as HTMLElement).closest(\'button, a, input, select, textarea, [role="button"]\')) return;',
+    replace: '',
+    test: 'src/components/dashboard/DecisionPanel.test.tsx',
+  },
+  {
+    guard: 'worklist entry: no click affordance where there is nothing to open',
+    why: 'a pointer cursor over a dead region is a lie about what the row does',
+    pkg: 'frontend',
+    file: 'src/components/dashboard/DecisionPanel.tsx',
+    find: "              className={`decision-item${onOpenAthlete ? ' decision-item--open' : ''}`}",
+    replace: '              className="decision-item decision-item--open"',
+    test: 'src/components/dashboard/DecisionPanel.test.tsx',
+  },
 ];
 
 function pkgDir(pkg) {

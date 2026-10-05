@@ -11930,3 +11930,91 @@ mutation guards, and coverage, which had **drifted DOWN** from the documented
 79.6% / 67.8% to a measured **75.2% / 65.6%** while four documents kept quoting
 the old figure. That is the `rfloat` class again — a number that was true when
 written and is load-bearing in an argument nobody re-ran.
+
+## 122. The rail folds, and the whole worklist entry is a target (2026-10-05)
+
+Two requests from JC about the medical dashboard, both about the same thing:
+the clinician's hand is in one place and the thing that responds is in another.
+
+### 122.1 The search folds away once a record is open
+
+**The rail is how a clinician FINDS somebody; the pane is where they read the
+screening and decide.** Those are consecutive, not simultaneous. Once a record
+is open, the search box and its four filter dropdowns are 320px — the widest
+single element on the page — doing a job that is already finished, beside the
+body map and the 25-cell subitem table that actually want the room.
+
+`.medical-shell--folded` drops the grid to `auto 1fr`. **Measured, not
+asserted:** the record pane goes from **840px to 1129px**. That measurement is
+an e2e check rather than a comment, because a grid column that did not actually
+shrink would leave the fold purely cosmetic and the class would still be there.
+
+**Derived from the selection, not a separate mode.** It folds when an athlete is
+opened and unfolds on *Back to worklist*, so "which half am I working in" is
+answered by what the clinician already did rather than by a second control they
+have to remember. It is still `useState` and not a bare `!selectedId`, because
+the fold must be **overridable**: comparing two athletes means opening one with
+the list still up, and a rail recomputed on every render would snap shut and
+make that impossible. Re-deciding on each *change* of selection is what keeps
+the override temporary instead of sticky.
+
+**Folded, the contents are REMOVED rather than hidden.** A `display: none`
+search box is unreachable, but a visually-hidden one is still a tab stop and
+still announced — which would leave four filters and sixty athlete rows in the
+tab order of a pane the clinician folded away. One consequence had to be fixed
+with it: **`/` focuses an input that no longer exists**, so the shortcut now
+unfolds first and focuses on the next frame. Without that, `/` became a silent
+no-op on precisely the screen where reaching for the search is most likely —
+and nothing but a browser check could have seen it, which is why e2e section 9
+presses the key and asserts both the focus and that the `/` did not land in the
+box as text.
+
+The toggle is rendered in **both** states with one accessible name and
+`aria-expanded`, so assistive tech meets a labelled expand/collapse control
+rather than two buttons that appear and vanish. The folded label turns vertical
+(`writing-mode: vertical-rl`) so the strip stays narrow — a horizontal word
+would set the column width and undo the point — and goes horizontal again under
+980px, where the shell is already one column and a tall sliver above the record
+would be worse than a band.
+
+### 122.2 The whole entry opens the record, reasons included
+
+The worklist entry's clickable `<button>` covered the band chip, the name and
+the flags. **The reasons did not** — and the reasons are the only part of an
+entry that says *why* this athlete is in the queue, so they are what a clinician
+reads and therefore where the cursor is sitting when they decide to open the
+record. The one region doing nothing was the one being looked at.
+
+**It cannot be fixed by widening the button, and that constraint is real.** A
+`<button>`'s content model is phrasing content, so the reasons `<ul>` cannot
+legally live inside one — the existing comment says so, and it also records a
+second reason to keep them out: inside a control they stop being selectable
+prose. So the `<li>` carries an `onClick` and the `<button>` stays exactly as it
+was. This adds a **mouse target over a control that already exists**, not a
+second control: no `tabindex`, no `role`, nothing new in the tab order, and the
+action announced once. `.decision-item--open` is applied only when
+`onOpenAthlete` exists, because a pointer cursor over a dead region is a lie —
+the admin and coach panels pass the handler, other surfaces do not.
+
+**Two guards, and the second is the one that matters.** A click originating
+inside an interactive element is left to it (the row button would otherwise fire
+both handlers — idempotent today, which is exactly why it is worth excluding
+*before* the entry grows a second control). And **a drag that selected text is
+not a click**: the reasons are selectable so a clinician can copy
+*"Exercise risks 27, above the cohort mean"* into a note, the mouseup that ends
+that drag lands on the `<li>`, and navigating away there would lose both the
+selection and the thing they were quoting. Without that check, this feature
+would have broken the property the markup comment exists to protect.
+
+Five jsdom cases, three registered mutations, six e2e checks — and all three
+rail mutations were seen to fail by hand, including the width one reporting
+`840px -> 840px`.
+
+### What was NOT done
+
+The roster rows and the quick-list rows were already full-width buttons
+wrapping avatar, name and meta, so there was nothing to widen there; the request
+was read against the code before anything was changed. And the fold was not
+extended to the coach or admin dashboards: neither has a rail, and inventing one
+mode for three different layouts is how a local improvement becomes a
+cross-cutting one nobody asked for.

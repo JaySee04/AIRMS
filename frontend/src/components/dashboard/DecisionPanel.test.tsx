@@ -161,3 +161,111 @@ describe('the marker itself', () => {
     expect(window.localStorage.getItem('airms_decisions_seen:u-7')).toBeNull();
   });
 });
+
+// ── the whole entry opens the record, reasons included (2026-10-05) ─────────
+//
+// The reasons are the only part of an entry that says WHY this athlete is in the
+// queue, so they are what a clinician reads and therefore where the cursor is
+// when they decide to open the record — and that region did nothing. It cannot
+// be fixed by widening the <button>: a button's content model is phrasing
+// content, so the reasons <ul> cannot legally live inside one. The <li> carries
+// the click instead, which is a mouse convenience over a control that already
+// exists rather than a second control.
+//
+// The two guards are what these cases are really about. Both stop a misfire
+// that would be invisible in ordinary use.
+describe('opening a worklist entry', () => {
+  const ENTRY = {
+    athleteId: '900101010001',
+    name: 'Worklist Athlete',
+    band: 'red',
+    reviewed: false,
+    isInjured: false,
+    ageDays: 12,
+    reasons: ['Exercise risks 27, above the cohort mean', 'Never retested'],
+    responseOutcome: null,
+    responseBy: null,
+    responseAt: null,
+  };
+  const withEntry = () => payload({ worklist: [ENTRY], changes: [] });
+
+  /** Clear whatever a previous case left selected — jsdom keeps it per document. */
+  const clearSelection = () => window.getSelection()?.removeAllRanges();
+
+  beforeEach(clearSelection);
+
+  it('opens the record when the REASONS are clicked, not just the name', async () => {
+    mockGet.mockResolvedValue(withEntry());
+    const onOpen = jest.fn();
+    render(<DecisionPanel onOpenAthlete={onOpen} />);
+    const reason = await screen.findByText(/above the cohort mean/);
+    reason.click();
+    expect(onOpen).toHaveBeenCalledWith('900101010001');
+  });
+
+  it('fires ONCE when the name bar itself is clicked', async () => {
+    // The bar's own handler and the entry's both run on a bubbling click. It is
+    // idempotent today, so a double call would show up as nothing at all —
+    // which is exactly why it is pinned now, before the entry grows a second
+    // control and fires both.
+    mockGet.mockResolvedValue(withEntry());
+    const onOpen = jest.fn();
+    render(<DecisionPanel onOpenAthlete={onOpen} />);
+    const bar = await screen.findByRole('button', { name: /Open Worklist Athlete's record/ });
+    bar.click();
+    expect(onOpen).toHaveBeenCalledTimes(1);
+  });
+
+  it('does NOT open when the click ended a text selection', async () => {
+    // The reasons are deliberately selectable prose — a clinician copies one
+    // into a note — and the mouseup that finishes that drag lands on the <li>.
+    // Navigating away there would lose the selection along with the thing they
+    // were quoting, so the feature added here would break the property the
+    // markup comment protects.
+    mockGet.mockResolvedValue(withEntry());
+    const onOpen = jest.fn();
+    render(<DecisionPanel onOpenAthlete={onOpen} />);
+    const reason = await screen.findByText(/above the cohort mean/);
+
+    const range = document.createRange();
+    range.selectNodeContents(reason);
+    const sel = window.getSelection();
+    sel?.removeAllRanges();
+    sel?.addRange(range);
+    expect(sel?.toString()).toMatch(/above the cohort mean/);
+
+    reason.click();
+    expect(onOpen).not.toHaveBeenCalled();
+
+    // ...and still opens once the selection is dropped, so the guard is a
+    // guard and not an outage.
+    clearSelection();
+    reason.click();
+    expect(onOpen).toHaveBeenCalledWith('900101010001');
+  });
+
+  it('offers no click affordance where there is nothing to open', async () => {
+    // `onOpenAthlete` is absent on surfaces with no detail view (the admin and
+    // coach panels pass it; others do not). A pointer cursor over a dead region
+    // is a lie, so the class that applies it is conditional.
+    mockGet.mockResolvedValue(withEntry());
+    const { container } = render(<DecisionPanel />);
+    await screen.findByText(/above the cohort mean/);
+    expect(container.querySelector('.decision-item')).not.toBeNull();
+    expect(container.querySelector('.decision-item--open')).toBeNull();
+  });
+
+  it('keeps ONE control per entry, so the action is announced once', async () => {
+    // The <li> must not become a second button or a tabbable element. A screen
+    // reader would then meet the same action twice, and keyboard users would
+    // tab through a duplicate on every row of the queue.
+    mockGet.mockResolvedValue(withEntry());
+    const { container } = render(<DecisionPanel onOpenAthlete={jest.fn()} />);
+    await screen.findByText(/above the cohort mean/);
+    const item = container.querySelector('.decision-item') as HTMLElement;
+    expect(item.tagName).toBe('LI');
+    expect(item.getAttribute('tabindex')).toBeNull();
+    expect(item.getAttribute('role')).toBeNull();
+    expect(item.querySelectorAll('button')).toHaveLength(1);
+  });
+});

@@ -113,6 +113,26 @@ export default function MedicalDashboard() {
 
   useEffect(() => { setPicked(null); }, [selectedId]);
 
+  // THE RAIL FOLDS AWAY ONCE AN ATHLETE IS OPEN (2026-10-05, JC).
+  //
+  // The rail is how a clinician FINDS somebody; the pane is where they read the
+  // screening and decide. Those are consecutive, not simultaneous — once the
+  // record is open the search box and its four filters are 320px of the widest
+  // thing on the page serving a job already done, next to the body map and
+  // subitem table that actually need the room. Measured by e2e: the record goes
+  // from 840px to 1129px.
+  //
+  // DERIVED FROM THE SELECTION RATHER THAN A SEPARATE MODE. It folds when an
+  // athlete is opened and unfolds when they go back to the worklist, so "which
+  // half am I working in" is answered by the thing the clinician already did.
+  // Kept as state and not a bare `!selectedId` so the fold can be OVERRIDDEN:
+  // comparing two athletes means opening one with the list still up, and a rail
+  // that sprang shut again on every render would make that impossible.
+  // Re-deciding on each change of selection is what makes the override
+  // temporary rather than sticky.
+  const [railOpen, setRailOpen] = useState(true);
+  useEffect(() => { setRailOpen(!selectedId); }, [selectedId]);
+
   async function loadWatchlist() {
     try {
       const r = await api.get<{ athletes: Array<{ athleteId: string; name: string; sport: string; isInjured: boolean }> }>('/watchlist');
@@ -292,8 +312,16 @@ export default function MedicalDashboard() {
       if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;
       if (t?.isContentEditable) return;
       e.preventDefault();
-      searchRef.current?.focus();
-      searchRef.current?.select();
+      // The input does not exist while the rail is folded, so opening it has to
+      // come first and the focus has to wait a frame for it to mount. Without
+      // this, "/" became a silent no-op the moment an athlete was selected —
+      // the shortcut would have been broken by the fold on exactly the screen
+      // where reaching for the search is most likely. Pinned by e2e section 9.
+      setRailOpen(true);
+      requestAnimationFrame(() => {
+        searchRef.current?.focus();
+        searchRef.current?.select();
+      });
     }
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
@@ -433,9 +461,38 @@ export default function MedicalDashboard() {
 
   return (
     <DashboardLayout allowedRoles={['medical']} requiredPermission="viewRecords" title="Medical Dashboard">
-      <div className="medical-shell">
+      <div className={`medical-shell${railOpen ? '' : ' medical-shell--folded'}`}>
         {/* ── Left rail ───────────────────────────────────────────────────── */}
-        <aside className="medical-rail">
+        <aside className={`medical-rail${railOpen ? '' : ' medical-rail--folded'}`}>
+          {/* The control is rendered in BOTH states and keeps one accessible
+              name, so a screen-reader user gets a labelled expand/collapse
+              toggle rather than two different buttons appearing and vanishing.
+              aria-controls points at the region it governs. */}
+          <button
+            type="button"
+            className="rail-fold"
+            onClick={() => {
+              const next = !railOpen;
+              setRailOpen(next);
+              if (next) requestAnimationFrame(() => searchRef.current?.focus());
+            }}
+            aria-expanded={railOpen}
+            aria-controls="medical-rail-body"
+            title={railOpen ? 'Hide the athlete list' : 'Search athletes (/)'}
+          >
+            <span aria-hidden>{railOpen ? '«' : '⌕'}</span>
+            <span className={railOpen ? 'sr-only' : 'rail-fold-label'}>
+              {railOpen ? 'Hide the athlete list' : 'Search'}
+            </span>
+          </button>
+
+          {/* Folded, the contents are REMOVED rather than hidden with CSS. A
+              display:none search box is unreachable but a visually-hidden one
+              is still a tab stop and still announced, which would put four
+              filters and sixty athletes in the tab order of a screen the
+              clinician folded away. */}
+          {!railOpen ? null : (
+          <div id="medical-rail-body" className="medical-rail-body">
           <div className="medical-rail-search">
             <div className="rail-search-box">
               <input
@@ -595,6 +652,8 @@ export default function MedicalDashboard() {
               })
             )}
           </div>
+          </div>
+          )}
         </aside>
 
         {/* ── Right pane ──────────────────────────────────────────────────── */}

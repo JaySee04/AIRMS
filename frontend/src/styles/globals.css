@@ -1768,6 +1768,60 @@ label:has(> input[type='radio']) {
   .medical-rail { position: static; max-height: none; }
 }
 
+/* ── The rail folds away once an athlete is open (2026-10-05) ───────────────
+   The grid column shrinks to the toggle's own width rather than a fixed one, so
+   nothing has to be kept in sync with the button's padding. */
+.medical-shell--folded { grid-template-columns: auto 1fr; }
+.medical-rail--folded {
+  /* Fit the toggle and nothing else. `max-height: none` because the open rail
+     caps its height for the scrolling list, and a folded strip stretched to the
+     viewport would draw a 1px-bordered column the length of the page. */
+  max-height: none;
+  overflow: visible;
+}
+.medical-rail-body { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+
+.rail-fold {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-xs);
+  width: 100%;
+  padding: var(--sp-xs) var(--sp-sm);
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  font: inherit;
+  /* A bare <button> does not inherit colour — the UA sets `buttontext`, which
+     is how the topbar name sat at 1.36:1 in dark mode (§121). */
+  color: var(--text-muted);
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.rail-fold:hover { background: var(--bg); color: var(--text); }
+.medical-rail--folded .rail-fold {
+  /* Folded, the toggle IS the rail: no bottom border to separate it from
+     content that is not there, and the label turns vertical so the strip stays
+     narrow instead of setting the column width with a horizontal word. */
+  flex-direction: column;
+  border-bottom: 0;
+  padding: var(--sp-sm) var(--sp-xs);
+  gap: var(--sp-sm);
+}
+.rail-fold-label {
+  writing-mode: vertical-rl;
+  font-size: var(--fs-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+@media (max-width: 980px) {
+  /* One column at this width, so a vertical strip would be a tall sliver above
+     the record. Horizontal, full width, reading as the band it now is. */
+  .medical-shell--folded { grid-template-columns: 1fr; }
+  .medical-rail--folded .rail-fold { flex-direction: row; justify-content: center; }
+  .rail-fold-label { writing-mode: horizontal-tb; }
+}
+
 .medical-rail-search {
   padding: 14px;
   border-bottom: 1px solid var(--border);
@@ -3903,6 +3957,20 @@ textarea:focus-visible,
   border-bottom: 1px dashed var(--border);
 }
 .decision-item:last-child { border-bottom: 0; }
+/* The WHOLE entry opens the record, reasons included (2026-10-05). Only applied
+   when there is somewhere to open — `onOpenAthlete` is absent on surfaces with
+   no detail view, and a pointer cursor over a dead region is a lie.
+   No :focus styling here on purpose: the <li> is not focusable and must not
+   become so. The real <button> inside carries focus and the accessible name,
+   so this is a mouse convenience over a control that already exists — adding a
+   tabindex would announce the same action twice. */
+.decision-item--open { cursor: pointer; border-radius: var(--r-sm); }
+/* Lighting the row and the bar together is what makes them read as ONE target.
+   Without the second rule the bar keeps its own hover tint and the entry looks
+   like two overlapping controls. */
+.decision-item--open:hover { background: var(--bg); }
+.decision-item--open:hover .decision-open:not(:disabled) { background: transparent; }
+.decision-item--open:hover .decision-name { text-decoration-color: var(--text-muted); }
 .decision-item-main {
   display: flex; align-items: center; gap: var(--sp-sm); flex-wrap: wrap;
 }
