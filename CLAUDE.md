@@ -296,6 +296,28 @@ cd backend; node scripts/assert-fresh.js   # IS THE RUNNING SERVER THE CODE YOU 
                                      # local-vs-hosted comparison would cry "stale".
                                      # 89.5 ms once per process (88 files), then ~0, and only
                                      # /api/health computes it.
+cd backend; npm run verify:reports              # can each role DOWNLOAD the reports it is entitled to?
+cd backend; npm run verify:reports -- --hosted  # ...from the deployed instance (25/25 on 2026-10-05)
+                                     # 5 reports x 5 roles, and it asserts the PDF's %%EOF
+                                     # TRAILER rather than the status code. These routes STREAM:
+                                     # startDoc() commits the response to being a PDF, so once
+                                     # drawing has begun headersSent is true and the catch cannot
+                                     # answer 500 — it calls res.end(). A mid-draw failure arrives
+                                     # as HTTP 200 with a file that may not open.
+                                     # WHY IT EXISTS: every PDF report answered 500 on hosted for
+                                     # TWENTY-THREE DAYS (2026-09-12 to 2026-10-05) while SEVEN
+                                     # guards reported green. pdfkit 0.18 -> 0.20.2 moved its
+                                     # standard-font metrics behind the package `exports` map, so
+                                     # Vercel's tracer stopped bundling them; pdfkit ITSELF was
+                                     # traced, so the router mounted and it failed per-request
+                                     # instead of at boot. Fixed by naming the directory in
+                                     # backend/vercel.json includeFiles, which already did exactly
+                                     # this for three other packages. THE SOURCE WAS NEVER WRONG —
+                                     # jest, mutate, audit:access, verify:claims --hosted, e2e and
+                                     # verify:schema all read source or call JSON endpoints, and
+                                     # none of them downloads a file. Exits 2 when it cannot sign
+                                     # in, so an unmeasured run never reads as a clean one.
+                                     # See docs/SILENT_FAILURES.md 4a and docs/DEPLOY.md.
 cd backend; npm run verify:claims    # check the OPERATIONAL claims against a RUNNING instance and
                                      # print the measured number for each. Needs `npm run dev`.
 cd backend; npm run verify:claims -- --hosted   # ...against the deployed API (10/10 on 2026-09-11)

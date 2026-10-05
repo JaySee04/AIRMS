@@ -559,3 +559,61 @@ and proves nothing whatever about the database. Step 1 above asks
 deploy. It needs no secrets for the API half. To have it check the **schema**
 too, set the repository secret `MYSQL_URL` to the Aiven connection string;
 without it that step prints `SKIPPED` rather than passing quietly.
+
+## A sixth thing, and it does not fail the build: files traced OUT of the bundle (2026-10-05)
+
+The faults above all stop a deploy. This one deploys perfectly and then fails at
+runtime, per request, for twenty-three days.
+
+**Every PDF report answered 500 on the hosted instance from 2026-09-12 to
+2026-10-05.** The build was green, the function booted, every JSON endpoint was
+healthy and `GET /api/export/backup.xlsx` returned 156 KB. The deployed
+function's own stderr:
+
+```
+Cannot find module '/var/task/backend/node_modules/pdfkit/js/standard-fonts/Helvetica.cjs'
+```
+
+`2a07e26` upgraded pdfkit `^0.18.0` → `^0.20.2`, and 0.20 serves its
+standard-font metrics through the package `exports` map rather than a literal
+require path. **Vercel's file tracer follows requires it can read statically**,
+so it bundled `pdfkit` itself — the module loads, the router mounts — and left
+the fonts behind. The throw lands inside `new PDFDocument()` in `startDoc()`,
+before a byte is written, which is the one piece of luck: `headersSent` is still
+false, so `sendError` can answer JSON instead of flushing a truncated PDF under
+a 200.
+
+**This is the same class as the `mysql2` dialect fault** at the top of this file,
+and the remedy is the one `backend/vercel.json` already used for three other
+packages:
+
+```json
+"includeFiles": "node_modules/{@napi-rs,tesseract.js-core,pdfjs-dist,pdfkit/js/standard-fonts}/**"
+```
+
+Scoped to the font directory — 30 files, 105 KB. `node_modules/pdfkit/**` would
+be **11 MB** of source maps and browser bundles. `api/cron/mail-tick.js` needed
+it too and had no `includeFiles` at all: the monthly digest **attaches** the
+holistic PDF, so that attachment had been failing on every run and degrading to
+summary-only — exactly as designed on a render failure, which is why it failed
+quietly and told nobody.
+
+### What to do about it, next time
+
+**`npm run verify:reports -- --hosted` after any deploy that touches a native or
+file-reading dependency.** It downloads all five reports as all five roles and
+asserts the **`%%EOF` trailer**, not the status code — these routes stream, so a
+mid-draw failure arrives as HTTP 200 with a file that may not open. 25 checks.
+It exits 2 when it cannot sign in, so an unmeasured run cannot read as a clean
+one. `scripts/deploy-verify-rollback.js` now does this as part of every deploy.
+
+**No source-reading guard can find this.** The source is correct. `npx jest`,
+`npm run mutate`, `audit:access`, `verify:claims --hosted`, `e2e` and
+`verify:schema` were all green for the whole twenty-three days; each is right
+about what it covers, and none of them downloads a file from the deployed
+instance. See `SILENT_FAILURES.md` 4a.
+
+**The generalisation worth keeping:** a dependency upgrade is only "shown to
+work" by a check that exercises the thing the upgrade changed, in the
+environment that differs. Locally the font files are simply present, so the
+upgrade genuinely did work everywhere anybody looked.

@@ -2003,3 +2003,114 @@ an `exclude` list references everything it does not name.
 
 See `DESIGN_DECISIONS.md` §96 for the columns, §113 for this, and 3r for the
 other defect only a deployed request could reveal.
+
+### 4a. The dependency upgrade that was "shown to work", locally (2026-10-05)
+
+**Every PDF report on the deployed instance answered 500 for twenty-three days,
+and seven separate guards reported green throughout.**
+
+`cd backend; npm run verify:reports -- --hosted` is the check that was missing.
+Measured before the fix: all five reports 500 for every role entitled to them,
+while `GET /api/export/backup.xlsx` returned 200 with 156 KB — so auth, RBAC and
+the database were all healthy, and it was specifically the PDF pipeline.
+
+**The cause.** `2a07e26` (2026-09-12, *"chore(deps): upgrade everything that can
+be SHOWN to still work — and record the four refusals"*) took pdfkit from
+`^0.18.0` to `^0.20.2`. pdfkit 0.20 serves its standard-font metrics through the
+package `exports` map (`pdfkit/standard-fonts/Helvetica` → `./js/standard-fonts/
+Helvetica.cjs`) instead of a literal path, so Vercel's file tracer no longer saw
+them and dropped them from the bundle. The deployed function's own stderr:
+
+```
+Cannot find module '/var/task/backend/node_modules/pdfkit/js/standard-fonts/Helvetica.cjs'
+    at createEsmNotFoundErr (node:internal/modules/cjs/loader)
+```
+
+pdfkit *itself* was traced — the module loads and the router mounts — which is
+why this presented as a per-request 500 and not as a boot failure. Fixed by
+naming the directory in `backend/vercel.json`'s `includeFiles`, which that file
+already did for three other packages with the identical problem; pdfkit was
+simply not in the list. 105 KB, 30 files.
+
+**Why nothing caught it.** Each of these is correct about what it covers:
+
+| guard | verdict | why it cannot see this |
+|---|---|---|
+| `npx jest` (1076) | green | fonts resolve from a real `node_modules` |
+| `npm run mutate` (99) | green | same |
+| `npm run audit:access` | green | asserts **who is refused**, never what arrives |
+| `npm run verify:claims --hosted` | 10/10 | probes JSON endpoints |
+| `npm run e2e` (113) | green | drives pages; never downloads a file |
+| `npm run verify:schema` | green | the schema was fine |
+| `reportRoutes.test.js` | green | the source is correct |
+
+**The source was never wrong.** This is a property of the deployed *bundle*, and
+every guard above reads source or calls a JSON endpoint. That is the general
+shape worth keeping: **a dependency upgrade can only be "shown to work" by the
+check that exercises the thing the upgrade changed, in the environment that
+differs.** The upgrade commit applied a real standard and still missed this,
+because "works" was measured where the files are present.
+
+**Three traps in the investigation itself**, all of which produced a confident
+wrong answer before being caught:
+
+1. **"It has never worked here."** The first probe read the audit endpoint's
+   `.count` / `.rows`; it answers `.total` / `.entries`. So `report.download`
+   came back as **0 rows** and was written into a commit message as proof no
+   report had ever been delivered. Read correctly there are **40 historical
+   rows**, the last on 2026-09-05 — one week before the upgrade. It was a
+   *regression with a date*, not a permanent defect, and the wrong reading
+   discarded the single most useful clue.
+2. **The coach's correct refusal, reported as a defect.** The probe handed every
+   role the roster's first athlete (Athletics) while Coach Demo 01 is Badminton,
+   so the sport scope check fired exactly as designed and was counted as two
+   failures. A coach is also **not on `/athletes`' rbac list** — their squad
+   comes from `/coach/readiness` — and the 403 body parsed as an empty array,
+   which then read as *"the coach sees zero athletes"*. Three wrong conclusions
+   from one bad assumption about where a scoped role's data lives.
+3. **The deploy harness rolled back a build it had never tested.** See 4b.
+
+**The standing answer.** `verify:reports` downloads every report as every role
+and asserts the **`%%EOF` trailer**, not the status — these routes stream, so a
+mid-draw failure arrives as HTTP 200 with a file that may not open. It exits
+**2** when it cannot sign in or cannot reach the target, so an unmeasured run can
+never read as a clean one (the §121.8 rule). `deploy-verify-rollback.js` now
+downloads a report as part of every deploy.
+
+### 4b. The rollback that fired on a build it had never measured (2026-10-05)
+
+Found by running `scripts/deploy-verify-rollback.js` for real, on the deploy that
+fixed 4a.
+
+It waited for the new build by polling `/api/health` until a `build` field
+appeared, on its own stated reasoning: *"the new code reports `build` and the old
+one does not, so the arrival of that field IS the deploy landing."* True the day
+it was written, and false from the moment that field shipped. So it saw the
+**old** build answering with a build id after **fifteen seconds** — nowhere near
+long enough for Vercel to build — declared the deploy landed, verified the old
+code, found the reports still broken, and force-pushed a rollback over a build it
+had never measured.
+
+That is **§116.5 reproduced inside the tool written to prevent §116.5**, and the
+comment explaining why it worked is what made it read as correct.
+
+**The digest cannot stand in for it either.** `build` hashes every `.js` under
+`backend/src`, and a bundle fix touches `vercel.json`, `scripts/` and `tests/` —
+nothing under `src`. So the digest is **byte-identical across that deploy by
+design**, and waiting for it to *change* would hang for ten minutes on a
+perfectly good one. Both available signals are wrong in opposite directions:
+presence fires instantly on the old build, change never fires on the new one.
+
+The fix is the commit: it waits for `/api/health`'s `commit` to **equal the SHA
+being deployed**. On the re-run it reported `still eba6788… / de27223…` at 15s
+and `new build serving: commit fc23cb8…` at **105s**, then verified all five
+reports as complete PDFs.
+
+If the instance reports no `commit` at all it says so and **does not roll back** —
+that means the deployed build predates the field, so there is nothing to
+conclude, and rolling back on an unverified reading is the exact behaviour the
+tool exists to prevent.
+
+**The rule.** A landing check must compare against *what you are deploying*, not
+test a field for existence. "Is it there yet" and "is it the thing I sent" are
+different questions, and only the second one is worth asking.

@@ -380,7 +380,7 @@ Generated into both packages from `shared/facts.js` — see DESIGN_DECISIONS §5
 
 ## 7. Environment variables the backend reads
 
-`AIRMS_MAX_UPLOAD_BYTES` · `AUDIT_API` · `AUDIT_PW` · `BACKEND_DIR` · `DEPLOY_API` · `DEPLOY_BRANCH` · `DEPLOY_SOURCE` · `FRONTEND_URL` · `GIT_COMMIT_SHA` · `JWT_EXPIRES_IN` · `JWT_SECRET` · `MAILER_DRY_RUN` · `MAIL_SCHEDULER` · `MYSQL_DATABASE` · `MYSQL_HOST` · `MYSQL_PASSWORD` · `MYSQL_POOL_MAX` · `MYSQL_PORT` · `MYSQL_SSL` · `MYSQL_SSL_CA` · `MYSQL_SSL_INSECURE` · `MYSQL_USER` · `NODE_ENV` · `PORT` · `SMTP_FROM` · `SMTP_HOST` · `SMTP_PASS` · `SMTP_PORT` · `SMTP_SECURE` · `SMTP_USER` · `SQL_LOG` · `SQL_SYNC` · `TESSERACT_CACHE_PATH` · `VERCEL` · `VERCEL_GIT_COMMIT_SHA` · `VERIFY_API` · `VERIFY_PACE_MS` · `VERIFY_PW` · `VISION_API_KEY` · `VISION_BASE_URL` · `VISION_MAX_PAGES` · `VISION_MODEL` · `VISION_PROVIDER` · `VISION_RENDER_SCALE`
+`AIRMS_MAX_UPLOAD_BYTES` · `AUDIT_API` · `AUDIT_PW` · `BACKEND_DIR` · `DEPLOY_API` · `DEPLOY_BRANCH` · `DEPLOY_SOURCE` · `FRONTEND_URL` · `GIT_COMMIT_SHA` · `JWT_EXPIRES_IN` · `JWT_SECRET` · `MAILER_DRY_RUN` · `MAIL_SCHEDULER` · `MYSQL_DATABASE` · `MYSQL_HOST` · `MYSQL_PASSWORD` · `MYSQL_POOL_MAX` · `MYSQL_PORT` · `MYSQL_SSL` · `MYSQL_SSL_CA` · `MYSQL_SSL_INSECURE` · `MYSQL_USER` · `NODE_ENV` · `PORT` · `SMTP_FROM` · `SMTP_HOST` · `SMTP_PASS` · `SMTP_PORT` · `SMTP_SECURE` · `SMTP_USER` · `SQL_LOG` · `SQL_SYNC` · `TESSERACT_CACHE_PATH` · `VERCEL` · `VERCEL_GIT_COMMIT_SHA` · `VERIFY_API` · `VERIFY_PACE_MS` · `VERIFY_PASSWORD` · `VERIFY_PW` · `VISION_API_KEY` · `VISION_BASE_URL` · `VISION_MAX_PAGES` · `VISION_MODEL` · `VISION_PROVIDER` · `VISION_RENDER_SCALE`
 
 ## 8. npm scripts
 
@@ -418,6 +418,7 @@ Generated into both packages from `shared/facts.js` — see DESIGN_DECISIONS §5
 | backend | `make:fixture` | `node scripts/make-synthetic-report.js` |
 | backend | `verify:textlayer` | `node scripts/verify-textlayer-extract.js` |
 | backend | `bootstrap:admin` | `node scripts/bootstrap-admin.js` |
+| backend | `verify:reports` | `node scripts/verify-report-downloads.js` |
 | frontend | `dev` | `next dev` |
 | frontend | `build` | `next build` |
 | frontend | `start` | `next start` |
