@@ -72,24 +72,96 @@ async function session() {
   return (await r.json()).token;
 }
 
-/** The three §113 endpoints, plus the roster as a control. */
+/**
+ * Download something that must be a PDF, and say whether a COMPLETE one arrived.
+ *
+ * A STATUS CODE CANNOT ANSWER THIS, which is the whole reason this exists
+ * separately from probe(). The report routes stream: startDoc() commits the
+ * response to being a PDF, so once drawing has begun `res.headersSent` is true
+ * and the catch can no longer answer 500 — it calls res.end(). A mid-draw
+ * failure therefore arrives as HTTP 200 with a .pdf that may not open, and a
+ * deploy check that only read statuses would wave it through. So this asserts
+ * the %%EOF trailer pdfkit writes on end(), which is the only evidence the
+ * document was finished rather than cut off.
+ */
+async function pdfProbe(token, p) {
+  try {
+    const r = await fetch(`${API}${p}`, { headers: { Authorization: `Bearer ${token}` } });
+    const ct = (r.headers.get('content-type') || '').split(';')[0];
+    if (!ct.includes('application/pdf')) {
+      const t = await r.text();
+      let msg = t.slice(0, 100);
+      try { msg = JSON.parse(t).message || msg; } catch { /* not json */ }
+      return { status: r.status, ok: false, note: `${ct || 'no content-type'} — ${msg}` };
+    }
+    const buf = Buffer.from(await r.arrayBuffer());
+    const magic = buf.slice(0, 5).toString('latin1') === '%PDF-';
+    const eof = buf.slice(-2048).toString('latin1').includes('%%EOF');
+    return {
+      status: r.status,
+      ok: r.status === 200 && magic && eof,
+      note: magic && eof
+        ? `complete PDF, ${(buf.length / 1024).toFixed(0)} KB`
+        : `*** NOT A COMPLETE PDF (${buf.length} B, magic=${magic}, trailer=${eof})`,
+    };
+  } catch (e) {
+    return { status: 'ERR', ok: false, note: e.cause?.code || e.message };
+  }
+}
+
+/**
+ * The three §113 endpoints, the roster as a control, and every report download.
+ *
+ * THE REPORTS ARE HERE BECAUSE NOTHING WAS WATCHING THEM. On 2026-10-05 all
+ * five answered 500 on the deployed instance for every role entitled to them,
+ * and `GET /audit?action=report.download` returned a count of ZERO — so no
+ * report had ever been delivered by this deployment, while verify:claims
+ * reported 10/10 and hosted e2e reported 110/110. Both were right about what
+ * they cover; neither downloads a document. The cause was pdfkit's font metrics
+ * being traced out of the serverless bundle, which is invisible to every check
+ * that reads source or calls a JSON endpoint.
+ */
 async function verify(token) {
   const out = {};
   // Paced: a burst against this API tripped Vercel's bot protection once and
   // locked the machine out for ~20 minutes.
   for (const p of ['/athletes?limit=1', '/decisions']) {
     await sleep(1500);
-    out[p] = await probe(token, p);
+    out[p] = { status: await probe(token, p), ok: null, note: '' };
   }
   await sleep(1500);
   const aj = await (await fetch(`${API}/athletes?limit=1`, { headers: { Authorization: `Bearer ${token}` } })).json().catch(() => null);
   const list = Array.isArray(aj) ? aj : (aj?.athletes || aj?.data || []);
-  const id = list[0] && (list[0]._id || list[0].athleteId);
+  const row = list[0] || null;
+  const id = row && (row._id || row.athleteId);
   if (id) {
     await sleep(1500);
-    out[`/athletes/${id}`] = await probe(token, `/athletes/${id}`);
+    out[`/athletes/${id}`] = { status: await probe(token, `/athletes/${id}`), ok: null, note: '' };
+  }
+
+  // Every document an operator can ask for. The individual report needs a real
+  // roster id — an invented one exercises the 403/404 scope path instead of the
+  // report — and team.pdf needs that athlete's own sport for the same reason.
+  const reports = [
+    '/screening-reports/holistic.pdf',
+    '/screening-reports/programme-activity.pdf',
+    '/screening-reports/activity-log.pdf',
+  ];
+  if (row && row.sport) reports.push(`/screening-reports/team.pdf?sport=${encodeURIComponent(row.sport)}`);
+  if (id) reports.push(`/screening-reports/individual/${id}.pdf`);
+  for (const p of reports) {
+    await sleep(1500);
+    out[p] = await pdfProbe(token, p);
   }
   return out;
+}
+
+/** Anything that answered 5xx, or claimed 200 over an incomplete document. */
+function brokenIn(results) {
+  return Object.entries(results).filter(([, r]) => {
+    if (r.ok === false) return true;
+    return typeof r.status === 'number' && r.status >= 500;
+  });
 }
 
 (async () => {
@@ -149,16 +221,20 @@ async function verify(token) {
   if (!token) { log('  cannot sign in to verify — check manually before trusting this.'); process.exit(1); }
   const after = await verify(token);
   log('\n  verification:');
-  for (const [p, s] of Object.entries(after)) log(`    ${String(s).padStart(5)}  ${p}`);
+  for (const [p, r] of Object.entries(after)) log(`    ${String(r.status).padStart(5)}  ${p}${r.note ? `  — ${r.note}` : ''}`);
 
-  const broken = Object.entries(after).filter(([, s]) => typeof s === 'number' && s >= 500);
+  const broken = brokenIn(after);
   if (!broken.length) {
-    log('\n  deployed and verified. The §113 endpoints are healthy.');
+    log('\n  deployed and verified. The §113 endpoints are healthy and every');
+    log('  report downloaded as a complete PDF.');
     process.exit(0);
   }
 
-  log(`\n  ${broken.length} endpoint(s) answering 5xx — this is §113: the schema is`);
-  log('  missing screenings.norm_version_id / scored_at. ROLLING BACK.');
+  log(`\n  ${broken.length} check(s) failed. ROLLING BACK.`);
+  log('  A 5xx on /athletes/:id or /decisions is §113 — the schema is missing');
+  log('  screenings.norm_version_id / scored_at. A failure on a .pdf route is');
+  log("  more likely the bundle: pdfkit's font metrics traced out of the");
+  log('  function, which is what broke every report until 2026-10-05.');
   git('push', '--force-with-lease', 'origin', `${rollback}:${BRANCH}`);
   log('  rolled back. waiting for the old build…');
   for (let i = 0; i < 40; i += 1) {
@@ -166,7 +242,14 @@ async function verify(token) {
     const t = await session();
     if (t) {
       const re = await verify(t);
-      const still = Object.values(re).filter((s) => typeof s === 'number' && s >= 500);
+      // The PREVIOUS build cannot download a report either — that is the fault
+      // being fixed — so the restore is judged on the §113 endpoints alone.
+      // Requiring the reports to pass here would mean the rollback could never
+      // be declared successful and this would loop for ten minutes before
+      // crying "ROLLBACK DID NOT RESTORE HEALTH" about a healthy restore.
+      const still = Object.entries(re)
+        .filter(([p]) => !p.includes('.pdf'))
+        .filter(([, r]) => typeof r.status === 'number' && r.status >= 500);
       if (!still.length) {
         log('  restored — the previous build is serving and healthy.');
         log('\n  NEXT: apply the migration, then run this again.');
