@@ -65,6 +65,13 @@ const ENTRIES: Entry[] = [
       + 'charts, and your own name in the top corner. All of them have been corrected.',
   },
   {
+    title: 'Import a whole session at once',
+    body: 'HoloMotion saves one folder per screening session. You can now choose the '
+      + 'folder instead of picking the files out of it, and AIRMS ignores anything in '
+      + 'there that is not a report. Reports that it can match to an athlete by itself '
+      + 'are folded away, so what is left on screen is only what needs you.',
+  },
+  {
     title: 'Works properly with a screen reader',
     body: 'The settings that control how athletes are scored, and the forms for adding '
       + 'staff, now announce what each field is. Previously they were read out as just '

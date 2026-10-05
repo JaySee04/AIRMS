@@ -64,6 +64,42 @@ function hashTree(dir) {
   return h.digest('hex').slice(0, 12);
 }
 
+/**
+ * How many files went into the digest.
+ *
+ * Reported because the digest ALONE cannot explain a mismatch, and one showed up
+ * immediately: after the 2026-10-01 deploy, local read 3b23ee218b83 and hosted
+ * read 9e862a04c0c3 for what is byte-identical source. Line-ending
+ * normalisation — the thing this file says makes local and hosted comparable —
+ * cannot account for that.
+ *
+ * The likely reason is that a serverless build ships only the files its tracer
+ * reached, so `walk(src)` sees a different SET on each side. A bare pair of
+ * mismatched hashes cannot distinguish "different code" from "same code, fewer
+ * files", and those need opposite responses. The count makes that visible.
+ */
+function fileCount(dir = SRC) {
+  return walk(dir).length;
+}
+
+/**
+ * The COMMIT this build came from, when the platform will say.
+ *
+ * Vercel sets VERCEL_GIT_COMMIT_SHA on every deployment, which is a far better
+ * answer than a content digest for "is the deployed instance current": it
+ * survives bundling, it needs no file-set agreement, and it is exactly what a
+ * reader wants to compare against `git rev-parse`.
+ *
+ * Locally there is no such variable and the working tree is usually dirty, so
+ * this returns null rather than a commit that would describe the last commit
+ * instead of the files actually loaded — which is the precise confusion the
+ * content digest exists to avoid. Null means "ask the digest".
+ */
+function commitSha() {
+  const sha = process.env.VERCEL_GIT_COMMIT_SHA || process.env.GIT_COMMIT_SHA || null;
+  return sha ? String(sha).slice(0, 12) : null;
+}
+
 let cached = null;
 
 /**
@@ -87,4 +123,6 @@ function buildId() {
   return cached;
 }
 
-module.exports = { buildId, hashTree };
+module.exports = {
+  buildId, hashTree, fileCount, commitSha,
+};

@@ -397,6 +397,8 @@ async function extractFromPdf(buffer, { reserveProviderCall } = {}) {
       // null when nothing was read at all.
       subitems: normaliseSubitems(fast.subitems),
       raw: { method: 'text-layer', textLayerChars: fast.textLayerChars },
+      // Carried for the route to match on, and stripped there.
+      readName: fast.readName || null,
       method: 'text-layer',
       // WHICH producer the Summary came from. §70 reproduces it verbatim as the
       // instrument's own verdict, so "read from the glyphs" and "read by a

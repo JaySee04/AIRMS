@@ -46,6 +46,14 @@ export interface PreviewResponse {
   tension: MuscleEntry[];
   assessedAt: string | null;
   pagesRead: number[];
+  /** An athleteId the SERVER resolved from the report's own printed name (§121).
+   *  A second, independent source to the filename — the two fail differently —
+   *  and the name itself never travels. Absent when nothing matched uniquely. */
+  suggestedAthleteId?: string | null;
+  /** How many times the extractor actually called the vision provider. Zero for
+   *  a report read from the text layer, which is nearly all of them since §112.
+   *  The batch loop paces itself on this. */
+  providerCalls?: number;
   summary?: string | null;
   subitems?: Record<string, Record<string, number | null>> | null;
   // What the vision call cost. Passed back on commit so the Activity Log can
@@ -83,6 +91,10 @@ export interface QueueItem {
   /** The resolved name, whatever the source — used for the provenance line. */
   matchedName: string;
   athleteId: string;
+  /** Set when this athlete already has a screening at this exact instant, i.e.
+   *  the report has been imported before (§121). Null means checked and clear;
+   *  undefined means not checked — the two are deliberately different. */
+  alreadyImported?: string | null;
   sport: string;
   program: string;
   disciplines: string[];
@@ -101,8 +113,21 @@ interface UploadState {
 }
 
 // ── config / helpers ────────────────────────────────────────────────────────
-// Pause between sequential vision calls — stays inside free-tier RPM limits
-// when a whole squad's reports are dropped at once.
+// Pause after a report that ACTUALLY CALLED THE PROVIDER — that is what the
+// free-tier RPM limit counts, and nothing else (§121).
+//
+// This used to run after EVERY file, and was right when every file meant a
+// vision call. Since §112 nearly all reports are read from the PDF's own text
+// layer: no network, no quota, nothing to pace. The pause was protecting a
+// limit the batch was no longer approaching.
+//
+// Measured on four reports: 10.2 s, of which 9 s was this sleep and ~1.2 s was
+// work. On a realistic session of sixty that is about three minutes of waiting
+// for nothing.
+//
+// Same shape as §115.1, where the quota CAP was counting requests after most of
+// them stopped costing anything. When the cost moves, everything sized to it
+// has to be re-checked — a delay is as much a cost model as a limit is.
 export const BATCH_SPACING_MS = 3000;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -192,7 +217,43 @@ export function parseNameFromFilename(filename: string): string {
   return s;
 }
 
-async function extractOne(item: QueueItem): Promise<void> {
+// HAS THIS REPORT BEEN IMPORTED BEFORE? (§121)
+//
+// The commit is idempotent on (athleteId, assessedAt) since §45, so re-importing
+// REPLACES rather than duplicating and nothing is corrupted. But the operator
+// only found that out after filling the row in and pressing the button. On a
+// session where somebody re-drops a folder "to be safe", that is the whole batch
+// re-entered by hand for no change.
+//
+// Cached per athlete for the run: a squad's reports arrive together and the
+// answer cannot change mid-batch without this uploader having caused it.
+const screeningDates = new Map<string, Set<string>>();
+async function importedAlready(athleteId: string, assessedAt: string | null): Promise<string | null> {
+  if (!athleteId || !assessedAt) return null;
+  try {
+    let dates = screeningDates.get(athleteId);
+    if (!dates) {
+      const rows = await api.get<Array<{ assessedAt: string | null }>>(`/screenings/athlete/${encodeURIComponent(athleteId)}`);
+      dates = new Set(rows.map((r) => String(r.assessedAt ?? '')).filter(Boolean));
+      screeningDates.set(athleteId, dates);
+    }
+    // Compare as instants, not strings: the API returns ISO and the report
+    // prints "2025-07-29 15:42:16". Matching on text would report every repeat
+    // as new, which is the failure that makes a duplicate check pointless.
+    const want = new Date(assessedAt.replace(' ', 'T')).getTime();
+    for (const d of dates) {
+      if (new Date(d).getTime() === want) return d;
+    }
+    return null;
+  } catch {
+    // A permission or network failure must not block an import. Undefined-ish:
+    // we return null, and the row simply carries no duplicate notice.
+    return null;
+  }
+}
+
+/** @returns how many provider calls this report cost — 0 for a text-layer read. */
+async function extractOne(item: QueueItem): Promise<number> {
   patchItemInternal(item.id, { status: 'extracting', error: null });
   try {
     // REDUCE THE UPLOAD IF THIS SERVER WILL NOT TAKE THE WHOLE FILE (§115.5).
@@ -214,7 +275,22 @@ async function extractOne(item: QueueItem): Promise<void> {
     // pre-fill from the LOCAL filename instead (never sent to the model): a unique
     // roster name-match attaches the athlete; otherwise the operator picks below.
     const parsedName = parseNameFromFilename(item.file.name);
-    const hit = matchByName(parsedName);
+    // TWO INDEPENDENT SOURCES, BECAUSE THEY FAIL DIFFERENTLY (§121).
+    //
+    // The filename was the only one. Measured over six real reports under this
+    // same exact-unique rule, the filename and the report's own printed name
+    // each resolve 4 — a tie — but not the same 4: the filename is useless for
+    // `nazwan.pdf`, and the printed name truncates when it wraps. Taking either
+    // resolves 5 of 6, and the sixth is the compact layout, which carries no
+    // text for EITHER of them to read.
+    //
+    // The filename goes first only because it costs nothing; the server's
+    // suggestion arrived with the payload and is equally trusted. Both apply the
+    // unique-hit rule, so neither can quietly pick the wrong athlete.
+    const hit = matchByName(parsedName)
+      ?? (preview.suggestedAthleteId
+        ? (state.roster ?? []).find((a) => a.athleteId === preview.suggestedAthleteId) ?? null
+        : null);
 
     // Resolve the athlete FROM THE NAME rather than making the operator search.
     // The roster first — most reports are for athletes we already hold. If they
@@ -228,9 +304,15 @@ async function extractOne(item: QueueItem): Promise<void> {
       gender: preview.athlete.gender ?? '',
     };
 
+    // Only for an athlete already on the roster: an ISN-directory match has no
+    // AIRMS record yet, so by definition nothing has been imported for them.
+    const resolvedId = hit?.athleteId ?? '';
+    const already = resolvedId ? await importedAlready(resolvedId, preview.assessedAt) : null;
+
     patchItemInternal(item.id, {
       status: 'ready',
       preview,
+      alreadyImported: already,
       matched: hit,
       matchSource: hit ? 'roster' : isn ? 'isn' : null,
       matchedName: hit?.name ?? isn?.name ?? '',
@@ -245,8 +327,14 @@ async function extractOne(item: QueueItem): Promise<void> {
       age: fromReport.age || (isn?.age != null ? String(isn.age) : ''),
       gender: fromReport.gender || isn?.gender || '',
     });
+    return preview.providerCalls ?? 0;
   } catch (e) {
     patchItemInternal(item.id, { status: 'error', error: e instanceof Error ? e.message : 'Failed to read PDF' });
+    // A FAILURE PACES LIKE A CALL. We cannot tell from here whether the request
+    // died before or after reaching the provider, and the safe assumption is
+    // after — a retry storm against a rate limit is exactly what the pause
+    // exists to prevent.
+    return 1;
   }
 }
 
@@ -261,8 +349,13 @@ async function runExtraction() {
     for (;;) {
       const next = state.items.find((it) => it.status === 'queued');
       if (!next) break;
-      await extractOne(next);
-      if (state.items.some((it) => it.status === 'queued')) await sleep(BATCH_SPACING_MS);
+      const providerCalls = await extractOne(next);
+      // Pace on what the LAST report actually spent, not on the fact that a
+      // report happened. A text-layer read touches no third party and needs no
+      // gap; a vision call does (§121).
+      if (providerCalls > 0 && state.items.some((it) => it.status === 'queued')) {
+        await sleep(BATCH_SPACING_MS);
+      }
     }
   } finally {
     running = false;

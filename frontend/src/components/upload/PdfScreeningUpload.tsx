@@ -26,6 +26,7 @@ import IsnLookup from '@/components/upload/IsnLookup';
 import ScreeningPreview from '@/components/upload/ScreeningPreview';
 import * as uploadStore from '@/lib/screeningUploadStore';
 import { parseNameFromFilename } from '@/lib/screeningUploadStore';
+import { checkMatch } from '@/lib/icFacts';
 import type { QueueItem, CommittedEntry, RosterAthlete } from '@/lib/screeningUploadStore';
 
 // The "muscle hero" — the shared body-map figure (front/back) with flag cards.
@@ -55,8 +56,22 @@ interface StatusResponse {
 
 export default function PdfScreeningUpload() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const folderInputRef = useRef<HTMLInputElement | null>(null);
+  // `webkitdirectory` has no React typing, so it is set on the element itself.
+  useEffect(() => {
+    const el = folderInputRef.current;
+    if (el) { el.setAttribute('webkitdirectory', ''); el.setAttribute('directory', ''); }
+  }, []);
   const [status, setStatus] = useState<StatusResponse | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  // Which settled rows the operator has opened anyway. Collapsed is the
+  // default; this is the escape hatch, not a mode.
+  const [expanded, setExpanded] = useState<Set<number>>(new Set());
+  const toggleExpanded = (id: number) => setExpanded((prev) => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
   // Disciplines already on record, grouped by sport — offered as autocomplete in
   // the events picker so an operator can reuse an existing event or type a new one.
   const [knownDisc, setKnownDisc] = useState<Record<string, string[]>>({});
@@ -184,6 +199,51 @@ export default function PdfScreeningUpload() {
   const readyCount = items.filter((it) => it.status === 'ready').length;
   const completeReady = items.filter((it) => it.status === 'ready' && it.name.trim() && it.athleteId.trim() && it.sport.trim() && it.program).length;
 
+  // ── VARIANT B: the queue is EXCEPTIONS first, not a flat list ──────────────
+  //
+  // Nothing here changes WHAT is imported, or how it is read — only what the
+  // operator is asked to look at. A report whose athlete resolved from the
+  // roster already has its name, IC, sport and programme filled in, so the row
+  // needs no human input at all; the current build still renders it as a full
+  // editing card identical to one that does. On a 60-report session that is 60
+  // cards to read in order to find the six that matter.
+  //
+  // So a settled row collapses to one line, and the queue is ordered
+  // needs-you-first: the work is bounded by the exceptions rather than by the
+  // size of the batch. Expanding a settled row is one click, because "it
+  // auto-filled the wrong athlete" has to stay correctable — the whole point is
+  // to make the exceptions visible, not to hide the rest.
+  // CORROBORATION, NOT INSPECTION — the reason collapsing is safe (§121).
+  //
+  // Collapsing a matched report was posed as a trade: the operator's afternoon
+  // against their chance to check. It is not one, because "read the card" was
+  // never much of a check — nobody scanning fifty-four cards reliably notices
+  // that the thirty-seventh says Male where the athlete is Female.
+  //
+  // The IC the roster already returns encodes date of birth and sex, and the
+  // report's own cover prints age and gender. So the match is checked against
+  // two independent facts that came out of the report, and a row may only
+  // collapse once BOTH agree. Anything unchecked or contradicted stays open and
+  // is listed with the work.
+  const checkOf = (it: QueueItem) => checkMatch({
+    athleteId: it.athleteId,
+    reportAge: it.age === '' ? null : Number(it.age),
+    reportGender: it.gender || null,
+    assessedAt: it.preview?.assessedAt ?? null,
+  });
+  const isSettled = (it: QueueItem) => it.status === 'ready'
+    && Boolean(it.name.trim() && it.athleteId.trim() && it.sport.trim() && it.program)
+    && checkOf(it).verdict === 'agrees'
+    // A REPEAT IS A DECISION, so it does not collapse (§121). The commit is
+    // idempotent and replaces rather than duplicating, so nothing breaks either
+    // way — but "you are about to overwrite a screening you already hold" is the
+    // operator's call, not something to fold away into a tick.
+    && !it.alreadyImported;
+  const needsYou = items.filter((it) => it.status === 'error' || (it.status === 'ready' && !isSettled(it)));
+  const settled = items.filter(isSettled);
+  const inFlight = items.filter((it) => !needsYou.includes(it) && !settled.includes(it));
+  const ordered = [...needsYou, ...settled, ...inFlight];
+
   // Client-side navigation no longer loses the queue (it lives in the store),
   // but a hard reload / tab close still would — and 'extracting'/'ready' items
   // represent real vision-API calls not yet committed. Warn only when such
@@ -249,10 +309,33 @@ export default function PdfScreeningUpload() {
         <p className="text-muted" style={{ fontSize: 'var(--fs-md)', margin: 0 }}>
           or click to browse · one or many .pdf files
         </p>
+        {/* A WHOLE SESSION IS A FOLDER (§121). HoloMotion exports one directory
+            per screening session, and the operator was picking sixty files out
+            of it by hand. `webkitdirectory` is non-standard but is what every
+            current browser implements; it is set through a ref rather than as a
+            JSX attribute because React has no typing for it, and the click is
+            stopped from bubbling so it does not also open the file picker the
+            drop zone owns. Non-PDFs in the folder are filtered by addFiles
+            already, so a stray thumbnail or CSV is simply ignored. */}
+        <button
+          type="button"
+          className="btn btn-outline btn-sm"
+          style={{ marginTop: 'var(--sp-sm)' }}
+          onClick={(e) => { e.stopPropagation(); folderInputRef.current?.click(); }}
+        >
+          Choose a whole session folder
+        </button>
         <input
           ref={fileInputRef}
           type="file"
           accept=".pdf"
+          multiple
+          style={{ display: 'none' }}
+          onChange={(e) => { addFiles(e.target.files); e.target.value = ''; }}
+        />
+        <input
+          ref={folderInputRef}
+          type="file"
           multiple
           style={{ display: 'none' }}
           onChange={(e) => { addFiles(e.target.files); e.target.value = ''; }}
@@ -275,9 +358,85 @@ export default function PdfScreeningUpload() {
         </div>
       )}
 
+      {/* ── VARIANT B: what is left to DO, before the list of what there is ── */}
+      {items.length > 0 && (needsYou.length > 0 || settled.length > 0) && (
+        <div
+          className="card"
+          style={{
+            marginTop: 14,
+            padding: 'var(--sp-md)',
+            display: 'flex',
+            gap: 'var(--sp-lg)',
+            alignItems: 'baseline',
+            flexWrap: 'wrap',
+            borderLeft: `3px solid ${needsYou.length ? 'var(--risk-moderate)' : 'var(--risk-low)'}`,
+          }}
+        >
+          <div>
+            <div style={{ fontSize: 'var(--fs-2xl)', fontWeight: 700, lineHeight: 1.1 }}>{settled.length}</div>
+            <div className="text-muted" style={{ fontSize: 'var(--fs-xs)' }}>checked · nothing to fill in</div>
+          </div>
+          <div>
+            <div
+              style={{
+                fontSize: 'var(--fs-2xl)',
+                fontWeight: 700,
+                lineHeight: 1.1,
+                color: needsYou.length ? 'var(--risk-moderate-ink)' : undefined,
+              }}
+            >
+              {needsYou.length}
+            </div>
+            <div className="text-muted" style={{ fontSize: 'var(--fs-xs)' }}>need you</div>
+          </div>
+          <p className="text-muted" style={{ fontSize: 'var(--fs-sm)', margin: 0, flex: 1, minWidth: 220 }}>
+            {needsYou.length === 0
+              ? 'Every report matched an athlete, and each one’s printed age and gender agree with the IC it was matched to. Open any row to see the comparison.'
+              : 'The ones needing you are first. The rest are collapsed only because the age and gender printed on the report agree with the IC they matched — a check nobody can make by eye. Open one to see it.'}
+          </p>
+        </div>
+      )}
+
       {/* ── Queue ── */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: items.length ? 16 : 0 }}>
-        {items.map((it) => (
+        {ordered.map((it) => {
+          // A settled row is one line until asked otherwise. The full card is
+          // unchanged below — this returns EARLY rather than rendering a second
+          // variant of it, so the editing surface has exactly one definition.
+          if (isSettled(it) && !expanded.has(it.id)) {
+            return (
+              <div
+                key={it.id}
+                className="pdf-queue-item"
+                style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-sm)', padding: 'var(--sp-sm) var(--sp-md)' }}
+              >
+                <span className="pdf-status pdf-status--ready" style={{ flexShrink: 0 }}>Ready</span>
+                <strong style={{ fontSize: 'var(--fs-md)', minWidth: 0, overflowWrap: 'anywhere' }}>{it.name}</strong>
+                <span className="text-muted" style={{ fontSize: 'var(--fs-xs)' }}>
+                  {it.athleteId} · {it.sport} · {it.program}
+                  {it.matchSource === 'roster' && ' · matched on the roster'}
+                  {it.matchSource === 'isn' && ' · from the ISN directory'}
+                </span>
+                {/* WHAT WAS CHECKED, on the row. The collapse is not asking to
+                    be trusted — it is reporting a comparison the operator could
+                    not have made by eye, between the report's own cover and the
+                    IC it was matched to. */}
+                <span
+                  className="text-muted"
+                  style={{ fontSize: 'var(--fs-2xs)', color: 'var(--risk-low)', whiteSpace: 'nowrap' }}
+                  title={`The report prints ${it.gender} age ${it.age}; this IC encodes the same. Checked at the screening date, not today.`}
+                >
+                  ✓ sex and age match the IC
+                </span>
+                <span style={{ flex: 1 }} />
+                <button type="button" className="btn btn-outline btn-sm" onClick={() => toggleExpanded(it.id)}>
+                  Check
+                </button>
+                <button type="button" className="btn btn-outline btn-sm" onClick={() => removeItem(it.id)}>✕</button>
+              </div>
+            );
+          }
+          return (
           <div key={it.id} className="pdf-queue-item">
             <div className="pdf-queue-head">
               <div style={{ minWidth: 0 }}>
@@ -314,6 +473,36 @@ export default function PdfScreeningUpload() {
                     {it.preview.assessedAt ? ` · assessed ${it.preview.assessedAt}` : ''}
                     <span className="text-muted" style={{ fontWeight: 400 }}> · name redacted before extraction</span>
                   </div>
+
+                  {/* THE CONTRADICTION CASE, and the reason this check earns its
+                      place. A name match can be confidently wrong — two athletes
+                      share a name, or the operator picked the row above the one
+                      they meant. When the report's own cover disagrees with the
+                      IC it has been attached to, that is worth interrupting for,
+                      and no amount of reading the card would have caught it. */}
+                  {it.athleteId && checkOf(it).verdict === 'disagrees' && (
+                    <div className="alert alert-warning" style={{ marginBottom: 10 }}>
+                      <strong>This report may not belong to this athlete.</strong>
+                      {' '}
+                      {checkOf(it).reason}. Check you have the right person before importing —
+                      the scores will be filed against whoever is selected here.
+                    </div>
+                  )}
+                  {it.alreadyImported && (
+                    <div className="alert alert-warning" style={{ marginBottom: 10 }}>
+                      <strong>Already imported.</strong> This athlete already has a screening
+                      recorded at exactly this moment, so this is the same report again.
+                      Importing replaces the stored one rather than adding a second — if that is
+                      what you want, carry on; otherwise remove this row.
+                    </div>
+                  )}
+                  {it.athleteId && checkOf(it).verdict === 'unknown' && (
+                    <div className="text-muted" style={{ fontSize: 'var(--fs-sm)', marginBottom: 10 }}>
+                      Not cross-checked — this needs an IC number plus an age and gender on the
+                      report, and one of them is missing. Worth a look before importing.
+                    </div>
+                  )}
+
                   {it.matched ? (
                     <div className="alert alert-info" style={{ marginBottom: 10 }}>
                       Attached to <strong>{it.matched.name} ({it.matched.athleteId})</strong> — identity, sport, and programme filled from the roster. Edit below if anything is wrong.
@@ -474,7 +663,8 @@ export default function PdfScreeningUpload() {
               </div>
             )}
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Shared searchable sport list (one datalist for all queue items) */}

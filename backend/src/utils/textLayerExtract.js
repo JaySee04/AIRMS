@@ -552,6 +552,11 @@ async function extractFromTextLayer(buffer, { pdfjs } = {}) {
     textLayerChars: score,
     totalPages,
     nameFound: Boolean(cover.name),
+    // The printed name, for MATCHING ONLY and never for storing (§121).
+    // routes/upload.js resolves it against the roster and then DELETES it, so
+    // it does not reach the browser. `athlete.name` stays empty for the reason
+    // §112 gives: the stored name comes from OUR roster, not from the report.
+    readName: cover.name || null,
     athlete: {
       name: '',
       age: cover.age,

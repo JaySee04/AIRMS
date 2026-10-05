@@ -152,7 +152,7 @@ catch output that reads as ordinary.
 
 ```powershell
 cd backend;  npx jest              # 68 backend suites
-cd frontend; npx jest              # 27 frontend suites
+cd frontend; npx jest              # 28 frontend suites
 cd frontend; npm run typecheck
 cd frontend; npm run lint
 

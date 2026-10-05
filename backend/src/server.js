@@ -13,7 +13,7 @@ const helmet = require('helmet');
 const { connectDB, sequelize } = require('./config/db');
 const { sendError } = require('./utils/httpError');
 const logger = require('./utils/logger');
-const { buildId } = require('./utils/buildId');
+const { buildId, fileCount, commitSha } = require('./utils/buildId');
 require('./models'); // register models + associations
 
 const authRoutes = require('./routes/auth');
@@ -130,7 +130,14 @@ app.use(express.urlencoded({ extended: true }));
 app.get('/api/health', async (_req, res) => {
   try {
     await sequelize.query('SELECT 1');
-    res.json({ ok: true, db: 'up', build: buildId() });
+    // `files` and `commit` alongside the digest, so a mismatch is diagnosable
+    // rather than mysterious. A serverless build ships only the files its
+    // tracer reached, so two instances running identical source can hash
+    // differently; the count says so, and `commit` sidesteps it entirely
+    // wherever the platform provides one.
+    res.json({
+      ok: true, db: 'up', build: buildId(), files: fileCount(), commit: commitSha(),
+    });
   } catch (err) {
     // 503, not 500: the app is fine, its dependency is not — and an uptime
     // monitor should read this as "down" so a sleeping database is visible
@@ -143,7 +150,9 @@ app.get('/api/health', async (_req, res) => {
     // The build still answers on the failure path: "which code is this?" is
     // most worth asking when something is wrong, and a check that could only
     // read it from a healthy instance would be missing exactly then.
-    res.status(503).json({ ok: false, db: 'down', build: buildId() });
+    res.status(503).json({
+      ok: false, db: 'down', build: buildId(), files: fileCount(), commit: commitSha(),
+    });
   }
 });
 

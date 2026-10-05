@@ -27,7 +27,7 @@
 // is what CI should use once the field is everywhere.
 const path = require('path');
 
-const { buildId } = require(path.join(__dirname, '..', 'src', 'utils', 'buildId'));
+const { buildId, fileCount } = require(path.join(__dirname, '..', 'src', 'utils', 'buildId'));
 
 /**
  * Compare a running instance's build against this working tree.
@@ -38,17 +38,66 @@ const { buildId } = require(path.join(__dirname, '..', 'src', 'utils', 'buildId'
 async function checkFresh(apiBase) {
   const local = buildId();
   let remote = null;
+  let remoteCommit = null;
+  let remoteFiles = null;
   try {
     const r = await fetch(`${apiBase.replace(/\/$/, '')}/health`);
     const body = await r.json().catch(() => ({}));
     remote = typeof body.build === 'string' ? body.build : null;
+    remoteCommit = typeof body.commit === 'string' ? body.commit : null;
+    remoteFiles = typeof body.files === 'number' ? body.files : null;
   } catch (e) {
     return { ok: false, reason: `unreachable: ${e.message}`, local, remote: null };
   }
   if (!remote) return { ok: true, reason: 'no-build-field', local, remote: null };
   if (remote === 'unknown') return { ok: true, reason: 'server-could-not-fingerprint', local, remote };
+
+  // PREFER THE COMMIT WHEN THE INSTANCE REPORTS ONE (2026-10-01).
+  //
+  // The content digest cannot compare a local checkout against a SERVERLESS
+  // build, and the first real attempt proved it: after the deploy, local read
+  // 3b23ee218b83 and hosted read 9e862a04c0c3 for byte-identical source.
+  // Line-ending normalisation — which this tool's comment offers as the reason
+  // local and hosted are comparable — cannot explain that, because a serverless
+  // build ships only the files its tracer reached, so the two sides hash a
+  // different SET of files. The digest is exactly right for "did this process
+  // reload after I edited something" and structurally unable to answer "is the
+  // deployment current".
+  //
+  // Vercel sets VERCEL_GIT_COMMIT_SHA on every deployment, so the deployed
+  // instance can simply say which commit it is. Compared against the local HEAD,
+  // and only when the tree is CLEAN: against a dirty tree the commit describes
+  // the last commit rather than the files loaded, which is the very confusion
+  // the digest exists to avoid.
+  if (remoteCommit) {
+    const head = localHead();
+    if (!head) return { ok: true, reason: 'local-tree-dirty', local, remote, remoteCommit };
+    if (head !== remoteCommit) {
+      return { ok: false, reason: 'stale-commit', local, remote, remoteCommit, head };
+    }
+    return { ok: true, reason: 'match-commit', local, remote, remoteCommit, head };
+  }
+
+  // No commit to go on. The digest is only meaningful when both sides hashed the
+  // same file set, so a count mismatch is reported as its own answer rather than
+  // as "different code".
+  if (remoteFiles !== null && remoteFiles !== fileCount()) {
+    return {
+      ok: true, reason: 'different-file-set', local, remote, remoteFiles, localFiles: fileCount(),
+    };
+  }
   if (remote !== local) return { ok: false, reason: 'stale', local, remote };
   return { ok: true, reason: 'match', local, remote };
+}
+
+/** The local HEAD, but only if the working tree is clean. */
+function localHead() {
+  try {
+    const { execFileSync } = require('child_process');
+    const root = require('path').join(__dirname, '..', '..');
+    if (execFileSync('git', ['status', '--porcelain'], { cwd: root, encoding: 'utf8' }).trim()) return null;
+    return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim().slice(0, 12);
+  } catch { return null; }
 }
 
 /** Print the verdict. Returns the exit code the caller should use. */
@@ -56,6 +105,33 @@ function report(res, { strict = false, label = 'instance' } = {}) {
   if (res.reason === 'match') {
     console.log(`  build ${res.local} — ${label} is running this working tree`);
     return 0;
+  }
+  if (res.reason === 'match-commit') {
+    console.log(`  commit ${res.remoteCommit} — ${label} is running this commit`);
+    return 0;
+  }
+  if (res.reason === 'stale-commit') {
+    console.error('');
+    console.error(`  REFUSING TO MEASURE: the ${label} is running a DIFFERENT commit.`);
+    console.error(`    this working tree : ${res.head}`);
+    console.error(`    the ${label.padEnd(14)}: ${res.remoteCommit}`);
+    console.error('');
+    console.error('  Anything measured now describes code you are not reading.');
+    return 1;
+  }
+  if (res.reason === 'local-tree-dirty') {
+    // The commit cannot speak for uncommitted edits, and saying "match" here
+    // would be the exact false assurance this tool exists to prevent.
+    console.error(`  WARNING: the working tree is dirty, so the ${label}'s commit`);
+    console.error(`    (${res.remoteCommit}) cannot be compared against it. Commit or stash first.`);
+    return strict ? 1 : 0;
+  }
+  if (res.reason === 'different-file-set') {
+    console.error(`  WARNING: the ${label} hashed ${res.remoteFiles} files, this tree has ${res.localFiles}.`);
+    console.error('    A serverless build ships only the files its tracer reached, so the');
+    console.error('    digests cannot be compared. This is not evidence of stale code —');
+    console.error('    and it is not evidence of fresh code either.');
+    return strict ? 1 : 0;
   }
   if (res.reason === 'stale') {
     console.error('');
