@@ -506,14 +506,15 @@ cd frontend; npm run e2e   # END-TO-END smoke: a real Chrome against the running
                            # with the installed Chrome, so nothing is downloaded.
                            # See docs/SILENT_FAILURES.md 3f.
                            #
-                           # AGAINST THE HOSTED INSTANCE (re-verified 2026-09-11, 110/110 —
-                           # the WHOLE suite, matching the local run exactly. The previous
-                           # figure here was 63/63 on 2026-09-06, which was the whole suite
-                           # at THAT date; it is quoted as a count, so it dates itself.
-                           # The suite is 113 checks since the folder-upload merge, and
-                           # 113/113 was measured LOCALLY on 2026-10-05 against a server
-                           # assert-fresh confirmed was this tree — not hosted, so the
-                           # 110/110 above stands as the last HOSTED figure):
+                           # AGAINST THE HOSTED INSTANCE (re-verified 2026-10-05, 113/113 —
+                           # the WHOLE suite, matching the local run exactly, on the build
+                           # that fixed the report downloads. It was 110/110 on 2026-09-11
+                           # and 63/63 on 2026-09-06, each the whole suite at THAT date; the
+                           # figure is quoted as a count, so it dates itself.
+                           # NOTE WHAT 113/113 DOES NOT COVER: it was green for the whole
+                           # twenty-three days every PDF report was answering 500 on this
+                           # same instance. It drives PAGES and never downloads a file —
+                           # `npm run verify:reports -- --hosted` is the one that does):
                            #   E2E_WEB=https://airms-web.vercel.app `
                            #   E2E_API=https://airms-api.vercel.app/api `
                            #   E2E_SETTLE=5000 npm run e2e
