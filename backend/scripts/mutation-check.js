@@ -1026,6 +1026,75 @@ const MUTATIONS = [
     replace: '    const sc = data.sportComplianceMISSING;',
     test: 'tests/activityReportParity.test.js',
   },
+  // ── the three institutional reports' CONTENT claims (2026-10-05) ───────────
+  //
+  // routes/screeningReports.js was the largest remaining coverage gap (40.9%,
+  // 249 uncovered statements) and it is the file that produces the documents
+  // handed to a director. What was there asserted `status).not.toBe(403)`, which
+  // passes over a 500 — the shape reportRoutes.test.js's own header warns about.
+  {
+    guard: 'activity log export: a one-account extract NAMES its subject',
+    why: 'without the scope line a narrow extract is indistinguishable from the whole log',
+    pkg: 'backend',
+    file: 'src/routes/screeningReports.js',
+    find: '      req.query.entityId ? `Subject: ${String(req.query.entityId)}` : null,',
+    replace: '      null,',
+    test: 'tests/reportRoutes.test.js',
+  },
+  {
+    guard: 'activity log export: says it was CAPPED when more rows matched',
+    why: 'a reviewer otherwise holds a truncated record believing it is complete',
+    pkg: 'backend',
+    file: 'src/routes/screeningReports.js',
+    find: '    const LIMIT = 400;',
+    replace: '    const LIMIT = 500;',
+    test: 'tests/reportRoutes.test.js',
+  },
+  {
+    guard: 'activity log export: an empty selection SAYS it is empty',
+    why: 'a document that merely omits the table looks like one whose table failed to render',
+    pkg: 'backend',
+    file: 'src/routes/screeningReports.js',
+    find: '    if (!rows.length) {',
+    replace: '    if (rows.length < 0) {',
+    test: 'tests/reportRoutes.test.js',
+  },
+  {
+    guard: 'report downloads are audited as report.download',
+    why: 'for coach and executive, reading IS the only act there is to hold them to (§20)',
+    pkg: 'backend',
+    file: 'src/routes/screeningReports.js',
+    find: "    action: 'report.download',",
+    replace: "    action: 'report.viewed',",
+    test: 'tests/reportRoutes.test.js',
+  },
+  {
+    guard: 'individual report: a clinician OVERRIDE is disclosed as one',
+    why: 'printing the final band silently presents a judgement as an instrument reading',
+    pkg: 'backend',
+    file: 'src/routes/screeningReports.js',
+    find: '    if (latest.overrideBand) {',
+    replace: '    if (latest.overrideBand && false) {',
+    test: 'tests/reportRoutes.test.js',
+  },
+  {
+    guard: 'individual report: an empty trend says WHICH reason emptied it',
+    why: 'a date window and a missing history need opposite responses from the reader',
+    pkg: 'backend',
+    file: 'src/routes/screeningReports.js',
+    find: "          ? 'Only the latest screening falls in the selected window — widen the date range to see progress.'",
+    replace: "          ? 'Only one screening on record — import a newer report to see progress.'",
+    test: 'tests/reportRoutes.test.js',
+  },
+  {
+    guard: 'individual report: a muscle flag keeps its SIDE',
+    why: 'the body map paints the worse of L/R and discards it; this is where it survives',
+    pkg: 'backend',
+    file: 'src/routes/screeningReports.js',
+    find: "      .text((mf.myodynamia || []).map((m) => `${m.muscle} ${m.side}`).join(', ') || 'none');",
+    replace: "      .text((mf.myodynamia || []).map((m) => `${m.muscle}`).join(', ') || 'none');",
+    test: 'tests/reportRoutes.test.js',
+  },
 ];
 
 function pkgDir(pkg) {

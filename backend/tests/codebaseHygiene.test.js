@@ -391,13 +391,48 @@ describe('the docs quote the real endpoint count', () => {
       // Matches what jest reports (58/58 when written) because this package's
       // testMatch is tests/*.test.js and nothing else.
       measure: () => countFiles(path.join(ROOT, 'backend', 'tests'), /\.test\.js$/),
-      phrases: [/(\d{1,3})\s+backend\s+suites/gi],
+      // TWO phrasings, and the second was missing until 2026-10-05.
+      //
+      // Only the QUALIFIED form ("68 backend suites", which is how
+      // PROJECT_GUIDE writes it) was enumerated. CLAUDE.md writes the same
+      // number as a BARE comment on the command — `cd backend; npx jest
+      // # 59 suites / 869 tests` — and that form drifted by NINE suites and
+      // 207 tests while this guard reported clean. The frontend line had
+      // drifted too, by four suites. Both sat in the file that teaches people
+      // how to verify this project, which is the §108.4 defect exactly: a
+      // reader runs the command, sees a different number, and has nothing to
+      // tell them which one is wrong.
+      //
+      // It must be anchored on `cd <pkg>; npx jest` and not on a bare
+      // `# N suites`, for two reasons. The two packages both use the bare form,
+      // so one pattern cannot tell them apart and would compare the frontend's
+      // count against the backend's. And DESIGN_DECISIONS §108 quotes the
+      // ORIGINAL drift verbatim ("npx jest  # 5 suites" / actual 58) as the
+      // historical record — a guard that flagged a record of a fixed defect
+      // would force somebody to falsify the history to get a green run.
+      phrases: [
+        /(\d{1,3})\s+backend\s+suites/gi,
+        /cd backend; npx jest\s+#\s*(\d{1,3})\s+suites/gi,
+      ],
     },
     {
       what: 'frontend test suites',
       measure: () => countFiles(path.join(ROOT, 'frontend', 'src'), /\.test\.tsx?$/),
-      phrases: [/(\d{1,3})\s+frontend\s+suites/gi],
+      phrases: [
+        /(\d{1,3})\s+frontend\s+suites/gi,
+        /cd frontend; npx jest\s+#\s*(\d{1,3})\s+suites/gi,
+      ],
     },
+    // THE TEST COUNTS ("1076 tests") ARE DELIBERATELY NOT GUARDED, and that is
+    // a limitation rather than an oversight. They cannot be measured from the
+    // source: `it.each` generates one test per row, so counting `it(`
+    // occurrences gives a LOWER bound, and a guard that only caught a quoted
+    // number falling BEHIND reality would report clean on one that ran ahead —
+    // half a check, reading as a whole one. Running jest from inside jest to
+    // get the real figure is not available. The suite counts above are exact,
+    // and they travel beside the test counts in every place either is quoted,
+    // so a stale test count is caught by proximity in practice — which is worth
+    // stating plainly rather than claiming coverage this does not have.
     {
       what: 'mutation guards',
       measure: () => (fs.readFileSync(
