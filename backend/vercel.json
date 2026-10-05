@@ -3,10 +3,11 @@
   "functions": {
     "api/index.js": {
       "maxDuration": 60,
-      "includeFiles": "node_modules/{@napi-rs,tesseract.js-core,pdfjs-dist}/**"
+      "includeFiles": "node_modules/{@napi-rs,tesseract.js-core,pdfjs-dist,pdfkit/js/standard-fonts}/**"
     },
     "api/cron/mail-tick.js": {
-      "maxDuration": 60
+      "maxDuration": 60,
+      "includeFiles": "node_modules/pdfkit/js/standard-fonts/**"
     }
   },
   "rewrites": [
