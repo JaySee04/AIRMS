@@ -61,13 +61,20 @@ describe('the limiter is actually MOUNTED on the metered endpoint', () => {
     expect(routeLine('/screening/pdf/preview')).toContain('visionThrottle');
   });
 
-  it('mounts it AFTER the permission gate', () => {
+  it('mounts it AFTER the authorisation gates', () => {
     const line = routeLine('/screening/pdf/preview');
-    // Ordering is a real property, not style: a caller without `uploadData`
-    // must be refused on permission rather than have their refusal counted
-    // against a quota they were never entitled to spend.
-    expect(line.indexOf("requirePermission('uploadData')"))
-      .toBeLessThan(line.indexOf('visionThrottle'));
+    // Ordering is a real property, not style: a caller who is not entitled to
+    // import must be refused on AUTHORISATION rather than have their refusal
+    // counted against a quota they were never entitled to spend.
+    //
+    // This used to name `requirePermission('uploadData')`, which was the gate
+    // when medical staff could import. §123 made the import admin-only and
+    // removed that capability key, so `rbac` is now the whole gate — and the
+    // property it guards is unchanged. Asserted against `auth` as well, because
+    // an anonymous caller must not be able to move the counter either.
+    expect(line.indexOf('auth')).toBeLessThan(line.indexOf('visionThrottle'));
+    expect(line.indexOf('rbac(')).toBeLessThan(line.indexOf('visionThrottle'));
+    expect(line.indexOf('visionThrottle')).toBeGreaterThan(-1);
   });
 
   it('mounts it BEFORE multer', () => {

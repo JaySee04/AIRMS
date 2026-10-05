@@ -6,12 +6,27 @@
 // capability is granted. Only `false` blocks. athlete/admin roles are never
 // constrained by this layer — their access is governed by RBAC roles alone.
 
-const PERMISSION_KEYS = ['viewRecords', 'uploadData', 'editCohortNorms'];
+// ONE KEY, SINCE 2026-10-05 (§123). It was three: `uploadData` and
+// `editCohortNorms` went when medical staff stopped reaching the import and the
+// norms at all.
+//
+// THEY WERE REMOVED RATHER THAN LEFT INERT, and that is the point. `/users/
+// permission-meta` serves this list and the Personnel page renders a toggle per
+// entry, so a key nothing checks is a switch an administrator can flip, with a
+// label promising a capability, that changes nothing anywhere. This codebase
+// already treats a control that does not control as worse than an absent one —
+// it is why `onOpenAthlete` gates the worklist row's pointer cursor and why the
+// deactivate badge was fixed rather than hidden. A dead permission toggle is the
+// same defect with a governance label on it.
+//
+// `sanitizePermissions` whitelists against this list, so a stored
+// `{ uploadData: false }` on an existing medical row is dropped the next time
+// that user is saved. That is correct: it described a capability that no longer
+// exists, and keeping it would preserve a refusal of nothing.
+const PERMISSION_KEYS = ['viewRecords'];
 
 const PERMISSION_LABELS = {
   viewRecords: 'View athlete records',
-  uploadData: 'Upload screening data',
-  editCohortNorms: 'Edit cohort norms',
 };
 
 // True unless this user is a medical staffer with the capability explicitly

@@ -135,7 +135,7 @@ set across a fresh six**. The current module set:
 |---|---|---|---|
 | 1 | Athlete Dashboard & Overall Risk Indicator | athlete | ✅ fully complete |
 | 2 | **Athlete Roster & Identity Management** | admin + medical | 🟢 functional — roster CRUD keyed by IC number, roster search, event vocabulary, ISN directory lookup, clinician injury-status flag. **Recast 2026-08-06** from *Injury & Recovery Logging*, which the HoloMotion-only cut deleted on 2026-08-02 |
-| 3 | Screening Data Ingestion | admin + medical | 🟢 functional — vision-AI PDF ingestion (batch + on-device name redaction + filename/roster attach). Excel *import* retired 2026-07-12 (archived in `archive/excel-upload/`) |
+| 3 | Screening Data Ingestion | admin | 🟢 functional — vision-AI PDF ingestion (batch + on-device name redaction + filename/roster attach). Excel *import* retired 2026-07-12 (archived in `archive/excel-upload/`) |
 | 4 | Cohort Norms & Governance | admin | 🟢 functional — norm engine (incl. the discipline `spgd` tier), membership resolver, versioning, alerts, settings, backup |
 | 5 | Analytics & Reporting | admin + coach | 🟢 functional — screening-derived only; the injury analytics half went with the 2026-08-02 cut. Three cohort-normed PDFs via pdfkit |
 | 6 | Clinical & Squad Monitoring | medical + coach | 🟢 functional — the landing pane leads with the roster's cohort verdict (§65), and each clinician keeps a private watchlist (§66). **No module carries a deferred item as of 2026-09-06** |
@@ -258,7 +258,7 @@ These rules came from JC's Figma mockups and explicit feedback. **Do not deviate
 - **Active link state**: solid gold background (`--brand-gold`), navy text, font-weight 600. **Not** semi-transparent gold — solid
 - Per-role nav items (do NOT include "My Profile" in sidebar nav — it lives in the topbar dropdown):
   - **athlete**: My Dashboard, Injury Reporting (Activity Tracking removed 2026-07-20, see §4)
-  - **medical**: Athlete Dashboard, Injury Logging, Self-Report Review, Cohort Norms (with `editCohortNorms`), Data Uploading
+  - **medical**: Medical Dashboard, Sport Assessment. (Cohort Norms and Screening Import were removed on 2026-10-05, §123 — the module table above has always listed Module 4 as admin-owned, and this line disagreed with it. Injury Logging and Self-Report Review went with the 2026-08-02 HoloMotion-only cut.)
   - **admin**: Screening Analytics, Recovery & Trends, PDF Reports, Cohort Norms, Personnel, Data Uploading
   - **coach**: Squad Readiness, Reports
 - Footer at bottom: "AIRMS Prototype v0.2" in muted small text

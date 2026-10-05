@@ -93,8 +93,8 @@ became first-class on 2026-07-19 and executive was added on 2026-08-08.
 | Athlete | Medical | Admin | Coach | Executive |
 |---|---|---|---|---|
 | My Dashboard | Medical Dashboard | Screening Analytics | Squad Readiness | Screening Analytics |
-| Screening History | Cohort Norms | Programme Activity | Reports | Programme Activity |
-| My Squad | Screening Import | Reports |  | Reports |
+| Screening History | Sport Assessment | Programme Activity | Reports | Programme Activity |
+| My Squad |  | Reports |  | Reports |
 |  |  | Cohort Norms |  | Activity Log |
 |  |  | Personnel |  |  |
 |  |  | Screening Import |  |  |

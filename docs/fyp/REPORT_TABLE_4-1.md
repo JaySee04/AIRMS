@@ -38,7 +38,7 @@ beside was removed, which made the omission visible.
 ## What changed, and why the count went UP
 
 The FYP I table listed **36** use cases (ACWR/Excel era). The 2026-07-20
-restructure produced **44**. This table now lists **71** across the same six
+restructure produced **44**. This table now lists **72** across the same six
 modules plus General — *after* deleting an entire module.
 
 > **The count in this paragraph was wrong until 2026-09-12**, and instructively
@@ -76,6 +76,7 @@ the data governing it:
 | UC-69 Compare Programme Tiers | §68 |
 | **UC-70 Record That a Clinical Record Was Opened** | §51 — the control that justifies medical staff reaching every athlete |
 | UC-71 Name the Athletes Awaiting Screening | The counts existed and named nobody |
+| **UC-72 Assess a Whole Sport** | The squad-level clinical question had no screen. The data was computed for the admin analytics page and the team PDF; the clinician could reach neither on screen |
 
 **Traceability:** Appendix C below maps every UC-1–44 from the previous
 numbering to this one (kept / renumbered / removed, with reasons).
@@ -115,15 +116,15 @@ pasting.
 | | UC-21 | Search Athlete Roster | Locate an athlete by name or identity-card number, filtered by sport, programme and event. | Medical Staff, Administrator |
 | | UC-22 | Maintain Event List | Record the events an athlete competes in, choosing from those already in use across the roster or introducing a new one, so the event vocabulary grows with the institute rather than being fixed in code. | Administrator, Medical Staff |
 | | UC-23 | Set Athlete Injury Status | Mark an athlete as currently injured, or as recovered, with an explanatory note recording who set it and when. The status is shown on the clinical view and excludes the athlete from cohort-norm computation while it is in force. | Medical Staff, Administrator |
-| **Module 3 — Screening Data Ingestion** | UC-24 | Import HoloMotion Reports | Upload one or many HoloMotion report PDFs; extraction runs sequentially, with progress shown for each file and failed files individually re-queueable. | Administrator, Medical Staff |
+| **Module 3 — Screening Data Ingestion** | UC-24 | Import HoloMotion Reports | Upload one or many HoloMotion report PDFs; extraction runs sequentially, with progress shown for each file and failed files individually re-queueable. | Administrator |
 | | UC-25 | Redact Athlete Name On-Device | Before any page image leaves the machine, locate the athlete's name on the report's first page by local optical character recognition and obscure it, so the only direct identifier the report carries is never transmitted to the extraction model. Where the name cannot be located precisely, the whole information region is obscured instead. | System |
 | | UC-26 | Extract Screening Data | Render the report's data pages to images (the report carries no extractable text layer) and read them with a configurable vision model into structured data: headline scores, the eight risk indicators, the twenty-five physical-fitness subitem scores, the summary text and both muscle lists. | System |
 | | UC-27 | Preview & Verify Extraction | Review every extracted value against the source report, presented as the dashboards present it, before anything is written to the database. | Administrator, Medical Staff |
 | | UC-28 | Attach Report to Roster Athlete | Identify which roster athlete a report belongs to — proposed automatically from the local filename where it matches exactly one athlete, and otherwise chosen by the operator through a name search that fills in the athlete's identifier, sport and programme. | System, Administrator, Medical Staff |
-| | UC-29 | Commit Import | Write the athlete's latest values, replace their muscle flags, and append an immutable screening snapshot to the athlete's history. | Administrator, Medical Staff |
+| | UC-29 | Commit Import | Write the athlete's latest values, replace their muscle flags, and append an immutable screening snapshot to the athlete's history. | Administrator |
 | **Module 4 — Cohort Norms & Governance** | UC-30 | Recompute Cohort Norms | Following a commit, recompute each cohort's per-component mean and standard deviation across every tier of the fallback ladder, and re-score every athlete's overall risk indicator. | System |
 | | UC-31 | Resolve Cohort Norm Membership | Determine which athletes contribute to a cohort's reference distribution by a single ordered rule — manually excluded, then currently injured, then below the administrator's minimum score thresholds — recording the reason in each case. Membership affects norm computation only; every athlete is still scored. | System |
-| | UC-32 | Manage Cohort Thresholds | Review the automatically computed cohorts and approve, edit or revert their per-component values, with edits flagged for review when new data has since arrived; only approved cohorts drive the risk indicator. | Administrator, Medical Staff (when granted) |
+| | UC-32 | Manage Cohort Thresholds | Review the automatically computed cohorts and approve, edit or revert their per-component values, with edits flagged for review when new data has since arrived; only approved cohorts drive the risk indicator. | Administrator |
 | | UC-33 | Version & Restore Cohort Norms | Save the entire set of cohort norms as a named, annotated snapshot, list the saved versions, and restore one — reinstating every cohort's values and re-scoring the population. | Administrator |
 | | UC-34 | Tune Norming & Alert Settings | Adjust the minimum cohort size, the worst-performer count, the norm-eligibility score thresholds, the escalation and fallback rules, and the alerting behaviour. | Administrator |
 | | UC-35 | Email Risk Alerts | On import commit, email the medical staff and the coaches assigned to the athlete's sport when an athlete falls into an alerting band, and email the sport's coaches when a clinician overrides an athlete to a worse band. | System |
@@ -163,6 +164,7 @@ pasting.
 | | UC-69 | Compare Programme Tiers | Read the PODIUM and PELAPIS squads side by side on the same measures, so the institute can ask whether its two funding tiers differ in screening outcome rather than inferring it from one combined average. | Administrator, Executive |
 | | UC-70 | Record That a Clinical Record Was Opened | Write an append-only trail entry whenever an athlete's clinical record is opened, recording who opened it and when. Written after every permission check, so a refused request records nothing, and skipped when an athlete reads their own record. This is the control that justifies medical staff reaching every athlete in the institute rather than being scoped by sport: clinical cover is not organised by sport, so the answer to unrestricted reach is accountability for it. Counted as a read rather than a change in the staff activity rollup, so an account that only reads cannot outrank the clinicians. | System |
 | | UC-71 | Name the Athletes Awaiting Screening | Read a named checklist of the athletes who need a screening, listing those never screened separately from those overdue for a repeat, because the first calls for a first assessment and the second for a recall. Printed with tick boxes in the programme report, since it is used on paper. | Administrator, Executive |
+| **Module 6 — Clinical & Squad Monitoring** | UC-72 | Assess a Whole Sport | Read one sport as a clinical picture rather than one athlete at a time: the risk-band mix with never-screened counted separately, the muscles HoloMotion flags most often across the squad, the mean of the 25-cell subitem table by region, how many athletes carry a notable left-right gap and where, which tracked indicators are above their watch line and for how many, and a worst-band-first shortlist of who to see. | Medical Staff |
 
 ---
 

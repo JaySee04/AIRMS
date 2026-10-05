@@ -333,7 +333,15 @@ function render() {
   return `${L.join('\n')}\n`;
 }
 
-module.exports = { render, OUT, routes };
+// resolveReExport is exported so its test runs the REAL implementation.
+// Until 2026-10-05 it was covered only INDIRECTLY, by the app happening to
+// contain a re-exporting page (medical/cohort-norms). §123 deleted that page
+// and the mutation guard promptly SURVIVED: breaking the resolver changed no
+// output, because nothing exercised it. A guard that depends on the app
+// containing an example is a guard that retires itself silently.
+module.exports = {
+  render, OUT, routes, resolveReExport,
+};
 
 if (require.main === module) {
   const md = render();

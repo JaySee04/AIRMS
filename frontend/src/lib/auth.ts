@@ -42,7 +42,11 @@ export interface SessionUser {
 
 // Feature keys the admin can revoke for individual medical staff. Mirrors
 // backend/src/utils/permissions.js.
-export type PermissionKey = 'viewRecords' | 'uploadData' | 'editCohortNorms';
+// ONE KEY since §123 — uploadData and editCohortNorms went when medical staff
+// stopped reaching the import and the norms. Kept as a union of one rather than
+// collapsed to `string`: the type is what makes a typo a build error, and the
+// next capability added here should be a deliberate edit in both packages.
+export type PermissionKey = 'viewRecords';
 
 // True unless this is a medical user with the capability explicitly revoked.
 // athlete/admin are never constrained by this layer.
@@ -213,8 +217,10 @@ export function landingPathFor(role: Role): string {
 // Profile is the unconditional fallback (never permission-gated).
 const MEDICAL_PAGES: Array<{ path: string; perm: PermissionKey }> = [
   { path: '/medical/dashboard', perm: 'viewRecords' },
-  { path: '/medical/cohort-norms', perm: 'editCohortNorms' },
-  { path: '/medical/data-upload', perm: 'uploadData' },
+  // Sport Assessment is NOT listed, deliberately: it carries no capability of
+  // its own, so there is no permission under which it could be the 'first
+  // permitted' page. A medical staffer with viewRecords revoked has no clinical
+  // surface left and lands on their profile, which is the honest answer.
 ];
 
 export function firstPermittedPath(user: SessionUser): string {

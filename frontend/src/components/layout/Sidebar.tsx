@@ -84,10 +84,22 @@ const NAV: Record<Role, NavItem[]> = {
     { href: '/athlete/history',       label: 'Screening History', icon: <IconFileText /> },
     { href: '/athlete/squad',         label: 'My Squad',          icon: <IconUsers /> },
   ],
+  // Medical — the two CLINICAL surfaces and nothing else (§123, 2026-10-05).
+  //
+  // "Cohort Norms" and "Screening Import" were here and are gone: the norms are
+  // institution-governed (Module 4's owner has always been `admin` in the
+  // module table) and the import is an administrative act with a token cost and
+  // an audit trail. What is left is the pair a clinician actually works in —
+  // one athlete at a time, and one squad at a time.
+  //
+  // "Sport Assessment" and admin's "Screening Analytics" are deliberately NOT
+  // the same label, because they are not the same feature: analytics is the
+  // institution with optional filters, this is one sport read clinically —
+  // which body parts, which indicators, who to see. Rule 2 forbids two names
+  // for one feature, not two names for two.
   medical: [
-    { href: '/medical/dashboard',      label: 'Medical Dashboard', icon: <IconHome />,        perm: 'viewRecords' },
-    { href: '/medical/cohort-norms',   label: 'Cohort Norms',       icon: <IconPulse />,       perm: 'editCohortNorms' },
-    { href: '/medical/data-upload',    label: 'Screening Import',   icon: <IconUpload />,      perm: 'uploadData' },
+    { href: '/medical/dashboard',         label: 'Medical Dashboard', icon: <IconHome />,  perm: 'viewRecords' },
+    { href: '/medical/sport-assessment',  label: 'Sport Assessment',  icon: <IconUsers /> },
   ],
   admin: [
     { href: '/admin/dashboard',   label: 'Screening Analytics', icon: <IconBarChart /> },

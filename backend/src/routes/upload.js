@@ -5,7 +5,6 @@ const { sequelize, Athlete, MuscleFlag, Screening, AthleteDiscipline } = require
 const { cleanDisciplineList } = require('../utils/disciplines');
 const auth = require('../middleware/auth');
 const rbac = require('../middleware/rbac');
-const requirePermission = require('../middleware/permission');
 const { extractFromPdf } = require('../utils/holomotionExtract');
 const { isVisionConfigured, visionConfig } = require('../utils/visionClient');
 const { visionThrottle, reserveVisionCall } = require('../utils/visionThrottle');
@@ -80,7 +79,7 @@ const uploadPdf = multer({
 //
 // Both are sent because they gate different things, and collapsing them is what
 // made an installation with no key unable to reach a path that works.
-router.get('/screening/pdf/status', auth, rbac('medical', 'admin'), (_req, res) => {
+router.get('/screening/pdf/status', auth, rbac('admin'), (_req, res) => {
   const cfg = visionConfig();
   const vision = isVisionConfigured();
   res.json({
@@ -140,7 +139,7 @@ function pdfUploadError(err, req, res, _next) {
 // refused on permission, not charged quota) and BEFORE multer (an over-quota
 // caller is answered without first buffering the upload). Both orderings are
 // pinned by tests/visionThrottle.test.js.
-router.post('/screening/pdf/preview', auth, rbac('medical', 'admin'), requirePermission('uploadData'), visionThrottle, uploadPdf.single('file'), pdfUploadError, async (req, res) => {
+router.post('/screening/pdf/preview', auth, rbac('admin'), visionThrottle, uploadPdf.single('file'), pdfUploadError, async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
     // NO BLANKET REFUSAL ON A MISSING PROVIDER (§112, 2026-09-22).
@@ -216,7 +215,7 @@ router.post('/screening/pdf/preview', auth, rbac('medical', 'admin'), requirePer
 // POST /api/upload/screening/pdf — commit a previewed extraction. Accepts JSON
 // (not the file again) so we do not pay for a second vision call: the client
 // sends back the extracted payload plus the operator-supplied metadata.
-router.post('/screening/pdf', auth, rbac('medical', 'admin'), requirePermission('uploadData'), express.json({ limit: '1mb' }), async (req, res) => {
+router.post('/screening/pdf', auth, rbac('admin'), express.json({ limit: '1mb' }), async (req, res) => {
   try {
     const {
       athlete = {}, myodynamia = [], tension = [], athleteId, sport, program,

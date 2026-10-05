@@ -4207,3 +4207,164 @@ textarea:focus-visible,
 .decision-open:disabled { cursor: default; }
 .decision-open:not(:disabled) .decision-name { text-decoration: underline; text-decoration-color: var(--border); text-underline-offset: 3px; }
 .decision-open:hover:not(:disabled) .decision-name { text-decoration-color: var(--text-muted); }
+
+/* ── Medical · Sport Assessment (§123, 2026-10-05) ───────────────────────────
+   Page-scoped, like .cohort-profile-*: these are this screen's structures, and
+   a generic `.data-table` would be a shared contract nothing else signed up to.
+   Built from the existing scale — no new font-size or radius literals (§29). */
+.sport-field-label {
+  display: block;
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+/* Risk level: counts, not a stacked bar. A 14-athlete squad drawn as
+   percentages reads like a 140-athlete one, which is the §33c small-cohort
+   problem dressed up as a chart. */
+.sport-bands {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: var(--sp-sm);
+  margin-bottom: var(--sp-sm);
+}
+.sport-band-tile {
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: var(--sp-sm);
+  text-align: center;
+  background: var(--bg);
+}
+/* Never-screened is NEUTRAL on purpose and shares the shape of the band tiles
+   without borrowing any band's colour — it is an absence of information, and
+   tinting it would make it read as a clinical finding (the .decision-band--never
+   rule, applied here). */
+.sport-band-tile--neutral { border-style: dashed; }
+.sport-band-count {
+  display: block;
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+.sport-band-label {
+  display: block;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.sport-flag-cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--sp-lg);
+  margin-bottom: var(--sp-sm);
+}
+.sport-flag-head {
+  margin: 0 0 var(--sp-xs);
+  font-size: var(--fs-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+.sport-flag-list { list-style: none; margin: 0; padding: 0; }
+.sport-flag-list li {
+  display: grid;
+  grid-template-columns: minmax(90px, 1fr) minmax(40px, 2fr) auto;
+  align-items: center;
+  gap: var(--sp-sm);
+  padding: 3px 0;
+  font-size: var(--fs-sm);
+}
+/* The bar is decoration over a number that is already printed, which is why it
+   is aria-hidden in the markup: a screen reader gets "Piriformis, 9 of 14" and
+   nothing about widths. */
+.sport-flag-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--border);
+  overflow: hidden;
+}
+.sport-flag-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--risk-moderate);
+}
+.sport-flag-count {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* The 5x5 region grid. A grid and not a <table> because every cell is one
+   number on a tier fill — there is no row/column semantic a reader needs
+   announced, and the header row is labelled text. */
+.sport-region-grid { overflow-x: auto; }
+.sport-region-head,
+.sport-region-row {
+  display: grid;
+  grid-template-columns: minmax(96px, 1.4fr) repeat(5, minmax(56px, 1fr));
+  gap: 4px;
+  align-items: center;
+  min-width: 440px;
+}
+.sport-region-head {
+  font-size: var(--fs-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+.sport-region-row { margin-bottom: 4px; }
+.sport-region-name { font-size: var(--fs-sm); font-weight: 600; }
+.sport-region-cell {
+  text-align: center;
+  padding: 6px 2px;
+  border-radius: var(--r-xs);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+/* A cell with no reading is blank-bordered, never a tier colour: an unknown
+   value must stay unknown (§54), and a 0 on a tier fill would read as a score. */
+.sport-region-cell--none {
+  background: transparent;
+  border: 1px dashed var(--border);
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.sport-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
+.sport-table th,
+.sport-table td {
+  padding: 6px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.sport-table thead th {
+  font-size: var(--fs-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+.sport-table td { font-variant-numeric: tabular-nums; }
+
+/* The shortlist row is an <a>, so it inherits the focus ring and middle-click
+   that a button would not give. `color: inherit` because an anchor would
+   otherwise paint the athlete's name in link blue inside a list where colour
+   already carries the band. */
+.sport-shortlist-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-sm);
+  width: 100%;
+  padding: 10px var(--sp-xs);
+  border-radius: var(--r-sm);
+  color: inherit;
+  text-decoration: none;
+}
+.sport-shortlist-row:hover { background: var(--bg); }
+.sport-shortlist-row:hover .quick-list-name { text-decoration: underline; }

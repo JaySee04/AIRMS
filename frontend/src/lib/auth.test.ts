@@ -177,13 +177,13 @@ describe('how often the server is asked to confirm a session', () => {
 describe('capabilities', () => {
   it('constrains only medical staff', () => {
     for (const role of ROLES) {
-      const user = { ...ADMIN, role, permissions: { uploadData: false } };
-      expect(hasPermission(user, 'uploadData')).toBe(role !== 'medical');
+      const user = { ...ADMIN, role, permissions: { viewRecords: false } };
+      expect(hasPermission(user, 'viewRecords')).toBe(role !== 'medical');
     }
   });
 
   it('grants what has not been explicitly revoked', () => {
-    expect(hasPermission({ ...ADMIN, role: 'medical', permissions: {} }, 'uploadData')).toBe(true);
+    expect(hasPermission({ ...ADMIN, role: 'medical', permissions: {} }, 'viewRecords')).toBe(true);
     expect(hasPermission({ ...ADMIN, role: 'medical', permissions: null }, 'viewRecords')).toBe(true);
   });
 
@@ -193,6 +193,9 @@ describe('capabilities', () => {
     const stripped = {
       ...ADMIN,
       role: 'medical' as const,
+      // The two retired keys are left in this fixture ON PURPOSE: an existing
+      // medical row can still carry them from before §123, and the fallback
+      // must not depend on the stored map containing only live keys.
       permissions: { viewRecords: false, editCohortNorms: false, uploadData: false },
     };
     expect(firstPermittedPath(stripped)).toBe('/medical/profile');

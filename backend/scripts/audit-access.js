@@ -211,11 +211,18 @@ const ROUTES = [
   // in the matrix is one the matrix makes no claim about.
   ['GET', '/athletes/meta/roster'],
   ['POST', '/athletes', {}, ROLES],
-  ['POST', '/cohorts/recompute', {}, ['coach', 'executive', 'athlete']],
+  // MEDICAL IS PROBED ON BOTH OF THESE SINCE §123, and it was excluded before
+  // for a good reason that has expired: medical COULD recompute the norms and
+  // COULD import, so probing them here would have actually moved the norms and
+  // run an extraction on the dev database. Now the role is refused, the probe
+  // is harmless, and it is the only automated thing watching the change — an
+  // endpoint nothing calls in the matrix is one the matrix makes no claim
+  // about, which is exactly how a quietly restored capability would survive.
+  ['POST', '/cohorts/recompute', {}, ROLES],
   ['POST', '/cohorts/versions/unpin', {}, ROLES],
   ['PATCH', '/cohorts/settings/all', {}, ROLES],
   ['POST', '/cohorts/settings/mail/digest/send-now', {}, ROLES],
-  ['POST', '/upload/screening/pdf', {}, ['coach', 'executive', 'athlete']],
+  ['POST', '/upload/screening/pdf', {}, ROLES],
   ['POST', '/users', {}, ROLES],
 ];
 

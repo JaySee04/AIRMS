@@ -680,7 +680,7 @@ const MUTATIONS = [
     why: 'it described the FYP I system for a month, naming five deleted features',
     pkg: 'backend',
     file: '../docs/USER_MANUAL.md',
-    find: '| My Squad | Screening Import | Reports |  | Reports |',
+    find: '| My Squad |  | Reports |  | Reports |',
     replace: '| My Squad | Data Uploading | Reports |  | Reports |',
     test: 'tests/navigationNames.test.js',
   },
@@ -720,8 +720,8 @@ const MUTATIONS = [
     file: 'src/routes/upload.js',
     // Un-wiring it, which is what a refactor does by accident. The limiter
     // stays defined, exported and unit-tested — the winAnsiSafe shape.
-    find: "router.post('/screening/pdf/preview', auth, rbac('medical', 'admin'), requirePermission('uploadData'), visionThrottle, uploadPdf.single('file'), pdfUploadError, async (req, res) => {",
-    replace: "router.post('/screening/pdf/preview', auth, rbac('medical', 'admin'), requirePermission('uploadData'), uploadPdf.single('file'), pdfUploadError, async (req, res) => {",
+    find: "router.post('/screening/pdf/preview', auth, rbac('admin'), visionThrottle, uploadPdf.single('file'), pdfUploadError, async (req, res) => {",
+    replace: "router.post('/screening/pdf/preview', auth, rbac('admin'), uploadPdf.single('file'), pdfUploadError, async (req, res) => {",
     test: 'tests/visionThrottle.test.js',
   },
   {

@@ -12018,3 +12018,156 @@ was read against the code before anything was changed. And the fold was not
 extended to the coach or admin dashboards: neither has a rail, and inventing one
 mode for three different layouts is how a local improvement becomes a
 cross-cutting one nobody asked for.
+
+## 123. Medical gives up the norms and the import, and gains the sport (2026-10-05)
+
+JC: *"For the medical staff, remove the file upload and cohort norms. Instead, add
+a part where the medical staff essentially can assess the entire sport."*
+
+### 123.1 What was removed, and the one place it contradicted a document
+
+**Eleven routes.** Nine cohort routes were `rbac('admin', 'medical')` behind a
+`canEditNorms` capability gate; the two import routes were
+`rbac('medical', 'admin')` behind `requirePermission('uploadData')`. All are
+`rbac('admin')` now, which is strictly stronger than the pair each replaced.
+`GET /upload/screening/pdf/status` went with them — a role that cannot import has
+no use for the uploader's configuration.
+
+`canEditNorms` was deleted rather than left guarding an empty set. Its medical
+branch had become unreachable, and an unreachable authorisation branch looks
+exactly like one that works — the shape §51's own comment warns about, and the
+shape that left the athlete self-scope check correct and dead for weeks.
+
+**The norms removal AGREES with MASTER_CLARIFICATIONS and always did.** Its
+module table lists Module 4 — Cohort Norms & Governance — with `admin` as the
+sole owner, while a per-role capability list further down the same file gave
+medical "Cohort Norms (with `editCohortNorms`)". The two have disagreed since the
+role was written; this settles it in favour of the module table. The norms are
+institution-governed by design: approved, versioned, pinnable and audited. A
+clinician's lever over an individual verdict is the **override** — per athlete,
+note required, audited as `screening.override`. The norm is the ruler every
+athlete is measured by, and moving it is an institutional act.
+
+**The import removal CONTRADICTS a documented decision, and that is stated
+rather than hidden.** `REPORT_TABLE_4-1.md` — the authority for Chapter 4 — named
+Medical Staff as an actor on UC-24 (Import HoloMotion Reports), UC-29 (Commit
+Import) and UC-32 (Manage Cohort Thresholds, "when granted"), and
+MASTER_CLARIFICATIONS listed Module 3 as "admin + medical". Those are now
+`Administrator` and `admin`. This is JC's call on his own graded artifact; the
+docs are updated so the report and the build agree, which is the property that
+matters.
+
+### 123.2 The permission model lost two thirds of its keys
+
+`PERMISSION_KEYS` was `['viewRecords', 'uploadData', 'editCohortNorms']` and is
+now `['viewRecords']`.
+
+**Removed rather than left inert, and this is the load-bearing part.**
+`/users/permission-meta` serves that list and the Personnel page renders one
+toggle per entry — so a key nothing checks is a switch an administrator can flip,
+carrying a label that promises a capability, that changes nothing anywhere. This
+codebase already treats a control that does not control as worse than an absent
+one: it is why the worklist row's pointer cursor is gated on `onOpenAthlete`, and
+why the deactivate badge was fixed instead of hidden. A dead permission toggle is
+that same defect with a governance label on it.
+
+`sanitizePermissions` whitelists against the list, so a stored
+`{ uploadData: false }` on an existing medical row is dropped the next time that
+user is saved. Correct: it described a capability that no longer exists, and
+keeping it would preserve a refusal of nothing. `permissions.test.js` keeps the
+retired keys in one fixture ON PURPOSE — an existing row can still carry them,
+and the fallback must not depend on the stored map holding only live keys.
+
+### 123.3 Sport Assessment reads the endpoint the admin page reads
+
+`/medical/sport-assessment` calls `GET /athletes/analytics/screening?sport=…`,
+which medical was added to. **Reusing it is the design, not an economy.**
+Everything the page needs was already computed there and already honoured
+`?sport=`: `bandDistribution` is the level of risk, `topMyodynamia`/`topTension`
+are the body parts, `subitems` is the 5×5 region grid with its left/right
+asymmetry, `indicators` is which problems fire and for how many, and `points` is
+one row per athlete for the shortlist. The muscle flags are fetched for the
+*filtered* athlete ids, so a sport-scoped call gives sport-scoped hotspots.
+
+A second sport-scoped aggregator would have been a second set of numbers for the
+same squad — this screen, the admin's analytics and the team PDF could then
+disagree about how many Badminton athletes are elevated, with nothing to say
+which was right. One definition, three readers (SILENT_FAILURES "rules" 8).
+
+**Six panels, in clinical reading order:** risk level, muscle flags, region
+means, left-versus-right, which indicators fire, who to see first. Each carries
+the caveat its own numbers need:
+
+- **never-screened is counted apart from every band, including green.** Folding
+  it into "low risk" is the §33 reassurance failure — it calls for a first
+  assessment, not a clean bill. A separate neutral tile, dashed, borrowing no
+  band's colour.
+- **band tiles are counts, not a stacked bar.** A 14-athlete squad drawn as
+  percentages reads like a 140-athlete one.
+- **"a mean is not the squad"** above the region grid: 70 is produced equally by
+  everyone at 70 and by half at 55 and half at 85 (§23's flattening mistake).
+- **asymmetry is a COUNT of athletes past the threshold**, not a mean gap — the
+  means are flat at 3–6 everywhere and hide exactly the athletes worth finding
+  (§23).
+- **an indicator with nobody above its watch line is omitted**, not printed as a
+  row of zeros, and the empty case says *"that is not a clean bill of health — it
+  is the absence of a flag"*.
+- **every band is named by its WORD.** Colour is a second channel (WCAG 1.4.1,
+  SILENT_FAILURES 3i).
+- a cell with no reading is dashed and blank, never a tier colour: an unknown
+  value stays unknown, and a 0 on a tier fill would read as a score (§54).
+
+**The shortlist sorts band-first, then indicator.** Sorting on a number alone
+puts a red athlete with a middling indicator below an amber one with a poor
+indicator, which inverts the only question the list exists to answer.
+
+It links to `/medical/dashboard?athlete=<IC>` rather than growing its own detail
+view. That is the audited path (`athlete.view`) and the only place the clinical
+controls live; a shortlist with its own read-only copy would be a second place to
+read a record from, and only one of them would be in the trail. The dashboard
+reads the parameter from `window.location` rather than `useSearchParams`, which
+would force a Suspense boundary on a page that is one large client component.
+
+### 123.4 What the removal broke, and what that says
+
+Six guards fired, which is the useful part of the exercise — none of this was
+caught by reading:
+
+1. **`contrastPages.test.ts`** refused the page list (two medical routes now
+   phantom). Then refused it again: the comment explaining the removal **quoted
+   the entry syntax**, and `parseListed` reads that file as text, so the deleted
+   page was parsed back in as live. §118's prose-blindness trap from the other
+   side — not a comment satisfying an assertion, a comment *creating a finding*.
+2. **`navigationNames.test.js`** refused `USER_MANUAL.md`, whose per-role nav
+   table is pinned cell-for-cell to the Sidebar.
+3. **`systemMap.test.js`** refused the page count, then the map was regenerated.
+4. **`verify:a11y`** found `h1 → h3` on the new page: card titles are `<h2
+   className="card-title">` across the app and this one had used `<h3>`.
+5. **`npm run mutate`** reported the user-manual guard's `find` string stale.
+6. **`npm run mutate`** reported *"system map: a re-exported page is not reported
+   as public"* as **SURVIVED** — because its only subject was the
+   `medical/cohort-norms` re-export, which this change deleted. **A guard whose
+   coverage depends on the app containing an example retires itself silently**,
+   and the registry still counts it. Both that resolver and `contrastPages`'
+   re-export case now own fixtures instead.
+
+Item 6 had a second lesson. The fixture tests call `resolveReExport` directly, so
+breaking the **call site** left them all green — `winAnsiSafe` exactly: defined,
+exported, unit-tested, never invoked. Asserting on the output is impossible here
+by construction (the output only differs for a re-exporting page, and there is
+none), so the wiring is pinned by reading the source — against a
+comment-stripped copy, or that test file's own prose would satisfy it.
+
+`npm run audit:access` also gained two probes. `POST /cohorts/recompute` and
+`POST /upload/screening/pdf` excluded medical for a good reason that had expired:
+the role could do both, so probing would have moved the norms and run an
+extraction. Now it is refused, the probe is harmless, and it is the only
+automated thing watching this change — an endpoint nothing calls in the matrix is
+one the matrix makes no claim about.
+
+**Measured:** 403 for medical on all nine cohort routes, all three upload routes
+and the norms page; 200 on `/athletes/analytics/screening`; the page renders
+7 cards / 4 band tiles / 12 flag rows / 25 region cells / 2 tables / a 3-name
+shortlist with no NaN, undefined or page errors; the deep link opens the right
+athlete with the rail folded. 69 suites / 1093 tests, 28 / 479, mutate 105/105,
+contrast 0 findings (canary 115 styles), a11y 0 findings (canary caught).

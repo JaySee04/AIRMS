@@ -36,6 +36,7 @@
 // mutations was a no-op (anchored on leading whitespace against a mid-line
 // entry) that reported 6/6 green. Hence: in the file, not in a shell.
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 
 const APP = path.join(__dirname);
@@ -67,9 +68,12 @@ function pageFiles(dir: string, base = ''): Array<{ route: string; file: string 
 /**
  * The roles a page admits.
  *
- * A page that merely RE-EXPORTS another (medical/cohort-norms does) has no
- * allowedRoles of its own — follow the re-export rather than treating it as
- * public, which would drop a real authenticated page from the comparison.
+ * A page that merely RE-EXPORTS another has no allowedRoles of its own —
+ * follow the re-export rather than treating it as public, which would drop a
+ * real authenticated page from the comparison.
+ *
+ * No page does this today (§123 deleted medical/cohort-norms, which did), so
+ * the behaviour is covered by a fixture below rather than by the app.
  */
 function rolesOf(file: string, seen = new Set<string>()): string[] | null {
   if (seen.has(file)) return null;
@@ -151,11 +155,33 @@ describe('verify-contrast covers every authenticated page', () => {
   });
 
   it('resolves allowedRoles through a re-export', () => {
-    // medical/cohort-norms is `export { default } from '../../admin/thresholds/page'`.
-    // Without following that it reads as a public page and drops out of the
-    // comparison entirely — a page the audit could stop covering unnoticed.
-    const reexport = authenticated.find((p) => p.route === '/medical/cohort-norms');
-    expect(reexport?.roles).toEqual(expect.arrayContaining(['admin', 'medical']));
+    // NO PAGE RE-EXPORTS ANOTHER TODAY (§123 deleted the one that did —
+    // medical/cohort-norms was `export { default } from '../../admin/thresholds/page'`).
+    // So this is tested against a FIXTURE rather than deleted with it.
+    //
+    // Deleting it was the tempting move and the wrong one: `rolesOf` still
+    // follows re-exports, the next shared page will be written the same way,
+    // and a resolver with no test reads as a resolver that works. Without it a
+    // re-exporting page resolves to `null`, reads as PUBLIC, and drops out of
+    // the comparison entirely — the audit silently stops covering a page.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'reexport-'));
+    try {
+      fs.mkdirSync(path.join(dir, 'real'));
+      fs.writeFileSync(
+        path.join(dir, 'real', 'page.tsx'),
+        "export default () => <DashboardLayout allowedRoles={['admin', 'medical']} title=\"T\" />;\n",
+      );
+      fs.mkdirSync(path.join(dir, 'alias'));
+      fs.writeFileSync(path.join(dir, 'alias', 'page.tsx'), "export { default } from '../real/page';\n");
+      expect(rolesOf(path.join(dir, 'alias', 'page.tsx'))).toEqual(['admin', 'medical']);
+      // And a re-export chain that goes nowhere must be null, not an empty
+      // array: "no roles" and "could not tell" need different answers.
+      fs.mkdirSync(path.join(dir, 'broken'));
+      fs.writeFileSync(path.join(dir, 'broken', 'page.tsx'), "export { default } from '../missing/page';\n");
+      expect(rolesOf(path.join(dir, 'broken', 'page.tsx'))).toBeNull();
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 

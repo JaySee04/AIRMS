@@ -146,3 +146,99 @@ describe('the map actually covers what it claims to', () => {
     expect(doc).toContain('measure:facts');
   });
 });
+
+// ── the re-export resolver, against a fixture (2026-10-05, §123) ────────────
+//
+// WHY A FIXTURE AND NOT THE APP. This was covered only INDIRECTLY, by the app
+// happening to contain a page that re-exports another — `medical/cohort-norms`
+// was `export { default } from '../../admin/thresholds/page'`. §123 deleted that
+// page, and `npm run mutate` immediately reported the guard as SURVIVED:
+// breaking `resolveReExport` changed no output, because nothing exercised it.
+//
+// That is a guard retiring itself silently, which is worse than a guard that was
+// never written — the registry still listed it, so the run still counted it.
+// The resolver is live code and the next shared page will be written the same
+// way, so the test now owns its own subject.
+describe('resolveReExport', () => {
+  const fs2 = require('fs');
+  const os = require('os');
+  const path2 = require('path');
+  const { resolveReExport } = require('../scripts/system-map');
+
+  let dir;
+  beforeEach(() => { dir = fs2.mkdtempSync(path2.join(os.tmpdir(), 'reexport-')); });
+  afterEach(() => { fs2.rmSync(dir, { recursive: true, force: true }); });
+
+  const write = (rel, body) => {
+    const full = path2.join(dir, rel);
+    fs2.mkdirSync(path2.dirname(full), { recursive: true });
+    fs2.writeFileSync(full, body);
+    return full;
+  };
+
+  it('follows the re-export and returns the TARGET source', () => {
+    write('real/page.tsx', "<DashboardLayout allowedRoles={['admin', 'medical']} title=\"Real\" />");
+    const alias = write('alias/page.tsx', "export { default } from '../real/page';\n");
+    const out = resolveReExport(alias, fs2.readFileSync(alias, 'utf8'));
+    expect(out).toContain("allowedRoles={['admin', 'medical']}");
+  });
+
+  it('leaves an ordinary page alone', () => {
+    const own = write('own/page.tsx', "<DashboardLayout allowedRoles={['coach']} title=\"Own\" />");
+    const src = fs2.readFileSync(own, 'utf8');
+    expect(resolveReExport(own, src)).toBe(src);
+  });
+
+  it('returns the ORIGINAL source when the target does not exist', () => {
+    // Not an empty string and not a throw: the map must still render a row, and
+    // the row will say `public` — visibly odd rather than confidently wrong,
+    // which is the trade this resolver's own comment records.
+    const broken = write('broken/page.tsx', "export { default } from '../missing/page';\n");
+    const src = fs2.readFileSync(broken, 'utf8');
+    expect(resolveReExport(broken, src)).toBe(src);
+  });
+
+  it('is what makes a re-exporting page report its ROLES rather than public', () => {
+    // The property the map actually depends on, stated as the map states it:
+    // without the resolver the alias has no allowedRoles of its own, and the
+    // page parser falls through to 'public' — publishing a gated page as
+    // reachable by anybody, in the document people read to answer that question.
+    const alias = write('alias2/page.tsx', "export { default } from '../real2/page';\n");
+    write('real2/page.tsx', "<DashboardLayout allowedRoles={['admin']} title=\"R\" />");
+    const resolved = resolveReExport(alias, fs2.readFileSync(alias, 'utf8'));
+    const raw = fs2.readFileSync(alias, 'utf8');
+    expect(resolved.match(/allowedRoles=\{\[([^\]]*)\]\}/)).not.toBeNull();
+    expect(raw.match(/allowedRoles=\{\[([^\]]*)\]\}/)).toBeNull();
+  });
+});
+
+// AND THE RESOLVER IS ACTUALLY WIRED INTO pages() (2026-10-05).
+//
+// The four cases above call `resolveReExport` directly, and `npm run mutate`
+// showed that is not enough: un-wiring the CALL SITE — `resolveReExport(file,
+// read(file))` back to `read(file)` — left every one of them green. A pure
+// function is correct whether or not anybody calls it, which is `winAnsiSafe`
+// exactly: defined, exported, unit-tested and never invoked.
+//
+// Normally the fix is to assert on the OUTPUT, and here that is impossible by
+// construction: the output only differs for a re-exporting page, and since §123
+// the app has none. So this reads the source, the same technique
+// authThrottle.test.js uses on routes/auth.js for the same reason — the thing
+// being guarded is a wiring fact with no observable consequence today.
+//
+// Deliberately asserted against a COMMENT-STRIPPED copy, or this file's own
+// prose about `resolveReExport(file, read(file))` would satisfy it (§118).
+it('pages() resolves re-exports rather than reading the file raw', () => {
+  const fs2 = require('fs');
+  const path2 = require('path');
+  const raw = fs2.readFileSync(path2.join(__dirname, '..', 'scripts', 'system-map.js'), 'utf8');
+  const code = raw
+    .replace(/\r\n/g, '\n')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+  expect(code).toContain('resolveReExport(file, read(file))');
+  // The positive control: the stripper must not have eaten the whole file, or
+  // the assertion above would be checking an empty string.
+  expect(code).toContain('function pages()');
+  expect(code.length).toBeGreaterThan(2000);
+});

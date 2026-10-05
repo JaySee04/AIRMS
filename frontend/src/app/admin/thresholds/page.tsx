@@ -340,7 +340,7 @@ export default function CohortThresholdsPage() {
   const shownCohorts = showBelowMin || highlightIds.size > 0 ? cohorts : usable;
 
   return (
-    <DashboardLayout allowedRoles={['admin', 'medical']} requiredPermission="editCohortNorms" title="Cohort Norms">
+    <DashboardLayout allowedRoles={['admin']} title="Cohort Norms">
       {notice}
       {/* A pin changes what every number on this page MEANS — they are held,
           not current — so it is announced before any of them, not in the

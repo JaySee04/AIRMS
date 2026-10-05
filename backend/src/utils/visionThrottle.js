@@ -20,7 +20,7 @@
 // tier. Being in place before that happens is the point.
 //
 // NOT a brute-force control: the route sits behind auth + rbac('medical',
-// 'admin') + requirePermission('uploadData'), so an anonymous caller never
+// 'admin'), so an anonymous caller never
 // reaches it. The realistic failures are duller and likelier — a stuck retry in
 // the batch uploader, a backlog-import script run twice, one careless account
 // burning the daily allowance. All three are indistinguishable from legitimate

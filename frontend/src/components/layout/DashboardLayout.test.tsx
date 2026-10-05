@@ -276,18 +276,21 @@ describe('how often the server is asked', () => {
 
 describe('a revoked capability', () => {
   it('routes medical staff away from a page they may no longer use', async () => {
-    const revoked = { ...MEDICAL, permissions: { uploadData: false } };
+    // viewRecords, because it is the only capability left (§123 removed
+    // uploadData and editCohortNorms with the pages they gated). The property
+    // under test is the GATE, not which key it happens to be handed.
+    const revoked = { ...MEDICAL, permissions: { viewRecords: false } };
     signedInAs(revoked);
     mockGet.mockResolvedValue({ user: revoked });
 
     render(
-      <DashboardLayout allowedRoles={['medical']} requiredPermission="uploadData" title="T">
+      <DashboardLayout allowedRoles={['medical']} requiredPermission="viewRecords" title="T">
         {SECRET}
       </DashboardLayout>,
     );
 
     await waitFor(() => expect(replace).toHaveBeenCalled());
-    expect(replace.mock.calls[0][0]).not.toBe('/medical/data-upload');
+    expect(replace.mock.calls[0][0]).not.toBe('/medical/dashboard');
   });
 
   it('leaves a capability the admin has not revoked alone', async () => {
@@ -295,7 +298,7 @@ describe('a revoked capability', () => {
     mockGet.mockResolvedValue({ user: MEDICAL });
 
     render(
-      <DashboardLayout allowedRoles={['medical']} requiredPermission="uploadData" title="T">
+      <DashboardLayout allowedRoles={['medical']} requiredPermission="viewRecords" title="T">
         {SECRET}
       </DashboardLayout>,
     );

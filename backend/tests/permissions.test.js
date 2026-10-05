@@ -15,13 +15,13 @@ describe('hasPermission', () => {
 
   test('medical staff are granted by default (missing key = granted)', () => {
     expect(hasPermission({ role: 'medical', permissions: {} }, 'viewRecords')).toBe(true);
-    expect(hasPermission({ role: 'medical', permissions: null }, 'uploadData')).toBe(true);
+    expect(hasPermission({ role: 'medical', permissions: null }, 'viewRecords')).toBe(true);
   });
 
   test('only an explicit false revokes, and only the named capability', () => {
     const user = { role: 'medical', permissions: { viewRecords: false } };
     expect(hasPermission(user, 'viewRecords')).toBe(false);
-    expect(hasPermission(user, 'uploadData')).toBe(true); // untouched key still granted
+    expect(hasPermission(user, 'somethingElse')).toBe(true); // untouched key still granted
   });
 
   test('defensive against malformed input', () => {
@@ -33,7 +33,10 @@ describe('hasPermission', () => {
 describe('sanitizePermissions', () => {
   test('keeps only known keys with boolean values', () => {
     const out = sanitizePermissions({ viewRecords: false, uploadData: true, bogus: true, injuryReports: 'yes' });
-    expect(out).toEqual({ viewRecords: false, uploadData: true });
+    // uploadData is INCLUDED in the input on purpose: it was a real key until
+    // §123 and must now be dropped like any other unknown, so an older stored
+    // value cannot survive a save and keep refusing a capability that is gone.
+    expect(out).toEqual({ viewRecords: false });
   });
 
   test('non-object input normalises to an empty map', () => {

@@ -113,6 +113,21 @@ export default function MedicalDashboard() {
 
   useEffect(() => { setPicked(null); }, [selectedId]);
 
+  // ?athlete=<IC> OPENS THAT RECORD (§123). Sport Assessment's "who to see
+  // first" list links here rather than growing a second detail view — this is
+  // the audited path (`athlete.view`) and the only place the clinical controls
+  // live, so a shortlist that opened its own read-only copy would be a second
+  // place to read a record from and only one of them would be in the trail.
+  //
+  // Read from `window.location` rather than useSearchParams: that hook forces a
+  // Suspense boundary on any page that calls it, and this page is one large
+  // client component. Once only — the rail and the worklist drive every
+  // subsequent selection, and re-reading the URL would fight them.
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get('athlete');
+    if (id) setSelectedId(id);
+  }, []);
+
   // THE RAIL FOLDS AWAY ONCE AN ATHLETE IS OPEN (2026-10-05, JC).
   //
   // The rail is how a clinician FINDS somebody; the pane is where they read the

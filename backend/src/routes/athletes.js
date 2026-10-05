@@ -296,7 +296,24 @@ router.get('/meta/disciplines', auth, rbac('medical', 'admin', 'executive'), req
 });
 
 // GET /api/athletes/analytics/screening — cohort view of the ingested
-// HoloMotion screening data (admin analytics). Declared BEFORE /:id.
+// HoloMotion screening data. Declared BEFORE /:id.
+//
+// MEDICAL IS ON THIS LIST SINCE 2026-10-05 (§123), and reusing this endpoint is
+// the whole design of the Sport Assessment page rather than an economy. Everything
+// that page needs is already computed here and already honours `?sport=`:
+// `bandDistribution` is the level of risk, `topMyodynamia`/`topTension` are the
+// body parts, `subitems` is the 5×5 region grid with its left/right asymmetry,
+// `indicators` is which problems fire and how often, and `points` is one row per
+// athlete for a worst-first shortlist.
+//
+// A second sport-scoped aggregator would have been a second set of numbers for
+// the same squad — the clinician's screen, the admin's analytics and the team
+// PDF could then disagree about how many athletes are elevated in Badminton,
+// and nothing would say which was right. One definition, three readers.
+//
+// Note the population filters apply to the MUSCLE FLAGS too (they are fetched
+// for the filtered athlete ids), so a sport-scoped call gives sport-scoped
+// hotspots rather than institution-wide ones.
 // Returns, across active athletes:
 //   - screened / unscreened counts (screened = any headline score present)
 //   - per-indicator Low / Watch / Elevated counts (AIRMS bands: ≤15 / ≤25 />25).
@@ -307,7 +324,7 @@ router.get('/meta/disciplines', auth, rbac('medical', 'admin', 'executive'), req
 //     to be a comment asking them to.
 //   - cohort averages for the five headline gauges
 //   - most-flagged muscles for each flag type
-router.get('/analytics/screening', auth, rbac('admin', 'executive'), async (req, res) => {
+router.get('/analytics/screening', auth, rbac('admin', 'executive', 'medical'), async (req, res) => {
   try {
     const { WATCH_THRESHOLD: WATCH, HIGH_THRESHOLD: HIGH } = require('../shared/facts');
     const SCORES = ['overallActivityScore', 'injuryRiskIndex', 'mobility', 'stability', 'symmetry'];

@@ -1,7 +1,20 @@
 // Cohort norms (auto-generated per import) + tunable settings (redesign spec §6).
-// Norms are editable by admins and by medical staff who hold the
-// `editCohortNorms` capability; the tunable settings + queue governance stay
-// admin-only.
+//
+// ADMIN ONLY, EVERY ROUTE (2026-10-05, JC — §123). Nine of these were
+// `rbac('admin', 'medical')` behind a `canEditNorms` capability gate. Medical
+// staff no longer reach the norms at all, which is what MASTER_CLARIFICATIONS'
+// own module table always said — Module 4, Cohort Norms & Governance, is listed
+// with `admin` as its sole owner, and the per-role capability list beneath it
+// disagreed. The norms are institution-governed by design: approved, versioned,
+// pinned and audited. A clinician's lever over an individual verdict is the
+// OVERRIDE, which is per-athlete, requires a note and is audited as such; the
+// norm is the ruler every athlete is measured by, and moving it is an
+// institutional act.
+//
+// `canEditNorms` is gone with them rather than left guarding an empty set:
+// `rbac('admin')` is strictly stronger than the pair it replaced, and a
+// middleware whose medical branch can never be reached is the unreachable-guard
+// shape §51's comment warns about.
 const express = require('express');
 const { toNum } = require('../utils/num');
 const { recordAudit, auditFailures } = require('../utils/audit');
@@ -17,23 +30,15 @@ const {
 const {
   getSettings, setSetting, DEFAULTS, appliedSettingChanges,
 } = require('../utils/settings');
-const { hasPermission } = require('../utils/permissions');
 const { effectiveBand } = require('../utils/bands');
 const { runDigestOnce, runReminderOnce } = require('../utils/scheduler');
 const { sendError } = require('../utils/httpError');
 
 const router = express.Router();
 
-// admin, or a medical staffer who still holds the editCohortNorms capability.
-const canEditNorms = (req, res, next) => {
-  const u = req.user;
-  if (u && (u.role === 'admin' || (u.role === 'medical' && hasPermission(u, 'editCohortNorms')))) return next();
-  return res.status(403).json({ message: 'Editing cohort norms requires the editCohortNorms capability.' });
-};
-
 // GET /api/cohorts — all cohort rows, each annotated with a `review` drift flag
-// (manual norm vs freshly computed data). Admin + norm-editing medical staff.
-router.get('/', auth, rbac('admin', 'medical'), canEditNorms, async (_req, res) => {
+// (manual norm vs freshly computed data). Admin only.
+router.get('/', auth, rbac('admin'), async (_req, res) => {
   try {
     const [rows, settings] = await Promise.all([
       CohortThreshold.findAll({
@@ -72,8 +77,8 @@ router.get('/', auth, rbac('admin', 'medical'), canEditNorms, async (_req, res) 
 });
 
 // POST /api/cohorts/recompute — regenerate cohort norms from latest screenings,
-// then re-score every athlete's overall indicator. Admin + norm-editing medical.
-router.post('/recompute', auth, rbac('admin', 'medical'), canEditNorms, async (_req, res) => {
+// then re-score every athlete's overall indicator. Admin only.
+router.post('/recompute', auth, rbac('admin'), async (_req, res) => {
   try {
     const { cohorts, indicators } = await recomputeAll();
     res.json({ message: 'Recomputed', cohorts, indicators });
@@ -84,7 +89,7 @@ router.post('/recompute', auth, rbac('admin', 'medical'), canEditNorms, async (_
 // Defined before /:id so "versions" is never captured as an :id.
 
 // POST /api/cohorts/versions — snapshot the current cohort norms under a name.
-router.post('/versions', auth, rbac('admin', 'medical'), canEditNorms, async (req, res) => {
+router.post('/versions', auth, rbac('admin'), async (req, res) => {
   try {
     const label = String(req.body.label || '').trim();
     if (!label) return res.status(400).json({ message: 'A name is required.' });
@@ -101,7 +106,7 @@ router.post('/versions', auth, rbac('admin', 'medical'), canEditNorms, async (re
 });
 
 // GET /api/cohorts/versions — saved versions (metadata only, no snapshot payload).
-router.get('/versions', auth, rbac('admin', 'medical'), canEditNorms, async (_req, res) => {
+router.get('/versions', auth, rbac('admin'), async (_req, res) => {
   try {
     const [rows, settings] = await Promise.all([
       CohortNormVersion.findAll({ order: [['createdAt', 'DESC']] }),
@@ -123,7 +128,7 @@ router.get('/versions', auth, rbac('admin', 'medical'), canEditNorms, async (_re
   } catch (err) { sendError(res, err, 'cohorts.js'); }
 });
 
-router.patch('/versions/:id', auth, rbac('admin', 'medical'), canEditNorms, async (req, res) => {
+router.patch('/versions/:id', auth, rbac('admin'), async (req, res) => {
   try {
     const v = await CohortNormVersion.findByPk(req.params.id);
     if (!v) return res.status(404).json({ message: 'Version not found' });
@@ -257,13 +262,13 @@ router.delete('/versions/:id', auth, rbac('admin'), async (req, res) => {
 // PATCH /api/cohorts/:id — edit the norm (overrides) or, admin-only, move it
 // through the queue (approve/revert). Editing stores overrides (the computed
 // values are pre-filled client-side) and keeps the norm live.
-router.patch('/:id', auth, rbac('admin', 'medical'), canEditNorms, async (req, res) => {
+router.patch('/:id', auth, rbac('admin'), async (req, res) => {
   try {
     const row = await CohortThreshold.findByPk(req.params.id);
     if (!row) return res.status(404).json({ message: 'Cohort not found' });
     const patch = {};
     if (req.body.overrides !== undefined) patch.overrides = req.body.overrides;
-    // Queue governance (approve/revert) stays admin-only; medical staff may edit
+    // Queue governance (approve/revert) and editing are both admin-only now;
     // the norm values but not change a cohort's approval status.
     const wantsStatusChange = req.body.status === 'approved' || req.body.status === 'pending';
     if (wantsStatusChange && req.user?.role !== 'admin') {
@@ -288,8 +293,8 @@ router.patch('/:id', auth, rbac('admin', 'medical'), canEditNorms, async (req, r
 // GET /api/cohorts/:id/members — the athletes in this cohort tier, each with
 // their latest headline scores, risk band, and norm-membership state (B3/B4/B5):
 // eligible + reason (injured / excluded / below-threshold). Drives the admin
-// per-cohort membership panel. Admin + norm-editing medical.
-router.get('/:id/members', auth, rbac('admin', 'medical'), canEditNorms, async (req, res) => {
+// per-cohort membership panel. Admin only.
+router.get('/:id/members', auth, rbac('admin'), async (req, res) => {
   try {
     const row = await CohortThreshold.findByPk(req.params.id, { raw: true });
     if (!row) return res.status(404).json({ message: 'Cohort not found' });
@@ -330,7 +335,7 @@ router.get('/:id/members', auth, rbac('admin', 'medical'), canEditNorms, async (
 
 // PATCH /api/cohorts/members/:athleteId — toggle an athlete's manual norm
 // opt-out (B3). Takes effect on the next recompute (staged like norm edits).
-router.patch('/members/:athleteId', auth, rbac('admin', 'medical'), canEditNorms, async (req, res) => {
+router.patch('/members/:athleteId', auth, rbac('admin'), async (req, res) => {
   try {
     const a = await Athlete.findByPk(req.params.athleteId);
     if (!a) return res.status(404).json({ message: 'Athlete not found' });
@@ -399,10 +404,9 @@ router.post('/settings/mail/:kind/send-now', auth, rbac('admin'), async (req, re
   } catch (err) { sendError(res, err, 'cohorts.js'); }
 });
 
-// GET /api/settings — current settings merged over defaults. Readable by admin
-// and norm-editing medical staff (the Cohort Norms page needs min_cohort_n etc.
-// to render); WRITING settings stays admin-only below.
-router.get('/settings/all', auth, rbac('admin', 'medical'), canEditNorms, async (_req, res) => {
+// GET /api/settings — current settings merged over defaults. Admin only, like
+// every other route here; writing them is admin-only below and always was.
+router.get('/settings/all', auth, rbac('admin'), async (_req, res) => {
   try {
     // `auditHealth` is null unless an audit write has actually failed, so the
     // tile stays absent rather than showing a permanently-green badge nobody

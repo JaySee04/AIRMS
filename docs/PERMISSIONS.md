@@ -15,7 +15,7 @@ questions produced changes and the table below already reflects them.
 | Role | What it is for | Writes anything? |
 |---|---|---|
 | **admin** | Running the institute — people, norms, settings, the trail. Dr Thung's role. | Yes, everything |
-| **medical** | The clinician's working surface: every athlete, import, overrides, norms. | Yes |
+| **medical** | The clinician’s working surface: every athlete, every screening, band overrides, escalation responses, and a sport-level clinical view. **No import and no norms since §123** — both are administrative acts. | Yes |
 | **coach** | One sport's squad, read-only. | **No** |
 | **executive** | Institutional oversight — analytics and reports, read-only. | **No** |
 | **athlete** | Their own record, and their squad without the identifiers. | **No** |

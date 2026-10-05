@@ -23,12 +23,22 @@ const PAGES = [
   ['admin', '/admin/data-upload'],
   ['admin', '/admin/personnel'],
   ['admin', '/admin/settings'],
-  ['admin', '/admin/thresholds'], ['medical', '/admin/thresholds'],
-  // /medical/cohort-norms re-exports /admin/thresholds, so it is the same tree
-  // under a different URL — swept anyway, because the layout it mounts under is
-  // the medical one.
-  ['medical', '/medical/cohort-norms'],
-  ['medical', '/medical/dashboard'], ['medical', '/medical/data-upload'],
+  // Cohort Norms is ADMIN ONLY since §123. Two medical entries were removed
+  // here — one for this route and one for the medical re-export of it, which is
+  // deleted. Either would now sweep a redirect and report it clean, which is
+  // the phantom-page failure contrastPages.test.ts exists to catch (§121.8).
+  //
+  // The removed entries are described rather than QUOTED: parseListed() reads
+  // this file as text, so a commented-out entry in the real syntax is parsed as
+  // a live one. Measured — writing them out made the guard report the deleted
+  // page as still listed. That is §118's prose-blindness trap, from the other
+  // side: not a comment satisfying an assertion, a comment creating a finding.
+  ['admin', '/admin/thresholds'],
+  // The medical screening-import entry went the same way: the import is
+  // admin-only now, and the admin route above is the same screen for the role
+  // that still has it.
+  ['medical', '/medical/dashboard'],
+  ['medical', '/medical/sport-assessment'],
   ['medical', '/medical/profile'],
   ['coach', '/coach/dashboard'], ['coach', '/coach/reports'],
   ['coach', '/coach/profile'],

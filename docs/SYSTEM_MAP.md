@@ -12,7 +12,7 @@ This is the *what*. The **why** is [`DESIGN_DECISIONS.md`](DESIGN_DECISIONS.md),
 the measured figures are `npm run measure:facts` (which needs the database),
 and the access model argued in prose is [`PERMISSIONS.md`](PERMISSIONS.md).
 
-Counts: **9 models**, **144 columns**, **66 endpoints**, **25 pages**.
+Counts: **9 models**, **144 columns**, **66 endpoints**, **24 pages**.
 
 ## 1. Data model
 
@@ -222,7 +222,7 @@ refused inside the handler — see PERMISSIONS.md for what each role actually re
 | POST | `/api/athletes/:id/invite` | admin |  | backend/src/routes/athletes.js |
 | GET | `/api/athletes/:id/sport-context` | medical, admin | viewRecords | backend/src/routes/athletes.js |
 | GET | `/api/athletes/analytics/periods` | admin, executive |  | backend/src/routes/athletes.js |
-| GET | `/api/athletes/analytics/screening` | admin, executive |  | backend/src/routes/athletes.js |
+| GET | `/api/athletes/analytics/screening` | admin, executive, medical |  | backend/src/routes/athletes.js |
 | GET | `/api/athletes/meta/disciplines` | medical, admin, executive | viewRecords | backend/src/routes/athletes.js |
 | GET | `/api/athletes/meta/roster` | medical, admin, executive | viewRecords | backend/src/routes/athletes.js |
 | GET | `/api/athletes/meta/sports` | medical, admin, executive | viewRecords | backend/src/routes/athletes.js |
@@ -238,18 +238,18 @@ refused inside the handler — see PERMISSIONS.md for what each role actually re
 | POST | `/api/auth/reset-password` | PUBLIC |  | backend/src/routes/auth.js |
 | POST | `/api/auth/verify-otp` | PUBLIC |  | backend/src/routes/auth.js |
 | GET | `/api/coach/readiness` | coach |  | backend/src/routes/coach.js |
-| GET | `/api/cohorts` | admin, medical |  | backend/src/routes/cohorts.js |
-| PATCH | `/api/cohorts/:id` | admin, medical |  | backend/src/routes/cohorts.js |
-| GET | `/api/cohorts/:id/members` | admin, medical |  | backend/src/routes/cohorts.js |
-| PATCH | `/api/cohorts/members/:athleteId` | admin, medical |  | backend/src/routes/cohorts.js |
-| POST | `/api/cohorts/recompute` | admin, medical |  | backend/src/routes/cohorts.js |
-| GET | `/api/cohorts/settings/all` | admin, medical |  | backend/src/routes/cohorts.js |
+| GET | `/api/cohorts` | admin |  | backend/src/routes/cohorts.js |
+| PATCH | `/api/cohorts/:id` | admin |  | backend/src/routes/cohorts.js |
+| GET | `/api/cohorts/:id/members` | admin |  | backend/src/routes/cohorts.js |
+| PATCH | `/api/cohorts/members/:athleteId` | admin |  | backend/src/routes/cohorts.js |
+| POST | `/api/cohorts/recompute` | admin |  | backend/src/routes/cohorts.js |
+| GET | `/api/cohorts/settings/all` | admin |  | backend/src/routes/cohorts.js |
 | PATCH | `/api/cohorts/settings/all` | admin |  | backend/src/routes/cohorts.js |
 | POST | `/api/cohorts/settings/mail/:kind/send-now` | admin |  | backend/src/routes/cohorts.js |
-| GET | `/api/cohorts/versions` | admin, medical |  | backend/src/routes/cohorts.js |
-| POST | `/api/cohorts/versions` | admin, medical |  | backend/src/routes/cohorts.js |
+| GET | `/api/cohorts/versions` | admin |  | backend/src/routes/cohorts.js |
+| POST | `/api/cohorts/versions` | admin |  | backend/src/routes/cohorts.js |
 | DELETE | `/api/cohorts/versions/:id` | admin |  | backend/src/routes/cohorts.js |
-| PATCH | `/api/cohorts/versions/:id` | admin, medical |  | backend/src/routes/cohorts.js |
+| PATCH | `/api/cohorts/versions/:id` | admin |  | backend/src/routes/cohorts.js |
 | POST | `/api/cohorts/versions/:id/pin` | admin |  | backend/src/routes/cohorts.js |
 | POST | `/api/cohorts/versions/:id/restore` | admin |  | backend/src/routes/cohorts.js |
 | POST | `/api/cohorts/versions/unpin` | admin |  | backend/src/routes/cohorts.js |
@@ -268,9 +268,9 @@ refused inside the handler — see PERMISSIONS.md for what each role actually re
 | POST | `/api/screenings/:id/response` | medical, admin | viewRecords | backend/src/routes/screenings.js |
 | GET | `/api/screenings/athlete/:id` | athlete, medical, admin, coach | viewRecords | backend/src/routes/screenings.js |
 | GET | `/api/screenings/reliability` | any signed-in |  | backend/src/routes/screenings.js |
-| POST | `/api/upload/screening/pdf` | medical, admin | uploadData | backend/src/routes/upload.js |
-| POST | `/api/upload/screening/pdf/preview` | medical, admin | uploadData | backend/src/routes/upload.js |
-| GET | `/api/upload/screening/pdf/status` | medical, admin |  | backend/src/routes/upload.js |
+| POST | `/api/upload/screening/pdf` | admin |  | backend/src/routes/upload.js |
+| POST | `/api/upload/screening/pdf/preview` | admin |  | backend/src/routes/upload.js |
+| GET | `/api/upload/screening/pdf/status` | admin |  | backend/src/routes/upload.js |
 | GET | `/api/users` | PUBLIC |  | backend/src/routes/users.js |
 | POST | `/api/users` | PUBLIC |  | backend/src/routes/users.js |
 | PATCH | `/api/users/:id` | PUBLIC |  | backend/src/routes/users.js |
@@ -297,7 +297,7 @@ client-side; the API's RBAC above is the real boundary.
 | `/admin/profile` | admin, executive | My Profile |
 | `/admin/reports` | admin, executive | Reports |
 | `/admin/settings` | admin | Settings |
-| `/admin/thresholds` | admin, medical | Cohort Norms |
+| `/admin/thresholds` | admin | Cohort Norms |
 | `/athlete/dashboard` | athlete | My Dashboard |
 | `/athlete/history` | athlete | Screening History |
 | `/athlete/profile` | athlete | My Profile |
@@ -306,10 +306,9 @@ client-side; the API's RBAC above is the real boundary.
 | `/coach/profile` | coach | My Profile |
 | `/coach/reports` | coach | Reports |
 | `/forgot-password` | public |  |
-| `/medical/cohort-norms` | admin, medical | Cohort Norms |
 | `/medical/dashboard` | medical | Medical Dashboard |
-| `/medical/data-upload` | medical | Screening Import |
 | `/medical/profile` | medical | My Profile |
+| `/medical/sport-assessment` | medical | Sport Assessment |
 | `/reset-password` | public |  |
 | `/verify-otp` | public |  |
 

@@ -873,6 +873,54 @@ as a physiologist would rather than by reading the backlog:
   stated objection. The objection shaped it: at 5–10 peers a per-CELL standard
   deviation is unstable, so the cells carry the group MEAN and nothing else — no
   tier, no z-score. `§33c` applies with more force at cell level, not less.
+- **Medical staff have no import and no norms, and have a SPORT-level view instead**
+  (2026-10-05, JC, `DESIGN_DECISIONS.md §123`). Eleven routes moved to
+  `rbac('admin')`: nine cohort routes that were `rbac('admin', 'medical')` behind
+  a `canEditNorms` gate, plus the two import routes. `canEditNorms` is **deleted**
+  rather than left guarding an empty set — `rbac('admin')` is strictly stronger,
+  and an authorisation branch nobody can reach looks exactly like one that works.
+  `/medical/cohort-norms` and `/medical/data-upload` are gone; `/admin/thresholds`
+  is admin-only.
+  **`PERMISSION_KEYS` is now `['viewRecords']` alone.** `uploadData` and
+  `editCohortNorms` were removed rather than left inert, because
+  `/users/permission-meta` serves that list and the Personnel page renders a
+  toggle per entry — a key nothing checks is a switch an admin can flip, labelled
+  as a capability, that changes nothing. **Do not re-add a key without a route
+  that reads it.**
+  The norms removal **agrees with MASTER_CLARIFICATIONS' own module table**, which
+  has always listed Module 4 as admin-owned while a capability list below it said
+  otherwise. The import removal **contradicts** Chapter 4, which named Medical
+  Staff on UC-24 / UC-29 / UC-32; `REPORT_TABLE_4-1.md` and MASTER_CLARIFICATIONS
+  are updated to match the build rather than left to disagree with it.
+  **`/medical/sport-assessment` reads `GET /athletes/analytics/screening?sport=…`**
+  — the SAME endpoint the admin analytics page uses, with `medical` added to its
+  rbac list. That is the design, not an economy: a second sport-scoped aggregator
+  would let this screen, the admin's analytics and the team PDF disagree about how
+  many Badminton athletes are elevated, with nothing to say which was right. **Do
+  not build a second sport aggregate.** Six panels with the caveat each one's
+  numbers need — never-screened counted APART from every band including green
+  (§33), counts not percentages (a 14-athlete squad drawn as shares reads like
+  140), "a mean is not the squad" over the region grid (§23), asymmetry as a COUNT
+  past the threshold rather than a mean gap (the means are flat at 3–6 and hide
+  the athletes worth finding), indicators with nobody above the watch line omitted
+  rather than printed as zeros, every band named by its WORD (3i), and a cell with
+  no reading dashed rather than tier-coloured (§54). The shortlist sorts
+  band-first then indicator — a number alone puts a red athlete below an amber
+  one. It links to `/medical/dashboard?athlete=<IC>` instead of growing its own
+  detail view, because that is the audited path (`athlete.view`).
+  **SIX GUARDS FIRED on the removal and none of it was caught by reading**:
+  contrastPages (phantom pages — then AGAIN, because the comment explaining the
+  removal quoted the entry syntax and `parseListed` reads that file as text,
+  §118's trap inverted), navigationNames (USER_MANUAL's nav table is pinned
+  cell-for-cell to the Sidebar), systemMap (page count), verify:a11y (`h1 → h3`:
+  card titles are `<h2 className="card-title">` app-wide), and TWO mutation
+  entries — one stale `find`, one **SURVIVED** because its only subject was the
+  deleted re-export. That last one is the lesson worth keeping: **a guard whose
+  coverage depends on the app containing an example retires itself silently while
+  the registry keeps counting it.** Both re-export guards own fixtures now, and
+  the resolver's WIRING is pinned by source text, because the fixture tests call
+  it directly and so stayed green when the call site was removed — `winAnsiSafe`
+  again.
 - **A clinician's personal watchlist** (2026-09-06, `DESIGN_DECISIONS.md §66`).
   Module 6's last deferred item. **medical + admin only** — `coach` was in the
   allowed roles until `npm run audit:access` failed with *"a read-only role
