@@ -537,8 +537,36 @@ async function visit(browser, route, session) {
           el.click();
           return true;
         }, click);
-        check(`${label}: an athlete can be opened`, clicked);
-        await new Promise((x) => { setTimeout(x, 3500); });
+
+        // WAIT FOR THE PANEL, NOT FOR A FIXED 3500ms (2026-10-01).
+        //
+        // This used to dispatch the click, sleep 3500ms and measure. Two
+        // separate faults, and together they produced a confidently wrong
+        // report against the deployed instance:
+        //
+        //   The sleep ignored E2E_SETTLE. That variable exists precisely because
+        //   a serverless API with a cold start needs longer than a local
+        //   nodemon — and it was threaded through visit() and NOT through here.
+        //   Measured on hosted: /athletes/:id alone takes 3705ms, so the panel
+        //   was measured before its data arrived. Raising E2E_SETTLE to 9000
+        //   changed nothing, which is what made the cause look like anything
+        //   but latency.
+        //
+        //   And "an athlete can be opened" asserted only that a click was
+        //   DISPATCHED. So the one check that could have said "the panel never
+        //   rendered" passed, and the failure surfaced as three separate
+        //   body-map and chart faults — three alarming findings about drawing
+        //   code that was working perfectly.
+        //
+        // Polling for the figure fixes both: it is faster than the old sleep
+        // locally (it returns as soon as the panel is there) and patient enough
+        // for a cold start, and the `opened` check now means what it says.
+        const opened = await r.page
+          .waitForFunction(() => document.querySelectorAll('.bm-fig').length >= 2, { timeout: SETTLE_MS * 3 })
+          .then(() => true)
+          .catch(() => false);
+        check(`${label}: an athlete can be opened`, clicked && opened,
+          clicked ? (opened ? '' : `panel did not render within ${SETTLE_MS * 3}ms`) : `no element matched ${click}`);
       }
       const g = await r.page.evaluate(() => ({
         figures: document.querySelectorAll('.bm-fig').length,
