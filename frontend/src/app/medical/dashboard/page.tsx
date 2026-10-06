@@ -877,7 +877,16 @@ export default function MedicalDashboard() {
           ) : selectedAthlete && view ? (
             <>
               {/* Athlete header card */}
-              <div className="card" style={{ marginBottom: 20 }}>
+              {/* ── IDENTITY, VERDICT AND THE RADAR IN ONE GLANCE (§128) ──────
+                  Three cards became one row. The name hero and the status hero
+                  were stacked and said overlapping things — who this is, then
+                  what their band is — so the first screenful was two headers.
+                  The band now TINTS the identity card and the rating sits
+                  inside it, and the radar moves alongside rather than below,
+                  which it can do because §127 put its explanation behind a
+                  toggle and freed the column. */}
+              <div className={`medical-hero-row medical-hero-row--${view.screening?.effectiveBand ?? 'none'}`}>
+              <div className="card medical-id-card" style={{ marginBottom: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
                   <div style={{
                     width: 64, height: 64, borderRadius: '50%',
@@ -894,6 +903,24 @@ export default function MedicalDashboard() {
                       {selectedAthlete.programme ?? selectedAthlete.program} ·{' '}
                       {selectedAthlete.age ? `${selectedAthlete.age}y` : '—'}{' '}·{' '}
                       {selectedAthlete.gender ?? '—'}
+                    </div>
+                    {/* THE VERDICT, INSIDE THE IDENTITY CARD (§128). This was a
+                        separate hero card directly beneath, so the first screenful
+                        was two headers saying overlapping things. Compact rather
+                        than the hero form: the card is already headed by the
+                        athlete's name, and a second large heading inside it would
+                        be the stacking problem again at one level down.
+                         is explicit and pinned by
+                        app/pageWiring.test.ts — the prop DEFAULTS to staff, so an
+                        omission here reads as correct English addressed to the
+                        wrong person. */}
+                    <div className="medical-id-verdict">
+                      <OverallRiskBadge
+                        screening={view.screening}
+                        compact
+                        audience="staff"
+                        historical={!!picked}
+                      />
                     </div>
                     <div style={{ marginTop: 8 }}>
                       {!editingEvents ? (
@@ -991,82 +1018,7 @@ export default function MedicalDashboard() {
                   is kept (locked decision, MASTER_CLARIFICATIONS §12) but has
                   no live callers left on this page — see
                   docs/fyp/ACWR_REBUILD.md for the model's own history. */}
-              <ScreeningDatePicker athleteId={selectedAthlete.athleteId} onPick={setPicked} />
-
-              {/* `picked` is non-null only when a PAST screening is chosen, so it
-                  is exactly the signal the shared copy needs to stop speaking in
-                  the present tense. */}
-              <OverallRiskBadge screening={view.screening} hero audience="staff" historical={!!picked} />
-              {/* Clinical override acts on the LATEST screening only — hidden
-                  while viewing a past screening (you can't re-band history). */}
-              {!picked && selectedAthlete.screening?.screeningId && (
-                <ClinicianBandOverride
-                  screeningId={selectedAthlete.screening.screeningId}
-                  systemBand={selectedAthlete.screening.overallBand}
-                  effectiveBand={selectedAthlete.screening.effectiveBand}
-                  overrideBand={selectedAthlete.screening.overrideBand}
-                  overrideNote={selectedAthlete.screening.overrideNote}
-                  overrideBy={selectedAthlete.screening.overrideBy}
-                  overrideAt={selectedAthlete.screening.overrideAt}
-                  onSaved={reloadSelectedAthlete}
-                />
-              )}
-              {/* The AUDITED response, beneath the override (§107). Same rule:
-                  the latest screening only — you cannot answer history. */}
-              {!picked && selectedAthlete.screening?.screeningId && (
-                <EscalationResponse
-                  screeningId={selectedAthlete.screening.screeningId}
-                  band={selectedAthlete.screening.effectiveBand}
-                  outcome={selectedAthlete.screening.responseOutcome ?? null}
-                  by={selectedAthlete.screening.responseBy ?? null}
-                  at={selectedAthlete.screening.responseAt ?? null}
-                  onSaved={reloadSelectedAthlete}
-                />
-              )}
-              {/* Watch toggle. Sits with the clinician's other affordances rather
-                  than in the athlete rail, because a row there is itself a
-                  <button> and nesting one inside it is invalid markup and
-                  unreachable by keyboard. */}
-              <div className="watch-toggle-row">
-                <button
-                  type="button"
-                  className={`btn btn-sm ${watchIds.includes(selectedAthlete.athleteId) ? 'btn-primary' : 'btn-outline'}`}
-                  onClick={() => toggleWatch(selectedAthlete.athleteId)}
-                  disabled={watchBusy}
-                  aria-pressed={watchIds.includes(selectedAthlete.athleteId)}
-                >
-                  <span aria-hidden="true">{watchIds.includes(selectedAthlete.athleteId) ? '★' : '☆'}</span>
-                  {' '}
-                  {watchIds.includes(selectedAthlete.athleteId) ? 'On your watchlist' : 'Add to watchlist'}
-                </button>
-                <span className="text-muted" style={{ fontSize: 'var(--fs-sm)' }}>
-                  {/* Says what it is NOT, because a star on a clinical record
-                      invites the reading that it means something about the
-                      athlete. It is a private note about the reader. */}
-                  Your own shortcut list — private to you, and not part of the athlete&rsquo;s record.
-                </span>
-              </div>
-
-              <InjuryStatusControl
-                athleteId={selectedAthlete.athleteId}
-                isInjured={selectedAthlete.isInjured}
-                injuryNote={selectedAthlete.injuryNote}
-                injuryBy={selectedAthlete.injuryBy}
-                injuryAt={selectedAthlete.injuryAt}
-                onSaved={reloadSelectedAthlete}
-              />
-              {/* Which regions sit behind an amber/red band. Renders nothing
-                  when the athlete is green overall. Sits between the verdict and
-                  the radar overview: verdict → why → overview → detail. */}
-              <ScreeningAlertBanner
-                risks={view.risks}
-                sport={selectedAthlete.sport}
-                band={view.screening?.effectiveBand}
-                audience="staff"
-                historical={!!picked}
-              />
-
-              <div className="card" style={{ marginTop: 20 }}>
+              <div className="card" style={{ marginTop: 0 }}>
                 <div className="card-header">
                   <div>
                     <h2 className="card-title" style={{ marginBottom: 0 }}>Risk Indicators</h2>
@@ -1144,13 +1096,73 @@ export default function MedicalDashboard() {
                       </p>
                     ) : (
                       <p className="text-muted" style={{ margin: '10px 0 0', fontSize: 'var(--fs-sm)', lineHeight: 1.5 }}>
-                        Record your own verdict in <strong>Clinical assessment</strong> above once
+                        Record your own verdict in <strong>Clinical assessment</strong> below once
                         you have examined the athlete.
                       </p>
                     )}
                   </div>
                 </div>
               </div>
+              </div>
+
+              <ScreeningDatePicker athleteId={selectedAthlete.athleteId} onPick={setPicked} />
+
+              {/* The AUDITED response, beneath the override (§107). Same rule:
+                  the latest screening only — you cannot answer history. */}
+              {!picked && selectedAthlete.screening?.screeningId && (
+                <EscalationResponse
+                  screeningId={selectedAthlete.screening.screeningId}
+                  band={selectedAthlete.screening.effectiveBand}
+                  outcome={selectedAthlete.screening.responseOutcome ?? null}
+                  by={selectedAthlete.screening.responseBy ?? null}
+                  at={selectedAthlete.screening.responseAt ?? null}
+                  onSaved={reloadSelectedAthlete}
+                />
+              )}
+
+              {/* Watch toggle. Sits with the clinician's other affordances rather
+                  than in the athlete rail, because a row there is itself a
+                  <button> and nesting one inside it is invalid markup and
+                  unreachable by keyboard. */}
+              <div className="watch-toggle-row">
+                <button
+                  type="button"
+                  className={`btn btn-sm ${watchIds.includes(selectedAthlete.athleteId) ? 'btn-primary' : 'btn-outline'}`}
+                  onClick={() => toggleWatch(selectedAthlete.athleteId)}
+                  disabled={watchBusy}
+                  aria-pressed={watchIds.includes(selectedAthlete.athleteId)}
+                >
+                  <span aria-hidden="true">{watchIds.includes(selectedAthlete.athleteId) ? '★' : '☆'}</span>
+                  {' '}
+                  {watchIds.includes(selectedAthlete.athleteId) ? 'On your watchlist' : 'Add to watchlist'}
+                </button>
+                <span className="text-muted" style={{ fontSize: 'var(--fs-sm)' }}>
+                  {/* Says what it is NOT, because a star on a clinical record
+                      invites the reading that it means something about the
+                      athlete. It is a private note about the reader. */}
+                  Your own shortcut list — private to you, and not part of the athlete&rsquo;s record.
+                </span>
+              </div>
+
+              <InjuryStatusControl
+                athleteId={selectedAthlete.athleteId}
+                isInjured={selectedAthlete.isInjured}
+                injuryNote={selectedAthlete.injuryNote}
+                injuryBy={selectedAthlete.injuryBy}
+                injuryAt={selectedAthlete.injuryAt}
+                onSaved={reloadSelectedAthlete}
+              />
+              {/* Which regions sit behind an amber/red band. Renders nothing
+                  when the athlete is green overall. Sits between the verdict and
+                  the radar overview: verdict → why → overview → detail. */}
+              <ScreeningAlertBanner
+                risks={view.risks}
+                sport={selectedAthlete.sport}
+                band={view.screening?.effectiveBand}
+                audience="staff"
+                historical={!!picked}
+              />
+
 
               {/* HoloMotion screening — the athlete's latest report read
                   against its thresholds (gauges + indicator strips + muscle
@@ -1191,6 +1203,29 @@ export default function MedicalDashboard() {
                   historical={!!picked}
                 />
               </div>
+
+              {/* ── THE DECISION COMES AFTER THE ANALYSIS (§128) ───────────────
+                  These two sat directly under the hero, ABOVE the screening
+                  panel and the muscle map — so the page offered a verdict
+                  before showing the evidence for it. JC: a decision is
+                  completed "after their assessment of the athlete's HoloMotion
+                  analysis". Reading order is now read → examine → decide, and
+                  the override is the only control that moves an athlete
+                  between bands. */}
+              {/* Clinical override acts on the LATEST screening only — hidden
+                  while viewing a past screening (you can't re-band history). */}
+              {!picked && selectedAthlete.screening?.screeningId && (
+                <ClinicianBandOverride
+                  screeningId={selectedAthlete.screening.screeningId}
+                  systemBand={selectedAthlete.screening.overallBand}
+                  effectiveBand={selectedAthlete.screening.effectiveBand}
+                  overrideBand={selectedAthlete.screening.overrideBand}
+                  overrideNote={selectedAthlete.screening.overrideNote}
+                  overrideBy={selectedAthlete.screening.overrideBy}
+                  overrideAt={selectedAthlete.screening.overrideAt}
+                  onSaved={reloadSelectedAthlete}
+                />
+              )}
             </>
           ) : null}
         </section>

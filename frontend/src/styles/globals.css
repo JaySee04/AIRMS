@@ -4761,3 +4761,51 @@ textarea:focus-visible,
   color: var(--text-muted);
 }
 .radar-breach-none strong { color: var(--text); }
+
+/* ── Medical detail: identity + verdict + radar in one row (§128, 2026-10-06) ─
+   Three stacked cards became one row. The name hero and the status hero said
+   overlapping things — who this is, then what band they are — so the first
+   screenful was two headers; and the radar sat below, which it no longer has to
+   because §127 put its explanation behind a toggle and freed the column. */
+.medical-hero-row {
+  display: grid;
+  /* The identity card takes what it needs and the radar takes the rest, with a
+     floor so the chart never squeezes to an unreadable width. Below that the row
+     stacks, which is why this is a grid and not two flex columns. */
+  grid-template-columns: minmax(320px, 1.1fr) minmax(360px, 1fr);
+  gap: var(--sp-md);
+  align-items: start;
+  margin-bottom: 20px;
+}
+@media (max-width: 1100px) {
+  .medical-hero-row { grid-template-columns: 1fr; }
+}
+
+/* THE BAND TINTS THE IDENTITY CARD — as a left edge plus a wash, never as the
+   whole background. A saturated full-card fill would put every word in the card
+   on a coloured ground, which is the §121 problem multiplied: the name, the IC,
+   the event chips and two buttons would each need their own ink. The edge carries
+   the signal, the wash carries the mood, and the text keeps its own tokens. */
+.medical-id-card {
+  border-left: 4px solid var(--border);
+  transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+.medical-hero-row--green .medical-id-card {
+  border-left-color: var(--risk-low);
+  background: linear-gradient(to right, var(--risk-low-bg), var(--bg-card) 55%);
+}
+.medical-hero-row--amber .medical-id-card {
+  border-left-color: var(--risk-moderate);
+  background: linear-gradient(to right, var(--risk-moderate-bg), var(--bg-card) 55%);
+}
+.medical-hero-row--red .medical-id-card {
+  border-left-color: var(--risk-high);
+  background: linear-gradient(to right, var(--risk-high-bg), var(--bg-card) 55%);
+}
+/* An athlete with no band is NOT tinted. Never-screened and
+   too-small-a-cohort-to-score are absences of information, and giving either a
+   colour would make it read as a finding (§33 — the same rule that keeps
+   never-screened out of the green tile on every other surface). */
+.medical-hero-row--none .medical-id-card { border-left-color: var(--border); }
+
+.medical-id-verdict { margin-top: var(--sp-sm); }

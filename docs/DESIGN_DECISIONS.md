@@ -12482,3 +12482,79 @@ is the design itself.
 1099, typecheck and lint clean, contrast 0 findings, a11y 0 findings. Verified in a
 browser: the breach card reads `Lumbar/Pelvis 28 vs 20 +8`, the toggle is
 collapsed by default and `aria-expanded` flips on click.
+
+## 128. The medical record reads identify → examine → decide (2026-10-06)
+
+JC: *"the name hero and the status hero can be combined by just doing the colour
+background and rating within the name hero... the work flow should be that after
+viewing everything for the athlete's holomotion analysis only the medical staff
+can complete a decision... convey as much information in the first glance as
+possible by compacting the elements, like moving the risk indicator to the side of
+the name hero since its explanation is now hidden."*
+
+### 128.1 Three cards became one row
+
+The pane opened with a **name hero** (avatar, name, IC, sport, events) and then a
+**status hero** (band, indicator, reasons). Two headers saying overlapping things —
+*who is this* and then *what band are they* — before any evidence appeared.
+
+They are one card now. The band **tints the identity card** and the rating sits
+inside it in `compact` form, and the radar moves **alongside** rather than below.
+The radar could only move because §127 put its explanation behind a toggle and
+freed that column; the compaction is the dividend of that change.
+
+**The tint is a left edge plus a wash, never a full saturated fill.** A card
+painted entirely in a band colour would put the name, the IC, the event chips and
+two buttons each on a coloured ground — the §121 problem multiplied, every one of
+them needing its own ink. The edge carries the signal, the wash carries the mood,
+and the text keeps its own tokens. Verified: 0 contrast findings in both themes.
+
+**An athlete with no band is NOT tinted.** `--none` resolves to the neutral border.
+Never-screened and too-small-a-cohort are absences of information, and colouring
+either would make it read as a finding — the same rule that keeps never-screened
+out of the green tile on every other surface (§33).
+
+The rating uses `compact`, not the hero form: the card is already headed by the
+athlete's name, and a second large heading inside it would be the stacking problem
+again one level down. `audience="staff"` stays explicit because
+`app/pageWiring.test.ts` pins it — the prop DEFAULTS to staff, so an omission
+reads as correct English addressed to the wrong person.
+
+### 128.2 The decision now comes after the evidence
+
+`ClinicianBandOverride` and `EscalationResponse` sat directly under the hero,
+**above** the screening panel and the muscle map. The page offered a verdict before
+showing what it was based on. Both now sit after the muscle map, which is the last
+analysis card, so the reading order is **identify → examine → decide** and the
+override remains the only control that moves an athlete between bands.
+
+Measured on screen: muscle map at 2625px, clinical assessment at 3346px.
+
+**The e2e check asserts GEOMETRY, not DOM order**, and that distinction matters
+here: the hero row is a grid, so a card can be earlier in the markup and later on
+screen. It is the on-screen order a clinician reads, so `getBoundingClientRect` is
+what the check uses.
+
+### 128.3 The loop this introduced, and why it looked like nothing
+
+Moving the radar surfaced a defect from §127: `onReadout` was wired straight to
+`setRadarRows`, and the effect reporting it was keyed on `values` — which arrives
+as a **fresh array on every render**, because `riskRadarSeries(view.risks)` builds
+one each time. Effect fires → parent setState → re-render → new array → effect
+fires. An infinite loop.
+
+**What it looked like from outside is the part worth remembering.** The route
+answered **200 in 233ms** in the dev log, every suite passed, typecheck and lint
+were clean — and the browser never finished loading, because `networkidle2` never
+settled. A page that serves instantly and never settles is this failure's
+signature, and nothing but a real browser would have shown it. It is the trap
+CLAUDE.md already records for a router stub returning a fresh object each render,
+reached from the other direction.
+
+Fixed in `RiskRadar` rather than at the call site: the readout effect compares the
+**serialised rows** against a ref and returns early when unchanged, so a re-render
+for an unrelated reason emits nothing. Guarding at the call site with a `useMemo`
+would have worked for this one caller and left the next one to rediscover it.
+
+**Measured:** 147 e2e checks (143 before), frontend 28 suites / 485, backend 70 /
+1099, typecheck and lint clean, contrast 0 findings, a11y 0 findings.

@@ -670,6 +670,55 @@ async function visit(browser, route, session) {
       await r.page.close();
     }
 
+
+    console.log('\n4k. the medical record reads: identify, examine, then decide');
+    // §128. The pane opened with a name hero, a status hero saying an overlapping
+    // thing, and then the override and escalation controls — so it offered a
+    // VERDICT above the evidence for it. JC: a decision is completed "after their
+    // assessment of the athlete's HoloMotion analysis".
+    //
+    // ASSERTED BY GEOMETRY, not by DOM order. A card can be earlier in the markup
+    // and later on screen (the hero row is a grid), and it is the ON-SCREEN order
+    // a clinician reads. Measured with getBoundingClientRect for that reason.
+    {
+      const r = await visit(browser, '/medical/dashboard', sessions.medical);
+      await r.page.evaluate(() => document.querySelector('.athlete-row')?.click());
+      await r.page.waitForFunction(() => document.querySelectorAll('.bm-fig').length >= 2, { timeout: SETTLE_MS * 3 })
+        .catch(() => {});
+      const o = await r.page.evaluate(() => {
+        const top = (e) => (e ? Math.round(e.getBoundingClientRect().top) : null);
+        const head = (re) => [...document.querySelectorAll('h2,h3')].find((h) => re.test(h.textContent || ''));
+        const id = document.querySelector('.medical-id-card');
+        return {
+          identity: top(id),
+          radar: top(document.querySelector('.medical-hero-row canvas')),
+          muscleMap: top(head(/Muscle Assessment/i)),
+          assessment: top(head(/Clinical assessment/i)),
+          verdictInside: !!id?.querySelector('.medical-id-verdict'),
+          bandClass: [...(document.querySelector('.medical-hero-row')?.classList ?? [])]
+            .find((c) => c.startsWith('medical-hero-row--')) || null,
+          heroCount: document.querySelectorAll('.medical-hero-row').length,
+        };
+      });
+
+      check('medical: identity and verdict are ONE card, not two stacked heroes',
+        o.verdictInside && o.heroCount === 1,
+        `verdictInside=${o.verdictInside} rows=${o.heroCount}`);
+      check('medical: the band tints the identity card',
+        !!o.bandClass, o.bandClass || 'no band class');
+      // The radar sits BESIDE the identity rather than below it — the compaction
+      // §127 made possible by moving its explanation behind a toggle.
+      check('medical: the risk radar is alongside the identity, not beneath it',
+        o.radar !== null && o.identity !== null && Math.abs(o.radar - o.identity) < 300,
+        `identity ${o.identity} vs radar ${o.radar}`);
+      // THE WORKFLOW. The decision must come after the evidence.
+      check('medical: the decision comes AFTER the HoloMotion analysis',
+        o.assessment !== null && o.muscleMap !== null && o.assessment > o.muscleMap,
+        `muscle map ${o.muscleMap} -> assessment ${o.assessment}`);
+
+      await r.page.close();
+    }
+
     console.log('\n5. keyboard focus is visible where focus was removed once');
     const fp = await visit(browser, '/athlete/dashboard', sessions.athlete);
     const ring = await fp.page.evaluate(() => {

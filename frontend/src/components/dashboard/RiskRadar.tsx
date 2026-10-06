@@ -205,10 +205,27 @@ export default function RiskRadar({
 
   // Reported in its own effect, not from inside the chart build: the chart is
   // recreated on a theme change and the readout must not be re-emitted for that.
+  //
+  // GUARDED BY VALUE, AND THIS IS NOT OPTIONAL. `values` and `thresholds` arrive
+  // as FRESH ARRAYS on every render of the parent — riskRadarSeries(view.risks)
+  // builds one each time — so an effect keyed on them fires on every render.
+  // Calling the parent's setState from there re-renders the parent, which builds
+  // new arrays, which fires the effect again: an infinite loop. It is the trap
+  // CLAUDE.md records for a stub that returns a fresh object each render, and it
+  // hung the medical dashboard — the route answered 200 in 233ms while
+  // networkidle2 never settled, which is what that failure looks like from
+  // outside.
+  //
+  // Comparing the SERIALISED readout rather than array identity is what makes the
+  // effect idempotent: a re-render for an unrelated reason emits nothing.
+  //
+  // Comparing the SERIALISED readout rather than the array identity is what makes
+  // the effect idempotent: re-rendering for an unrelated reason emits nothing.
+  const lastReadout = useRef<string>('');
   useEffect(() => {
     if (!onReadout) return;
     const has = !!thresholds && thresholds.length === values.length;
-    onReadout(labels.map((label, i) => {
+    const rows = labels.map((label, i) => {
       const t = has ? thresholds![i] : null;
       return {
         label,
@@ -216,7 +233,11 @@ export default function RiskRadar({
         threshold: t,
         over: t === null ? null : Math.round((values[i] - t) * 10) / 10,
       };
-    }));
+    });
+    const key = JSON.stringify(rows);
+    if (key === lastReadout.current) return;
+    lastReadout.current = key;
+    onReadout(rows);
   }, [labels, values, thresholds, onReadout]);
 
   return (
