@@ -28,6 +28,7 @@ import { DotPlot, Heatmap, Histogram, RankedBars, Ring, Scatter } from '@/compon
 import { TIER_COLOR, TIER_INK, TIER_LABEL, TIER_ORDER, TIER_RANGE, tierOf } from '@/lib/holomotionTiers';
 import { BAND_COLOR, bandSegments } from '@/lib/bands';
 import MethodNote from '@/components/ui/MethodNote';
+import { squadFlags as squadFlagsOf, squadSubitems as squadSubitemsOf } from '@/lib/squadFigure';
 // PROGRAMMES and SMALL_COHORT from the generated shared source (DD 53), so a
 // programme this page compares cannot be one the database column rejects.
 import { PROGRAMMES, SMALL_COHORT } from '@/lib/shared/facts';
@@ -198,22 +199,14 @@ export default function AdminDashboard() {
   // body map already reads. Feeding the squad average into the SAME figure the
   // clinician sees for one athlete is the point: the admin dashboard had no
   // anatomical view at all, while the whole instrument speaks in body regions.
-  const squadSubitems = useMemo(() => {
-    if (!cohort?.subitems?.matrix?.length) return null;
-    const out: Record<string, Record<string, number | null>> = {};
-    for (const r of cohort.subitems.matrix) {
-      out[r.key] = Object.fromEntries(r.cells.map((c) => [c.key, c.value]));
-    }
-    return out as never;
-  }, [cohort]);
-
-  // Muscle flags, aggregated: a muscle appears on the squad figure if anyone in
-  // the cohort was flagged for it. Side 'B' because a squad has no single side —
-  // the per-muscle counts live in the two ranked lists further down.
-  const squadFlags = useMemo(() => ({
-    myodynamia: (cohort?.topMyodynamia ?? []).map((m) => ({ muscle: m.muscle, side: 'B' as const })),
-    tension: (cohort?.topTension ?? []).map((m) => ({ muscle: m.muscle, side: 'B' as const })),
-  }), [cohort]);
+  // Both derivations live in lib/squadFigure.ts — the coach view feeds the SAME
+  // figure from the same aggregate, and two copies of this reshape is how the
+  // two could come to disagree about one squad (§130).
+  const squadSubitems = useMemo(() => squadSubitemsOf(cohort?.subitems), [cohort]);
+  const squadFlags = useMemo(
+    () => squadFlagsOf(cohort?.topMyodynamia, cohort?.topTension),
+    [cohort],
+  );
 
   // PODIUM vs PELAPIS — Module 5's last deferred item.
   //

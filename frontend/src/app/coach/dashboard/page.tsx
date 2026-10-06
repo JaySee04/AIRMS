@@ -20,6 +20,7 @@ import { MuscleEntry } from '@/lib/risk';
 import { computeBodyPartAlerts, AthleteRisks, BodyRegion, RADAR_LABELS, highThresholdsFor, riskRadarSeries } from '@/lib/screeningAlerts';
 import { getInitials } from '@/lib/name';
 import { readinessBreakdown, bandFor, type ReadinessBand } from '@/lib/readiness';
+import { squadFlags as squadFlagsOf, squadSubitems as squadSubitemsOf } from '@/lib/squadFigure';
 // The RISK band vocabulary, kept apart from this file's READINESS bands below
 // (Full-Go / Observation / Restricted), which are a different thing wearing the
 // same three colours.
@@ -411,18 +412,15 @@ export default function CoachDashboard() {
   // the magnitude, and merging the sides at group level is the decision
   // utils/muscleHotspots.js records. Identical to how the admin dashboard feeds
   // the same component, deliberately: one figure, two audiences.
-  const squadFlags = useMemo(() => ({
-    myodynamia: (data?.squad?.topMyodynamia ?? []).map((m) => ({ muscle: m.muscle, side: 'B' as const })),
-    tension: (data?.squad?.topTension ?? []).map((m) => ({ muscle: m.muscle, side: 'B' as const })),
-  }), [data]);
-
-  const squadSubitems = useMemo(() => {
-    const matrix = data?.squad?.subitems?.matrix;
-    if (!matrix?.length) return null;
-    const out: Record<string, Record<string, number | null>> = {};
-    for (const r of matrix) out[r.key] = Object.fromEntries(r.cells.map((c) => [c.key, c.value]));
-    return out as never;
-  }, [data]);
+  // lib/squadFigure.ts, shared with the admin analytics page: the two feed the
+  // SAME figure from the same aggregate, and two copies of this reshape is how
+  // they could come to disagree about one squad (§130). Side B on every entry is
+  // the merged-count decision, explained there.
+  const squadFlags = useMemo(
+    () => squadFlagsOf(data?.squad?.topMyodynamia, data?.squad?.topTension),
+    [data],
+  );
+  const squadSubitems = useMemo(() => squadSubitemsOf(data?.squad?.subitems), [data]);
 
   // The compact "where is this squad getting hurt" answer.
   //

@@ -12631,3 +12631,53 @@ everything permanently would satisfy the other two.
 1099, typecheck and lint clean, contrast 0 findings, a11y 0 findings. Verified by
 pointer and by keyboard: focusing `Iliopsoas tight 9 of 14` lights `Iliopsoas:L`
 and `Iliopsoas:R`.
+
+## 130. One definition of "a squad aggregate as a body figure" (2026-10-06)
+
+Optimisation pass over what §124–§129 added.
+
+The admin's Screening Analytics and the coach's squad view feed the **same**
+`BodyMap` from the **same** server-side aggregate, and each reshaped it with its
+own pair of `useMemo`s — identical logic, two copies, written five weeks apart
+(the coach's arrived with §124). That is the drift this codebase keeps paying
+for: not the duplication itself, but that one copy can be "simplified" and the
+two figures then disagree about one squad with nothing to say which is right
+(SILENT_FAILURES "rules" 8).
+
+`lib/squadFigure.ts` holds both transforms now. Net 19 lines out of the two pages.
+
+**Pure functions rather than a hook, deliberately.** Each caller keeps its own
+`useMemo` and its own dependency array — the admin's input is `cohort`, the
+coach's is `data.squad`, and a hook would have to take both or guess. What is
+shared is the TRANSFORM, which is the part that could drift.
+
+Two decisions move with it and are stated once instead of twice: **side `'B'` on
+every entry** is the merged-count decision from `utils/muscleHotspots.js` (the
+count carries no side, so the figure must not invent one), and **a null matrix
+returns null** rather than an empty object, which is what makes the ROM/Stability
+mode *absent* rather than drawn from no readings — an unknown value stays unknown
+(§54).
+
+### 130.1 A note on verification, because the number moved
+
+The local e2e run is currently flaky on the **signed-out-redirect** checks:
+150/150, then 149, then 145 across three runs **with no code change between
+them**. The dev server has been recompiling and serving concurrent browser
+sessions throughout this session, and `E2E_SETTLE` defaults to 1200ms.
+
+The auth boundary itself was verified **directly**, in a clean browser context:
+`/admin/dashboard` and `/medical/dashboard` both land on `/` when signed out. So
+the property is sound and the variance is the harness — which is worth writing
+down rather than leaving a reader to find three different totals in three commit
+messages. If it recurs on a quiet machine the fix is a longer settle for those
+checks, or running them before the suite warms the server.
+
+This is the §121.8 rule pointed at the harness instead of the product: a run that
+cannot be trusted to measure must not be quoted as if it had.
+
+### 130.2 Outstanding
+
+`lib/squadFigure.ts` has **no unit test of its own**. Both transforms are
+exercised through the two dashboards and §129's e2e checks, but a pure function
+extracted for the explicit purpose of not drifting should pin its own contract —
+side `'B'`, and null-for-null. Flagged rather than skipped silently.
