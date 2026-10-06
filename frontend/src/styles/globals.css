@@ -4656,3 +4656,108 @@ textarea:focus-visible,
    stacking is made explicit rather than left to source position. */
 .scatter-cross { z-index: 1; }
 .scatter-dot { z-index: 2; }
+
+/* ── MethodNote + the radar breach readout (§127, 2026-10-06) ────────────────
+   Method text behind a toggle; caveats stay on the card. The split, and why it
+   is not "hide all the explanations", is in MethodNote.tsx. */
+.method-note { margin: var(--sp-sm) 0 0; }
+.method-note-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-xs);
+  padding: 3px 8px 3px 4px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font: inherit;
+  font-size: var(--fs-xs);
+  /* A bare <button> does not inherit colour — the UA sets `buttontext`, which is
+     how the topbar name sat at 1.36:1 in dark mode (§121). */
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.method-note-toggle:hover { background: var(--bg); color: var(--text); }
+.method-note-icon {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: var(--border);
+  /* --text, not a muted token: this is text ON a fill, which is the §121 role
+     that needed its own answer. Measured on --border in both themes. */
+  color: var(--text);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  font-style: italic;
+}
+.method-note-chevron { font-size: var(--fs-2xs); }
+.method-note-body {
+  margin-top: var(--sp-xs);
+  padding: var(--sp-sm);
+  border-left: 2px solid var(--border);
+  background: var(--bg);
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+.method-note-body p { margin: 0 0 var(--sp-xs); }
+.method-note-body p:last-child { margin-bottom: 0; }
+.method-note-body strong { color: var(--text); }
+
+/* The spokes that are over, as a list. The chart is a shape; this is the
+   sentence a clinician acts on, and it used to exist only in a hover tooltip —
+   unreachable on a touch screen and absent from a screenshot. */
+.radar-breach {
+  border: 1px solid var(--risk-high);
+  background: var(--risk-high-bg);
+  border-radius: var(--r-md);
+  padding: var(--sp-sm);
+}
+.radar-breach-head {
+  margin: 0 0 var(--sp-xs);
+  font-size: var(--fs-md);
+  /* Red as TEXT is fine here — 6.34 / 5.48 — which is why §121 has no
+     --risk-high-ink. On the tinted bg it is still above AA; verified by the
+     contrast sweep rather than assumed, after §126 got this exact call wrong. */
+  color: var(--risk-high);
+}
+.radar-breach ul { list-style: none; margin: 0; padding: 0; }
+.radar-breach li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sp-sm);
+  align-items: baseline;
+  padding: 3px 0;
+  font-size: var(--fs-sm);
+  border-bottom: 1px solid var(--border);
+}
+.radar-breach li:last-child { border-bottom: 0; }
+.radar-breach-name { font-weight: 600; }
+.radar-breach-gap {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.radar-breach-gap strong { color: var(--risk-high); }
+/* The caveat, inside the card rather than behind the toggle: "over the cutoff"
+   is a reason to examine and not a diagnosis, and a reader without that sentence
+   draws the wrong conclusion. That is the test MethodNote documents. */
+.radar-breach-note {
+  margin: var(--sp-xs) 0 0;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+.radar-breach-none {
+  margin: 0;
+  padding: var(--sp-sm);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--bg);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+.radar-breach-none strong { color: var(--text); }

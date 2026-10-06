@@ -1,5 +1,39 @@
 'use client';
 
+// The exercise-risk radar: a REFERENCE REGION with the athlete drawn over it.
+//
+// JC, 2026-10-06 (§127): "make it more easy to understand... a radarish [norm]
+// and use lines to show the athlete's shape, and highlight the ones that are
+// over... Also place labels to ensure people understand it."
+//
+// WHAT CHANGED AND WHY IT IS THE RIGHT WAY ROUND NOW. The athlete used to be the
+// FILLED gold shape and the threshold a thin dashed line behind it, so the thing
+// being judged was visually heavier than the thing judging it. Reading a breach
+// meant eyeballing which of two overlapping outlines was outside the other.
+// Inverted, the question becomes shape recognition: the acceptable region is a
+// solid field, the athlete is a line, and a breach is the line leaving the field.
+//
+// THE REGION IS NOT GREEN, AND THAT WAS DEBATED RATHER THAN ASSUMED (§127.2).
+// A bright green field would say "inside here you are fine" in one colour with no
+// words, which is the §33 reassurance failure — the green band in this product
+// reads "No indicators flagged" and deliberately never "Safe". It would also be
+// concretely wrong: this boundary is the ELEVATED cutoff, so the whole WATCH band
+// sits inside the region. An athlete who needs attention would be sitting
+// comfortably in the green. Neutral gets the identical shape-recognition benefit
+// and asserts nothing.
+//
+// THE BOUNDARY IS A THRESHOLD, NOT A COHORT AVERAGE, and that distinction is
+// load-bearing. `highThresholdsFor(sport)` is the sport-tightened Elevated cutoff.
+// Drawing the cohort MEAN here instead and flagging everything outside it would
+// put about half the squad over the line by construction — which is the defect
+// the below-mean escalation rule already had (it fired at z<0 and flagged 27 of
+// 58 seeded athletes; §32 moved it to -0.5 SD). Do not make this the norm.
+//
+// LABELS, because there were none. `legend` was display:false and `ticks` was
+// display:false with `max` hard-coded to 30, so the chart had no key, no scale,
+// and no way to tell a breach of one point from a breach of fifteen. The legend
+// is on, the radial ticks are on, and the caller renders a per-spoke "over by N"
+// list from `onReadout` — the question the picture alone cannot answer.
 import { useEffect, useRef } from 'react';
 import {
   Chart,
@@ -15,17 +49,36 @@ import { useIsDark, chartPalette } from '@/lib/chartTheme';
 
 Chart.register(RadarController, PointElement, LineElement, RadialLinearScale, Legend, Tooltip, Filler);
 
+/** One spoke's verdict, for the caller's readout list. */
+export interface RadarReadout {
+  label: string;
+  value: number;
+  threshold: number | null;
+  /** Points above the Elevated cutoff. Null when there is no cutoff to compare. */
+  over: number | null;
+}
+
 interface RiskRadarProps {
   labels: string[];
   values: number[];
-  // Optional per-axis Elevated-band cutoff (same order as labels/values —
-  // see highThresholdsFor in lib/screeningAlerts.ts). Drawn as a dashed
-  // unfilled guide polygon so the athlete's shape can be read directly
-  // against their personalised threshold rather than against a bare number.
+  // Per-axis Elevated-band cutoff, same order as labels/values (see
+  // highThresholdsFor in lib/screeningAlerts.ts). Drawn as the FILLED reference
+  // region the athlete's line is read against.
   thresholds?: number[];
+  /**
+   * Called with the per-spoke comparison so the page can print it.
+   *
+   * The chart is a shape; "shoulder is 4 over" is a sentence. A reader deciding
+   * who to assess needs the sentence, and until now it existed only inside a
+   * hover tooltip — invisible on a touch screen and invisible in a screenshot
+   * pasted into a case note.
+   */
+  onReadout?: (rows: RadarReadout[]) => void;
 }
 
-export default function RiskRadar({ labels, values, thresholds }: RiskRadarProps) {
+export default function RiskRadar({
+  labels, values, thresholds, onReadout,
+}: RiskRadarProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const chartRef = useRef<Chart | null>(null);
   const isDark = useIsDark();
@@ -36,15 +89,17 @@ export default function RiskRadar({ labels, values, thresholds }: RiskRadarProps
     if (!ctx) return;
     const pal = chartPalette(isDark);
 
-    // Per-axis: is the athlete's reading at/above their personalised Elevated
-    // cutoff? Drives both the red point highlight and the tooltip comparison,
-    // so the breached spokes read at a glance instead of by eyeballing overlap.
     const hasThresholds = !!thresholds && thresholds.length === values.length;
     const over = hasThresholds ? values.map((v, i) => v >= thresholds![i]) : values.map(() => false);
-    // pal.riskHigh, not a literal: this red also appears as the risk hero's
-    // band colour a few pixels away, and it has to lift in dark mode with it.
-    const thresholdRed = pal.riskHigh;
-    const ptColor = over.map((o) => (o ? thresholdRed : pal.gold));
+    // pal.riskHigh, not a literal: this red is the risk hero's band colour a few
+    // pixels away and has to lift in dark mode with it.
+    const breachRed = pal.riskHigh;
+    const ptColor = over.map((o) => (o ? breachRed : pal.tick));
+
+    // The scale has to cover the data AND the boundary, or a breach can be
+    // clipped at the rim and read as "exactly at threshold". Was hard-coded to 30.
+    const ceiling = Math.max(30, ...values, ...(hasThresholds ? thresholds! : []));
+    const axisMax = Math.ceil(ceiling / 10) * 10;
 
     chartRef.current?.destroy();
     chartRef.current = new Chart(ctx, {
@@ -52,33 +107,40 @@ export default function RiskRadar({ labels, values, thresholds }: RiskRadarProps
       data: {
         labels,
         datasets: [
-          // Drawn first (behind the athlete's shape) so it reads as a
-          // boundary the shape is measured against, not a second reading.
+          // THE REFERENCE REGION, drawn first so the athlete's line sits over it.
           ...(hasThresholds
             ? [
                 {
-                  label: 'Elevated threshold',
+                  label: 'Within the Elevated cutoff',
                   data: thresholds,
-                  backgroundColor: 'transparent',
-                  borderColor: thresholdRed,
-                  borderDash: [5, 4],
-                  borderWidth: 1.5,
+                  // Neutral, deliberately — see the header. A tinted grey field
+                  // reads as "the area being compared against" and claims nothing
+                  // about health.
+                  backgroundColor: isDark ? 'rgba(148,163,184,0.20)' : 'rgba(100,116,139,0.14)',
+                  borderColor: pal.tick,
+                  borderDash: [4, 3],
+                  borderWidth: 1,
                   pointRadius: 0,
                   pointHoverRadius: 0,
+                  fill: true,
                 },
               ]
             : []),
           {
-            label: 'Risk %',
+            label: "This athlete's reading",
             data: values,
-            backgroundColor: isDark ? 'rgba(224,184,78,0.22)' : 'rgba(200,155,60,0.18)',
+            // A LINE, not a fill. Two filled polygons made the reader work out
+            // which was on top; one field and one line do not.
+            backgroundColor: 'transparent',
+            fill: false,
             borderColor: pal.gold,
-            // Spokes over the Elevated cutoff turn red and grow, so the problem
-            // regions catch the eye without reading tick values.
+            borderWidth: 2,
             pointBackgroundColor: ptColor,
             pointBorderColor: ptColor,
-            pointRadius: over.map((o) => (o ? 5 : 3)),
-            pointHoverRadius: over.map((o) => (o ? 7 : 5)),
+            // A breached spoke is bigger AND red: size survives greyscale, and
+            // colour alone is never the only channel (SILENT_FAILURES 3i).
+            pointRadius: over.map((o) => (o ? 6 : 3)),
+            pointHoverRadius: over.map((o) => (o ? 8 : 5)),
           },
         ],
       },
@@ -88,26 +150,45 @@ export default function RiskRadar({ labels, values, thresholds }: RiskRadarProps
         scales: {
           r: {
             min: 0,
-            max: 30,
-            ticks: { display: false },
+            max: axisMax,
+            // ON. Without a scale there is no way to tell a breach of one point
+            // from a breach of fifteen, which is most of what "hard to
+            // understand" meant.
+            ticks: {
+              display: true,
+              color: pal.tick,
+              backdropColor: 'transparent',
+              stepSize: Math.max(5, Math.round(axisMax / 4 / 5) * 5),
+              font: { size: 9 },
+            },
             grid: { color: pal.grid },
             angleLines: { color: pal.grid },
-            pointLabels: { color: pal.tick },
+            pointLabels: { color: pal.tick, font: { size: 11 } },
           },
         },
         plugins: {
-          legend: { display: false },
+          // ON. The two shapes mean different things and nothing said which was
+          // which — the single most answerable part of "make it easier to
+          // understand".
+          legend: {
+            display: true,
+            position: 'bottom',
+            labels: {
+              color: pal.tick,
+              boxWidth: 12,
+              font: { size: 11 },
+              usePointStyle: false,
+            },
+          },
           tooltip: {
-            filter: (item) => item.dataset.label !== 'Elevated threshold',
             callbacks: {
-              label: (item) => `Reading ${item.formattedValue} / 30`,
-              // When we know the athlete's cutoff, say how far over/under it is.
+              label: (item) => `${item.dataset.label}: ${item.formattedValue} / ${axisMax}`,
               afterLabel: (item) => {
-                if (!hasThresholds) return '';
+                if (!hasThresholds || item.datasetIndex === 0) return '';
                 const t = thresholds![item.dataIndex];
                 const gap = Math.round((values[item.dataIndex] - t) * 10) / 10;
-                if (gap > 0) return `Elevated cutoff ${t} · +${gap} over`;
-                if (gap === 0) return `Elevated cutoff ${t} · at threshold`;
+                if (gap > 0) return `Elevated cutoff ${t} · ${gap} over — assess`;
+                if (gap === 0) return `Elevated cutoff ${t} · at the cutoff`;
                 return `Elevated cutoff ${t} · ${-gap} below`;
               },
             },
@@ -122,8 +203,24 @@ export default function RiskRadar({ labels, values, thresholds }: RiskRadarProps
     };
   }, [labels, values, thresholds, isDark]);
 
+  // Reported in its own effect, not from inside the chart build: the chart is
+  // recreated on a theme change and the readout must not be re-emitted for that.
+  useEffect(() => {
+    if (!onReadout) return;
+    const has = !!thresholds && thresholds.length === values.length;
+    onReadout(labels.map((label, i) => {
+      const t = has ? thresholds![i] : null;
+      return {
+        label,
+        value: values[i],
+        threshold: t,
+        over: t === null ? null : Math.round((values[i] - t) * 10) / 10,
+      };
+    }));
+  }, [labels, values, thresholds, onReadout]);
+
   return (
-    <div style={{ position: 'relative', height: 300 }}>
+    <div style={{ position: 'relative', height: 320 }}>
       <canvas ref={canvasRef} />
     </div>
   );

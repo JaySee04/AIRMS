@@ -561,10 +561,32 @@ async function visit(browser, route, session) {
 
       // The explanation itself: what each axis measures, why two scores can
       // disagree, all four quadrants, and the median caveat.
-      check('scatter: says what the two axes actually measure',
-        /how well the athlete/i.test(r.text) && /injury-risk burden/i.test(r.text));
-      check('scatter: explains why the two scores can disagree',
-        /move beautifully and still carry risk/i.test(r.text));
+      // THE METHOD TEXT IS BEHIND THE INFO TOGGLE SINCE §127, and these checks
+      // open it rather than being deleted. The point is that hiding must not
+      // become DELETING: the explanation still has to exist, and a collapsed
+      // panel reads identically to a removed one from outside.
+      const methodHidden = !/how well the athlete/i.test(r.text);
+      check('scatter: the method text is collapsed, not on the card', methodHidden,
+        methodHidden ? '' : 'method prose is visible by default');
+      const opened = await r.page.evaluate(() => {
+        const btns = [...document.querySelectorAll('.method-note-toggle')];
+        const b = btns.find((x) => /what the two axes measure/i.test(x.textContent || ''));
+        if (!b) return false;
+        b.click();
+        return true;
+      });
+      await new Promise((res) => { setTimeout(res, 300); });
+      const openedText = await r.page.evaluate(() => document.body.innerText);
+      check('scatter: the INFO toggle reveals what the two axes measure',
+        opened && /how well the athlete/i.test(openedText) && /injury-risk burden/i.test(openedText),
+        opened ? '' : 'no toggle labelled for the axes');
+      check('scatter: the INFO toggle reveals why the two scores can disagree',
+        /move beautifully and still carry risk/i.test(openedText));
+      // AND THE CAVEATS ARE NOT BEHIND IT. This is the whole design: a caveat
+      // hidden by default makes the page's default state the un-caveated reading.
+      check('scatter: the caveats stay on the card, unlike the method',
+        /medians, not fixed cut-offs/i.test(r.text)
+        && /separate judgement from either axis/i.test(r.text));
       const quads = await r.page.evaluate(
         () => document.querySelectorAll('.chart-explain-quads li').length,
       );
@@ -577,6 +599,73 @@ async function visit(browser, route, session) {
       // contradiction.
       check('scatter: says a dot colour is a separate judgement from the axes',
         /separate judgement from either axis/i.test(r.text));
+
+      await r.page.close();
+    }
+
+
+    console.log('\n4j. the risk radar names its breaches in words');
+    // §127. The radar inverted: the Elevated cutoff is now the FILLED reference
+    // region and the athlete is a LINE over it, so a breach is the line leaving
+    // the field rather than two overlapping polygons to disentangle. The
+    // per-spoke comparison existed only inside a hover tooltip — unreachable on a
+    // touch screen, and absent from a screenshot pasted into a case note.
+    {
+      const r = await visit(browser, '/medical/dashboard?athlete={SELF}'.replace('{SELF}', ''), sessions.medical);
+      // Open an athlete from the rail, then wait for the panel.
+      await r.page.evaluate(() => document.querySelector('.athlete-row')?.click());
+      await r.page.waitForFunction(() => document.querySelectorAll('.bm-fig').length >= 2, { timeout: SETTLE_MS * 3 })
+        .catch(() => {});
+      const o = await r.page.evaluate(() => ({
+        breach: !!document.querySelector('.radar-breach'),
+        none: !!document.querySelector('.radar-breach-none'),
+        rows: [...document.querySelectorAll('.radar-breach li')].map((e) => e.innerText.replace(/\n/g, ' ')),
+        text: document.body.innerText,
+        toggles: document.querySelectorAll('.method-note-toggle').length,
+        bodies: document.querySelectorAll('.method-note-body').length,
+      }));
+
+      // EXACTLY ONE of the two states, never both and never neither. A radar with
+      // no verdict beside it is the state this section exists to remove.
+      check('radar: the breach readout is present in one state or the other',
+        o.breach !== o.none, `breach=${o.breach} none=${o.none}`);
+
+      if (o.breach) {
+        // Every row carries the reading, the cutoff and the gap. "Shoulder" alone
+        // is not actionable; "28 vs 20, +8" is.
+        check('radar: every breached spoke names its reading, cutoff and gap',
+          o.rows.length > 0 && o.rows.every((t) => /\d+\s*vs\s*\d+/.test(t) && /\+\d/.test(t)),
+          o.rows[0] || 'no rows');
+        // The caveat stays on the card, not behind the toggle.
+        check('radar: says a breach is a reason to examine, not a diagnosis',
+          /reason to examine, not a diagnosis/i.test(o.text));
+      } else {
+        // §33: the absence of a flag is not a clearance, and this is the wording
+        // that keeps a clinician's screen from reading as one.
+        check('radar: no breach is stated as an absence of a flag, never a clearance',
+          /not a clearance/i.test(o.text) && !/all clear/i.test(o.text));
+      }
+
+      // The method is behind the toggle and COLLAPSED by default -- the whole
+      // point of the INFO control -- but the explanation still has to exist.
+      check('radar: a method toggle is offered', o.toggles > 0, `${o.toggles} toggle(s)`);
+      check('radar: the method is collapsed by default', o.bodies === 0, `${o.bodies} open`);
+      const revealed = await r.page.evaluate(() => {
+        const b = [...document.querySelectorAll('.method-note-toggle')]
+          .find((x) => /how to read this chart/i.test(x.textContent || ''));
+        if (!b) return null;
+        b.click();
+        return true;
+      });
+      await new Promise((res) => { setTimeout(res, 300); });
+      const opened = await r.page.evaluate(() => document.body.innerText);
+      check('radar: the toggle explains that the field is a cutoff, NOT the cohort average',
+        revealed === true && /not<\/strong>? the cohort average|not the cohort average/i.test(opened),
+        revealed ? '' : 'no toggle labelled for the chart');
+      // The reason the field is neutral rather than green, kept where a future
+      // reader will look before changing it.
+      check('radar: the toggle says why the field is not green',
+        /Watch band sits\s+inside this boundary|Watch band sits inside/i.test(opened));
 
       await r.page.close();
     }

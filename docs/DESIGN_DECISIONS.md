@@ -12383,3 +12383,102 @@ median caveat and the separate-judgement note are present.
 1099, typecheck and lint clean, contrast 0 findings with the canary catching 130
 styles, a11y 0 findings. Zone tints verified distinct in **both** themes
 (light `rgb(254,249,231)` / `(253,236,234)` / `(232,245,234)` / `(232,240,250)`).
+
+## 127. The radar inverted, and an INFO toggle that hides method but never caveats (2026-10-06)
+
+JC proposed two things and asked to be argued with on both. One was adopted with a
+correction, the other adopted with a boundary.
+
+### 127.1 The radar: inverted, labelled, and it now says the answer in words
+
+**JC's proposal:** make the norm a bright radarish green filled shape, draw the
+athlete as lines, highlight the spokes over it, and add labels.
+
+**Adopted:** the inversion, the highlight and the labels. The reference is now the
+FILLED region and the athlete a LINE over it. Previously the athlete was a filled
+gold polygon and the cutoff a thin dashed line *behind* it, so the thing being
+judged was visually heavier than the thing judging it and a breach had to be read
+by disentangling two overlapping outlines. Inverted, it is shape recognition: the
+line leaves the field.
+
+**The labels were the larger win and were not in the proposal.** `legend` was
+`display: false`, `ticks` was `display: false`, and `max` was hard-coded to 30. The
+chart had **no key, no scale, and no way to tell a breach of one point from a
+breach of fifteen** — which is most of what "hard to understand" meant. All three
+are fixed, and the ceiling is now derived from the data and the cutoff so a high
+reading cannot be clipped at the rim and read as "exactly at threshold".
+
+**And the per-spoke comparison is on the page, not in a tooltip.** The chart is a
+shape; *"Lumbar/Pelvis 28 vs 20, +8"* is a sentence, and a clinician deciding who
+to assess needs the sentence. It existed only inside a hover tooltip — unreachable
+on a touch screen and absent from a screenshot pasted into a case note. Breaches
+are listed worst-first with reading, cutoff and gap.
+
+### 127.2 Two corrections to the proposal, both from this project's own history
+
+**NOT GREEN.** A bright green field says *inside here you are fine* in one colour
+with no words, which is the §33 reassurance failure — the green band in this
+product reads "No indicators flagged" and deliberately never "Safe". It would also
+be concretely wrong here: the boundary is the **Elevated** cutoff, so the entire
+**Watch** band sits *inside* the region. An athlete who needs attention would be
+sitting comfortably in the green. A neutral field gives the identical
+shape-recognition benefit and asserts nothing. The reason is in the component
+header and in the toggle's own copy, so the next person to reach for green reads
+why before changing it.
+
+**NOT THE NORM.** The proposal said "norm", and the boundary is
+`highThresholdsFor(sport)` — a sport-tightened risk cut-off, not a cohort average.
+That distinction is load-bearing: drawing the cohort MEAN and flagging everything
+outside it would put about half the squad over the line **by construction**, which
+is exactly the defect the below-mean escalation rule already had (it fired at
+`z < 0`, flagged 27 of 58 seeded athletes, and 12 of 14 ambers rested on it alone
+with one at z = −0.163; §32 moved it to −0.5 SD). Repeating it as a *picture* would
+be harder to argue with than the number was. An e2e check asserts the toggle says
+"not the cohort average" out loud.
+
+### 127.3 The INFO toggle: method yes, caveats no
+
+**JC's proposal:** hide all the dashboard explanations behind an INFO toggle.
+
+**Refused as stated, and the underlying complaint accepted.** The pages had
+genuinely become wordy — §126's scatter block alone is four paragraphs — so the
+decluttering is fair. What cannot move is the half of the text that is a **caveat**.
+
+The explanations here are not documentation. *"Not a fitness-to-play decision"*,
+*"a mean is not the squad"*, *"never screened is counted apart"*, *"the lines are
+medians, not fixed cut-offs"* — each prevents a specific misreading. Put those
+behind a toggle and **the default state of the UI is the un-caveated reading**, and
+the reader most likely to misread is the one least likely to press a button. That
+is this project's defect class with an affordance added: §33 exists because green
+must never read "Safe", and a §33 caveat behind a toggle *is* green reading "Safe"
+until somebody clicks.
+
+`components/ui/MethodNote.tsx` carries the rule:
+
+| stays visible | goes behind the toggle |
+|---|---|
+| a caveat that changes how a number is READ | method and teaching |
+| *"over the cutoff is a reason to examine, not a diagnosis"* | *"each spoke is one exercise-risk indicator… closer to the centre is better"* |
+| *"medians, not fixed cut-offs"* | *"Total Score is the mean of the 25-cell subitem table"* |
+
+**The test: would a reader draw a wrong conclusion without this sentence?** If yes
+it is a caveat and it stays. If a reader who already knows the method loses
+nothing, it belongs behind the toggle.
+
+Two implementation notes worth keeping. The body is **unmounted** when closed, not
+visually hidden: a hidden block is still a tab stop and still announced, which
+would leave the page just as noisy for anyone not using a mouse. And the open state
+is **not persisted** — a sticky open would quietly restore the wordiness this
+exists to remove.
+
+**The e2e checks changed shape rather than being deleted, and that is the
+important part.** Two scatter checks asserted method text was on the page; they now
+assert it is *collapsed*, **open the toggle, and assert it appears**. Hiding must
+never become deleting, and from outside a collapsed panel reads identically to a
+removed one. A third check asserts the caveats are *not* behind the toggle, which
+is the design itself.
+
+**Measured:** 143 e2e checks (134 before), frontend 28 suites / 485, backend 70 /
+1099, typecheck and lint clean, contrast 0 findings, a11y 0 findings. Verified in a
+browser: the breach card reads `Lumbar/Pelvis 28 vs 20 +8`, the toggle is
+collapsed by default and `aria-expanded` flips on click.

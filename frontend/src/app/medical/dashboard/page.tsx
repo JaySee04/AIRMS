@@ -3,6 +3,8 @@
 import dynamic from 'next/dynamic';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
+import MethodNote from '@/components/ui/MethodNote';
+import type { RadarReadout } from '@/components/dashboard/RiskRadar';
 import type { MuscleEntry } from '@/components/dashboard/BodyMap';
 import OverallRiskBadge, { ScreeningIndicator } from '@/components/dashboard/OverallRiskBadge';
 import ClinicianBandOverride from '@/components/dashboard/ClinicianBandOverride';
@@ -145,6 +147,16 @@ export default function MedicalDashboard() {
   // that sprang shut again on every render would make that impossible.
   // Re-deciding on each change of selection is what makes the override
   // temporary rather than sticky.
+  // The radar's per-spoke comparison, lifted so the page can print it beside the
+  // chart. useCallback-free: RiskRadar re-emits only when its data changes.
+  const [radarRows, setRadarRows] = useState<RadarReadout[]>([]);
+  // Only the breaches, worst first. A list of every spoke would be the chart
+  // again in words; the point of the sentence is the exception.
+  const radarOver = useMemo(
+    () => radarRows.filter((r) => r.over !== null && r.over > 0).sort((a, b) => (b.over ?? 0) - (a.over ?? 0)),
+    [radarRows],
+  );
+
   const [railOpen, setRailOpen] = useState(true);
   useEffect(() => { setRailOpen(!selectedId); }, [selectedId]);
 
@@ -1067,31 +1079,75 @@ export default function MedicalDashboard() {
                       labels={RADAR_LABELS}
                       values={riskRadarSeries(view.risks)}
                       thresholds={highThresholdsFor(selectedAthlete.sport)}
+                      onReadout={setRadarRows}
                     />
                   </div>
                   <div style={{ flex: '1 1 260px', minWidth: 240 }}>
-                    <p style={{ margin: '0 0 10px', fontSize: 'var(--fs-md)', lineHeight: 1.5 }}>
-                      Each spoke is one exercise-risk indicator from the athlete&apos;s
-                      HoloMotion screening, on a 0–30 scale. <strong>Closer to the centre
-                      is better.</strong>
-                    </p>
-                    <p className="text-muted" style={{ margin: 0, fontSize: 'var(--fs-sm)', lineHeight: 1.5 }}>
-                      The dashed red line is the athlete&apos;s Elevated threshold per
-                      region, tightened where the region is sport-critical. Exact
-                      values are on the screening panel below
-                      {/* Clinical assessment is bound to the LATEST screening and is
-                          hidden while a past one is displayed, so pointing at it
-                          here would name a card that is not on screen. */}
-                      {picked ? (
-                        <>; this is the screening selected above, not the athlete&apos;s current
-                          position — switch back to the latest to record an assessment.
-                        </>
-                      ) : (
-                        <>; record your own verdict in <strong>Clinical assessment</strong> above
-                          once you have examined the athlete.
-                        </>
-                      )}
-                    </p>
+                    {/* WHICH SPOKES ARE OVER, AS A SENTENCE (§127). The chart is a
+                        shape; "Shoulder is 4 over" is a sentence, and a clinician
+                        deciding who to assess needs the sentence. It existed only
+                        inside a hover tooltip — invisible on a touch screen and
+                        invisible in a screenshot pasted into a case note. */}
+                    {radarOver.length > 0 ? (
+                      <div className="radar-breach">
+                        <h3 className="radar-breach-head">
+                          {radarOver.length} over the Elevated cutoff
+                        </h3>
+                        <ul>
+                          {radarOver.map((r) => (
+                            <li key={r.label}>
+                              <span className="radar-breach-name">{r.label}</span>
+                              <span className="radar-breach-gap">
+                                {r.value} vs {r.threshold}
+                                {' '}
+                                <strong>+{r.over}</strong>
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                        <p className="radar-breach-note">
+                          Over the cutoff is a reason to examine, not a diagnosis.
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="radar-breach-none">
+                        {/* The §33 wording, not "all clear": a screening that cannot
+                            predict injury cannot certify its absence. */}
+                        <strong>No indicator is over its Elevated cutoff.</strong> That is the
+                        absence of a flag on this screening, not a clearance.
+                      </p>
+                    )}
+                    <MethodNote label="How to read this chart">
+                      <p>
+                        Each spoke is one exercise-risk indicator from the athlete&apos;s
+                        HoloMotion screening. <strong>Closer to the centre is better.</strong>
+                      </p>
+                      <p>
+                        The shaded field is the athlete&apos;s <strong>Elevated cutoff</strong>
+                        {' '}per region, tightened where the region is sport-critical. It is a
+                        risk cut-off and <strong>not</strong> the cohort average — half a squad
+                        is not expected to sit outside it. The gold line is this athlete; where
+                        the line leaves the field, that spoke is over and its point is drawn
+                        larger and red.
+                      </p>
+                      <p>
+                        The field is deliberately neutral rather than green: the Watch band sits
+                        inside this boundary, so a coloured &ldquo;safe zone&rdquo; would read as
+                        a clearance for athletes who need attention. Exact values are on the
+                        screening panel below.
+                      </p>
+                    </MethodNote>
+                    {picked ? (
+                      <p className="text-muted" style={{ margin: '10px 0 0', fontSize: 'var(--fs-sm)', lineHeight: 1.5 }}>
+                        This is the screening selected above, not the athlete&apos;s current
+                        position — switch back to the latest to record an assessment.
+                      </p>
+                    ) : (
+                      <p className="text-muted" style={{ margin: '10px 0 0', fontSize: 'var(--fs-sm)', lineHeight: 1.5 }}>
+                        Record your own verdict in <strong>Clinical assessment</strong> above once
+                        you have examined the athlete.
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>

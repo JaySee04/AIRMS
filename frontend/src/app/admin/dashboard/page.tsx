@@ -27,6 +27,7 @@ import DistributionBar from '@/components/admin/DistributionBar';
 import { DotPlot, Heatmap, Histogram, RankedBars, Ring, Scatter } from '@/components/charts/Charts';
 import { TIER_COLOR, TIER_INK, TIER_LABEL, TIER_ORDER, TIER_RANGE, tierOf } from '@/lib/holomotionTiers';
 import { BAND_COLOR, bandSegments } from '@/lib/bands';
+import MethodNote from '@/components/ui/MethodNote';
 // PROGRAMMES and SMALL_COHORT from the generated shared source (DD 53), so a
 // programme this page compares cannot be one the database column rejects.
 import { PROGRAMMES, SMALL_COHORT } from '@/lib/shared/facts';
@@ -819,6 +820,12 @@ export default function AdminDashboard() {
                 disagree, or what the dot colours mean. A chart whose caption
                 asks the reader to do the decoding has not finished the job. */}
             <div className="chart-explain">
+              {/* CAVEATS STAY VISIBLE, METHOD GOES BEHIND THE TOGGLE (§127.3).
+                  The quadrant key and the two caveats below change how a number
+                  is READ — a reader without them draws a wrong conclusion. The
+                  axis definitions and the why-they-disagree argument are method:
+                  a reader who knows the instrument loses nothing. */}
+              <MethodNote label="What the two axes measure">
               <p>
                 <strong>Two different halves of the report.</strong>{' '}
                 <em>Total Score</em> (across) is how well the athlete <em>moves</em> —
@@ -828,6 +835,7 @@ export default function AdminDashboard() {
                 athlete can move beautifully and still carry risk, which is why neither
                 score alone surfaces them.
               </p>
+              </MethodNote>
               <ul className="chart-explain-quads">
                 <li>
                   <span className="chart-explain-key chart-explain-key--tr" aria-hidden />
