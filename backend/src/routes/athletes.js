@@ -13,6 +13,7 @@ const { sendInvite, inviteBlockedReason, unusablePassword } = require('../utils/
 const { validateEmail, normalizeEmail } = require('../utils/emailAddress');
 const { programmeActivityData } = require('../utils/programmeActivity');
 const { aggregateSubitems } = require('../utils/subitemAggregate');
+const { topFlaggedMuscles } = require('../utils/muscleHotspots');
 const { effectiveBand } = require('../utils/bands');
 const { INDICATOR_ATTRS, DETAIL_ATTRS, toIndicator } = require('../utils/indicatorPayload');
 const { getSettings } = require('../utils/settings');
@@ -367,16 +368,16 @@ router.get('/analytics/screening', auth, rbac('admin', 'executive', 'medical'), 
     // Muscle flags for the filtered athletes only, so the hotspots match the
     // rest of the card (an unscreened athlete has no flags either way).
     const flags = await MuscleFlag.findAll({ where: { athleteId: { [Op.in]: rows.map((r) => r.athleteId) } }, raw: true });
-    const topMuscles = (type) => {
-      const counts = new Map();
-      flags.filter((f) => f.flagType === type).forEach((f) => {
-        counts.set(f.muscle, (counts.get(f.muscle) ?? 0) + 1);
-      });
-      return [...counts.entries()]
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 6)
-        .map(([muscle, count]) => ({ muscle, count }));
-    };
+    // topFlaggedMuscles, not an inline count, and it FIXED A DEFECT (2026-10-06,
+    // §124). The inline version counted flag ROWS while this page labels the
+    // figure 'athletes flagged' and renders it as `segments: [{ label:
+    // 'athletes' }]`. A report carrying one muscle for left AND right produces
+    // two rows, so an athlete counted twice. Measured on the seeded data:
+    // Badminton Piriformis read 9 of 16 and is 6; institute-wide the TOP tension
+    // muscle flipped from Biceps Brachii (39 rows) to Iliopsoas (36 athletes).
+    // The team PDF's squadMuscleHotspots counted distinct athletes all along, so
+    // this endpoint and that report had been disagreeing about one number.
+    const topMuscles = (type) => topFlaggedMuscles(flags, type, 6);
 
     // Screening trend (previous vs latest) from one fetch of this cohort's
     // screenings, aggregated by the pure utils/cohorts.screeningMovement.

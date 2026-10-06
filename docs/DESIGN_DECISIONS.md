@@ -12171,3 +12171,131 @@ and the norms page; 200 on `/athletes/analytics/screening`; the page renders
 shortlist with no NaN, undefined or page errors; the deep link opens the right
 athlete with the rail folded. 69 suites / 1093 tests, 28 / 479, mutate 105/105,
 contrast 0 findings (canary 115 styles), a11y 0 findings (canary caught).
+
+## 124. The coach's landing answers availability, not analysis (2026-10-06)
+
+JC: *"the coach stuff seems too complicated. The coach do not need to know them
+technical stuff. On the landing page the first thing to show should be which
+players are under attention or immediate assessment, basically also showing
+which players can the coach use for training/competitions in the meantime. Then
+highlight the important stuff... what specific body part has more accidents among
+their athletes... Also the coach should also get the muscle assessment map, both
+for individual athletes and the overall for athletes under the same sport."*
+
+### 124.1 What came off the top of the page
+
+The coach dashboard opened with **`HeadlineScores`** (HoloMotion's Total Score
+and Exercise Risks) and then the **`DecisionPanel`** worklist. Both are gone from
+this page, and neither removal is cosmetic:
+
+- **Total Score and Exercise Risks are the instrument's numbers, and a coach
+  acts on neither.** They are the right headline for a clinician holding the PDF
+  — §21 is the decision that put them there — and for a coach they are two
+  figures with no action attached.
+- **The worklist is written for a clinician.** It ranks on the cohort-normed
+  indicator and lists *the rules that fired*; its own subtitle says so. A coach
+  asks a different question, and answering it with a clinical queue is what "too
+  complicated" was pointing at.
+
+`backend/tests/surfaceReach.test.js` refused the removal until the consequence
+was **declared**: `GET /decisions` still permits `coach`, and now no coach page
+renders it. That is the guard's whole purpose — the gap is allowed, the silence
+is not — so the reason is written into its `reachWithoutSurface` map. The role
+stays on the endpoint and stays scoped to its own sport, so a future coach
+surface could render it unchanged.
+
+### 124.2 Availability, and the line it must not cross
+
+Three groups, in the order a coach needs them: **Hold back**, **Work with care**,
+**Nothing flagged**.
+
+**`isInjured` outranks the band, and that is the one ordering here that is
+clinical rather than editorial.** A clinician who has written "injured" has made
+a judgement about *this athlete*; a band is a comparison against peers and can be
+green for somebody who is out. So an injured athlete appears under Hold whatever
+their band says, and never in the available list. This required adding
+`isInjured` to `/coach/readiness`, which did not carry it — `injuryNote`,
+`injuryBy` and `injuryAt` stay behind medical (§43), because a coach needs to
+know **that**, not why.
+
+**THE THIRD GROUP IS THE DANGEROUS ONE AND IS NAMED FOR WHAT IS TRUE.** JC asked
+for "which players can the coach use", and the honest version of that is not a
+clearance. §33 governs: a screen that cannot predict injury cannot certify its
+absence, which is why the green band reads *"No indicators flagged"* everywhere
+in this product and never *"Safe"*. So the heading is **Nothing flagged**, the
+sub-line is *"No indicators raised at their last screening"*, and the card closes
+with the caveat in bold — *this is not a fitness-to-play decision*, a screening
+*cannot rule injury out*, and *clearance comes from the medical team*. An
+unscreened athlete is tagged on the row rather than in a footnote, because there
+was nothing to flag rather than nothing flagged.
+
+Writing "Available" would have turned a cohort comparison into a medical verdict
+on the one screen whose reader schedules training. Three e2e checks hold the
+line, including one that greps the group headings for *safe / cleared / fit to
+play / good to go* — proven by renaming a group to "Safe to play" and watching it
+report `found "Safe"`.
+
+### 124.3 The squad as one body, and the number that was wrong
+
+The coach had a muscle map for **one** athlete and nothing for the squad, in a
+product whose entire vocabulary is body regions. The squad figure is now the same
+`BodyMap` component fed the same aggregate the admin's Screening Analytics is
+fed, through the same two utils — so the coach's squad map and the institution's
+cannot draw different hotspots for one sport.
+
+**Aggregated server-side, and that is a scoping decision as much as a
+correctness one.** The page already receives every athlete's flags, so it could
+have counted them itself — a second definition of "most-flagged muscle" (rules
+8). The other obvious route, pointing the coach at
+`/athletes/analytics/screening?sport=`, would hand a **sport-scoped role an
+endpoint that takes the sport as a query parameter**, and a coach could read any
+squad in the institute. `req.user.coachSport` is the only thing that decides
+scope in `/coach/readiness`, and the client cannot reach past it.
+
+**Extracting the counter found a defect in the existing number.**
+`utils/muscleHotspots.js` counts **athletes**; the inline version it replaced in
+`routes/athletes.js` counted **flag rows**, while the admin dashboard labels the
+figure *"athletes flagged"* and renders it as `segments: [{ label: 'athletes' }]`.
+A report carrying one muscle for left and right produces two rows, so an athlete
+was counted twice under a label that said otherwise. Measured:
+
+| | rows (before) | athletes (after) |
+|---|---|---|
+| Badminton · Piriformis, weak | 9 of 16 | **6** |
+| Institute · Biceps Brachii, tight | 39 | 34 |
+| Institute · Iliopsoas, tight | 39 | **36** |
+
+The second pair is the one that matters: **the ranking changed.** Those two tied
+at 39 rows, so the institute's top tension muscle — the admin headline, and the
+sort of figure a squad focus gets built on — was decided by sort order. Counted
+per athlete they separate and the answer is Iliopsoas. The team PDF's
+`squadMuscleHotspots` had counted distinct athletes since it was written, so the
+endpoint and the report had been disagreeing about one number with nothing to say
+which was right. Ties now break on NAME so the order cannot drift between
+requests.
+
+**Sides are merged at squad level, deliberately.** "How many athletes have a
+gluteus medius problem" is one athlete per athlete, not one per side. The side
+stays load-bearing for an individual — it is why the individual report prints
+`Gluteus medius L` — so the util answers the group question only and says so.
+
+### 124.4 The compact answer
+
+"What keeps coming up in this squad" is five rows: muscle, a plain-word kind
+(*weak* / *tight*), a bar, and a count against a denominator. Three decisions in
+that:
+
+- **One list, not two.** The instrument distinguishes myodynamia deficiency from
+  muscle tension and a clinician acts on the difference; a coach adjusts load
+  either way. The kind is carried as a word rather than a column heading, so the
+  distinction is still on screen without making the coach reconcile two rankings.
+- **A count against a denominator.** "Iliopsoas" is not actionable; "9 of 14" is.
+  An e2e check requires every row to match `\d+ of \d+`.
+- **Muscles flagged on one athlete are dropped.** A ranked list long enough to
+  include an n-of-1 invites a coach to act on noise.
+
+**Measured:** the landing opens on "Who to hold back, and who can work" with
+2 / 3 / 11 across the three groups, five hotspot rows led by `Iliopsoas tight
+9 of 14`, and a squad map drawing 162 regions across 2 figures. 70 suites /
+1099 tests, 28 / 479, mutate 107/107, e2e 124/124, contrast 0 findings, a11y
+0 findings.

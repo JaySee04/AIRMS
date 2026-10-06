@@ -1159,6 +1159,25 @@ const MUTATIONS = [
     replace: '              className="decision-item decision-item--open"',
     test: 'src/components/dashboard/DecisionPanel.test.tsx',
   },
+  // ── the hotspot count that was wrong (2026-10-06, §124) ──────────────────
+  {
+    guard: 'muscle hotspots: counted in ATHLETES, not flag rows',
+    why: "the admin label says 'athletes flagged'; rows double-count a left+right flag",
+    pkg: 'backend',
+    file: 'src/utils/muscleHotspots.js',
+    find: "    perMuscle.get(f.muscle).add(f.athleteId ?? Symbol('row'));",
+    replace: "    perMuscle.get(f.muscle).add(Symbol('row'));",
+    test: 'tests/muscleHotspots.test.js',
+  },
+  {
+    guard: 'muscle hotspots: a tie is broken by NAME, so the order is stable',
+    why: 'a silently re-ordered top-muscle headline reads as the squad changing',
+    pkg: 'backend',
+    file: 'src/utils/muscleHotspots.js',
+    find: '    .sort((a, b) => (b.count - a.count) || a.muscle.localeCompare(b.muscle))',
+    replace: '    .sort((a, b) => b.count - a.count)',
+    test: 'tests/muscleHotspots.test.js',
+  },
 ];
 
 function pkgDir(pkg) {

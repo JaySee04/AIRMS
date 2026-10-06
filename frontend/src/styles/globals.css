@@ -4368,3 +4368,139 @@ textarea:focus-visible,
 }
 .sport-shortlist-row:hover { background: var(--bg); }
 .sport-shortlist-row:hover .quick-list-name { text-decoration: underline; }
+
+/* ── Coach · availability + squad hotspots (§124, 2026-10-06) ────────────────
+   The coach's landing answer: who to hold back, who can work, and where the
+   squad keeps getting flagged. Page-scoped like .sport-* and .cohort-profile-*.
+   Built from the existing scale — no new literals (§29). */
+.coach-avail-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: var(--sp-md);
+  margin-bottom: var(--sp-md);
+}
+.coach-avail-group {
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: var(--sp-sm);
+  background: var(--bg);
+  /* The group's meaning is carried by the HEADING WORDS; the left edge is a
+     second channel, never the only one (WCAG 1.4.1, SILENT_FAILURES 3i). */
+  border-left-width: 3px;
+}
+.coach-avail-group--hold { border-left-color: var(--risk-high); }
+.coach-avail-group--check { border-left-color: var(--risk-moderate); }
+.coach-avail-group--open { border-left-color: var(--risk-low); }
+
+.coach-avail-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-sm);
+  margin-bottom: var(--sp-xs);
+}
+.coach-avail-n {
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.coach-avail-head strong { display: block; font-size: var(--fs-md); }
+.coach-avail-head em {
+  display: block;
+  font-style: normal;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.coach-avail-none { margin: 0; font-size: var(--fs-sm); color: var(--text-muted); }
+
+.coach-avail-list,
+.coach-avail-open { list-style: none; margin: 0; padding: 0; }
+.coach-avail-list button,
+.coach-avail-open button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: 0;
+  padding: 4px 6px;
+  border-radius: var(--r-xs);
+  font: inherit;
+  /* A bare <button> does not inherit colour — the UA sets `buttontext`, which
+     is how the topbar name sat at 1.36:1 in dark mode (§121). */
+  color: var(--text);
+  cursor: pointer;
+}
+.coach-avail-list button:hover,
+.coach-avail-open button:hover { background: var(--bg-card); }
+.coach-avail-name { display: block; font-size: var(--fs-sm); font-weight: 600; }
+.coach-avail-why { display: block; font-size: var(--fs-xs); color: var(--text-muted); }
+/* The unflagged group is the longest and is read as a list of names, so it is
+   set tighter and allowed two columns where there is room. */
+.coach-avail-open { columns: 2; column-gap: var(--sp-sm); }
+.coach-avail-open button { font-size: var(--fs-sm); }
+.coach-avail-tag {
+  margin-left: 6px;
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  border: 1px dashed var(--border);
+  border-radius: var(--r-xs);
+  padding: 0 4px;
+}
+/* The not-a-clearance line. Deliberately part of the card rather than a
+   footnote elsewhere: §33's rule is that a screening cannot certify the absence
+   of injury, and this is the one screen whose reader schedules training. */
+.coach-avail-caveat {
+  margin: 0;
+  padding: var(--sp-sm);
+  border-radius: var(--r-sm);
+  background: var(--risk-moderate-bg);
+  color: var(--risk-moderate-ink);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+
+.coach-hotspots { list-style: none; margin: 0 0 var(--sp-sm); padding: 0; }
+.coach-hotspots li {
+  display: grid;
+  grid-template-columns: minmax(110px, 1.2fr) auto minmax(50px, 2fr) auto;
+  align-items: center;
+  gap: var(--sp-sm);
+  padding: 5px 0;
+  border-bottom: 1px solid var(--border);
+}
+.coach-hotspots li:last-child { border-bottom: 0; }
+.coach-hotspot-muscle { font-size: var(--fs-md); font-weight: 600; }
+.coach-hotspot-kind {
+  font-size: var(--fs-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  white-space: nowrap;
+}
+/* Ink tokens, not the fills: these are WORDS on the card, and --risk-moderate
+   as text measures 2.56:1 (§120). */
+.coach-hotspot-kind--weak { color: var(--risk-moderate-ink); }
+.coach-hotspot-kind--tight { color: var(--risk-undertrained); }
+.coach-hotspot-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--border);
+  overflow: hidden;
+}
+.coach-hotspot-bar > span { display: block; height: 100%; background: var(--risk-moderate); }
+.coach-hotspot-count {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+@media (max-width: 560px) {
+  /* The bar is the first thing to go: it is decoration over a count that is
+     already printed, and at this width the muscle name needs the room. */
+  .coach-hotspots li { grid-template-columns: 1fr auto auto; }
+  .coach-hotspot-bar { display: none; }
+  .coach-avail-open { columns: 1; }
+}

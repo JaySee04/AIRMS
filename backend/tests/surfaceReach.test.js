@@ -46,6 +46,16 @@ const CAPABILITIES = [
         + 'their own dashboard already is. The endpoint scopes them to their own '
         + 'row so the shared ranking cannot leak, which is why the role is '
         + 'permitted at all.',
+      coach: 'DECLARED 2026-10-06 (§124), and this guard is what asked for it. '
+        + 'The coach dashboard rendered the worklist until JC asked for the '
+        + 'landing page to be simplified: it is written for a clinician — it '
+        + 'ranks on the cohort indicator and lists the rules that fired — and a '
+        + 'coach\'s question is which athletes to hold back and which can train. '
+        + 'That is now a purpose-built availability card reading the same bands, '
+        + 'so the capability is not lost, it is re-expressed. The endpoint still '
+        + 'permits coach and still scopes them to their own sport, so a future '
+        + 'coach surface could render it unchanged — which is exactly why the '
+        + 'role stays on the list rather than being quietly removed from it.',
     },
   },
   {

@@ -20,7 +20,6 @@ import { MuscleEntry } from '@/lib/risk';
 import { computeBodyPartAlerts, AthleteRisks, BodyRegion, RADAR_LABELS, highThresholdsFor, riskRadarSeries } from '@/lib/screeningAlerts';
 import { getInitials } from '@/lib/name';
 import { readinessBreakdown, bandFor, type ReadinessBand } from '@/lib/readiness';
-import HeadlineScores from '@/components/dashboard/HeadlineScores';
 // The RISK band vocabulary, kept apart from this file's READINESS bands below
 // (Full-Go / Observation / Restricted), which are a different thing wearing the
 // same three colours.
@@ -31,7 +30,6 @@ import {
 import OverallRiskBadge, { ScreeningIndicator } from '@/components/dashboard/OverallRiskBadge';
 import ScreeningAlertBanner from '@/components/dashboard/ScreeningAlertBanner';
 import ScreeningHistory from '@/components/dashboard/ScreeningHistory';
-import DecisionPanel from '@/components/dashboard/DecisionPanel';
 import ScreeningPanel from '@/components/dashboard/ScreeningPanel';
 import ScreeningDatePicker, { FullScreening } from '@/components/dashboard/ScreeningDatePicker';
 
@@ -56,6 +54,10 @@ interface ReadinessRow {
   myodynamia: MuscleEntry[];
   tension: MuscleEntry[];
   screening?: (ScreeningIndicator & { prevIndicator?: number | null; prevAssessedAt?: string | null }) | null;
+  // The clinician's declaration (§124). The ONE signal here that is a human
+  // judgement about whether this athlete can train, as opposed to a cohort
+  // comparison. The note behind it stays with medical (§43).
+  isInjured?: boolean;
 }
 
 interface ReadinessResponse {
@@ -66,6 +68,16 @@ interface ReadinessResponse {
   // payload still renders; DEFAULT_DEAD_BAND below is the documented fallback.
   deadBand?: number;
   deadBandDerived?: boolean;
+  // The squad as one body (§124). Aggregated SERVER-side through the same two
+  // utils the admin analytics page uses, so the coach's squad figure and the
+  // institution's cannot report different hotspots for the same sport — and so
+  // the sport cannot be passed as a query parameter by a sport-scoped role.
+  squad?: {
+    topMyodynamia: Array<{ muscle: string; count: number }>;
+    topTension: Array<{ muscle: string; count: number }>;
+    subitems: { n: number; matrix: Array<{ key: string; label: string; cells: Array<{ key: string; value: number | null }> }> } | null;
+    screened: number;
+  };
 }
 
 // Only used when the payload carries no dead band at all. It matches
@@ -355,6 +367,89 @@ export default function CoachDashboard() {
     [classified],
   );
 
+
+  // ── WHO CAN THE COACH USE, AND WHO NEEDS LOOKING AT (§124) ────────────────
+  //
+  // The first question a coach has, and the page used to answer it fourth —
+  // after two instrument scores, a clinical worklist quoting the rules that
+  // fired, and a readiness percentage.
+  //
+  // THREE GROUPS, AND THE ORDER IS THE POINT. Hold and check come first because
+  // they are the exceptions a coach must act on; the available list is last and
+  // longest because it is the default.
+  //
+  // THIS IS NOT A MEDICAL CLEARANCE AND THE COPY NEVER SAYS IT IS. §33 is the
+  // governing rule: a screen that cannot predict injury cannot certify its
+  // absence, which is why the green band reads "No indicators flagged" and
+  // never "Safe". So the third group is headed by what is TRUE — nothing was
+  // flagged at the last screening — and the card states plainly that it is not
+  // a fitness-to-play decision. Writing "Available" alone would turn a cohort
+  // comparison into a clearance, on the one screen whose reader schedules
+  // training.
+  //
+  // `isInjured` OUTRANKS THE BAND, and that is the one ordering here that is
+  // clinical rather than editorial. A clinician who has written "injured" has
+  // made a judgement about this athlete; the band is a comparison against peers
+  // and can be green for somebody who is out. An injured athlete therefore
+  // appears under Hold whatever their band says, and never in the available
+  // list.
+  const availability = useMemo(() => {
+    const hold: typeof classified = [];
+    const check: typeof classified = [];
+    const open: typeof classified = [];
+    for (const item of classified) {
+      if (item.row.isInjured || item.band === 'restricted') hold.push(item);
+      else if (item.band === 'observation') check.push(item);
+      else open.push(item);
+    }
+    return { hold, check, open };
+  }, [classified]);
+
+  // The squad's body, in the two shapes BodyMap already reads.
+  //
+  // Side 'B' because a squad has no single side — the per-muscle counts carry
+  // the magnitude, and merging the sides at group level is the decision
+  // utils/muscleHotspots.js records. Identical to how the admin dashboard feeds
+  // the same component, deliberately: one figure, two audiences.
+  const squadFlags = useMemo(() => ({
+    myodynamia: (data?.squad?.topMyodynamia ?? []).map((m) => ({ muscle: m.muscle, side: 'B' as const })),
+    tension: (data?.squad?.topTension ?? []).map((m) => ({ muscle: m.muscle, side: 'B' as const })),
+  }), [data]);
+
+  const squadSubitems = useMemo(() => {
+    const matrix = data?.squad?.subitems?.matrix;
+    if (!matrix?.length) return null;
+    const out: Record<string, Record<string, number | null>> = {};
+    for (const r of matrix) out[r.key] = Object.fromEntries(r.cells.map((c) => [c.key, c.value]));
+    return out as never;
+  }, [data]);
+
+  // The compact "where is this squad getting hurt" answer.
+  //
+  // ONE LIST, NOT TWO. The instrument distinguishes myodynamia deficiency from
+  // muscle tension and a clinician acts on that difference; a coach adjusts
+  // load, and both read as "this muscle keeps coming up". So the two are merged
+  // and the KIND is carried as a plain word rather than a heading — the
+  // distinction is still on screen for anyone who wants it, without splitting
+  // the answer into two columns a coach has to reconcile.
+  //
+  // Capped at five. The payload carries eight of each; a ranked list long
+  // enough to include a muscle flagged on one athlete invites the coach to act
+  // on noise.
+  const squadHotspots = useMemo(() => {
+    const kinds: Array<[string, Array<{ muscle: string; count: number }>]> = [
+      ['weak', data?.squad?.topMyodynamia ?? []],
+      ['tight', data?.squad?.topTension ?? []],
+    ];
+    return kinds
+      .flatMap(([kind, list]) => list.map((m) => ({ ...m, kind })))
+      .filter((m) => m.count > 1)
+      .sort((a, b) => (b.count - a.count) || a.muscle.localeCompare(b.muscle))
+      .slice(0, 5);
+  }, [data]);
+
+  const squadScreened = data?.squad?.screened ?? 0;
+
   const total = classified.length;
   // Denominated over SCREENED athletes, not the whole squad.
   //
@@ -371,23 +466,6 @@ export default function CoachDashboard() {
   // Shares come from the breakdown rather than being recomputed here — a second
   // implementation of the same division is how the denominator drifted before.
   const pct = (b: Band) => breakdown.share[b];
-
-  // Squad averages for the headline, over SCREENED athletes only. An athlete
-  // with no screening has no score to average, and including them as a zero
-  // would drag both figures toward a number nobody measured — the same
-  // denominator mistake the tiles below used to make.
-  const headline = useMemo(() => {
-    const scored = classified.filter((x) => x.band);
-    if (!scored.length) return { total: null as number | null, risks: null as number | null };
-    const mean = (pick: (r: typeof scored[number]) => number | undefined) => {
-      const vs = scored.map(pick).filter((v): v is number => typeof v === 'number' && Number.isFinite(v));
-      return vs.length ? vs.reduce((a, b2) => a + b2, 0) / vs.length : null;
-    };
-    return {
-      total: mean((x) => x.row.overallActivityScore),
-      risks: mean((x) => x.row.injuryRiskIndex),
-    };
-  }, [classified]);
 
   const selected = useMemo(
     () => (selectedId ? data?.athletes.find((a) => a.athleteId === selectedId) ?? null : null),
@@ -525,26 +603,195 @@ export default function CoachDashboard() {
       {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
       {dlError && <div className="alert alert-error" style={{ marginBottom: 16 }}>{dlError}</div>}
 
-      {/* The same two figures the other dashboards open on, so a coach and a
-          clinician discussing one squad are looking at the same headline. */}
-      {!loading && classified.length > 0 && (
-        <HeadlineScores
-          subject="Squad"
-          totalScore={headline.total}
-          exerciseRisks={headline.risks}
-          bands={{
-            green: counts.full, amber: counts.observation, red: counts.restricted,
-          }}
-          scope={`${data?.sport ?? 'Squad'} · averaged over ${breakdown.scored} screened athlete`
-            + `${breakdown.scored === 1 ? '' : 's'}`
-            + `${counts.unscored ? ` · ${counts.unscored} not yet screened` : ''}`}
-        />
+      {/* ── 1. WHO NEEDS LOOKING AT, AND WHO IS FREE TO WORK (§124) ────────
+          The first question a coach has. It used to be answered fourth, after
+          two instrument scores and a clinical worklist quoting the rules that
+          fired. What replaced those is on purpose: Total Score and Exercise
+          Risks are HoloMotion's numbers and a coach does not act on either, and
+          the worklist's reason list is written for a clinician. */}
+      {!loading && total > 0 && (
+        <div className="card coach-avail">
+          <div className="card-header">
+            <div>
+              <h2 className="card-title" style={{ marginBottom: 0 }}>Who to hold back, and who can work</h2>
+              <span className="card-sub">
+                {data?.sport ? `${data.sport} · ` : ''}
+                {squadScreened} of {total} screened
+                {counts.unscored > 0 && ` · ${counts.unscored} never screened`}
+              </span>
+            </div>
+          </div>
+
+          <div className="coach-avail-groups">
+            {/* HOLD — the clinician's injury declaration and the worst band
+                together, because both mean "do not load this athlete today"
+                and a coach splitting them would read two lists for one action. */}
+            <div className="coach-avail-group coach-avail-group--hold">
+              <div className="coach-avail-head">
+                <span className="coach-avail-n">{availability.hold.length}</span>
+                <span>
+                  <strong>Hold back</strong>
+                  <em>Injured, or flagged for immediate assessment</em>
+                </span>
+              </div>
+              {availability.hold.length === 0
+                ? <p className="coach-avail-none">Nobody.</p>
+                : (
+                  <ul className="coach-avail-list">
+                    {availability.hold.map(({ row, worst }) => (
+                      <li key={row.athleteId}>
+                        <button type="button" onClick={() => setSelectedId(row.athleteId)}>
+                          <span className="coach-avail-name">{row.name}</span>
+                          <span className="coach-avail-why">
+                            {/* The clinician's word first when there is one: it
+                                is a decision about this athlete, where the band
+                                is a comparison with their peers. */}
+                            {row.isInjured
+                              ? 'declared injured by the medical team'
+                              : (worst ? `${worst.label.toLowerCase()} flagged` : 'flagged for assessment')}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+            </div>
+
+            {/* CHECK — the middle band. Named for what a coach does about it
+                (adjust and watch), not for the band's own label. */}
+            <div className="coach-avail-group coach-avail-group--check">
+              <div className="coach-avail-head">
+                <span className="coach-avail-n">{availability.check.length}</span>
+                <span>
+                  <strong>Work with care</strong>
+                  <em>Needs attention — adjust load, keep an eye on them</em>
+                </span>
+              </div>
+              {availability.check.length === 0
+                ? <p className="coach-avail-none">Nobody.</p>
+                : (
+                  <ul className="coach-avail-list">
+                    {availability.check.map(({ row, worst }) => (
+                      <li key={row.athleteId}>
+                        <button type="button" onClick={() => setSelectedId(row.athleteId)}>
+                          <span className="coach-avail-name">{row.name}</span>
+                          <span className="coach-avail-why">
+                            {worst ? `${worst.label.toLowerCase()} ${worst.value.toFixed(0)}` : 'needs attention'}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+            </div>
+
+            {/* THE REST. Headed by what is TRUE rather than by a verdict: §33's
+                rule is that a screen which cannot predict injury cannot certify
+                its absence, which is why the green band reads "No indicators
+                flagged" everywhere in this product and never "Safe". The names
+                are listed plainly — this is the group a coach picks a session
+                from, so it has to be readable at a glance. */}
+            <div className="coach-avail-group coach-avail-group--open">
+              <div className="coach-avail-head">
+                <span className="coach-avail-n">{availability.open.length}</span>
+                <span>
+                  <strong>Nothing flagged</strong>
+                  <em>No indicators raised at their last screening</em>
+                </span>
+              </div>
+              {availability.open.length === 0
+                ? <p className="coach-avail-none">Nobody.</p>
+                : (
+                  <ul className="coach-avail-open">
+                    {availability.open.map(({ row, band }) => (
+                      <li key={row.athleteId}>
+                        <button type="button" onClick={() => setSelectedId(row.athleteId)}>
+                          {row.name}
+                          {/* An athlete with no screening is not "nothing
+                              flagged" — there was nothing to flag. Said on the
+                              row rather than hidden in a footnote, because a
+                              coach reading this list is choosing a squad. */}
+                          {!band && <span className="coach-avail-tag">not screened</span>}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+            </div>
+          </div>
+
+          <p className="coach-avail-caveat">
+            <strong>This is not a fitness-to-play decision.</strong> It reports what the
+            last HoloMotion screening flagged, and whether a clinician has declared the
+            athlete injured. A screening cannot rule injury out, so &ldquo;nothing
+            flagged&rdquo; means no indicator was raised &mdash; not that an athlete is
+            cleared. Clearance comes from the medical team.
+          </p>
+        </div>
       )}
 
-      {/* A coach's decision is a selection decision, so the worklist opens the
-          page — but the verb and the scope come from the server, and a coach
-          cannot tick anything (read-only, locked). */}
-      <DecisionPanel onOpenAthlete={(id) => setSelectedId(id)} />
+      {/* ── 2. WHERE THIS SQUAD KEEPS GETTING FLAGGED (§124) ───────────────
+          Compact on purpose: five rows, plain words, a count against a
+          denominator. The two flag KINDS the instrument distinguishes are
+          merged into one ranked list — a clinician acts on the difference
+          between a weak muscle and a tight one, a coach adjusts load either
+          way, and splitting it into two columns makes the coach reconcile them. */}
+      {!loading && squadHotspots.length > 0 && (
+        <div className="card">
+          <div className="card-header">
+            <div>
+              <h2 className="card-title" style={{ marginBottom: 0 }}>What keeps coming up in this squad</h2>
+              <span className="card-sub">
+                Across {squadScreened} screened athlete{squadScreened === 1 ? '' : 's'} · most common first
+              </span>
+            </div>
+          </div>
+          <ul className="coach-hotspots">
+            {squadHotspots.map((m) => (
+              <li key={`${m.kind}-${m.muscle}`}>
+                <span className="coach-hotspot-muscle">{m.muscle}</span>
+                <span className={`coach-hotspot-kind coach-hotspot-kind--${m.kind}`}>{m.kind}</span>
+                <span className="coach-hotspot-bar" aria-hidden>
+                  <span style={{ width: `${squadScreened ? Math.round((m.count / squadScreened) * 100) : 0}%` }} />
+                </span>
+                <span className="coach-hotspot-count">
+                  {m.count} of {squadScreened}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="card-sub" style={{ marginBottom: 0 }}>
+            Counted per athlete, so an athlete flagged on both sides counts once.
+            Muscles flagged on only one athlete are left out.
+          </p>
+        </div>
+      )}
+
+      {/* ── 3. THE SQUAD AS ONE BODY (§124) ────────────────────────────────
+          The coach had this figure for ONE athlete and nothing for the squad,
+          in a product whose whole vocabulary is body regions. Same component,
+          same two modes, fed the aggregate the admin's analytics page is fed —
+          so the two cannot draw different hotspots for the same sport. */}
+      {!loading && data?.squad && squadScreened > 0 && (
+        <div className="card">
+          <div className="card-header">
+            <div>
+              <h2 className="card-title" style={{ marginBottom: 0 }}>Squad muscle assessment map</h2>
+              <span className="card-sub">
+                The whole {data.sport ?? 'squad'} at once · switch modes on the figure ·
+                {' '}open any athlete above for their own map
+              </span>
+            </div>
+          </div>
+          <BodyMap myodynamia={squadFlags.myodynamia} tension={squadFlags.tension} subitems={squadSubitems} />
+          <p className="card-sub" style={{ marginBottom: 0 }}>
+            A muscle is lit if anyone in the squad was flagged for it, and the
+            region scores are the squad average. <strong>An average is not an
+            athlete</strong> &mdash; use this to decide where to look, then open
+            the individual.
+          </p>
+        </div>
+      )}
 
       <div className="card" style={{ marginBottom: 20 }}>
         <div className="card-header">

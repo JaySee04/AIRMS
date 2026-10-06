@@ -16,6 +16,8 @@ const { INDICATOR_ATTRS, toIndicator } = require('../utils/indicatorPayload');
 const { getSettings } = require('../utils/settings');
 const { effectiveBand } = require('../utils/bands');
 const { reliability } = require('../utils/reliability');
+const { topFlaggedMuscles } = require('../utils/muscleHotspots');
+const { aggregateSubitems } = require('../utils/subitemAggregate');
 const { sendError } = require('../utils/httpError');
 
 const router = express.Router();
@@ -92,6 +94,20 @@ router.get('/readiness', auth, rbac('coach'), async (req, res) => {
         gender: a.gender ?? null,
         age: a.age ?? null,
         disciplines: (a.disciplines || []).map((d) => d.discipline),
+        // THE CLINICIAN'S INJURY DECLARATION (2026-10-06, §124).
+        //
+        // Added because the coach's availability view needs the one signal on
+        // this payload that is an actual human judgement about whether an
+        // athlete can train. A screening band is a cohort comparison; this is a
+        // clinician writing down "injured". Without it the coach's board could
+        // show an athlete as unflagged while the medical team had declared them
+        // out — the worst direction for this screen to be wrong in.
+        //
+        // `isInjured` ONLY. `injuryNote`, `injuryBy` and `injuryAt` are the
+        // clinician's free text and stay behind medical/admin (§43) — a coach
+        // needs to know THAT, not why. CLAUDE.md states the split: "isInjured
+        // stays for everyone: it is a roster fact a coach needs."
+        isInjured: Boolean(a.isInjured),
         // 8 per-region exercise-risk indicators — drive the sport-aware
         // screening detail on the coach dashboard (lib/screeningAlerts.ts).
         risks: {
@@ -138,9 +154,49 @@ router.get('/readiness', auth, rbac('coach'), async (req, res) => {
       raw: true,
     });
     const rel = reliability(allIndicators);
+
+    // ── THE SQUAD AS ONE BODY (2026-10-06, §124) ────────────────────────────
+    //
+    // The coach had a muscle map for ONE athlete and nothing for the squad, in
+    // a product whose whole vocabulary is body regions. This is the same
+    // aggregate the admin's Screening Analytics draws, through the same two
+    // utils, so the coach's squad figure and the institution's cannot report
+    // different hotspots for the same sport.
+    //
+    // COMPUTED HERE RATHER THAN ON THE CLIENT, and that is a scoping decision
+    // as much as a correctness one. The obvious alternative was to let the page
+    // aggregate the per-athlete flags it already receives — which would be a
+    // second definition of "most-flagged muscle" (rules 8), and the other
+    // obvious alternative, pointing the coach at
+    // /athletes/analytics/screening?sport=, would hand a sport-scoped role an
+    // endpoint that takes the sport as a QUERY PARAMETER. A coach could then
+    // read any squad in the institute. `req.user.coachSport` is the only thing
+    // that decides scope here and the client cannot reach past it.
+    const squadFlagRows = athletes.flatMap((a) => (a.muscleFlags || [])
+      .map((f) => ({ athleteId: a.athleteId, flagType: f.flagType, muscle: f.muscle })));
+    // The subitem mean needs each athlete's LATEST screening only — the same
+    // snapshot every other figure on the page is built from. `screenings` is
+    // ordered newest-first, so the first row per athlete is the latest.
+    const latestPerAthlete = [];
+    const takenSubitems = new Set();
+    for (const s of screenings) {
+      if (takenSubitems.has(s.athleteId)) continue;
+      takenSubitems.add(s.athleteId);
+      latestPerAthlete.push(s);
+    }
+
     res.json({
       sport,
       athletes: rows,
+      squad: {
+        // Ranked by how many ATHLETES carry each, not how many flag rows exist
+        // — see utils/muscleHotspots.js for why that distinction is worth a
+        // module, and §124 for the number it corrected.
+        topMyodynamia: topFlaggedMuscles(squadFlagRows, 'myodynamia', 8),
+        topTension: topFlaggedMuscles(squadFlagRows, 'tension', 8),
+        subitems: aggregateSubitems(latestPerAthlete),
+        screened: latestPerAthlete.length,
+      },
       deadBand: rel.deadBandFor('overallIndicator'),
       deadBandDerived: Boolean(rel.byKey.overallIndicator?.sufficient),
     });

@@ -263,7 +263,12 @@ async function visit(browser, route, session) {
     // the same ones §33 and Bahr protect, moved from a badge onto a
     // recommendation — so they are asserted on the RENDERED page, which is where
     // a reader meets them (SILENT_FAILURES 3n).
-    for (const [role, route] of [['medical', '/medical/dashboard'], ['coach', '/coach/dashboard']]) {
+    // MEDICAL ONLY SINCE §124. The coach dashboard rendered this panel until
+    // JC asked for its landing page to be simplified — the worklist ranks on the
+    // cohort indicator and lists the rules that fired, which is a clinician's
+    // read. The coach's equivalent is checked in 4h below, INCLUDING the
+    // overclaim property, which must not be lost with the panel that carried it.
+    for (const [role, route] of [['medical', '/medical/dashboard']]) {
       const r = await visit(browser, route, sessions[role]);
       check(`${role}: the worklist panel is on the page`,
         /See next:|Review before selecting:|Nothing waiting on you/.test(r.text));
@@ -433,6 +438,84 @@ async function visit(browser, route, session) {
       await call(sessions.medical.token, 'DELETE', `/watchlist/${target}`);
       const cleaned = await (await fetch(`${API}/watchlist`, { headers: { Authorization: `Bearer ${sessions.medical.token}` } })).json();
       check('unstarring removes it, leaving no residue', cleaned.athletes.length === before.athletes.length);
+    }
+
+
+    console.log('\n4h. the coach landing answers availability without claiming clearance');
+    // §124. The coach dashboard opened with two HoloMotion scores and the
+    // clinical worklist; JC asked for the first thing on the page to be which
+    // athletes to hold back and which can train. These check the replacement,
+    // and the FIRST of them is the property that moved off the worklist with the
+    // panel: a screening-derived page must not read as a fitness-to-play
+    // decision. §33 is the governing rule — a screen that cannot predict injury
+    // cannot certify its absence — and this is the one surface whose reader
+    // schedules training, so getting it wrong here is the expensive direction.
+    {
+      const r = await visit(browser, '/coach/dashboard', sessions.coach);
+
+      check('coach: the availability card is the first thing on the page',
+        /Who to hold back, and who can work/.test(r.text));
+
+      // THE CLAIM IT MUST NEVER MAKE, asserted on the words actually used.
+      const clearanceCaveat = /not a fitness-to-play decision/i.test(r.text)
+        && /cannot rule injury out/i.test(r.text);
+      // The detail is conditional: check() prints it whether or not the check
+      // passed, so an unconditional string made a PASSING line read 'ok — the
+      // not-a-clearance caveat is missing'. A check whose own output argues with
+      // its verdict is a check people stop reading.
+      check('coach: says plainly it is not a clearance', clearanceCaveat,
+        clearanceCaveat ? '' : 'the not-a-clearance caveat is missing');
+      check('coach: clearance is attributed to the medical team',
+        /Clearance comes from the medical team/i.test(r.text));
+
+      // The vocabulary rule, on the group a coach picks a session from. "Safe",
+      // "cleared" and "fit" are the three words that would turn a cohort
+      // comparison into a medical verdict, and the heading is deliberately
+      // "Nothing flagged" instead (SILENT_FAILURES 3i, §33).
+      const groups = await r.page.evaluate(
+        () => [...document.querySelectorAll('.coach-avail-head')].map((h) => h.innerText.replace(/\n/g, ' | ')),
+      );
+      check('coach: three availability groups, named by what is true',
+        groups.length === 3 && /Hold back/.test(groups[0]) && /Nothing flagged/.test(groups[2]),
+        groups.join(' / '));
+      const unsafeWord = /\b(safe|cleared|fit to play|good to go)\b/i.exec(groups.join(' '));
+      check('coach: no group is named as a clearance', !unsafeWord,
+        unsafeWord ? `found "${unsafeWord[0]}"` : '');
+
+      // The squad answer, and the thing it must carry: a count against a
+      // denominator. "Iliopsoas" alone is not actionable; "9 of 14" is.
+      const spots = await r.page.evaluate(
+        () => [...document.querySelectorAll('.coach-hotspots li')].map((li) => li.innerText.replace(/\n/g, ' ')),
+      );
+      check('coach: the squad hotspot list names muscles with a denominator',
+        spots.length > 0 && spots.every((t) => /\d+ of \d+/.test(t)),
+        spots[0] || 'no hotspot rows');
+
+      // THE SQUAD BODY MAP. Two figures, front and back, same component the
+      // individual view uses — and the figure must actually draw regions rather
+      // than mount empty, which is the failure a class check cannot see.
+      const squad = await r.page.evaluate(() => ({
+        figs: document.querySelectorAll('.bm-fig').length,
+        regions: document.querySelectorAll('.bodymap-region').length,
+      }));
+      check('coach: the squad muscle map draws its figures',
+        squad.figs >= 2, `${squad.figs} figure(s)`);
+      check('coach: the squad muscle map draws geometry',
+        squad.regions > 50, `${squad.regions} region(s)`);
+      check('coach: the squad map says an average is not an athlete',
+        /An average is not an athlete/i.test(r.text));
+
+      // AND THE TECHNICAL OPENING IS GONE. Asserted because "simplify" is only
+      // half done if the instrument's own numbers are still the first thing a
+      // coach meets: Total Score and Exercise Risks are HoloMotion's figures and
+      // a coach acts on neither.
+      const firstCard = await r.page.evaluate(
+        () => document.querySelector('.card .card-title')?.textContent?.trim() || '',
+      );
+      check('coach: the page does not open on instrument scores',
+        !/Total Score|Exercise Risks/i.test(firstCard), `opens on "${firstCard}"`);
+
+      await r.page.close();
     }
 
     console.log('\n5. keyboard focus is visible where focus was removed once');
