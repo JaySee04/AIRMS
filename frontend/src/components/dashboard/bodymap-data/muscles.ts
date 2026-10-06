@@ -224,7 +224,36 @@ function put(fig: Figure, muscle: string, side: Side, ds: string[]) {
   put('front', 'Pectoralis Major', side, paths('front', 'chest', side));
   put('front', 'Biceps Brachii', side, paths('front', 'biceps', side));
   put('front', 'Rectus Abdominis', side, paths('front', 'abs', side));
-  put('front', 'Upper Trapezius', side, paths('front', 'trapezius', side));
+  // THE TRAPEZIUS IS A POSTERIOR MUSCLE AND WAS DRAWN ONLY ON THE FRONT
+  // (fixed 2026-10-06, §125).
+  //
+  // It is "a large, triangular, paired muscle located on the posterior aspect of
+  // the neck and thorax" and "the most superficial muscle on the posterior
+  // aspect of the neck and thorax" (Kenhub; StatPearls NBK518994). So a flagged
+  // upper trapezius lit a sliver at the front of the neck and left the whole
+  // upper back blank — the region a clinician and a coach would both look at
+  // first for it.
+  //
+  // THE BACK GEOMETRY WAS ALREADY IN THE ASSET AND UNUSED: bodyBack.ts carries a
+  // `trapezius` slug with both sides. Nothing is redrawn here; the existing
+  // licensed path is simply wired up, which is why this stays inside the locked
+  // asset decision (CLAUDE.md — the source and MIT attribution are untouched).
+  //
+  // BACK ONLY, AND "BOTH FIGURES" WAS TRIED FIRST AND IS WRONG HERE.
+  //
+  // The descending fibres do reach the lateral third of the clavicle, so an
+  // anterior sliver is defensible anatomically — but `acc` is keyed by SLUG
+  // with a single `fig`, and `put` keeps the FIRST figure while CONCATENATING
+  // paths. So putting the muscle on both appended back-figure coordinates to the
+  // front entry: the front view would draw the back's geometry. Caught by the
+  // placement test below, which is why that test asserts a BOX and not merely
+  // that some paths exist.
+  //
+  // Supporting both figures properly means re-keying the accumulator on
+  // fig|slug, which is a change to the whole partition for one muscle's sliver.
+  // Not worth it: a surface atlas shows the trapezius on the posterior view, and
+  // that is where a reader looks for it.
+  put('back', 'Upper Trapezius', side, paths('back', 'trapezius', side));
   put('back', 'Biceps Femoris', side, paths('back', 'hamstring', side));
 
   // -- Deltoid: the figure already separates it ------------------------------

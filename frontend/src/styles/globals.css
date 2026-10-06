@@ -4504,3 +4504,32 @@ textarea:focus-visible,
   .coach-hotspot-bar { display: none; }
   .coach-avail-open { columns: 1; }
 }
+
+/* ── Long "what is bad" lists scroll rather than stretch (§125, 2026-10-06) ──
+   .bm-aside (the body map's flag lists) already capped at 560px and scrolled;
+   the lists added in §123/§124 did not, so a squad with many flags or a long
+   unflagged roster pushed the page down instead of scrolling inside its own
+   panel. Capped in `em` rather than px so the panel grows with the reader's
+   font size instead of clipping it.
+
+   `overflow-y: auto`, never `scroll`: a permanent gutter on a list of three
+   items advertises a scrollbar that does nothing. */
+.sport-flag-list,
+.coach-avail-list,
+.coach-avail-open {
+  max-height: 20em;
+  overflow-y: auto;
+  /* Keeps the focus ring of the last row off the clipping edge, and stops a
+     scrolled row sitting flush against the panel border. */
+  padding-right: 2px;
+}
+/* The multi-column unflagged list cannot scroll vertically AND flow into
+   columns — a column container resolves its own height, so capping it clips the
+   second column instead of scrolling. One column once it is long enough to
+   need a scroller; the names stay readable either way. */
+.coach-avail-open { columns: 1; }
+/* The native scrollbar IS the affordance, and it renders correctly in both
+   themes because `color-scheme` is declared per theme (§121). A decorative
+   fade was written here first and removed: a 1px ::after block does nothing,
+   and the comment claiming it signalled overflow was the kind of statement this
+   codebase treats as a defect in its own right. */

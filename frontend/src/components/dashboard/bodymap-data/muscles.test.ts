@@ -210,3 +210,66 @@ describe('HoloMotion muscle partition', () => {
     });
   });
 });
+
+// ── the trapezius is a POSTERIOR muscle (§125, 2026-10-06) ──────────────────
+//
+// It was drawn on the FRONT figure only, so a flagged upper trapezius lit a
+// sliver at the front of the neck and left the whole upper back blank — the
+// region a clinician or a coach looks at first for it.
+//
+// "A large, triangular, paired muscle located on the posterior aspect of the
+// neck and thorax", and "the most superficial muscle on the posterior aspect of
+// the neck and thorax" (Kenhub; StatPearls NBK518994). Its descending fibres
+// insert on the LATERAL THIRD OF THE CLAVICLE, which is why the anterior sliver
+// is also correct and both figures carry it.
+//
+// The back geometry was already in bodyBack.ts and unused, so nothing was
+// redrawn — the asset and its MIT attribution are untouched, which is what
+// keeps this inside the locked body-map decision.
+describe('upper trapezius placement', () => {
+  const trap = () => muscleBack.find((p) => p.slug === 'Upper Trapezius');
+
+  it('is drawn on the BACK figure, where the muscle actually is', () => {
+    const t = trap();
+    expect(t).toBeDefined();
+    // Both sides, like every other paired muscle here, with real geometry
+    // rather than an empty placeholder.
+    expect(t?.path.left ?? []).not.toHaveLength(0);
+    expect(t?.path.right ?? []).not.toHaveLength(0);
+    expect((t?.path.left ?? []).join('').length).toBeGreaterThan(50);
+  });
+
+  it('is NOT also on the front, because the accumulator cannot hold both', () => {
+    // Not an anatomical claim — the anterior sliver is real, since the
+    // descending fibres reach the lateral third of the clavicle.  is keyed
+    // by slug with ONE figure and  CONCATENATES paths, so listing the
+    // muscle twice appends back coordinates to the front entry and the front
+    // view draws the back's geometry. That was tried and this test caught it.
+    // Pinned so the next person re-keys the accumulator rather than adding a
+    // second .
+    expect(muscleFront.some((p) => p.slug === 'Upper Trapezius')).toBe(false);
+  });
+
+  it('sits in the upper half of the back figure', () => {
+    // A PLACEMENT check, not a presence one: wiring the wrong slug would still
+    // produce paths, and they would be somewhere else entirely. The trapezius
+    // spans the occiput to the mid-thorax, so its top must sit above the
+    // midline of everything drawn on this figure.
+    // Y coordinates out of the path data. Written with the Edit tool, not a
+    // shell heredoc: the first attempt went through `node -e "…"` and the shell
+    // ate every backslash, so `\d` arrived as `d` and the class matched literal
+    // letters. The regex then found nothing, Math.min(...[]) gave Infinity and
+    // the comparison read `Infinity < NaN` — gotcha 9, exactly as documented.
+    const ys = (ds: string[]) => ds
+      .flatMap((d) => [...d.matchAll(/(-?[\d.]+)[, ]+(-?[\d.]+)/g)].map((m) => Number(m[2])))
+      .filter((n) => Number.isFinite(n));
+    const sides = (p: { path: { left?: string[]; right?: string[] } }) => [
+      ...(p.path.left ?? []), ...(p.path.right ?? []),
+    ];
+    const all = ys(muscleBack.flatMap(sides));
+    const mid = (Math.min(...all) + Math.max(...all)) / 2;
+    const t = trap();
+    expect(t).toBeDefined();
+    expect(Math.min(...ys(sides(t!)))).toBeLessThan(mid);
+  });
+});
