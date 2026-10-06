@@ -4798,7 +4798,9 @@ textarea:focus-visible,
   white-space: normal;
   cursor: auto;
 }
-.infotip-panel--right { left: auto; right: 0; }
+/* `left` is set INLINE from a measurement — see InfoTip.tsx. There is no
+   left/right modifier class: choosing an edge is a guess about where there is
+   room, and at 390px it put five of six panels off the screen (§132.6). */
 /* WCAG 1.4.13 HOVERABLE. The panel is a DOM child of the hover target, so
    pointerleave never fires while the pointer is over it — but the 8px gap above
    is outside both. This bridges it. The usual answer is a grace timer, which is

@@ -135,19 +135,55 @@ const CELLS = ['romL', 'romR', 'stabL', 'stabR', 'sym'];
     cmp(kind, want, got);
   }
 
-  // THE PRIVACY CONTRACT, and the one assertion here that is not about accuracy.
-  // The text layer hands the name over in plain text; the extractor reads it (so
-  // `nameFound` can report the page was understood) and must then DROP it.
+  // ── THE PRIVACY CONTRACT ────────────────────────────────────────────────
+  // The only assertions here that are not about accuracy, and the ones that must
+  // never cry wolf.
+  //
+  // THIS BLOCK WAS MEASURING THE WRONG BOUNDARY AND HAD BEEN RED SINCE A MERGE
+  // (§133). It asserted that the name appears NOWHERE in the extractor's return
+  // value. That was true when it was written, on this branch. On another branch
+  // §121.x added `readName` — the extractor carries the name out in exactly one
+  // field so `routes/upload.js` can resolve it to a roster id, and the route
+  // DELETES it before responding. The merge brought the two together and nobody
+  // re-ran the fixture, so CI has been failing one field ever since on a product
+  // that is behaving exactly as designed.
+  //
+  // The contract was never "the extractor must not know the name" — it cannot
+  // avoid knowing it, the text layer hands it over in plain text. It is "the
+  // name must not reach the client, the database or the vision provider". So the
+  // boundary that matters is what the ROUTE returns, and that is what is checked
+  // now. Three assertions where there was one, each stronger than the original:
+  //
+  //   1. the extractor really did read it (otherwise the roster match is dead
+  //      and the next two assertions are vacuous);
+  //   2. `readName` is the ONLY carrier — strip that one field and the name is
+  //      gone from everything else. A future change that also put it in
+  //      `summaryText` or `raw` would pass the old check only if it happened to
+  //      keep `readName`, and fails this one outright;
+  //   3. the route still performs the delete the whole design rests on.
   cmp('name absent from payload', '', a.name ?? '');
   cmp('name was nonetheless read', 'true', String(res.nameFound));
+  cmp('the extractor reports the name it read', truth.name, res.readName ?? '');
+
   // Checked on the FULL name and on each of its parts, because a payload that
   // dropped only the surname would still have leaked. Matching a single word was
-  // the first version and it fired on "fixture" appearing in the Summary — a
-  // false positive on the one assertion here that must never cry wolf.
-  const blob = JSON.stringify(res).toLowerCase();
+  // an earlier version and it fired on "fixture" appearing in the Summary.
+  const { readName: _carried, ...wire } = res;
+  const blob = JSON.stringify(wire).toLowerCase();
   const parts = [truth.name, ...truth.name.split(/\s+/)].map((s) => s.toLowerCase());
   const leaked = parts.filter((p) => p.length > 3 && blob.includes(p));
-  cmp('name nowhere in payload', 'none', leaked.length ? leaked.join(',') : 'none');
+  cmp('readName is the ONLY carrier of it', 'none', leaked.length ? leaked.join(',') : 'none');
+
+  // Read from the route's source, with comments stripped first. ~13 guards in
+  // this repo read source as text and twice a COMMENT has satisfied the
+  // assertion (§118) — and the line above this one in upload.js is a comment
+  // about exactly this delete.
+  const routeSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'routes', 'upload.js'), 'utf8')
+    .replace(/\r\n/g, '\n')
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/^\s*\/\/.*$/gm, ' ');
+  cmp('the route strips it before responding', 'yes',
+    /delete\s+result\.readName\s*;/.test(routeSrc) ? 'yes' : 'NO — the name would reach the browser');
 
   const width = Math.max(...rows.map((r) => r.label.length));
   console.log(`  ${'field'.padEnd(width)}  expected              got                   \n  ${'─'.repeat(width + 46)}`);

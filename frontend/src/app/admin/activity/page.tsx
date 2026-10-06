@@ -949,6 +949,10 @@ function SeasonalityCard({ season }: { season: NonNullable<PeriodsPayload['seaso
         </div>
       ) : (
         <>
+          {/* .table-wrap: this one took the whole page sideways at 390px
+              (394 > 390). CompareAthletes already wraps its copy of this same
+              table; this call site had been missed. */}
+          <div className="table-wrap">
           <table className="cohort-profile-table">
             <thead>
               <tr>
@@ -1001,6 +1005,7 @@ function SeasonalityCard({ season }: { season: NonNullable<PeriodsPayload['seaso
               })}
             </tbody>
           </table>
+          </div>
 
           <p className="card-sub" style={{ marginTop: 12, marginBottom: 0 }}>
             {named

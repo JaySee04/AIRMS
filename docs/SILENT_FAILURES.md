@@ -2181,6 +2181,62 @@ covering the button before measuring, so the next person meets a named cause
 rather than six failures that look like a broken feature.
 
 
+
+### 4d. The check and the code it checks, split by a merge (2026-10-06)
+
+`npm run verify:fixture` — which runs in CI — had been reporting `26/27`, and the
+failing row was its **privacy** assertion: the athlete's name was somewhere in the
+extraction payload. The script's own comment calls that *"the one assertion here
+that must never cry wolf"*.
+
+It was crying wolf. The extractor carries the name out in one field, `readName`,
+so `routes/upload.js` can resolve it to a roster id; the route **deletes it before
+responding**. Every caller traced: `upload.js` is the only one in the product and
+it strips it. The name reaches neither the browser, the database nor the vision
+provider. The check was asserting at the extractor boundary while the contract
+lives at the route.
+
+**Nobody did anything wrong, and that is the point.**
+
+| | |
+|---|---|
+| `6c42a36` 2026-09-29 | adds `readName` — on `demo/upload-b` |
+| `3a1f767` 2026-09-30 | writes the fixture check — on `feat/text-layer-extraction`, where it **passed** |
+| `cb327d4` 2026-09-30 | merges the two |
+
+Each branch was internally consistent. Each was green where it lived. The merge
+produced a combination neither author had run, and no single commit introduced
+the failure — so no review of any one diff would have caught it.
+
+**Three things worth keeping:**
+
+1. **Dates read this backwards.** By wall clock, `readName` came first and
+   somebody shipped a check that had never passed. By ancestry that is false, and
+   `git merge-base --is-ancestor` is what says so. The difference decides whether
+   you go looking for a careless commit or for a missing post-merge run — and only
+   one of those exists. This is rule 9b.
+2. **A failing check nobody acts on trains everyone to ignore it,** and this one
+   is the privacy assertion. It had been red on the deploy branch for a week.
+3. **CI was not gating anything.** It runs on `feat/mysql-migration`, which is
+   also the branch Vercel deploys from — and Vercel's git integration builds on
+   push without waiting on GitHub Actions. The red run was visible on the
+   production branch and deployed over, repeatedly. Recorded rather than changed:
+   making the deploy wait on a green run is a change to how the project ships.
+
+**Fixed by strengthening, not by exempting.** Excluding `readName` from the scan
+would have reduced the assertion to "the extractor returns a field we decided to
+ignore". One check became three — the extractor really read it, `readName` is the
+*only* carrier, and the route still performs the delete (read with comments
+stripped, because the line directly above it is a comment about it). A future
+change that also put the name in `summaryText` passes the old check and fails this
+one.
+
+Made standing in `tests/athleteDisclosure.test.js` plus one mutation, because
+`verify:fixture` is a script rather than jest and so cannot be registered. The
+mutation turns the delete into a **comment** instead of removing it — the harder
+case for a source-text guard, and the one that proves the stripper does real work.
+
+
 ## The rules for writing a check in this repo
 
 Every rule below is here because breaking it already cost this project
@@ -2308,6 +2364,20 @@ times over: the **audit trail** answered "has a report ever been delivered", the
 deployed function's **own stderr** answered "why did it fail" in one line after
 an hour of hypotheses, and `git log -S` on the version string answered "when did
 this break". Guessing was slower than asking every time.
+
+### 9b. Ancestry, not dates, when asking "which came first"
+
+`git log --date` orders two branches by wall clock, which reads a **merge**
+backwards. `git merge-base --is-ancestor` is what actually answers it.
+
+*Evidence:* 4d / §133.2 — `verify:fixture` was failing on its privacy assertion.
+By date, `readName` was added on 2026-09-29 and the check written on 2026-09-30,
+which says somebody wrote a check that had never passed and shipped it anyway.
+By ancestry that is false: the two sat on different branches, each internally
+consistent, each green where it lived, and the **merge** produced a combination
+neither author had run. Nobody shipped a red check; two correct changes met.
+The distinction decides whether you go looking for a careless commit or for a
+missing post-merge run — and only one of those exists.
 
 ### 10. Drive every entry to a control, and prefer the awkward one
 

@@ -101,6 +101,8 @@ const SEED = (s, theme) => {
  * @param {number}   o.settle ms after networkidle2 before measuring
  * @param {number}   o.jobs   concurrent contexts
  * @param {string[]} [o.themes] one pass per theme; omit for a single pass
+ * @param {object[]} [o.viewports] one pass per {width,height}; omit for the
+ *                   launch default. Multiplies with `themes`.
  * @param {Function} o.inPage evaluated in the page; must return
  *                   { findings[], scanned, path, ...extra }
  * @param {Function} o.keyOf  finding -> dedupe key
@@ -111,7 +113,7 @@ const SEED = (s, theme) => {
  * @param {number}   [o.minElements]
  */
 async function run({
-  web, api, settle, jobs, themes = [null], inPage, keyOf,
+  web, api, settle, jobs, themes = [null], viewports = [null], inPage, keyOf,
   check, beforeMeasure, who, minElements = 10, browser,
 }) {
   const all = new Map();
@@ -119,7 +121,11 @@ async function run({
   let scannedTotal = 0;
 
   const queue = [];
-  for (const theme of themes) for (const [role, route] of PAGES) queue.push({ theme, role, route });
+  for (const theme of themes) {
+    for (const viewport of viewports) {
+      for (const [role, route] of PAGES) queue.push({ theme, viewport, role, route });
+    }
+  }
   let cursor = 0;
 
   async function worker() {
@@ -127,11 +133,18 @@ async function run({
       const job = queue[cursor];
       cursor += 1;
       if (!job) return;
-      const { theme, role, route } = job;
-      const label = `${theme ? `${theme} ` : ''}${role} ${route}`;
+      const { theme, viewport, role, route } = job;
+      const label = `${theme ? `${theme} ` : ''}${viewport ? `${viewport.width}px ` : ''}${role} ${route}`;
       const ctx = await browser.createBrowserContext();
       const page = await ctx.newPage();
       try {
+        // WIDTH IS AN AXIS OF THE SWEEP, not a property of the browser (added
+        // 2026-10-06, §132). verify:layout needs the same 24 pages at three
+        // widths, and the alternative was a third copy of login + seed + the
+        // per-visit context + the unmeasured bookkeeping — which is the exact
+        // duplication this file was extracted to end. Omitted by every existing
+        // caller, so they keep the launch default.
+        if (viewport) await page.setViewport(viewport);
         await page.evaluateOnNewDocument(SEED, who[role], theme);
         await page.goto(web + route, { waitUntil: 'networkidle2', timeout: 60000 })
           .catch((e) => { unmeasured.push(`${label} — navigation: ${firstLine(e)}`); });

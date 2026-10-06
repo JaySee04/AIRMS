@@ -109,8 +109,12 @@ export default function CompareAthletes({ entries }: { entries: WorklistEntry[] 
         )}
       </div>
 
+      {/* .table-wrap rather than a private `overflowX: 'auto'`. This was the
+          only call site of this table that scrolled correctly, and it did so
+          through a one-off inline style — so the two sites that got it wrong
+          (§132) had nothing to copy and no name to search for. */}
       {rows.length >= 2 && (
-        <div style={{ overflowX: 'auto', marginTop: 14 }}>
+        <div className="table-wrap" style={{ marginTop: 14 }}>
           <table className="cohort-profile-table">
             <thead>
               <tr>

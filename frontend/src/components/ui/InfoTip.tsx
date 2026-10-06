@@ -58,12 +58,21 @@
 // before the click closed it again. Mouse pointers only; touch goes through
 // the click path, which pins.
 
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+
+// The panel is positioned by MEASUREMENT, which has to happen before the browser
+// paints or the panel is visibly drawn in the wrong place and then jumps.
+// useLayoutEffect is the hook for that and warns when a component using it is
+// rendered on the server, so it is swapped for useEffect there. The body never
+// runs during SSR anyway — the panel does not exist until `open`.
+const useIsoLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
+
+/** Keep this much of a gap between the panel and the edge of the screen. */
+const EDGE_MARGIN = 8;
 
 export default function InfoTip({
   children,
   label = 'How this is calculated',
-  align = 'auto',
 }: {
   children: React.ReactNode;
   /**
@@ -72,8 +81,6 @@ export default function InfoTip({
    * needed to.
    */
   label?: string;
-  /** Panel edge to pin to. 'auto' flips near the right of the viewport. */
-  align?: 'auto' | 'left' | 'right';
 }) {
   const [hover, setHover] = useState(false);
   const [focus, setFocus] = useState(false);
@@ -91,9 +98,10 @@ export default function InfoTip({
   // nobody tests and broken in the one a mouse user meets. Found by the jsdom
   // test, where a click does not focus and the bug therefore shows up first try.
   const [escaped, setEscaped] = useState(false);
-  const [flip, setFlip] = useState(false);
+  const [shift, setShift] = useState(0);
   const wrap = useRef<HTMLSpanElement>(null);
   const btn = useRef<HTMLButtonElement>(null);
+  const panel = useRef<HTMLSpanElement>(null);
   const id = useId();
 
   const open = !escaped && (pinned || hover || focus);
@@ -104,14 +112,33 @@ export default function InfoTip({
   const revive = useCallback(() => setEscaped(false), []);
   const close = useCallback(() => { setPinned(false); setHover(false); setFocus(false); }, []);
 
-  // Which edge to hang the panel from, decided when it opens rather than in CSS:
-  // the panel is 300px wide and most of these sit in a card header on the right
-  // of a wide page, where a left-aligned panel runs off the viewport.
-  useEffect(() => {
-    if (!open || align !== 'auto') return;
-    const r = btn.current?.getBoundingClientRect();
-    if (r) setFlip(r.left > window.innerWidth / 2);
-  }, [open, align]);
+  // KEEP THE PANEL ON THE SCREEN. Measured, not guessed, and this replaces a
+  // version that CHOSE AN EDGE — left-aligned, or right-aligned when the button
+  // sat past the middle of the viewport.
+  //
+  // That rule is wrong on a phone in both directions at once, and measuring it
+  // said so: at 390px, five of the six tips on /medical/sport-assessment opened
+  // outside the screen. A button at x=163 is in the left half, so no flip, and
+  // 163 + 320 = 483 — off the right edge, and it dragged the whole PAGE sideways
+  // with it. A button past the middle flips and the panel's LEFT edge lands at
+  // -43. An edge is a guess about where there is room; this asks.
+  //
+  // Measured from the HOST rather than from the panel's current position, so the
+  // shift can never feed back into its own input. useLayoutEffect, so the
+  // correction lands before paint instead of as a visible jump.
+  useIsoLayoutEffect(() => {
+    if (!open) { setShift(0); return; }
+    const host = wrap.current?.getBoundingClientRect();
+    const width = panel.current?.offsetWidth;
+    if (!host || !width) return;
+    // clientWidth, not innerWidth: innerWidth includes the scrollbar, which is
+    // not space the panel may use.
+    const vw = document.documentElement.clientWidth;
+    let left = host.left;
+    if (left + width > vw - EDGE_MARGIN) left = vw - EDGE_MARGIN - width;
+    if (left < EDGE_MARGIN) left = EDGE_MARGIN;
+    setShift(Math.round(left - host.left));
+  }, [open]);
 
   // Dismissible without moving the pointer, and an outside click closes a pinned
   // panel. Bound only while open, so a page of forty tips has no idle listeners.
@@ -174,7 +201,7 @@ export default function InfoTip({
         <span aria-hidden>i</span>
       </button>
       {open && (
-        <span className={`infotip-panel${flip ? ' infotip-panel--right' : ''}`} id={id} role="note">
+        <span className="infotip-panel" id={id} role="note" ref={panel} style={{ left: shift }}>
           <span className="infotip-panel-title">{label}</span>
           {children}
         </span>

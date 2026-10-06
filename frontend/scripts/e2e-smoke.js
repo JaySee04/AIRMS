@@ -912,6 +912,46 @@ async function visit(browser, route, session) {
       await settle();
       check('infotip: an outside click closes a pinned panel', (await panels()) === 0);
 
+      // ON A PHONE, which is the width the check above could not see. The panel
+      // is 320px and this suite runs at 1500, so "stays inside the viewport"
+      // passed with 1180px to spare while FIVE OF SIX tips opened off-screen at
+      // 390px — one of them dragging the whole page sideways with it (§132.6).
+      // The panel is placed by measurement now; this is what holds it there.
+      await r.page.setViewport({ width: 390, height: 844 });
+      await settle();
+      // ONE TIP AT A TIME, THROUGH REAL GESTURES. The first version of this did
+      // the whole loop inside one page.evaluate and removed each panel from the
+      // DOM before opening the next — which desynchronised React from its own
+      // tree and made five of six report "did not open" against a feature that
+      // works. Removing a node React owns is not a way to close a panel; Escape
+      // is. Element handles, clicked and dismissed one at a time.
+      const handles = await r.page.$$('.infotip-btn');
+      const narrow = [];
+      for (const h of handles) {
+        await h.click();
+        await settle();
+        narrow.push(await r.page.evaluate(() => {
+          const p = document.querySelector('.infotip-panel');
+          if (!p) return { ok: false, why: 'did not open' };
+          const rc = p.getBoundingClientRect();
+          const vw = document.documentElement.clientWidth;
+          return {
+            ok: rc.left >= -1 && rc.right <= vw + 1,
+            why: `${Math.round(rc.left)}..${Math.round(rc.right)} in ${vw}`,
+            scrolled: document.documentElement.scrollWidth > vw + 1,
+          };
+        }));
+        await r.page.keyboard.press('Escape');
+        await settle();
+      }
+      const offscreen = narrow.filter((o) => !o.ok);
+      check('infotip: at 390px every panel stays on the screen',
+        narrow.length > 0 && offscreen.length === 0,
+        offscreen.length ? offscreen.map((o) => o.why).join(' · ') : `${narrow.length} checked`);
+      check('infotip: opening one on a phone does not push the page sideways',
+        !narrow.some((o) => o.scrolled));
+      await r.page.setViewport({ width: 1500, height: 1000 });
+
       await r.page.close();
     }
 

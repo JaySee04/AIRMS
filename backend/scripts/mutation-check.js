@@ -233,6 +233,20 @@ const MUTATIONS = [
     test: 'tests/cohorts.test.js',
   },
   {
+    // §133. The delete that keeps the athlete's NAME off the import preview.
+    // Found by `verify:fixture` reporting 26/27 — red since a merge, on the one
+    // assertion in that script that must never cry wolf.
+    guard: 'upload: the name read from the report is stripped before responding',
+    why: 'without it the name reaches the browser and nothing downstream looks wrong',
+    pkg: 'backend',
+    file: 'src/routes/upload.js',
+    // Turned into a COMMENT rather than deleted, which is the harder case: the
+    // guard reads source as text, and a raw-text search would still find it.
+    find: '    delete result.readName;',
+    replace: '    // delete result.readName;',
+    test: 'tests/athleteDisclosure.test.js',
+  },
+  {
     // §131. THE RULE THIS GUARDS IS NOT A STYLING ONE. A caveat moved inside an
     // <InfoTip> leaves the page looking right, every other test green, and the
     // DEFAULT state of the screen the un-caveated reading — which is §33's
@@ -272,6 +286,23 @@ const MUTATIONS = [
     find: '  const open = !escaped && (pinned || hover || focus);',
     replace: '  const open = pinned || hover || focus;',
     test: 'src/components/ui/InfoTip.test.tsx',
+  },
+  {
+    // §132.6. Registered against the E2E check rather than a jest one on
+    // purpose, and the registry cannot run it — jsdom computes no layout, so
+    // `getBoundingClientRect()` returns zeroes and NO unit test can see this.
+    // Kept here as a NOTE with no `test`, so the next person does not assume it
+    // is covered by `npm run mutate`: break the clamp and run
+    // `cd frontend; npm run e2e` section 4l, which measures it at 390px.
+    skip: 'needs a real browser — e2e §4l, "at 390px every panel stays on the screen"',
+    guard: 'infotip: the panel is clamped to the viewport, not hung off an edge',
+    why: 'choosing an edge put 5 of 6 panels off-screen at 390px (§132.6)',
+    pkg: 'frontend',
+    from: ROOT,
+    file: 'frontend/src/components/ui/InfoTip.tsx',
+    find: '    if (left + width > vw - EDGE_MARGIN) left = vw - EDGE_MARGIN - width;',
+    replace: '    // clamp removed',
+    test: null,
   },
   {
     guard: 'infotip: collapsed by default',
@@ -1263,10 +1294,19 @@ function main() {
     process.exit(2);
   }
 
-  console.log(`\nmutation check — ${list.length} guard(s)\n`);
+  // A `skip` entry names a guard this runner CANNOT exercise, and says what
+  // does instead. It is here rather than left out because the alternative is a
+  // silent gap: a guard absent from this file looks exactly like one that was
+  // never written, and §123 is the entry where a guard retired itself unnoticed
+  // while the registry kept counting it. Skips are reported every run, excluded
+  // from the total, and never counted as caught.
+  const skipped = list.filter((m) => m.skip);
+  const runnable = list.filter((m) => !m.skip);
+
+  console.log(`\nmutation check — ${runnable.length} guard(s)\n`);
   const survived = [];
 
-  for (const m of list) {
+  for (const m of runnable) {
     let restore = null;
     try {
       restore = applyMutation(m);
@@ -1304,12 +1344,17 @@ function main() {
   }
 
   console.log('');
+  if (skipped.length) {
+    console.log(`${skipped.length} guard(s) this runner cannot exercise — NOT a pass:`);
+    for (const m of skipped) console.log(`  skipped   ${m.guard}\n            ${m.skip}`);
+    console.log('');
+  }
   if (survived.length) {
-    console.error(`${survived.length} of ${list.length} mutation(s) NOT caught.`);
+    console.error(`${survived.length} of ${runnable.length} mutation(s) NOT caught.`);
     console.error('A surviving mutation means the test does not test what it says it does.');
     process.exit(1);
   }
-  console.log(`all ${list.length} mutations caught — every guard listed here can fail.`);
+  console.log(`all ${runnable.length} mutations caught — every guard listed here can fail.`);
   process.exit(0);
 }
 

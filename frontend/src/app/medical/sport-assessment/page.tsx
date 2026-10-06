@@ -398,6 +398,11 @@ export default function SportAssessmentPage() {
                   </InfoTip>
                 )}
               />
+              {/* .table-wrap, or this four-column table takes the whole PAGE
+                  sideways on a phone — measured 546px of content in a 390px
+                  viewport before it was added. Wide content scrolls inside its
+                  own container; the body never does. */}
+              <div className="table-wrap">
               <table className="sport-table">
                 <thead>
                   <tr>
@@ -421,6 +426,7 @@ export default function SportAssessmentPage() {
                   )))}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
 
@@ -450,6 +456,7 @@ export default function SportAssessmentPage() {
                 That is not a clean bill of health — it is the absence of a flag.
               </p>
             ) : (
+              <div className="table-wrap">
               <table className="sport-table">
                 <thead>
                   <tr>
@@ -470,6 +477,7 @@ export default function SportAssessmentPage() {
                   ))}
                 </tbody>
               </table>
+              </div>
             )}
           </div>
 

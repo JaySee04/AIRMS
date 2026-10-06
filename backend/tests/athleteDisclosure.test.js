@@ -264,3 +264,58 @@ describe('executive reaches oversight, not raw clinical records', () => {
     expect(rep.slice(at, at + 200)).toMatch(/'executive'/);
   });
 });
+
+// ── The athlete's NAME, on the import path (2026-10-06, §133) ───────────────
+//
+// A different disclosure from the ones above, on a route none of them touch.
+// The HoloMotion text layer hands the athlete's name over in plain text, and
+// since §121 the extractor CARRIES it out in one field, `readName`, so this
+// route can resolve it to a roster id. The route then deletes it. That delete
+// is the whole privacy contract on this path: without it the name travels to
+// the browser inside the preview payload, and the commit still backfills from
+// the roster, so nothing downstream would look wrong.
+//
+// `verify:fixture` checks the same property end to end and is the stronger
+// check — it drives the real extractor over a real PDF. This exists because
+// that script is not jest: it cannot be registered in scripts/mutation-check.js,
+// so the proof that the delete is load-bearing could not be made STANDING. This
+// can be, and is.
+describe('the import preview does not return the name it read', () => {
+  // Comments stripped FIRST. The line above the delete in upload.js is a comment
+  // about the delete, so a text search on the raw file passes whether or not the
+  // code is there — §118's trap, and it is live in this exact file.
+  const uploadSrc = fs
+    .readFileSync(path.join(__dirname, '..', 'src', 'routes', 'upload.js'), 'utf8')
+    .replace(/\r\n/g, '\n')
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/^\s*\/\/.*$/gm, ' ');
+
+  it('deletes readName from the payload before responding', () => {
+    expect(uploadSrc).toMatch(/delete\s+result\.readName\s*;/);
+  });
+
+  it('deletes it BEFORE res.json, not after', () => {
+    // `delete` after the response is written changes nothing — the object has
+    // already been serialised. The ordering is the property, not the presence.
+    const del = uploadSrc.search(/delete\s+result\.readName\s*;/);
+    const send = uploadSrc.indexOf('res.json(result)');
+    expect(del).toBeGreaterThan(-1);
+    expect(send).toBeGreaterThan(-1);
+    expect(del).toBeLessThan(send);
+  });
+
+  it('keeps the name on the server long enough to match the roster', () => {
+    // The other direction, and the reason the field exists at all. A "fix" that
+    // stopped the extractor returning it would silently kill the roster
+    // suggestion while every privacy assertion above went on passing.
+    expect(uploadSrc).toMatch(/const\s+readName\s*=\s*result\.readName/);
+    expect(uploadSrc).toMatch(/suggestedAthleteId/);
+  });
+
+  it('does not log the name — logger context reaches a third-party viewer', () => {
+    // §91.1: `context` is not in logger.js's FORBIDDEN_KEY list, so anything put
+    // there is written to a log viewer outside ISN.
+    const logs = uploadSrc.match(/logger\.\w+\([^)]*\)/g) || [];
+    for (const line of logs) expect(line).not.toMatch(/readName/);
+  });
+});

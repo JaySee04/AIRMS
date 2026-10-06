@@ -12879,3 +12879,280 @@ would be a large diff across files nothing else in this change touches.
 backend 70 / 1099, 111 mutations all caught, typecheck and lint clean, contrast 0
 findings over 48 page-visits with the canary catching 131 styles, a11y 0 findings
 over 12,225 elements.
+
+## 132. Nothing was measuring layout, and two pages had been scrolling sideways (2026-10-06)
+
+A health check before deploying §131. Everything green — 169 e2e, 111 mutations,
+contrast 0/7924, a11y 0/12225, `audit:access` clean with all 66 endpoints
+refusing an anonymous caller, `verify:claims` 10/10, `verify:reports` 25/25 local
+**and** 25/25 hosted. Then a throwaway probe written to check one suspicion found
+two defects that had been shipping.
+
+### 132.1 The gap, named
+
+| check | what it reads | width |
+|---|---|---|
+| `verify:contrast` | computed colours | one |
+| `verify:a11y` | roles, names, heading order | one |
+| `npm run e2e` | behaviour | one |
+| `verify:csp` | the policy, real Chrome | one |
+
+**Nothing measured geometry, and nothing measured anything but a desktop.** A
+table that takes the whole page sideways on a phone is invisible to every check
+in that table and renders perfectly in a screenshot — which is how it survives.
+
+### 132.2 What it found
+
+At 390px:
+
+- `/admin/activity` — the page scrolled sideways (394 > 390), because
+  `.cohort-profile-table` overflowed its card by 18px.
+- `/medical/sport-assessment` — **546px of content in a 390px viewport**, from two
+  `.sport-table`s overflowing by 52px and 170px.
+
+Both **pre-existing**, and the reasoning that establishes that is worth keeping
+rather than the conclusion: §131 raised `.card` padding from `--sp-lg` to
+`--sp-xl`, which is the obvious suspect — but it did so behind
+`@media (max-width: 720px) { .card { padding: var(--sp-lg) } }`, so at 390px the
+padding is **byte-identical before and after**. The cause is that those three
+tables were never wrapped in `.table-wrap`.
+
+CLAUDE.md has carried the rule the whole time — *wide content scrolls inside its
+own container; the page body never does* — and `.main-area { min-width: 0 }`
+exists in `globals.css` with a comment about this exact class of bug. The rule
+was written down and unenforced.
+
+### 132.3 Why there was nothing to copy
+
+`CompareAthletes.tsx` renders the **same** `.cohort-profile-table` and scrolled
+correctly — through a private `style={{ overflowX: 'auto' }}`. So the one call
+site that got it right did so in a way that had no name to search for: a reader
+grepping `table-wrap` finds nothing, and a reader copying the component copies an
+inline style. It now uses `.table-wrap` like everything else, which is the
+smaller half of the fix and the half that stops it recurring.
+
+### 132.4 `npm run verify:layout`
+
+The probe became a script, because a check that found two real defects on its
+first run should not be deleted after one use. 24 pages × 3 widths (1440 / 1024 /
+390 — the far side of both `@media` breakpoints), serial, ~6 minutes.
+
+It reports four things, each a fault rather than a preference:
+
+- **the body scrolls sideways** — the symptom;
+- **content escapes its card** — the cause, reported beside it so the finding
+  names its own fix. `.card` clips nothing, so an over-wide table draws across
+  whatever is next to it;
+- **a title's inline children touch** — `.card-title` is a flex container since
+  §131, and flex gives its items no gap *and* collapses the whitespace between
+  them, so a title written `Athletes <span>3</span>` would render `Athletes3`.
+  There are none today; asserted rather than assumed;
+- **an info tip is unreachable** — zero width, or outside the viewport.
+
+**Built on `scripts/lib/sweep.js` rather than beside it.** The harness gained one
+option, `viewports`, which multiplies with `themes`. The alternative was a third
+copy of login, the session seed, the per-visit browser context and the unmeasured
+bookkeeping — the duplication that file was extracted to end, and the one that
+had already bitten when the what's-new acknowledgement had to be written into two
+sweeps.
+
+**It has a `--canary`, and the verdict is inverted.** One card child is forced to
+150vw on every page, which must produce both an overflow and a sideways scroll; a
+canary run that comes back clean **fails**. The width is in `vw` so it overflows
+at 390px exactly as at 1440px, and the stylesheet is proven to have attached **by
+effect** — measuring an element's real width — not by searching `cssText`, which
+Chrome normalises (§121.8's trap).
+
+**Not in CI**, for the same reason as `verify:contrast`: it needs five live
+logins and a seeded database, and against an empty one it would report a
+confident zero about pages that drew nothing.
+
+### 132.5 One thing this does not do
+
+It measures **overflow**, not **ugliness**. A page can stay inside the viewport
+and still be unreadable at 390px — a six-column table squeezed to 40px per column
+passes every assertion here. Stated so the next reader does not take a green run
+as "the responsive layout is good"; it means "nothing escapes its box".
+
+### 132.6 And then it found one of mine, two hours old
+
+Writing the check above raised a question it could not answer: `verify:layout`
+measures a page **at rest**, and an `InfoTip` panel only exists while open. The
+panel is `min(320px, 100vw - 48px)`. At 390px that is 320px of panel on a 390px
+screen.
+
+Measured, on `/medical/sport-assessment`: **five of the six tips opened outside
+the viewport**, and one of them dragged the whole page sideways with it.
+
+```
+390px  tip 0 "Why counts and not percentages"   -43 .. 277   in 390
+       tip 3 "Why a count rather than the mean"  163 .. 483   in 390  ← page scrolled
+       tip 4 "What is in this table"             -38 .. 282   in 390
+       tip 5 "How this list is ordered"          -52 .. 268   in 390
+1024px 0 off-screen        1440px 0 off-screen
+```
+
+**The mechanism was my own cleverness.** §131 placed the panel by *choosing an
+edge*: left-aligned, flipping to right-aligned when the button sat past the
+middle of the viewport. On a desktop that is always right. On a phone it is
+wrong in **both** directions at once — a button at x=163 is in the left half, so
+no flip, and 163 + 320 = 483 runs off the right; a button past the middle flips
+and the panel's left edge lands at −43. An edge is a guess about where there is
+room.
+
+Replaced with a measurement: the panel is **clamped** to the viewport with an 8px
+margin, from the host's rect so the shift can never feed back into its own input,
+in a `useLayoutEffect` so the correction lands before paint rather than as a
+visible jump. `clientWidth`, not `innerWidth` — the latter includes the
+scrollbar, which is not space the panel may use. The left/right modifier class is
+gone; there is no edge to choose.
+
+**Why the existing checks all passed.** `npm run e2e` has an explicit *"the panel
+stays inside the viewport"* assertion and it was green — at the suite's 1500px
+viewport, with 1180px to spare. The check was right; its width was the whole
+question. §4l now re-measures every tip on the page at **390px** after the
+pointer, keyboard and tap paths, and asserts separately that opening one does not
+push the page sideways.
+
+**It is registered as a `skip`, not a mutation.** jsdom computes no layout —
+`getBoundingClientRect()` returns zeroes — so no unit test can see this and the
+registry would report a vacuous pass. `scripts/mutation-check.js` gained a `skip`
+field: the entry is listed, reported on every run as *"this runner cannot
+exercise"*, excluded from the total and never counted as caught, with the check
+that **does** cover it named. Leaving it out instead was the alternative, and
+§123 is the entry about a guard that retired itself silently while the registry
+kept counting it — an absent guard looks exactly like one nobody wrote.
+
+**The order is the lesson.** The bug was two hours old and had passed a jsdom
+suite, an e2e section written specifically for it, a contrast sweep, an a11y
+sweep and a review. What found it was asking one question nothing else asked —
+*what does this look like on a phone* — which is the same question that had just
+turned up two defects that had been shipping for weeks.
+
+### 132.7 The 390px check lied twice before it worked, in two different ways
+
+Both are recorded because both produced a confident wrong answer about a feature
+that was fine, and neither is specific to this check.
+
+**1. The what's-new backdrop.** `page.hover()` and `page.click()` failed against a
+working tip. `visit()` seeds a token but not the notice acknowledgement, so
+`.modal-backdrop` covers the document. Every other section in the suite clicks
+through `page.evaluate(el.click())`, which is programmatic and goes straight to
+the handler — **so across 171 checks no real pointer had ever been used, and the
+overlay had never mattered.** §4l dismisses the notice the way a person does, then
+asserts nothing is covering the button before measuring, so the next reader meets
+a named cause instead of six mystifying failures.
+
+**2. Removing a node React owns is not a way to close a panel.** The first 390px
+check ran the whole loop inside one `page.evaluate`, removing each panel from the
+DOM before opening the next. React's state still said the previous tip was
+pinned, its node was gone, and reconciliation broke — **five of six reported "did
+not open" against a feature that works**, immediately after the same five had been
+genuinely broken for a different reason. That is the dangerous version: a real
+bug had just been fixed, and the check went red in a way that looked exactly like
+the fix not working.
+
+It now takes element handles and drives one tip at a time with a real click and a
+real Escape. The general rule, which is the part worth keeping: **a check may
+drive the UI, but it may not edit the UI's own tree.** The moment it does, it is
+measuring a DOM nothing in the app would ever produce.
+
+## 133. The privacy check that had been red since a merge (2026-10-06)
+
+Continuing the health check of §132. `npm run verify:fixture` — which is **in
+CI** — reports:
+
+```
+name absent from payload                              ✓
+name was nonetheless read     true      true          ✓
+name nowhere in payload       none      qelvorin thrayspindle   ✗ FAIL
+  26/27 fields match
+```
+
+The failing row is the **privacy** assertion, and its own comment calls it *"the
+one assertion here that must never cry wolf"*.
+
+### 133.1 It was crying wolf
+
+The leak is `readName`, and the product is behaving exactly as designed.
+
+The HoloMotion text layer hands the athlete's name over in plain text. Since
+§121 the extractor carries it out in **one** field so `routes/upload.js` can
+resolve it to a roster id and offer `suggestedAthleteId` — and the route
+**deletes it before responding**. Traced every caller: `routes/upload.js` is the
+only one in the product, and it strips it. The name does not reach the browser,
+the database or the vision provider.
+
+So the check was asserting at the wrong boundary. The contract was never "the
+extractor must not know the name" — it **cannot** avoid knowing it. It is "the
+name must not leave the server", and that is a property of the route.
+
+### 133.2 How a check and the thing it checks came apart
+
+Not a timeline — a **merge**, and the dates actively mislead:
+
+| | |
+|---|---|
+| `6c42a36` 2026-09-29 | adds `readName`, on `demo/upload-b` |
+| `3a1f767` / `821295e` 2026-09-30 | writes the fixture check, on `feat/text-layer-extraction`, where it **passed** |
+| `cb327d4` 2026-09-30 | merges the two |
+
+Each branch was internally consistent. Neither commit is wrong. The merge
+produced a combination neither author had run, and `verify:fixture` has been
+failing on the deploy branch ever since.
+
+**`git log --date` reads this backwards.** By date, `readName` came first and the
+check was born broken; by ancestry it did not, and `git merge-base --is-ancestor`
+is what says so. Worth remembering before concluding anybody shipped a red check.
+
+### 133.3 The gate that does not gate
+
+CI runs on pushes to `feat/mysql-migration`, which is also the branch **Vercel
+deploys from**. So this failing check has been visible on the production branch
+and deployed over, repeatedly — because Vercel's git integration builds on push
+and does not wait on GitHub Actions.
+
+Stated rather than fixed: making the deploy wait on a green CI run is a change to
+how this project ships, and that is JC's call, not a side effect of a bug hunt.
+
+### 133.4 Fixed by making it stronger, not by relaxing it
+
+The obvious repair — exempt `readName` from the scan — would have reduced the
+assertion to "the extractor returns a field we decided to ignore". Instead the
+one check became three, each measuring something the old one did not:
+
+1. **the extractor really did read the name.** Without this, the roster match is
+   dead and the two assertions below are vacuous — they would pass on an
+   extractor that read nothing at all.
+2. **`readName` is the ONLY carrier.** Strip that one field and the name must be
+   gone from *everything* else. A future change that also put it in `summaryText`
+   or `raw` would have passed the old check whenever it kept `readName`; it fails
+   this one outright.
+3. **the route still performs the delete.** Read from `routes/upload.js` with
+   comments stripped first — the line directly above the delete *is a comment
+   about the delete*, so a raw-text search passes whether or not the code is
+   there. §118, live in the file being checked.
+
+`29/29`, and the `--canary` still catches a corrupted value.
+
+### 133.5 Made standing, in the place that can hold it
+
+`verify:fixture` is a script, not jest, so it cannot be registered in
+`scripts/mutation-check.js` — the proof that the delete is load-bearing could be
+made once by hand and no more. Five cases were added to
+`tests/athleteDisclosure.test.js`, which already reads route source for exactly
+this kind of disclosure wiring, and one mutation registered against them.
+
+The mutation turns the delete into a **comment** rather than removing it, which
+is the harder case for a source-text guard and the one that proves the comment
+stripper does real work. Measured: caught.
+
+Two of the five assert the **other** direction — that the extractor still returns
+the name and the route still computes `suggestedAthleteId`. A "fix" that stopped
+the extractor reading it would satisfy every privacy assertion here while
+silently killing the roster suggestion, which is §123's lesson about a guard
+whose subject quietly disappears.
+
+One more pins that the name never reaches `logger.*`: `context` is not in
+`logger.js`'s FORBIDDEN_KEY list (§91.1), so anything put there is written to a
+log viewer outside ISN.

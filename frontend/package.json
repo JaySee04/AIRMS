@@ -15,7 +15,8 @@
     "e2e": "node scripts/e2e-smoke.js",
     "verify:csp": "node scripts/verify-csp.js",
     "verify:contrast": "node scripts/verify-contrast.js",
-    "verify:a11y": "node scripts/verify-a11y.js"
+    "verify:a11y": "node scripts/verify-a11y.js",
+    "verify:layout": "node scripts/verify-layout.js"
   },
   "dependencies": {
     "chart.js": "^4.4.3",

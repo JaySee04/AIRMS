@@ -92,15 +92,22 @@ cd backend; npm run coverage         # 82.4% statements / 72.3% branches (re-mea
                                      # line deleted — it now asserts the phrase only the route writes,
                                      # naming what the override REPLACED.
                                      # The FRONTEND was the remaining blind spot and is
-                                     # now partly closed: e2e (169 checks), FIVE jsdom component
+                                     # now partly closed: e2e (171 checks), FIVE jsdom component
                                      # suites, and since 2026-09-12 ONE test that mounts a page.tsx
                                      # (athlete/dashboard - DD 85d). The other 25 authenticated
                                      # pages are still covered by e2e or by nobody. Coverage needed
                                      # a missing transitive dep (fs.realpath) before it would run.
 cd backend; npm run mutate           # BREAK each registered guard on purpose and prove its
                                      # test fails. A surviving mutation exits non-zero: the
-                                     # test is not testing what it claims. 111 guards across
-                                     # both packages. NOT part of `npx jest` — it spawns a
+                                     # test is not testing what it claims. 113 guards across
+                                     # both packages. 112 are EXERCISED here; one is
+                                     # listed with a `skip` because jsdom computes no
+                                     # layout and only a real browser can see it (e2e
+                                     # section 4l). A skip is REPORTED every run and is
+                                     # never counted as caught — a guard left OUT of this
+                                     # file looks exactly like one nobody wrote, which is
+                                     # how section 123's guard retired itself while the
+                                     # registry kept counting it. NOT part of `npx jest` — it spawns a
                                      # jest run per mutation (tens of seconds). Run it before
                                      # committing a change to a guard, and add an entry when
                                      # you write a new one. Four defects (SILENT_FAILURES
@@ -460,6 +467,33 @@ cd frontend; npm run typecheck   # tsc --noEmit -p tsconfig.json. A NAMED script
                                  # tsconfig.json against the REPO ROOT and dies.
 cd frontend; npm run lint  # next lint
 
+cd frontend; npm run verify:layout # DOES THE PAGE STAY INSIDE THE SCREEN? 24 pages x THREE
+                                  # widths (1440 / 1024 / 390 - the far side of both
+                                  # @media breakpoints). Needs `npm run dev`; ~6 min,
+                                  # serial. NOTHING ELSE MEASURES GEOMETRY and nothing
+                                  # else leaves the desktop: contrast reads colours,
+                                  # a11y reads roles, e2e drives behaviour, csp reads
+                                  # the policy - all at one width. So a table that
+                                  # takes the whole page sideways on a phone is
+                                  # invisible to every one of them and looks perfect in
+                                  # a screenshot. Written as a throwaway probe while
+                                  # checking a padding change and kept because its
+                                  # FIRST run found two shipping defects: /admin/activity
+                                  # scrolled at 394>390 and /medical/sport-assessment
+                                  # held 546px of content in a 390px viewport, both from
+                                  # tables with no .table-wrap (DD 132). Reports the
+                                  # SYMPTOM (body scrolls) beside the CAUSE (which child
+                                  # escaped which card), so a finding names its own fix.
+                                  # Also pins that no .card-title has inline children -
+                                  # it is a flex container since 131, and flex collapses
+                                  # the whitespace between items, so `Athletes <span>3`
+                                  # would render "Athletes3". `-- --canary` forces one
+                                  # card child to 150vw and INVERTS the verdict; a clean
+                                  # canary fails. Not in CI (five live logins + seeded
+                                  # data, same as verify:contrast). It measures OVERFLOW,
+                                  # not ugliness - a six-column table squeezed to 40px a
+                                  # column passes.
+
 cd frontend; npm run verify:csp   # the CSP, in REAL CHROME against a PRODUCTION build
                                   # (needs `npm run build` then `npx next start -p 3210`,
                                   # or set CSP_WEB). 19 checks. Asserts THREE independent
@@ -483,6 +517,14 @@ cd frontend; npm run verify:csp   # the CSP, in REAL CHROME against a PRODUCTION
 #     csp     - build + real Chrome + verify:csp, because the thing most likely
 #               to reintroduce the blocked-hydration failure is a Next upgrade
 #               changing how the bootstrap is emitted, silently
+#   CI DOES NOT GATE THE DEPLOY, and that is worth knowing before trusting a
+#   green tick (2026-10-06, DD 133.3). It runs on pushes to feat/mysql-migration,
+#   which is the branch VERCEL DEPLOYS FROM — and Vercel's git integration builds
+#   on push without waiting on GitHub Actions. So a red CI run is visible on the
+#   production branch and deployed over. Measured: `verify:fixture` had been
+#   failing there since a 2026-09-30 merge, and the deploys went out anyway.
+#   Making the deploy wait on a green run is a change to how this project ships
+#   and is JC's call.
 #   NO database service: every backend suite is DB-free, so it needs no MySQL and
 #   no secrets. audit:access / verify:claims / e2e need a LIVE instance and are
 #   deliberately LEFT OUT rather than half-wired - a green tick that skipped them
@@ -497,7 +539,7 @@ cd frontend; npm run verify:csp   # the CSP, in REAL CHROME against a PRODUCTION
 
 # Frontend production build
 cd frontend; npm run e2e   # END-TO-END smoke: a real Chrome against the running
-                           # servers (needs `npm run dev`). 169 checks - auth boundaries,
+                           # servers (needs `npm run dev`). 171 checks - auth boundaries,
                            # each role's pages rendering, the readiness tiles accounting
                            # for the squad, the body-map focus ring, the INFO TIP opening by pointer / keyboard /
                            # tap (section 4l, DD 131.3), no NaN/undefined/
@@ -544,7 +586,7 @@ cd frontend; npm run e2e   # END-TO-END smoke: a real Chrome against the running
 cd frontend; npm run build
 
 # Unit tests (jest, in both packages — no linter configured for the backend)
-cd backend; npx jest      # 70 suites / 1099 tests: cohorts, overallIndicator, permissions, rbac, pdfDraw,
+cd backend; npx jest      # 70 suites / 1103 tests: cohorts, overallIndicator, permissions, rbac, pdfDraw,
                           # emailAddress (the address an activation code is SENT to. It was
                           # VARCHAR(160) UNIQUE and nothing else — "not-an-email", "jc@@isn",
                           # "a b@c.d" and "<script>@x.com" all validated and would have been
@@ -645,7 +687,7 @@ cd backend; npx jest      # 70 suites / 1099 tests: cohorts, overallIndicator, p
                           # other suite. Static: it reads both files as text and never
                           # require()s the target, because several modules build a Sequelize
                           # instance at import time)
-cd frontend; npx jest     # 29 suites / 509 tests (the run is pinned to UTC by
+cd frontend; npx jest     # 30 suites / 516 tests (the run is pinned to UTC by
                           # jest.globalSetup.js - this machine sits IN the institution
                           # zone, which made the date tests pass for the wrong reason
                           # until mutation testing said so; see DD 62): lib/risk.ts, lib/screeningUploadStore.ts, bodymap-data/muscles.ts,
@@ -785,7 +827,7 @@ counting paint ops is a trap — the dead-band *zone* is itself a fill, so fill
 counts coincide between opposite renderings; assert on the fill **colour**.
 
 **Frontend coverage, stated accurately (2026-09-12).** There are end-to-end
-tests (`cd frontend; npm run e2e`, 169 checks), FIVE jsdom component suites
+tests (`cd frontend; npm run e2e`, 171 checks), FIVE jsdom component suites
 — `DashboardLayout` (the access gate), `OverallRiskBadge` (the hero),
 `ScreeningPanel` (§70.4's field resolution) and `DecisionPanel` (what the change
 list CLAIMS to cover — DD 79.4, and it is a jsdom test rather than an e2e check
@@ -1646,6 +1688,20 @@ This repo has a sibling clean-snapshot repo at `..\AIRMS-submission\` for academ
 
 Commit cadences are independent — JC will commit many times in this repo between each submission sync. Never push to the submission repo without explicit instruction; treat that as a destructive-by-default action.
 
+8b. **Every wide `<table>` needs a `.table-wrap` around it, and nothing cheap
+   catches a missing one.** `.card` clips nothing, so an over-wide table escapes
+   its card and takes the whole PAGE sideways — hiding the right-hand column of
+   every table on it, with nothing on screen saying so. Found shipping on two
+   pages (2026-10-06, DD 132): `/admin/activity` scrolled at 394 > 390 and
+   `/medical/sport-assessment` held **546px of content in a 390px viewport**.
+   The rule was already written down here and in `globals.css`; it was simply
+   unenforced, and every existing check runs at ONE desktop width. The one call
+   site that scrolled correctly did it through a private
+   `style={{ overflowX: 'auto' }}` — right on screen, invisible to a search for
+   `table-wrap`, so there was nothing for the other sites to copy. **Use the
+   class, never an inline overflow.** Verify with `cd frontend; npm run
+   verify:layout`.
+
 9. **Do NOT edit code by matching or slicing text through a shell heredoc.** Four
    separate defects on 2026-09-06 came from this one habit, and every one of them
    produced a file that parsed, linted and passed:
@@ -1684,7 +1740,12 @@ Commit cadences are independent — JC will commit many times in this repo betwe
    `backend/tests/sourceHygiene.test.js` catches the invisible-character half of
    this in under a second, naming the file, line and character.
 
-## Writing a check: the ten rules (2026-10-06, `docs/SILENT_FAILURES.md` "The rules")
+## Writing a check: the rules (2026-10-06, `docs/SILENT_FAILURES.md` "The rules")
+
+<!-- Numbered 1-10 with a 9b, which is eleven rules. The NUMBERS are cited from
+     DESIGN_DECISIONS and from several script headers, so they are stable
+     identifiers rather than a count — 9b was inserted beside the rule it
+     qualifies instead of renumbering everything after it. -->
 
 **A broken check is worse than no check — it answers the question you stopped
 asking.** Each rule below is here because breaking it already cost this project
@@ -1712,6 +1773,12 @@ something; the full version carries the instance for each.
 9. **Ask the system of record** — `information_schema`, the audit trail, the
    deployed function's stderr, `git log -S`. Not the working tree, not a doc,
    not an endpoint answering 200 for its own reasons.
+9b. **Ancestry, not dates, when asking "which came first".** `git log --date`
+    orders two branches by wall clock and reads a MERGE backwards;
+    `git merge-base --is-ancestor` is what actually answers it. A check and the
+    code it checks came apart this way: each branch was internally consistent,
+    the merge produced a combination nobody had run, and by date it looked like
+    somebody had shipped a check that was red from birth (§133.2).
 10. **Drive every entry to a control, and prefer the awkward one.** Hover, focus
     and tap are three code paths wearing one name; a check that picks whichever
     gesture was easiest to automate is testing the convenience. The hard-to-
