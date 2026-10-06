@@ -808,13 +808,63 @@ export default function AdminDashboard() {
                 'Low risk · good mover',
                 'Low risk · poor mover',
               ]}
+              /* Top-right: high risk AND a good mover. The one a single number
+                 cannot surface, and the reason this chart exists. */
+              highlight={1}
+              legend={bandSegments({}).map((s) => ({ label: s.label, color: s.color }))}
             />
-            <p className="chart-note">
-              Top-right is the reading to look for: an athlete whose movement quality is above the group
-              and whose risk score is too — no single number surfaces them, because the two measure
-              different halves of the report. Quadrant lines are cohort medians, so &ldquo;high&rdquo;
-              means high <em>for this group</em> rather than against a fixed cut-off.
-            </p>
+            {/* THE WHOLE EXPLANATION, ON THE CHART (§126).
+                This was one paragraph that told the reader to look top-right
+                without saying what the axes measure, why two scores can
+                disagree, or what the dot colours mean. A chart whose caption
+                asks the reader to do the decoding has not finished the job. */}
+            <div className="chart-explain">
+              <p>
+                <strong>Two different halves of the report.</strong>{' '}
+                <em>Total Score</em> (across) is how well the athlete <em>moves</em> —
+                HoloMotion&rsquo;s mean of the 25-cell subitem table, so higher is better.{' '}
+                <em>Exercise Risks</em> (up) is the injury-risk burden the instrument
+                counts, so lower is better. They are not two views of one number: an
+                athlete can move beautifully and still carry risk, which is why neither
+                score alone surfaces them.
+              </p>
+              <ul className="chart-explain-quads">
+                <li>
+                  <span className="chart-explain-key chart-explain-key--tr" aria-hidden />
+                  <strong>Top right — high risk, good mover.</strong> The reading to act
+                  on. Nothing flags these athletes: their movement scores look fine, so a
+                  roster sorted by Total Score buries them.
+                </li>
+                <li>
+                  <span className="chart-explain-key chart-explain-key--tl" aria-hidden />
+                  <strong>Top left — high risk, poor mover.</strong> Expected, and already
+                  visible everywhere else on this page.
+                </li>
+                <li>
+                  <span className="chart-explain-key chart-explain-key--br" aria-hidden />
+                  <strong>Bottom right — low risk, good mover.</strong> Where most of a
+                  healthy squad sits.
+                </li>
+                <li>
+                  <span className="chart-explain-key chart-explain-key--bl" aria-hidden />
+                  <strong>Bottom left — low risk, poor mover.</strong> Worth a look on
+                  technique rather than on injury risk.
+                </li>
+              </ul>
+              <p>
+                <strong>The lines are this cohort&rsquo;s medians, not fixed cut-offs.</strong>{' '}
+                So &ldquo;high&rdquo; means high <em>for this group</em>: filter to a
+                different squad and the crosshair moves. Half the athletes sit either side
+                of each line by construction, which is what makes a corner meaningful and
+                also means a quadrant is never empty for a reason worth reporting.
+              </p>
+              <p className="text-muted">
+                Dot colour is the athlete&rsquo;s overall risk band (key above), which is a
+                separate judgement from either axis — it is cohort-normed and includes the
+                escalation rules. A red dot low on the chart is not a contradiction: the
+                band saw something these two scores do not carry.
+              </p>
+            </div>
           </>
         )}
       </div>

@@ -518,6 +518,69 @@ async function visit(browser, route, session) {
       await r.page.close();
     }
 
+
+    console.log('\n4i. the risk-vs-movement scatter explains itself');
+    // §126. The chart carried TWO colour systems — position says which quadrant,
+    // hue says which risk band — and explained neither, then told the reader in
+    // prose that "top-right is the reading to look for" while nothing on the plot
+    // marked it. These assert the graphic now does that work.
+    {
+      const r = await visit(browser, '/admin/dashboard', sessions.admin);
+
+      // Four tinted quadrants, each a DIFFERENT colour, and exactly one marked
+      // as the one to act on. Measured from computed style rather than class
+      // names: the first attempt assigned the tints with `:nth-of-type`, which
+      // counts among all spans — crosshairs, labels and 56 dots — so three of
+      // four rules matched nothing and three zones rendered the same green. The
+      // classes were all present and correct while the colours were wrong, which
+      // is precisely why this reads the colour.
+      const zones = await r.page.evaluate(() => [...document.querySelectorAll('.scatter-zone')].map((e) => ({
+        bg: getComputedStyle(e).backgroundColor,
+        key: e.classList.contains('scatter-zone--key'),
+      })));
+      check('scatter: four quadrants are drawn, not just captioned',
+        zones.length === 4, `${zones.length} zone(s)`);
+      check('scatter: each quadrant has its own tint',
+        new Set(zones.map((z) => z.bg)).size === 4,
+        zones.map((z) => z.bg).join(' / '));
+      check('scatter: exactly one quadrant is marked as the one to act on',
+        zones.filter((z) => z.key).length === 1);
+
+      // The dot colours get a key. Without it a red dot in the low-risk corner
+      // is unexplained, and a reader cannot learn that hue is the band while
+      // position is the comparison.
+      const legend = await r.page.evaluate(
+        () => [...document.querySelectorAll('.scatter-legend li')].map((e) => e.textContent.trim()),
+      );
+      check('scatter: the dot colours are keyed to the risk bands',
+        legend.length === 3 && legend.every((t) => t.length > 0), legend.join(' · '));
+      // Band WORDS, never a bare colour name (SILENT_FAILURES 3i) — the legend is
+      // a new place that rule has to hold.
+      check('scatter: the key names bands clinically, not by colour',
+        !/\b(green|amber|red)\b/i.test(legend.join(' ')), legend.join(' · '));
+
+      // The explanation itself: what each axis measures, why two scores can
+      // disagree, all four quadrants, and the median caveat.
+      check('scatter: says what the two axes actually measure',
+        /how well the athlete/i.test(r.text) && /injury-risk burden/i.test(r.text));
+      check('scatter: explains why the two scores can disagree',
+        /move beautifully and still carry risk/i.test(r.text));
+      const quads = await r.page.evaluate(
+        () => document.querySelectorAll('.chart-explain-quads li').length,
+      );
+      check('scatter: all four quadrants are explained, not only the interesting one',
+        quads === 4, `${quads} explained`);
+      check('scatter: states that the lines are medians rather than fixed cut-offs',
+        /this cohort.s medians, not fixed cut-offs/i.test(r.text)
+        || /medians, not fixed cut-offs/i.test(r.text));
+      // The caveat that keeps the two colour systems from reading as a
+      // contradiction.
+      check('scatter: says a dot colour is a separate judgement from the axes',
+        /separate judgement from either axis/i.test(r.text));
+
+      await r.page.close();
+    }
+
     console.log('\n5. keyboard focus is visible where focus was removed once');
     const fp = await visit(browser, '/athlete/dashboard', sessions.athlete);
     const ring = await fp.page.evaluate(() => {

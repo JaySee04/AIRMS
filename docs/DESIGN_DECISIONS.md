@@ -12299,3 +12299,87 @@ that:
 9 of 14`, and a squad map drawing 162 regions across 2 figures. 70 suites /
 1099 tests, 28 / 479, mutate 107/107, e2e 124/124, contrast 0 findings, a11y
 0 findings.
+
+## 126. A chart that asks the reader to decode it has not finished (2026-10-06)
+
+JC: *"the risks vs movement quality cluster chart, make it make more sense with
+the colours and stuff, like have the entire explanation there."*
+
+### 126.1 Two colour systems, neither explained
+
+The scatter carried **two** independent colour channels and hinted at one:
+
+- **Position** says which quadrant — low/high on each axis, split on cohort
+  medians.
+- **Hue** says the athlete's overall risk band.
+
+A reader meeting a red dot in the low-risk corner had no way to learn that the
+corner is the comparison and the hue is a separate, cohort-normed judgement that
+includes the escalation rules. It reads as a contradiction and it is not one.
+
+Worse, the quadrants were **four equal captions over an undifferentiated field**,
+and the note underneath said *"Top-right is the reading to look for"* — asking the
+reader in prose to do the work the graphic exists to do. That is the whole defect:
+the chart knew which corner mattered and did not show it.
+
+### 126.2 What changed
+
+**The quadrants are drawn.** Four tinted zones sized from the median crosshair, so
+a tint moves with the data exactly as the lines do — a fixed 50% split would drift
+off the lines the moment a cohort was not symmetric. The tint tracks the **risk**
+axis, because that is the axis a reader is deciding on, and it reuses the existing
+`--risk-*-bg` tokens: **no new colour is introduced and the dots keep their band
+hues unchanged.**
+
+**One quadrant is named as the one to act on** (`highlight={1}` — high risk, good
+mover). Emphasis is opacity (0.55 against 0.25) plus an inset border, so the tint
+still says "high risk" and the emphasis is a second channel on top of it rather
+than a different hue. All four are tinted, not just that one: a single tinted
+corner on a blank field reads as a highlight and leaves the reader unable to tell
+whether the other three are *fine* or merely *unlabelled*.
+
+**The dot colours get a key**, so the second colour system is explained at all.
+The legend renders from `bandSegments`, which means it carries the band WORDS and
+can never name a band by colour alone (SILENT_FAILURES 3i) — a new surface that
+rule now has to hold on, and an e2e check holds it there.
+
+**The explanation is on the chart.** Four paragraphs replacing one: what each axis
+measures and in which direction better lies, why two scores from one report can
+disagree, all four quadrants with swatches keyed to the plot's own tints, the
+median caveat, and the note that a dot colour is a separate judgement from either
+axis. All four quadrants, not only the interesting one — explaining the exception
+and leaving the other three unnamed invites the reader to assume the rest is bad.
+
+### 126.3 Two mistakes of mine, both caught by measurement
+
+**`:nth-of-type` counts among siblings of the same ELEMENT TYPE.** The tints were
+assigned that way first, and this plot is a bag of spans — two crosshairs, four
+zones, four labels and one per athlete — so "the 1st span" is a crosshair and
+three of the four rules matched nothing. Rendered, three zones came back the same
+green while every class was present and correct. The modern selector for the
+intent is `:nth-child(n of .scatter-zone)`; the component names the quadrant
+instead. **This is why the e2e check reads the computed `backgroundColor` and not
+the class list** — the classes were right and the colours were wrong.
+
+**A fill token used as text, again.** `.scatter-quad--key` was
+`color: var(--risk-high)`, and `verify:contrast` measured **4.44:1 in dark**
+against 4.5. Red normally carries itself as text — 6.34 / 5.48, which is exactly
+why §121 deliberately has **no** `--risk-high-ink` — but this label sits **on the
+red-tinted zone** rather than on the card, and the wash underneath takes it below
+the line. §121's third trap is "measure the token, not the hue you remember"; the
+sibling trap is *measure it on the surface it actually sits on*. Fixed by dropping
+the hue: the zone's opacity and border already carry the emphasis, so weight plus
+`--text` is enough and is legible on every zone in both themes.
+
+### 126.4 Ten e2e checks, and what each is for
+
+The chart's content is now a claim, so it is asserted where a reader meets it:
+four zones exist, **each with a different computed tint**, exactly one marked;
+the legend has three entries naming bands clinically rather than by colour; the
+axes' meaning, the why-they-disagree sentence, all four quadrant explanations, the
+median caveat and the separate-judgement note are present.
+
+**Measured:** 134 e2e checks (124 before), frontend 28 suites / 485, backend 70 /
+1099, typecheck and lint clean, contrast 0 findings with the canary catching 130
+styles, a11y 0 findings. Zone tints verified distinct in **both** themes
+(light `rgb(254,249,231)` / `(253,236,234)` / `(232,245,234)` / `(232,240,250)`).

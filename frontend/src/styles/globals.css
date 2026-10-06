@@ -4533,3 +4533,126 @@ textarea:focus-visible,
    fade was written here first and removed: a 1px ::after block does nothing,
    and the comment claiming it signalled overflow was the kind of statement this
    codebase treats as a defect in its own right. */
+
+/* ── Scatter: the quadrants are drawn, and explained (§126, 2026-10-06) ──────
+   The plot carried two colour systems — position says which quadrant, hue says
+   which risk band — and only the first was ever hinted at, by four equal corner
+   captions over an undifferentiated field. The note then told the reader "top
+   right is the reading to look for", which is the graphic's job.
+
+   PALETTE UNCHANGED. These tints are the existing --risk-*-bg tokens, which are
+   already theme-aware; no new colour is introduced and the dots keep their band
+   hues exactly as before. */
+.scatter-zone {
+  position: absolute;
+  pointer-events: none;
+  /* BEHIND the crosshair and the dots. The zones are emitted AFTER the median
+     lines in the DOM, so without this they paint over them — and the lines are
+     the thing the quadrants are defined BY. Found by looking at the rendered
+     plot, not by reading the JSX. */
+  z-index: 0;
+  /* Faint by default: a single tinted corner on a blank field reads as a
+     highlight and leaves the reader unable to tell whether the other three are
+     "fine" or merely unlabelled. Tinting all four says the split is the
+     structure; the key quadrant is then louder than its neighbours rather than
+     the only thing present. */
+  background: var(--risk-low-bg);
+  opacity: 0.25;
+}
+/* The tint tracks the RISK axis, because that is the axis a reader is deciding
+   on: both top quadrants are the high-risk half.
+
+   EXPLICIT PER-QUADRANT CLASSES, and the first attempt used `:nth-of-type`,
+   which was wrong and measured so. nth-of-type counts among siblings of the same
+   ELEMENT TYPE, and this plot is a bag of spans — two crosshairs, four zones,
+   four labels and one per athlete — so "the 1st span" is a crosshair and three
+   of the four rules matched nothing. Rendered, three zones came back the same
+   green. The modern selector for the intent is `:nth-child(n of .scatter-zone)`,
+   which Chrome supports and this project's browser floor does not promise, so
+   the component names the quadrant instead. */
+.scatter-zone--q0 { background: var(--risk-moderate-bg); }
+.scatter-zone--q1 { background: var(--risk-high-bg); }
+.scatter-zone--q2 { background: var(--risk-low-bg); }
+.scatter-zone--q3 { background: var(--risk-undertrained-bg); }
+/* The one worth acting on. Opacity rather than a different hue, so the tint
+   still says "high risk" and the emphasis is a second channel on top of it —
+   and a dashed inset edge, which survives a greyscale print and does not rely
+   on the reader distinguishing two strengths of the same colour. */
+.scatter-zone--key {
+  opacity: 0.55;
+  box-shadow: inset 0 0 0 1px var(--risk-high);
+}
+.scatter-quad--key {
+  /* EMPHASIS BY WEIGHT, NOT BY HUE, and the sweep is why.
+     This read `color: var(--risk-high)` — a FILL token used as TEXT, which is
+     the §120 trap — and verify:contrast measured 4.44:1 in dark against a 4.5
+     requirement. Red normally carries itself as text (6.34 / 5.48, which is why
+     §121 deliberately has no --risk-high-ink), but this label sits ON the
+     red-tinted zone rather than on the card, and the wash underneath takes it
+     below the line.
+     The emphasis was already a third channel: the zone is tinted at 0.55 against
+     its neighbours 0.25 AND carries an inset border. Weight plus those two is
+     enough, and --text is legible on every zone in both themes. */
+  font-weight: 700;
+  color: var(--text);
+}
+
+.scatter-legend {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-xs) var(--sp-md);
+  margin: var(--sp-xs) 0 0;
+  padding: 0;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+.scatter-legend li { display: flex; align-items: center; gap: 6px; }
+.scatter-legend-dot { width: 9px; height: 9px; border-radius: 999px; flex: none; }
+
+/* The explanation block. Prose, because what it has to convey is WHY two scores
+   disagree — and that is an argument, not a label. */
+.chart-explain {
+  margin-top: var(--sp-md);
+  padding-top: var(--sp-sm);
+  border-top: 1px solid var(--border);
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+.chart-explain p { margin: 0 0 var(--sp-sm); }
+.chart-explain p:last-child { margin-bottom: 0; }
+.chart-explain strong { color: var(--text); }
+.chart-explain-quads {
+  list-style: none;
+  margin: 0 0 var(--sp-sm);
+  padding: 0;
+  display: grid;
+  gap: var(--sp-xs);
+}
+.chart-explain-quads li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--sp-sm);
+  align-items: start;
+}
+/* Swatches that match the plot's own tints, so the list is a KEY to the figure
+   rather than a second description of it. Bordered, because a 0.25-opacity tint
+   at 10px is invisible without an edge. */
+.chart-explain-key {
+  width: 10px;
+  height: 10px;
+  margin-top: 5px;
+  border-radius: var(--r-xs);
+  border: 1px solid var(--border);
+}
+.chart-explain-key--tr { background: var(--risk-high-bg); border-color: var(--risk-high); }
+.chart-explain-key--tl { background: var(--risk-moderate-bg); }
+.chart-explain-key--br { background: var(--risk-low-bg); }
+.chart-explain-key--bl { background: var(--risk-undertrained-bg); }
+
+/* Above the tints: the median crosshair defines the quadrants, and the dots are
+   the data. Both are emitted before or after the zones in DOM order, so the
+   stacking is made explicit rather than left to source position. */
+.scatter-cross { z-index: 1; }
+.scatter-dot { z-index: 2; }

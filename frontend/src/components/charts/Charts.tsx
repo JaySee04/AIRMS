@@ -886,7 +886,7 @@ export interface ScatterPoint {
 // uses, so a quadrant boundary cannot be drawn at 72.5 here and 73 there.
 
 export function Scatter({
-  points, xLabel, yLabel, quadrants, height = 300,
+  points, xLabel, yLabel, quadrants, height = 300, highlight, legend,
 }: {
   points: ScatterPoint[];
   xLabel: string;
@@ -894,6 +894,22 @@ export function Scatter({
   /** Labels for the four quadrants, clockwise from top-left. */
   quadrants?: [string, string, string, string];
   height?: number;
+  /**
+   * Which quadrant is the one worth acting on, clockwise from top-left.
+   *
+   * WHY A CHART NEEDS TOLD THIS (§126). The note under this chart said "top-right
+   * is the reading to look for" and nothing on the plot marked it, so the
+   * sentence asked the reader to do the work the graphic exists to do. Naming it
+   * here tints that quadrant and draws its label as the emphasis rather than as
+   * one of four equal captions.
+   *
+   * The other three are tinted too, faintly, because a single tinted corner
+   * reads as a highlight on an otherwise undifferentiated field — a reader
+   * cannot tell whether the other three are "fine" or merely unlabelled.
+   */
+  highlight?: 0 | 1 | 2 | 3;
+  /** Series key for the dot colours, so two colour systems are each explained. */
+  legend?: Array<{ label: string; color: string }>;
 }) {
   if (!points.length) return <p className="text-muted" style={{ fontSize: 'var(--fs-md)' }}>No athletes with both measures in this selection.</p>;
 
@@ -920,12 +936,31 @@ export function Scatter({
             rather than fixed cut-offs, so "high risk" means high FOR THIS GROUP. */}
         <span className="scatter-cross scatter-cross--v" style={{ left: `${px(mx)}%` }} aria-hidden />
         <span className="scatter-cross scatter-cross--h" style={{ top: `${py(my)}%` }} aria-hidden />
+        {/* THE QUADRANTS ARE DRAWN, not merely captioned (§126).
+            Boxes sized from the median crosshair, so a tint moves with the data
+            exactly as the lines do — a fixed 50% split would drift away from the
+            lines the moment the cohort was not symmetric. aria-hidden: the four
+            labels carry the same information as text, and the regions below
+            restate it, so announcing empty boxes would be noise. */}
         {quadrants && (
           <>
-            <span className="scatter-quad" style={{ left: 6, top: 6 }}>{quadrants[0]}</span>
-            <span className="scatter-quad" style={{ right: 6, top: 6, textAlign: 'right' }}>{quadrants[1]}</span>
-            <span className="scatter-quad" style={{ right: 6, bottom: 6, textAlign: 'right' }}>{quadrants[2]}</span>
-            <span className="scatter-quad" style={{ left: 6, bottom: 6 }}>{quadrants[3]}</span>
+            {([
+              { k: 0, style: { left: 0, top: 0, width: `${px(mx)}%`, height: `${py(my)}%` } },
+              { k: 1, style: { left: `${px(mx)}%`, top: 0, right: 0, height: `${py(my)}%` } },
+              { k: 2, style: { left: `${px(mx)}%`, top: `${py(my)}%`, right: 0, bottom: 0 } },
+              { k: 3, style: { left: 0, top: `${py(my)}%`, width: `${px(mx)}%`, bottom: 0 } },
+            ] as const).map(({ k, style }) => (
+              <span
+                key={k}
+                className={`scatter-zone scatter-zone--q${k}${highlight === k ? ' scatter-zone--key' : ''}`}
+                style={style}
+                aria-hidden
+              />
+            ))}
+            <span className={`scatter-quad${highlight === 0 ? ' scatter-quad--key' : ''}`} style={{ left: 6, top: 6 }}>{quadrants[0]}</span>
+            <span className={`scatter-quad${highlight === 1 ? ' scatter-quad--key' : ''}`} style={{ right: 6, top: 6, textAlign: 'right' }}>{quadrants[1]}</span>
+            <span className={`scatter-quad${highlight === 2 ? ' scatter-quad--key' : ''}`} style={{ right: 6, bottom: 6, textAlign: 'right' }}>{quadrants[2]}</span>
+            <span className={`scatter-quad${highlight === 3 ? ' scatter-quad--key' : ''}`} style={{ left: 6, bottom: 6 }}>{quadrants[3]}</span>
           </>
         )}
         {points.map((p) => (
@@ -954,6 +989,21 @@ export function Scatter({
         ))}
       </div>
       <div className="scatter-ylabel">{yLabel} ↑</div>
+      {/* THE DOT COLOUR GETS ITS OWN KEY (§126). This plot carries TWO colour
+          systems — position says which quadrant, hue says which risk band — and
+          only the first was ever explained. A reader meeting a red dot in the
+          low-risk quadrant had no way to learn that the hue is the band and the
+          corner is the comparison. */}
+      {legend && legend.length > 0 && (
+        <ul className="scatter-legend">
+          {legend.map((l) => (
+            <li key={l.label}>
+              <span className="scatter-legend-dot" style={{ background: l.color }} aria-hidden />
+              {l.label}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
