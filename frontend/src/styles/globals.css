@@ -183,6 +183,19 @@
   --fs-sm: 0.8rem;
   --fs-md: 0.875rem;
   --fs-lg: 0.95rem;
+  /* EIGHTH STEP, added 2026-10-06 (§131.5). Not a new literal in the sense the
+     note above forbids — it fills a MEASURED hole in the scale. Every other
+     step is a ratio of 1.086-1.111 on the one below it; lg -> xl is 1.316, and
+     that gap is exactly where a card heading wants to sit.
+     The symptom was visible on every page and read as "flat" rather than as a
+     type problem: `.card-title` was --fs-lg against --fs-md body, a difference
+     of 8%, so twelve stacked cards had no heading level a reader could see. The
+     available alternatives were both wrong — leaving it at lg kept the flatness,
+     and --fs-xl (1.25rem, +32%) is the TOPBAR's size and would have made every
+     card title compete with the page title.
+     1.0625rem is 17px at the default root, a 1.118 step from lg, and it is the
+     only size on the page between body and the topbar. */
+  --fs-hd: 1.0625rem;
   --fs-xl: 1.25rem;
   --fs-2xl: 1.75rem;
 
@@ -527,16 +540,29 @@ button { cursor: pointer; font-family: inherit; }
   /* At 8px a 1400px-wide panel reads as a square with the corners filed off —
      the curve has to scale with the element. A different STEP, not a new one. */
   border-radius: var(--r-lg);
-  padding: var(--sp-lg);
+  /* --sp-xl since §131.5. At 18px a full-width card put a 1,400px table 18px
+     from its own edge, which reads as a table that overflowed its box rather
+     than one that was placed in it. The narrow case keeps --sp-lg below, where
+     24px on each side of a 390px viewport is 12% of the screen. */
+  padding: var(--sp-xl);
   box-shadow: var(--shadow-sm);
 }
+@media (max-width: 720px) { .card { padding: var(--sp-lg); } }
 .card-title {
-  font-size: var(--fs-lg);
+  /* --fs-hd, not --fs-lg: see the type-scale note. A card heading 8% larger
+     than its own body text is not a heading. */
+  font-size: var(--fs-hd);
   font-weight: 650;
-  /* Without it a 0.95rem semibold heading sits at the same optical density as
-     the 0.875rem prose beneath it. */
+  /* Without it a semibold heading sits at the same optical density as the
+     0.875rem prose beneath it. */
   letter-spacing: -0.011em;
   margin: 0 0 var(--sp-md);
+  /* So an <InfoTip> inside the <h2> sits ON the title's line rather than
+     starting a new one, and a long title still wraps. */
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  column-gap: 0;
 }
 
 /* ── Grid Layouts ────────────────────────────────────────────────────────────── */
@@ -4231,12 +4257,42 @@ textarea:focus-visible,
   margin-bottom: var(--sp-sm);
 }
 .sport-band-tile {
+  position: relative;
+  overflow: hidden;
   border: 1px solid var(--border);
   border-radius: var(--r-md);
-  padding: var(--sp-sm);
+  padding: var(--sp-md) var(--sp-sm);
   text-align: center;
   background: var(--bg);
 }
+/* THE TILE CARRIES ITS BAND (§131.5). The count was coloured and the tile was
+   grey, so the headline card of this page read as four identical rectangles and
+   the one number that matters had to be found by reading. The tint is the band's
+   own --risk-*-bg, which every badge and strip in the app already uses, plus a
+   3px cap of the full-strength hue — the same two-part treatment as the alert
+   boxes, so nothing new has to be learnt.
+   FILL TOKENS ONLY. The count's own colour is set in the TSX from BAND_COLOR and
+   is unchanged; these rules touch background and border and never `color`, which
+   is the §121 trap — a search-and-replace on a risk token recoloured four
+   borders the first time it was tried. */
+.sport-band-tile--green::before,
+.sport-band-tile--amber::before,
+.sport-band-tile--red::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+}
+/* The cap is painted per band rather than with `currentColor`, deliberately. A
+   `color` on the tile would be INHERITED by any child that does not set its own,
+   and a label inheriting a fill-strength hue is §120's failure exactly — a fill
+   token used as text. Only `background` and `border-color` are bound here. */
+.sport-band-tile--green { background: var(--risk-low-bg); border-color: var(--risk-low); }
+.sport-band-tile--green::before { background: var(--risk-low); }
+.sport-band-tile--amber { background: var(--risk-moderate-bg); border-color: var(--risk-moderate); }
+.sport-band-tile--amber::before { background: var(--risk-moderate); }
+.sport-band-tile--red { background: var(--risk-high-bg); border-color: var(--risk-high); }
+.sport-band-tile--red::before { background: var(--risk-high); }
 /* Never-screened is NEUTRAL on purpose and shares the shape of the band tiles
    without borrowing any band's colour — it is an absence of information, and
    tinting it would make it read as a clinical finding (the .decision-band--never
@@ -4674,55 +4730,117 @@ textarea:focus-visible,
 .scatter-cross { z-index: 1; }
 .scatter-dot { z-index: 2; }
 
-/* ── MethodNote + the radar breach readout (§127, 2026-10-06) ────────────────
-   Method text behind a toggle; caveats stay on the card. The split, and why it
-   is not "hide all the explanations", is in MethodNote.tsx. */
-.method-note { margin: var(--sp-sm) 0 0; }
-.method-note-toggle {
+/* ── InfoTip: method text, inline on the card header (§131, 2026-10-06) ──────
+   Replaces §127's .method-note block disclosure, which hid the words and KEPT
+   the vertical space — a row of grey pills down a page that was already too
+   long. This costs 18px beside the title.
+   WHAT MAY GO INSIDE IT IS NOT A STYLING QUESTION and is in InfoTip.tsx: label
+   and caveat stay on the card, only method moves in. */
+.infotip {
+  position: relative;
   display: inline-flex;
-  align-items: center;
-  gap: var(--sp-xs);
-  padding: 3px 8px 3px 4px;
-  background: none;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  font: inherit;
-  font-size: var(--fs-xs);
-  /* A bare <button> does not inherit colour — the UA sets `buttontext`, which is
-     how the topbar name sat at 1.36:1 in dark mode (§121). */
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+  vertical-align: middle;
+  /* Beside the title, out of the reading line. The title is the baseline the
+     eye tracks; the tip must not join it. */
+  margin-left: var(--sp-xs);
 }
-.method-note-toggle:hover { background: var(--bg); color: var(--text); }
-.method-note-icon {
+.infotip-btn {
   display: grid;
   place-items: center;
-  width: 16px;
-  height: 16px;
+  /* 18px drawn, 24px of target (WCAG 2.5.8) — the same answer .matrix-check
+     reached for a checkbox: the control stays the size it should look, and the
+     padding carries the touch area. box-sizing is content-box here so the ring
+     hugs the glyph rather than the target. */
+  width: 18px;
+  height: 18px;
+  padding: 3px;
+  box-sizing: content-box;
+  margin: -3px;
+  border: 1px solid var(--border);
   border-radius: 999px;
-  background: var(--border);
-  /* --text, not a muted token: this is text ON a fill, which is the §121 role
-     that needed its own answer. Measured on --border in both themes. */
-  color: var(--text);
-  font-size: var(--fs-2xs);
+  background: var(--bg-card);
+  background-clip: content-box;
+  /* A bare <button> does not inherit colour — the UA sets `buttontext`, which
+     is how the topbar name sat at 1.36:1 in dark mode (§121). */
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--fs-xs);
   font-weight: 700;
   font-style: italic;
+  line-height: 1;
+  transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease);
 }
-.method-note-chevron { font-size: var(--fs-2xs); }
-.method-note-body {
-  margin-top: var(--sp-xs);
-  padding: var(--sp-sm);
-  border-left: 2px solid var(--border);
-  background: var(--bg);
-  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+.infotip-btn:hover,
+.infotip.is-open .infotip-btn {
+  color: var(--text);
+  border-color: var(--text-muted);
+}
+.infotip-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 40;
+  width: min(320px, calc(100vw - 2 * var(--sp-xl)));
+  padding: var(--sp-md);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-lg);
+  /* It is nested inside the <h2>, so every inherited type property has to be
+     put back or the panel renders at title size and weight. */
   font-size: var(--fs-sm);
+  font-weight: 400;
+  font-style: normal;
+  letter-spacing: normal;
   line-height: 1.55;
   color: var(--text-muted);
+  text-align: left;
+  white-space: normal;
+  cursor: auto;
 }
-.method-note-body p { margin: 0 0 var(--sp-xs); }
-.method-note-body p:last-child { margin-bottom: 0; }
-.method-note-body strong { color: var(--text); }
+.infotip-panel--right { left: auto; right: 0; }
+/* WCAG 1.4.13 HOVERABLE. The panel is a DOM child of the hover target, so
+   pointerleave never fires while the pointer is over it — but the 8px gap above
+   is outside both. This bridges it. The usual answer is a grace timer, which is
+   a race, and a race loses on a slow render. */
+.infotip-panel::before {
+  content: '';
+  position: absolute;
+  top: -9px;
+  left: 0;
+  right: 0;
+  height: 9px;
+}
+.infotip-panel-title {
+  display: block;
+  margin-bottom: var(--sp-xs);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+.infotip-panel p { margin: 0 0 var(--sp-sm); }
+.infotip-panel p:last-child { margin-bottom: 0; }
+.infotip-panel strong { color: var(--text); }
+.infotip-panel ul { margin: 0; padding-left: 1.1em; }
+.infotip-panel li { margin-bottom: var(--sp-xs); }
+.infotip-panel li:last-child { margin-bottom: 0; }
+
+/* ── CardHead: the title block, one definition (§131.4) ──────────────────────
+   `.card-header` is the flex ROW (title block | actions) and predates this.
+   These two are its children, named so the row has something to separate even
+   when a card has no actions — several call sites wrote a bare <div> and
+   several wrote none, which is why `space-between` behaved differently on
+   cards that looked identical. */
+.card-head-main { min-width: 0; flex: 1 1 auto; }
+.card-head-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-sm);
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
 
 /* The spokes that are over, as a list. The chart is a shape; this is the
    sentence a clinician acts on, and it used to exist only in a hover tooltip —

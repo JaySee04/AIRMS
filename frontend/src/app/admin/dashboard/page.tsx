@@ -27,7 +27,8 @@ import DistributionBar from '@/components/admin/DistributionBar';
 import { DotPlot, Heatmap, Histogram, RankedBars, Ring, Scatter } from '@/components/charts/Charts';
 import { TIER_COLOR, TIER_INK, TIER_LABEL, TIER_ORDER, TIER_RANGE, tierOf } from '@/lib/holomotionTiers';
 import { BAND_COLOR, bandSegments } from '@/lib/bands';
-import MethodNote from '@/components/ui/MethodNote';
+import InfoTip from '@/components/ui/InfoTip';
+import CardHead from '@/components/layout/CardHead';
 import { squadFlags as squadFlagsOf, squadSubitems as squadSubitemsOf } from '@/lib/squadFigure';
 // PROGRAMMES and SMALL_COHORT from the generated shared source (DD 53), so a
 // programme this page compares cannot be one the database column rejects.
@@ -657,13 +658,29 @@ export default function AdminDashboard() {
           the admin dashboard aggregated none of it. A matrix is the only shape
           that preserves both of its axes, and it is the report's own layout. */}
       <div className="card" style={{ marginTop: 20 }}>
-        <div className="card-header"><div>
-          <h2 className="card-title" style={{ marginBottom: 0 }}>Movement Quality by Region</h2>
-          <span className="card-sub">
-            Cohort average for each cell of the HoloMotion subitem table · 0–100, higher is better
-            {cohort?.subitems ? ` · ${cohort.subitems.n} athlete${cohort.subitems.n === 1 ? '' : 's'} with subitem scores` : ''}
-          </span>
-        </div></div>
+        <CardHead
+          title="Movement Quality by Region"
+          sub={(
+            <>
+              Cohort average for each cell of the HoloMotion subitem table · 0–100, higher is better
+              {cohort?.subitems ? ` · ${cohort.subitems.n} athlete${cohort.subitems.n === 1 ? '' : 's'} with subitem scores` : ''}
+            </>
+          )}
+          info={(
+            <InfoTip label="How the cells are banded">
+              <p>
+                Cell colour uses <strong>HoloMotion&rsquo;s own 60 / 75 / 85 boundaries</strong> — the
+                same ones behind the gauges, the threshold strips and the body map, so a cell
+                that reads amber here reads amber everywhere else in AIRMS.
+              </p>
+              <p>
+                The matrix is the report&rsquo;s own layout, and it is kept because it is the only
+                shape that preserves both of its axes: a region can be strong on range of motion
+                and weak on stability, and any collapse to one number loses that.
+              </p>
+            </InfoTip>
+          )}
+        />
         {!cohort ? <p className="text-muted">Loading…</p> : (
           <>
             <Heatmap
@@ -680,8 +697,7 @@ export default function AdminDashboard() {
             {cohort.subitems.worstCell && (
               <p className="chart-note">
                 Weakest cell: <strong>{cohort.subitems.worstCell.region} · {cohort.subitems.worstCell.label}</strong> at{' '}
-                {cohort.subitems.worstCell.value}. Bands are HoloMotion&apos;s own 60 / 75 / 85 boundaries — the same ones
-                the gauges, threshold strips and body map use.
+                {cohort.subitems.worstCell.value}.
               </p>
             )}
           </>
@@ -698,13 +714,29 @@ export default function AdminDashboard() {
           region and carry almost nothing; the number of athletes with a real gap
           runs 0–9 and separates ROM from stability cleanly. */}
       <div className="card" style={{ marginTop: 20 }}>
-        <div className="card-header"><div>
-          <h2 className="card-title" style={{ marginBottom: 0 }}>Left–Right Asymmetry</h2>
-          <span className="card-sub">
-            Athletes whose two sides differ by {cohort?.subitems?.notableGapPct ?? 10}% or more of the better side — about one
-            HoloMotion band, so the two sides would not be described by the same word
-          </span>
-        </div></div>
+        <CardHead
+          title="Left–Right Asymmetry"
+          sub={<>Athletes whose two sides differ by {cohort?.subitems?.notableGapPct ?? 10}% or more · worst first</>}
+          info={(
+            <InfoTip label="Why a count, and why a side is sometimes withheld">
+              <p>
+                The threshold is <strong>{cohort?.subitems?.notableGapPct ?? 10}% of the better
+                side</strong> — about one HoloMotion band, so the two sides would not be described
+                by the same word.
+              </p>
+              <p>
+                Counted, not averaged. The mean gaps are flat at 3–4 points across every region
+                and carry almost nothing; the number of athletes with a real gap runs 0–9 and
+                separates range of motion from stability cleanly.
+              </p>
+              <p>
+                A weaker side is only named when the squad tips the same way on average. A mix of
+                left- and right-dominant athletes produces a large gap with <em>no</em> shared
+                side, which is a different finding and not a squad-wide weakness.
+              </p>
+            </InfoTip>
+          )}
+        />
         {!cohort ? <p className="text-muted">Loading…</p> : (() => {
           const rows = cohort.subitems.asymmetry
             .flatMap((r) => r.metrics.map((m) => ({ region: r.label, ...m })))
@@ -730,18 +762,13 @@ export default function AdminDashboard() {
                   ),
                 }))}
               />
-              <p className="chart-note">
-                {cohort.subitems.worstAsymmetry && (
-                  <>
-                    Most asymmetric: <strong>{cohort.subitems.worstAsymmetry.region}{' '}
-                    {cohort.subitems.worstAsymmetry.metric === 'rom' ? 'ROM' : 'Stability'}</strong>{' '}
-                    (mean gap {cohort.subitems.worstAsymmetry.meanGap} points).{' '}
-                  </>
-                )}
-                A weaker side is only named when the squad tips the same way on average — a mix of
-                left- and right-dominant athletes produces a large gap with no shared side, which is a
-                different finding and not a squad-wide weakness.
-              </p>
+              {cohort.subitems.worstAsymmetry && (
+                <p className="chart-note">
+                  Most asymmetric: <strong>{cohort.subitems.worstAsymmetry.region}{' '}
+                  {cohort.subitems.worstAsymmetry.metric === 'rom' ? 'ROM' : 'Stability'}</strong>{' '}
+                  (mean gap {cohort.subitems.worstAsymmetry.meanGap} points).
+                </p>
+              )}
             </>
           );
         })()}
@@ -753,20 +780,32 @@ export default function AdminDashboard() {
           cohort's mean subitem table. Nothing on this page was anatomical, which
           is odd for a product whose entire vocabulary is body regions. */}
       <div className="card" style={{ marginTop: 20 }}>
-        <div className="card-header"><div>
-          <h2 className="card-title" style={{ marginBottom: 0 }}>Squad Body Map</h2>
-          <span className="card-sub">
-            The cohort average on the same figure used for an individual · switch between the muscles
-            flagged anywhere in this squad and the region ROM/Stability picture
-          </span>
-        </div></div>
+        <CardHead
+          title="Squad Body Map"
+          sub="The cohort average on the same figure used for an individual · switch modes below"
+          info={(
+            <InfoTip label="What the figure is showing">
+              <p>
+                Region shading is the <strong>cohort mean</strong>, banded on HoloMotion&rsquo;s own
+                60 / 75 / 85 boundaries — the same figure a clinician reads for one athlete, fed
+                the group&rsquo;s averages instead.
+              </p>
+              <p>
+                The per-muscle counts are in the two ranked lists above. The figure cannot carry
+                them, because a squad has no single left or right: {' '}
+                <code>utils/muscleHotspots.js</code> merges the sides on purpose, so the count is
+                athletes-with-a-problem rather than flags.
+              </p>
+            </InfoTip>
+          )}
+        />
         {!cohort ? <p className="text-muted">Loading…</p> : (
           <>
             <BodyMap myodynamia={squadFlags.myodynamia} tension={squadFlags.tension} subitems={squadSubitems} />
+            {/* CAVEAT, so it stays on the card (§131.2): without it the figure
+                reads as magnitude, and one flagged athlete looks like nine. */}
             <p className="chart-note">
-              Region shading is the cohort mean, banded on HoloMotion&apos;s own 60 / 75 / 85 boundaries.
-              In Muscle Flags mode a muscle is lit if <em>anyone</em> in this cohort was flagged for it — the
-              per-muscle counts are in the two lists above, since a squad has no single left or right.
+              A muscle is lit if <em>anyone</em> in this cohort was flagged for it, not by how many.
             </p>
           </>
         )}
@@ -784,12 +823,23 @@ export default function AdminDashboard() {
           average cannot show the athlete who moves well and still scores risky —
           which is exactly the one a screening programme exists to catch. */}
       <div className="card" style={{ marginTop: 20 }}>
-        <div className="card-header"><div>
-          <h2 className="card-title" style={{ marginBottom: 0 }}>Risk vs Movement Quality</h2>
-          <span className="card-sub">
-            One dot per athlete, coloured by risk band · quadrants split on this cohort&apos;s medians
-          </span>
-        </div></div>
+        <CardHead
+          title="Risk vs Movement Quality"
+          sub={<>One dot per athlete, coloured by risk band · quadrants split on this cohort&apos;s medians</>}
+          info={(
+            <InfoTip label="What the two axes measure">
+              <p>
+                <strong>Two different halves of the report.</strong>{' '}
+                <em>Total Score</em> (across) is how well the athlete <em>moves</em> —
+                HoloMotion&rsquo;s mean of the 25-cell subitem table, so higher is better.{' '}
+                <em>Exercise Risks</em> (up) is the injury-risk burden the instrument
+                counts, so lower is better. They are not two views of one number: an
+                athlete can move beautifully and still carry risk, which is why neither
+                score alone surfaces them.
+              </p>
+            </InfoTip>
+          )}
+        />
         {!cohort ? <p className="text-muted">Loading…</p> : (
           <>
             <Scatter
@@ -813,22 +863,12 @@ export default function AdminDashboard() {
                 disagree, or what the dot colours mean. A chart whose caption
                 asks the reader to do the decoding has not finished the job. */}
             <div className="chart-explain">
-              {/* CAVEATS STAY VISIBLE, METHOD GOES BEHIND THE TOGGLE (§127.3).
+              {/* CAVEATS STAY ON THE CARD, METHOD GOES IN THE INFO TIP (§131.2).
                   The quadrant key and the two caveats below change how a number
                   is READ — a reader without them draws a wrong conclusion. The
-                  axis definitions and the why-they-disagree argument are method:
-                  a reader who knows the instrument loses nothing. */}
-              <MethodNote label="What the two axes measure">
-              <p>
-                <strong>Two different halves of the report.</strong>{' '}
-                <em>Total Score</em> (across) is how well the athlete <em>moves</em> —
-                HoloMotion&rsquo;s mean of the 25-cell subitem table, so higher is better.{' '}
-                <em>Exercise Risks</em> (up) is the injury-risk burden the instrument
-                counts, so lower is better. They are not two views of one number: an
-                athlete can move beautifully and still carry risk, which is why neither
-                score alone surfaces them.
-              </p>
-              </MethodNote>
+                  axis definitions and the why-they-disagree argument are method
+                  and now sit on the header: a reader who knows the instrument
+                  loses nothing by not opening them. */}
               <ul className="chart-explain-quads">
                 <li>
                   <span className="chart-explain-key chart-explain-key--tr" aria-hidden />
@@ -874,12 +914,25 @@ export default function AdminDashboard() {
           A mean of 50 is produced equally by everyone sitting on 50 and by half
           the squad at 30 and half at 70. Different squads, different decisions. */}
       <div className="card" style={{ marginTop: 20 }}>
-        <div className="card-header"><div>
-          <h2 className="card-title" style={{ marginBottom: 0 }}>Indicator Distribution</h2>
-          <span className="card-sub">
-            Distribution of the cohort-normed indicator · 50 is this group&apos;s average by construction
-          </span>
-        </div></div>
+        <CardHead
+          title="Indicator Distribution"
+          sub={<>Cohort-normed indicator · 50 is this group&apos;s average by construction</>}
+          info={(
+            <InfoTip label="Why the spread is the reading">
+              <p>
+                The indicator is <strong>relative</strong>, so the centre sits at 50 whatever the
+                squad&rsquo;s absolute quality. Comparing one squad&rsquo;s centre against
+                another&rsquo;s says nothing.
+              </p>
+              <p>
+                The <strong>spread</strong> is the reading. A tight cluster is an even squad; a
+                long left tail is a few athletes carrying the risk. A mean of 50 is produced
+                equally by everyone sitting on 50 and by half the squad at 30 and half at 70 —
+                different squads, different decisions, and averages cannot tell them apart.
+              </p>
+            </InfoTip>
+          )}
+        />
         {!cohort ? <p className="text-muted">Loading…</p> : (
           <>
             <Histogram
@@ -890,11 +943,6 @@ export default function AdminDashboard() {
               valueLabel="indicator"
               markers={[{ at: 50, label: 'Cohort average (50)', color: 'var(--text-muted)' }]}
             />
-            <p className="chart-note">
-              The indicator is relative, so the centre sits at 50 whatever the squad&apos;s absolute
-              quality. The SPREAD is the reading: a tight cluster is an even squad, a long left tail is
-              a few athletes carrying the risk. Averages cannot tell those apart.
-            </p>
           </>
         )}
       </div>

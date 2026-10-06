@@ -3,7 +3,8 @@
 import dynamic from 'next/dynamic';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
-import MethodNote from '@/components/ui/MethodNote';
+import InfoTip from '@/components/ui/InfoTip';
+import CardHead from '@/components/layout/CardHead';
 import type { RadarReadout } from '@/components/dashboard/RiskRadar';
 import type { MuscleEntry } from '@/components/dashboard/BodyMap';
 import OverallRiskBadge, { ScreeningIndicator } from '@/components/dashboard/OverallRiskBadge';
@@ -1019,12 +1020,32 @@ export default function MedicalDashboard() {
                   no live callers left on this page — see
                   docs/fyp/ACWR_REBUILD.md for the model's own history. */}
               <div className="card" style={{ marginTop: 0 }}>
-                <div className="card-header">
-                  <div>
-                    <h2 className="card-title" style={{ marginBottom: 0 }}>Risk Indicators</h2>
-                    <span className="card-sub">Lower is better</span>
-                  </div>
-                </div>
+                <CardHead
+                  title="Risk Indicators"
+                  sub="Closer to the centre is better"
+                  info={(
+                    <InfoTip label="How to read this chart">
+                      <p>
+                        Each spoke is one exercise-risk indicator from the athlete&apos;s
+                        HoloMotion screening. <strong>Closer to the centre is better.</strong>
+                      </p>
+                      <p>
+                        The shaded field is the athlete&apos;s <strong>Elevated cutoff</strong>
+                        {' '}per region, tightened where the region is sport-critical. It is a
+                        risk cut-off and <strong>not</strong> the cohort average — half a squad
+                        is not expected to sit outside it. The gold line is this athlete; where
+                        the line leaves the field, that spoke is over and its point is drawn
+                        larger and red.
+                      </p>
+                      <p>
+                        The field is deliberately neutral rather than green: the Watch band sits
+                        inside this boundary, so a coloured &ldquo;safe zone&rdquo; would read as
+                        a clearance for athletes who need attention. Exact values are on the
+                        screening panel below.
+                      </p>
+                    </InfoTip>
+                  )}
+                />
                 <div style={{ display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap' }}>
                   <div style={{ flex: '1 1 420px', minWidth: 300, maxWidth: 520 }}>
                     <RiskRadar
@@ -1069,26 +1090,6 @@ export default function MedicalDashboard() {
                         absence of a flag on this screening, not a clearance.
                       </p>
                     )}
-                    <MethodNote label="How to read this chart">
-                      <p>
-                        Each spoke is one exercise-risk indicator from the athlete&apos;s
-                        HoloMotion screening. <strong>Closer to the centre is better.</strong>
-                      </p>
-                      <p>
-                        The shaded field is the athlete&apos;s <strong>Elevated cutoff</strong>
-                        {' '}per region, tightened where the region is sport-critical. It is a
-                        risk cut-off and <strong>not</strong> the cohort average — half a squad
-                        is not expected to sit outside it. The gold line is this athlete; where
-                        the line leaves the field, that spoke is over and its point is drawn
-                        larger and red.
-                      </p>
-                      <p>
-                        The field is deliberately neutral rather than green: the Watch band sits
-                        inside this boundary, so a coloured &ldquo;safe zone&rdquo; would read as
-                        a clearance for athletes who need attention. Exact values are on the
-                        screening panel below.
-                      </p>
-                    </MethodNote>
                     {picked ? (
                       <p className="text-muted" style={{ margin: '10px 0 0', fontSize: 'var(--fs-sm)', lineHeight: 1.5 }}>
                         This is the screening selected above, not the athlete&apos;s current

@@ -140,6 +140,23 @@ async function visit(browser, route, session) {
     console.log('\n1. a signed-out visitor typing a URL');
     for (const route of ['/admin/dashboard', '/medical/dashboard', '/coach/dashboard', '/athlete/dashboard']) {
       const v = await visit(browser, route, null);
+      // WAIT FOR THE BOUNCE RATHER THAN SAMPLE FOR IT (§131.6). This used to read
+      // the URL once, SETTLE_MS after networkidle2, and was intermittently red on
+      // whichever route the dev server happened to compile cold during that run —
+      // which is how the suite reported 150, then 149, then 145 with no code
+      // change between them, and how §130.1 came to write it off as "harness
+      // variance" without naming a cause.
+      //
+      // MEASURED before changing it, because a redirect that is merely LATE and
+      // one that never comes are the same single sample: against a warm dev
+      // server the bounce lands at 631-673ms over six clean contexts, with
+      // nothing private painted in the meantime. So the boundary holds and the
+      // READ was the defect. The two assertions below are unchanged and still
+      // fail if the page ever settles anywhere but the sign-in screen; this only
+      // stops a slow compile being reported as an auth hole.
+      await v.page.waitForFunction(() => window.location.pathname === '/', { timeout: 8000 })
+        .catch(() => { /* fall through to the assertion, which names what happened */ });
+      v.url = new URL(v.page.url()).pathname;
       check(`${route} bounces to the sign-in screen`, v.url === '/', `landed on ${v.url}`);
       check(`${route} paints nothing private`, !v.painted, v.painted);
       check(`${route} gets no data`, v.leaked.length === 0,
@@ -607,9 +624,11 @@ async function visit(browser, route, session) {
       const methodHidden = !/how well the athlete/i.test(r.text);
       check('scatter: the method text is collapsed, not on the card', methodHidden,
         methodHidden ? '' : 'method prose is visible by default');
+      // §131: the toggle is an INFO TIP on the card header now, found by its
+      // accessible name rather than its text — the glyph is the only text it has.
       const opened = await r.page.evaluate(() => {
-        const btns = [...document.querySelectorAll('.method-note-toggle')];
-        const b = btns.find((x) => /what the two axes measure/i.test(x.textContent || ''));
+        const btns = [...document.querySelectorAll('.infotip-btn')];
+        const b = btns.find((x) => /what the two axes measure/i.test(x.getAttribute('aria-label') || ''));
         if (!b) return false;
         b.click();
         return true;
@@ -660,8 +679,8 @@ async function visit(browser, route, session) {
         none: !!document.querySelector('.radar-breach-none'),
         rows: [...document.querySelectorAll('.radar-breach li')].map((e) => e.innerText.replace(/\n/g, ' ')),
         text: document.body.innerText,
-        toggles: document.querySelectorAll('.method-note-toggle').length,
-        bodies: document.querySelectorAll('.method-note-body').length,
+        toggles: document.querySelectorAll('.infotip-btn').length,
+        bodies: document.querySelectorAll('.infotip-panel').length,
       }));
 
       // EXACTLY ONE of the two states, never both and never neither. A radar with
@@ -690,8 +709,8 @@ async function visit(browser, route, session) {
       check('radar: a method toggle is offered', o.toggles > 0, `${o.toggles} toggle(s)`);
       check('radar: the method is collapsed by default', o.bodies === 0, `${o.bodies} open`);
       const revealed = await r.page.evaluate(() => {
-        const b = [...document.querySelectorAll('.method-note-toggle')]
-          .find((x) => /how to read this chart/i.test(x.textContent || ''));
+        const b = [...document.querySelectorAll('.infotip-btn')]
+          .find((x) => /how to read this chart/i.test(x.getAttribute('aria-label') || ''));
         if (!b) return null;
         b.click();
         return true;
@@ -754,6 +773,144 @@ async function visit(browser, route, session) {
       check('medical: the decision comes AFTER the HoloMotion analysis',
         o.assessment !== null && o.muscleMap !== null && o.assessment > o.muscleMap,
         `muscle map ${o.muscleMap} -> assessment ${o.assessment}`);
+
+      await r.page.close();
+    }
+
+
+    console.log('\n4l. the info tip opens by pointer, by keyboard and by tap');
+    // §131. JC asked for the descriptions to hide behind an INFO toggle on HOVER.
+    // Hover alone would make the explanation UNREACHABLE on a tablet and from the
+    // keyboard, so it opens three ways — and each has to be checked, because any
+    // one of them can break while the other two keep the feature looking fine.
+    //
+    // TWO GESTURES THAT LIE, both learnt in §129.3 and both avoided here:
+    // a synthetic MouseEvent('mouseenter') lights nothing (React delegates
+    // mouseover), so this uses page.hover(); and .focus() returns BEFORE React
+    // re-renders, so the gesture and the reading are separate steps with a settle
+    // between them.
+    {
+      const r = await visit(browser, '/medical/sport-assessment', sessions.medical);
+      const panels = () => r.page.evaluate(() => document.querySelectorAll('.infotip-panel').length);
+      const settle = () => new Promise((res) => { setTimeout(res, 300); });
+
+      // THE WHAT'S-NEW BACKDROP HAS TO GO FIRST, and finding out why cost a run.
+      // `visit()` seeds a token but not the notice acknowledgement, so the modal
+      // opens on every fresh page and `.modal-backdrop` covers the whole document.
+      // Every OTHER section in this suite clicks through `page.evaluate(el.click())`,
+      // which is programmatic and goes straight to the handler — so the overlay has
+      // never mattered. This is the first section that uses REAL pointer gestures,
+      // and a real pointer hits the backdrop. Dismissed the way a person does.
+      await r.page.evaluate(() => {
+        const b = [...document.querySelectorAll('.modal-footer .btn')]
+          .find((x) => /got it/i.test(x.textContent || ''));
+        if (b) b.click();
+      });
+      await settle();
+
+      const n = await r.page.evaluate(() => document.querySelectorAll('.infotip-btn').length);
+      check('infotip: the page offers info tips at all', n > 0, `${n} tip(s)`);
+      // COULD-NOT-MEASURE GUARD (rule 2). If anything still covers the button,
+      // every pointer check below fails for a reason that has nothing to do with
+      // the tip — which is how an environment fault gets read as a product defect.
+      const clear = await r.page.evaluate(() => {
+        const b = document.querySelector('.infotip-btn');
+        if (!b) return 'no tip on the page';
+        const rc = b.getBoundingClientRect();
+        b.scrollIntoView({ block: 'center' });
+        const top = document.elementFromPoint(rc.left + rc.width / 2, b.getBoundingClientRect().top + rc.height / 2);
+        return top && top.closest('.infotip') ? null : `covered by ${top ? top.className || top.tagName : 'nothing hit'}`;
+      });
+      check('infotip: nothing is covering the button before the pointer checks',
+        clear === null, clear || '');
+      // COLLAPSED BY DEFAULT is the entire point of the control. If this is ever
+      // false the feature has silently become "the same prose, plus a button".
+      check('infotip: every tip is collapsed on load', (await panels()) === 0);
+
+      await r.page.hover('.infotip-btn');
+      await settle();
+      const hovered = await r.page.evaluate(() => {
+        const p = document.querySelector('.infotip-panel');
+        const b = document.querySelector('.infotip-btn');
+        if (!p) return { open: 0 };
+        const pr = p.getBoundingClientRect();
+        const br = b.getBoundingClientRect();
+        // Is the gap between button and panel covered by the tip itself? WCAG
+        // 1.4.13 HOVERABLE — a pointer has to be able to travel into the panel.
+        const bridge = document.elementFromPoint(Math.max(br.left, pr.left) + 4, br.bottom + 4);
+        return {
+          open: 1,
+          chars: (p.innerText || '').length,
+          expanded: b.getAttribute('aria-expanded'),
+          named: (b.getAttribute('aria-label') || '').length > 3,
+          bridged: !!(bridge && bridge.closest('.infotip')),
+          inViewport: Math.round(pr.right) <= window.innerWidth && Math.round(pr.left) >= 0,
+          // elementFromPoint INSIDE the panel: a card with overflow:hidden would
+          // clip it while the node still counted as "open" above.
+          reachable: !!document.elementFromPoint(pr.left + pr.width / 2, pr.top + 10)?.closest('.infotip-panel'),
+        };
+      });
+      check('infotip: hover opens the panel', hovered.open === 1);
+      check('infotip: the panel carries real method text', hovered.chars > 40, `${hovered.chars} chars`);
+      check('infotip: hover reports the state to assistive tech', hovered.expanded === 'true');
+      // The glyph is an "i". Without an accessible name a screen reader announces
+      // "i, button" once per card and the reader learns nothing.
+      check('infotip: the button has an accessible name, not just a glyph', hovered.named === true);
+      check('infotip: the pointer can reach the panel (WCAG 1.4.13 hoverable)', hovered.bridged === true);
+      check('infotip: the panel is not clipped by its card', hovered.reachable === true);
+      check('infotip: the panel stays inside the viewport', hovered.inViewport === true);
+
+      await r.page.mouse.move(4, 4);
+      await settle();
+      check('infotip: moving away closes it', (await panels()) === 0);
+
+      // KEYBOARD. A hover-only disclosure does not exist for a keyboard user.
+      await r.page.evaluate(() => document.querySelector('.infotip-btn').focus());
+      await settle();
+      check('infotip: keyboard focus opens it', (await panels()) === 1);
+
+      // WCAG 1.4.13 DISMISSIBLE — without moving the pointer.
+      await r.page.keyboard.press('Escape');
+      await settle();
+      const esc = await r.page.evaluate(() => ({
+        open: document.querySelectorAll('.infotip-panel').length,
+        onBtn: !!document.activeElement?.classList?.contains('infotip-btn'),
+      }));
+      check('infotip: Escape dismisses it', esc.open === 0);
+      check('infotip: Escape leaves focus on the button it came from', esc.onBtn === true);
+
+      // ESCAPE FROM THE *HOVER* PATH, which is a different code path and was
+      // genuinely broken: closing cleared the three inputs, but the pointer was
+      // still on the button, so the next render put the panel straight back. The
+      // keyboard case above could never show it, because there the button already
+      // held focus. Found by the jsdom suite; this is the browser half of it.
+      await r.page.evaluate(() => document.activeElement instanceof HTMLElement && document.activeElement.blur());
+      await r.page.hover('.infotip-btn');
+      await settle();
+      check('infotip: hover reopens after a dismissal', (await panels()) === 1);
+      await r.page.keyboard.press('Escape');
+      await settle();
+      check('infotip: Escape dismisses it while the pointer is STILL on the button',
+        (await panels()) === 0);
+      // ...and it must come back on a fresh gesture, not stay dead for the page's
+      // lifetime. Dismissible is not the same as disabled.
+      await r.page.mouse.move(4, 4);
+      await settle();
+      await r.page.hover('.infotip-btn');
+      await settle();
+      check('infotip: leaving and returning revives it', (await panels()) === 1);
+      await r.page.mouse.move(4, 4);
+      await settle();
+
+      // TAP. A touch screen has no hover at all, so without the click path the
+      // explanation is unreachable on the device a clinician uses courtside.
+      await r.page.click('.infotip-btn');
+      await r.page.mouse.move(4, 4);
+      await settle();
+      check('infotip: a click pins it open with the pointer away', (await panels()) === 1);
+      await r.page.mouse.click(4, 300);
+      await settle();
+      check('infotip: an outside click closes a pinned panel', (await panels()) === 0);
 
       await r.page.close();
     }

@@ -12681,3 +12681,201 @@ cannot be trusted to measure must not be quoted as if it had.
 exercised through the two dashboards and §129's e2e checks, but a pure function
 extracted for the explicit purpose of not drifting should pin its own contract —
 side `'B'`, and null-for-null. Flagged rather than skipped silently.
+
+## 131. The explanations move to the header, and the pages gain a heading level (2026-10-06)
+
+JC: *"Upgrade the overall looks of the website, hide any description within an
+info toggle hover and optimize the code and document the changes and the rules
+to be followed."*
+
+Three asks that turned out to be one. The pages did not look flat because the
+palette was wrong — they looked flat because **every card carried two to four
+paragraphs of explanation set at the same size and weight as its data**, and
+because `.card-title` was 8% larger than the body text beneath it. Removing the
+prose and giving headings a step of their own are the same change seen from two
+sides.
+
+### 131.1 What was actually there
+
+Measured before touching anything: **88** `.card-sub` blocks, **13**
+`.chart-note` paragraphs and two `MethodNote` disclosures across the app, most of
+them several sentences. `/coach/dashboard` was 4,474px of page; `/admin/dashboard`
+5,466px.
+
+### 131.2 The rule: page prose splits THREE ways, not two
+
+§127 split it two ways — caveat stays, method hides — on two cards. Applying that
+to all 26 pages immediately exposed a third class it had no name for, and
+conflating the three is what makes a tooltip pass look either useless or
+dangerous.
+
+| | stays on the card | what it is | test |
+|---|---|---|---|
+| **LABEL** | yes | units, sort order, what a row is. One clause. | without it the card is **unlabelled**, and a tooltip cannot label |
+| **CAVEAT** | yes | changes how a number is **read** | would a reader draw a **wrong conclusion** without this sentence? |
+| **METHOD** | **no** | how it is built, why, what it refuses to say | does a reader who already knows the instrument lose anything? |
+
+The split is what lets this be applied everywhere rather than to the two cards it
+started on: **nearly all the LENGTH was method, and nearly all the SAFETY was in
+one-clause caveats drowning inside it.** Hiding the method is what makes the
+caveats visible for the first time.
+
+"Hide **any** description" taken literally is the one change this project cannot
+ship. §33 exists because green must never read "Safe"; a §33 caveat behind a
+toggle **is** green reading "Safe" until somebody clicks, and the reader most
+likely to misread is the reader least likely to press a button. So the deviation
+is stated rather than quietly taken: every method paragraph moved, and thirteen
+caveat phrases are **pinned to the visible part of the page** by
+`InfoTip.test.tsx` — see 131.7.
+
+Worked example, the coach's roster legend. The four column *definitions* moved
+into a tip. The dead band's **provenance** did not go with them: "steady within
+±2" is a different claim depending on whether the 2 was measured from repeat
+screenings or is `reliability.js`'s documented fallback, and a reader who never
+opens the tip still has to know which. That one line stayed, reworded, on the card.
+
+### 131.3 `InfoTip`: hover, and also the two gestures that make it exist
+
+JC asked for hover. Hover **alone** would put the explanation out of reach on
+every touch screen and from the keyboard — on a tablet at the side of a court it
+would simply not exist. It opens on **hover, focus and click**; the third pins it,
+which is both the touch path and what lets a reader move the pointer away
+mid-sentence.
+
+WCAG 1.4.13 (Content on Hover or Focus) names three obligations, each a line of
+code:
+
+- **Dismissible** — Escape, without moving the pointer.
+- **Hoverable** — the panel is a **DOM child** of the hover target, so moving onto
+  it never fires `pointerleave`. The usual answer is a detached panel plus a grace
+  timer; a timer is a race, and a race is lost on a slow render. A `::before`
+  bridge covers the 8px gap.
+- **Persistent** — it closes on leave, blur, Escape or an outside click. Never on
+  a timer.
+
+`pointerenter` is gated to `pointerType === 'mouse'`: a tap fires it too, and the
+click that follows would toggle shut a panel the tap had just opened.
+
+### 131.4 `CardHead`, and why a component rather than a CSS fix
+
+The header shape was hand-written at 88 sites and had already drifted — some wrap
+the title block in a `<div>` and some do not, which changes whether
+`space-between` has two children to separate or one. The alignment alone could
+have been fixed with `.card-header > :first-child { flex: 1 }`.
+
+What CSS cannot do is make the info slot **impossible to put in the wrong place**,
+and the placement is the whole design: the tip belongs beside the title, never in
+the body where it competes with the data and never below it, which is a block
+disclosure again. `h2` is not configurable for the same reason — card titles are
+`<h2>` app-wide, `verify:a11y` fails on an `h1 → h3` jump, and a `level` prop
+would be an invitation.
+
+### 131.5 The visual upgrade, and the one measurement behind it
+
+**An eighth type step.** Every step in the scale is a ratio of 1.086–1.111 on the
+one below it except `lg → xl`, which is **1.316** — and that hole is exactly where
+a card heading wants to sit. `.card-title` was `--fs-lg` (0.95rem) against
+`--fs-md` (0.875rem) body: a difference of **8%**, so twelve stacked cards had no
+heading level a reader could see. Both alternatives were wrong — `lg` keeps the
+flatness, and `--fs-xl` is the **topbar's** size, so every card title would
+compete with the page title. `--fs-hd: 1.0625rem` is a 1.118 step and the only
+size on the page between body and topbar.
+
+**Card padding `--sp-lg → --sp-xl`.** At 18px a full-width card put a 1,400px
+table 18px from its own edge, which reads as a table that overflowed its box
+rather than one placed in it. Narrow viewports keep 18px, where 24px a side of a
+390px screen is 12% of it.
+
+**The band tiles carry their band.** `/medical/sport-assessment`'s headline card
+drew four identical grey rectangles with a coloured number inside, so the one
+figure that matters had to be found by reading. They now take their own
+`--risk-*-bg` plus a 3px cap of the full-strength hue — the same two-part
+treatment as the alert boxes, so nothing new has to be learnt.
+
+**The cap is painted per band rather than with `currentColor`,** and that is the
+§120 trap avoided rather than sprung: a `color` on the tile would be **inherited**
+by any child that does not set its own, and a label inheriting a fill-strength hue
+is a fill token used as text. Only `background` and `border-color` are bound.
+`verify:contrast` is 0 findings over 7,924 elements across 48 page-visits, and the
+`--canary` run caught 131 styles / 3,323 instances, so the sweep can still see.
+
+### 131.6 Two defects found, both by checks that did not exist yesterday
+
+**Escape could reopen the panel it had just closed.** The handler cleared the
+three inputs and returned focus to the button. From the **keyboard** path the
+button already held focus, so the re-focus was a no-op and Escape looked perfect.
+From the **hover** path the same line moved focus *to* the button, fired
+`onFocus`, and reopened it — "dismissible" satisfied in the one case that gets
+tested and broken in the one a mouse user meets. Found by the jsdom suite on its
+first run, where a click focuses nothing and the bug shows up immediately.
+
+Fixed with an explicit `escaped` state (`open = !escaped && (pinned || hover ||
+focus)`), because clearing the inputs **cannot** work while the pointer is still
+on the button — the next render puts them straight back. A fresh gesture revives
+it: dismissed is not disabled.
+
+The registry then made the same point about the test. The mutation reverting
+`open` to a bare `pinned || hover || focus` **SURVIVED**, because the jsdom Escape
+case clicked first — and a click in jsdom focuses nothing, so all three inputs
+were already false and clearing them was enough. A real reader never does that:
+they hover or they Tab, and the opener is still live when they press Escape. The
+case was rewritten to open by **focus**, and all four entries are caught.
+
+**The e2e suite had never used a real pointer gesture.** `page.hover()` and
+`page.click()` both failed against a feature that worked, because `visit()` seeds
+a token but not the what's-new acknowledgement, so `.modal-backdrop` covers the
+document. Every other section clicks through `page.evaluate(el.click())`, which
+is programmatic and goes straight to the handler — so the overlay had never
+mattered. §4l dismisses the notice the way a person does, and then asserts that
+**nothing is covering the button** before the pointer checks run, so the next
+person meets a named cause instead of six mystifying failures.
+
+### 131.7 What is guarded, and what is honestly not
+
+`InfoTip.test.tsx` (jsdom, 24 cases) covers the logic half and pins the split:
+thirteen caveat phrases must appear in each page's source **with every
+`<InfoTip>` block and every comment removed**. Comments are stripped first and
+that is not tidiness — ~13 guards in this repo read source as text, twice a
+comment has satisfied the assertion (§118), and several of these caveats have a
+comment beside them saying "CAVEAT, so it stays on the card". Two **positive
+controls** prove both strippers bite, because a stripper that matched nothing
+would report all thirteen present while measuring nothing at all.
+
+The **pointer** half is not assertable in jsdom at all — no layout, no real
+pointer, `elementFromPoint` returns null — and is covered by e2e §4l in real
+Chrome, which also checks the panel is not clipped by its card and stays inside
+the viewport. Stated here rather than left as a gap somebody later assumes is
+covered.
+
+Four mutation entries (111 total, from 107).
+
+### 131.8 The e2e flake, named at last
+
+§130.1 recorded the signed-out-redirect checks coming back 150, then 149, then 145
+with no code change, and wrote it off as "harness variance". That was too
+generous — it reproduced in a clean browser context, 4/5 on `/admin/dashboard`.
+
+**Measured properly this time.** Polling path and painted content from
+`domcontentloaded`: the bounce lands at **631–673ms over six clean contexts, with
+nothing private painted in the meantime**, six times out of six. The boundary is
+sound; what was wrong is that the check **sampled** the URL once, `SETTLE_MS`
+after `networkidle2`, and whichever route the dev server happened to compile cold
+during a run was still booting at that instant. It now **waits** for the bounce
+with an 8s ceiling and asserts exactly as before. A redirect that is merely late
+and one that never comes are the same single sample — which is why the first
+answer was a shrug.
+
+### 131.9 Optimisation
+
+`MethodNote` is **deleted**, not left beside its replacement — one definition of
+"an explanation behind a control", or the two drift and nobody can say which a
+given card uses. Its CSS went with it.
+
+`CardHead` replaces the hand-written header at every site this touched; the
+remaining ones are migrated as they are edited rather than in one sweep, which
+would be a large diff across files nothing else in this change touches.
+
+**Measured:** 169 e2e checks (150 before), frontend 29 suites / 509 (28 / 485),
+backend 70 / 1099, 111 mutations all caught, typecheck and lint clean, contrast 0
+findings over 48 page-visits with the canary catching 131 styles, a11y 0 findings
+over 12,225 elements.

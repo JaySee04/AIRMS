@@ -15,6 +15,8 @@ import { useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import SectionHeading from '@/components/layout/SectionHeading';
+import CardHead from '@/components/layout/CardHead';
+import InfoTip from '@/components/ui/InfoTip';
 import { api } from '@/lib/api';
 import { MuscleEntry } from '@/lib/risk';
 import { computeBodyPartAlerts, AthleteRisks, BodyRegion, RADAR_LABELS, highThresholdsFor, riskRadarSeries } from '@/lib/screeningAlerts';
@@ -552,12 +554,24 @@ export default function CoachDashboard() {
         />
 
         <div className="card" style={{ marginTop: 20 }}>
-          <div className="card-header">
-            <div>
-              <h2 className="card-title" style={{ marginBottom: 0 }}>Risk Indicators</h2>
-              <span className="card-sub">Closer to the centre is better</span>
-            </div>
-          </div>
+          <CardHead
+            title="Risk Indicators"
+            sub="Closer to the centre is better"
+            info={(
+              <InfoTip label="How to read this chart">
+                <p>
+                  Each spoke is one exercise-risk indicator from {selected.name.split(' ')[0]}&apos;s
+                  HoloMotion screening, on a 0–30 scale.
+                </p>
+                <p>
+                  The shaded field is {selected.name.split(' ')[0]}&apos;s <strong>Elevated
+                  cutoff</strong> per region, tightened where the region is sport-critical. It is a
+                  risk cut-off, <strong>not</strong> a squad average — half a squad is not expected
+                  to sit outside it.
+                </p>
+              </InfoTip>
+            )}
+          />
           <div style={{ display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap' }}>
             <div style={{ flex: '1 1 420px', minWidth: 300, maxWidth: 520 }}>
               <RiskRadar
@@ -567,13 +581,10 @@ export default function CoachDashboard() {
               />
             </div>
             <div style={{ flex: '1 1 220px', minWidth: 200 }}>
-              <p style={{ margin: '0 0 10px', fontSize: 'var(--fs-md)', lineHeight: 1.5 }}>
-                Each spoke is one exercise-risk indicator from {selected.name.split(' ')[0]}&apos;s HoloMotion
-                screening, on a 0–30 scale.
-              </p>
+              {/* CAVEAT, so it stays on the card (§131.2): a coach reading a
+                  clinical chart has to be told where the decision lives. */}
               <p className="text-muted" style={{ margin: 0, fontSize: 'var(--fs-sm)', lineHeight: 1.5 }}>
-                The dashed red line is {selected.name.split(' ')[0]}&apos;s Elevated threshold per
-                region. Read-only — clinical decisions and band overrides remain with medical staff.
+                Read-only — clinical decisions and band overrides remain with medical staff.
               </p>
             </div>
           </div>
@@ -742,14 +753,23 @@ export default function CoachDashboard() {
           way, and splitting it into two columns makes the coach reconcile them. */}
       {!loading && squadHotspots.length > 0 && (
         <div className="card">
-          <div className="card-header">
-            <div>
-              <h2 className="card-title" style={{ marginBottom: 0 }}>What keeps coming up in this squad</h2>
-              <span className="card-sub">
-                Across {squadScreened} screened athlete{squadScreened === 1 ? '' : 's'} · most common first
-              </span>
-            </div>
-          </div>
+          <CardHead
+            title="What keeps coming up in this squad"
+            sub={<>Across {squadScreened} screened athlete{squadScreened === 1 ? '' : 's'} · most common first</>}
+            info={(
+              <InfoTip label="How these are counted">
+                <p>
+                  Counted <strong>per athlete</strong>, so an athlete flagged on both sides counts
+                  once. The question is &ldquo;how many of my squad have a problem here&rdquo;, not
+                  how many flags the instrument raised.
+                </p>
+                <p>
+                  Muscles flagged on only one athlete are left out — one athlete is a case to open,
+                  not a pattern to train around.
+                </p>
+              </InfoTip>
+            )}
+          />
           <ul className="coach-hotspots">
             {squadHotspots.map((m) => (
               <li key={`${m.kind}-${m.muscle}`}>
@@ -777,10 +797,6 @@ export default function CoachDashboard() {
               </li>
             ))}
           </ul>
-          <p className="card-sub" style={{ marginBottom: 0 }}>
-            Counted per athlete, so an athlete flagged on both sides counts once.
-            Muscles flagged on only one athlete are left out.
-          </p>
         </div>
       )}
 
@@ -791,26 +807,36 @@ export default function CoachDashboard() {
           so the two cannot draw different hotspots for the same sport. */}
       {!loading && data?.squad && squadScreened > 0 && (
         <div className="card">
-          <div className="card-header">
-            <div>
-              <h2 className="card-title" style={{ marginBottom: 0 }}>Squad muscle assessment map</h2>
-              <span className="card-sub">
-                The whole {data.sport ?? 'squad'} at once · switch modes on the figure ·
-                {' '}open any athlete above for their own map
-              </span>
-            </div>
-          </div>
+          <CardHead
+            title="Squad muscle assessment map"
+            sub={<>The whole {data.sport ?? 'squad'} at once · switch modes on the figure</>}
+            info={(
+              <InfoTip label="What the figure is showing">
+                <p>
+                  The same figure a clinician reads for one athlete, fed the whole squad. In
+                  <strong> Muscle Flags</strong> mode a muscle is lit if anyone was flagged for it;
+                  in <strong>ROM &amp; Stability</strong> mode the region shading is the squad
+                  average, banded on HoloMotion&rsquo;s own 60 / 75 / 85 boundaries.
+                </p>
+                <p>
+                  Hover or focus a row in the list above to light that muscle here. Both sides
+                  light together, because the counts merge left and right on purpose — a squad has
+                  no single left or right. Open any athlete above for their own map.
+                </p>
+              </InfoTip>
+            )}
+          />
           <BodyMap
             myodynamia={squadFlags.myodynamia}
             tension={squadFlags.tension}
             subitems={squadSubitems}
             highlightMuscles={hotMuscle ? [hotMuscle] : undefined}
           />
+          {/* CAVEAT, so it stays on the card (§131.2): without it the figure is
+              read as a description of an athlete, which it is not. */}
           <p className="card-sub" style={{ marginBottom: 0 }}>
-            A muscle is lit if anyone in the squad was flagged for it, and the
-            region scores are the squad average. <strong>An average is not an
-            athlete</strong> &mdash; use this to decide where to look, then open
-            the individual.
+            <strong>An average is not an athlete</strong> &mdash; use this to decide where to
+            look, then open the individual.
           </p>
         </div>
       )}
@@ -920,14 +946,24 @@ export default function CoachDashboard() {
           on. Sits above "Needs attention" because it's the headline takeaway. */}
       {squadConcerns.length > 0 && (
         <div className="card" style={{ marginBottom: 20, borderLeft: '4px solid var(--brand-gold)' }}>
-          <div className="card-header">
-            <div>
-              <h2 className="card-title" style={{ marginBottom: 0 }}>Suggested focus for the squad</h2>
-              <span className="card-sub">
-                Auto-generated from this screening round
-              </span>
-            </div>
-          </div>
+          <CardHead
+            title="Suggested focus for the squad"
+            sub="Auto-generated from this screening round"
+            info={(
+              <InfoTip label="Where these suggestions come from">
+                <p>
+                  Ranked by <strong>how many athletes are flagged in each region</strong> this
+                  round. It is a frequency heuristic over the current screenings — not the cohort
+                  risk model, and not a reading of any individual.
+                </p>
+                <p>
+                  The adjustments are general strength-and-conditioning principles attached to the
+                  region, not individualised prescription. HoloMotion&rsquo;s own two-week
+                  programme, where the report carries one, is on the athlete&rsquo;s record.
+                </p>
+              </InfoTip>
+            )}
+          />
           <ul className="coach-suggest-list">
             {squadConcerns.map((c, i) => (
               <li key={c.region} className={`coach-suggest-item${i === 0 ? ' is-primary' : ''}`}>
@@ -962,10 +998,10 @@ export default function CoachDashboard() {
               </li>
             ))}
           </ul>
+          {/* CAVEAT, so it stays on the card (§131.2): this is the sentence that
+              stops an auto-generated list reading as a prescription. */}
           <p className="text-muted" style={{ fontSize: 'var(--fs-xs)', marginTop: 12, marginBottom: 0 }}>
-            Ranked by how many athletes are flagged in each region this round — a frequency heuristic, not the
-            cohort risk model, and general strength-and-conditioning principles rather than individualised
-            prescription. Confirm programming with your medical / S&amp;C lead.
+            Confirm programming with your medical / S&amp;C lead.
           </p>
         </div>
       )}
@@ -1076,8 +1112,39 @@ export default function CoachDashboard() {
       {total > 0 && (
         <div className="card">
           <div className="card-header">
-            <div>
-              <h2 className="card-title" style={{ marginBottom: 0 }}>Athletes</h2>
+            <div className="card-head-main">
+              <h2 className="card-title" style={{ marginBottom: 0 }}>
+                Athletes
+                <InfoTip label="What each column means">
+                  <ul>
+                    <li>
+                      <strong>HoloMotion Risk</strong> — the cohort indicator, 0–100, where 50 is
+                      this group&rsquo;s average by construction. The mark beside it is the risk
+                      band: {RISK_BANDS.map((b: RiskBand, i) => (
+                        <span key={b}>
+                          {i > 0 && ' · '}
+                          <span style={{ color: BAND_RISK_COLOR[b] }}>{BAND_GLYPH[b]}</span>
+                          {' '}{BAND_SHORT[b].toLowerCase()}
+                        </span>
+                      ))}.
+                    </li>
+                    <li>
+                      <strong>Trend</strong> — change against the previous screening.{' '}
+                      <span style={{ color: 'var(--risk-low-ink)' }}>↑</span> improving ·{' '}
+                      <span style={{ color: 'var(--risk-high)' }}>↓</span> declining · steady
+                      within ±{deadBand}.
+                    </li>
+                    <li>
+                      <strong>Readiness</strong> — Full-Go = cleared · Observation = modified
+                      load · Restricted = clinical priority.
+                    </li>
+                    <li>
+                      <strong>Worst region</strong> — the athlete&rsquo;s highest exercise-risk
+                      reading on this screening.
+                    </li>
+                  </ul>
+                </InfoTip>
+              </h2>
               <span className="card-sub">Highest concern first · select one to view their screening</span>
             </div>
           </div>
@@ -1158,19 +1225,20 @@ export default function CoachDashboard() {
               </tbody>
             </table>
           </div>
-          <dl className="table-legend">
-            <div><dt>HoloMotion Risk</dt><dd>cohort indicator 0–100 (50 = group average); the mark is the risk band — {RISK_BANDS.map((b: RiskBand, i) => (
-              <span key={b}>
-                {i > 0 && ' · '}
-                <span style={{ color: BAND_RISK_COLOR[b] }}>{BAND_GLYPH[b]}</span>
-                {' '}{BAND_SHORT[b].toLowerCase()}
-              </span>
-            ))}</dd></div>
-            <div><dt>Trend</dt><dd>change vs the previous screening — <span style={{ color: 'var(--risk-low)' }}>↑</span> improving · <span style={{ color: 'var(--risk-high)' }}>↓</span> declining · steady within ±{deadBand}{data?.deadBandDerived ? ' (measured from repeat screenings)' : ' (assumed — too few repeat screenings to measure one)'}</dd></div>
-            <div><dt>Readiness</dt><dd>Full-Go = cleared · Observation = modified load · Restricted = clinical priority</dd></div>
-            <div><dt>Worst region</dt><dd>the athlete&apos;s highest exercise-risk reading this screening</dd></div>
-          </dl>
+          {/* THESE TWO ARE CAVEATS AND STAY ON THE CARD (§131.2). The column
+              DEFINITIONS moved into the header tip — they are reference, read
+              once — but the dead band's PROVENANCE did not go with them. "Steady
+              within ±2" is a different claim depending on whether the 2 was
+              measured or assumed, and a reader who never opens the tip must
+              still see which one this is; hiding it would be §33's failure
+              wearing a tooltip. The second line is where the decision lives. */}
           <p className="text-muted" style={{ fontSize: 'var(--fs-sm)', marginTop: 8, marginBottom: 0 }}>
+            Trend treats a move of ±{deadBand} or less as steady —{' '}
+            {data?.deadBandDerived
+              ? 'measured from repeat screenings.'
+              : 'an assumed threshold; there are too few repeat screenings to measure one.'}
+          </p>
+          <p className="text-muted" style={{ fontSize: 'var(--fs-sm)', marginTop: 4, marginBottom: 0 }}>
             Readiness is informational. Clinical decisions and overrides remain with medical staff.
           </p>
         </div>

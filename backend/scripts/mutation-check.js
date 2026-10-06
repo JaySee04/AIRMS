@@ -233,6 +233,57 @@ const MUTATIONS = [
     test: 'tests/cohorts.test.js',
   },
   {
+    // §131. THE RULE THIS GUARDS IS NOT A STYLING ONE. A caveat moved inside an
+    // <InfoTip> leaves the page looking right, every other test green, and the
+    // DEFAULT state of the screen the un-caveated reading — which is §33's
+    // failure (green reading "Safe") with an affordance bolted on.
+    guard: 'infotip: a caveat moved into a tip is caught',
+    why: 'the whole three-way split is unenforced if the stripper matches nothing',
+    pkg: 'frontend',
+    from: ROOT,
+    file: 'frontend/src/components/ui/InfoTip.test.tsx',
+    // Break the InfoTip stripper. Every caveat assertion then reads the RAW
+    // source and passes whether the phrase is on the card or inside a tip — the
+    // exact shape where a guard reports green while measuring nothing.
+    find: "  return noComments.replace(/<InfoTip[\\s\\S]*?<\\/InfoTip>/g, ' ');",
+    replace: '  return noComments;',
+    test: 'src/components/ui/InfoTip.test.tsx',
+  },
+  {
+    guard: 'infotip: the comment stripper actually strips (§118)',
+    why: 'a comment beside a caveat would otherwise satisfy the assertion about it',
+    pkg: 'frontend',
+    from: ROOT,
+    file: 'frontend/src/components/ui/InfoTip.test.tsx',
+    find: "    .replace(/^\\s*\\/\\/.*$/gm, ' ');",
+    replace: '    ;',
+    test: 'src/components/ui/InfoTip.test.tsx',
+  },
+  {
+    // The bug the jsdom suite found on its first run, kept as a standing control
+    // because the BROWSER checks could not see it: from the keyboard path the
+    // button already holds focus, so the re-focus was a no-op and Escape looked
+    // fine. From the hover path the same line reopened the panel it had closed.
+    guard: 'infotip: Escape beats a live hover (WCAG 1.4.13 dismissible)',
+    why: 'clearing the inputs cannot dismiss while the pointer is still on the button',
+    pkg: 'frontend',
+    from: ROOT,
+    file: 'frontend/src/components/ui/InfoTip.tsx',
+    find: '  const open = !escaped && (pinned || hover || focus);',
+    replace: '  const open = pinned || hover || focus;',
+    test: 'src/components/ui/InfoTip.test.tsx',
+  },
+  {
+    guard: 'infotip: collapsed by default',
+    why: 'open by default is the prose it was built to hide, plus a button',
+    pkg: 'frontend',
+    from: ROOT,
+    file: 'frontend/src/components/ui/InfoTip.tsx',
+    find: '  const [pinned, setPinned] = useState(false);',
+    replace: '  const [pinned, setPinned] = useState(true);',
+    test: 'src/components/ui/InfoTip.test.tsx',
+  },
+  {
     guard: 'report summary: refuses a split that loses text',
     why: "a rearranged version of a clinician's report is worse than a paragraph",
     pkg: 'frontend',

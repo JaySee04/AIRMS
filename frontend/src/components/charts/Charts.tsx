@@ -674,12 +674,16 @@ export function MetricDeltas({
           </div>
         );
       })}
+      {/* CAVEAT, NOT METHOD, so it stays on the chart (§131.2). A reader who
+          does not know that direction is ORIENTED sees a fall in exercise risks
+          drawn to the right and concludes the chart has the sign backwards. The
+          rest — one shared scale, what "steady" means — is method and lives in
+          the calling card's InfoTip. */}
       {note ?? (
         <p className="chart-note">
-          Bars share one scale, so the longest is the biggest move. Direction is
-          <strong> better or worse</strong>, not the sign — exercise risks improve by going down, so a fall
-          there is drawn to the right like every other improvement, while the printed number keeps its
-          true sign. &ldquo;Steady&rdquo; means the move is inside the noise band rather than exactly zero.
+          Bar direction is <strong>better or worse</strong>, not the sign: exercise risks
+          improve by going down, so a fall there is drawn to the right like every other
+          improvement, while the printed number keeps its true sign.
         </p>
       )}
     </div>

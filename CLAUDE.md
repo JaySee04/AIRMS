@@ -92,14 +92,14 @@ cd backend; npm run coverage         # 82.4% statements / 72.3% branches (re-mea
                                      # line deleted — it now asserts the phrase only the route writes,
                                      # naming what the override REPLACED.
                                      # The FRONTEND was the remaining blind spot and is
-                                     # now partly closed: e2e (150 checks), four jsdom component
+                                     # now partly closed: e2e (169 checks), FIVE jsdom component
                                      # suites, and since 2026-09-12 ONE test that mounts a page.tsx
                                      # (athlete/dashboard - DD 85d). The other 25 authenticated
                                      # pages are still covered by e2e or by nobody. Coverage needed
                                      # a missing transitive dep (fs.realpath) before it would run.
 cd backend; npm run mutate           # BREAK each registered guard on purpose and prove its
                                      # test fails. A surviving mutation exits non-zero: the
-                                     # test is not testing what it claims. 107 guards across
+                                     # test is not testing what it claims. 111 guards across
                                      # both packages. NOT part of `npx jest` — it spawns a
                                      # jest run per mutation (tens of seconds). Run it before
                                      # committing a change to a guard, and add an entry when
@@ -497,9 +497,10 @@ cd frontend; npm run verify:csp   # the CSP, in REAL CHROME against a PRODUCTION
 
 # Frontend production build
 cd frontend; npm run e2e   # END-TO-END smoke: a real Chrome against the running
-                           # servers (needs `npm run dev`). 150 checks - auth boundaries,
+                           # servers (needs `npm run dev`). 169 checks - auth boundaries,
                            # each role's pages rendering, the readiness tiles accounting
-                           # for the squad, the body-map focus ring, no NaN/undefined/
+                           # for the squad, the body-map focus ring, the INFO TIP opening by pointer / keyboard /
+                           # tap (section 4l, DD 131.3), no NaN/undefined/
                            # Invalid Date on any page, no band named by COLOUR alone
                            # ("Green" reads as "you are fine" - SILENT_FAILURES 3i), and the
                            # body map + charts actually drawing geometry. Section 9 covers
@@ -644,7 +645,7 @@ cd backend; npx jest      # 70 suites / 1099 tests: cohorts, overallIndicator, p
                           # other suite. Static: it reads both files as text and never
                           # require()s the target, because several modules build a Sequelize
                           # instance at import time)
-cd frontend; npx jest     # 28 suites / 485 tests (the run is pinned to UTC by
+cd frontend; npx jest     # 29 suites / 509 tests (the run is pinned to UTC by
                           # jest.globalSetup.js - this machine sits IN the institution
                           # zone, which made the date tests pass for the wrong reason
                           # until mutation testing said so; see DD 62): lib/risk.ts, lib/screeningUploadStore.ts, bodymap-data/muscles.ts,
@@ -784,7 +785,7 @@ counting paint ops is a trap — the dead-band *zone* is itself a fill, so fill
 counts coincide between opposite renderings; assert on the fill **colour**.
 
 **Frontend coverage, stated accurately (2026-09-12).** There are end-to-end
-tests (`cd frontend; npm run e2e`, 150 checks), FOUR jsdom component suites
+tests (`cd frontend; npm run e2e`, 169 checks), FIVE jsdom component suites
 — `DashboardLayout` (the access gate), `OverallRiskBadge` (the hero),
 `ScreeningPanel` (§70.4's field resolution) and `DecisionPanel` (what the change
 list CLAIMS to cover — DD 79.4, and it is a jsdom test rather than an e2e check
@@ -1449,7 +1450,7 @@ Forgetting the sync is the one hazard the design trades for, so **both** test su
   - **A fallback on a token declared nowhere is not a fallback — it is the value** (§121.9). `var(--secondary, #c89b3c)` shipped the brand amber as text at 2.56:1 in both themes, and `var(--text-dim, #6b7a8d)` put white on a hover-tooltip chip at **4.38:1** where no browser sweep could reach it. `lib/cssTokens.test.ts` now reports this case as well as the unguarded one; a fallback on a token that *does* exist is still fine and still unreported.
   - **Measure the token, not the hue you remember.** `#6bb0e0` is obviously a light blue that white cannot sit on — and it is the **dark** theme's `--risk-undertrained`. Light's is `#2a6391`. Giving both a dark ink shipped **2.05:1** onto twelve heatmap cells as part of a contrast fix.
 
-  **Nothing here is guessed — re-measure with `cd frontend; npm run verify:contrast`** (needs `npm run dev`; ~52s; **26 pages × 2 themes = 52 visits**, 8004 text elements; **exits 1** on any finding *or any page it could not measure*, 2 if it could not run at all). It reads computed colours out of a real browser and resolves each surface with `elementsFromPoint` — an ancestor walk mis-reports anything positioned outside its parent's box, which is how `.histogram-n` was written into §120.5 as a defect at 1.04:1 when it measures 5.28.
+  **Nothing here is guessed — re-measure with `cd frontend; npm run verify:contrast`** (needs `npm run dev`; ~52s; **24 pages × 2 themes = 48 visits**, 7924 text elements; **exits 1** on any finding *or any page it could not measure*, 2 if it could not run at all). It reads computed colours out of a real browser and resolves each surface with `elementsFromPoint` — an ancestor walk mis-reports anything positioned outside its parent's box, which is how `.histogram-n` was written into §120.5 as a defect at 1.04:1 when it measures 5.28.
 
   **Every visit must prove it was measured, and that is the load-bearing part** (§121.8). An expired session, a renamed route or a role that cannot reach a page all end on a screen with no contrast problems, so the sweep would report a confident green ZERO. Each visit asserts it landed on the route it asked for, in the theme it asked for, with enough text and elements to be that page. It earned its keep immediately: the list named `/executive/dashboard`, **which has never existed** — `executive` has no pages of its own and lands on `/admin/dashboard` — so the audit had been sweeping Next's 404 page and counting it clean, while missing **ten** real authenticated pages. "Eleven pages" was ten of twenty-one. `src/app/contrastPages.test.ts` now fails if the list and `src/app` disagree in either direction, or if a page is listed under a role its `allowedRoles` refuses.
 
@@ -1683,7 +1684,7 @@ Commit cadences are independent — JC will commit many times in this repo betwe
    `backend/tests/sourceHygiene.test.js` catches the invisible-character half of
    this in under a second, naming the file, line and character.
 
-## Writing a check: the nine rules (2026-10-05, `docs/SILENT_FAILURES.md` "The rules")
+## Writing a check: the ten rules (2026-10-06, `docs/SILENT_FAILURES.md` "The rules")
 
 **A broken check is worse than no check — it answers the question you stopped
 asking.** Each rule below is here because breaking it already cost this project
@@ -1711,6 +1712,67 @@ something; the full version carries the instance for each.
 9. **Ask the system of record** — `information_schema`, the audit trail, the
    deployed function's stderr, `git log -S`. Not the working tree, not a doc,
    not an endpoint answering 200 for its own reasons.
+10. **Drive every entry to a control, and prefer the awkward one.** Hover, focus
+    and tap are three code paths wearing one name; a check that picks whichever
+    gesture was easiest to automate is testing the convenience. The hard-to-
+    automate gesture is usually the one the implementation forgot (4c / §131.6).
+
+## Explaining a card: which words stay on it (2026-10-06, `DESIGN_DECISIONS.md §131`)
+
+Page prose splits **three** ways. Two stay visible; only the third goes behind
+`<InfoTip>`. Getting this wrong is not a styling mistake — a caveat moved into a
+tip makes the **default state of the screen** the un-caveated reading, which is
+§33's failure (green reading "Safe") with an affordance bolted on.
+
+| | stays? | what it is | the test |
+|---|---|---|---|
+| **LABEL** | yes | units, sort order, what a row is. One clause. | without it the card is **unlabelled** — a tooltip cannot label |
+| **CAVEAT** | yes | changes how a number is **read** | would a reader draw a **wrong conclusion** without this sentence? |
+| **METHOD** | **no** | how it is built, why, what it refuses to say | does a reader who already knows the instrument lose anything? |
+
+Caveats in practice: *"a mean is not an athlete"*, *"never screened is counted
+apart"*, *"the lines are medians, not fixed cut-offs"*, *"not a fitness-to-play
+decision"*, *"a count, not how severe it is"*, and any statement of whether a
+threshold was **measured or assumed**.
+
+**Thirteen caveat phrases are PINNED** by `frontend/src/components/ui/InfoTip.test.tsx`,
+which reads each page with every `<InfoTip>` block **and every comment** stripped.
+Reword one and update the list; delete one and the test is the thing stopping you
+doing it by accident. Do not quote a pinned phrase in a comment beside it — the
+stripper handles it, but §118's trap is why the stripper exists.
+
+**Writing a card:**
+
+```tsx
+<CardHead
+  title="Left–Right Asymmetry"
+  sub={<>Athletes with a gap of at least 10% · worst first</>}   {/* LABEL + CAVEAT */}
+  info={<InfoTip label="Why a count rather than the mean gap">…</InfoTip>}  {/* METHOD */}
+  actions={<button className="btn btn-sm">Download</button>}
+/>
+```
+
+- `CardHead` is the **only** card header shape — `components/layout/CardHead.tsx`.
+  It renders `<h2 className="card-title">`, which `verify:a11y` depends on; the
+  level is deliberately not a prop.
+- `InfoTip`'s `label` is the accessible name **and** the panel heading. Say what
+  is inside: "Info" makes the reader press it to find out whether they needed to.
+- It opens on **hover, focus AND click** — hover alone is unreachable on a touch
+  screen and from the keyboard. **Do not "simplify" it to hover-only**, and do not
+  replace the DOM-child panel with a detached one plus a grace timer: the timer is
+  a race that a slow render loses (WCAG 1.4.13 hoverable).
+- `MethodNote` is **deleted**. Do not reintroduce a second disclosure component.
+
+**Verify with `cd frontend; npm run e2e`** (section 4l — pointer, keyboard and
+tap paths, all three, because any one can break while the other two keep the
+feature looking fine) and `npx jest src/components/ui/InfoTip.test.tsx`.
+
+**A real pointer gesture in e2e needs the what's-new notice dismissed first.**
+`visit()` seeds a token but not the acknowledgement, so `.modal-backdrop` covers
+the document. Every other section clicks through `page.evaluate(el.click())`,
+which is programmatic and never met the overlay; §4l is the first to use
+`page.hover()` / `page.click()` and it dismisses the notice, then asserts nothing
+is covering the button before measuring.
 
 ## Comments: which ones are load-bearing (2026-09-13, `DESIGN_DECISIONS.md §99.2`)
 

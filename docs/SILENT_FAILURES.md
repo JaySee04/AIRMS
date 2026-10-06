@@ -2117,6 +2117,70 @@ different questions, and only the second one is worth asking.
 
 ---
 
+
+### 4c. The control that worked in the gesture you test and not the one people use (2026-10-06)
+
+§131's `InfoTip` opens three ways — hover, focus, click — and Escape dismisses it
+(WCAG 1.4.13). The handler cleared the three inputs and returned focus to the
+button:
+
+```js
+close();                 // setPinned(false); setHover(false); setFocus(false)
+btn.current?.focus();    // so the next Tab starts from here
+```
+
+**From the keyboard path this is perfect.** The button already holds focus, so
+`.focus()` is a no-op, the panel closes, Escape works.
+
+**From the hover path the same two lines reopen it.** The pointer is still on the
+button, so `hover` goes straight back true on the next render; and the `.focus()`
+call — which did nothing a moment ago — now *moves* focus to the button, fires
+`onFocus`, and sets the third input as well. A mouse user presses Escape and
+nothing happens.
+
+Three properties of this make it the shape worth naming:
+
+1. **The feature is not broken. One ENTRY to it is.** Every existing check opened
+   the panel the way the check's author found most convenient to write — which
+   was the keyboard, because `page.evaluate(el.focus())` needs no coordinates.
+2. **It fails silently in the accessibility direction.** "Dismissible" is a WCAG
+   obligation; the implementation satisfied it in the path nobody struggles with
+   and broke it in the path a pointer user meets, which is the opposite of who the
+   criterion is for.
+3. **The fix is not "clear harder".** Clearing the inputs cannot win while the
+   pointer is still on the button, because the inputs are *live*. It needs an
+   explicit `escaped` state that outranks them until a fresh gesture — and that
+   is a different thing from "closed", which is why no amount of tidying the
+   existing lines would have reached it.
+
+**Found by the jsdom suite on its first run**, where `fireEvent.click` focuses
+nothing and the reopen therefore happens immediately. The browser suite had
+already reported Escape working, twice.
+
+**Then the registry made the same point about the test.** The mutation reverting
+`open` to a bare `pinned || hover || focus` **SURVIVED**. The jsdom Escape case
+clicked to open — and a click in jsdom focuses nothing, so all three inputs were
+already false when Escape arrived and clearing them was enough. A real reader
+never does that: they hover or they Tab, and **the opener is still live when they
+press Escape**. Rewritten to open by focus; caught.
+
+**The rule this adds to the list below**: *when a control can be reached by more
+than one gesture, a check that uses only the convenient one is testing the
+convenience.* Drive every entry, and prefer the awkward one — the gesture that is
+hard to automate is usually the one the implementation forgot.
+
+**A second thing fell out of writing those checks.** `page.hover()` and
+`page.click()` both failed against a feature that worked. `visit()` in
+`e2e-smoke.js` seeds a token but not the what's-new acknowledgement, so
+`.modal-backdrop` covers the document on every fresh page. Every other section in
+a 169-check suite clicks through `page.evaluate(el.click())`, which is
+programmatic and goes straight to the handler — **so in the whole suite's life no
+real pointer had ever been used, and the overlay had never mattered.** §4l
+dismisses the notice the way a person does and then asserts that nothing is
+covering the button before measuring, so the next person meets a named cause
+rather than six failures that look like a broken feature.
+
+
 ## The rules for writing a check in this repo
 
 Every rule below is here because breaking it already cost this project
@@ -2244,6 +2308,21 @@ times over: the **audit trail** answered "has a report ever been delivered", the
 deployed function's **own stderr** answered "why did it fail" in one line after
 an hour of hypotheses, and `git log -S` on the version string answered "when did
 this break". Guessing was slower than asking every time.
+
+### 10. Drive every entry to a control, and prefer the awkward one
+
+A control reachable by hover, by focus and by tap is three code paths wearing one
+name. A check that uses whichever gesture was easiest to automate is testing the
+convenience, and the gesture that is hard to automate is usually the one the
+implementation forgot.
+
+*Evidence:* 4c / §131.6 — Escape dismissed the info tip perfectly from the
+keyboard, where the button already held focus, and REOPENED it from a hover,
+where the same `btn.focus()` line moved focus instead of doing nothing. Two
+browser checks had already reported Escape working. Found by the jsdom suite,
+where a click focuses nothing; then the mutation registry made the same point
+about the test itself, surviving until the case was rewritten to open the panel
+the way a reader actually does.
 
 ### What this adds up to
 

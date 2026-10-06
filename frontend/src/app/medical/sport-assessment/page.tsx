@@ -30,6 +30,8 @@
 //     as counts so the shape survives.
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
+import CardHead from '@/components/layout/CardHead';
+import InfoTip from '@/components/ui/InfoTip';
 import { api, isAuthError } from '@/lib/api';
 import { BANDS, BAND_LABEL, BAND_COLOR, type Band } from '@/lib/bands';
 import { SMALL_COHORT } from '@/lib/shared/facts';
@@ -197,16 +199,29 @@ export default function SportAssessmentPage() {
 
           {/* ── 1. Level of risk ─────────────────────────────────────────── */}
           <div className="card">
-            <h2 className="card-title">Level of risk across {sport}</h2>
-            <p className="text-muted quick-sub">
-              Each athlete&rsquo;s latest screening, clinician overrides applied. Counts
-              rather than a percentage, so a squad of 14 is not read as a squad of 140.
-            </p>
+            <CardHead
+              title={<>Level of risk across {sport}</>}
+              sub={<>Each athlete&rsquo;s latest screening, clinician overrides applied</>}
+              info={(
+                <InfoTip label="Why counts and not percentages">
+                  <p>
+                    A squad of 14 drawn as shares reads like a squad of 140: &ldquo;21%
+                    elevated&rdquo; sounds like a programme-level finding when it is three
+                    people. Counts keep the denominator in view.
+                  </p>
+                  <p>
+                    <strong>Never screened</strong> is counted apart from every band, green
+                    included. Folding it into low risk would turn an athlete nobody has assessed
+                    into an athlete who came back clean.
+                  </p>
+                </InfoTip>
+              )}
+            />
             <div className="sport-bands">
               {BANDS.map((b) => {
                 const v = bandCounts[b] ?? 0;
                 return (
-                  <div key={b} className="sport-band-tile">
+                  <div key={b} className={`sport-band-tile sport-band-tile--${b}`}>
                     <span className="sport-band-count" style={{ color: BAND_COLOR[b] }}>{v}</span>
                     {/* The WORD, never the colour alone — a reader who cannot
                         distinguish the hues must still get the verdict
@@ -234,12 +249,31 @@ export default function SportAssessmentPage() {
 
           {/* ── 2. Body parts: the instrument's own muscle flags ─────────── */}
           <div className="card">
-            <h2 className="card-title">Which body parts keep coming up</h2>
-            <p className="text-muted quick-sub">
-              HoloMotion&rsquo;s own muscle flags across the {screened} screened athlete
-              {screened === 1 ? '' : 's'}, most frequent first. A count is how many
-              athletes carry that flag, not how severe it is.
-            </p>
+            <CardHead
+              title="Which body parts keep coming up"
+              /* The second clause is a CAVEAT and stays: a bar read as severity
+                 rather than prevalence is a wrong conclusion, not a missing one. */
+              sub={(
+                <>
+                  HoloMotion&rsquo;s own muscle flags across {screened} screened athlete
+                  {screened === 1 ? '' : 's'}, most frequent first — a count is how many
+                  athletes carry the flag, <strong>not how severe it is</strong>.
+                </>
+              )}
+              info={(
+                <InfoTip label="How these are counted">
+                  <p>
+                    Counted per athlete across both sides, so a muscle flagged left and right on
+                    one athlete counts once per flag the report carries.
+                  </p>
+                  <p>
+                    The side is deliberately not shown here — at squad level &ldquo;how many of my
+                    athletes have an iliopsoas problem&rdquo; is one per athlete, not one per side.
+                    Open an athlete on the Medical Dashboard to see which side.
+                  </p>
+                </InfoTip>
+              )}
+            />
             <div className="sport-flag-cols">
               <div>
                 <h3 className="sport-flag-head">Myodynamia deficiency</h3>
@@ -278,23 +312,34 @@ export default function SportAssessmentPage() {
                   )}
               </div>
             </div>
-            <p className="text-muted" style={{ fontSize: 'var(--fs-xs)', marginBottom: 0 }}>
-              Counted per athlete across both sides, so a muscle flagged left and right
-              on one athlete counts once per flag the report carries. Open an athlete on
-              the Medical Dashboard to see which side.
-            </p>
           </div>
 
           {/* ── 3. Body parts: the five measured regions ──────────────────── */}
           {data.subitems && data.subitems.n > 0 && (
             <div className="card">
-              <h2 className="card-title">How each region measures, squad mean</h2>
-              <p className="text-muted quick-sub">
-                The mean of the subitem table across {data.subitems.n} athlete
-                {data.subitems.n === 1 ? '' : 's'}. <strong>A mean is not the squad</strong>:
-                70 is produced equally by everyone at 70 and by half at 55 and half at 85,
-                so read this for where to look rather than as a description of anybody.
-              </p>
+              <CardHead
+                title="How each region measures, squad mean"
+                sub={(
+                  <>
+                    The mean of the subitem table across {data.subitems.n} athlete
+                    {data.subitems.n === 1 ? '' : 's'} — <strong>a mean is not the squad</strong>.
+                  </>
+                )}
+                info={(
+                  <InfoTip label="What a mean hides here">
+                    <p>
+                      70 is produced equally by everyone sitting at 70 and by half the squad at 55
+                      and half at 85. Read this for <em>where to look</em> rather than as a
+                      description of anybody in it.
+                    </p>
+                    <p>
+                      Cells are banded on HoloMotion&rsquo;s own 60 / 75 / 85 boundaries, and a
+                      region with no reading is dashed rather than tier-coloured — an unknown value
+                      stays unknown instead of being drawn at one end of the scale.
+                    </p>
+                  </InfoTip>
+                )}
+              />
               <div className="sport-region-grid">
                 <div className="sport-region-head">
                   <span>Region</span>
@@ -334,13 +379,25 @@ export default function SportAssessmentPage() {
           {/* ── 4. Left vs right ─────────────────────────────────────────── */}
           {data.subitems && data.subitems.asymmetry.length > 0 && (
             <div className="card">
-              <h2 className="card-title">Left versus right</h2>
-              <p className="text-muted quick-sub">
-                The only bilateral measurement the report carries. Shown as the NUMBER OF
-                ATHLETES with a gap of at least {data.subitems.notableGapPct}% — the mean
-                gap is flat at 3&ndash;6 everywhere and hides them, which is why the count
-                is the figure and not the average.
-              </p>
+              <CardHead
+                title="Left versus right"
+                sub={<>Athletes with a gap of at least {data.subitems.notableGapPct}% — a count, not an average</>}
+                info={(
+                  <InfoTip label="Why a count rather than the mean gap">
+                    <p>
+                      This is the only bilateral measurement the report carries, so it is the only
+                      place a one-sided problem can show up at all.
+                    </p>
+                    <p>
+                      The <strong>mean</strong> gap is flat at 3&ndash;6 points across every region
+                      and hides exactly the athletes worth finding; the number past the threshold
+                      separates them. A side is only named when the squad tips the same way — a mix
+                      of left- and right-dominant athletes is a different finding, not a squad-wide
+                      weakness.
+                    </p>
+                  </InfoTip>
+                )}
+              />
               <table className="sport-table">
                 <thead>
                   <tr>
@@ -369,12 +426,24 @@ export default function SportAssessmentPage() {
 
           {/* ── 5. Which tracked problems fire ───────────────────────────── */}
           <div className="card">
-            <h2 className="card-title">Which tracked risks are firing</h2>
-            <p className="text-muted quick-sub">
-              The indicators AIRMS tracks, by how many athletes sit above each line.
-              Indicators with nobody above the watch line are left out. These are the
-              rules that fired, not a diagnosis.
-            </p>
+            <CardHead
+              title="Which tracked risks are firing"
+              /* "rules that fired, not a diagnosis" is a CAVEAT and stays. */
+              sub={<>By how many athletes sit above each line — the rules that fired, <strong>not a diagnosis</strong></>}
+              info={(
+                <InfoTip label="What is in this table, and what is left out">
+                  <p>
+                    Indicators with nobody above the watch line are omitted rather than printed as
+                    a row of zeros — a screen of zeros reads as reassurance, and a long list of
+                    them buries the two that matter.
+                  </p>
+                  <p>
+                    One indicator the instrument reports is deliberately never scored, charted or
+                    named anywhere in AIRMS, on the stakeholder&rsquo;s instruction.
+                  </p>
+                </InfoTip>
+              )}
+            />
             {firing.length === 0 ? (
               <p className="text-muted" style={{ marginBottom: 0 }}>
                 No tracked indicator is above its watch line for any screened athlete in {sport}.
@@ -406,11 +475,23 @@ export default function SportAssessmentPage() {
 
           {/* ── 6. Who to see ───────────────────────────────────────────── */}
           <div className="card">
-            <h2 className="card-title">Who to see first in {sport}</h2>
-            <p className="text-muted quick-sub">
-              Everyone in this sport whose latest screening is above the low band,
-              worst band first. Opening a name goes to their record.
-            </p>
+            <CardHead
+              title={<>Who to see first in {sport}</>}
+              sub="Above the low band, worst band first · open a name for their record"
+              info={(
+                <InfoTip label="How this list is ordered">
+                  <p>
+                    Sorted by <strong>band first</strong>, then by the indicator inside each band.
+                    Ordering on the number alone puts an athlete the system calls elevated below
+                    one it calls watch, because the two scales are not the same question.
+                  </p>
+                  <p>
+                    A name links to the Medical Dashboard rather than opening a detail view here,
+                    so reading the record goes through the one audited path.
+                  </p>
+                </InfoTip>
+              )}
+            />
             {shortlist.length === 0 ? (
               <p className="text-muted" style={{ marginBottom: 0 }}>
                 No athlete in {sport} is currently above the low band.
