@@ -137,6 +137,103 @@ function ovalPath(cx: number, cy: number, rx: number, ry: number, rotDeg: number
     + `A ${rx.toFixed(2)} ${ry.toFixed(2)} ${rotDeg} 0 1 ${x1.toFixed(2)} ${y1.toFixed(2)} Z`;
 }
 
+// A FUSIFORM (spindle) belly: widest in the middle, tapering to a point at each
+// end, along an axis rotated `rotDeg` from the horizontal.
+//
+// The shape of a strap muscle with a tendon at both ends, and the iliopsoas is
+// described in exactly those words — "fusiform (spindle-shaped)", set against the
+// piriformis's pear (ScienceDirect; Wikipedia).
+function spindlePath(cx: number, cy: number, rx: number, ry: number, rotDeg: number): string {
+  const r = (rotDeg * Math.PI) / 180;
+  const cos = Math.cos(r);
+  const sin = Math.sin(r);
+  // Along-axis / across-axis -> absolute, so the caller only thinks about the
+  // muscle's course and the whole shape rotates as one.
+  const P = (a: number, b: number): [number, number] => [
+    cx + a * cos - b * sin,
+    cy + a * sin + b * cos,
+  ];
+  const n = (v: number) => v.toFixed(2);
+  const [x1, y1] = P(-rx, 0);
+  const [x2, y2] = P(rx, 0);
+  const [c1x, c1y] = P(-rx * 0.5, -ry);
+  const [c2x, c2y] = P(rx * 0.5, -ry);
+  const [c3x, c3y] = P(rx * 0.5, ry);
+  const [c4x, c4y] = P(-rx * 0.5, ry);
+  return `M ${n(x1)} ${n(y1)} C ${n(c1x)} ${n(c1y)} ${n(c2x)} ${n(c2y)} ${n(x2)} ${n(y2)} `
+    + `C ${n(c3x)} ${n(c3y)} ${n(c4x)} ${n(c4y)} ${n(x1)} ${n(y1)} Z`;
+}
+
+// A TAPERED WEDGE: broad at the negative end of the axis, narrowing to `tipFrac`
+// of that half-width at the positive end, with gently convex sides.
+//
+// The piriformis is "a flat, pyramidally-shaped muscle" — the name is `pirum`
+// (pear) + `forma` — broad across the anterior sacrum and converging to a tendon
+// on the greater trochanter (Wikipedia; StatPearls). The gluteus minimus fans the
+// same way. An ellipse is the same width at both ends, so the DIRECTION of the
+// taper — the thing that identifies these muscles on sight — was simply absent.
+function wedgePath(
+  cx: number, cy: number, rx: number, ry: number, rotDeg: number, tipFrac: number,
+): string {
+  const r = (rotDeg * Math.PI) / 180;
+  const cos = Math.cos(r);
+  const sin = Math.sin(r);
+  const P = (a: number, b: number): [number, number] => [
+    cx + a * cos - b * sin,
+    cy + a * sin + b * cos,
+  ];
+  const n = (v: number) => v.toFixed(2);
+  const tip = ry * tipFrac;
+  const [ax, ay] = P(-rx, -ry);
+  const [bx, by] = P(rx, -tip);
+  const [dx, dy] = P(rx, tip);
+  const [ex, ey] = P(-rx, ry);
+  // Bowed slightly outward: a belly is convex, and straight edges read as a
+  // drawn polygon rather than tissue.
+  const [f1x, f1y] = P(0, -(ry + tip) * 0.62);
+  const [f2x, f2y] = P(0, (ry + tip) * 0.62);
+  return `M ${n(ax)} ${n(ay)} Q ${n(f1x)} ${n(f1y)} ${n(bx)} ${n(by)} `
+    + `L ${n(dx)} ${n(dy)} Q ${n(f2x)} ${n(f2y)} ${n(ex)} ${n(ey)} Z`;
+}
+
+/**
+ * Scale a shape about (cx, cy) until it sits inside `limit`.
+ *
+ * WHY THIS IS NEEDED AT ALL, and it is the thing the first attempt got wrong.
+ * A rotated ellipse with half-extents (rx, ry) lies strictly INSIDE the rectangle
+ * of those extents; a wedge puts real corners at (±rx, ±ry). So the same
+ * fractions that fitted as an oval overflowed as a wedge — and the partition's
+ * own containment test said so, which is the guard working.
+ *
+ * `limit` is passed SEPARATELY from the positioning box on purpose. The first fix
+ * clamped to the box the muscle is positioned from — the whole gluteal mass — and
+ * still failed, because the structure a deep muscle must stay inside is the one
+ * COVERING it: piriformis lies deep to gluteus maximus, the internal oblique deep
+ * to the external. Clamping to the union was looser than the anatomy and looser
+ * than the test. Naming the covering muscle makes the code say the same thing the
+ * anatomy and the test both say.
+ */
+function fitInside(d: string, limit: Box, cx: number, cy: number): string {
+  const b = bbox(d);
+  const ks = [
+    b.minX < limit.minX ? (cx - limit.minX) / (cx - b.minX) : 1,
+    b.maxX > limit.maxX ? (limit.maxX - cx) / (b.maxX - cx) : 1,
+    b.minY < limit.minY ? (cy - limit.minY) / (cy - b.minY) : 1,
+    b.maxY > limit.maxY ? (limit.maxY - cy) / (b.maxY - cy) : 1,
+  ].filter((k) => Number.isFinite(k) && k > 0);
+  const k = Math.min(1, ...ks);
+  if (k >= 1) return d;
+  // These builders emit absolute M/C/Q/L/Z only — every number is one coordinate
+  // of an (x, y) pair — so a positional pass is safe. It would NOT be safe on an
+  // `A` command, whose first three numbers are radii and an angle.
+  let i = 0;
+  return d.replace(/-?[\d.]+/g, (nStr) => {
+    const c = i % 2 === 0 ? cx : cy;
+    i += 1;
+    return (c + (Number(nStr) - c) * k).toFixed(2);
+  });
+}
+
 // Fractional point inside a parent's measured box.
 function at(parent: Box, fx: number, fy: number): { cx: number; cy: number } {
   return {
@@ -159,6 +256,42 @@ function deep(
   const h = parent.maxY - parent.minY;
   const { cx, cy } = at(parent, fx, fy);
   return [ovalPath(cx, cy, w * rxFrac, h * ryFrac, rotDeg)];
+}
+
+// RESHAPED, NOT RECOLOURED (2026-10-06, §125). These two take the SAME
+// box-fraction arguments `deep` takes — same position, same extents, same angle —
+// and differ only in the outline emitted. Nothing about the fill is touched:
+// BodyMap colours a part from its FLAG STATE, so the palette and every token
+// behind it are untouched by this file.
+//
+// `limit` is the structure the muscle must stay inside, which is the one COVERING
+// it and not necessarily the one it is positioned from. See fitInside.
+
+/** A fusiform belly — pointed at both ends, widest in the middle. */
+function deepSpindle(
+  parent: Box, fx: number, fy: number, rxFrac: number, ryFrac: number, rotDeg: number,
+  limit: Box = parent,
+): string[] {
+  const w = parent.maxX - parent.minX;
+  const h = parent.maxY - parent.minY;
+  const { cx, cy } = at(parent, fx, fy);
+  return [fitInside(spindlePath(cx, cy, w * rxFrac, h * ryFrac, rotDeg), limit, cx, cy)];
+}
+
+/**
+ * A tapered wedge — broad at the NEGATIVE end of the axis.
+ *
+ * `tipFrac` is how much of the broad half-width survives at the tip: ~0.2 is a
+ * pronounced pear converging on a tendon, ~0.5 a gentle fan.
+ */
+function deepWedge(
+  parent: Box, fx: number, fy: number, rxFrac: number, ryFrac: number, rotDeg: number,
+  tipFrac = 0.3, limit: Box = parent,
+): string[] {
+  const w = parent.maxX - parent.minX;
+  const h = parent.maxY - parent.minY;
+  const { cx, cy } = at(parent, fx, fy);
+  return [fitInside(wedgePath(cx, cy, w * rxFrac, h * ryFrac, rotDeg, tipFrac), limit, cx, cy)];
 }
 
 // A strap muscle drawn as the band it is: a thin quad from origin to insertion.
@@ -317,15 +450,28 @@ function put(fig: Figure, muscle: string, side: Side, ds: string[]) {
     const glute = paths('back', 'gluteal', side);
     if (glute.length) {
       const gb = unionBox(glute);
-      // Piriformis: a flat band running obliquely from the sacrum (medial,
-      // higher) to the greater trochanter (lateral, lower) — long, thin, and
-      // tilted, which is what distinguishes it on sight from the glutes over it.
+      // The covering structure: gluteus maximus is the sheet both of these lie
+      // deep to, and it is what they must stay inside — not the whole gluteal
+      // union they are positioned from. `upper` is medius, so the rest is maximus,
+      // exactly as the put() above splits them.
+      const upperG = glute.reduce((a, b) => (topY(a) <= topY(b) ? a : b));
+      const maxBox = unionBox(glute.filter((d) => d !== upperG));
+
+      // Piriformis: a PEAR. "A flat, pyramidally-shaped muscle" whose name is
+      // `pirum` + `forma`, broad across the anterior sacrum and converging to a
+      // tendon on the greater trochanter (Wikipedia; StatPearls). So the axis runs
+      // medial-and-higher (broad) to lateral-and-lower (narrow), and the broad end
+      // is the negative end — which on the left side is medial.
+      //
+      // tip 0.22: the insertion is a tendon, not a belly. That taper is what
+      // distinguishes it on sight from the glutes lying over it.
       put('back', 'Piriformis', side,
-        deep(gb, side === 'left' ? 0.60 : 0.40, 0.30, 0.30, 0.055, 20 * mirror));
-      // Gluteus minimus: the deepest of the three and the smallest, fanning from
-      // the ilium down to the trochanter, so it sits higher and more lateral.
+        deepWedge(gb, side === 'left' ? 0.60 : 0.40, 0.30, 0.30, 0.055, 20 * mirror, 0.22, maxBox));
+      // Gluteus minimus: a FAN — the deepest and smallest of the three, spreading
+      // across the ilium and converging on the trochanter. A gentler taper, since
+      // the muscular part stays broad for most of its length.
       put('back', 'Gluteus Minimus', side,
-        deep(gb, side === 'left' ? 0.34 : 0.66, 0.22, 0.20, 0.10, -40 * mirror));
+        deepWedge(gb, side === 'left' ? 0.34 : 0.66, 0.22, 0.20, 0.10, -40 * mirror, 0.45, maxBox));
     }
   }
   {
@@ -335,8 +481,11 @@ function put(fig: Figure, muscle: string, side: Side, ds: string[]) {
       // Iliopsoas: descends from the lumbar spine across the pelvic brim to the
       // lesser trochanter — a long, near-vertical strap at the groin, NOT the
       // inner-thigh mass its parent box belongs to.
+      // FUSIFORM — "spindle-shaped", explicitly contrasted with the piriformis's
+      // pear (ScienceDirect). A long belly tapering to the tendon that reaches the
+      // lesser trochanter, which is the form an ellipse cannot carry.
       put('front', 'Iliopsoas', side,
-        deep(ab, side === 'left' ? 0.68 : 0.32, 0.12, 0.085, 0.13, 15 * mirror));
+        deepSpindle(ab, side === 'left' ? 0.68 : 0.32, 0.12, 0.085, 0.13, 15 * mirror));
     }
   }
   {
@@ -346,8 +495,15 @@ function put(fig: Figure, muscle: string, side: Side, ds: string[]) {
       // Internal oblique: deep to the external and running the OTHER way — up
       // and medially, where the external runs down and medially. Drawing the two
       // at opposing angles is the whole reason a reader can tell them apart.
+      // A FAN: broad at the iliac crest and inguinal ligament, narrowing as the
+      // fibres sweep up and medially to the linea alba. The taper shows the
+      // direction of travel, and that direction — opposite to the external
+      // oblique's — is the whole reason a reader can tell the two apart.
+      //
+      // Clamped to the external oblique, which is the sheet it lies deep to and
+      // which is this same box, so the limit is explicit rather than incidental.
       put('front', 'Internal Oblique', side,
-        deep(bb, 0.5, 0.58, 0.30, 0.13, -30 * mirror));
+        deepWedge(bb, 0.5, 0.58, 0.30, 0.13, -30 * mirror, 0.5, bb));
     }
   }
   {
@@ -356,8 +512,10 @@ function put(fig: Figure, muscle: string, side: Side, ds: string[]) {
       const nb = unionBox(n);
       // Rectus capitis anterior: a short deep flexor from the atlas to the
       // occiput — small, near-vertical, high and medial on the anterior neck.
+      // A short flat STRAP from the atlas to the occiput — fusiform, because both
+      // ends are attachments and the belly is the middle.
       put('front', 'Rectus Capitis Anterior', side,
-        deep(nb, side === 'left' ? 0.70 : 0.30, 0.26, 0.10, 0.20, 8 * mirror));
+        deepSpindle(nb, side === 'left' ? 0.70 : 0.30, 0.26, 0.10, 0.20, 8 * mirror));
     }
   }
   {

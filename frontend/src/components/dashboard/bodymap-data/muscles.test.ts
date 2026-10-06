@@ -178,15 +178,51 @@ describe('HoloMotion muscle partition', () => {
     // the right, which is the opposite angle on screen. If both sides were built
     // with the same rotation the figure would show one of them lying the wrong
     // way — anatomically wrong, and invisible without measuring it.
+    // MEASURED FROM THE GEOMETRY, via the principal axis.
+    //
+    // This read the rotation straight off the `A` command's parameters, which
+    // worked while every deep muscle was an ellipse. §125 reshaped five of them
+    // into wedges and spindles built from C/Q curves, so the regex matched
+    // nothing and both sides came back NaN. `expect(NaN).toBeCloseTo(-NaN)`
+    // FAILS, which is the only reason it was noticed — written as a truthiness
+    // check it would have gone silently blind on the exact change it polices.
+    //
+    // The first replacement took the two most distant points, and that is the
+    // WRONG ESTIMATOR for a wedge: its furthest-apart pair are the broad-end
+    // corners, i.e. the diagonal, not the axis. It reported 19° of error on
+    // correctly mirrored geometry. The principal axis — the direction of maximum
+    // variance — is right for all three shapes, which is what makes this
+    // shape-agnostic rather than shape-lucky.
+    const axisAngle = (d: string) => {
+      const pts = [...d.matchAll(/(-?[\d.]+)[, ]+(-?[\d.]+)/g)]
+        .map((m) => [Number(m[1]), Number(m[2])] as const)
+        .filter(([x, y]) => Number.isFinite(x) && Number.isFinite(y));
+      const n = pts.length;
+      const mx = pts.reduce((s, p) => s + p[0], 0) / n;
+      const my = pts.reduce((s, p) => s + p[1], 0) / n;
+      let sxx = 0, syy = 0, sxy = 0;
+      for (const [x, y] of pts) {
+        sxx += (x - mx) ** 2; syy += (y - my) ** 2; sxy += (x - mx) * (y - my);
+      }
+      // Principal direction of a 2x2 covariance matrix. Halved because the
+      // double-angle form gives 2θ.
+      let deg = (Math.atan2(2 * sxy, sxx - syy) * 90) / Math.PI;
+      // An axis is a LINE, not a direction, so 170° and -10° are the same thing.
+      while (deg > 90) deg -= 180;
+      while (deg <= -90) deg += 180;
+      return deg;
+    };
     ['Piriformis', 'Gluteus Minimus', 'Internal Oblique'].forEach((slug) => {
-      const l = by(slug).path.left?.[0] ?? '';
-      const r = by(slug).path.right?.[0] ?? '';
-      const rot = (d: string) => {
-        const m = /A [\d.]+ [\d.]+ (-?[\d.]+)/.exec(d);
-        return m ? Number(m[1]) : NaN;
-      };
-      expect(rot(l)).toBeCloseTo(-rot(r), 5);
-      expect(rot(l)).not.toBe(0);
+      const l = axisAngle(by(slug).path.left?.[0] ?? '');
+      const r = axisAngle(by(slug).path.right?.[0] ?? '');
+      expect(Number.isFinite(l) && Number.isFinite(r)).toBe(true);
+      // A tolerance rather than toBeCloseTo(5): the containment clamp can scale
+      // the two sides by different factors, which shifts the measured axis by a
+      // fraction of a degree. Sign OPPOSITION is the property under test; exact
+      // equality never was.
+      expect(Math.abs(l + r)).toBeLessThan(1.5);
+      // And the obliquity is real — a muscle drawn flat would mirror trivially.
+      expect(Math.abs(l)).toBeGreaterThan(1);
     });
   });
 
@@ -271,5 +307,75 @@ describe('upper trapezius placement', () => {
     const t = trap();
     expect(t).toBeDefined();
     expect(Math.min(...ys(sides(t!)))).toBeLessThan(mid);
+  });
+});
+
+// ── the deep muscles are SHAPES now, not lozenges (§125, 2026-10-06) ─────────
+//
+// Position and angle were already derived from each muscle's real course; the
+// FORM was not. Every one was an ellipse, so a pear, a fan and a spindle all drew
+// the same lozenge and were distinguishable only by where they sat.
+//
+// ASSERTED ON THE GEOMETRY, not on which helper was called. A test that grepped
+// the source for `deepWedge` would pass over a wedge builder that emitted a
+// circle — which is the winAnsiSafe shape, and this file's whole subject is
+// shapes that are not what they claim.
+describe('deep muscle form', () => {
+  // Half-width across the shape's own principal axis, sampled in thirds along
+  // it. A taper is "narrower at one end than the other" and an ellipse is
+  // symmetric, so this is the measurement that tells them apart.
+  const spread = (d: string) => {
+    const pts = [...d.matchAll(/(-?[\d.]+)[, ]+(-?[\d.]+)/g)]
+      .map((m) => [Number(m[1]), Number(m[2])] as const);
+    const mx = pts.reduce((s, p) => s + p[0], 0) / pts.length;
+    const my = pts.reduce((s, p) => s + p[1], 0) / pts.length;
+    let sxx = 0; let syy = 0; let sxy = 0;
+    for (const [x, y] of pts) {
+      sxx += (x - mx) ** 2; syy += (y - my) ** 2; sxy += (x - mx) * (y - my);
+    }
+    const th = Math.atan2(2 * sxy, sxx - syy) / 2;
+    const c = Math.cos(th); const s = Math.sin(th);
+    const proj = pts.map(([x, y]) => [
+      (x - mx) * c + (y - my) * s, -(x - mx) * s + (y - my) * c,
+    ] as const);
+    const alongs = proj.map((p) => p[0]);
+    const lo = Math.min(...alongs); const hi = Math.max(...alongs);
+    const band = (a: number, b: number) => {
+      const across = proj
+        .filter((p) => p[0] >= lo + (hi - lo) * a && p[0] <= lo + (hi - lo) * b)
+        .map((p) => Math.abs(p[1]));
+      return across.length ? Math.max(...across) : 0;
+    };
+    return { start: band(0, 0.34), middle: band(0.34, 0.66), end: band(0.66, 1) };
+  };
+
+  it('draws piriformis and gluteus minimus as TAPERS, broad at one end', () => {
+    for (const slug of ['Piriformis', 'Gluteus Minimus']) {
+      (['left', 'right'] as const).forEach((s) => {
+        const w = spread((by(slug).path[s] ?? [])[0] ?? '');
+        const ratio = Math.max(w.start, w.end) / Math.max(1e-6, Math.min(w.start, w.end));
+        // An ellipse reads ~1.0 here, which is exactly what this replaced.
+        expect(ratio).toBeGreaterThan(1.5);
+      });
+    }
+  });
+
+  it('draws iliopsoas as a SPINDLE, fattest in the middle', () => {
+    (['left', 'right'] as const).forEach((s) => {
+      const w = spread((by('Iliopsoas').path[s] ?? [])[0] ?? '');
+      expect(w.middle).toBeGreaterThan(w.start);
+      expect(w.middle).toBeGreaterThan(w.end);
+    });
+  });
+
+  it('emits no elliptical arc for any reshaped muscle', () => {
+    // Reverting one call back to `deep` would silently restore the lozenge, and
+    // the two form tests above would be the only thing to notice. This says it
+    // directly: the oval builder is used by nothing in the deep set.
+    for (const slug of ['Piriformis', 'Gluteus Minimus', 'Iliopsoas', 'Internal Oblique', 'Rectus Capitis Anterior']) {
+      (['left', 'right'] as const).forEach((s) => {
+        expect((by(slug).path[s] ?? [])[0] ?? '').not.toMatch(/\bA\s/);
+      });
+    }
   });
 });

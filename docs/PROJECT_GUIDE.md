@@ -429,7 +429,7 @@ rather than half-wired** — a green tick that quietly skipped them is a worse
 signal than no tick at all. Until this existed, every test and every guard ran
 only when somebody remembered, on a branch where a push **is** a deploy.
 
-Counts as of 2026-10-05: **70 backend suites / 1088 tests**, **28 frontend suites / 482 tests**.
+Counts as of 2026-10-05: **70 backend suites / 1088 tests**, **28 frontend suites / 485 tests**.
 
 The **suite** counts above are guarded (`codebaseHygiene.test.js`); the test
 totals are not, deliberately — measuring them means running jest inside jest,
