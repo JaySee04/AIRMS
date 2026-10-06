@@ -12558,3 +12558,76 @@ would have worked for this one caller and left the next one to rediscover it.
 
 **Measured:** 147 e2e checks (143 before), frontend 28 suites / 485, backend 70 /
 1099, typecheck and lint clean, contrast 0 findings, a11y 0 findings.
+
+## 129. The count and the location become one gesture (2026-10-06)
+
+The squad body map painted PRESENCE: `squadFlags` mapped the top muscles to
+`{ muscle, side: 'B' }`, so a muscle carried by one athlete drew exactly like one
+carried by nine. Reported as outstanding for several commits.
+
+### 129.1 The fix that was proposed, and the cheaper one that was built
+
+**Proposed:** encode prevalence as opacity — a `count / screened` intensity
+channel through `aggregateBySlug` into the rendered path.
+
+**Not built, and the reason is worth keeping.** Tracing it showed the magnitude was
+never *missing from the page*: the coach's hotspot list already reads
+`Iliopsoas tight 9 of 14` and the admin's ranked bars are labelled "athletes
+flagged". It was missing from the FIGURE, sitting inches away in a list. Opacity
+would have added a visual grammar a reader has to learn — and on a figure whose
+caption already says "a muscle is lit if anyone in the squad was flagged for it",
+which is honest — to re-encode a number printed alongside.
+
+**Built instead:** the list and the figure answer each other. `BodyMap` has had
+exactly this machinery since it was written — `FlagItem` lights a muscle when its
+name is hovered, so "the two stay in step without either knowing about the other".
+A squad figure has no side lists, so that mechanism had no external caller. It does
+now: `highlightMuscles?: string[]`.
+
+No new grammar, no new colour, and the count and the location are the same gesture.
+
+### 129.2 Three decisions inside it
+
+**Names, not slug keys.** A caller has muscle names and should not have to know how
+the component partitions the licensed asset. Resolved through the same
+`slugForMuscle` the flags go through, so the Middle → Lateral Deltoid alias works
+here too and cannot drift from what the figure actually painted.
+
+**An external highlight lights BOTH sides.** `muscleHotspots.js` merges sides on
+purpose at group level — "how many athletes have a gluteus medius problem" is one
+athlete per athlete, not one per side — so the figure must not imply a side the
+count does not carry. An e2e check asserts `:L` and `:R` both light.
+
+**The figure's own hover wins.** `figureKeys = activeKeys.length ? activeKeys :
+externalKeys`. A pointer on the figure is the more specific gesture, and merging
+the two would leave a stale external highlight lit under the cursor.
+
+**The row is a `<button>`.** It drives something, so it has to be reachable without
+a pointer — the same contract `FlagItem` already has. The grid moved from the `<li>`
+onto the button, and the accessible name says what pressing it does rather than
+repeating the row's own text.
+
+### 129.3 The check that lied twice before it worked
+
+Both failures are the same shape and worth recording, because either would have
+left a dead link behind a green tick.
+
+1. **A synthetic `MouseEvent('mouseenter')` lights nothing.** React delegates
+   mouseover, so dispatching that event bypasses the handler entirely. The first
+   probe reported `active: 0` against a link that works, and had the check been
+   written as "does nothing break" it would have passed over a feature that did
+   nothing. `page.hover()` is the real gesture; the e2e drives the **keyboard**
+   path instead, which also proves the row is reachable without a pointer.
+2. **`.focus()` returns before React re-renders.** The check focused the row and
+   read `.is-active` inside the *same* `page.evaluate`, so it read a render too
+   early and reported "nothing lit". The standalone probe had passed only because
+   it happened to sleep between the two steps. Focus and read are now separate
+   steps with a settle between them.
+
+A third check asserts **nothing is lit at rest** — without it, a figure that lit
+everything permanently would satisfy the other two.
+
+**Measured:** 150 e2e checks (147 before), frontend 28 suites / 485, backend 70 /
+1099, typecheck and lint clean, contrast 0 findings, a11y 0 findings. Verified by
+pointer and by keyboard: focusing `Iliopsoas tight 9 of 14` lights `Iliopsoas:L`
+and `Iliopsoas:R`.

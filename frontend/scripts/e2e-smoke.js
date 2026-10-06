@@ -505,6 +505,45 @@ async function visit(browser, route, session) {
       check('coach: the squad map says an average is not an athlete',
         /An average is not an athlete/i.test(r.text));
 
+      // THE COUNT AND THE LOCATION ARE ONE GESTURE (§129). The hotspot list said
+      // 'Iliopsoas 9 of 14' and the figure said WHERE, inches apart with nothing
+      // joining them — so the magnitude was on the page and absent from the
+      // picture. BodyMap already answers its own side lists this way; this is the
+      // same mechanism exposed to an external list rather than a new grammar.
+      //
+      // Driven by KEYBOARD FOCUS, not a synthetic mouse event: React delegates
+      // mouseover, so dispatching MouseEvent('mouseenter') lights nothing and
+      // would have made this check pass against a dead link. Focus also proves
+      // the row is reachable without a pointer, which is why it is a <button>.
+      const litBefore = await r.page.evaluate(
+        () => document.querySelectorAll('.bodymap-region-group.is-active').length,
+      );
+      // FOCUS AND READ IN SEPARATE STEPS. The first version did both inside one
+      // evaluate and reported 'nothing lit' against a link that works: .focus()
+      // returns before React has processed the state change, so the read happened
+      // a render too early. The standalone probe passed only because it happened
+      // to sleep between the two.
+      const focused = await r.page.evaluate(() => {
+        const row = document.querySelector('.coach-hotspot-row');
+        if (!row) return false;
+        row.focus();
+        return true;
+      });
+      await new Promise((res) => { setTimeout(res, 400); });
+      const lit = focused ? await r.page.evaluate(
+        () => [...document.querySelectorAll('.bodymap-region-group.is-active')]
+          .map((e) => `${e.dataset.slug}:${e.dataset.side}`),
+      ) : null;
+      check('coach: nothing is lit on the squad figure until asked',
+        litBefore === 0, `${litBefore} lit at rest`);
+      check('coach: focusing a hotspot lights that muscle on the squad figure',
+        Array.isArray(lit) && lit.length >= 2, (lit || []).join(', ') || 'nothing lit');
+      // BOTH sides, because muscleHotspots.js merges them at group level on
+      // purpose — the figure must not imply a side the count does not carry.
+      check('coach: a squad hotspot lights both sides, matching its merged count',
+        Array.isArray(lit) && lit.some((k) => k.endsWith(':L')) && lit.some((k) => k.endsWith(':R')),
+        (lit || []).join(', '));
+
       // AND THE TECHNICAL OPENING IS GONE. Asserted because "simplify" is only
       // half done if the instrument's own numbers are still the first thing a
       // coach meets: Total Score and Exercise Risks are HoloMotion's figures and

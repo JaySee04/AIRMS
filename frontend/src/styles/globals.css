@@ -4461,14 +4461,31 @@ textarea:focus-visible,
 }
 
 .coach-hotspots { list-style: none; margin: 0 0 var(--sp-sm); padding: 0; }
-.coach-hotspots li {
+.coach-hotspots li { border-bottom: 1px solid var(--border); }
+/* The grid moved onto the BUTTON (§129): the row drives the squad figure, so it
+   has to be focusable, and a <button> is the only element that gets that for free
+   in both pointer and keyboard. */
+.coach-hotspot-row {
   display: grid;
   grid-template-columns: minmax(110px, 1.2fr) auto minmax(50px, 2fr) auto;
   align-items: center;
   gap: var(--sp-sm);
-  padding: 5px 0;
-  border-bottom: 1px solid var(--border);
+  width: 100%;
+  padding: 5px 4px;
+  background: none;
+  border: 0;
+  border-radius: var(--r-xs);
+  font: inherit;
+  text-align: left;
+  /* A bare <button> does not inherit colour — the UA sets buttontext (§121). */
+  color: var(--text);
+  cursor: pointer;
 }
+.coach-hotspot-row:hover,
+.coach-hotspot-row.is-active { background: var(--bg); }
+/* The link is a highlight, not a selection: the figure already shows WHICH muscle
+   lit, so a heavy treatment here would compete with it for attention. */
+.coach-hotspot-row.is-active .coach-hotspot-muscle { text-decoration: underline; text-underline-offset: 3px; }
 .coach-hotspots li:last-child { border-bottom: 0; }
 .coach-hotspot-muscle { font-size: var(--fs-md); font-weight: 600; }
 .coach-hotspot-kind {

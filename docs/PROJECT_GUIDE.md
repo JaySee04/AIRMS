@@ -379,7 +379,7 @@ curl http://localhost:5000/api/health
 > **This line used to read "Jest covers the pure logic only. There is no linter
 > for the backend and no route, page or end-to-end test anywhere."** That was
 > true when written and had been false for weeks by 2026-09-13 — it predates
-> `reportRoutes.test.js` (real routers via supertest), `npm run e2e` (147 checks
+> `reportRoutes.test.js` (real routers via supertest), `npm run e2e` (150 checks
 > in real Chrome), the four jsdom component suites, the first mounted `page.tsx`,
 > and `verify-csp.js`. It is quoted rather than deleted because a coverage claim
 > that decays *downward* is the dangerous direction in a viva: it invites a

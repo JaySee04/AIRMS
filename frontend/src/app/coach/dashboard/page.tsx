@@ -450,6 +450,12 @@ export default function CoachDashboard() {
 
   const squadScreened = data?.squad?.screened ?? 0;
 
+  // Which hotspot the coach is pointing at, lit on the squad figure below (SS129).
+  // The count and the location were inches apart with nothing connecting them;
+  // BodyMap already answers its own side lists this way, so this is the same
+  // gesture rather than a new visual grammar.
+  const [hotMuscle, setHotMuscle] = useState<string | null>(null);
+
   const total = classified.length;
   // Denominated over SCREENED athletes, not the whole squad.
   //
@@ -749,6 +755,18 @@ export default function CoachDashboard() {
           <ul className="coach-hotspots">
             {squadHotspots.map((m) => (
               <li key={`${m.kind}-${m.muscle}`}>
+                {/* A BUTTON, so the link works by keyboard as well as by pointer —
+                    the same contract FlagItem has inside the figure. The label
+                    says what pressing it does rather than repeating the row. */}
+                <button
+                  type="button"
+                  className={`coach-hotspot-row${hotMuscle === m.muscle ? ' is-active' : ''}`}
+                  aria-label={`${m.muscle}, ${m.count} of ${squadScreened} athletes. Highlight on the squad diagram.`}
+                  onMouseEnter={() => setHotMuscle(m.muscle)}
+                  onMouseLeave={() => setHotMuscle(null)}
+                  onFocus={() => setHotMuscle(m.muscle)}
+                  onBlur={() => setHotMuscle(null)}
+                >
                 <span className="coach-hotspot-muscle">{m.muscle}</span>
                 <span className={`coach-hotspot-kind coach-hotspot-kind--${m.kind}`}>{m.kind}</span>
                 <span className="coach-hotspot-bar" aria-hidden>
@@ -757,6 +775,7 @@ export default function CoachDashboard() {
                 <span className="coach-hotspot-count">
                   {m.count} of {squadScreened}
                 </span>
+                </button>
               </li>
             ))}
           </ul>
@@ -783,7 +802,12 @@ export default function CoachDashboard() {
               </span>
             </div>
           </div>
-          <BodyMap myodynamia={squadFlags.myodynamia} tension={squadFlags.tension} subitems={squadSubitems} />
+          <BodyMap
+            myodynamia={squadFlags.myodynamia}
+            tension={squadFlags.tension}
+            subitems={squadSubitems}
+            highlightMuscles={hotMuscle ? [hotMuscle] : undefined}
+          />
           <p className="card-sub" style={{ marginBottom: 0 }}>
             A muscle is lit if anyone in the squad was flagged for it, and the
             region scores are the squad average. <strong>An average is not an

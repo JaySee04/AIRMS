@@ -38,6 +38,19 @@ interface BodyMapProps {
   // Set in the history views, where the figure is drawn from a screening chosen
   // by date. Wording only — the geometry and the flags are unaffected.
   historical?: boolean;
+  // Muscles to light from OUTSIDE the figure, by HoloMotion name (SS129).
+  //
+  // The figure already answers its own side lists through FlagItem: hover a
+  // muscle name and that muscle lights. A SQUAD figure has no side lists — the
+  // counts live in a hotspot list on the page beside it — so the count and the
+  // location sat inches apart with no link. This is the same mechanism exposed to
+  // a parent, so an external list gets the behaviour the internal one always had.
+  //
+  // Names, not slug keys: a caller has muscle names and should not have to know
+  // how this component partitions the asset. Resolved through the same
+  // slugForMuscle the flags go through, so an alias (Middle -> Lateral Deltoid)
+  // works here too and cannot drift from what the figure painted.
+  highlightMuscles?: string[];
 }
 
 type FlagState = 'weak' | 'tight' | 'both';
@@ -351,7 +364,7 @@ function renderParts(
 }
 
 export default function BodyMap({
-  myodynamia, tension, subitems, subitemCohort, historical = false,
+  myodynamia, tension, subitems, subitemCohort, historical = false, highlightMuscles,
 }: BodyMapProps) {
   const myo = useMemo(() => buildFlagMap(myodynamia), [myodynamia]);
   const ten = useMemo(() => buildFlagMap(tension), [tension]);
@@ -359,6 +372,19 @@ export default function BodyMap({
   // Right" told you the name but not where it was, and the only way to find out
   // was to hover blindly over the drawing. Now each answers the other.
   const [activeKeys, setActiveKeys] = useState<string[]>([]);
+  // An external highlight lights BOTH sides: a squad hotspot is a count of
+  // athletes with that muscle flagged, and muscleHotspots.js merges the sides on
+  // purpose at group level, so the figure must not imply a side the count does
+  // not carry.
+  const externalKeys = useMemo(() => (highlightMuscles ?? []).flatMap((m) => {
+    const slug = slugForMuscle(m);
+    return slug ? [slug + ':L', slug + ':R'] : [];
+  }), [highlightMuscles]);
+  // The figure follows its OWN hover when there is one and the external list
+  // otherwise. Internal wins deliberately: a pointer on the figure is the more
+  // specific gesture, and merging the two would leave a stale external highlight
+  // lit under the cursor.
+  const figureKeys = activeKeys.length ? activeKeys : externalKeys;
   // One tip, anchored to the element that holds BOTH figures: front and back
   // share a single `interaction` object, so a per-figure host would have to be
   // threaded through every renderParts call for no gain.
@@ -414,7 +440,7 @@ export default function BodyMap({
           markers: MARKER_MUSCLES,
           // Flags mode has at most a handful of findings, so every one of them
           // is worth a tab stop.
-          interaction: { focusable: true, activeKeys, onActive: setActiveKeys, ...tipWiring },
+          interaction: { focusable: true, activeKeys: figureKeys, onActive: setActiveKeys, ...tipWiring },
         }
       : {
           // Region-level geometry: the Physical Fitness Subitem Score IS five
@@ -430,7 +456,7 @@ export default function BodyMap({
           // Deliberately NOT focusable: the 5 regions are painted across ~17
           // slugs, so tabbing the figure would mean 34 stops repeating 5 scores.
           // SubitemTable below is a real table and carries the same data better.
-          interaction: { focusable: false, activeKeys, onActive: setActiveKeys, ...tipWiring },
+          interaction: { focusable: false, activeKeys: figureKeys, onActive: setActiveKeys, ...tipWiring },
         };
 
   return (
