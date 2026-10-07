@@ -121,6 +121,31 @@ Medical nav links are hidden individually when an admin has revoked that capabil
 
 The initials avatar filters out honorifics — e.g. "Dr. Lim Wei Han" displays as "LH" not "DL".
 
+### The **i** button on a card (2026-10-06)
+
+Most cards carry a small **i** beside the title. It explains how that panel is
+built — where the numbers come from, why a chart is drawn the way it is, and what
+the panel refuses to say.
+
+**Three ways to open it**, because one is never enough:
+
+| | |
+|---|---|
+| **Hover** | point at the **i** — fastest on a desktop |
+| **Keyboard** | Tab to it; it opens on focus. **Esc** closes it |
+| **Tap / click** | opens it and *keeps* it open, so you can move away and read |
+
+An outside click closes a pinned one. On a phone or tablet, tapping is the only
+way — which is why it is not hover-only.
+
+**What is NOT behind it.** Anything that changes how a number should be *read*
+stays on the card itself: "a squad average, not any one athlete", "never screened
+is counted apart", "the rules that fired, not a diagnosis", and every statement
+of whether a threshold was measured or assumed. You never have to open an **i**
+to avoid misreading a panel — only to learn how it works. That split is
+deliberate and is enforced by a test; see
+[`DESIGN_DECISIONS §131` and `§134`](DESIGN_DECISIONS.md).
+
 ---
 
 ## 3. Activity Tracking — removed 2026-07-20
