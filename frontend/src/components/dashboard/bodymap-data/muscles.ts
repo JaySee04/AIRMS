@@ -197,6 +197,83 @@ function wedgePath(
 }
 
 /**
+ * A MUSCLE BELLY, not a mathematical form (JC, §138).
+ *
+ * `spindlePath` and `wedgePath` above are symmetric about their own axis: the
+ * spindle's widest point is exactly at the middle, the wedge's sides are mirror
+ * images. Nothing in anatomy is. JC looked at the rendered figure and called the
+ * six deep muscles "shapes plastered on the existing shapes", and that is what a
+ * symmetric primitive looks like next to the licensed atlas's traced outlines —
+ * the eye reads an ellipse or a triangle, not tissue.
+ *
+ * This emits the three things that make a silhouette read as muscle:
+ *
+ *   `swell`   WHERE the belly is widest, as a fraction along the axis. A real
+ *             belly sits off-centre — proximal on the iliopsoas, distal on the
+ *             sartorius — and the asymmetry is most of what the eye uses.
+ *   `tip`     how much half-width survives at the far end. A tendon, not a cut.
+ *   `lean`    how much more convex one side is than the other. A belly bulges
+ *             towards the side it is unopposed on; equal curves read as a leaf.
+ *
+ * Built from the same (cx, cy, rx, ry, rotDeg) the primitives take, so position,
+ * extent and obliquity are unchanged and `fitInside` and every mirror guard keep
+ * working on it untouched. Only the outline between the ends is different.
+ *
+ * Emits absolute M/C/Z: `fitInside`'s positional rescale requires every number
+ * to be one coordinate of an (x, y) pair, which an `A` command would break.
+ */
+function bellyPath(
+  cx: number, cy: number, rx: number, ry: number, rotDeg: number,
+  { swell = 0.5, tip = 0.3, lean = 1.15, mirror = 1 }: {
+    swell?: number; tip?: number; lean?: number; mirror?: 1 | -1;
+  } = {},
+): string {
+  const r = (rotDeg * Math.PI) / 180;
+  const cos = Math.cos(r);
+  const sin = Math.sin(r);
+  // THE ACROSS-AXIS SIGN MIRRORS TOO, and leaving it out is what the mirror
+  // guard caught on the first run of §138 — |l + r| came back 3.99 against a
+  // tolerance of 1.5.
+  //
+  // The symmetric spindle and wedge mirrored for free: flip the rotation and the
+  // shape is its own reflection. This outline is deliberately NOT symmetric
+  // across its axis — that is what `lean` and an off-centre `swell` are for — so
+  // flipping only the rotation mirrors the COURSE and leaves the bulge on the
+  // same side of it. The two sides then differ by more than a reflection, which
+  // is anatomically wrong and invisible without measuring the principal axis.
+  const fs = mirror < 0 ? -1 : 1;
+  // Along-axis / across-axis -> absolute, so the caller only ever thinks about
+  // the muscle's course.
+  const P = (a: number, bRaw: number): [number, number] => {
+    const b = bRaw * fs;
+    return [cx + a * cos - b * sin, cy + a * sin + b * cos];
+  };
+  const n = (v: number) => v.toFixed(2);
+  // `swell` is 0..1 along the axis; convert to the -rx..rx the helper works in.
+  const sx = -rx + 2 * rx * Math.min(0.85, Math.max(0.15, swell));
+  const far = ry * tip;
+
+  const [ax, ay] = P(-rx, 0);            // origin — the narrow proximal end
+  const [bx, by] = P(rx, 0);             // insertion — the tendon
+  // Upper border: rises to the widest point at `sx`, then falls to the tendon.
+  const [u1x, u1y] = P(-rx + (sx + rx) * 0.35, -ry * lean * 0.78);
+  const [u2x, u2y] = P(sx, -ry * lean);
+  const [u3x, u3y] = P(sx + (rx - sx) * 0.45, -ry * lean * 0.72);
+  const [u4x, u4y] = P(rx - (rx - sx) * 0.18, -far);
+  // Lower border, returning — flatter, which is the asymmetry `lean` creates.
+  const [l1x, l1y] = P(rx - (rx - sx) * 0.18, far);
+  const [l2x, l2y] = P(sx + (rx - sx) * 0.45, ry * 0.70);
+  const [l3x, l3y] = P(sx, ry);
+  const [l4x, l4y] = P(-rx + (sx + rx) * 0.35, ry * 0.74);
+
+  return `M ${n(ax)} ${n(ay)} `
+    + `C ${n(u1x)} ${n(u1y)} ${n(u2x)} ${n(u2y)} ${n(u3x)} ${n(u3y)} `
+    + `C ${n(u4x)} ${n(u4y)} ${n(bx)} ${n(by)} ${n(bx)} ${n(by)} `
+    + `C ${n(bx)} ${n(by)} ${n(l1x)} ${n(l1y)} ${n(l2x)} ${n(l2y)} `
+    + `C ${n(l3x)} ${n(l3y)} ${n(l4x)} ${n(l4y)} ${n(ax)} ${n(ay)} Z`;
+}
+
+/**
  * Scale a shape about (cx, cy) until it sits inside `limit`.
  *
  * WHY THIS IS NEEDED AT ALL, and it is the thing the first attempt got wrong.
@@ -267,15 +344,26 @@ function deep(
 // `limit` is the structure the muscle must stay inside, which is the one COVERING
 // it and not necessarily the one it is positioned from. See fitInside.
 
-/** A fusiform belly — pointed at both ends, widest in the middle. */
+/**
+ * A fusiform belly — widest near the middle, tapering to a tendon.
+ *
+ * Drawn by `bellyPath` since §138: the symmetric spindle it replaced put its
+ * widest point exactly at the midpoint, which is the one place a real belly
+ * almost never is. `swell` moves it; the default sits it slightly proximal,
+ * which is where a fusiform muscle's mass actually lies.
+ */
 function deepSpindle(
   parent: Box, fx: number, fy: number, rxFrac: number, ryFrac: number, rotDeg: number,
   limit: Box = parent,
+  form: { swell?: number; tip?: number; lean?: number; mirror?: 1 | -1 } = {},
 ): string[] {
   const w = parent.maxX - parent.minX;
   const h = parent.maxY - parent.minY;
   const { cx, cy } = at(parent, fx, fy);
-  return [fitInside(spindlePath(cx, cy, w * rxFrac, h * ryFrac, rotDeg), limit, cx, cy)];
+  return [fitInside(
+    bellyPath(cx, cy, w * rxFrac, h * ryFrac, rotDeg, { swell: 0.44, tip: 0.26, lean: 1.1, ...form }),
+    limit, cx, cy,
+  )];
 }
 
 /**
@@ -287,24 +375,66 @@ function deepSpindle(
 function deepWedge(
   parent: Box, fx: number, fy: number, rxFrac: number, ryFrac: number, rotDeg: number,
   tipFrac = 0.3, limit: Box = parent,
+  form: { swell?: number; lean?: number; mirror?: 1 | -1 } = {},
 ): string[] {
   const w = parent.maxX - parent.minX;
   const h = parent.maxY - parent.minY;
   const { cx, cy } = at(parent, fx, fy);
-  return [fitInside(wedgePath(cx, cy, w * rxFrac, h * ryFrac, rotDeg, tipFrac), limit, cx, cy)];
+  // `swell` near the origin is what makes this a FAN rather than a triangle:
+  // the fibres are broadest at the attachment and converge from there, so the
+  // widest point belongs close to the broad end, not partway along it (§138).
+  return [fitInside(
+    bellyPath(cx, cy, w * rxFrac, h * ryFrac, rotDeg, {
+      swell: 0.2, tip: tipFrac, lean: 1.18, ...form,
+    }),
+    limit, cx, cy,
+  )];
 }
 
 // A strap muscle drawn as the band it is: a thin quad from origin to insertion.
 // Used for sartorius, which really does run as a single diagonal strap and so
 // reads better as a band than as two disconnected dots.
-function strap(parent: Box, from: [number, number], to: [number, number], w: number): string {
+function strap(
+  parent: Box, from: [number, number], to: [number, number], w: number,
+  { bow = 0, taper = 0.7 }: { bow?: number; taper?: number } = {},
+): string {
   const a = at(parent, from[0], from[1]);
   const b = at(parent, to[0], to[1]);
   const dx = b.cx - a.cx, dy = b.cy - a.cy;
   const len = Math.hypot(dx, dy) || 1;
-  const nx = (-dy / len) * w, ny = (dx / len) * w; // normal, scaled to half-width
-  return `M ${a.cx + nx} ${a.cy + ny} L ${b.cx + nx} ${b.cy + ny} `
-    + `L ${b.cx - nx} ${b.cy - ny} L ${a.cx - nx} ${a.cy - ny} Z`;
+  const ux = dx / len, uy = dy / len;        // along
+  const nx = -uy, ny = ux;                   // across
+  const n = (v: number) => v.toFixed(2);
+
+  // A CURVE, NOT A RULER (JC, §138). This emitted a four-point quad, so the
+  // sartorius — the longest muscle in the body and the one thing on the figure a
+  // reader might actually recognise — was drawn as a perfectly straight bar of
+  // constant width. On screen it read as a ruler laid over the thigh, which is
+  // precisely the "plastered on" complaint.
+  //
+  // The real muscle spirals: it leaves the ASIS heading down and medially, crosses
+  // the front of the thigh, and arrives at the medial knee from behind. `bow`
+  // displaces the midline across the axis to give that sweep; `taper` narrows
+  // both ends, because it begins and ends as tendon.
+  const mid = { cx: (a.cx + b.cx) / 2 + nx * bow * len, cy: (a.cy + b.cy) / 2 + ny * bow * len };
+  const edge = (s: number, half: number) => {
+    // One side of the band, out and back along the bowed centre line.
+    const p0 = { x: a.cx + nx * half * taper * s, y: a.cy + ny * half * taper * s };
+    const pm = { x: mid.cx + nx * half * s, y: mid.cy + ny * half * s };
+    const p1 = { x: b.cx + nx * half * taper * s, y: b.cy + ny * half * taper * s };
+    return { p0, pm, p1 };
+  };
+  const hi = edge(1, w);
+  const lo = edge(-1, w);
+  // Quadratic through the bowed midpoint on each border; the control point is
+  // placed so the curve passes close to it rather than merely leaning that way.
+  const q = (p0: {x:number;y:number}, pm: {x:number;y:number}, p1: {x:number;y:number}) => {
+    const cx2 = 2 * pm.x - (p0.x + p1.x) / 2;
+    const cy2 = 2 * pm.y - (p0.y + p1.y) / 2;
+    return `Q ${n(cx2)} ${n(cy2)} ${n(p1.x)} ${n(p1.y)} `;
+  };
+  return `M ${n(hi.p0.x)} ${n(hi.p0.y)} ${q(hi.p0, hi.pm, hi.p1)}`
+    + `L ${n(lo.p1.x)} ${n(lo.p1.y)} ${q(lo.p1, lo.pm, lo.p0)}Z`;
 }
 
 // ---------------------------------------------------------------------------
@@ -466,12 +596,14 @@ function put(fig: Figure, muscle: string, side: Side, ds: string[]) {
       // tip 0.22: the insertion is a tendon, not a belly. That taper is what
       // distinguishes it on sight from the glutes lying over it.
       put('back', 'Piriformis', side,
-        deepWedge(gb, side === 'left' ? 0.60 : 0.40, 0.30, 0.30, 0.055, 20 * mirror, 0.22, maxBox));
+        deepWedge(gb, side === 'left' ? 0.60 : 0.40, 0.30, 0.30, 0.055, 20 * mirror, 0.22, maxBox,
+          { mirror }));
       // Gluteus minimus: a FAN — the deepest and smallest of the three, spreading
       // across the ilium and converging on the trochanter. A gentler taper, since
       // the muscular part stays broad for most of its length.
       put('back', 'Gluteus Minimus', side,
-        deepWedge(gb, side === 'left' ? 0.34 : 0.66, 0.22, 0.20, 0.10, -40 * mirror, 0.45, maxBox));
+        deepWedge(gb, side === 'left' ? 0.34 : 0.66, 0.22, 0.20, 0.10, -40 * mirror, 0.45, maxBox,
+          { mirror }));
     }
   }
   {
@@ -485,7 +617,9 @@ function put(fig: Figure, muscle: string, side: Side, ds: string[]) {
       // pear (ScienceDirect). A long belly tapering to the tendon that reaches the
       // lesser trochanter, which is the form an ellipse cannot carry.
       put('front', 'Iliopsoas', side,
-        deepSpindle(ab, side === 'left' ? 0.68 : 0.32, 0.12, 0.085, 0.13, 15 * mirror));
+        deepSpindle(ab, side === 'left' ? 0.68 : 0.32, 0.12, 0.10, 0.175, 15 * mirror, ab,
+          // Proximal belly, long distal tendon to the lesser trochanter.
+          { mirror, swell: 0.38, tip: 0.18 }));
     }
   }
   {
@@ -503,7 +637,7 @@ function put(fig: Figure, muscle: string, side: Side, ds: string[]) {
       // Clamped to the external oblique, which is the sheet it lies deep to and
       // which is this same box, so the limit is explicit rather than incidental.
       put('front', 'Internal Oblique', side,
-        deepWedge(bb, 0.5, 0.58, 0.30, 0.13, -30 * mirror, 0.5, bb));
+        deepWedge(bb, 0.5, 0.58, 0.30, 0.13, -30 * mirror, 0.5, bb, { mirror }));
     }
   }
   {
@@ -515,7 +649,9 @@ function put(fig: Figure, muscle: string, side: Side, ds: string[]) {
       // A short flat STRAP from the atlas to the occiput — fusiform, because both
       // ends are attachments and the belly is the middle.
       put('front', 'Rectus Capitis Anterior', side,
-        deepSpindle(nb, side === 'left' ? 0.70 : 0.30, 0.26, 0.10, 0.20, 8 * mirror));
+        deepSpindle(nb, side === 'left' ? 0.70 : 0.30, 0.26, 0.13, 0.26, 8 * mirror, nb,
+          // Short and almost parallel-sided: both ends are attachments.
+          { mirror, swell: 0.5, tip: 0.5, lean: 1.05 }));
     }
   }
   {
@@ -528,7 +664,13 @@ function put(fig: Figure, muscle: string, side: Side, ds: string[]) {
       // separate findings.
       const originFx = side === 'left' ? 0.22 : 0.78;
       const insertFx = side === 'left' ? 0.80 : 0.20;
-      put('front', 'Sartorius', side, [strap(qb, [originFx, 0.08], [insertFx, 0.88], 7)]);
+      put('front', 'Sartorius', side, [strap(
+        qb, [originFx, 0.08], [insertFx, 0.88], 9,
+        // Bowed LATERALLY on each side (so the sweep mirrors), and tapered
+        // because both ends are tendon. Width 9 rather than 7: at 7 it drew as
+        // a hairline on a 2x screenshot.
+        { bow: 0.055 * mirror, taper: 0.55 },
+      )]);
     }
   }
 });

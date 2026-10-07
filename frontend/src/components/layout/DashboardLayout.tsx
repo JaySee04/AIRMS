@@ -198,7 +198,12 @@ export default function DashboardLayout({ children, allowedRoles, title, require
 
   function handleLogout() {
     clearSession();
-    router.push('/');
+    // REPLACE, not push (JC, section 137). `push` leaves the signed-in page in
+    // history, so Back after signing out walks straight back onto it — and the
+    // browser may serve it from the bfcache without re-running the gate, so the
+    // previous account's record is on screen again. `replace` takes the entry
+    // out of history entirely.
+    router.replace('/');
   }
 
   if (!user) return null;

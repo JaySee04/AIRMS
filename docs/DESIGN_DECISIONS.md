@@ -13407,3 +13407,162 @@ Rewritten with `indexOf` and a brace scan, which needs no escaping at all. The
 general lesson is the cheaper one: **when a helper needs a backslash-heavy
 literal, that is usually a sign a non-regex approach is simpler**, not a prompt
 to get the escaping right.
+
+## 137. Six things JC saw on screen (2026-10-07)
+
+All six came from reading the running app rather than the code, which is a
+category of defect every check in this repo is bad at: four of them are
+*judgements about a rendered page* and one is a history bug that no programmatic
+navigation reproduces.
+
+### 137.1 Back went to the sign-in form while signed in — three defects
+
+> "When I press the back button it will jump straight to the login page but when
+> I go forward it is still logged into the previous account."
+
+Three separate faults, and only the first is the one described:
+
+1. **`app/page.tsx` never asked whether anybody was signed in.** It redirected
+   *after* a successful login and at no other time, so Back from a dashboard
+   landed a clinician holding a perfectly good session on a password prompt.
+   That is §111's misreading — "you have been logged out" when nothing of the
+   sort happened — on the one screen §111 did not cover.
+2. **Sign-in used `router.push`.** The sign-in entry therefore stayed in history
+   for the whole session, one Back away from every page.
+3. **Sign-out used `push` too.** Back then walked onto the signed-in page, and
+   the browser may serve it from the bfcache *without re-running the gate* — so
+   the previous account's record is on screen again. This is the half of JC's
+   report that is a real disclosure rather than a confusing screen.
+
+All three are `replace` now. **Driven as a person does it**: a real form submit
+and the browser's own Back button, because the bug lives in history and a
+`page.goto` does not have any.
+
+### 137.2 The band tint, solid
+
+The identity card was a left edge plus a gradient fading to the card colour by
+55%, on the reasoning (§128) that a full fill would put every word on a coloured
+ground. JC: *"No need for a fading effect, just do the whole panel to be the
+represented colour."*
+
+Safe for a measured reason rather than a hopeful one: these are the
+`--risk-*-bg` tints that badges and alert boxes already print body text on, not
+the fill-strength `--risk-*` hues (§121's distinction). And `verify:contrast`
+reads computed colour against the surface actually painted, so a flat tint is
+checked everywhere, where a gradient's midpoint never properly was.
+
+### 137.3 "Use the space more properly"
+
+The three action buttons sat *beside* the name and took roughly half the card, so
+"Adam Karim" wrapped to two lines and `IC · sport · programme · age · sex` to
+four — in a card with empty space below it. They are a footer row now and both
+lines fit.
+
+**Stretching the card to the radar's height was tried and reverted.** Matching
+the taller column produced ~230px of empty *tinted* card, and a wash that large
+stops reading as "this athlete's band" and starts reading as a panel that failed
+to load. Short and dense beat tall and empty.
+
+### 137.4 The radar, smaller
+
+A `height` prop; the hero passes 250 against the 320 default. A prop rather than
+a class because Chart.js sizes to its container and needs the number at render.
+
+### 137.5 The reference region is green — asked twice
+
+§127 made it neutral grey and the reasoning is **kept in the code rather than
+deleted**: the Watch band sits INSIDE this boundary, so a green field says "in
+here is fine" about athletes who are on watch. That is the §33 shape.
+
+JC's case, made twice, is that the chart is read by athletes and coaches as well
+as clinicians, and a grey field reads as chrome rather than as the target it is
+meant to be. A guide nobody recognises as a guide is not doing its job either.
+Their call, and it is recorded as theirs.
+
+**What carries the honesty now that the colour does not:**
+- the breach list beside the chart names every spoke that is over, with its
+  reading, its cutoff and the gap;
+- the legend says *"within the Elevated cutoff"* — never "safe", "clear" or
+  "normal";
+- §33's band wording on the hero is untouched, and the pinned caveat *"a breach
+  is a reason to examine, not a diagnosis"* still sits on the card.
+
+### 137.6 The clinical assessment, marked by weight
+
+It was an ordinary card at the foot of a long record — the same weight as the
+twelve panels of evidence above it, when it is the only control on the page that
+**changes** anything, is attributed to a named clinician and is audited.
+
+A gold rule and a lifted surface. **Not colour**: a band hue here would collide
+with the verdict the control is about to set (§135's three systems), and an alert
+tint would read as a warning about the *athlete* rather than emphasis on the
+*step*.
+
+A `SectionHeading` was tried first and removed — it printed "Clinical assessment"
+directly above a card titled "Clinical assessment", which is noise, not emphasis.
+
+## 138. The deep muscles were primitives, and primitives look like primitives (2026-10-07)
+
+> "For the muscles I shown in the screenshot, I want a whole redraw, not just
+> shapes plastered on the existing shapes."
+
+Sixteen of the 22 muscles are real sub-paths of the licensed atlas and were never
+the problem. The other six — piriformis, gluteus minimus, iliopsoas, internal
+oblique, rectus capitis anterior, sartorius — are invisible from the surface and
+had to be synthesised. §125 gave them a spindle and a wedge, which was a real
+improvement on the lozenge before it and still **symmetric**: the spindle widest
+exactly at its midpoint, the wedge's two sides mirror images.
+
+Nothing in anatomy is symmetric, and that is what "plastered on" looks like next
+to traced outlines. The eye reads an ellipse; it does not read tissue.
+
+### 138.1 What replaced them
+
+`bellyPath` emits the three things that make a silhouette read as muscle:
+
+| | |
+|---|---|
+| `swell` | WHERE the belly is widest, as a fraction along the axis — off-centre, which is where real mass sits |
+| `tip` | how much half-width survives at the far end: a tendon, not a cut |
+| `lean` | how much more convex one border is than the other |
+
+It takes the same `(cx, cy, rx, ry, rotDeg)` the primitives took, so position,
+extent and obliquity are unchanged and `fitInside` and every containment guard
+keep working untouched. Only the outline between the ends is different.
+
+**Sartorius was the worst and is the clearest fix.** It used `strap()`, which
+emitted a four-point quad — so the longest muscle in the body, and the one a
+reader might actually recognise, was a perfectly straight bar of constant width
+laid over the thigh. It bows and tapers at both ends now; the real muscle spirals
+from the ASIS to the medial knee and arrives from behind.
+
+### 138.2 The asymmetry is exactly what stops it mirroring for free
+
+The first run turned the mirror guard red: `|left + right|` came back **3.99**
+against a tolerance of 1.5.
+
+The symmetric spindle and wedge mirrored for nothing — flip the rotation and the
+shape is its own reflection. This outline is *deliberately* not symmetric across
+its axis, so flipping only the rotation mirrors the COURSE and leaves the bulge
+on the same side of it. The two sides then differ by more than a reflection,
+which is anatomically wrong and invisible without measuring the principal axis.
+
+The across-axis sign mirrors too now. Worth keeping because it generalises: **the
+moment a generated shape stops being symmetric, every mirrored call site needs
+the asymmetry mirrored as well** — and the only reason this was caught is that
+§125 had already replaced a rotation-reading mirror check with a principal-axis
+one after it went silently blind on exactly this kind of change.
+
+### 138.3 Stated, not glossed
+
+**The atlas was not replaced.** The asset source and its MIT attribution are a
+locked decision (MASTER_CLARIFICATIONS §12), so this reshapes the six synthesised
+muscles; it does not redraw the figure into HoloMotion's own anatomical plate.
+
+**Iliopsoas and rectus capitis anterior are still slight.** Both were widened,
+and both are genuinely small deep muscles bounded by the "minority of parent,
+never a blob" guard. They read better than the slivers they were; they are not
+prominent, and that is a limit rather than a finish.
+
+All 18 muscle-partition guards pass, including containment, the mirror check, the
+taper and spindle form tests, and "no elliptical arc for any reshaped muscle".

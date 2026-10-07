@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, FormEvent } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '@/lib/api';
-import { saveSession, landingPathFor, Role } from '@/lib/auth';
+import { getSession, saveSession, landingPathFor, Role } from '@/lib/auth';
 import LoginBrand from '@/components/auth/LoginBrand';
 
 export default function LoginPage() {
@@ -15,6 +15,20 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // ALREADY SIGNED IN? GO TO YOUR OWN PAGE (JC, section 137).
+  //
+  // This page never asked, so pressing Back from a dashboard landed a signed-in
+  // clinician on a password prompt — which reads as "you have been logged out"
+  // while the session is perfectly good. It is the same misreading section 111
+  // fixed for a REFUSED page, on the one screen that was missed.
+  //
+  // `replace`, so the sign-in entry does not stay in history for Back to find
+  // again, and the loop that would make.
+  useEffect(() => {
+    const session = getSession();
+    if (session) router.replace(landingPathFor(session.user.role));
+  }, [router]);
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError('');
@@ -22,7 +36,9 @@ export default function LoginPage() {
     try {
       const data = await api.post<{ token: string; user: { role: Role } }>('/auth/login', { email, password });
       saveSession((data as any).token, (data as any).user);
-      router.push(landingPathFor((data as any).user.role));
+      // REPLACE, not push: with `push` the sign-in form stays one Back away
+      // from every page of the session, which is exactly what JC reported.
+      router.replace(landingPathFor((data as any).user.role));
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Login failed');
     } finally {

@@ -4932,26 +4932,31 @@ textarea:focus-visible,
   .medical-hero-row { grid-template-columns: 1fr; }
 }
 
-/* THE BAND TINTS THE IDENTITY CARD — as a left edge plus a wash, never as the
-   whole background. A saturated full-card fill would put every word in the card
-   on a coloured ground, which is the §121 problem multiplied: the name, the IC,
-   the event chips and two buttons would each need their own ink. The edge carries
-   the signal, the wash carries the mood, and the text keeps its own tokens. */
+/* THE BAND TINTS THE WHOLE IDENTITY CARD (JC, §137).
+   It was a left edge plus a gradient fading to the card colour by 55%, on the
+   reasoning that a full fill would put every word on a coloured ground. JC read
+   it on screen and called the fade unnecessary: the tint is a SOLID WASH now,
+   edge to edge.
+   Which is safe for one measured reason — these are the --risk-*-bg tokens, the
+   same tints the badges and alert boxes already print body text on, not the
+   fill-strength --risk-* hues. `verify:contrast` reads computed colour against
+   the actual painted surface, so the whole card in both themes is checked where
+   the gradient's midpoint never properly was. */
 .medical-id-card {
   border-left: 4px solid var(--border);
   transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease);
 }
 .medical-hero-row--green .medical-id-card {
   border-left-color: var(--risk-low);
-  background: linear-gradient(to right, var(--risk-low-bg), var(--bg-card) 55%);
+  background: var(--risk-low-bg);
 }
 .medical-hero-row--amber .medical-id-card {
   border-left-color: var(--risk-moderate);
-  background: linear-gradient(to right, var(--risk-moderate-bg), var(--bg-card) 55%);
+  background: var(--risk-moderate-bg);
 }
 .medical-hero-row--red .medical-id-card {
   border-left-color: var(--risk-high);
-  background: linear-gradient(to right, var(--risk-high-bg), var(--bg-card) 55%);
+  background: var(--risk-high-bg);
 }
 /* An athlete with no band is NOT tinted. Never-screened and
    too-small-a-cohort-to-score are absences of information, and giving either a
@@ -4988,3 +4993,48 @@ textarea:focus-visible,
 }
 /* A table or a matrix needs more before a second column earns its place. */
 .card-row--wide { grid-template-columns: repeat(auto-fit, minmax(min(460px, 100%), 1fr)); }
+
+/* ── The clinical assessment, as the thing the page is FOR (§137) ────────────
+   JC: "make the final clinical assessment part seem more important."
+
+   It was an ordinary card at the bottom of a long record — the same weight as
+   the twelve panels of evidence above it, when it is the only control on the
+   page that CHANGES anything. Everything above is reading; this is the act, it
+   is attributed to a named clinician, and it is audited.
+
+   Marked by WEIGHT, not by colour. A band hue here would collide with the
+   verdict the control is about to set (§135's three systems), and an alert tint
+   would read as a warning about the ATHLETE rather than emphasis on the step.
+   So: the brand gold rule the sidebar's active link already uses, a lifted
+   surface, and real separation from the evidence above. */
+.decision-zone {
+  margin-top: var(--sp-xl);
+  padding-top: var(--sp-lg);
+  border-top: 3px solid var(--brand-gold);
+}
+.decision-zone .card { box-shadow: var(--shadow-md); }
+/* The eyebrow sits ON the rule, so the heading and the boundary read as one
+   mark rather than two competing ones. */
+.decision-zone .section-head { margin-top: 0; }
+
+/* The identity card's action row (JC, §137). A FOOTER, not a column beside the
+   name: alongside it the three buttons took roughly half the card and pushed
+   the athlete's name onto two lines and their IC/sport/programme onto four, in
+   a card that had empty space underneath. Across the bottom they fit one line
+   and the identity block gets the width back. */
+.medical-id-actions {
+  display: flex;
+  gap: var(--sp-sm);
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: var(--sp-md);
+  padding-top: var(--sp-md);
+  /* Hairline rather than a full border: it separates the actions from the
+     identity without drawing a second card edge inside the card. */
+  border-top: 1px solid var(--border-subtle);
+}
+/* THE IDENTITY CARD HUGS ITS CONTENT — tried stretched first and it was worse
+   (§137). Matching the radar column's height gave a 230px block of empty TINTED
+   card: a wash that large stops reading as "this athlete's band" and starts
+   reading as a panel that failed to load. Short and dense beats tall and empty,
+   and the row keeps `align-items: start` from §128. */

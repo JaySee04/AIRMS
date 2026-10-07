@@ -278,10 +278,17 @@ export default function DecisionPanel({
         )}
       />
 
-      {/* The one claim this panel is careful never to make — in five words (§134). */}
-      <p className="card-sub" style={{ marginTop: 0 }}>
-        Rules that fired, not a diagnosis — this does not predict injury.
-      </p>
+      {/* THE LINE THAT USED TO BE HERE IS IN THE TIP ABOVE (JC, §136).
+          "Rules that fired, not a diagnosis — this does not predict injury."
+          It is commentary on how the panel is BUILT, not a different reading of
+          a number on it: the card says "See next: 9 athletes", and nobody reads
+          a worklist heading as a diagnosis. §134's test — would a reader draw a
+          WRONG conclusion without this sentence? — is answered no here, which is
+          what makes it method.
+          THE CLAIM HAS NOT BEEN DROPPED, and the guard changed shape rather than
+          being deleted: it now asserts the sentence exists on the PAGE, tip
+          included, so this can be MOVED but never removed. See CLAIMS_ANYWHERE
+          in InfoTip.test.tsx and e2e section 3. */}
 
       {shown.length > 0 && (
         <ul className="decision-list">

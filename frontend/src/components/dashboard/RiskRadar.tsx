@@ -74,10 +74,19 @@ interface RiskRadarProps {
    * pasted into a case note.
    */
   onReadout?: (rows: RadarReadout[]) => void;
+  /**
+   * Drawn height in px. 320 suits a full-width card; the medical hero passes a
+   * smaller one, where the chart shares a row with the identity card and 320
+   * pushed the row taller than either side needed (JC, §137).
+   *
+   * A prop rather than a CSS class because Chart.js sizes to its container and
+   * has to be given the number at render.
+   */
+  height?: number;
 }
 
 export default function RiskRadar({
-  labels, values, thresholds, onReadout,
+  labels, values, thresholds, onReadout, height = 320,
 }: RiskRadarProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const chartRef = useRef<Chart | null>(null);
@@ -113,11 +122,33 @@ export default function RiskRadar({
                 {
                   label: 'Within the Elevated cutoff',
                   data: thresholds,
-                  // Neutral, deliberately — see the header. A tinted grey field
-                  // reads as "the area being compared against" and claims nothing
-                  // about health.
-                  backgroundColor: isDark ? 'rgba(148,163,184,0.20)' : 'rgba(100,116,139,0.14)',
-                  borderColor: pal.tick,
+                  // GREEN, ON JC'S INSTRUCTION — asked twice (§137).
+                  //
+                  // It was neutral grey, and the reasoning stays on record rather
+                  // than being quietly deleted: the Watch band sits INSIDE this
+                  // boundary, so a green field says "in here is fine" about
+                  // athletes who are on watch. That is the §33 shape.
+                  //
+                  // JC's case is that the chart is read by athletes and coaches,
+                  // not only clinicians, and a grey field reads as chrome rather
+                  // than as the target it is meant to be. A guide nobody
+                  // recognises as a guide is not doing its job either.
+                  //
+                  // WHAT KEEPS IT HONEST, now that the colour no longer does:
+                  //   * the breach list beside the chart names every spoke that is
+                  //     over, WITH its reading, its cutoff and the gap;
+                  //   * the legend says "within the Elevated cutoff" — never
+                  //     "safe", "clear" or "normal";
+                  //   * the §33 band wording on the hero is untouched, and the
+                  //     pinned caveat "a breach is a reason to examine, not a
+                  //     diagnosis" still sits on the card.
+                  // The field is a reference region; nothing on the page calls it
+                  // a verdict.
+                  //
+                  // Low alpha deliberately: the athlete's gold line has to stay
+                  // the figure and this the ground.
+                  backgroundColor: isDark ? 'rgba(92,196,122,0.22)' : 'rgba(61,124,71,0.16)',
+                  borderColor: isDark ? 'rgba(92,196,122,0.85)' : 'rgba(61,124,71,0.75)',
                   borderDash: [4, 3],
                   borderWidth: 1,
                   pointRadius: 0,
@@ -241,7 +272,7 @@ export default function RiskRadar({
   }, [labels, values, thresholds, onReadout]);
 
   return (
-    <div style={{ position: 'relative', height: 320 }}>
+    <div style={{ position: 'relative', height }}>
       <canvas ref={canvasRef} />
     </div>
   );

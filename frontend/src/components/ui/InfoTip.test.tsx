@@ -119,15 +119,42 @@ const SRC = path.join(__dirname, '..', '..');
  * them saying "CAVEAT, so it stays on the card" — if one of those ever quoted
  * the phrase itself, this guard would pass against a page that had moved it.
  */
-function visibleSource(rel: string): string {
-  const raw = fs.readFileSync(path.join(SRC, rel), 'utf8').replace(/\r\n/g, '\n');
-  const noComments = raw
-    .replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, ' ')
+/**
+ * A file's source with every comment removed — tips LEFT IN.
+ *
+ * Shared by both describes below, so "what counts as a comment" has one
+ * definition. `\r\n` is normalised first: `.` does not match `\r`, so a line
+ * comment on a CRLF file would otherwise survive the strip (the same trap
+ * `serverlessLifecycle.test.js` documents).
+ */
+function codeOf(rel: string): string {
+  return fs.readFileSync(path.join(SRC, rel), 'utf8')
+    .replace(/\r\n/g, '\n')
+    // ONE BLOCK-COMMENT RULE, not two. There used to be a `{\s*\/\*…\*\/\s*\}`
+    // pass first, to take the braces of a JSX `{/* … */}` with the comment —
+    // and it SWALLOWED CODE. A props type that opens `}: {` and whose first
+    // member carries a JSDoc gives the pattern its `{`, then `[\s\S]*?` runs
+    // past that comment's own `*/` (not followed by `}`) to the next `*/}`
+    // ANYWHERE in the file, deleting everything between. Measured on
+    // DecisionPanel.tsx: ~150 lines vanished including the InfoTip being
+    // asserted on, and the claim test failed against text plainly in the file.
+    // Stripping `/* … */` alone handles both forms; the stray `{` and `}` left
+    // behind cannot affect a prose match.
     .replace(/\/\*[\s\S]*?\*\//g, ' ')
-    .replace(/^\s*\/\/.*$/gm, ' ');
+    .replace(/^\s*\/\/.*$/gm, ' ')
+    // WHITESPACE COLLAPSED LAST, and it is load-bearing. JSX prose wraps across
+    // source lines wherever the editor put the break, so "does not mean a lower
+    // chance of injury" is four words, a newline and two more in the file. Both
+    // new claim assertions failed on exactly that before this line existed —
+    // against text that was plainly on the page. Comments must go FIRST, or a
+    // collapsed `//` line would swallow the code after it.
+    .replace(/\s+/g, ' ');
+}
+
+function visibleSource(rel: string): string {
   // Non-greedy per block, so two tips on one page do not swallow the card
   // between them.
-  return noComments.replace(/<InfoTip[\s\S]*?<\/InfoTip>/g, ' ');
+  return codeOf(rel).replace(/<InfoTip[\s\S]*?<\/InfoTip>/g, ' ');
 }
 
 /**
@@ -168,6 +195,38 @@ const CAVEATS: Array<[string, string, string]> = [
   ['components/charts/Charts.tsx', 'better or worse',
     'an oriented bar read as having the sign backwards'],
 ];
+
+/**
+ * Claims that must exist SOMEWHERE on the page — card or tip, either is fine.
+ *
+ * A weaker assertion than CAVEATS above, and deliberately so (§136). JC moved
+ * "Rules that fired, not a diagnosis — this does not predict injury" off the
+ * worklist card, and the §134 test agrees with that: it is commentary on how the
+ * panel is BUILT, and nobody reads a heading of "See next: 9 athletes" as a
+ * diagnosis. So the placement is an editorial call.
+ *
+ * What is NOT an editorial call is whether the system still says it. Deleting
+ * the guard with the line would have left nothing stopping the claim
+ * disappearing in the next tidy-up, so it changed SHAPE instead: present in the
+ * source, in a tip or on the card, and a future move needs no edit here while a
+ * deletion turns this red.
+ */
+const CLAIMS_ANYWHERE: Array<[string, string, string]> = [
+  ['components/dashboard/DecisionPanel.tsx', 'does not predict injury',
+    'the one claim the worklist exists never to make'],
+  ['components/dashboard/CompareAthletes.tsx', 'does not mean a lower chance of injury',
+    'a better score read as a safer selection'],
+];
+
+describe('a claim may be relocated but not removed', () => {
+  it.each(CLAIMS_ANYWHERE)('%s still says "%s"', (file, phrase) => {
+    // TIPS KEPT, comments stripped — the point here is existence, not placement,
+    // but a claim surviving only in a COMMENT is a claim the page no longer
+    // makes (§118). `codeOf` is the shared stripper `visibleSource` is built on,
+    // so the two cannot disagree about what counts as a comment.
+    expect(codeOf(file)).toContain(phrase);
+  });
+});
 
 describe('the three-way split — caveats never move into a tip', () => {
   it.each(CAVEATS)('%s keeps "%s" on the card', (file, phrase) => {

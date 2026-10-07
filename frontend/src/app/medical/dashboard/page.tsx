@@ -955,10 +955,17 @@ export default function MedicalDashboard() {
                       )}
                     </div>
                   </div>
-                  {/* flexShrink:0 alongside flexWrap is self-contradictory — it may wrap but
-                      refuses to shrink, so the row held its content width and pushed
-                      past the card on a phone. */}
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end', minWidth: 0 }}>
+                </div>
+                {/* THE ACTIONS MOVED OUT OF THE IDENTITY ROW (JC, §137).
+                      Beside the name they took roughly half the card's width, so
+                      "Adam Karim" wrapped to two lines and the IC/sport/programme
+                      line to four — in a card with empty space below it. They are
+                      a footer row now: full width, one line, and the identity
+                      block gets the width it needed all along.
+                      `.medical-id-actions` is in globals.css; the self-
+                      contradictory flexShrink:0-with-flexWrap that used to be
+                      here is gone with the inline style. */}
+                  <div className="medical-id-actions">
                     {/* BACK TO THE QUEUE (§107, JC). The worklist is the page a
                         clinician works FROM: they open an athlete, decide, and
                         come back for the next one. Without this the only way
@@ -995,7 +1002,6 @@ export default function MedicalDashboard() {
                         {pdfBusy === 'team' ? 'Preparing…' : 'Team PDF'}
                       </button>
                     )}
-                  </div>
                 </div>
                 {pdfError && <div className="alert alert-error" style={{ marginTop: 12, marginBottom: 0 }}>{pdfError}</div>}
               </div>
@@ -1046,11 +1052,17 @@ export default function MedicalDashboard() {
                 />
                 <div style={{ display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap' }}>
                   <div style={{ flex: '1 1 420px', minWidth: 300, maxWidth: 520 }}>
+                    {/* 250, not the 320 default (JC, §137). This chart shares a
+                        row with the identity card and the breach list; at 320 it
+                        set the height of the whole hero and left white space
+                        beside both. Still well above the point where the eight
+                        spoke labels stop being readable — checked on screen. */}
                     <RiskRadar
                       labels={RADAR_LABELS}
                       values={riskRadarSeries(view.risks)}
                       thresholds={highThresholdsFor(selectedAthlete.sport)}
                       onReadout={setRadarRows}
+                      height={250}
                     />
                   </div>
                   <div style={{ flex: '1 1 260px', minWidth: 240 }}>
@@ -1213,7 +1225,14 @@ export default function MedicalDashboard() {
                   between bands. */}
               {/* Clinical override acts on the LATEST screening only — hidden
                   while viewing a past screening (you can't re-band history). */}
+              {/* NO EYEBROW ON THE DECISION ZONE, and that was tried first
+                  (§137). A SectionHeading reading "Clinical assessment" sat
+                  directly above a card titled "Clinical assessment" — the same
+                  words twice, which is noise rather than emphasis. The gold rule
+                  and the lifted surface carry it; the card's own title is the
+                  heading. */}
               {!picked && selectedAthlete.screening?.screeningId && (
+                <div className="decision-zone">
                 <ClinicianBandOverride
                   screeningId={selectedAthlete.screening.screeningId}
                   systemBand={selectedAthlete.screening.overallBand}
@@ -1224,6 +1243,7 @@ export default function MedicalDashboard() {
                   overrideAt={selectedAthlete.screening.overrideAt}
                   onSaved={reloadSelectedAthlete}
                 />
+                </div>
               )}
             </>
           ) : null}

@@ -289,9 +289,25 @@ async function visit(browser, route, session) {
       const r = await visit(browser, route, sessions[role]);
       check(`${role}: the worklist panel is on the page`,
         /See next:|Review before selecting:|Nothing waiting on you/.test(r.text));
-      // The claim it must never make.
+      // THE CLAIM IT MUST NEVER MAKE — now in the panel's INFO TIP rather than on
+      // the card (JC, section 136), so this opens it. The move was an editorial
+      // call and a fair one: "See next: 9 athletes" is not read as a diagnosis,
+      // so the sentence is method rather than a caveat under section 134's test.
+      // What is NOT editorial is whether the system still says it, so the check
+      // changed shape instead of being deleted — it now proves the claim is
+      // REACHABLE, which a deletion would still fail.
+      const predictOpened = await r.page.evaluate(() => {
+        const b = [...document.querySelectorAll('.infotip-btn')]
+          .find((x) => /what this ordering means/i.test(x.getAttribute('aria-label') || ''));
+        if (!b) return false;
+        b.click();
+        return true;
+      });
+      await new Promise((res) => { setTimeout(res, 300); });
+      const predictText = await r.page.evaluate(() => document.body.innerText);
       check(`${role}: says plainly it does not predict injury`,
-        /does not predict injury/i.test(r.text));
+        predictOpened && /does not predict injury/i.test(predictText),
+        predictOpened ? '' : 'no info tip on the worklist panel');
       // An entry without a reason is an instruction a clinician cannot check.
       check(`${role}: every entry carries a reason`,
         /below cohort average|never screened|overdue|override in force|flagged by the cohort/i.test(r.text));
