@@ -767,8 +767,7 @@ export default function MedicalDashboard() {
                 <div className="card">
                   <h3 className="quick-heading">Your watchlist</h3>
                   <p className="text-muted quick-sub">
-                    Athletes you are keeping an eye on. Private to your account, and
-                    not part of anyone&rsquo;s record.
+                    Private to your account — not part of anyone&rsquo;s record.
                   </p>
                   <ul className="quick-list">
                     {watchRows.map((a) => (
@@ -795,9 +794,8 @@ export default function MedicalDashboard() {
                 <div className="card">
                   <h3 className="quick-heading">Who the cohort verdict flags</h3>
                   <p className="text-muted quick-sub">
-                    Each athlete&rsquo;s band against their own comparison group, clinician
-                    overrides applied — the same verdict their dashboard and printed report
-                    show. Never-screened athletes are counted apart, above.
+                    Against their own comparison group, overrides applied.
+                    Never-screened counted apart, above.
                   </p>
                   <div className="band-summary">
                     {(['red', 'amber', 'green'] as const).map((b) => (
@@ -846,8 +844,8 @@ export default function MedicalDashboard() {
                 <div className="card">
                   <h3 className="quick-heading">Highest exercise risk</h3>
                   <p className="text-muted quick-sub">
-                    HoloMotion&rsquo;s own printed Exercise Risks score, highest first — the
-                    instrument&rsquo;s reading, not the cohort verdict. Open an athlete for that.
+                    HoloMotion&rsquo;s printed score, highest first —
+                    <strong> the instrument&rsquo;s reading, not the cohort verdict</strong>.
                   </p>
                   <ul className="quick-list">
                     {roster.topRisk.map((a) => {

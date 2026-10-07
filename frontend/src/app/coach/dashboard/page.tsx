@@ -626,16 +626,30 @@ export default function CoachDashboard() {
           the worklist's reason list is written for a clinician. */}
       {!loading && total > 0 && (
         <div className="card coach-avail">
-          <div className="card-header">
-            <div>
-              <h2 className="card-title" style={{ marginBottom: 0 }}>Who to hold back, and who can work</h2>
-              <span className="card-sub">
+          <CardHead
+            title="Who to hold back, and who can work"
+            sub={(
+              <>
                 {data?.sport ? `${data.sport} · ` : ''}
                 {squadScreened} of {total} screened
                 {counts.unscored > 0 && ` · ${counts.unscored} never screened`}
-              </span>
-            </div>
-          </div>
+              </>
+            )}
+            info={(
+              <InfoTip label="What this is based on">
+                <p>
+                  Each athlete&rsquo;s <strong>last HoloMotion screening</strong>, plus any
+                  injury a clinician has declared.
+                </p>
+                <p>
+                  A screening cannot rule injury out. &ldquo;Nothing flagged&rdquo; means no
+                  indicator was raised — it is not a clean bill of health, and never-screened
+                  athletes are counted apart because they need a first assessment rather than
+                  a review.
+                </p>
+              </InfoTip>
+            )}
+          />
 
           <div className="coach-avail-groups">
             {/* HOLD — the clinician's injury declaration and the worst band
@@ -735,12 +749,14 @@ export default function CoachDashboard() {
             </div>
           </div>
 
+          {/* ONE LINE, NOT FOUR SENTENCES (§134). The property §33 needs is that
+              the screen never reads as a clearance; it does not need a paragraph
+              to say so. The reasoning moved to the header tip — what stayed is
+              the part a coach must not miss, and a short line is read where a
+              long one is skipped. */}
           <p className="coach-avail-caveat">
-            <strong>This is not a fitness-to-play decision.</strong> It reports what the
-            last HoloMotion screening flagged, and whether a clinician has declared the
-            athlete injured. A screening cannot rule injury out, so &ldquo;nothing
-            flagged&rdquo; means no indicator was raised &mdash; not that an athlete is
-            cleared. Clearance comes from the medical team.
+            <strong>Not a fitness-to-play decision</strong> — a screening cannot rule
+            injury out. Clearance comes from the medical team.
           </p>
         </div>
       )}
@@ -835,8 +851,7 @@ export default function CoachDashboard() {
           {/* CAVEAT, so it stays on the card (§131.2): without it the figure is
               read as a description of an athlete, which it is not. */}
           <p className="card-sub" style={{ marginBottom: 0 }}>
-            <strong>An average is not an athlete</strong> &mdash; use this to decide where to
-            look, then open the individual.
+            <strong>A squad average, not any one athlete.</strong>
           </p>
         </div>
       )}
@@ -923,9 +938,8 @@ export default function CoachDashboard() {
                 <div className="text-muted" style={{ fontSize: 'var(--fs-xs)', marginTop: 6 }}>
                   {counts.unscored > 0 ? (
                     <>
-                      Of {coverage.scored} screened athlete{coverage.scored === 1 ? '' : 's'}.{' '}
-                      <strong>{counts.unscored}</strong> more {counts.unscored === 1 ? 'has' : 'have'} never been
-                      screened and {counts.unscored === 1 ? 'is' : 'are'} not counted above — {counts.unscored === 1 ? 'that athlete needs' : 'they need'} a first assessment, not a review.
+                      Of {coverage.scored} screened.{' '}
+                      <strong>{counts.unscored} never screened</strong>, not counted above.
                     </>
                   ) : (
                     <>All {coverage.scored} athlete{coverage.scored === 1 ? '' : 's'} in this squad have a screening on record.</>
@@ -1232,14 +1246,12 @@ export default function CoachDashboard() {
               measured or assumed, and a reader who never opens the tip must
               still see which one this is; hiding it would be §33's failure
               wearing a tooltip. The second line is where the decision lives. */}
+          {/* The two caveats, on ONE line. Both still say what they have to:
+              whether the dead band was earned, and where the decision lives. */}
           <p className="text-muted" style={{ fontSize: 'var(--fs-sm)', marginTop: 8, marginBottom: 0 }}>
-            Trend treats a move of ±{deadBand} or less as steady —{' '}
-            {data?.deadBandDerived
-              ? 'measured from repeat screenings.'
-              : 'an assumed threshold; there are too few repeat screenings to measure one.'}
-          </p>
-          <p className="text-muted" style={{ fontSize: 'var(--fs-sm)', marginTop: 4, marginBottom: 0 }}>
-            Readiness is informational. Clinical decisions and overrides remain with medical staff.
+            Steady = within ±{deadBand} ({data?.deadBandDerived ? 'measured' : 'assumed'})
+            {' · '}
+            Readiness is informational; clinical decisions stay with medical staff.
           </p>
         </div>
       )}

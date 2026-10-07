@@ -519,8 +519,11 @@ async function visit(browser, route, session) {
         squad.figs >= 2, `${squad.figs} figure(s)`);
       check('coach: the squad muscle map draws geometry',
         squad.regions > 50, `${squad.regions} region(s)`);
-      check('coach: the squad map says an average is not an athlete',
-        /An average is not an athlete/i.test(r.text));
+      // REWORDED 2026-10-06 (§134): "A squad average, not any one athlete." The
+      // property is unchanged — the figure must not read as a description of
+      // somebody in the squad — and the shorter form is the one that gets read.
+      check('coach: the squad map says it is an average, not an athlete',
+        /not any one athlete/i.test(r.text));
 
       // THE COUNT AND THE LOCATION ARE ONE GESTURE (§129). The hotspot list said
       // 'Iliopsoas 9 of 14' and the figure said WHERE, inches apart with nothing

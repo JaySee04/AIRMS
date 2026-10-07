@@ -4,6 +4,8 @@ import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import SectionHeading from '@/components/layout/SectionHeading';
+import CardHead from '@/components/layout/CardHead';
+import InfoTip from '@/components/ui/InfoTip';
 import type { MuscleEntry } from '@/components/dashboard/BodyMap';
 
 // Chart.js and the body-map path data are the heaviest client code on this
@@ -163,27 +165,32 @@ export default function AthleteDashboard() {
       {/* Risk radar — sits just above the threshold strips that plot the same
           indicators, so the two screening views read together. */}
       <div className="card" style={{ marginTop: 20 }}>
-        <div className="card-header">
-          <div>
-            <h2 className="card-title" style={{ marginBottom: 0 }}>Risk Indicators</h2>
-            <span className="card-sub">Lower is better</span>
-          </div>
-        </div>
+        <CardHead
+          title="Risk Indicators"
+          sub="Closer to the centre is better"
+          info={(
+            <InfoTip label="How to read this chart">
+              <p>
+                Each spoke is one exercise-risk indicator from your latest HoloMotion
+                screening, on a 0–30 scale. A small, even shape means low risk across the
+                board.
+              </p>
+              <p>
+                The shaded field is your <strong>Elevated threshold</strong> for each
+                region, tightened for regions critical to your sport. Where your line
+                leaves the field, that region is flagged — the exact values and what to do
+                about them are in the screening panel below.
+              </p>
+            </InfoTip>
+          )}
+        />
         <div style={{ display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap' }}>
           <div style={{ flex: '1 1 420px', minWidth: 300, maxWidth: 520 }}>
             <RiskRadar labels={RADAR_LABELS} values={riskValues} thresholds={riskThresholds} />
           </div>
           <div style={{ flex: '1 1 260px', minWidth: 240 }}>
-            <p style={{ margin: '0 0 10px', fontSize: 'var(--fs-md)', lineHeight: 1.5 }}>
-              Each spoke is one exercise-risk indicator from your latest HoloMotion
-              screening, on a 0–30 scale. <strong>Closer to the centre is better</strong> —
-              a small, even shape means low risk across the board.
-            </p>
             <p className="text-muted" style={{ margin: 0, fontSize: 'var(--fs-sm)', lineHeight: 1.5 }}>
-              The dashed red line is your Elevated threshold for each region —
-              tightened for regions critical to your sport. A spoke crossing
-              outside it flags that region. The exact values and what to do
-              about them are in the screening panel below.
+              A spoke outside the field is flagged. Details below.
             </p>
           </div>
         </div>

@@ -229,8 +229,8 @@ export default function CohortFilters({ f, sports, disciplines = [], showFocus =
           </div>
           <div className="text-muted" style={{ fontSize: 'var(--fs-sm)', paddingBottom: 8, flex: '1 1 320px' }}>
             {f.region
-              ? 'Focused: every panel below re-reads this cohort through one indicator, split by sport, gender, age and programme. No athlete is removed — that is what makes the comparison meaningful.'
-              : 'Optional. Picking a region answers "which group carries this problem?" — for example, focus Knee and compare across gender.'}
+              ? 'Focused: every panel below reads this cohort through one indicator. No athlete is removed.'
+              : 'Optional — focus one region to see which group carries it.'}
           </div>
         </div>
       )}

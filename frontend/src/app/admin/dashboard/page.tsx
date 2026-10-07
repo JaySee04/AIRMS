@@ -430,12 +430,27 @@ export default function AdminDashboard() {
           replacing it. */}
       {programmeCompare && (
         <div className="card" style={{ marginTop: 20 }}>
-          <div className="card-header"><div>
-            <h2 className="card-title" style={{ marginBottom: 0 }}>Programme comparison</h2>
-            <span className="card-sub">
-              The headline figures split by development programme, over the current filters
-            </span>
-          </div></div>
+          <CardHead
+            title="Programme comparison"
+            sub="Headline figures by development programme, over the current filters"
+            info={(
+              <InfoTip label="Why this cannot show that a programme works">
+                <p>
+                  Athletes are <strong>selected into</strong> PODIUM. A gap between
+                  programmes therefore reflects who was chosen at least as much as anything
+                  the programmes did, so &ldquo;PODIUM scores better, so PODIUM works&rdquo;
+                  is a causal claim this table cannot support — the same selection error
+                  §32 refuses when it keeps the norm floors off.
+                </p>
+                <p>
+                  Averages cover athletes with a screening on record. One who has never been
+                  screened has no score and is not counted as a zero.
+                  &ldquo;Flagged&rdquo; is the share needing attention or immediate
+                  assessment.
+                </p>
+              </InfoTip>
+            )}
+          />
 
           {/* THE CAVEAT COMES FIRST, and it is what makes this panel defensible
               rather than misleading.
@@ -448,11 +463,8 @@ export default function AdminDashboard() {
               Placed ABOVE the numbers, because a caveat under a table is read
               after the conclusion has already formed. */}
           <p className="text-muted" style={{ fontSize: 'var(--fs-sm)', margin: '0 0 var(--sp-md)', maxWidth: '72ch' }}>
-            <strong>Read this as a description, not an evaluation.</strong>
-            {' '}
-            Athletes are selected into PODIUM, so a gap between programmes reflects who
-            was chosen as much as what the programme did. This table cannot show that a
-            programme caused an outcome, and should not be quoted as if it could.
+            <strong>A description, not an evaluation.</strong> Athletes are selected into
+            PODIUM, so this cannot show a programme caused anything.
           </p>
 
           <div style={{ overflowX: 'auto' }}>
@@ -491,9 +503,7 @@ export default function AdminDashboard() {
             </table>
           </div>
           <p className="text-muted" style={{ fontSize: 'var(--fs-2xs)', margin: '10px 0 0' }}>
-            Averages cover athletes with a screening on record; one who has never been
-            screened has no score and is not counted as a zero. &ldquo;Flagged&rdquo; is the
-            share needing attention or immediate assessment.
+            Never-screened athletes have no score and are not counted as zero.
           </p>
         </div>
       )}
@@ -543,7 +553,7 @@ export default function AdminDashboard() {
       </SectionHeading>
 
       {/* Row 1 — physical quality (zoomed) + indicator counts (shared axis) */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 20, marginTop: 20 }}>
+      <div className="card-row" style={{ marginTop: 20 }}>
         <div className="card">
           <div className="card-header"><div>
             <h2 className="card-title" style={{ marginBottom: 0 }}>Physical Quality — which is weakest?</h2>
@@ -613,7 +623,7 @@ export default function AdminDashboard() {
           severity scale (it is not — they are opposite findings), and interleaved
           them so neither could be scanned. Splitting them means the colour
           carries nothing and the heading carries everything. */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 20, marginTop: 20 }}>
+      <div className="card-row" style={{ marginTop: 20 }}>
         <div className="card">
           <div className="card-header"><div>
             <h2 className="card-title" style={{ marginBottom: 0 }}>Most-Flagged Weak Muscles</h2>
@@ -657,7 +667,14 @@ export default function AdminDashboard() {
           HoloMotion produces — Total Score is literally its mean — and until now
           the admin dashboard aggregated none of it. A matrix is the only shape
           that preserves both of its axes, and it is the report's own layout. */}
-      <div className="card" style={{ marginTop: 20 }}>
+      {/* PAIRED (§134). Both describe the same 25-cell subitem table — one as a
+          matrix, one as the left/right gap inside it — and both fit a half-width
+          column: the heatmap is 5 columns and the asymmetry table 4. Side by side
+          they also read as the two halves of one question, which stacked they did
+          not. `auto-fit`/`minmax` rather than .grid-2, so the pair becomes one
+          column on a tablet without a second breakpoint. */}
+      <div className="card-row card-row--wide" style={{ marginTop: 20 }}>
+      <div className="card">
         <CardHead
           title="Movement Quality by Region"
           sub={(
@@ -713,7 +730,7 @@ export default function AdminDashboard() {
           Counts, not mean gaps. The means are flat at 3–4 points across every
           region and carry almost nothing; the number of athletes with a real gap
           runs 0–9 and separates ROM from stability cleanly. */}
-      <div className="card" style={{ marginTop: 20 }}>
+      <div className="card">
         <CardHead
           title="Left–Right Asymmetry"
           sub={<>Athletes whose two sides differ by {cohort?.subitems?.notableGapPct ?? 10}% or more · worst first</>}
@@ -772,6 +789,7 @@ export default function AdminDashboard() {
             </>
           );
         })()}
+      </div>
       </div>
 
 
@@ -869,41 +887,35 @@ export default function AdminDashboard() {
                   axis definitions and the why-they-disagree argument are method
                   and now sit on the header: a reader who knows the instrument
                   loses nothing by not opening them. */}
+              {/* FOUR LABELS, NOT FOUR PARAGRAPHS (§134). The quadrant key has to
+                  stay on the card — a chart whose corners are unlabelled makes the
+                  reader do the decoding — but a label is all it has to be. Why the
+                  top-right corner is the interesting one is method, and moved. */}
               <ul className="chart-explain-quads">
                 <li>
                   <span className="chart-explain-key chart-explain-key--tr" aria-hidden />
-                  <strong>Top right — high risk, good mover.</strong> The reading to act
-                  on. Nothing flags these athletes: their movement scores look fine, so a
-                  roster sorted by Total Score buries them.
+                  <strong>Top right — high risk, good mover.</strong> The ones to act on.
                 </li>
                 <li>
                   <span className="chart-explain-key chart-explain-key--tl" aria-hidden />
-                  <strong>Top left — high risk, poor mover.</strong> Expected, and already
-                  visible everywhere else on this page.
+                  <strong>Top left — high risk, poor mover.</strong> Already flagged elsewhere.
                 </li>
                 <li>
                   <span className="chart-explain-key chart-explain-key--br" aria-hidden />
-                  <strong>Bottom right — low risk, good mover.</strong> Where most of a
-                  healthy squad sits.
+                  <strong>Bottom right — low risk, good mover.</strong> Most of a healthy squad.
                 </li>
                 <li>
                   <span className="chart-explain-key chart-explain-key--bl" aria-hidden />
-                  <strong>Bottom left — low risk, poor mover.</strong> Worth a look on
-                  technique rather than on injury risk.
+                  <strong>Bottom left — low risk, poor mover.</strong> A technique look.
                 </li>
               </ul>
-              <p>
-                <strong>The lines are this cohort&rsquo;s medians, not fixed cut-offs.</strong>{' '}
-                So &ldquo;high&rdquo; means high <em>for this group</em>: filter to a
-                different squad and the crosshair moves. Half the athletes sit either side
-                of each line by construction, which is what makes a corner meaningful and
-                also means a quadrant is never empty for a reason worth reporting.
-              </p>
+              {/* The two caveats, as clauses. Each still blocks its wrong reading:
+                  "high" is relative to this filter, and a red dot in a low corner
+                  is extra information rather than a contradiction. */}
               <p className="text-muted">
-                Dot colour is the athlete&rsquo;s overall risk band (key above), which is a
-                separate judgement from either axis — it is cohort-normed and includes the
-                escalation rules. A red dot low on the chart is not a contradiction: the
-                band saw something these two scores do not carry.
+                <strong>Lines are this cohort&rsquo;s medians, not fixed cut-offs</strong> — change
+                the filter and the crosshair moves. <strong>Dot colour is the overall
+                band</strong>, a separate judgement from either axis.
               </p>
             </div>
           </>

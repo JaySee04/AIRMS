@@ -283,8 +283,7 @@ export default function TrendStrip({ query }: { query: string }) {
               range states its own zoom. The note it replaced had to explain two
               encodings sharing one unlabelled plot. */}
           <p className="chart-note" style={{ marginBottom: 0 }}>
-            Counted from screening history, so an athlete tested twice counts once per period
-            they were tested in.
+            An athlete tested twice counts once per period.
           </p>
         </>
       )}

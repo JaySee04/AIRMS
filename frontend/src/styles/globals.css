@@ -4343,10 +4343,12 @@ textarea:focus-visible,
   background: var(--border);
   overflow: hidden;
 }
+/* Same count, same colour as the coach's list and the admin's ranked bars
+   (§135). It is "how many athletes", not a state. */
 .sport-flag-bar > span {
   display: block;
   height: 100%;
-  background: var(--risk-moderate);
+  background: var(--series-2);
 }
 .sport-flag-count {
   font-size: var(--fs-xs);
@@ -4555,15 +4557,27 @@ textarea:focus-visible,
 }
 /* Ink tokens, not the fills: these are WORDS on the card, and --risk-moderate
    as text measures 2.56:1 (§120). */
-.coach-hotspot-kind--weak { color: var(--risk-moderate-ink); }
-.coach-hotspot-kind--tight { color: var(--risk-undertrained); }
+/* WEAK AND TIGHT CARRY NO SEVERITY, so they carry no status hue (§135).
+   These were --risk-moderate-ink and --risk-undertrained, which reads as a
+   scale: amber is "needs attention" everywhere else in the app, and a reader
+   ranking an amber chip above a blue one is ranking two OPPOSITE findings on an
+   axis that does not exist. The admin dashboard hit this exact fault and the
+   comment above its two lists records the resolution — "the colour carries
+   nothing and the heading carries everything". The chip IS the heading here. */
+.coach-hotspot-kind--weak,
+.coach-hotspot-kind--tight { color: var(--text-muted); }
 .coach-hotspot-bar {
   height: 8px;
   border-radius: 999px;
   background: var(--border);
   overflow: hidden;
 }
-.coach-hotspot-bar > span { display: block; height: 100%; background: var(--risk-moderate); }
+/* A COUNT, so a series colour — the admin dashboard draws this same number
+   (athletes flagged per muscle) with --series-2, and three dashboards reading
+   one aggregate must not paint it three ways. --risk-moderate here meant a
+   muscle on 2 of 14 athletes and one on 9 of 14 were both "needs attention"
+   amber, which is the status hue the band uses on the same page. */
+.coach-hotspot-bar > span { display: block; height: 100%; background: var(--series-2); }
 .coach-hotspot-count {
   font-size: var(--fs-sm);
   color: var(--text-muted);
@@ -4946,3 +4960,31 @@ textarea:focus-visible,
 .medical-hero-row--none .medical-id-card { border-left-color: var(--border); }
 
 .medical-id-verdict { margin-top: var(--sp-sm); }
+
+/* ── CARD PAIRS AND ROWS, one definition (§134.3) ───────────────────────────
+   Cards that sit side by side until there is no room for two.
+
+   This pattern had been hand-written FOUR times as an inline style, with three
+   different minimums (340 / 440 / 460) that nobody had chosen so much as typed
+   — so "when does this stack?" had four answers and changing it meant finding
+   them. Named sizes instead, because the choice is editorial: how narrow may
+   this content get before two columns stop helping.
+
+   `auto-fit`/`minmax` rather than a fixed two-column grid plus a breakpoint:
+   the row collapses at whatever width runs out, so it needs no @media rule and
+   cannot disagree with one. `align-items: start` or a short card stretches to
+   match a tall neighbour and draws a box of empty space below its content. */
+.card-row {
+  display: grid;
+  /* `min(340px, 100%)`, NOT a bare 340px. `minmax(340px, 1fr)` sets a MINIMUM
+     track of 340px — inside a 390px phone the --wide variant's 460px track is
+     wider than the screen and the page scrolls sideways, which is the exact
+     fault §132 built verify:layout to catch and which e2e §4l caught here
+     ("opening one on a phone does not push the page sideways"). min() lets the
+     track shrink to the container once there is no room for the preference. */
+  grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr));
+  gap: 20px;
+  align-items: start;
+}
+/* A table or a matrix needs more before a second column earns its place. */
+.card-row--wide { grid-template-columns: repeat(auto-fit, minmax(min(460px, 100%), 1fr)); }

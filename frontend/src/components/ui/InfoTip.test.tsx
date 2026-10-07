@@ -147,9 +147,13 @@ const CAVEATS: Array<[string, string, string]> = [
     'a red dot low on the chart read as a contradiction rather than extra information'],
   ['app/admin/dashboard/page.tsx', 'not by how many',
     'the squad figure read as magnitude, so one flagged athlete looks like nine'],
-  ['app/coach/dashboard/page.tsx', 'not a fitness-to-play decision',
+  // REWORDED 2026-10-06 (§134), not weakened. Both were multi-sentence
+  // paragraphs; a reader skips those and reads a clause, so the clause is the
+  // safer form. The phrases here follow the copy — the property each one
+  // protects is in the third column and has not changed.
+  ['app/coach/dashboard/page.tsx', 'fitness-to-play decision',
     'a readiness grouping read as clearance to play'],
-  ['app/coach/dashboard/page.tsx', 'An average is not an athlete',
+  ['app/coach/dashboard/page.tsx', 'not any one athlete',
     'the squad figure read as a description of somebody in it'],
   ['app/coach/dashboard/page.tsx', 'remain with medical staff',
     'a coach reading a clinical screen as theirs to act on'],
@@ -178,7 +182,18 @@ describe('the three-way split — caveats never move into a tip', () => {
     // claim is being made (reliability.js's whole reason for existing).
     const visible = visibleSource('app/coach/dashboard/page.tsx');
     expect(visible).toContain('deadBandDerived');
-    expect(visible).toMatch(/assumed threshold/);
+    // BOTH branches have to be on the card, not just the flag. Asserting only
+    // `deadBandDerived` would pass against a page that printed "measured"
+    // unconditionally — which is the exact wrong answer this guards, since
+    // "steady within +/-2" means a different thing depending on which is true.
+    // The TERNARY, not the first mention — `indexOf` finds the type declaration
+    // at the top of the file, where of course neither word appears. Found by the
+    // assertion failing against 200 characters of the Props interface.
+    const at = visible.search(/deadBandDerived\s*\?\s*'/);
+    expect(at).toBeGreaterThan(-1);
+    const near = visible.slice(at, at + 200);
+    expect(near).toMatch(/measured/);
+    expect(near).toMatch(/assumed/);
   });
 
   it('strips comments before looking, or a comment could satisfy it (§118)', () => {

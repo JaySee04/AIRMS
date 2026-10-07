@@ -20,6 +20,8 @@
 
 import { useState } from 'react';
 import { BAND_LABEL } from '@/lib/bands';
+import CardHead from '@/components/layout/CardHead';
+import InfoTip from '@/components/ui/InfoTip';
 import type { WorklistEntry } from './DecisionPanel';
 
 const MAX_COMPARE = 5;
@@ -58,20 +60,30 @@ export default function CompareAthletes({ entries }: { entries: WorklistEntry[] 
 
   return (
     <div className="card" style={{ marginBottom: 20 }}>
-      <div className="card-header"><div>
-        <h2 className="card-title" style={{ marginBottom: 0 }}>Compare athletes</h2>
-        <span className="card-sub">
-          Pick up to {MAX_COMPARE} to see them beside each other. A ranking hides the
-          margin between two athletes in the same band; this shows it.
-        </span>
-      </div></div>
+      <CardHead
+        title="Compare athletes"
+        sub={<>Pick up to {MAX_COMPARE} to see them side by side</>}
+        info={(
+          <InfoTip label="What a comparison here can and cannot say">
+            <p>
+              A ranking hides the margin between two athletes in the same band. This shows
+              it — which is the whole reason the panel exists.
+            </p>
+            <p>
+              It compares <strong>readings</strong>. Two athletes in the same band are not
+              interchangeable, and a better score here does not mean a lower chance of
+              injury: the screening cannot support that claim. Use it to decide who to look
+              at first, never who to select.
+            </p>
+          </InfoTip>
+        )}
+      />
 
-      {/* ABOVE the numbers, deliberately. */}
+      {/* ABOVE the numbers, deliberately — and ONE line (§134). The claim that
+          must not be made is "better score = safer pick"; saying so takes six
+          words, and six words get read where four sentences get skipped. */}
       <div className="alert alert-warning" style={{ marginBottom: 14 }}>
-        <strong>This compares readings, not readiness.</strong>{' '}
-        Two athletes in the same band are not interchangeable, and a better score here
-        does not mean a lower chance of injury — the screening cannot support that. Use
-        it to decide who to look at first, not who to select.
+        <strong>Readings, not readiness.</strong> Who to look at first, not who to select.
       </div>
 
       {/* COLLAPSED BY DEFAULT (2026-09-12). It rendered up to 40 chips, and on

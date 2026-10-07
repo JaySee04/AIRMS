@@ -31,6 +31,27 @@ export const TIER_LABEL: Record<TierState, string> = {
   below: 'Below Average',
 };
 
+/**
+ * WHY A TIER BORROWS THE BAND'S HUES, AND WHY "GOOD" IS THE ODD ONE (§135).
+ *
+ * This is a DIFFERENT scale from the risk band — four steps on HoloMotion's own
+ * 0-100 quality, not the three-step cohort verdict — and the sharing is
+ * deliberate: a 74 has to be the same amber on the subitem heatmap as on the
+ * gauge and the threshold strip beside it, or one reading of one number is
+ * printed in two colours on one page.
+ *
+ * That leaves `good` with nowhere to go. Green, amber and red are spoken for by
+ * the three bands, and a fourth step needs a hue outside that set or the scale
+ * has two greens. The blue is what makes a tier cell unmistakable as a band
+ * verdict, which is worth more here than a hue-orderable ramp: the ranking is
+ * carried by TIER_RANK, the legend and the printed number, and every consumer
+ * labels its cells.
+ *
+ * The TOKEN NAME is historical and does not describe this use. It belongs to the
+ * ACWR under-training band, whose only component (AcwrGauge) has had no call
+ * site since 2026-07-16 — retained for the rebuild path, so the token stays
+ * rather than being renamed out from under it.
+ */
 export const TIER_COLOR: Record<TierState, string> = {
   excellent: 'var(--risk-low)',
   good: 'var(--risk-undertrained)',

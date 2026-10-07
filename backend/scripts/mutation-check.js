@@ -305,6 +305,20 @@ const MUTATIONS = [
     test: null,
   },
   {
+    // §135. The rule globals.css states at the top of its --series-* block and
+    // that three surfaces broke: "status hues must never stand in as a chart's
+    // series colour". The same muscle-flag COUNT was drawn --risk-moderate on
+    // two dashboards and --series-2 on the third.
+    guard: 'colour: a count is not painted in a status hue',
+    why: 'a muscle on 2 of 14 and one on 9 of 14 were both "needs attention" amber',
+    pkg: 'frontend',
+    from: ROOT,
+    file: 'frontend/src/styles/globals.css',
+    find: '.coach-hotspot-bar > span { display: block; height: 100%; background: var(--series-2); }',
+    replace: '.coach-hotspot-bar > span { display: block; height: 100%; background: var(--risk-moderate); }',
+    test: 'src/lib/cssTokens.test.ts',
+  },
+  {
     guard: 'infotip: collapsed by default',
     why: 'open by default is the prose it was built to hide, plus a button',
     pkg: 'frontend',

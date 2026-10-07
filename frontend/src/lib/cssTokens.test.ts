@@ -184,3 +184,76 @@ describe('CSS custom properties', () => {
     expect(rule![0]).toMatch(/outline:\s*2px solid var\(--brand-gold/);
   });
 });
+
+// ── A QUANTITY IS NEVER PAINTED IN A STATUS HUE (§135) ───────────────────────
+//
+// globals.css states the rule at the top of the --series-* block: "Status hues
+// mean a clinical state and must never stand in as a chart's series colour."
+// It was written after the admin dashboard drew a healthy 76/100 in the same
+// amber the app uses for "needs attention" — and it has been broken three times
+// since, by three different surfaces drawing THE SAME NUMBER.
+//
+// "How many athletes are flagged for this muscle" is one aggregate with three
+// readers (admin ranked bars, the coach's hotspot list, Sport Assessment's flag
+// list). Two of the three painted it --risk-moderate: a muscle on 2 of 14
+// athletes and one on 9 of 14 were both the amber that means "needs attention"
+// on the same page, next to a band that means it for real.
+//
+// WHY A SOURCE CHECK AND NOT A BROWSER ONE. verify:contrast reads colour and
+// cannot know what a colour MEANS; e2e drives behaviour. Nothing measures
+// semantics, and nothing can — so this pins the three call sites by name. A
+// fourth surface drawing this number is not caught, which is stated here rather
+// than claimed otherwise.
+describe('a quantity is never painted in a status hue (§135)', () => {
+  const css = () => fs.readFileSync(CSS, 'utf8');
+  const STATUS = /var\(--risk-(low|moderate|high|undertrained)[),]/;
+
+  /**
+   * The `background` of the first rule whose selector matches.
+   *
+   * Sliced rather than matched with a built RegExp. A selector like
+   * `.coach-hotspot-bar > span` is full of regex metacharacters, and escaping it
+   * means a backslash-heavy literal — which is exactly what gotcha 9 warns
+   * about and what mangled this function on its first write. indexOf and a brace
+   * scan need no escaping at all.
+   */
+  function fillOf(selector: string): string {
+    const text = css();
+    const at = text.indexOf(`${selector} {`);
+    expect(at).toBeGreaterThan(-1);
+    const close = text.indexOf('}', at);
+    expect(close).toBeGreaterThan(at);
+    const body = text.slice(at, close);
+    const bg = body.match(/background:\s*([^;}]+)/);
+    expect(bg).not.toBeNull();
+    return bg![1].trim();
+  }
+
+  it.each([
+    ['.coach-hotspot-bar > span', "the coach's muscle hotspot bar"],
+    ['.sport-flag-bar > span', "Sport Assessment's muscle flag bar"],
+  ])('%s draws a count in a series colour, not a band colour', (selector) => {
+    const fill = fillOf(selector);
+    expect(fill).toMatch(/var\(--series-/);
+    expect(fill).not.toMatch(STATUS);
+  });
+
+  it('weak and tight carry no severity, so they carry no status hue', () => {
+    // Two OPPOSITE findings, not two points on a scale. Amber-vs-blue invited a
+    // reader to rank them on an axis that does not exist — the fault the admin
+    // dashboard fixed by splitting its lists, recorded in the comment above them.
+    const rule = css().match(/\.coach-hotspot-kind--weak[\s\S]{0,120}?\{[^}]*\}/);
+    expect(rule).not.toBeNull();
+    expect(rule![0]).not.toMatch(STATUS);
+  });
+
+  it('the scanner can find a status hue at all — positive control', () => {
+    // Without this, a `fillOf` that silently returned '' would pass every case
+    // above while measuring nothing. The band marker IS a status fill and must
+    // match the pattern the assertions rely on.
+    expect(STATUS.test('background: var(--risk-high);')).toBe(true);
+    expect(STATUS.test('background: var(--series-2);')).toBe(false);
+    // ...and a real rule in this stylesheet still uses one, legitimately.
+    expect(css()).toMatch(/\.sport-band-tile--red::before\s*\{[^}]*var\(--risk-high\)/);
+  });
+});

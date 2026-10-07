@@ -21,6 +21,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, isAuthError } from '@/lib/api';
 import { getSession } from '@/lib/auth';
 import { BAND_LABEL } from '@/lib/bands';
+import CardHead from '@/components/layout/CardHead';
+import InfoTip from '@/components/ui/InfoTip';
 import { RESPONSE_OUTCOMES } from '@/lib/shared/facts';
 import CompareAthletes from './CompareAthletes';
 
@@ -255,23 +257,30 @@ export default function DecisionPanel({
 
   return (
     <div className="card decision-panel" style={{ marginBottom: 20 }}>
-      <div className="card-header"><div>
-        <h2 className="card-title" style={{ marginBottom: 0 }}>
-          {data.headline
-            ? `${data.headline.verb}: ${data.headline.count} athlete${data.headline.count === 1 ? '' : 's'}`
-            : 'Nothing waiting on you'}
-        </h2>
-        <span className="card-sub">
-          {data.headline
-            ? <>{data.headline.parts.join(' · ')} — across {data.scope}.</>
-            : <>No athlete in {data.scope} is flagged or unscreened right now.</>}
-        </span>
-      </div></div>
+      <CardHead
+        title={data.headline
+          ? `${data.headline.verb}: ${data.headline.count} athlete${data.headline.count === 1 ? '' : 's'}`
+          : 'Nothing waiting on you'}
+        sub={data.headline
+          ? <>{data.headline.parts.join(' · ')} — across {data.scope}</>
+          : <>No athlete in {data.scope} is flagged or unscreened right now</>}
+        info={(
+          <InfoTip label="What this ordering means">
+            <p>
+              It ranks who is worth a clinician&rsquo;s time, worst band first, then by the
+              indicator inside each band.
+            </p>
+            <p>
+              It <strong>does not predict injury</strong>. The reasons listed against each
+              athlete are the rules that fired on their screening, not findings about them.
+            </p>
+          </InfoTip>
+        )}
+      />
 
-      {/* The one claim this panel is careful never to make. */}
+      {/* The one claim this panel is careful never to make — in five words (§134). */}
       <p className="card-sub" style={{ marginTop: 0 }}>
-        This orders who is worth a clinician&rsquo;s time. It does not predict injury, and
-        the reasons below are the rules that fired — not a diagnosis.
+        Rules that fired, not a diagnosis — this does not predict injury.
       </p>
 
       {shown.length > 0 && (

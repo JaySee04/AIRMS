@@ -430,6 +430,11 @@ export default function SportAssessmentPage() {
             </div>
           )}
 
+          {/* PAIRED (§134). Both are "who/what is above a line", one by
+              indicator and one by athlete, and each is a narrow table that wasted
+              two-thirds of a 1440px card. Side by side they answer the same
+              question from the two directions a clinician asks it. */}
+          <div className="card-row card-row--wide">
           {/* ── 5. Which tracked problems fire ───────────────────────────── */}
           <div className="card">
             <CardHead
@@ -529,6 +534,7 @@ export default function SportAssessmentPage() {
                 ))}
               </ul>
             )}
+          </div>
           </div>
         </>
       )}

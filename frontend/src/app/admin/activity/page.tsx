@@ -148,7 +148,12 @@ interface PeriodsPayload {
 
 
 
-const C = { ...BAND_COLOR, neutral: 'var(--text-muted)', blue: 'var(--risk-undertrained)' };
+// `blue` is a SERIES colour, not a status one (§135). It was
+// --risk-undertrained, a token named for the retired ACWR model and reused here
+// to draw repeat-test COUNTS — "status hues must never stand in as a chart's
+// series colour" is the rule --series-* exists to serve, written at the top of
+// globals.css and broken here.
+const C = { ...BAND_COLOR, neutral: 'var(--text-muted)', blue: 'var(--series-2)' };
 
 // A delta, showing BOTH which way the number moved and whether that is good.
 // The arrow tracks the sign; the colour tracks the score's orientation, since

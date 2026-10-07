@@ -468,11 +468,7 @@ function LateralSymmetry({ rows }: { rows: SymmetryRow[] }) {
         </tbody>
       </table>
       <p className="card-sub" style={{ marginTop: 10 }}>
-        Symmetry is HoloMotion&apos;s 0&ndash;100 score per region (higher = more
-        symmetric), banded on its own 85 / 75 / 60 tiers. Weaker side is a
-        separate reading &mdash; it compares that region&apos;s left and right ROM
-        and stability, so a low score with level sides means the imbalance is not
-        a side-to-side one.
+        Symmetry 0&ndash;100, higher is better. Weaker side is a separate reading.
       </p>
     </div>
   );
@@ -525,10 +521,9 @@ function TrainingFocus({ athlete, historical = false }: { athlete: ScreeningData
             ))}
           </div>
           <p className="text-muted" style={{ fontSize: 'var(--fs-xs)', marginTop: 12, marginBottom: 0 }}>
-            Derived from the flagged screening indicators using the HoloMotion prescription exercise vocabulary.
             {historical
-              ? ' This reflects the screening selected above, not current guidance — work from the latest screening before changing anything.'
-              : ' Informational — confirm with medical staff before changing the training programme.'}
+              ? 'From the screening selected above, not current guidance.'
+              : 'Informational — confirm with medical staff before changing training.'}
           </p>
         </>
       )}

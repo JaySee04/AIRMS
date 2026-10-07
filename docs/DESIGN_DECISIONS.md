@@ -13156,3 +13156,254 @@ whose subject quietly disappears.
 One more pins that the name never reaches `logger.*`: `context` is not in
 `logger.js`'s FORBIDDEN_KEY list (§91.1), so anything put there is written to a
 log viewer outside ISN.
+
+## 134. A caveat nobody reads is not a caveat (2026-10-06)
+
+JC: *"Make all of the dashboards more compact and easy to understand, hide all
+them AI ish sentences."*
+
+§131 moved **method** behind an info tip and left **caveats** on the card. That was
+the right split and it did not go far enough, because it treated a caveat's
+*presence* as the property to protect. Measured afterwards, the caveats were still
+three- and four-sentence paragraphs — and a paragraph in the hedging,
+em-dash-strung register the complaint names is skipped, which makes its presence
+worth nothing.
+
+### 134.1 What was actually on screen
+
+Rendered text, not source — the only version that matters when the complaint is
+"too wordy". Longest block per page:
+
+| page | words | longest block |
+|---|---|---|
+| `/admin/dashboard` | 1,324 | **321 chars** — "The lines are this cohort's medians…" |
+| `/coach/dashboard` | 1,096 | **312** — "This is not a fitness-to-play decision. It reports what…" |
+| `/medical/dashboard` | 955 | **251** — "This compares readings, not readiness. Two athletes in the same band…" |
+| `/athlete/dashboard` | 690 | **287** — "Symmetry is HoloMotion's 0–100 score per region…" |
+
+### 134.2 The rule, sharpened
+
+**A caveat earns its place by being read.** The test is no longer "is the sentence
+there" but "would a tired reader take it in" — and the answer for four sentences
+of hedged prose is no.
+
+So the safety property stays and the register goes:
+
+| was | now |
+|---|---|
+| "This is not a fitness-to-play decision. It reports what the last HoloMotion screening flagged, and whether a clinician has declared the athlete injured. A screening cannot rule injury out, so 'nothing flagged' means no indicator was raised — not that an athlete is cleared. Clearance comes from the medical team." | **"Not a fitness-to-play decision. Clearance comes from the medical team."** |
+| "An average is not an athlete — use this to decide where to look, then open the individual." | **"A squad average, not any one athlete."** |
+| "This compares readings, not readiness. Two athletes in the same band are not interchangeable, and a better score here does not mean a lower chance of injury — the screening cannot support that. Use it to decide who to look at first, not who to select." | **"Readings, not readiness. Who to look at first, not who to select."** |
+| "This orders who is worth a clinician's time. It does not predict injury, and the reasons below are the rules that fired — not a diagnosis." | **"Rules that fired, not a diagnosis."** |
+| "Trend treats a move of ±2 or less as steady — an assumed threshold; there are too few repeat screenings to measure one." | **"Steady = within ±2 (assumed)"** |
+
+Everything cut is **in the tip**, not deleted. The reasoning a clinician wants
+once is still a hover away; what stayed is the clause that stops a wrong reading.
+
+**This is not "shorter is better".** The four quadrant labels on the scatter kept
+their names and lost their essays; the coaching prescriptions ("Trim plyometric
+and hard-landing volume this microcycle…", 162 chars) were left **untouched**,
+because they are the content, not commentary on it.
+
+### 134.3 Compaction, and what it was not
+
+Word counts fell 8–17% per page but **heights barely moved** — the prose was never
+the height. The admin dashboard was 14 full-width cards in one column on a 1440px
+screen. Pairing the two that describe the same 25-cell subitem table (the matrix
+and the left/right gap inside it), and the two on Sport Assessment that ask "who
+is above a line" from the indicator and the athlete side, did what the editing
+could not:
+
+| page | before | after |
+|---|---|---|
+| `/medical/sport-assessment` | 2,102px | **1,867px** (−11%) |
+| `/admin/dashboard` | 5,518px | **4,991px** (−10%) |
+
+**The optimisation fell out of it.** Writing the fourth responsive pair showed the
+pattern had been hand-written as an inline style four times with three different
+minimums — 340, 440, 460 — none of them chosen so much as typed. `.card-row` and
+`.card-row--wide` now hold it, so "when does this stack?" has one answer per named
+size instead of four. `auto-fit`/`minmax` rather than a two-column grid plus a
+breakpoint: the row collapses when the width runs out and cannot disagree with an
+`@media` rule, because there isn't one. `align-items: start`, or a short card
+stretches to match a tall neighbour and draws a box of empty space.
+
+### 134.4 Three pins moved, deliberately
+
+`InfoTip.test.tsx` pins caveat phrases to the visible part of each page, and
+rewording two of them turned it red — which is the guard working, not an
+obstacle. Both were updated with the property restated in the same line, and the
+e2e assertion that quoted one followed.
+
+The third is worth more than the other two. The dead-band check asserted
+`/assumed threshold/`, which the rewrite dropped; the honest repair is not to
+match the new sentence but to pin **both branches**:
+
+```js
+const at = visible.search(/deadBandDerived\s*\?\s*'/);
+expect(visible.slice(at, at + 200)).toMatch(/measured/);
+expect(visible.slice(at, at + 200)).toMatch(/assumed/);
+```
+
+Asserting only the flag would pass against a page printing "measured"
+unconditionally — the exact wrong answer it guards, since *steady within ±2* means
+a different thing depending on which is true. And the anchor is the **ternary**,
+not the first mention: `indexOf('deadBandDerived')` finds the type declaration at
+the top of the file, where neither word appears. Found by the assertion failing
+against 200 characters of a Props interface.
+
+### 134.5 Three checks fired, and two of them were right to
+
+Running the suite after the editing pass returned **168/171**, and every failure
+was worth having.
+
+**Two were the safety guards stopping an over-cut.** Shortening is a judgement,
+and on two cards the judgement was wrong:
+
+| check | what I had moved into the tip | why it has to stay |
+|---|---|---|
+| `coach: says plainly it is not a clearance` | *"a screening cannot rule injury out"* | that clause **is** §33. Without it "Not a fitness-to-play decision" reads as a procedural disclaimer rather than a statement about what a screening can know |
+| `medical: says plainly it does not predict injury` | *"It does not predict injury"* | the one claim the worklist exists never to make |
+
+Both restored. The coach line is 103 characters against the original 312, so the
+compression survived — what did not survive was my first guess at which clause
+carried the weight. **That is the value of pinning a property rather than a
+word count:** the guard did not argue about length, it argued about meaning, and
+it was right both times.
+
+### 134.6 And one was a bug this very commit had just documented
+
+`infotip: opening one on a phone does not push the page sideways` — a fault
+**introduced minutes earlier**, by the pairing described in §134.3.
+
+`minmax(460px, 1fr)` sets a *minimum* track of 460px. Inside a 390px phone that
+is wider than the screen, so the new `.card-row--wide` forced a 460px column and
+pushed the page sideways. The fix is one function:
+
+```css
+grid-template-columns: repeat(auto-fit, minmax(min(460px, 100%), 1fr));
+```
+
+`min()` lets the track shrink to the container once there is no room for the
+preference, which is what `auto-fit` is usually assumed to do on its own and does
+not.
+
+Three things make this worth writing down rather than quietly fixing:
+
+1. **It is §132's fault class, reintroduced by the commit that documented it.**
+   Knowing about a trap is not the same as not falling into it — the same note
+   §117 makes about reasoning from the working tree.
+2. **The one-definition change is what made it a one-line fix.** Had the pair
+   still been four inline styles, this would have been four edits and the odds of
+   missing one are the reason §134.3 did the unification at all.
+3. **It was caught by a check written for something else.** §4l's 390px block
+   exists because of the info-tip clamp (§132.6); it found a grid bug in a card
+   layout. A check that measures a *property of the page* rather than a property
+   of one component keeps paying out.
+
+## 135. Three colour systems, and the one number drawn three ways (2026-10-06)
+
+JC: *"Make the colour usage among the dashboards make sense."*
+
+Audited by measuring what a reader **sees** — computed `background` and `color`
+on every visible element of all five dashboards, resolved back to the token that
+produced it — rather than by reading the token list. A token is a promise until
+something resolves it, and the question was what each colour *means*, which only
+the rendered page can answer.
+
+### 135.1 The system, stated
+
+| system | job | tokens |
+|---|---|---|
+| **Band** | the cohort verdict — a clinical state | `--risk-low` / `--risk-moderate` / `--risk-high` |
+| **Tier** | HoloMotion's own 0–100 quality, four steps | `TIER_COLOR` |
+| **Series** | *how much of a thing*, no state implied | `--series-1…4` |
+
+The rule has been written at the top of the `--series-*` block since §120:
+**status hues mean a clinical state and must never stand in as a chart's series
+colour.** It was added after the admin dashboard drew a healthy 76/100 in the
+same amber the app uses for "needs attention".
+
+### 135.2 It had been broken three times, by three surfaces drawing one number
+
+"How many athletes are flagged for this muscle" is **one aggregate with three
+readers** — the admin's ranked bars, the coach's hotspot list, and Sport
+Assessment's flag list. Measured:
+
+| surface | bar fill |
+|---|---|
+| `/admin/dashboard` | `--series-2` ✓ |
+| `/coach/dashboard` | `--risk-moderate` ✗ |
+| `/medical/sport-assessment` | `--risk-moderate` ✗ |
+
+So a muscle flagged on **2 of 14** athletes and one flagged on **9 of 14** were
+both painted the amber that means *needs attention* — on pages where a band
+means exactly that, a few hundred pixels away. All three now use `--series-2`.
+
+**And the coach's weak/tight chips encoded two opposite findings as a severity
+scale** — `--risk-moderate-ink` for weak, `--risk-undertrained` for tight. This
+is the *same fault* the admin dashboard fixed, and the comment above its two
+lists already records the resolution: *"the colour carries nothing and the
+heading carries everything."* The chip **is** the heading here, so both are now
+`--text-muted`.
+
+`/admin/activity` was the third: `C.blue = var(--risk-undertrained)` drawing
+repeat-test counts — a status-family token, named for a retired model, used as a
+series colour.
+
+### 135.3 What was documented rather than changed
+
+The tier scale looks arbitrary: Excellent green, **Good blue**, Average amber,
+Below red. A reader cannot rank green against blue by hue, which on a 25-cell
+heatmap whose job is "where is this squad weakest" is the one place it would
+matter.
+
+It is not arbitrary, and the rationale had simply never been written down. A 74
+**must** be the same amber on the subitem heatmap as on the gauge and the
+threshold strip beside it, or one reading of one number is printed in two colours
+on one page. That spends green, amber and red on the three bands — so the fourth
+step needs a hue outside that set, or the scale has two greens. The blue is also
+what makes a tier cell unmistakable as a band verdict. The ordering is carried by
+`TIER_RANK`, the legend and the printed number in every consumer.
+
+Changing it was considered and refused: a hue-orderable ramp (dark green → light
+green → amber → red) would make tier and band *more* confusable, not less, and
+would break the stated property that a 74 reads the same everywhere —
+`pdfDraw.js` keeps a written-out copy of these values for exactly that reason.
+
+The honest note that came with it: `--risk-undertrained` is named for the ACWR
+under-training band, whose only component (`AcwrGauge`) has had **no call site
+since 2026-07-16**. It is retained for the rebuild path, so the token stays
+rather than being renamed out from under it — but the name describes none of its
+three current uses, and that is now said in `holomotionTiers.ts` instead of being
+left for the next reader to work out.
+
+### 135.4 Guarded, because the rule had already failed three times while written down
+
+Nothing could catch this. `verify:contrast` reads colour and cannot know what a
+colour **means**; `verify:a11y` reads roles; e2e drives behaviour. Semantics are
+not measurable by any of them.
+
+`lib/cssTokens.test.ts` gains four cases that pin the three call sites by name,
+plus a **positive control** — without it, a `fillOf` that silently returned `''`
+would pass every assertion while measuring nothing, and the control also checks a
+rule that legitimately *does* use a status hue (`.sport-band-tile--red::before`),
+so the pattern is proven able to match. One mutation registered (114 total);
+measured caught.
+
+**Stated rather than claimed:** this pins three call sites, not a rule. A fourth
+surface drawing this number in amber is not caught. Writing a check that could
+infer "this fill represents a count" from CSS is not possible, and pretending
+otherwise would be the worse failure.
+
+### 135.5 The heredoc, again
+
+The first write of the guard built a `RegExp` from a CSS selector, which needs
+`replace(/[.*+?^${}()|[\]\\]/g, '\\$&')`. Written through a shell heredoc it
+arrived a backslash short and the suite failed to parse — gotcha 9, in the file
+being added to prevent a different silent failure.
+
+Rewritten with `indexOf` and a brace scan, which needs no escaping at all. The
+general lesson is the cheaper one: **when a helper needs a backslash-heavy
+literal, that is usually a sign a non-regex approach is simpler**, not a prompt
+to get the escaping right.

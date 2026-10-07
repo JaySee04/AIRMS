@@ -99,8 +99,8 @@ cd backend; npm run coverage         # 82.4% statements / 72.3% branches (re-mea
                                      # a missing transitive dep (fs.realpath) before it would run.
 cd backend; npm run mutate           # BREAK each registered guard on purpose and prove its
                                      # test fails. A surviving mutation exits non-zero: the
-                                     # test is not testing what it claims. 113 guards across
-                                     # both packages. 112 are EXERCISED here; one is
+                                     # test is not testing what it claims. 114 guards across
+                                     # both packages. 113 are EXERCISED here; one is
                                      # listed with a `skip` because jsdom computes no
                                      # layout and only a real browser can see it (e2e
                                      # section 4l). A skip is REPORTED every run and is
@@ -687,7 +687,7 @@ cd backend; npx jest      # 70 suites / 1103 tests: cohorts, overallIndicator, p
                           # other suite. Static: it reads both files as text and never
                           # require()s the target, because several modules build a Sequelize
                           # instance at import time)
-cd frontend; npx jest     # 30 suites / 516 tests (the run is pinned to UTC by
+cd frontend; npx jest     # 30 suites / 520 tests (the run is pinned to UTC by
                           # jest.globalSetup.js - this machine sits IN the institution
                           # zone, which made the date tests pass for the wrong reason
                           # until mutation testing said so; see DD 62): lib/risk.ts, lib/screeningUploadStore.ts, bodymap-data/muscles.ts,
@@ -1492,6 +1492,36 @@ Forgetting the sync is the one hazard the design trades for, so **both** test su
   - **A fallback on a token declared nowhere is not a fallback — it is the value** (§121.9). `var(--secondary, #c89b3c)` shipped the brand amber as text at 2.56:1 in both themes, and `var(--text-dim, #6b7a8d)` put white on a hover-tooltip chip at **4.38:1** where no browser sweep could reach it. `lib/cssTokens.test.ts` now reports this case as well as the unguarded one; a fallback on a token that *does* exist is still fine and still unreported.
   - **Measure the token, not the hue you remember.** `#6bb0e0` is obviously a light blue that white cannot sit on — and it is the **dark** theme's `--risk-undertrained`. Light's is `#2a6391`. Giving both a dark ink shipped **2.05:1** onto twelve heatmap cells as part of a contrast fix.
 
+  **THREE COLOUR SYSTEMS, THREE JOBS (2026-10-06, `§135`).** Beyond the three
+  *roles* above, there are three *systems*, and mixing them is the fault that
+  keeps recurring:
+
+  | system | job | tokens |
+  |---|---|---|
+  | **Band** | the cohort verdict — a clinical state | `--risk-low/moderate/high` |
+  | **Tier** | HoloMotion's own 0-100 quality, 4 steps | `TIER_COLOR` |
+  | **Series** | *how much of a thing*, no state implied | `--series-1..4` |
+
+  **A COUNT IS NEVER PAINTED IN A STATUS HUE.** The rule sits at the top of the
+  `--series-*` block and had been broken three times while written down — by
+  three surfaces drawing ONE aggregate ("athletes flagged per muscle"): the
+  admin's ranked bars had it right, the coach's hotspot list and Sport
+  Assessment's flag list drew it `--risk-moderate`, so 2-of-14 and 9-of-14 were
+  both the amber a band uses for "needs attention" on the same page. Pinned by
+  `lib/cssTokens.test.ts` and one mutation — but the guard names THREE CALL
+  SITES, not the rule: a fourth surface is not caught.
+
+  **Two categories are not a scale.** Weak and tight are opposite findings;
+  colouring them amber-vs-blue invites a ranking on an axis that does not exist.
+  The admin dashboard's fix is the precedent — *"the colour carries nothing and
+  the heading carries everything"*.
+
+  **The tier scale borrows the band's hues on purpose, and "Good" is blue for a
+  reason** — a 74 must read as the same amber on the heatmap as on the gauge
+  beside it, which spends green/amber/red, so the fourth step needs a hue outside
+  that set. Do not "fix" it into an orderable ramp: that makes tier and band more
+  confusable, and `pdfDraw.js` keeps a written-out copy of these values.
+
   **Nothing here is guessed — re-measure with `cd frontend; npm run verify:contrast`** (needs `npm run dev`; ~52s; **24 pages × 2 themes = 48 visits**, 7924 text elements; **exits 1** on any finding *or any page it could not measure*, 2 if it could not run at all). It reads computed colours out of a real browser and resolves each surface with `elementsFromPoint` — an ancestor walk mis-reports anything positioned outside its parent's box, which is how `.histogram-n` was written into §120.5 as a defect at 1.04:1 when it measures 5.28.
 
   **Every visit must prove it was measured, and that is the load-bearing part** (§121.8). An expired session, a renamed route or a role that cannot reach a page all end on a screen with no contrast problems, so the sweep would report a confident green ZERO. Each visit asserts it landed on the route it asked for, in the theme it asked for, with enough text and elements to be that page. It earned its keep immediately: the list named `/executive/dashboard`, **which has never existed** — `executive` has no pages of its own and lands on `/admin/dashboard` — so the audit had been sweeping Next's 404 page and counting it clean, while missing **ten** real authenticated pages. "Eleven pages" was ten of twenty-one. `src/app/contrastPages.test.ts` now fails if the list and `src/app` disagree in either direction, or if a page is listed under a role its `allowedRoles` refuses.
@@ -1797,10 +1827,24 @@ tip makes the **default state of the screen** the un-caveated reading, which is
 | **CAVEAT** | yes | changes how a number is **read** | would a reader draw a **wrong conclusion** without this sentence? |
 | **METHOD** | **no** | how it is built, why, what it refuses to say | does a reader who already knows the instrument lose anything? |
 
-Caveats in practice: *"a mean is not an athlete"*, *"never screened is counted
-apart"*, *"the lines are medians, not fixed cut-offs"*, *"not a fitness-to-play
-decision"*, *"a count, not how severe it is"*, and any statement of whether a
-threshold was **measured or assumed**.
+Caveats in practice: *"a squad average, not any one athlete"*, *"never screened
+is counted apart"*, *"lines are medians, not fixed cut-offs"*, *"not a
+fitness-to-play decision"*, *"a count, not how severe it is"*, and any statement
+of whether a threshold was **measured or assumed**.
+
+**A CAVEAT EARNS ITS PLACE BY BEING READ** (2026-10-06, §134). The test is not
+"is the sentence there" but "would a tired reader take it in" — and for four
+sentences of hedged prose the answer is no, which makes its presence worth
+nothing. Write the clause, put the reasoning in the tip. Measured: the longest
+caveat block per dashboard was 251–321 characters and is now 36–70, with the
+safety property unchanged in every case. This is NOT "shorter is better" — the
+coaching prescriptions on /coach/dashboard are 160 characters and were left
+alone, because they are the content rather than commentary on it.
+
+**Cards that sit side by side use `.card-row`** (`.card-row--wide` for a table or
+a matrix). One definition: the pattern had been hand-written as an inline style
+four times with three different minimums, so "when does this stack?" had four
+answers. Do not add a fifth inline copy.
 
 **Thirteen caveat phrases are PINNED** by `frontend/src/components/ui/InfoTip.test.tsx`,
 which reads each page with every `<InfoTip>` block **and every comment** stripped.

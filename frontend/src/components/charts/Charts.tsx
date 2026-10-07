@@ -681,9 +681,8 @@ export function MetricDeltas({
           the calling card's InfoTip. */}
       {note ?? (
         <p className="chart-note">
-          Bar direction is <strong>better or worse</strong>, not the sign: exercise risks
-          improve by going down, so a fall there is drawn to the right like every other
-          improvement, while the printed number keeps its true sign.
+          Bar direction is <strong>better or worse</strong>, not the sign — the printed
+          number keeps its true sign.
         </p>
       )}
     </div>
