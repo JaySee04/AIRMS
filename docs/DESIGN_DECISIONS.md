@@ -13566,3 +13566,62 @@ prominent, and that is a limit rather than a finish.
 
 All 18 muscle-partition guards pass, including containment, the mirror check, the
 taper and spindle form tests, and "no elliptical arc for any reshaped muscle".
+
+## 139. The flake that was a 45KB download on the critical path (2026-10-07)
+
+`verify:contrast` reported `/medical/sport-assessment` as **"only 9 measurable
+elements; the page did not render"** twice in one session. That is a
+could-not-measure, not a finding: the run fails, nothing is reported about the
+page, and the obvious move is to run it again — which worked both times.
+
+§121.10 is the entry about a false red waved through as environmental three times
+in one session, "which is precisely how a REAL one gets waved through". This is
+that situation with the verdict reversed: the red was real.
+
+### 139.1 What it was
+
+The page built its sport picker from `GET /athletes?limit=500` — the entire
+roster — and reduced it to a set of distinct sport names.
+`GET /athletes/meta/sports` has existed the whole time, for exactly this, with
+the same rbac. Its own comment reads *"list of distinct sports (for filter
+dropdowns)"*.
+
+| | bytes | time |
+|---|---|---|
+| `/athletes?limit=500` | **45,261** | 19.9ms |
+| `/athletes/meta/sports` | **56** | 5.1ms |
+
+808× the payload to produce `["Athletics","Badminton","Football","Hockey","Swimming"]`.
+
+### 139.2 Size was not the problem — position was
+
+The two requests are **serial by construction**:
+
+```
+useEffect([])      -> GET /athletes?limit=500   -> setSport(first)
+useEffect([sport]) -> GET /athletes/analytics/screening?sport=...
+```
+
+The analytics call cannot start until the roster call returns and sets `sport`.
+So a 45KB download the page never reads sat on the critical path *ahead of the
+one it does*. Under four concurrent browser contexts — `verify:contrast`'s
+default job count — that was enough to leave the page un-rendered at the moment
+the sweep measured it.
+
+Measured after, under the same four-way concurrency that produced the failure:
+**400 elements and 0 full-roster calls on every context**, against the 9 elements
+that failed the threshold.
+
+Worth noting what the page was pulling and discarding: every athlete's IC number,
+band and injury flag, to extract five strings.
+
+### 139.3 The lesson belongs to the sweep, not the page
+
+Rule 2 — *a check that could not measure must never read as clean* — is the only
+reason this was visible. Had the sweep counted an unrendered page as zero
+findings, there would have been nothing to notice and the roster would still be
+sitting in front of a clinical screen.
+
+The guard's job is not only to avoid a false green. It is to **leave a symptom
+somebody can follow**, and "did not render, twice, always the same page" is a
+symptom with a cause at the end of it.
