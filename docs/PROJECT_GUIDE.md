@@ -372,7 +372,7 @@ cd frontend; npx tsc --noEmit -p tsconfig.json
 cd frontend; npm run lint
 
 # Tests
-cd backend;  npx jest      # 70 backend suites
+cd backend;  npx jest      # 71 backend suites
 cd frontend; npx jest      # 30 frontend suites
 
 # Health check
@@ -392,7 +392,7 @@ curl http://localhost:5000/api/health
 
 Jest still covers mostly **pure logic**, and there is still no linter for the
 backend. What exists beyond it, and what genuinely remains unguarded, is the
-table below plus the four verification commands — `npm run mutate` (114 guards),
+table below plus the four verification commands — `npm run mutate` (117 guards),
 `npm run audit:access` (66 endpoints × every role, plus anonymous),
 `npm run verify:claims` (a *running* instance) and `npm run verify:csp`
 (real Chrome, production build). The honest gap is **route handlers and pages**:
@@ -428,7 +428,7 @@ most are covered by e2e or by nobody.
 
 **Continuous integration — [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)** (2026-09-13).
 Three jobs on push/PR to `feat/mysql-migration` and `main`: **checks** (both jest
-suites, typecheck, lint), **mutate** (the 114 guards — separate because it exceeds
+suites, typecheck, lint), **mutate** (the 117 guards — separate because it exceeds
 two minutes), and **csp** (build + real Chrome + `verify:csp`). **No database
 service**, because every backend suite is DB-free. `audit:access`,
 `verify:claims` and `e2e` need a *live* instance and are deliberately **left out
@@ -436,7 +436,7 @@ rather than half-wired** — a green tick that quietly skipped them is a worse
 signal than no tick at all. Until this existed, every test and every guard ran
 only when somebody remembered, on a branch where a push **is** a deploy.
 
-Counts as of 2026-10-06: **70 backend suites / 1103 tests**, **30 frontend suites / 520 tests**.
+Counts as of 2026-10-07: **71 backend suites / 1116 tests**, **30 frontend suites / 522 tests**.
 
 The **suite** counts above are guarded (`codebaseHygiene.test.js`); the test
 totals are not, deliberately — measuring them means running jest inside jest,

@@ -13625,3 +13625,117 @@ sitting in front of a clinical screen.
 The guard's job is not only to avoid a false green. It is to **leave a symptom
 somebody can follow**, and "did not render, twice, always the same page" is a
 symptom with a cause at the end of it.
+
+## 140. Two mutation guards the stripper split left behind (2026-10-07)
+
+`§136` split `InfoTip.test.tsx`'s comment stripper into two functions — `codeOf`
+(strips comments, keeps tips) and `visibleSource` (strips both) — because the
+three-way prose split needs to ask two different questions of the same file:
+*is this caveat on the card* and *does this claim exist anywhere*.
+
+Two entries in `scripts/mutation-check.js` pin **exact source lines inside that
+function**, and both went stale on the split:
+
+```
+"  return noComments.replace(/<InfoTip...)"    0 matches
+"    .replace(/^\\s*\\/\\/.*$/gm, ' ');"         0 matches
+```
+
+**A stale entry ERRORS rather than passing**, which is the registry design
+working — `§123`'s rule that a guard absent from this file must never look like
+one nobody wrote. But the consequence lands on the wrong person: `npm run mutate`
+would have broken for whoever ran it next, on a change that had nothing to do
+with them, and the obvious reading of a registry error is "the guard is gone",
+not "the line moved".
+
+It was found by **arguing with myself about whether to deploy**, which is the
+only reason it was found at all — nothing else in the commit touched these files
+and no suite fails on a stale `find`.
+
+Both are re-pointed. The second needed care: it is **mid-chain** now, so the old
+replacement of a bare `;` would be a **syntax error** rather than a mutation —
+and a test that crashes proves nothing about what the guard covers, only that
+the file no longer parses. It replaces the pattern with one that matches nothing
+instead, which is the mutation actually intended.
+
+Measured: **113 caught, 1 declared skip**, both re-pointed entries proven to
+catch.
+
+**The standing lesson is about where the pin sits.** A mutation entry anchored
+on an exact source line is the most precise form available and the most brittle;
+it earns that when the line *is* the guard. When it merely sits inside one,
+anchor on something the refactor cannot move.
+
+## 141. The 11/12 that would not come back (2026-10-07)
+
+One `npm run verify:claims -- --hosted` run returned **11/12**. Five re-runs —
+including a deliberate replay of the exact sequence that preceded it — returned
+12/12. It was recorded as *unexplained rather than closed*, which was honest and
+useless.
+
+**A one-off that will not reproduce is the worst thing a check can produce.**
+There is nothing to diagnose and nothing to dismiss, so it becomes a thing you
+learn to scroll past — and the next real failure arrives wearing its clothes.
+
+### The cause: the counter is shared, and two claims assumed they owned it
+
+Two claims read the login throttle's `RateLimit` header across consecutive
+requests:
+
+```
+a failed sign-in consumes budget            remaining r1 -> r2, expects r2 < r1
+a SUCCESSFUL sign-in forgives the failures  expects rAfter >= r1
+```
+
+**The limiter is keyed per IP** (deliberately — `§48`'s NAT lesson is about the
+*vision* throttle being per-user for the opposite reason). So every other caller
+from this machine moves the same number. `npm run verify:reports -- --hosted`
+signs in **25 times**; hosted `e2e` five more. I had been running both against
+the same instance that afternoon. The 11/12 was two checks reading somebody
+else's counter — mine.
+
+Reproduced deliberately with a second paced caller: the claim went from a
+confident pass to `remaining 24 -> 22`. The guard reports it correctly:
+
+```
+SKIP  a failed sign-in consumes budget
+      remaining 24 -> 22 (expected a drop of exactly 1, saw 2)
+      another caller is spending the same per-IP budget — run this alone
+SKIP  a SUCCESSFUL sign-in forgives the failures before it
+      skipped: the counter moved underneath the previous claim
+```
+
+The contender's own log showed the **second** invalidating condition in the same
+run — `reset` jumping 815 → 899 with `remaining` back to 29, i.e. the 15-minute
+window rolling mid-check. A window roll invalidates the comparison exactly as
+surely as contention does and looks nothing like it, so both are tested.
+
+### Rule 2, in the direction that is easy to miss
+
+The honest verdict was never FAIL. It was **NOT MEASURABLE**. Rule 2 is usually
+read as *do not report green when you could not measure*; this is the same rule
+pointing the other way — **do not report red either**. A FAIL asserts a property
+was violated, and a reading taken while another process moves the counter is not
+evidence of that.
+
+So both claims now report `claim(name, null, …)` **with the readings that say
+so**, and name the remedy on the line. The script's existing convention is
+followed rather than extended: a skip is counted apart (`10/10 claims verified,
+2 not measurable here`), exit 0, same as the local loopback skip.
+
+### The second defect, found while fixing the first
+
+`rAfter >= r1` was the wrong assertion all along. A success *clears* the counter,
+so the one failure after it must report **`limit - 1`** and nothing else. The
+inequality was satisfied by a **half-cleared** counter and by a window that had
+simply **rolled** — two ways to pass without the property holding, on the claim
+that exists because the hosted instance once counted requests for weeks while
+every doc said failures (`SILENT_FAILURES.md` 3r).
+
+That is why `limitOf` was added rather than parsing `remaining` alone: **you
+cannot check that a counter was cleared without knowing what cleared looks
+like.** It now reads `remaining=29 (expected 29)`.
+
+**Do not loosen this back to an inequality**, and do not "simplify" the
+contention guard away — without it the check is 12/12 most of the time and
+unexplainably 11/12 whenever somebody runs the other hosted verifier.

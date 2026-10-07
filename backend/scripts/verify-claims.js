@@ -74,7 +74,14 @@ async function call(path, { method = 'GET', token = null, body = null } = {}) {
   };
 }
 
-const remainingOf = (h) => (h ? Number((h.match(/remaining=(\d+)/) || [])[1]) : null);
+// `RateLimit: limit=30, remaining=29, reset=899`. All three are needed, not just
+// `remaining`: `limit` is what a CLEARED counter must report back (§141), and
+// `reset` rising between two reads means the 15-minute window rolled underneath
+// the comparison — which invalidates it just as surely as another caller does.
+//
+// In scripts/lib/ rather than here so it can be unit-tested and mutated: this
+// script needs a live hosted instance, so nothing here is reachable from jest.
+const { remainingOf, readingPair } = require('./lib/rateLimitReading');
 
 const login = async (email, password = PW) =>
   call('/auth/login', { method: 'POST', body: { email, password } });
@@ -142,17 +149,52 @@ const login = async (email, password = PW) =>
       'loopback is exempt from the limiter (by design), so no counter exists. Run with --hosted.');
   } else {
     const bad2 = await login('admin@isn.gov.my', 'definitely-not-the-password');
-    const r1 = remainingOf(bad1.rateLimit);
-    const r2 = remainingOf(bad2.rateLimit);
-    claim('a failed sign-in consumes budget', r2 < r1,
-      `remaining ${r1} -> ${r2}`);
 
-    const good = await login('admin@isn.gov.my');
-    const after = await login('admin@isn.gov.my', 'definitely-not-the-password');
-    const rAfter = remainingOf(after.rateLimit);
-    claim('a SUCCESSFUL sign-in forgives the failures before it',
-      good.status === 200 && rAfter !== null && rAfter >= r1,
-      `after a success, the next request starts from remaining=${rAfter} (was ${r2})`);
+    // THIS COUNTER IS SHARED, AND THESE TWO CLAIMS USED TO ASSUME THEY OWNED IT
+    // (§141). The limiter is keyed per IP, so every other caller from this
+    // machine moves the same number: `verify:reports --hosted` signs in 25
+    // times, hosted e2e five more. Run either alongside this and the readings
+    // below are somebody else's.
+    //
+    // Measured consequence: one run reported 11/12 and five re-runs could not
+    // reproduce it. A one-off that will not come back is the worst thing a check
+    // can produce — there is nothing to diagnose and nothing to dismiss — and
+    // the honest verdict was never FAIL. It was NOT MEASURABLE (rule 2).
+    //
+    // Two consecutive failures from a quiet machine drop `remaining` by exactly
+    // one. Anything else means another caller is spending the same budget, so
+    // the claim is reported as unmeasured WITH the readings that say so, rather
+    // than as a property violation it is not evidence of.
+    const {
+      r1, r2, limit, drop, windowRolled, contended,
+    } = readingPair(bad1.rateLimit, bad2.rateLimit);
+
+    if (contended) {
+      claim('a failed sign-in consumes budget', null,
+        `remaining ${r1} -> ${r2} (expected a drop of exactly 1, saw ${drop})`
+        + `${windowRolled ? '; the 15-minute window rolled mid-check' : ''}`,
+        'another caller is spending the same per-IP budget — run this alone, or wait for the window');
+      claim('a SUCCESSFUL sign-in forgives the failures before it', null,
+        'skipped: the counter moved underneath the previous claim',
+        'a forgiveness reading taken during contention proves nothing either way');
+    } else {
+      claim('a failed sign-in consumes budget', true, `remaining ${r1} -> ${r2}`);
+
+      const good = await login('admin@isn.gov.my');
+      const after = await login('admin@isn.gov.my', 'definitely-not-the-password');
+      const rAfter = remainingOf(after.rateLimit);
+      // EXACT, not `>= r1`. A success clears the counter, so the one failure
+      // after it must report limit-1 and nothing else. The old inequality was
+      // satisfied by a half-cleared counter and by a window that had simply
+      // rolled, which is two ways to pass without the property holding.
+      const expected = limit === null ? null : limit - 1;
+      claim('a SUCCESSFUL sign-in forgives the failures before it',
+        good.status === 200 && rAfter !== null && rAfter === expected,
+        `after a success, the next failure reports remaining=${rAfter} (expected ${expected}; was ${r2})`,
+        rAfter !== null && expected !== null && rAfter < expected
+          ? 'lower than a cleared counter allows — either the clear did not happen, or another caller spent budget mid-check'
+          : '');
+    }
   }
 
   // ── 2. Using the system does not spend the login budget ──────────────────

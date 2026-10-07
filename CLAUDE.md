@@ -99,8 +99,8 @@ cd backend; npm run coverage         # 82.4% statements / 72.3% branches (re-mea
                                      # a missing transitive dep (fs.realpath) before it would run.
 cd backend; npm run mutate           # BREAK each registered guard on purpose and prove its
                                      # test fails. A surviving mutation exits non-zero: the
-                                     # test is not testing what it claims. 114 guards across
-                                     # both packages. 113 are EXERCISED here; one is
+                                     # test is not testing what it claims. 117 guards across
+                                     # both packages. 116 are EXERCISED here; one is
                                      # listed with a `skip` because jsdom computes no
                                      # layout and only a real browser can see it (e2e
                                      # section 4l). A skip is REPORTED every run and is
@@ -327,7 +327,7 @@ cd backend; npm run verify:reports -- --hosted  # ...from the deployed instance 
                                      # See docs/SILENT_FAILURES.md 4a and docs/DEPLOY.md.
 cd backend; npm run verify:claims    # check the OPERATIONAL claims against a RUNNING instance and
                                      # print the measured number for each. Needs `npm run dev`.
-cd backend; npm run verify:claims -- --hosted   # ...against the deployed API (10/10 on 2026-09-11)
+cd backend; npm run verify:claims -- --hosted   # ...against the deployed API (12/12 on 2026-10-07)
                                      # Every other guard checks the CODE - jest, `npm run map`,
                                      # `npm run mutate`, `npm run audit:access` all run against the
                                      # source or a local process. A whole class of claim is
@@ -349,6 +349,19 @@ cd backend; npm run verify:claims -- --hosted   # ...against the deployed API (1
                                      # throttle claims SKIP locally, because loopback is exempt
                                      # from the limiter by design and a green tick there would
                                      # mean nothing.
+                                     # RUN IT ALONE AGAINST HOSTED (2026-10-07, DD 141). The login
+                                     # throttle is keyed per IP, so the two throttle claims read a
+                                     # counter that `verify:reports --hosted` (25 logins) and hosted
+                                     # e2e also spend. Running them concurrently produced one
+                                     # 11/12 that five re-runs could not reproduce — the worst thing
+                                     # a check can emit, because there is nothing to diagnose and
+                                     # nothing to dismiss. Those two claims now detect it (a drop
+                                     # other than exactly 1 between consecutive failures, or `reset`
+                                     # rising, which means the 15-minute window rolled mid-check) and
+                                     # report NOT MEASURABLE with the readings, never FAIL — rule 2
+                                     # pointing the direction it is usually not read in. Proven by
+                                     # running a second paced caller alongside: `remaining 24 -> 22`,
+                                     # both claims skipped with the remedy named.
 cd backend; npm run mail:tick        # ONE scheduled-mail pass, then exit (§36). This is what an
                                      # OS scheduler runs; `npm run dev`'s in-process ticker does the
                                      # same thing hourly. MAIL_SCHEDULER=off disables the in-process
@@ -586,7 +599,26 @@ cd frontend; npm run e2e   # END-TO-END smoke: a real Chrome against the running
 cd frontend; npm run build
 
 # Unit tests (jest, in both packages — no linter configured for the backend)
-cd backend; npx jest      # 70 suites / 1103 tests: cohorts, overallIndicator, permissions, rbac, pdfDraw,
+cd backend; npx jest      # 71 suites / 1116 tests: cohorts, overallIndicator, permissions, rbac, pdfDraw,
+                          # rateLimitReading (WHEN IS A HOSTED RATE-LIMIT READING WORTH A
+                          # VERDICT. The login throttle is keyed per IP, so verify:claims'
+                          # two throttle claims read a counter that `verify:reports
+                          # --hosted` (25 logins) and hosted e2e also spend. One run
+                          # reported 11/12 and five re-runs could not reproduce it — the
+                          # worst thing a check can emit, since there is nothing to
+                          # diagnose and nothing to dismiss. The predicate lives in
+                          # scripts/lib/ apart from the script precisely so jest can reach
+                          # it: verify:claims needs a live hosted instance, so an INVERTED
+                          # predicate would skip ALWAYS, retiring the two claims that exist
+                          # because SILENT_FAILURES 3r happened, while printing a
+                          # reassuring "not measurable here" nobody would question. Pins
+                          # both invalidating conditions — a drop other than exactly 1
+                          # between consecutive failures, and `reset` RISING, which a drop
+                          # test alone cannot see because a rolled window sends `remaining`
+                          # back UP. Its own suffix-match case found a real weakness on
+                          # first run: an unanchored `limit=` reads the number out of a
+                          # hypothetical `burst-limit=5`, which is rule 5 one layer down.
+                          # Three registered mutations. See DD 141),
                           # emailAddress (the address an activation code is SENT to. It was
                           # VARCHAR(160) UNIQUE and nothing else — "not-an-email", "jc@@isn",
                           # "a b@c.d" and "<script>@x.com" all validated and would have been
@@ -687,7 +719,7 @@ cd backend; npx jest      # 70 suites / 1103 tests: cohorts, overallIndicator, p
                           # other suite. Static: it reads both files as text and never
                           # require()s the target, because several modules build a Sequelize
                           # instance at import time)
-cd frontend; npx jest     # 30 suites / 520 tests (the run is pinned to UTC by
+cd frontend; npx jest     # 30 suites / 522 tests (the run is pinned to UTC by
                           # jest.globalSetup.js - this machine sits IN the institution
                           # zone, which made the date tests pass for the wrong reason
                           # until mutation testing said so; see DD 62): lib/risk.ts, lib/screeningUploadStore.ts, bodymap-data/muscles.ts,

@@ -1281,6 +1281,39 @@ const MUTATIONS = [
     replace: '    .sort((a, b) => b.count - a.count)',
     test: 'tests/muscleHotspots.test.js',
   },
+  // ── the 11/12 that would not come back (2026-10-07, §141) ────────────────
+  // The predicate deciding whether a hosted rate-limit reading is MEASURABLE.
+  // It is the one piece of verify:claims reachable from jest — the script needs
+  // a live hosted instance — and an inverted one skips ALWAYS, retiring the two
+  // claims that exist because SILENT_FAILURES 3r happened, while printing a
+  // reassuring "not measurable here" nobody would question.
+  {
+    guard: 'rate-limit reading: a drop other than exactly 1 is contention',
+    why: 'inverted, the two throttle claims never run again and nothing says so',
+    pkg: 'backend',
+    file: 'scripts/lib/rateLimitReading.js',
+    find: '    contended: drop !== 1 || windowRolled,',
+    replace: '    contended: windowRolled,',
+    test: 'tests/rateLimitReading.test.js',
+  },
+  {
+    guard: 'rate-limit reading: a RISING reset means the window rolled',
+    why: 'a rolled window sends remaining back UP, so a drop test alone cannot see it',
+    pkg: 'backend',
+    file: 'scripts/lib/rateLimitReading.js',
+    find: '  const windowRolled = resetOf(h2) > resetOf(h1);',
+    replace: '  const windowRolled = false;',
+    test: 'tests/rateLimitReading.test.js',
+  },
+  {
+    guard: 'rate-limit reading: the field key is anchored, not merely found',
+    why: "unanchored, `limit=` matches inside `burst-limit=` and reads the wrong number",
+    pkg: 'backend',
+    file: 'scripts/lib/rateLimitReading.js',
+    find: '  const m = header.match(new RegExp(`(?:^|[^\\\\w-])${key}=(\\\\d+)`));',
+    replace: '  const m = header.match(new RegExp(`${key}=(\\\\d+)`));',
+    test: 'tests/rateLimitReading.test.js',
+  },
 ];
 
 function pkgDir(pkg) {
