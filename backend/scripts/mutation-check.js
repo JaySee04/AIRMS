@@ -259,8 +259,12 @@ const MUTATIONS = [
     // Break the InfoTip stripper. Every caveat assertion then reads the RAW
     // source and passes whether the phrase is on the card or inside a tip — the
     // exact shape where a guard reports green while measuring nothing.
-    find: "  return noComments.replace(/<InfoTip[\\s\\S]*?<\\/InfoTip>/g, ' ');",
-    replace: '  return noComments;',
+    // RE-POINTED 2026-10-07 (§140). §136 split the stripper into `codeOf`
+    // (comments) and `visibleSource` (tips), so both `find` strings below went
+    // stale and the registry ERRORED rather than passing — which is the design
+    // working: a stale entry must never look like a caught one.
+    find: "  return codeOf(rel).replace(/<InfoTip[\\s\\S]*?<\\/InfoTip>/g, ' ');",
+    replace: '  return codeOf(rel);',
     test: 'src/components/ui/InfoTip.test.tsx',
   },
   {
@@ -269,8 +273,11 @@ const MUTATIONS = [
     pkg: 'frontend',
     from: ROOT,
     file: 'frontend/src/components/ui/InfoTip.test.tsx',
-    find: "    .replace(/^\\s*\\/\\/.*$/gm, ' ');",
-    replace: '    ;',
+    // Mid-chain now, so no trailing semicolon, and the replacement has to keep
+    // the chain valid — a bare `;` would be a syntax error here rather than a
+    // mutation, and a crashing test proves nothing about what the guard covers.
+    find: "    .replace(/^\\s*\\/\\/.*$/gm, ' ')",
+    replace: "    .replace(/^zzzz-no-such-line$/gm, ' ')",
     test: 'src/components/ui/InfoTip.test.tsx',
   },
   {
