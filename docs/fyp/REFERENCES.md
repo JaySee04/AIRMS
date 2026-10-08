@@ -295,16 +295,32 @@ lead with Washif (2024) — already done in §2 — and keep Hopkins/Weir as an
 optional footnote for method provenance. Cutting them entirely is defensible
 under the post-2022 rule.
 
-### 6.3 MIT License — a licence obligation, not a citation
+### 6.3 ~~MIT License — a licence obligation, not a citation~~ — **REMOVE IT (2026-10-08)**
 
-> Shehryar, S. *react-muscle-highlighter*. MIT License.
-> https://github.com/soroojshehryar/react-muscle-highlighter
+> ~~Shehryar, S. *react-muscle-highlighter*. MIT License.~~
+> ~~https://github.com/soroojshehryar/react-muscle-highlighter~~
 
-**Not a literature citation and not subject to the date rule.** The MIT licence
-requires the copyright notice be retained in distributions; the attribution sits
-at the top of every file in `bodymap-data/`, and `MASTER_CLARIFICATIONS §12`
-locks its presence in the report's reference section. **Cost of cutting: a
-licence violation.** It stays.
+**This entry must NOT appear in the report.** It was a licence obligation while
+the project shipped that path data; on 2026-10-08 JC replaced the body map with
+original geometry (`DESIGN_DECISIONS.md §144`), and the licensed files —
+`bodyFront.ts`, `bodyBack.ts`, `outlines.ts`, `muscles.ts` — are **deleted**.
+Nothing in the repository derives from them.
+
+The reasoning inverts completely. The MIT licence obliges you to retain the
+notice *in distributions of that code*; AIRMS no longer distributes it, so the
+obligation is discharged by removal. Keeping the entry would instead **credit a
+third party for work that is the project's own**, which is the opposite error
+and a worse one in a graded artifact — it understates original contribution and
+misdescribes what was built.
+
+**Cost of cutting: none. Cost of keeping: a false attribution in your own
+report.** Delete it.
+
+The body map is now defensible as original work — the figure is built from
+anatomical landmarks and every muscle is placed by its origin and insertion,
+so it can be argued muscle by muscle in viva rather than cited. If an examiner
+asks what the figure is based on, the answer is human anatomy, and the method
+is in §144.
 
 ---
 

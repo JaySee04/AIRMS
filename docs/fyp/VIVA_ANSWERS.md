@@ -257,11 +257,20 @@ Answers grounded in `docs/MASTER_CLARIFICATIONS.md`, `docs/DESIGN_DECISIONS.md`,
 
 ## 13. Body Map
 
+> **THIS SECTION DESCRIBES THE FYP I BODY MAP AND IS NO LONGER THE BUILD.**
+> Two changes overtook it: §4a (2026-08-04) made *Muscle Flags* draw HoloMotion's
+> **22 individual muscles** rather than aggregated regions, and §144 (2026-10-08)
+> replaced the third-party asset with **original geometry**. Rows 2 and 3 are
+> rewritten below because they would otherwise be answered wrongly on licensing;
+> row 1's premise — aggregation to library regions — applies only to the
+> *ROM & Stability* mode now, where HoloMotion genuinely reports five regions.
+> The current dossier is [VIVA_FYP2.md](VIVA_FYP2.md).
+
 | # | Question | Answer |
 |---|---|---|
-| 1 | Why aggregate 26 muscles to ~10 library regions? | Showing 26 anatomically accurate muscles on a thumbnail-scale silhouette is visually unreadable and not how clinicians communicate. Aggregation matches clinical norms (region on figure, specifics in panel). The side cards below the figure preserve full granularity, so nothing is lost. |
-| 2 | MIT attribution — where does it live? | At the top of every imported file in `frontend/src/components/dashboard/bodymap-data/` and called out in `docs/DESIGN_DECISIONS.md §4`. Must remain in the FYP references section — explicitly locked in MASTER_CLARIFICATIONS §12. |
-| 3 | If react-muscle-highlighter were ever de-licensed, fallback? | The path data is already copied into the repo (not installed as a dependency), so a licence change upstream does not affect us. The MIT licence at the time of copy persists with the copied code. |
+| 1 | Why aggregate 26 muscles to ~10 library regions? | **Superseded — see the banner above.** The figure draws all 22 named muscles in *Muscle Flags* mode; aggregation now applies only to *ROM & Stability*, where the instrument itself reports five regions, so mode grain matches data grain. The original answer, for the FYP I build: showing 26 muscles on a thumbnail-scale silhouette is visually unreadable and not how clinicians communicate; the side cards preserved full granularity. |
+| 2 | MIT attribution — where does it live? | **ANSWER CHANGED 2026-10-08 — do not give the old one.** Nowhere: there is no third-party asset any more. JC replaced the body map with original geometry (`DESIGN_DECISIONS.md §144`) and the licensed files are deleted, so no attribution is owed and it must be **removed** from the references. The figure is built from anatomical landmarks with each muscle placed by its origin and insertion — defensible muscle by muscle rather than by citation. |
+| 3 | If react-muscle-highlighter were ever de-licensed, fallback? | **Moot since 2026-10-08** — nothing in the project derives from it. Worth saying what the real fallback turned out to be: the asset was a *workout* atlas whose regions could not express a clinical muscle's origin and insertion (sartorius crosses the whole thigh; iliopsoas inserts below the hip), so it was replaced for **fitness**, not for licensing. §144. |
 | 4 | Why render head/hands/feet inert rather than omit? | Anatomical context — the silhouette must read as a human body. Removing limbs would look broken. Rendering them inert (no hover, no tooltip, no cursor change) communicates "not tracked here" without breaking the figure. |
 | 5 | Flag cards redundant with hover tooltips? | They are complementary: tooltips are exploratory (hover to discover), cards are persistent (visible at a glance with no interaction). Clinicians scan the cards; athletes hover. Different modalities, same data — defensible duplication. |
 

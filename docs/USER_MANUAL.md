@@ -210,7 +210,9 @@ The athlete's latest ingested report, read against its thresholds (full detail i
 
 ### 4.4 Muscle Assessment Map
 
-**Front + back** athletic silhouettes side-by-side. Adapted from the MIT-licensed `react-muscle-highlighter` library.
+**Front + back** anatomical figures side-by-side, laid out the way the HoloMotion
+report prints its Muscle Imbalance page. Original geometry: each muscle is drawn
+from its anatomical origin and insertion ([§144](DESIGN_DECISIONS.md)).
 
 - Default: unflagged regions blend with the body fill (light grey)
 - **Flagged regions** light up by category:

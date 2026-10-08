@@ -142,11 +142,23 @@ The athlete key became the identity-card number on 2026-08-04. State it and own 
 
 ## R9 · References
 
-Add (locked decision — the body-map asset attribution must appear):
+**REVERSED 2026-10-08 — do NOT add this, and remove it if an earlier draft has it:**
 
-> Shehryar, S. (2023). *react-muscle-highlighter* [Computer software]. MIT License. https://github.com/soroojshehryar/react-muscle-highlighter — anatomical path data adapted for the AIRMS body-map component.
+> ~~Shehryar, S. (2023). *react-muscle-highlighter* [Computer software]. MIT License. https://github.com/soroojshehryar/react-muscle-highlighter — anatomical path data adapted for the AIRMS body-map component.~~
 
-Still correct after the 2026-08-04 change: the geometry was re-partitioned into the screening instrument's muscle vocabulary, but no path data was redrawn and the licence terms are unchanged.
+This instruction stood while the project shipped that path data. It no longer
+does: JC replaced the body map with original geometry on 2026-10-08
+(`DESIGN_DECISIONS.md §144`) and the licensed files are deleted.
+
+The 2026-08-04 note above — *"no path data was redrawn"* — is exactly what
+changed. It **was** redrawn, from anatomical landmarks, because a re-partition of
+a workout atlas could not place a muscle by its origin and insertion (sartorius
+crosses the whole thigh diagonally; iliopsoas inserts below the hip joint).
+
+Keeping the entry would credit a third party for the project's own work, which
+in a graded artifact understates your contribution. The body map belongs in
+Chapter 3 as original design work instead, with the landmark method and the
+origin/insertion placement as the thing being defended.
 
 Keep the sRPE citations (Inoue 2022, Yang 2024) **only** where the report discusses the composite model as a designed artefact. If any passage implies session load is being collected, remove it — nothing computes it.
 

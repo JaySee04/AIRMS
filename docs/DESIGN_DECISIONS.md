@@ -83,6 +83,16 @@
 
 ## 4. Body map: react-muscle-highlighter (MIT) — aggregated
 
+> **SUPERSEDED 2026-10-08 by [§144](#144-the-body-map-is-ours-now-2026-10-08-jc).**
+> JC replaced this asset with original geometry and the licensed files are
+> deleted. The record below stands as the reasoning that held for fourteen
+> months, and its third bullet — *"hand-drawing 26 anatomically accurate muscles
+> is weeks of vector work"* — is the estimate §144 tested and found wrong: a
+> parametric landmark system does it in one pass, because the shapes are
+> *derived* rather than drawn one at a time. **The MIT attribution must now be
+> REMOVED from the report**, not preserved; see §144 and `docs/fyp/REFERENCES.md`
+> §6.3.
+
 **Decision:** Use the path data from `react-muscle-highlighter` by Sorooj Shehryar (MIT) as the body silhouette source. Aggregate AIRMS-specific muscles to library regions on the figure; preserve full granularity in side cards.
 
 **Why:**
