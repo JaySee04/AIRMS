@@ -1182,6 +1182,62 @@ async function visit(browser, route, session) {
       check('medical rail: the shortcut key does not land in the search box',
         typed === '', `value=${JSON.stringify(typed)}`);
     }
+    // ── 10. The sign-in screen never navigates on its own (2026-10-08, §142) ──
+    //
+    // JC reported this twice, in opposite directions, which is why it is pinned
+    // in a browser rather than trusted to a unit test.
+    //
+    // §137 made `/` REDIRECT when a session existed, so Back from a dashboard
+    // would not land a signed-in clinician on a password prompt reading as "you
+    // have been logged out". That fixed one misreading and broke two worse ones:
+    // opening the app went straight to a dashboard, so the sign-in screen — the
+    // first thing a stakeholder is shown — was unreachable, and switching
+    // between the five demo logins became a three-step detour.
+    //
+    // §142's answer is that the page RENDERS and STATES the session instead of
+    // acting on it. Nothing here was covered by any test, and the redirect had
+    // already regressed once, so a silent return was one careless effect away.
+    {
+      const r = await visit(browser, '/', sessions.medical);
+      const at = await r.page.evaluate(() => ({
+        path: location.pathname,
+        form: !!document.querySelector('input[type="password"]'),
+        resume: !!document.querySelector('.login-resume'),
+        who: document.querySelector('.login-resume-who')?.textContent?.trim() || '',
+      }));
+      // The load-bearing one: signed in, the root must still BE the sign-in screen.
+      check('sign-in: a live session does not redirect the page away', at.path === '/', `at ${at.path}`);
+      check('sign-in: the password form is still offered', at.form);
+      check('sign-in: the live session is STATED, not acted on', at.resume, at.who);
+
+      if (at.resume) {
+        await Promise.all([
+          r.page.waitForNavigation({ waitUntil: 'networkidle2' }).catch(() => {}),
+          r.page.evaluate(() => [...document.querySelectorAll('.login-resume button')]
+            .find((b) => /continue/i.test(b.textContent || ''))?.click()),
+        ]);
+        await new Promise((s) => setTimeout(s, SETTLE_MS));
+        const landed = await r.page.evaluate(() => location.pathname);
+        check('sign-in: Continue goes to the role landing page',
+          landed === '/medical/dashboard', `at ${landed}`);
+      }
+
+      // Switching account is what the redirect made awkward, and it is how the
+      // demo is driven — five logins, one after another.
+      const r2 = await visit(browser, '/', sessions.medical);
+      await r2.page.evaluate(() => [...document.querySelectorAll('.login-resume button')]
+        .find((b) => /someone else/i.test(b.textContent || ''))?.click());
+      await new Promise((s) => setTimeout(s, 800));
+      const after = await r2.page.evaluate(() => ({
+        token: localStorage.getItem('airms_token'),
+        resume: !!document.querySelector('.login-resume'),
+        form: !!document.querySelector('input[type="password"]'),
+        path: location.pathname,
+      }));
+      check('sign-in: "someone else" clears the stored session', !after.token);
+      check('sign-in: ...and leaves a usable form on /',
+        after.form && !after.resume && after.path === '/');
+    }
   } finally {
     await browser.close();
   }

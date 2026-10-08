@@ -92,7 +92,7 @@ cd backend; npm run coverage         # 82.4% statements / 72.3% branches (re-mea
                                      # line deleted — it now asserts the phrase only the route writes,
                                      # naming what the override REPLACED.
                                      # The FRONTEND was the remaining blind spot and is
-                                     # now partly closed: e2e (171 checks), FIVE jsdom component
+                                     # now partly closed: e2e (177 checks), FIVE jsdom component
                                      # suites, and since 2026-09-12 ONE test that mounts a page.tsx
                                      # (athlete/dashboard - DD 85d). The other 25 authenticated
                                      # pages are still covered by e2e or by nobody. Coverage needed
@@ -592,7 +592,9 @@ cd frontend; npm run verify:csp   # the CSP, in REAL CHROME against a PRODUCTION
 
 # Frontend production build
 cd frontend; npm run e2e   # END-TO-END smoke: a real Chrome against the running
-                           # servers (needs `npm run dev`). 171 checks - auth boundaries,
+                           # servers (needs `npm run dev`). 177 checks - auth boundaries,
+                           # the SIGN-IN SCREEN never navigating on its own (section 10,
+                           # DD 142 - JC reported this twice, in opposite directions),
                            # each role's pages rendering, the readiness tiles accounting
                            # for the squad, the body-map focus ring, the INFO TIP opening by pointer / keyboard /
                            # tap (section 4l, DD 131.3), no NaN/undefined/
@@ -899,7 +901,7 @@ counting paint ops is a trap — the dead-band *zone* is itself a fill, so fill
 counts coincide between opposite renderings; assert on the fill **colour**.
 
 **Frontend coverage, stated accurately (2026-09-12).** There are end-to-end
-tests (`cd frontend; npm run e2e`, 171 checks), FIVE jsdom component suites
+tests (`cd frontend; npm run e2e`, 177 checks), FIVE jsdom component suites
 — `DashboardLayout` (the access gate), `OverallRiskBadge` (the hero),
 `ScreeningPanel` (§70.4's field resolution) and `DecisionPanel` (what the change
 list CLAIMS to cover — DD 79.4, and it is a jsdom test rather than an e2e check
