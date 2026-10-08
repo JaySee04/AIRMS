@@ -33,7 +33,15 @@ leaves the machine.
 
 ## Quick start
 
-Requires **Node ≥ 22 < 23** and a local **MySQL 8**.
+Requires **Node ≥ 22** and a local **MySQL 8**.
+
+<!-- No upper bound, and that is deliberate. This line read "≥ 22 < 23" while
+     every package's `engines` field said `>=22.0.0`: §91.4 proposed a ceiling
+     and §92.1 records JC removing it, because it guarantees a build break on a
+     date nobody has diarised for a runtime that would probably have worked.
+     Re-adding it is one edit per package if a future Node ever breaks the
+     native PDF pipeline (pdfjs + @napi-rs/canvas). -->
+
 
 ```powershell
 # First time only
@@ -151,7 +159,7 @@ This project's signature defect is *a wrong answer that looks like a right one*
 catch output that reads as ordinary.
 
 ```powershell
-cd backend;  npx jest              # 72 backend suites
+cd backend;  npx jest              # 73 backend suites
 cd frontend; npx jest              # 30 frontend suites
 cd frontend; npm run typecheck
 cd frontend; npm run lint

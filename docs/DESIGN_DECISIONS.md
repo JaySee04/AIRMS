@@ -14016,3 +14016,65 @@ the instinct §130.1 was corrected for. The rule that saved it is the dull one:
 Recorded in `CLAUDE.md` beside the existing warning that `mutate` resurrects
 orphaned dev servers — same cause (it writes to the working tree), different
 casualty.
+
+## 146. `verify:textlayer` could not fail on a wrong value (2026-10-08)
+
+Found by running the health-check battery rather than only the suites that had
+been green all session. The script printed a red line and exited **0**, which is
+the one combination nobody reads twice.
+
+### The defect
+
+```js
+process.exit(behaviourFailures ? 1 : (run.status === null ? 1 : 0));
+```
+
+`run.status` is the ground-truth comparator's exit code, and **every non-null
+status maps to 0**. So the comparison ran, printed its table, and was discarded.
+
+It was written that way for a good reason: exactly one row fails **by design**.
+The comparator's `summary read` is a *presence* check, and the text-layer path
+**declines** the Summary rather than emitting the letter-spaced mush an earlier
+version produced (§112, §70). A note under the table explained this. The author
+swallowed that one row by swallowing the entire verdict with it.
+
+**Measured**, by forcing `mobility` to 42 in `textLayerExtract.js` — one of the
+three components Total Score is the mean of, so a number a clinician acts on:
+
+| | comparator | `verify:textlayer` |
+|---|---|---|
+| good report | exit 1 (the sanctioned Summary row) | exit 0 ✓ |
+| `mobility` 71 → **42** | exit 1, row named | **exit 0** ✗ |
+
+This is the guard standing between §112/§114's *"every number is read exactly"*
+and a wrong one, and it reported success whatever the report said.
+
+### The fix
+
+The comparator's stdout is **captured** rather than inherited, so the script can
+read the verdict instead of only relaying it. The only row permitted to fail is
+`summary read`, and only when the Summary was genuinely declined — anything else
+fails the run, by name. A comparator that never ran (`status === null`) still
+fails, because rule 2 does not bend for this.
+
+The predicate lives in `scripts/lib/expectedDivergence.js` so jest can reach it:
+the script needs a real PDF and a subprocess, so an **inverted** predicate —
+treating every row as expected — would restore the original defect in silence
+while the reassuring note about the Summary kept printing. 12 cases, four
+registered mutations.
+
+### Two traps inside the fix itself
+
+- **The first regex matched a passing row.** `^\s+(\S.*?)\s{2,}.*✗\s*FAIL\s*$`
+  with the `m` flag reported a clean report as broken, naming a row that ends
+  `✓ PASS`. A check that cries wolf is on its way to being ignored, which is how
+  the original defect survived. It is line-based now and pinned by its own case.
+- **The control took three attempts to land a mutation.** The first edited a
+  top-level `overallActivityScore` that does not exist (it is nested under
+  `athlete`); the second edited `holomotionExtract.js`, which this script does
+  not call — it imports `extractFromTextLayer` from `textLayerExtract.js`. Each
+  time the canary reported **CONTROL FAILED** rather than passing, which is the
+  design working: §112.8's trap is a mutation that matches nothing and reports
+  green, and the only defence is a control that must go red.
+
+**Ask which function the script actually imports before mutating anything.**

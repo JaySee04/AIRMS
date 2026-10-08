@@ -14,6 +14,7 @@ const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 const { extractFromTextLayer } = require('../src/utils/textLayerExtract');
+const { failedRows, unexpectedDivergences, shouldFail } = require('./lib/expectedDivergence');
 
 (async () => {
   const target = process.argv[2];
@@ -75,11 +76,16 @@ const { extractFromTextLayer } = require('../src/utils/textLayerExtract');
   fs.writeFileSync(out, JSON.stringify(result, null, 2));
 
   const verifier = path.join(__dirname, 'verify-holomotion-extract.js');
+  // CAPTURED, not inherited, so this script can READ the comparator's verdict
+  // instead of only relaying it. See the exit calculation below for why that
+  // matters — it was the whole defect.
   const run = spawnSync(process.execPath, [verifier, '--json', out], {
-    stdio: 'inherit',
+    encoding: 'utf8',
     cwd: path.join(__dirname, '..'),
   });
   fs.unlinkSync(out);
+  process.stdout.write(run.stdout ?? '');
+  process.stderr.write(run.stderr ?? '');
 
   // The verifier's "summary read" check is a PRESENCE check — length > 20 —
   // so it reports FAIL here by design, and would equally report PASS on prose
@@ -90,7 +96,36 @@ const { extractFromTextLayer } = require('../src/utils/textLayerExtract');
   console.log('and it would have PASSED on the letter-spaced mush an earlier version');
   console.log('produced. Every other field is compared by value.');
 
-  process.exit(behaviourFailures ? 1 : (run.status === null ? 1 : 0));
+  // THIS SCRIPT COULD NOT FAIL ON A WRONG VALUE (2026-10-08, §146).
+  //
+  // The exit used to be `behaviourFailures ? 1 : (run.status === null ? 1 : 0)`,
+  // which maps EVERY non-null comparator status to 0 — so the ground-truth
+  // comparison was computed, printed in red, and then discarded. Measured by
+  // planting `athlete.mobility 71 -> 42`: the comparator exits 1 with a failing
+  // row, and this wrapper exited 0.
+  //
+  // It was written to swallow the one row that fails BY DESIGN, and it swallowed
+  // the entire verdict with it. That is the §112/§114 guard — the one standing
+  // between an "exact" import and a wrong number — reporting success no matter
+  // what the report said.
+  //
+  // So: the only row allowed to fail is the Summary presence check, and only
+  // when the Summary was genuinely DECLINED. Anything else fails the run.
+  // In scripts/lib/ so jest can reach it — this script needs a real PDF and a
+  // subprocess, so an inverted predicate here would restore the defect silently.
+  const declined = result.summary === null;
+  const unexpected = unexpectedDivergences(run.stdout, declined);
+
+  if (unexpected.length) {
+    console.log(`\n✗ ${unexpected.length} field(s) diverge that are NOT the expected Summary decline:`);
+    for (const r of unexpected) console.log(`    ${r}`);
+  } else if (failedRows(run.stdout).length) {
+    console.log('\n✓ the only divergence is the Summary, declined on purpose.');
+  }
+
+  process.exit(shouldFail({
+    behaviourFailures, stdout: run.stdout, declined, status: run.status,
+  }) ? 1 : 0);
 })().catch((e) => {
   console.error(`\nExtraction failed: ${e.message}`);
   process.exit(1);

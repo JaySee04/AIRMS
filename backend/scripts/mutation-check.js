@@ -1310,6 +1310,46 @@ const MUTATIONS = [
     replace: '  const windowRolled = false;',
     test: 'tests/rateLimitReading.test.js',
   },
+  // ── the check that could not fail on a wrong value (2026-10-08, §146) ─────
+  // verify:textlayer swallowed the ground-truth comparison whole in order to
+  // swallow the ONE row that fails by design. Inverted, these restore that: the
+  // guard between an "exact" import and a wrong clinical number goes quiet.
+  {
+    guard: 'textlayer: a wrong VALUE is never excused as the Summary decline',
+    why: 'excusing every row is exactly the defect — the comparison is computed then discarded',
+    pkg: 'backend',
+    file: 'scripts/lib/expectedDivergence.js',
+    find: '  return failedRows(stdout).filter((row) => !(row === EXPECTED_DECLINE && declined));',
+    replace: '  return failedRows(stdout).filter(() => false);',
+    test: 'tests/expectedDivergence.test.js',
+  },
+  {
+    guard: 'textlayer: the Summary row is excused ONLY when it was declined',
+    why: 'a mangled Summary failing the presence check is a real §70 finding, not an exemption',
+    pkg: 'backend',
+    file: 'scripts/lib/expectedDivergence.js',
+    find: '  return failedRows(stdout).filter((row) => !(row === EXPECTED_DECLINE && declined));',
+    replace: '  return failedRows(stdout).filter((row) => row !== EXPECTED_DECLINE);',
+    test: 'tests/expectedDivergence.test.js',
+  },
+  {
+    guard: 'textlayer: a comparator that never ran is not clean (rule 2)',
+    why: 'status null means nothing was measured; it must never read as a pass',
+    pkg: 'backend',
+    file: 'scripts/lib/expectedDivergence.js',
+    find: '    || status === null;',
+    replace: '    || false;',
+    test: 'tests/expectedDivergence.test.js',
+  },
+  {
+    guard: 'textlayer: a PASSING row is not read as a failure',
+    why: 'the first regex matched "✓ PASS" and called a clean report broken',
+    pkg: 'backend',
+    file: 'scripts/lib/expectedDivergence.js',
+    find: "    .filter((line) => line.includes('✗') && /\\bFAIL\\b/.test(line))",
+    replace: "    .filter((line) => /\\bFAIL\\b/.test(line) || line.includes('PASS'))",
+    test: 'tests/expectedDivergence.test.js',
+  },
   {
     guard: 'rate-limit reading: the field key is anchored, not merely found',
     why: "unanchored, `limit=` matches inside `burst-limit=` and reads the wrong number",

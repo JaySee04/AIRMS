@@ -99,7 +99,7 @@ cd backend; npm run coverage         # 82.4% statements / 72.3% branches (re-mea
                                      # a missing transitive dep (fs.realpath) before it would run.
 cd backend; npm run mutate           # BREAK each registered guard on purpose and prove its
                                      # test fails. A surviving mutation exits non-zero: the
-                                     # test is not testing what it claims. 117 guards across
+                                     # test is not testing what it claims. 121 guards across
                                      # both packages. 116 are EXERCISED here; one is
                                      # listed with a `skip` because jsdom computes no
                                      # layout and only a real browser can see it (e2e
@@ -303,6 +303,31 @@ cd backend; node scripts/assert-fresh.js   # IS THE RUNNING SERVER THE CODE YOU 
                                      # local-vs-hosted comparison would cry "stale".
                                      # 89.5 ms once per process (88 files), then ~0, and only
                                      # /api/health computes it.
+cd backend; npm run verify:textlayer -- scripts/samples/nazwan.pdf
+                                     # does the TEXT-LAYER path read a real report
+                                     # EXACTLY? (§112/§114 — the reason an expanded
+                                     # report costs zero tokens). Compares every field
+                                     # against transcribed ground truth.
+                                     # ONE ROW FAILS BY DESIGN and that is fine: the
+                                     # comparator's `summary read` is a PRESENCE check,
+                                     # and this path DECLINES the Summary rather than
+                                     # emitting letter-spaced mush (§70 wants it
+                                     # verbatim or not at all). Everything else is
+                                     # compared BY VALUE.
+                                     # IT COULD NOT FAIL ON A WRONG VALUE UNTIL
+                                     # 2026-10-08 (DD 146). The exit was
+                                     # `behaviourFailures ? 1 : (run.status === null ?
+                                     # 1 : 0)` — every non-null comparator status maps
+                                     # to 0 — so the ground-truth comparison was
+                                     # computed, printed in red, and discarded.
+                                     # Measured: forcing `mobility` 71 -> 42 made the
+                                     # comparator exit 1 naming the row, and this script
+                                     # still exited 0. It was written that way to swallow
+                                     # the one sanctioned row and swallowed the verdict
+                                     # with it. The predicate is now in
+                                     # scripts/lib/expectedDivergence.js so jest can
+                                     # reach it (the script needs a real PDF and a
+                                     # subprocess), with four registered mutations.
 cd backend; npm run verify:reports              # can each role DOWNLOAD the reports it is entitled to?
 cd backend; npm run verify:reports -- --hosted  # ...from the deployed instance (25/25 on 2026-10-05)
                                      # 5 reports x 5 roles, and it asserts the PDF's %%EOF
@@ -614,7 +639,7 @@ cd frontend; npm run e2e   # END-TO-END smoke: a real Chrome against the running
 cd frontend; npm run build
 
 # Unit tests (jest, in both packages — no linter configured for the backend)
-cd backend; npx jest      # 72 suites / 1121 tests: cohorts, overallIndicator, permissions, rbac, pdfDraw,
+cd backend; npx jest      # 73 suites / 1133 tests: cohorts, overallIndicator, permissions, rbac, pdfDraw,
                           # rateLimitReading (WHEN IS A HOSTED RATE-LIMIT READING WORTH A
                           # VERDICT. The login throttle is keyed per IP, so verify:claims'
                           # two throttle claims read a counter that `verify:reports
@@ -734,7 +759,7 @@ cd backend; npx jest      # 72 suites / 1121 tests: cohorts, overallIndicator, p
                           # other suite. Static: it reads both files as text and never
                           # require()s the target, because several modules build a Sequelize
                           # instance at import time)
-cd frontend; npx jest     # 30 suites / 526 tests (the run is pinned to UTC by
+cd frontend; npx jest     # 30 suites / 529 tests (the run is pinned to UTC by
                           # jest.globalSetup.js - this machine sits IN the institution
                           # zone, which made the date tests pass for the wrong reason
                           # until mutation testing said so; see DD 62): lib/risk.ts, lib/screeningUploadStore.ts, bodymap-data/muscles.ts,
