@@ -337,6 +337,10 @@ cd backend; npm run bodymap:proof    # THE FIGURE, BESIDE THE INSTRUMENT'S OWN F
                                      # PDF by the production text-layer extractor, not invented,
                                      # so any difference is ours.
                                      # Needs no dev server and writes nothing into the app.
+                                     # OPENS ITSELF in the default browser; `-- --no-open`
+                                     # for CI. Printing a path into a terminal and leaving
+                                     # the reader to find it is the friction that stops a
+                                     # review step happening at all.
                                      # WHY: §144 was a full redraw — ~900 lines, 25 tests, three
                                      # doc sections — built, committed and deployed before JC saw
                                      # a single picture, then reverted on sight (§152). The loop

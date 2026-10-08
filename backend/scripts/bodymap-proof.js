@@ -269,6 +269,23 @@ async function main() {
   console.log(`  findings       : ${states.size} lit — ${lit || 'none'}`);
   console.log(`  written        : ${OUT}\n`);
 
+  // OPEN IT. The whole point of this script is that somebody LOOKS at the
+  // sheet, and the first version printed a path into a terminal and left the
+  // reader to go and find it — which is a poor way to hand someone a picture,
+  // and exactly the kind of friction that stops a review step happening at all.
+  // `--no-open` for CI or a scripted run.
+  if (!process.argv.includes('--no-open')) {
+    try {
+      if (process.platform === 'win32') execFileSync('cmd', ['/c', 'start', '', OUT], { stdio: 'ignore' });
+      else if (process.platform === 'darwin') execFileSync('open', [OUT], { stdio: 'ignore' });
+      else execFileSync('xdg-open', [OUT], { stdio: 'ignore' });
+    } catch {
+      // Opening is a convenience, never the result. A headless box has no
+      // browser, and that must not turn a successful render into a failure.
+      console.log('  (could not open a browser — open the path above)');
+    }
+  }
+
   // Rule 2: a sheet that could not be measured must not read as a clean one.
   if (!refPng) {
     console.error('  the reference page did not render — the sheet shows only our side.');
