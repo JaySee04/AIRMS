@@ -13739,3 +13739,182 @@ like.** It now reads `remaining=29 (expected 29)`.
 **Do not loosen this back to an inequality**, and do not "simplify" the
 contention guard away — without it the check is 12/12 most of the time and
 unexplainably 11/12 whenever somebody runs the other hosted verifier.
+
+## 142. The login page states the session instead of acting on it (2026-10-08)
+
+`§137` made `/` **redirect** when a session existed, because pressing Back from
+a dashboard landed a signed-in clinician on a password prompt — which reads as
+*"you have been logged out"* while the session is perfectly good.
+
+That fixed one misreading and broke two things that matter more, both reported
+by JC: **opening the app went straight to a dashboard**, so the sign-in screen —
+the first thing a stakeholder is shown — was unreachable; and **the five demo
+logins became a three-step detour**, because switching role now meant finding
+sign-out first. The whole demo is *here is this athlete as a clinician, as a
+coach, as an executive*.
+
+Both readings were correct. The mistake was treating it as a choice between
+them. The page now **renders**, and states the session rather than acting on it:
+
+```
+Still signed in as Medical Demo 01    [Continue]  [Sign in as someone else]
+```
+
+Back therefore reads as *"still signed in, continue"* instead of *"logged out"*,
+and a different account is one form away. **Nothing navigates on its own.**
+
+The history fixes from §137 are unchanged and are what actually cured the
+forward-button defect: sign-in and sign-out both use `router.replace`, so an
+authenticated page is never left in history for Back or Forward to restore.
+
+A note for whoever styles this next: the banner spells its colours out instead of
+using theme tokens, because `.login-right` is `background: #fff` in **both**
+themes. `var(--text)` there resolves against a surface this card does not have
+and prints near-white on white in dark mode — §121.9's trap, one surface along.
+
+## 143. The band belongs to the entry, not to a chip on it (2026-10-08)
+
+JC, on the worklist: *"pretty awkward with the immediate assessment thingy
+sticking out. We could just make the whole panel the indicator colour instead."*
+
+He is describing a real asymmetry. The entry is **entirely about** that band —
+the name, the reasons, the age are all consequences of it — and the band was the
+one coloured thing on an otherwise neutral row, which makes it read as a label
+stuck on rather than as what the row is. The entry now carries the band's own
+tint with its edge in the band's colour, and the badge drops to plain text.
+
+**The word stays, and that is not negotiable.** Tinting is a *second* channel:
+`SILENT_FAILURES.md` 3i forbids naming a band by colour alone, so *"Immediate
+assessment"* is still printed. The tint makes the queue scannable; the word is
+what it means. Never-screened stays neutral for the §33 reason — an absence of
+information must not be tinted like a clinical finding.
+
+Two things the change exposed:
+
+- **Hover was `background: var(--bg)`**, which *wiped* the tint — so a row lost
+  its band exactly while the clinician was pointing at it. It darkens now
+  (`inset` box-shadow) rather than replacing.
+- **A mutation entry pinned the exact line** that gained the band class and went
+  stale, erroring on the next `npm run mutate`. That is §140 a second time in two
+  days, and the standing lesson is the same: anchor on what the refactor cannot
+  move, or expect to re-point it.
+
+### The gap beside the hero, closed with content rather than stretch
+
+Also JC: *"a lot of gapping space within the medical dashboard."* **Measured at
+1440px: the identity card is 236px and the radar beside it 525px — 289px of
+nothing**, which is 55% of the row.
+
+§137 already tried `align-items: stretch` and recorded that it was **worse**: a
+230px wash of empty tinted card stops reading as "this athlete's band" and starts
+reading as a panel that failed to load. That note is why the obvious fix was not
+re-applied — it is exactly what the file existed to prevent.
+
+So the column is **filled** instead. **Injury status** moved into it: a
+clinician-set fact about *who this athlete currently is* — roster identity, not
+screening analysis — which already rendered immediately below the row, so reading
+order barely moves and §128's decide-after-the-evidence rule is untouched. With
+the radar trimmed 250px → 215px (JC had asked for it smaller anyway):
+
+| | before | after |
+|---|---|---|
+| dead space in the row | **289px** | **85px** |
+| page height | 3576px | 3385px |
+
+## 144. The body map is ours now (2026-10-08, JC)
+
+**This changes a locked decision and it changes the FYP references section.**
+`MASTER_CLARIFICATIONS §12` locked the body-map asset to
+`react-muscle-highlighter` (MIT, Sorooj Shehryar) with its attribution required
+in the report. JC chose to **replace it**, for both view modes, and that is
+recorded here with his name on it because nobody else can make that call.
+
+### Why a reshape could never have been enough
+
+JC had asked twice for *"a whole redraw, not just shapes plastered on the
+existing shapes"*. §4a re-sliced the licensed paths into HoloMotion's 22 muscles
+and §138 reshaped the six deep ones — both worked by **measuring the donated
+geometry and fitting shapes to its bounding boxes**.
+
+That is structurally incapable of being right, and two muscles show why:
+
+- **Sartorius** runs from the ASIS — lateral and high — diagonally across the
+  whole thigh to the medial tibia. It is the longest muscle in the body and its
+  entire character is that diagonal. Fitted *inside a quadriceps blob*, it cannot
+  express it at all.
+- **Iliopsoas** originates on the lumbar spine and inserts on the lesser
+  trochanter, **below and behind the hip joint**. It was an inset inside an
+  abdominal box — a region that does not contain its insertion.
+
+No amount of reshaping fixes a muscle whose **anchors** are wrong.
+
+### What replaced it
+
+`bodymap-data/anatomy.ts` holds **one landmark system** — a 7.5-head standing
+figure — plus the primitives a muscle actually needs: `belly()` (origin →
+insertion, fusiform, optionally bowed), `sheet()` (straps and fascial sheets),
+and a Catmull-Rom `smooth()` so shapes read as tissue rather than as polygons.
+`figure.ts` derives **both layers** from it: 23 regions for ROM & Stability mode
+and the inert scaffolding, and HoloMotion's 22 muscles for flags mode.
+
+Each muscle is placed **by origin and insertion** — the two points anatomy
+defines it by. The payoff is that a muscle sitting inside the region containing
+it is now a property of the construction rather than a coincidence a test has to
+police.
+
+**It is not traced from the report.** HoloMotion's Muscle Imbalance page is the
+reference for *which* muscles, *which view* each appears on, and the
+anterior/posterior pairing — all facts about anatomy and about the instrument's
+vocabulary. The paths are ours. Tracing a vendor's illustration into a submitted
+artifact is a licensing problem JC does not need, and anatomy is not anybody's
+copyright.
+
+Layout and colour were JC's calls too: **both figures side by side** (which the
+card already did, matching the report), and **blue for deficiency, amber for
+tension** rather than HoloMotion's blue/red — because red already means
+*Immediate assessment* as a band, and §135 exists to stop one hue carrying two
+meanings on one page.
+
+### THE DEFECT THAT ALMOST SHIPPED, AND WHAT FOUND IT
+
+Every anterior flag was painted **on the wrong side of the body**.
+
+In an **anterior** view the subject faces you, so their RIGHT limb appears on the
+VIEWER'S LEFT. In a **posterior** view the sides agree. The geometry is authored
+on the +x side of the midline for both — correct for the back figure, inverted
+for the front.
+
+It was found by **screenshotting the real page and reading the findings list
+against the drawing**: *"Pectoralis Major R"* was painted on the subject's left
+pectoral, and so was every other anterior flag. Nothing else would have caught
+it. The suite was green, the figure was anatomically careful, and it told a
+clinician the wrong side — which is worse than drawing nothing. This is the
+§45 / 3i family exactly: a confident wrong answer on a clinical screen.
+
+`anterior()` now swaps the sides for every front part — **muscles and regions
+both**, since subitem mode colours per side and the PDF draws from the same
+data — and `figure.test.ts` pins the convention in both directions.
+
+### The second thing that would have shipped silently
+
+The backend draws the same figure into the PDF reports from a **generated**
+`bodymapData.json`, and `bodymap.js` said regenerating it would never be needed
+*because the asset was a locked decision*. The moment the asset stopped being
+locked, that assumption expired — and the screen would have drawn the new figure
+while every PDF kept drawing the licensed one, with nothing saying so.
+
+The conversion is a command now (`cd frontend; npm run export:bodymap`) and
+`backend/tests/bodymapData.test.js` fails when the committed copy drifts — the
+same contract `npm run map` and `npm run sync:shared` have. It also asserts the
+licensed atlas's name is **absent** from the generated file, so a restored old
+copy is loud rather than quiet.
+
+### What JC must change in the report
+
+- **Remove** the `react-muscle-highlighter` / Sorooj Shehryar MIT attribution
+  from the references section. It is no longer used and crediting an asset the
+  project does not ship is its own kind of wrong.
+- `FYP_RUBRICS.md` item 8 ("MIT attribution must appear in the references") is
+  **retired**, not failed.
+- The body map is now original work, which is a *stronger* position in viva, not
+  a weaker one — the figure can be defended muscle by muscle against anatomy.

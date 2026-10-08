@@ -121,7 +121,7 @@ Summary of the original deliverables-shift items:
 5. **Ch 5 lacks the vision-AI pipeline** (pdfjs render → provider-agnostic vision model → preview/commit) and must present the composite risk model, not plain Gabbett.
 6. **Slides predate the MySQL migration** (2026-05-25 draft) — check every tech-stack slide for MongoDB; "33 use cases" count changes with the UC edits; consider mockup slides for the PDF uploader / screening report / alert banner.
 7. **Coach role** — FYP I shipped 3 roles, so the FYP I *artifacts* describe those three; **FYP II promotes the coach to a first-class 4th role** (2026-07-19), so FYP II write-ups own it fully (squad readiness + filters + read-only athlete detail + team report + `/admin/coaches`). It is no longer "experimental / future work".
-8. **react-muscle-highlighter MIT attribution** must appear in the references (locked decision) — absent from the old draft; verify in current.
+8. ~~**react-muscle-highlighter MIT attribution** must appear in the references~~ — **RETIRED 2026-10-08, not failed** (DD §144). JC replaced the body-map asset with original geometry, so the attribution must be **removed** from the references rather than added. If it is already in a draft, take it out: crediting an asset the project does not ship is its own kind of wrong. The body map being original work is a **stronger** viva position — the figure can be defended muscle by muscle against anatomy.
 9. **Repo hygiene** — `reports/FYP-I-Report.pdf` is a stale pre-refresh draft (51 pp); replace with the current draft and add the slides PDF to `docs/fyp/` per its README.
 
 ---

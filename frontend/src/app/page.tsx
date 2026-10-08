@@ -4,7 +4,7 @@ import { useState, useEffect, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '@/lib/api';
-import { getSession, saveSession, landingPathFor, Role } from '@/lib/auth';
+import { getSession, saveSession, clearSession, landingPathFor, SessionUser, Role } from '@/lib/auth';
 import LoginBrand from '@/components/auth/LoginBrand';
 
 export default function LoginPage() {
@@ -14,20 +14,30 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [resuming, setResuming] = useState<SessionUser | null>(null);
 
-  // ALREADY SIGNED IN? GO TO YOUR OWN PAGE (JC, section 137).
+  // ALREADY SIGNED IN? SAY SO — DO NOT SILENTLY LEAVE (JC, section 142).
   //
-  // This page never asked, so pressing Back from a dashboard landed a signed-in
-  // clinician on a password prompt — which reads as "you have been logged out"
-  // while the session is perfectly good. It is the same misreading section 111
-  // fixed for a REFUSED page, on the one screen that was missed.
+  // Section 137 made this page REDIRECT when a session existed, to stop Back
+  // from a dashboard landing a signed-in clinician on a password prompt that
+  // reads as "you have been logged out". It fixed that and broke two things
+  // that matter more:
   //
-  // `replace`, so the sign-in entry does not stay in history for Back to find
-  // again, and the loop that would make.
+  //   1. Opening the app went straight to a dashboard. There was no way to
+  //      SEE the sign-in screen, which is the first thing a stakeholder is
+  //      shown and the one JC demonstrates from.
+  //   2. The five demo logins became unreachable without signing out first.
+  //      The whole demo is "here is the same athlete as a clinician, a coach,
+  //      an executive" — a redirect makes switching role a three-step detour.
+  //
+  // Both readings were right; the mistake was treating it as a choice between
+  // them. The page now RENDERS, and states the session instead of acting on
+  // it: Back reads as "still signed in, continue" rather than "logged out",
+  // and a different account is one form away. Nothing navigates on its own.
   useEffect(() => {
     const session = getSession();
-    if (session) router.replace(landingPathFor(session.user.role));
-  }, [router]);
+    if (session) setResuming(session.user);
+  }, []);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -55,6 +65,30 @@ export default function LoginPage() {
         <div className="login-form-wrap">
           <h1 className="login-heading">Sign in</h1>
           <p className="login-subtext">Use your ISN credentials to access the system.</p>
+
+          {resuming && (
+            <div className="login-resume">
+              <p className="login-resume-who">
+                Still signed in as <strong>{resuming.name}</strong>
+              </p>
+              <div className="login-resume-actions">
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={() => router.replace(landingPathFor(resuming.role))}
+                >
+                  Continue
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-outline btn-sm"
+                  onClick={() => { clearSession(); setResuming(null); }}
+                >
+                  Sign in as someone else
+                </button>
+              </div>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit}>
             {error && <div className="alert alert-error">{error}</div>}

@@ -599,7 +599,7 @@ cd frontend; npm run e2e   # END-TO-END smoke: a real Chrome against the running
 cd frontend; npm run build
 
 # Unit tests (jest, in both packages — no linter configured for the backend)
-cd backend; npx jest      # 71 suites / 1116 tests: cohorts, overallIndicator, permissions, rbac, pdfDraw,
+cd backend; npx jest      # 72 suites / 1121 tests: cohorts, overallIndicator, permissions, rbac, pdfDraw,
                           # rateLimitReading (WHEN IS A HOSTED RATE-LIMIT READING WORTH A
                           # VERDICT. The login throttle is keyed per IP, so verify:claims'
                           # two throttle claims read a counter that `verify:reports
@@ -719,7 +719,7 @@ cd backend; npx jest      # 71 suites / 1116 tests: cohorts, overallIndicator, p
                           # other suite. Static: it reads both files as text and never
                           # require()s the target, because several modules build a Sequelize
                           # instance at import time)
-cd frontend; npx jest     # 30 suites / 522 tests (the run is pinned to UTC by
+cd frontend; npx jest     # 30 suites / 526 tests (the run is pinned to UTC by
                           # jest.globalSetup.js - this machine sits IN the institution
                           # zone, which made the date tests pass for the wrong reason
                           # until mutation testing said so; see DD 62): lib/risk.ts, lib/screeningUploadStore.ts, bodymap-data/muscles.ts,
@@ -1618,7 +1618,9 @@ From `docs/MASTER_CLARIFICATIONS.md §12`:
 - The role model: FYP I shipped **3 roles** (athlete / medical / admin); **FYP II promotes `coach` to a first-class 4th role** (read-only, sport-scoped — squad readiness, team-report download, athlete screening detail, individual screening-PDF download for their sport's athletes). **A 5th role, `executive`, was added on JC's instruction 2026-08-08** — read-only institutional oversight (admin analytics + the three PDF reports) with no write access anywhere: no import, no norm edits, no roster or personnel changes, no settings, no backup export. It is deliberately NOT a "super admin": it has strictly fewer powers than `admin`, and naming it super-admin would misdescribe it. Adding *further* roles still needs discussion.
 - The composite risk model formula
 - sRPE method for load calculation (`load = duration × intensity`) — validated by Inoue (2022) for scale reliability and Yang (2024) for physiological correspondence. **Retired 2026-07-20** along with Activity Tracking (the only thing that computed it) — the formula itself stays locked/citable for the FYP report, it's just not implemented anywhere right now
-- The body map asset source — path data adapted from MIT-licensed [`react-muscle-highlighter`](https://github.com/soroojshehryar/react-muscle-highlighter) by Sorooj Shehryar; lives in `frontend/src/components/dashboard/bodymap-data/` with MIT attribution preserved at the top of every file. **This attribution must stay in the FYP references section.**
+- ~~The body map asset source — path data adapted from MIT-licensed `react-muscle-highlighter`~~ — **REPLACED 2026-10-08 on JC's instruction (`DESIGN_DECISIONS.md §144`).** The figure is now ORIGINAL geometry: `bodymap-data/anatomy.ts` holds one landmark system and `figure.ts` derives both layers from it — 23 regions for ROM & Stability, HoloMotion's 22 muscles for flags. Each muscle is placed by its **origin and insertion**, which is what a reshape of a donated atlas could never express (sartorius crosses the whole thigh diagonally; iliopsoas inserts BELOW the hip). The licensed asset and its files are deleted. **The MIT attribution must now be REMOVED from the FYP references section** — crediting an asset the project does not ship is its own kind of wrong. Not traced from the HoloMotion report either: that is the reference for WHICH muscles and which view, never for path data.
+  **`anterior()` is load-bearing**: in a front view the subject's RIGHT limb is on the VIEWER'S LEFT, in a back view the sides agree. Every anterior flag was painted on the wrong side of the body until this existed, found by screenshotting the page and reading the findings list against the drawing. Do not remove it.
+  **Regenerate `backend/src/utils/bodymapData.json` with `cd frontend; npm run export:bodymap` after ANY change to the figure** — the PDF reports draw from it, and `backend/tests/bodymapData.test.js` fails if the committed copy drifts.
 - ~~The aggregation policy: figure shows regions, side cards show specific muscles~~ — **changed 2026-08-04.** The body map's Muscle Flags mode now draws HoloMotion's 22 individual muscles (`bodymap-data/muscles.ts` partitions the licensed geometry; 16 come from sub-paths the asset already had, 6 deep ones are insets). ROM & Stability mode still draws regions — the subitem score is genuinely 5 regions. Side cards unchanged. The **asset source + MIT attribution stay locked**; only the grain changed. See `docs/DESIGN_DECISIONS.md §4a`
 - The Figma-derived UI (split login card, sidebar branding, topbar dropdown)
 - The MySQL schema for `Athlete` and `Screening` (Sequelize models in `backend/src/models/`). ~~`Injury`~~ — that model was deleted by the HoloMotion-only cut (2026-08-02); the lock no longer has a subject

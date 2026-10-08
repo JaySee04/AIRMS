@@ -885,6 +885,21 @@ export default function MedicalDashboard() {
                   which it can do because §127 put its explanation behind a
                   toggle and freed the column. */}
               <div className={`medical-hero-row medical-hero-row--${view.screening?.effectiveBand ?? 'none'}`}>
+              {/* THE LEFT COLUMN IS A STACK, NOT ONE CARD (2026-10-08, JC, §143).
+                  Measured: the identity card is 236px and the radar beside it is
+                  525px, so the row carried 289px of dead space — the gap JC
+                  pointed at. §137 already tried closing it by STRETCHING the
+                  identity card and that was worse (a 230px wash of empty tint
+                  reads as a panel that failed to load), so the answer is to put
+                  something real there instead.
+
+                  Injury status is the right something: it is a clinician-set
+                  fact about WHO THIS ATHLETE CURRENTLY IS — roster identity, not
+                  screening analysis — so it belongs beside the identity card
+                  rather than below the whole hero. It already rendered
+                  immediately after this row, so reading order barely moves, and
+                  §128's rule is untouched because this is not the band decision. */}
+              <div className="medical-hero-left">
               <div className="card medical-id-card" style={{ marginBottom: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
                   <div style={{
@@ -1006,6 +1021,16 @@ export default function MedicalDashboard() {
                 {pdfError && <div className="alert alert-error" style={{ marginTop: 12, marginBottom: 0 }}>{pdfError}</div>}
               </div>
 
+              <InjuryStatusControl
+                athleteId={selectedAthlete.athleteId}
+                isInjured={selectedAthlete.isInjured}
+                injuryNote={selectedAthlete.injuryNote}
+                injuryBy={selectedAthlete.injuryBy}
+                injuryAt={selectedAthlete.injuryAt}
+                onSaved={reloadSelectedAthlete}
+              />
+              </div>
+
               {/* The sport-aware screening detail sits BELOW the hero now — it
                   explains the band rather than competing with it. See the
                   rationale in ScreeningAlertBanner.tsx. */}
@@ -1062,7 +1087,7 @@ export default function MedicalDashboard() {
                       values={riskRadarSeries(view.risks)}
                       thresholds={highThresholdsFor(selectedAthlete.sport)}
                       onReadout={setRadarRows}
-                      height={250}
+                      height={215}
                     />
                   </div>
                   <div style={{ flex: '1 1 260px', minWidth: 240 }}>
@@ -1155,14 +1180,9 @@ export default function MedicalDashboard() {
                 </span>
               </div>
 
-              <InjuryStatusControl
-                athleteId={selectedAthlete.athleteId}
-                isInjured={selectedAthlete.isInjured}
-                injuryNote={selectedAthlete.injuryNote}
-                injuryBy={selectedAthlete.injuryBy}
-                injuryAt={selectedAthlete.injuryAt}
-                onSaved={reloadSelectedAthlete}
-              />
+              {/* Injury status MOVED into the hero row's left column (§143) —
+                  it fills the 289px of dead space measured beside the radar, and
+                  it belongs with identity rather than after the analysis. */}
               {/* Which regions sit behind an amber/red band. Renders nothing
                   when the athlete is green overall. Sits between the verdict and
                   the radar overview: verdict → why → overview → detail. */}

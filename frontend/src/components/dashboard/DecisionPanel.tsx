@@ -295,7 +295,7 @@ export default function DecisionPanel({
           {shown.map((w) => (
             <li
               key={w.athleteId}
-              className={`decision-item${onOpenAthlete ? ' decision-item--open' : ''}`}
+              className={`decision-item decision-item--${w.band}${onOpenAthlete ? ' decision-item--open' : ''}`}
               onClick={(e) => onEntryClick(e, w.athleteId)}
             >
               {/* THE NAME BAR IS THE CONTROL (§107, JC).

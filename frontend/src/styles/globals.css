@@ -2768,6 +2768,34 @@ tr.row-flash > td { animation: row-flash 1.6s ease-out; }
   font-size: var(--fs-md);
   margin: 0 0 24px;
 }
+/* A live session STATED, not acted on (§142). The page no longer redirects, so
+   this is what stops Back from a dashboard reading as "you have been logged
+   out" — while leaving the five demo logins one form away. */
+/* FIXED COLOURS, NOT THEME TOKENS. `.login-right` is `background: #fff` in both
+   themes, so --text / --border would resolve against a surface this card does
+   not have and print near-white on white in dark mode. The rest of this card
+   already spells its colours out for the same reason. */
+.login-resume {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-sm);
+  padding: var(--sp-md);
+  margin: 0 0 var(--sp-lg);
+  border: 1px solid #e3e8ee;
+  border-left: 3px solid var(--brand-navy);
+  border-radius: var(--r-sm);
+  background: #f7f9fb;
+}
+.login-resume-who {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: #1a2533;
+}
+.login-resume-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-sm);
+}
 .login-forgot {
   display: block;
   margin-top: 14px;
@@ -3978,11 +4006,41 @@ textarea:focus-visible,
    The worklist that opens medical, coach and admin dashboards. Built from the
    existing scale — no new literals. */
 .decision-list { list-style: none; margin: 0 0 var(--sp-md); padding: 0; }
+/* THE ENTRY CARRIES THE BAND, NOT A CHIP ON IT (2026-10-08, JC, §143).
+   The band was an outlined badge inside an otherwise neutral row — so the one
+   coloured thing on an entry that is ENTIRELY about that band read as a label
+   stuck on, which is what "sticking out" was. The entry is now the band's own
+   tint with its edge in the band's colour.
+
+   THE WORD STAYS, and that is not negotiable: tinting is a SECOND channel, never
+   a replacement. SILENT_FAILURES 3i forbids naming a band by colour alone, so
+   "Immediate assessment" is still printed in the row. The tint makes the queue
+   scannable; the word is what it means. */
 .decision-item {
-  padding: var(--sp-sm) 0;
-  border-bottom: 1px dashed var(--border);
+  padding: var(--sp-sm) var(--sp-md);
+  margin-bottom: var(--sp-xs);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border);
+  border-radius: var(--r-sm);
 }
-.decision-item:last-child { border-bottom: 0; }
+.decision-item--red {
+  background: var(--risk-high-bg);
+  border-color: color-mix(in srgb, var(--risk-high) 32%, transparent);
+  border-left-color: var(--risk-high);
+}
+.decision-item--amber {
+  background: var(--risk-moderate-bg);
+  border-color: color-mix(in srgb, var(--risk-moderate) 32%, transparent);
+  border-left-color: var(--risk-moderate);
+}
+.decision-item--green {
+  background: var(--risk-low-bg);
+  border-color: color-mix(in srgb, var(--risk-low) 32%, transparent);
+  border-left-color: var(--risk-low);
+}
+/* Never-screened stays NEUTRAL for exactly the reason the badge did: an absence
+   of information must not be tinted like a clinical finding (§33). */
+.decision-item--never { background: transparent; }
 /* The WHOLE entry opens the record, reasons included (2026-10-05). Only applied
    when there is somewhere to open — `onOpenAthlete` is absent on surfaces with
    no detail view, and a pointer cursor over a dead region is a lie.
@@ -3994,7 +4052,11 @@ textarea:focus-visible,
 /* Lighting the row and the bar together is what makes them read as ONE target.
    Without the second rule the bar keeps its own hover tint and the entry looks
    like two overlapping controls. */
-.decision-item--open:hover { background: var(--bg); }
+/* DARKEN the band tint, never replace it. A flat `background: var(--bg)` here
+   wiped the entry's own colour on hover, so the row lost its band exactly while
+   the clinician was pointing at it. */
+.decision-item--open:hover { box-shadow: inset 0 0 0 999px rgba(0, 0, 0, 0.035); }
+[data-theme="dark"] .decision-item--open:hover { box-shadow: inset 0 0 0 999px rgba(255, 255, 255, 0.05); }
 .decision-item--open:hover .decision-open:not(:disabled) { background: transparent; }
 .decision-item--open:hover .decision-name { text-decoration-color: var(--text-muted); }
 .decision-item-main {
@@ -4004,14 +4066,16 @@ textarea:focus-visible,
 .decision-age { font-size: var(--fs-xs); }
 /* Band chips carry a WORD, never colour alone (WCAG 1.4.1 / SILENT_FAILURES 3i);
    the tint is a second channel, not the only one. */
+/* Plain text now — the ENTRY carries the tint, so a chip on top of it would be
+   the same colour twice with a border between. Ink tokens, not fill tokens:
+   these sit ON the tinted entry, which is the --risk-*-ink role (§120). */
 .decision-band {
   font-size: var(--fs-2xs); font-weight: 700; text-transform: uppercase;
-  letter-spacing: 0.04em; padding: 2px var(--sp-xs); border-radius: var(--r-xs);
-  border: 1px solid var(--border); white-space: nowrap;
+  letter-spacing: 0.04em; white-space: nowrap;
 }
-.decision-band--red { color: var(--risk-high); background: var(--risk-high-bg); border-color: var(--risk-high); }
-.decision-band--amber { color: var(--risk-moderate-ink); background: var(--risk-moderate-bg); border-color: var(--risk-moderate); }
-.decision-band--green { color: var(--risk-low-ink); background: var(--risk-low-bg); border-color: var(--risk-low); }
+.decision-band--red { color: var(--risk-high); }
+.decision-band--amber { color: var(--risk-moderate-ink); }
+.decision-band--green { color: var(--risk-low-ink); }
 /* Never-screened is deliberately NEUTRAL, not green and not red: it is an
    absence of information, and colouring it as a band would make it read as a
    clinical finding. */
@@ -4923,7 +4987,7 @@ textarea:focus-visible,
   /* The identity card takes what it needs and the radar takes the rest, with a
      floor so the chart never squeezes to an unreadable width. Below that the row
      stacks, which is why this is a grid and not two flex columns. */
-  grid-template-columns: minmax(320px, 1.1fr) minmax(360px, 1fr);
+  grid-template-columns: minmax(min(320px, 100%), 1.1fr) minmax(min(360px, 100%), 1fr);
   gap: var(--sp-md);
   align-items: start;
   margin-bottom: 20px;
@@ -5037,4 +5101,19 @@ textarea:focus-visible,
    (§137). Matching the radar column's height gave a 230px block of empty TINTED
    card: a wash that large stops reading as "this athlete's band" and starts
    reading as a panel that failed to load. Short and dense beats tall and empty,
-   and the row keeps `align-items: start` from §128. */
+   and the row keeps `align-items: start` from §128.
+
+   THE GAP IS CLOSED BY CONTENT INSTEAD (2026-10-08, §143). Measured at 1440px:
+   identity 236px against a 525px radar — 289px of nothing, which is what JC
+   pointed at. The left column is now a STACK (identity + injury status), so the
+   space is filled rather than stretched, and the paragraph above still holds:
+   do NOT reintroduce `align-items: stretch`. */
+.medical-hero-left {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-md);
+  min-width: 0;
+}
+/* The control brings its own `marginTop: 20` for the full-width position it used
+   to sit in; inside the stack the gap owns the spacing. */
+.medical-hero-left > .card { margin-top: 0 !important; margin-bottom: 0; }

@@ -86,7 +86,7 @@ the clinician, the coach and the administrator."**
 | Database | **MySQL 8.x** via **Sequelize**. See [DESIGN_DECISIONS.md §5](DESIGN_DECISIONS.md#5-mysql-with-sequelize-single-persistence-layer); the prior MongoDB stack is preserved on the `main` branch and documented in [MONGO_RECOVERY.md](MONGO_RECOVERY.md). |
 | Authentication | **JWT** stored in `localStorage` |
 | Charts | **Chart.js** + **react-chartjs-2** |
-| Body map asset | **react-muscle-highlighter** (MIT) — path data copied into project, NOT installed as dependency |
+| Body map asset | **Original geometry** authored for AIRMS (`bodymap-data/anatomy.ts` + `figure.ts`). Was react-muscle-highlighter (MIT); replaced 2026-10-08 by JC — DD §144. No third-party path data remains |
 | Styling | Plain CSS in `frontend/src/styles/globals.css` (CSS variables + class-based) |
 | Dev orchestration | `concurrently` at root, single `npm run dev` starts both servers |
 
@@ -230,7 +230,7 @@ Lives in [frontend/src/lib/risk.ts](../frontend/src/lib/risk.ts) → `classifyCo
 The athlete dashboard renders a front + back muscular silhouette. Implementation in [BodyMap.tsx](../frontend/src/components/dashboard/BodyMap.tsx).
 
 **Locked:**
-- Path data **adapted from `react-muscle-highlighter` (MIT)** by Sorooj Shehryar. Lives in [frontend/src/components/dashboard/bodymap-data/](../frontend/src/components/dashboard/bodymap-data/). MIT attribution preserved at the top of every file. **This must stay in the FYP references section.**
+- ~~Path data **adapted from `react-muscle-highlighter` (MIT)** by Sorooj Shehryar~~ — **UNLOCKED AND REPLACED 2026-10-08 by JC** (`DESIGN_DECISIONS.md §144`). The figure is ORIGINAL geometry authored for AIRMS: [bodymap-data/anatomy.ts](../frontend/src/components/dashboard/bodymap-data/anatomy.ts) holds one landmark system, [figure.ts](../frontend/src/components/dashboard/bodymap-data/figure.ts) derives both the region and muscle layers from it. Each muscle is placed by **origin and insertion**, which a reshape of a workout atlas cannot express — sartorius crosses the whole thigh diagonally, iliopsoas inserts below the hip joint. The licensed files are deleted. **The MIT attribution must now be REMOVED from the FYP references section.** It is not traced from the HoloMotion report either — that is the reference for which muscles and which view, never for path data.
 - **Granularity is aggregated.** The ISN spreadsheet tracks ~26 specific muscles (Vastus Lateralis, Sartorius, Piriformis, etc.). The library renders coarser regions (`quadriceps`, `gluteal`, etc.). AIRMS aggregates AIRMS muscles → library slugs via `AIRMS_TO_SLUG` in [BodyMap.tsx](../frontend/src/components/dashboard/BodyMap.tsx). The **flag cards below the figure preserve full granularity** with specific muscle names + sides.
 - **Only scoped regions are interactive.** Anything not in the ISN spreadsheet (head, hair, hands, feet, knees, ankles, calves, tibialis, forearm, triceps, lower-back) renders as inert silhouette — no hover, no tooltip, no cursor change. See `SCOPED_SLUGS` in [BodyMap.tsx](../frontend/src/components/dashboard/BodyMap.tsx).
 - **Group hover, not per-path hover.** Each region is wrapped in an `<g>` so hovering any segment lights up the whole region.

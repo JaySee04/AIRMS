@@ -1258,8 +1258,13 @@ const MUTATIONS = [
     why: 'a pointer cursor over a dead region is a lie about what the row does',
     pkg: 'frontend',
     file: 'src/components/dashboard/DecisionPanel.tsx',
-    find: "              className={`decision-item${onOpenAthlete ? ' decision-item--open' : ''}`}",
-    replace: '              className="decision-item decision-item--open"',
+    // RE-POINTED 2026-10-08 (§143): the row gained its band class when the
+    // entry started carrying the band's own tint instead of a chip. The
+    // mutation is unchanged in intent — force the click affordance on
+    // unconditionally, so a pointer cursor appears over a row with nothing
+    // to open.
+    find: "              className={`decision-item decision-item--${w.band}${onOpenAthlete ? ' decision-item--open' : ''}`}",
+    replace: '              className={`decision-item decision-item--${w.band} decision-item--open`}',
     test: 'src/components/dashboard/DecisionPanel.test.tsx',
   },
   // ── the hotspot count that was wrong (2026-10-06, §124) ──────────────────

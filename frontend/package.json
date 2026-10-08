@@ -16,7 +16,8 @@
     "verify:csp": "node scripts/verify-csp.js",
     "verify:contrast": "node scripts/verify-contrast.js",
     "verify:a11y": "node scripts/verify-a11y.js",
-    "verify:layout": "node scripts/verify-layout.js"
+    "verify:layout": "node scripts/verify-layout.js",
+    "export:bodymap": "node scripts/export-bodymap.js"
   },
   "dependencies": {
     "chart.js": "^4.4.3",

@@ -229,6 +229,13 @@ The athlete's latest ingested report, read against its thresholds (full detail i
 
 Tooltip on hover shows which specific AIRMS muscles map to the region you're hovering ("Vastus Lateralis — weak", "Rectus Femoris — tight", etc.).
 
+**Reading the sides.** The two figures are drawn the way a clinician views a
+patient, which is also how the HoloMotion report prints them: on the **front**
+view the athlete faces you, so a muscle flagged **R** appears on **your left**;
+on the **back** view they face away and the sides agree. A flag always names its
+side in words (`L` / `R` / `B`) in the list beside the figure, so the drawing
+never has to be read on its own.
+
 ### 4.5 Recent Activity table — removed 2026-07-20
 
 Used to show the athlete's last 6 logged sessions with a "View All →" link

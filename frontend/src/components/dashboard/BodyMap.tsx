@@ -2,12 +2,13 @@
 
 import { useMemo, useRef, useState } from 'react';
 import type { MouseEvent as ReactMouseEvent, FocusEvent as ReactFocusEvent } from 'react';
-import { bodyFront } from './bodymap-data/bodyFront';
-import { bodyBack } from './bodymap-data/bodyBack';
-import { FRONT_OUTLINE, BACK_OUTLINE } from './bodymap-data/outlines';
+// ONE figure module since §144 — an original anatomical drawing replacing the
+// react-muscle-highlighter atlas. Regions and muscles come from the same
+// landmark system, so a muscle provably sits inside the region containing it.
 import {
+  FRONT_OUTLINE, BACK_OUTLINE, regionFront, regionBack,
   muscleFront, muscleBack, INERT_FRONT, INERT_BACK, RENDERABLE_MUSCLES, MUSCLE_ALIASES, MARKER_MUSCLES,
-} from './bodymap-data/muscles';
+} from './bodymap-data/figure';
 import type { BodyPart } from './bodymap-data/types';
 import type { Subitems, SubitemRow } from './OverallRiskBadge';
 import SubitemTable, { type SubitemCohort } from './SubitemTable';
@@ -445,8 +446,8 @@ export default function BodyMap({
       : {
           // Region-level geometry: the Physical Fitness Subitem Score IS five
           // regions, so drawing regions here matches the grain of the data.
-          frontData: bodyFront,
-          backData: bodyBack,
+          frontData: regionFront,
+          backData: regionBack,
           states: slugTiers as Map<string, string>,
           inScope: SUBITEM_SCOPED_SLUGS,
           tooltipFor: (slug: string, side: 'L' | 'R') => tooltipForSubitemSlug(slug, side, subitems),
