@@ -1182,61 +1182,76 @@ async function visit(browser, route, session) {
       check('medical rail: the shortcut key does not land in the search box',
         typed === '', `value=${JSON.stringify(typed)}`);
     }
-    // ── 10. The sign-in screen never navigates on its own (2026-10-08, §142) ──
+    // ── 10. Sign in once on a device, and stay — but not forever (§148) ───────
     //
-    // JC reported this twice, in opposite directions, which is why it is pinned
-    // in a browser rather than trusted to a unit test.
+    // JC has now settled this question three times, so what is pinned here is
+    // the CURRENT answer and both things it has to keep true at once:
     //
-    // §137 made `/` REDIRECT when a session existed, so Back from a dashboard
-    // would not land a signed-in clinician on a password prompt reading as "you
-    // have been logged out". That fixed one misreading and broke two worse ones:
-    // opening the app went straight to a dashboard, so the sign-in screen — the
-    // first thing a stakeholder is shown — was unreachable, and switching
-    // between the five demo logins became a three-step detour.
+    //   §137  redirect       Back from a dashboard otherwise shows a password
+    //                        prompt to someone who is signed in
+    //   §142  do not redirect — it made the sign-in screen unreachable
+    //   §148  redirect, AND idle-lock — "logged in once then it shall stay",
+    //                        with the walked-away terminal handled separately
     //
-    // §142's answer is that the page RENDERS and STATES the session instead of
-    // acting on it. Nothing here was covered by any test, and the redirect had
-    // already regressed once, so a silent return was one careless effect away.
+    // So a live session goes straight to its dashboard, AND signing out must
+    // still land on a usable form, AND an idle device must drop the session.
+    // Pinned in a browser because every one of those is a navigation claim.
     {
       const r = await visit(browser, '/', sessions.medical);
-      const at = await r.page.evaluate(() => ({
+      const at = await r.page.evaluate(() => location.pathname);
+      check('sign-in: a signed-in device goes straight to its dashboard',
+        at === '/medical/dashboard', `at ${at}`);
+
+      // THE SIGN-IN SCREEN IS STILL REACHABLE. This is the objection §142 raised
+      // against redirecting, and it is answered by sign-out rather than traded
+      // away: a cleared session does not redirect, so the form is one click from
+      // the topbar and the five demo logins stay usable.
+      const r2 = await visit(browser, '/medical/dashboard', sessions.medical);
+      await r2.page.evaluate(() => {
+        localStorage.removeItem('airms_token');
+        localStorage.removeItem('airms_user');
+      });
+      await r2.page.goto(`${WEB}/`, { waitUntil: 'networkidle2' });
+      await new Promise((s) => setTimeout(s, SETTLE_MS));
+      const out = await r2.page.evaluate(() => ({
         path: location.pathname,
         form: !!document.querySelector('input[type="password"]'),
-        resume: !!document.querySelector('.login-resume'),
-        who: document.querySelector('.login-resume-who')?.textContent?.trim() || '',
       }));
-      // The load-bearing one: signed in, the root must still BE the sign-in screen.
-      check('sign-in: a live session does not redirect the page away', at.path === '/', `at ${at.path}`);
-      check('sign-in: the password form is still offered', at.form);
-      check('sign-in: the live session is STATED, not acted on', at.resume, at.who);
+      check('sign-in: a signed-OUT device gets the form, and stays on /',
+        out.path === '/' && out.form, `at ${out.path}, form=${out.form}`);
 
-      if (at.resume) {
-        await Promise.all([
-          r.page.waitForNavigation({ waitUntil: 'networkidle2' }).catch(() => {}),
-          r.page.evaluate(() => [...document.querySelectorAll('.login-resume button')]
-            .find((b) => /continue/i.test(b.textContent || ''))?.click()),
-        ]);
-        await new Promise((s) => setTimeout(s, SETTLE_MS));
-        const landed = await r.page.evaluate(() => location.pathname);
-        check('sign-in: Continue goes to the role landing page',
-          landed === '/medical/dashboard', `at ${landed}`);
-      }
-
-      // Switching account is what the redirect made awkward, and it is how the
-      // demo is driven — five logins, one after another.
-      const r2 = await visit(browser, '/', sessions.medical);
-      await r2.page.evaluate(() => [...document.querySelectorAll('.login-resume button')]
-        .find((b) => /someone else/i.test(b.textContent || ''))?.click());
-      await new Promise((s) => setTimeout(s, 800));
-      const after = await r2.page.evaluate(() => ({
+      // THE IDLE LOCK. Planting a stale stamp is the only way to test a
+      // 30-minute window in a suite that must run in minutes — and it tests the
+      // real path: the gate reads the same key on mount.
+      const r3 = await visit(browser, '/medical/dashboard', sessions.medical);
+      await r3.page.evaluate(() => {
+        localStorage.setItem('airms_last_active', String(Date.now() - 31 * 60 * 1000));
+      });
+      await r3.page.goto(`${WEB}/medical/dashboard`, { waitUntil: 'networkidle2' });
+      await new Promise((s) => setTimeout(s, SETTLE_MS));
+      const locked = await r3.page.evaluate(() => ({
+        path: location.pathname,
         token: localStorage.getItem('airms_token'),
-        resume: !!document.querySelector('.login-resume'),
         form: !!document.querySelector('input[type="password"]'),
-        path: location.pathname,
       }));
-      check('sign-in: "someone else" clears the stored session', !after.token);
-      check('sign-in: ...and leaves a usable form on /',
-        after.form && !after.resume && after.path === '/');
+      check('idle lock: a device left 31 min is signed out, not resumed',
+        locked.path === '/' && !locked.token, `at ${locked.path}, token=${locked.token ? 'kept' : 'cleared'}`);
+      check('idle lock: ...and lands on a usable sign-in form', locked.form);
+
+      // And the other direction — a device in active use must NOT be locked out.
+      // A lock that fires early reads as "the login did not work".
+      const r4 = await visit(browser, '/medical/dashboard', sessions.medical);
+      await r4.page.evaluate(() => {
+        localStorage.setItem('airms_last_active', String(Date.now() - 60 * 1000));
+      });
+      await r4.page.goto(`${WEB}/medical/dashboard`, { waitUntil: 'networkidle2' });
+      await new Promise((s) => setTimeout(s, SETTLE_MS));
+      const fresh = await r4.page.evaluate(() => ({
+        path: location.pathname,
+        token: !!localStorage.getItem('airms_token'),
+      }));
+      check('idle lock: a device used a minute ago stays signed in',
+        fresh.path === '/medical/dashboard' && fresh.token, `at ${fresh.path}`);
     }
   } finally {
     await browser.close();

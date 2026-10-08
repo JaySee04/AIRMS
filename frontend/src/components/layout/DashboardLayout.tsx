@@ -11,6 +11,7 @@ import {
   sessionConfirmedRecently, markSessionConfirmed,
   SessionUser, PermissionKey, Role, hasPermission, firstPermittedPath, landingPathFor,
 } from '@/lib/auth';
+import { idleExpiredNow, touchIdle, clearIdle } from '@/lib/idleLock';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -62,6 +63,17 @@ export default function DashboardLayout({ children, allowedRoles, title, require
     const session = getSession();
     if (!session) {
       // No session at all: the sign-in screen is the correct destination.
+      router.replace('/');
+      return;
+    }
+    // LEFT ALONE TOO LONG? (§148) Checked HERE, before anything renders, rather
+    // than only on a timer — a timer stops with the tab, so a laptop closed on
+    // Friday and opened on Monday would otherwise resume straight into a
+    // clinician's session. Every authenticated page mounts this component, so
+    // this is the one place that sees every entry.
+    if (idleExpiredNow()) {
+      clearSession();
+      clearIdle();
       router.replace('/');
       return;
     }
@@ -183,6 +195,59 @@ export default function DashboardLayout({ children, allowedRoles, title, require
     if (user && blocked) router.replace(firstPermittedPath(user));
   }, [user, blocked, router]);
 
+  // THE IDLE LOCK, while the tab is open (§148).
+  //
+  // Two halves, and both are needed. The MOUNT check above catches a device
+  // that was closed or navigated away from; this catches one left open on the
+  // desk, which is the clinic case.
+  //
+  // Interaction is stamped on a THROTTLE, not on every event: these fire
+  // continuously during ordinary use and a localStorage write per mousemove is
+  // real cost for no extra safety. `passive` so none of them can delay a scroll.
+  useEffect(() => {
+    touchIdle();
+    let last = Date.now();
+    const onActivity = () => {
+      const now = Date.now();
+      if (now - last < 30_000) return;
+      last = now;
+      touchIdle(now);
+    };
+    const events: Array<keyof DocumentEventMap> = ['pointerdown', 'keydown', 'scroll', 'wheel', 'touchstart'];
+    for (const e of events) document.addEventListener(e, onActivity, { passive: true });
+
+    // A minute is fine: the lock is 30, so the worst case is locking ~60s late.
+    // Checking every second would buy nothing and wake the tab 60x as often.
+    const timer = window.setInterval(() => {
+      if (idleExpiredNow()) {
+        clearSession();
+        clearIdle();
+        router.replace('/');
+      }
+    }, 60_000);
+
+    // Returning to a backgrounded tab must re-check immediately rather than wait
+    // for the next tick — browsers throttle timers in background tabs, so the
+    // interval above cannot be relied on to have run while it was hidden.
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (idleExpiredNow()) {
+        clearSession();
+        clearIdle();
+        router.replace('/');
+      } else {
+        touchIdle();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+
+    return () => {
+      for (const e of events) document.removeEventListener(e, onActivity);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.clearInterval(timer);
+    };
+  }, [router]);
+
   // Navigating closes the drawer — otherwise it stays over the page the user
   // just asked for.
   useEffect(() => { setNavOpen(false); }, [pathname]);
@@ -198,6 +263,9 @@ export default function DashboardLayout({ children, allowedRoles, title, require
 
   function handleLogout() {
     clearSession();
+    // Drop the stamp too, or the NEXT person to sign in on this device inherits
+    // a 30-minute-old one and is locked out partway through their first task.
+    clearIdle();
     // REPLACE, not push (JC, section 137). `push` leaves the signed-in page in
     // history, so Back after signing out walks straight back onto it — and the
     // browser may serve it from the bfcache without re-running the gate, so the

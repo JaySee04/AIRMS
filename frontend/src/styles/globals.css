@@ -2768,34 +2768,6 @@ tr.row-flash > td { animation: row-flash 1.6s ease-out; }
   font-size: var(--fs-md);
   margin: 0 0 24px;
 }
-/* A live session STATED, not acted on (§142). The page no longer redirects, so
-   this is what stops Back from a dashboard reading as "you have been logged
-   out" — while leaving the five demo logins one form away. */
-/* FIXED COLOURS, NOT THEME TOKENS. `.login-right` is `background: #fff` in both
-   themes, so --text / --border would resolve against a surface this card does
-   not have and print near-white on white in dark mode. The rest of this card
-   already spells its colours out for the same reason. */
-.login-resume {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-sm);
-  padding: var(--sp-md);
-  margin: 0 0 var(--sp-lg);
-  border: 1px solid #e3e8ee;
-  border-left: 3px solid var(--brand-navy);
-  border-radius: var(--r-sm);
-  background: #f7f9fb;
-}
-.login-resume-who {
-  margin: 0;
-  font-size: var(--fs-sm);
-  color: #1a2533;
-}
-.login-resume-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--sp-sm);
-}
 .login-forgot {
   display: block;
   margin-top: 14px;

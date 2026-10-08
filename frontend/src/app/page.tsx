@@ -4,8 +4,9 @@ import { useState, useEffect, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '@/lib/api';
-import { getSession, saveSession, clearSession, landingPathFor, SessionUser, Role } from '@/lib/auth';
+import { getSession, saveSession, landingPathFor, Role } from '@/lib/auth';
 import LoginBrand from '@/components/auth/LoginBrand';
+import { touchIdle } from '@/lib/idleLock';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -14,30 +15,36 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [resuming, setResuming] = useState<SessionUser | null>(null);
 
-  // ALREADY SIGNED IN? SAY SO — DO NOT SILENTLY LEAVE (JC, section 142).
+  // SIGN IN ONCE ON A DEVICE AND STAY SIGNED IN (JC, section 148).
   //
-  // Section 137 made this page REDIRECT when a session existed, to stop Back
-  // from a dashboard landing a signed-in clinician on a password prompt that
-  // reads as "you have been logged out". It fixed that and broke two things
-  // that matter more:
+  // A device that holds a live session goes straight to its dashboard. No
+  // prompt, no banner: "logged in once then it shall stay".
   //
-  //   1. Opening the app went straight to a dashboard. There was no way to
-  //      SEE the sign-in screen, which is the first thing a stakeholder is
-  //      shown and the one JC demonstrates from.
-  //   2. The five demo logins became unreachable without signing out first.
-  //      The whole demo is "here is the same athlete as a clinician, a coach,
-  //      an executive" — a redirect makes switching role a three-step detour.
+  // This is the third position on one question, so the reasoning for each is
+  // worth having in one place rather than scattered across three sections:
   //
-  // Both readings were right; the mistake was treating it as a choice between
-  // them. The page now RENDERS, and states the session instead of acting on
-  // it: Back reads as "still signed in, continue" rather than "logged out",
-  // and a different account is one form away. Nothing navigates on its own.
+  //   §137  redirected — Back from a dashboard otherwise landed a signed-in
+  //         clinician on a password prompt, which reads as "you have been
+  //         logged out" when the session is perfectly good
+  //   §142  stopped redirecting and stated the session instead, because the
+  //         redirect made the sign-in screen unreachable and switching between
+  //         the five demo logins a three-step detour
+  //   §148  redirects again, by JC's decision, with the two objections §142
+  //         raised answered rather than traded away:
+  //           - the sign-in screen is still reachable, because SIGNING OUT
+  //             lands here and a cleared session does not redirect
+  //           - an unattended device no longer stays open for a week, because
+  //             the session now IDLE-LOCKS (lib/idleLock.ts)
+  //
+  // The idle lock is what makes "stay signed in" safe enough to want: without
+  // it, a walked-away clinic terminal holds a clinician's session until the
+  // 7-day token expires, with IC numbers on screen — and an IC encodes date of
+  // birth, birth state and sex (§43).
   useEffect(() => {
     const session = getSession();
-    if (session) setResuming(session.user);
-  }, []);
+    if (session) router.replace(landingPathFor(session.user.role));
+  }, [router]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -46,6 +53,11 @@ export default function LoginPage() {
     try {
       const data = await api.post<{ token: string; user: { role: Role } }>('/auth/login', { email, password });
       saveSession((data as any).token, (data as any).user);
+      // Start the idle clock fresh (§148). Without this a device still holding
+      // a stale stamp — a session cleared some other way, a browser restored
+      // from disk — would lock the new user out partway through their first
+      // task, which reads as the login not having worked.
+      touchIdle();
       // REPLACE, not push: with `push` the sign-in form stays one Back away
       // from every page of the session, which is exactly what JC reported.
       router.replace(landingPathFor((data as any).user.role));
@@ -65,30 +77,6 @@ export default function LoginPage() {
         <div className="login-form-wrap">
           <h1 className="login-heading">Sign in</h1>
           <p className="login-subtext">Use your ISN credentials to access the system.</p>
-
-          {resuming && (
-            <div className="login-resume">
-              <p className="login-resume-who">
-                Still signed in as <strong>{resuming.name}</strong>
-              </p>
-              <div className="login-resume-actions">
-                <button
-                  type="button"
-                  className="btn btn-primary btn-sm"
-                  onClick={() => router.replace(landingPathFor(resuming.role))}
-                >
-                  Continue
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-outline btn-sm"
-                  onClick={() => { clearSession(); setResuming(null); }}
-                >
-                  Sign in as someone else
-                </button>
-              </div>
-            </div>
-          )}
 
           <form onSubmit={handleSubmit}>
             {error && <div className="alert alert-error">{error}</div>}

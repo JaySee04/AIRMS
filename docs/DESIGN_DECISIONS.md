@@ -14160,3 +14160,107 @@ display.
 answer** — `/screenings/athlete/:id` is fetched by both `ScreeningHistory` and
 `ScreeningDatePicker` on the same page, which is a real second call site. Not
 chased here because dev cannot measure it honestly.
+
+## 148. Sign in once on a device, and stay — but not forever (2026-10-08, JC)
+
+JC: *"local devices logged in once then it shall stay, instead of the login page
+with that thingy."*
+
+**This is the third position on one question, and the first two were each right
+about something.** Keeping all three visible is the point — the pattern is what
+makes the current answer defensible rather than just the latest:
+
+| | behaviour | what it got right | what it broke |
+|---|---|---|---|
+| §137 | `/` redirects a live session | Back from a dashboard no longer shows a password prompt to someone who is signed in | opening the app went straight to a dashboard; the sign-in screen was unreachable and switching between the five demo logins became a three-step detour |
+| §142 | `/` renders, and **states** the session | both of those | a signed-in device asked a question it already knew the answer to |
+| **§148** | `/` redirects, **and the session idle-locks** | — | — |
+
+§148 is not a return to §137. It takes the redirect **and answers §142's two
+objections rather than trading them away**:
+
+- **The sign-in screen is still reachable.** Signing out lands on `/`, and a
+  cleared session does not redirect — so the form is one click from the topbar
+  and the demo logins stay usable.
+- **An unattended device no longer stays open for a week.** That was never
+  stated as an objection, but it is the one that mattered most, and it is what
+  made "stay signed in" worth doing properly instead of just reinstating.
+
+### Why the idle lock is the load-bearing half
+
+"Logged in once and it stays" is exactly right on JC's own laptop and exactly
+wrong on a shared clinic terminal, where it means the next person to sit down
+gets a clinician's session with **IC numbers on screen** — and an IC encodes
+date of birth, birth state and sex (§43). Without a lock, a walked-away terminal
+holds that session until the 7-day token expires.
+
+`lib/idleLock.ts`: **30 minutes**, no interaction, session cleared.
+[OWASP's Session Management Cheat Sheet][owasp] puts a normal office idle
+timeout at 15–30 minutes; published EHR guidance sits at 10–15 for clinical
+systems. 30 is the generous end of the office range, chosen because a clinician
+reading a long report is not idle in any sense that matters.
+
+**Checked in two places, and both are needed.** `DashboardLayout`'s gate reads
+the stamp **on mount**, which catches a laptop closed on Friday and opened on
+Monday — a timer cannot, because it stops with the tab. A one-minute interval
+plus a `visibilitychange` handler catches the terminal left open on the desk,
+which is the clinic case; background tabs have their timers throttled, so
+returning to one re-checks immediately rather than waiting for a tick.
+
+Interaction is stamped on a **30-second throttle**, not per event: `pointerdown`,
+`keydown`, `scroll`, `wheel` and `touchstart` fire continuously during ordinary
+use, and a `localStorage` write per `mousemove` is real cost for no extra safety.
+
+### What this is NOT, said plainly
+
+**It is a client-side lock, so it is a usability and shoulder-surfing control,
+not a revocation.** The JWT stays valid for its full 7 days, and anyone holding a
+stolen copy is unaffected. Describing it as more than that would be worse than
+not having it. Real revocation needs server-side session state, which is a larger
+change — see the research summary below.
+
+### The storage question, researched and deliberately deferred
+
+JC asked what comparable systems do. [OWASP][owasp] is explicit: *do not store
+authentication tokens, session IDs, JWTs or refresh tokens in `localStorage` or
+`sessionStorage`*, because any JavaScript in the origin can read them and one XSS
+discloses everything. The recommended shape is `HttpOnly; Secure;
+SameSite=Strict` cookies, or a Backend-for-Frontend.
+
+AIRMS stores a JWT in `localStorage`. Two things qualify that:
+
+- **The CSP is strict and verified** — per-request nonces, no `unsafe-inline`,
+  checked in real Chrome against a production build (§92). The main argument
+  against `localStorage` is XSS, and that is measurably reduced.
+- **Deactivation is already immediate** — `middleware/auth.js` re-reads the user
+  row every request, so switching an account off ends it on the next click.
+
+**The cookie move is a judgement call, not an oversight, and the deployment
+decides it.** The two origins are what make cookies awkward on Vercel
+(`airms-web` and `airms-api` are cross-site, needing `SameSite=None; Secure`,
+exactly what browsers are restricting). But `DEPLOY_ISN.md` already says the ISN
+install can sit behind **one reverse proxy** with TLS terminating there — same
+hostname, same-site, `SameSite=Strict` straightforward. **The self-hosted case is
+the easy one; the demo deployment is the hard one.** Deferred rather than
+refused: it touches `lib/api.ts`, `lib/auth.ts`, `DashboardLayout` and every auth
+route, needs CSRF protection added, and would want `verify:claims --hosted`
+extended to assert the cookie flags before anybody trusted it.
+
+### Guards
+
+`lib/idleLock.test.ts` pins the predicate in both directions, because both
+failures are bad in different ways: locking too eagerly throws a clinician out
+mid-note and reads as *"the login did not work"*; never locking silently removes
+the only thing making "stay signed in" safe. **A missing stamp is not idle** —
+a session that has just been created has no stamp yet, and treating absence as
+expiry would sign every user out at the moment they signed in. A stamp in the
+**future** does not expire instantly either: a wrong clock must not be able to
+fabricate a verdict, the same rule `verify:claims` pins for the change marker.
+
+e2e section 10 pins all three behaviours together — redirect, sign-out reaching
+the form, and the lock — and was **proven able to fail**: disabling the gate's
+idle check reports `at /medical/dashboard, token=kept` while the
+"used a minute ago" case still passes, so the guard discriminates rather than
+merely going red.
+
+[owasp]: https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html

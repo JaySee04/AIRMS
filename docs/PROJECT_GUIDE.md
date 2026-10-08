@@ -372,7 +372,7 @@ cd frontend; npm run lint
 
 # Tests
 cd backend;  npx jest      # 74 backend suites
-cd frontend; npx jest      # 30 frontend suites
+cd frontend; npx jest      # 31 frontend suites
 
 # Health check
 curl http://localhost:5000/api/health
@@ -383,7 +383,7 @@ curl http://localhost:5000/api/health
 > **This line used to read "Jest covers the pure logic only. There is no linter
 > for the backend and no route, page or end-to-end test anywhere."** That was
 > true when written and had been false for weeks by 2026-09-13 — it predates
-> `reportRoutes.test.js` (real routers via supertest), `npm run e2e` (177 checks
+> `reportRoutes.test.js` (real routers via supertest), `npm run e2e` (176 checks
 > in real Chrome), the four jsdom component suites, the first mounted `page.tsx`,
 > and `verify-csp.js`. It is quoted rather than deleted because a coverage claim
 > that decays *downward* is the dangerous direction in a viva: it invites a
@@ -435,7 +435,7 @@ rather than half-wired** — a green tick that quietly skipped them is a worse
 signal than no tick at all. Until this existed, every test and every guard ran
 only when somebody remembered, on a branch where a push **is** a deploy.
 
-Counts as of 2026-10-08: **74 backend suites / 1133 tests**, **30 frontend suites / 529 tests**.
+Counts as of 2026-10-08: **74 backend suites / 1133 tests**, **31 frontend suites / 529 tests**.
 
 The **suite** counts above are guarded (`codebaseHygiene.test.js`); the test
 totals are not, deliberately — measuring them means running jest inside jest,
