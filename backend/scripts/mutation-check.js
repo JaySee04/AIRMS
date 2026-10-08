@@ -1310,6 +1310,36 @@ const MUTATIONS = [
     replace: '  const windowRolled = false;',
     test: 'tests/rateLimitReading.test.js',
   },
+  // ── the roster counts must agree with the roster (2026-10-08, §147) ──────
+  // A summary that can disagree with what it summarises is a wrong answer that
+  // looks like a right one — "62 athletes under care" over a roster of 61.
+  {
+    guard: 'roster counts: scoped to ACTIVE athletes, like the roster itself',
+    why: 'drop the scope and the profile tile contradicts the roster it summarises',
+    pkg: 'backend',
+    file: 'src/routes/athletes.js',
+    find: '      Athlete.count({ where: { isActive: true } }),',
+    replace: '      Athlete.count({ where: {} }),',
+    test: 'tests/rosterCounts.test.js',
+  },
+  {
+    guard: 'roster counts: "screened" means a reading EXISTS, not one above zero',
+    why: 'a > 0 test silently drops a genuine 0 — §54, on the field the tile is about',
+    pkg: 'backend',
+    file: 'src/routes/athletes.js',
+    find: '      Athlete.count({ where: { isActive: true, overallActivityScore: { [Op.ne]: null } } }),',
+    replace: '      Athlete.count({ where: { isActive: true, overallActivityScore: { [Op.gt]: 0 } } }),',
+    test: 'tests/rosterCounts.test.js',
+  },
+  {
+    guard: 'roster counts: sports counted DISTINCTLY',
+    why: 'without distinct, every athlete is a sport and the tile reads the roster size',
+    pkg: 'backend',
+    file: 'src/routes/athletes.js',
+    find: "      Athlete.count({ where: { isActive: true }, distinct: true, col: 'sport' }),",
+    replace: "      Athlete.count({ where: { isActive: true }, col: 'sport' }),",
+    test: 'tests/rosterCounts.test.js',
+  },
   // ── the check that could not fail on a wrong value (2026-10-08, §146) ─────
   // verify:textlayer swallowed the ground-truth comparison whole in order to
   // swallow the ONE row that fails by design. Inverted, these restore that: the

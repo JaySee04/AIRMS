@@ -6,7 +6,7 @@ import ProfileShell from '@/components/profile/ProfileShell';
 import { api } from '@/lib/api';
 import { getSession } from '@/lib/auth';
 
-interface AthleteListItem { athleteId: string; sport?: string; isActive?: boolean; overallActivityScore?: number | null }
+interface RosterCounts { active: number; screened: number; awaiting: number; sports: number }
 
 // This page serves TWO roles, and the blurb must not describe the wrong one.
 // It read "System administrator — screening analytics, reporting, data
@@ -26,15 +26,18 @@ export default function AdminProfile() {
   // Admin system-wide vitals: roster size, sport coverage, and HoloMotion
   // screening coverage. Mirrors the headline KPIs on the Screening Analytics
   // dashboard but scoped to "right now".
+  //
+  // COUNTED SERVER-SIDE (§147). This pulled the whole of `GET /athletes` —
+  // 44.2 KB on 62 athletes — to produce four integers. `/athletes/meta/counts`
+  // is ~60 bytes and shares the `isActive` scope, so these tiles and the roster
+  // cannot disagree.
   const loadStats = useCallback(async () => {
-    const athletes = await api.get<AthleteListItem[]>('/athletes');
-    const active = athletes.filter((a) => a.isActive !== false);
-    const screened = active.filter((a) => a.overallActivityScore != null).length;
+    const c = await api.get<RosterCounts>('/athletes/meta/counts');
     return [
-      { label: 'Total athletes', value: active.length, hint: 'Active roster' },
-      { label: 'Sports covered', value: new Set(active.map((a) => a.sport).filter(Boolean)).size, hint: 'Distinct sports in DB' },
-      { label: 'Screened', value: screened, hint: 'Have a HoloMotion report' },
-      { label: 'Awaiting a screening', value: active.length - screened, hint: 'No report yet' },
+      { label: 'Total athletes', value: c.active, hint: 'Active roster' },
+      { label: 'Sports covered', value: c.sports, hint: 'Distinct sports in DB' },
+      { label: 'Screened', value: c.screened, hint: 'Have a HoloMotion report' },
+      { label: 'Awaiting a screening', value: c.awaiting, hint: 'No report yet' },
     ];
   }, []);
 

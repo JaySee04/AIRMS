@@ -12,7 +12,7 @@ This is the *what*. The **why** is [`DESIGN_DECISIONS.md`](DESIGN_DECISIONS.md),
 the measured figures are `npm run measure:facts` (which needs the database),
 and the access model argued in prose is [`PERMISSIONS.md`](PERMISSIONS.md).
 
-Counts: **9 models**, **144 columns**, **66 endpoints**, **24 pages**.
+Counts: **9 models**, **144 columns**, **67 endpoints**, **24 pages**.
 
 ## 1. Data model
 
@@ -223,6 +223,7 @@ refused inside the handler — see PERMISSIONS.md for what each role actually re
 | GET | `/api/athletes/:id/sport-context` | medical, admin | viewRecords | backend/src/routes/athletes.js |
 | GET | `/api/athletes/analytics/periods` | admin, executive |  | backend/src/routes/athletes.js |
 | GET | `/api/athletes/analytics/screening` | admin, executive, medical |  | backend/src/routes/athletes.js |
+| GET | `/api/athletes/meta/counts` | medical, admin, executive | viewRecords | backend/src/routes/athletes.js |
 | GET | `/api/athletes/meta/disciplines` | medical, admin, executive | viewRecords | backend/src/routes/athletes.js |
 | GET | `/api/athletes/meta/roster` | medical, admin, executive | viewRecords | backend/src/routes/athletes.js |
 | GET | `/api/athletes/meta/sports` | medical, admin, executive | viewRecords | backend/src/routes/athletes.js |

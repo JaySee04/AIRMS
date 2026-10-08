@@ -81,7 +81,7 @@ All Sequelize models. The `index.js` registers them and wires up associations �
 |---|---|---|
 | [auth.js](../backend/src/routes/auth.js) | `/api/auth` | `POST /login`, `GET /me` |
 | [users.js](../backend/src/routes/users.js) | `/api/users` | admin-only: `GET /?role=` (list medical staff **or coaches**, incl. `coachSport`), `GET /permission-meta`, `POST /` (create a medical/coach/admin/executive account, `invite: true` for the no-password path), `POST /:id/invite` (re-send an activation code; 409 once `activatedAt \|\| lastLoginAt`), `PATCH /:id` (medical → permissions + active; coach → `coachSport` + active; `isActive` for every role) |
-| [athletes.js](../backend/src/routes/athletes.js) | `/api/athletes` | `GET /` (list, medical/admin; filters `sport`/`program`/`gender`/`discipline`/`search`), `GET /:id`, `POST /` (admin), `PATCH /:id` (incl. `disciplines`), `DELETE /:id` (soft), `PATCH /:id/injury` (medical+admin — the surviving clinician injured flag), **`POST /:id/invite`** (admin — give this roster athlete a login, bound to the row it is called on; the ONLY way an athlete account can be created outside the seeder, see `DESIGN_DECISIONS.md §88`), `GET /teammates` (athlete-only, sport-scoped — **C3**), **`GET /:id/sport-context`** (medical+admin — this athlete against their own sport's screening pattern; restores the comparison the medical view lost with the injury log), `GET /meta/sports`, `GET /meta/disciplines`, `GET /analytics/screening` (admin — HoloMotion cohort: band counts per indicator, averages, top-flagged muscles; accepts athlete-level filters `sport`/`program`/`gender`/`ageMin`/`ageMax`), **`GET /analytics/periods`** (admin — screening-programme activity by `grain=month|quarter|year`, same cohort slicers plus `discipline` and `from`/`to`; returns `periods[]`, `betweenTests` and `coverage`). `/analytics/screening` also takes `discipline` and **`region`** — the latter adds a `focus` block (one indicator across every slice) without narrowing the population. **Indicator reads are shared + batched:** `INDICATOR_ATTRS` names only the ~11 columns the dashboards need (keeping `muscle_flags` / `summary_text` and the 12 raw score columns out of the row), `latestIndicator()` serves one athlete and `latestIndicatorsFor()` serves many in a **single** ordered query keyed off the `(athlete_id, assessed_at)` index — `/teammates` used one round trip per squad member before 2026-08-06 |
+| [athletes.js](../backend/src/routes/athletes.js) | `/api/athletes` | `GET /` (list, medical/admin; filters `sport`/`program`/`gender`/`discipline`/`search`), `GET /:id`, `POST /` (admin), `PATCH /:id` (incl. `disciplines`), `DELETE /:id` (soft), `PATCH /:id/injury` (medical+admin — the surviving clinician injured flag), **`POST /:id/invite`** (admin — give this roster athlete a login, bound to the row it is called on; the ONLY way an athlete account can be created outside the seeder, see `DESIGN_DECISIONS.md §88`), `GET /teammates` (athlete-only, sport-scoped — **C3**), **`GET /:id/sport-context`** (medical+admin — this athlete against their own sport's screening pattern; restores the comparison the medical view lost with the injury log), `GET /meta/sports`, `GET /meta/disciplines`, **`GET /meta/counts`** (medical/admin/executive — the roster as a STAT TILE needs it: `{active, screened, awaiting, sports}` in ~51 bytes. The staff profile pages downloaded the whole roster, **45,261 B to show three integers**, which made them the heaviest pages in the app; §139's shape a second time, see `DESIGN_DECISIONS.md §147`. Same `isActive` scope as `GET /` and `/meta/roster`, so the three cannot disagree about who is on the roster), `GET /analytics/screening` (admin — HoloMotion cohort: band counts per indicator, averages, top-flagged muscles; accepts athlete-level filters `sport`/`program`/`gender`/`ageMin`/`ageMax`), **`GET /analytics/periods`** (admin — screening-programme activity by `grain=month|quarter|year`, same cohort slicers plus `discipline` and `from`/`to`; returns `periods[]`, `betweenTests` and `coverage`). `/analytics/screening` also takes `discipline` and **`region`** — the latter adds a `focus` block (one indicator across every slice) without narrowing the population. **Indicator reads are shared + batched:** `INDICATOR_ATTRS` names only the ~11 columns the dashboards need (keeping `muscle_flags` / `summary_text` and the 12 raw score columns out of the row), `latestIndicator()` serves one athlete and `latestIndicatorsFor()` serves many in a **single** ordered query keyed off the `(athlete_id, assessed_at)` index — `/teammates` used one round trip per squad member before 2026-08-06 |
 | [coach.js](../backend/src/routes/coach.js) | `/api/coach` | `GET /readiness` (coach only) — squad readiness for the coach's assigned sport; batches the latest screening per athlete in one query |
 | [isn.js](../backend/src/routes/isn.js) | `/api/isn` | **A3, mock** `GET /athletes` (directory search), `GET /athletes/:ic` (lookup by IC). Backed by `backend/src/mock/isnDirectory.js` — swap the `searchIsn` / `getIsnByIC` seam for the real ISN DB/API when access is granted |
 | [upload.js](../backend/src/routes/upload.js) | `/api/upload` | **HoloMotion PDF (sole import path):** The athlete is resolved FROM THE NAME on the local filename — roster first, then the ISN directory — so the identity is filled in automatically and the search controls are a correction rather than the first step (2026-08-08).  `GET /screening/pdf/status`, `POST /screening/pdf/preview` (render + vision-extract, no commit), `POST /screening/pdf` (commit JSON). Gated by `requirePermission('uploadData')`. Excel import retired 2026-07-12 → `archive/excel-upload/` |
@@ -371,7 +371,7 @@ cd frontend; npx tsc --noEmit -p tsconfig.json
 cd frontend; npm run lint
 
 # Tests
-cd backend;  npx jest      # 73 backend suites
+cd backend;  npx jest      # 74 backend suites
 cd frontend; npx jest      # 30 frontend suites
 
 # Health check
@@ -391,7 +391,7 @@ curl http://localhost:5000/api/health
 
 Jest still covers mostly **pure logic**, and there is still no linter for the
 backend. What exists beyond it, and what genuinely remains unguarded, is the
-table below plus the four verification commands — `npm run mutate` (121 guards),
+table below plus the four verification commands — `npm run mutate` (124 guards),
 `npm run audit:access` (66 endpoints × every role, plus anonymous),
 `npm run verify:claims` (a *running* instance) and `npm run verify:csp`
 (real Chrome, production build). The honest gap is **route handlers and pages**:
@@ -427,7 +427,7 @@ most are covered by e2e or by nobody.
 
 **Continuous integration — [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)** (2026-09-13).
 Three jobs on push/PR to `feat/mysql-migration` and `main`: **checks** (both jest
-suites, typecheck, lint), **mutate** (the 121 guards — separate because it exceeds
+suites, typecheck, lint), **mutate** (the 124 guards — separate because it exceeds
 two minutes), and **csp** (build + real Chrome + `verify:csp`). **No database
 service**, because every backend suite is DB-free. `audit:access`,
 `verify:claims` and `e2e` need a *live* instance and are deliberately **left out
@@ -435,7 +435,7 @@ rather than half-wired** — a green tick that quietly skipped them is a worse
 signal than no tick at all. Until this existed, every test and every guard ran
 only when somebody remembered, on a branch where a push **is** a deploy.
 
-Counts as of 2026-10-08: **73 backend suites / 1133 tests**, **30 frontend suites / 529 tests**.
+Counts as of 2026-10-08: **74 backend suites / 1133 tests**, **30 frontend suites / 529 tests**.
 
 The **suite** counts above are guarded (`codebaseHygiene.test.js`); the test
 totals are not, deliberately — measuring them means running jest inside jest,

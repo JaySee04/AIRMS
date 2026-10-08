@@ -86,7 +86,7 @@ Mounted *after* the permission gate (so an unauthorised caller is refused on
 permission, not quota) and *before* multer (so an over-quota caller does not
 first cause a 20 MB buffer).
 
-> **Deliberately NOT extended to the other 65 endpoints.** They read and write
+> **Deliberately NOT extended to the other 67 endpoints.** They read and write
 > this institution's own database, they are all behind `auth`, and rating them
 > would ration a clinician's ordinary work. §48 says so and stands.
 
@@ -139,7 +139,7 @@ asserted:
    through the model layer.
 2. **The scoping is enforced in the handler and AUDITED by calling it.**
    `npm run audit:access` signs in as each of the four non-admin roles and calls
-   all 66 endpoints, then calls all 66 again with **no token**. It fails if a
+   all 67 endpoints, then calls all 66 again with **no token**. It fails if a
    read-only role reaches a write, or if any endpoint but the four sign-in
    routes answers anything other than 401 anonymously.
 3. **A refusal is itself scoped.** A coach asking for an unknown IC used to get
@@ -306,7 +306,7 @@ with a written remedy, not an oversight.
 
 ```
 coverage: every endpoint in the route table is probed.
-anonymous: all 66 endpoints probed with no token; every guarded one answered 401.
+anonymous: all 67 endpoints probed with no token; every guarded one answered 401.
 no read-only role completed a write.
 ```
 
@@ -417,7 +417,7 @@ filters, a Staff-activity rollup and a PDF export.
 
 ```powershell
 cd backend;  npm run dev                    # needed by the two live audits
-cd backend;  npm run audit:access           # §7 — 66 endpoints x 4 roles + anonymous
+cd backend;  npm run audit:access           # §7 — 67 endpoints x 4 roles + anonymous
 cd backend;  npm run verify:claims          # operational claims against a running instance
 cd backend;  npm run verify:claims -- --hosted   # ...and against the deployment
 cd backend;  npx jest                       # includes emailAddress + visionThrottle

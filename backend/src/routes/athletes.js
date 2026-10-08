@@ -269,6 +269,42 @@ router.get('/meta/roster', auth, rbac('medical', 'admin', 'executive'), requireP
   }
 });
 
+// GET /api/athletes/meta/counts — the roster as a STAT TILE needs it: three
+// integers.
+//
+// The staff profile pages each showed three or four at-a-glance numbers — active
+// roster, how many have a HoloMotion report, how many do not, sports covered —
+// and computed them by downloading `GET /athletes` and counting client-side.
+// Measured on 62 athletes: **44.2 KB, 28 keys a row, to produce three
+// integers**, which made `/medical/profile` and `/admin/profile` the heaviest
+// pages in the app at ~89 KB.
+//
+// This is §139's shape a second time (45,261 bytes to list five sports), and the
+// same answer: count in SQL and send the counts. Measured after: **~60 bytes**.
+// At the roster sizes `GET /athletes`'s own paging comment projects — ~3.5 MB at
+// 5,000 athletes — the old form put the whole wall behind a profile page.
+//
+// Identical guards and the same `isActive: true` scope as `GET /athletes` and
+// `/meta/roster`, so the three cannot disagree about who is on the roster, and
+// this discloses strictly less than the caller could already fetch (the §43
+// question to ask of any new payload). Declared BEFORE /:id, like the other meta
+// routes, or Express matches "meta" as an athlete id.
+//
+// `screened` counts a NON-NULL overallActivityScore, which is exactly what the
+// pages counted client-side — the same field, so the tile cannot change meaning.
+router.get('/meta/counts', auth, rbac('medical', 'admin', 'executive'), requirePermission('viewRecords'), async (req, res) => {
+  try {
+    const [active, screened, sports] = await Promise.all([
+      Athlete.count({ where: { isActive: true } }),
+      Athlete.count({ where: { isActive: true, overallActivityScore: { [Op.ne]: null } } }),
+      Athlete.count({ where: { isActive: true }, distinct: true, col: 'sport' }),
+    ]);
+    res.json({ active, screened, awaiting: active - screened, sports });
+  } catch (err) {
+    sendError(res, err, 'athletes.js');
+  }
+});
+
 // GET /api/athletes/meta/disciplines — distinct (sport, discipline) pairs already
 // on record, so the import picker can offer "choose an existing event" as well
 // as "type a new one". Declared BEFORE /:id. Scoped to active athletes.

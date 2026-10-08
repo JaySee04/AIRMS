@@ -210,6 +210,7 @@ const ROUTES = [
   // strict subset of it, but probed in its own right: an endpoint nothing calls
   // in the matrix is one the matrix makes no claim about.
   ['GET', '/athletes/meta/roster'],
+  ['GET', '/athletes/meta/counts'],
   ['POST', '/athletes', {}, ROLES],
   // MEDICAL IS PROBED ON BOTH OF THESE SINCE §123, and it was excluded before
   // for a good reason that has expired: medical COULD recompute the norms and

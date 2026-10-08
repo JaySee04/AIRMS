@@ -14078,3 +14078,85 @@ registered mutations.
   green, and the only defence is a control that must go red.
 
 **Ask which function the script actually imports before mutating anything.**
+
+## 147. 44.2 KB to show three integers (2026-10-08)
+
+### What the measurement had to survive first
+
+Optimising needs a number, and the first two numbers were both wrong.
+
+**The probe invented a route.** It listed `/admin/analytics`, which has never
+existed; Next served its 404, the probe counted **zero API calls**, and reported
+that as the most efficient page in the app. This is §121.8 — a sweep reporting a
+confident clean result about a page that never rendered — reproduced inside the
+tool built to find waste. Routes now come from `scripts/lib/pages.js`, the list
+the contrast and a11y sweeps already share and that `contrastPages.test.ts` pins
+against the filesystem, and **every visit asserts it landed**: right path, app
+chrome present, enough text to be that page. 24 measured, 0 unmeasured.
+
+**Then the landing assertion itself cried wolf.** It tested body text against
+`/404/`, and flagged `/medical/dashboard` and `/coach/dashboard` — both perfectly
+healthy, correct path, 5,285 and 6,042 characters — because the digits appear in
+their content. An unanchored needle standing in for a verdict is rule 5 one layer
+down. It asserts **app chrome** now: Next's not-found page renders no sidebar.
+
+**And dev doubles everything.** `reactStrictMode: true`, so every effect runs
+twice in development. All the ×2s in the first run were that, not duplicate
+fetches — optimising against them would have been chasing a dev artifact, which
+is why §111.7 measured A/B against a *production* build. Doubling is uniform, so
+**relative** counts still mean something (an odd multiple, or more than 2, needs
+more than one real call site), but an honest absolute count needs a prod build.
+So this section fixes only what dev can measure honestly: **payload size is
+payload size, however many times it is fetched.**
+
+### The finding
+
+The staff profile pages were **the heaviest in the app** — ~89 KB — and what
+they display is three or four integers: active roster, how many have a HoloMotion
+report, how many do not, sports covered. They were computing them by downloading
+`GET /athletes` (62 athletes, 28 keys a row) and counting client-side.
+
+This is §139's shape exactly (45,261 bytes to list five sports), and at the
+roster sizes `GET /athletes`'s own paging comment projects — ~3.5 MB at 5,000
+athletes — it put the whole wall behind a profile page.
+
+`GET /athletes/meta/counts` counts in SQL and sends the counts:
+
+| | before | after | |
+|---|---|---|---|
+| payload | **45,261 B** | **51 B** | **887× smaller** |
+| `/medical/profile` | 89.5 KB | **1.2 KB** | |
+| `/admin/profile` | 89.4 KB | **1.1 KB** | |
+| `/admin/profile` (executive) | 82.9 KB | **0.6 KB** | |
+
+17 ms, and it returns `{active: 62, screened: 56, awaiting: 6, sports: 5}` —
+**verified identical to what the pages computed client-side**, and matching
+`npm run measure:facts`.
+
+### The risk it introduces, and what holds it
+
+A derived aggregate can disagree with what it summarises, and "62 athletes under
+care" over a roster showing 61 is this project's defect class on a clinical
+surface. What prevents it is **scope**: `isActive: true`, identical to
+`GET /athletes` and `/meta/roster`, so the three cannot disagree about who is on
+the roster. `tests/rosterCounts.test.js` drives the real router and pins the
+WHERE clauses rather than trusting the numbers to line up, with three registered
+mutations — dropping the scope, counting `> 0` instead of `IS NOT NULL` (§54: a
+genuine 0 is not an absent reading), and losing `distinct` on sports.
+
+It discloses strictly less than the caller could already fetch, which is the §43
+question to ask of any new payload.
+
+### Left alone, deliberately
+
+`/coach/profile` is still ~98 KB: it reads `/coach/readiness` (48.2 KB) for four
+tiles. Coach is **not** on `/athletes`'s rbac list, so serving it would mean a
+new grant for a scoped role — §43's question answers differently there, and a
+profile tile is not worth widening a role's reach for. `/admin/thresholds`
+(`/cohorts`, 51.1 KB) and `/coach/dashboard` are reading payloads they actually
+display.
+
+**The remaining duplicate-call question is open and needs a production build to
+answer** — `/screenings/athlete/:id` is fetched by both `ScreeningHistory` and
+`ScreeningDatePicker` on the same page, which is a real second call site. Not
+chased here because dev cannot measure it honestly.
