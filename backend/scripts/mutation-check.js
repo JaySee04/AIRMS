@@ -1389,6 +1389,42 @@ const MUTATIONS = [
     replace: '  const m = header.match(new RegExp(`${key}=(\\\\d+)`));',
     test: 'tests/rateLimitReading.test.js',
   },
+  {
+    guard: 'backup: a JSON column does not land as [object Object]',
+    why: '§149 — 14 JSON columns; a workbook full of [object Object] opens cleanly and is worthless',
+    pkg: 'backend',
+    file: 'src/utils/backupWorkbook.js',
+    find: "  const s = typeof v === 'object' ? JSON.stringify(v) : v;",
+    replace: '  const s = typeof v === "object" ? String(v) : v;',
+    test: 'tests/backupWorkbook.test.js',
+  },
+  {
+    guard: 'backup: every model has a sheet',
+    why: '§149 — the export wrote 2 of 9 tables for three months while calling itself a backup',
+    pkg: 'backend',
+    file: 'src/utils/backupWorkbook.js',
+    find: "      name: 'Screenings',",
+    replace: "      name: 'ScreeningsRenamedSoNothingFindsIt',",
+    test: 'tests/backupWorkbook.test.js',
+  },
+  {
+    guard: 'backup: user credentials never reach a sheet',
+    why: 'a password hash in a file that is mailed and kept on a shared drive is durable',
+    pkg: 'backend',
+    file: 'src/utils/backupWorkbook.js',
+    find: "const USER_SECRETS = ['password', 'resetTokenHash', 'resetTokenExpiresAt', 'resetCodeAttempts'];",
+    replace: 'const USER_SECRETS = [];',
+    test: 'tests/backupWorkbook.test.js',
+  },
+  {
+    guard: "backup: an oversize cell is clipped, not thrown on",
+    why: "§149 — xlsx THROWS past 32,767 chars; NormVersions.snapshot measures 35,076, so every backup 500'd",
+    pkg: 'backend',
+    file: 'src/utils/backupWorkbook.js',
+    find: "  if (typeof s !== 'string' || s.length <= EXCEL_CELL_LIMIT) return s;",
+    replace: '  return s;',
+    test: 'tests/backupWorkbook.test.js',
+  },
 ];
 
 function pkgDir(pkg) {

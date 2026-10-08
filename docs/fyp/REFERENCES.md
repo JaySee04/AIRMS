@@ -244,7 +244,7 @@ is complete, not because their details are confirmed.
 | Sprouse et al. (2024) | ✅ | IIS framework, injury data variables | **No** — same |
 | Waldén et al. (2023) | ✅ | football extension of the IOC consensus | **No** — same |
 | Yang et al. (2024) | ✅ | sRPE physiological correspondence | **No** — sRPE retired |
-| Inoue et al. (2022) | ❌ **dropped 2026-09-09** | sRPE scale reliability | Sat exactly on the "after 2022" boundary and carried a claim Yang (2024) already carries. Removed rather than argued over |
+| ~~Inoue et al. (2022)~~ | ❌ **dropped 2026-09-09** | sRPE scale reliability | Sat exactly on the "after 2022" boundary and carried a claim Yang (2024) already carries. Removed rather than argued over |
 | Impellizzeri (2020) | ❌ | ACWR methodological critique | **No** — FYP I artefact |
 | Andrade et al. (2020), Bahr et al. (2020) | ❌ | superseded in the 2026-06-04 refresh | — |
 
@@ -295,20 +295,16 @@ lead with Washif (2024) — already done in §2 — and keep Hopkins/Weir as an
 optional footnote for method provenance. Cutting them entirely is defensible
 under the post-2022 rule.
 
-### 6.3 The body map needs no citation — it is original work
+### 6.3 MIT License — a licence obligation, not a citation
 
-**There is no third-party asset in this project, so nothing is owed here.** The
-figure is built from anatomical landmarks and every muscle is placed by its
-origin and insertion (`DESIGN_DECISIONS.md §144`), which means it is argued
-muscle by muscle rather than cited. If an examiner asks what the figure is based
-on, the answer is human anatomy and the method is §144.
+> Shehryar, S. *react-muscle-highlighter*. MIT License.
+> https://github.com/soroojshehryar/react-muscle-highlighter
 
-**If an earlier draft carries a `react-muscle-highlighter` / Shehryar entry,
-delete it.** A licence notice is owed only while you distribute the code it
-covers; AIRMS does not, so the obligation is discharged by removal. Leaving it in
-would credit a third party for the project's own work — which understates the
-contribution and misdescribes what was built, the worse error of the two in a
-graded artifact.
+**Not a literature citation and not subject to the date rule.** The MIT licence
+requires the copyright notice be retained in distributions; the attribution sits
+at the top of every file in `bodymap-data/`, and `MASTER_CLARIFICATIONS §12`
+locks its presence in the report's reference section. **Cost of cutting: a
+licence violation.** It stays.
 
 ---
 

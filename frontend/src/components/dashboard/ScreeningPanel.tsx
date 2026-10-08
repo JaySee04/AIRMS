@@ -28,6 +28,7 @@ import {
 import { buildTrainingFocus } from '@/lib/trainingFocus';
 import { splitSummaryPoints } from '@/lib/reportSummary';
 import type { Subitems } from './OverallRiskBadge';
+import SubitemMatrix from './SubitemMatrix';
 
 export interface ScreeningData {
   name: string;
@@ -206,11 +207,14 @@ export default function ScreeningPanel({
   // dark again by somebody forgetting one of four call sites. An explicit
   // top-level value still wins, so a caller that deliberately narrows the object
   // (the coach page does) keeps working unchanged.
-  // Note `subitems` is deliberately NOT resolved here: this component never
-  // reads it. The four call sites lift it across anyway, which is how the
-  // pattern misled — the one field being hand-lifted was the one field this
-  // panel ignores, so the lift looked like it was doing work it was not.
-  // (BodyMap takes subitems as its own prop, separately, and does render them.)
+  // `subitems` IS resolved here as of §151. It deliberately was not before,
+  // because this panel did not read it — the four call sites lifted it across
+  // for BodyMap's sake, which is exactly how the §70.4 pattern misled: the one
+  // field being hand-lifted was the one field this panel ignored, so the lift
+  // looked like it was doing work it was not. Now that the subitem table is
+  // drawn here, it goes through the same resolution as every other field, so
+  // the card cannot go dark on a page whose author forgot to lift it.
+  const subitemsResolved = athlete.subitems ?? athlete.screening?.subitems ?? null;
   const prescription = athlete.prescription ?? athlete.screening?.prescription ?? null;
   const lateralSymmetry = athlete.lateralSymmetry ?? athlete.screening?.lateralSymmetry ?? null;
   const summaryText = athlete.summaryText ?? athlete.screening?.summaryText ?? null;
@@ -255,6 +259,25 @@ export default function ScreeningPanel({
           <ScoreGauge value={athlete.injuryRiskIndex} max={STRIP_MAX} label="Exercise Risks" band={riskBand(athlete.injuryRiskIndex ?? 0)} ticks={[WATCH_THRESHOLD / STRIP_MAX, HIGH_THRESHOLD / STRIP_MAX]} />
         </div>
       </div>
+
+      {/* Physical Fitness Subitem Score — the instrument's own 25-cell table,
+          in its own row order, between the gauges and the risk indicators
+          exactly as HoloMotion lays its app out (§151). The body map beside
+          this paints the WORSE of left and right, so it is the one surface
+          that can show the L/R split the asymmetry reading depends on. */}
+      {subitemsResolved && (
+        <div className="card" style={{ marginBottom: 20 }}>
+          <div className="card-header">
+            <div>
+              <h2 className="card-title" style={{ marginBottom: 0 }}>Physical Fitness Subitem Score</h2>
+              <span className="card-sub">
+                HoloMotion&apos;s 0–100 quality scores · higher is better · left and right shown apart
+              </span>
+            </div>
+          </div>
+          <SubitemMatrix subitems={subitemsResolved} />
+        </div>
+      )}
 
       {/* Indicator threshold strips — the athlete's problems, placed on
           their SPORT'S thresholds. Same eight tests for everyone; the zones

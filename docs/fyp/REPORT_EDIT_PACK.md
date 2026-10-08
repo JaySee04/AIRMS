@@ -142,19 +142,11 @@ The athlete key became the identity-card number on 2026-08-04. State it and own 
 
 ## R9 · References
 
-**No body-map citation is owed.** The figure is original work — built from
-anatomical landmarks, each muscle placed by its origin and insertion
-(`DESIGN_DECISIONS.md §144`). **If a draft carries a `react-muscle-highlighter`
-/ Shehryar entry, delete it**: a licence notice is owed only while you distribute
-the code it covers, and keeping it would credit a third party for your own work.
+Add (locked decision — the body-map asset attribution must appear):
 
-Write the body map up in **Chapter 3 as original design work** instead. The
-defensible claim is the method: one landmark system, both the region and muscle
-layers derived from it, each muscle anchored at origin and insertion — which is
-what lets a 22-muscle clinical vocabulary be drawn at all. A workout atlas's
-regions cannot express it (sartorius crosses the whole thigh diagonally;
-iliopsoas inserts below the hip joint), and that limitation is the argument for
-why it was drawn rather than borrowed.
+> Shehryar, S. (2023). *react-muscle-highlighter* [Computer software]. MIT License. https://github.com/soroojshehryar/react-muscle-highlighter — anatomical path data adapted for the AIRMS body-map component.
+
+Still correct after the 2026-08-04 change: the geometry was re-partitioned into the screening instrument's muscle vocabulary, but no path data was redrawn and the licence terms are unchanged.
 
 Keep the sRPE citations (Inoue 2022, Yang 2024) **only** where the report discusses the composite model as a designed artefact. If any passage implies session load is being collected, remove it — nothing computes it.
 

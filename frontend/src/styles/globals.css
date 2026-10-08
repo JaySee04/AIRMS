@@ -5089,3 +5089,52 @@ textarea:focus-visible,
 /* The control brings its own `marginTop: 20` for the full-width position it used
    to sit in; inside the stack the gap owns the spacing. */
 .medical-hero-left > .card { margin-top: 0 !important; margin-bottom: 0; }
+
+/* ── Physical Fitness Subitem Score (§151) ──────────────────────────────────
+   HoloMotion's own 25-cell table. Cell colours are the TIER system (§135's
+   middle column) — never the band one: these are 0-100 quality scores, not a
+   cohort verdict, and the two must not be confusable on the same page. Ink
+   comes from TIER_INK, which is measured against each fill per theme rather
+   than assumed to be white (§121). */
+.subitem-matrix { display: grid; gap: var(--sp-sm); }
+.sm-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 3px;
+  font-size: var(--fs-sm);
+}
+.sm-table th {
+  font-weight: 600;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  text-align: center;
+  padding: 2px 4px;
+  white-space: nowrap;
+}
+.sm-rowhead { text-align: left !important; color: var(--text) !important; }
+.sm-side { font-size: var(--fs-2xs); }
+.sm-cell {
+  text-align: center;
+  padding: 6px 4px;
+  border-radius: var(--r-xs);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  min-width: 42px;
+}
+/* A cell with no reading is DASHED, never a zero and never tier-coloured —
+   §54. On a grid of numbers a fabricated 0 reads as "measured, and terrible". */
+.sm-cell--none {
+  /* --bg-elev-2, not an invented --surface-2: a var() naming a token that is
+     declared nowhere resolves to NOTHING, so the cell would have rendered
+     transparent in both themes (§121.9, one step worse — there is not even a
+     fallback to notice). Caught by searching the stylesheet for its own token. */
+  background: var(--bg-elev-2);
+  color: var(--text-muted);
+  font-weight: 400;
+}
+.sm-gaps {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  line-height: 1.5;
+}

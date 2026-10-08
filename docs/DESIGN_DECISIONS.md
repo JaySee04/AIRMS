@@ -13833,6 +13833,12 @@ the radar trimmed 250px → 215px (JC had asked for it smaller anyway):
 
 ## 144. The body map is ours now (2026-10-08, JC)
 
+> **SUPERSEDED by §152 (2026-10-09).** JC: *"use the old design for now
+> please. This new one just reeks to me."* The original geometry is removed
+> from the tree and `react-muscle-highlighter` restored, attribution and all.
+> The reasoning below is kept because the §4 taxonomy problem it describes is
+> real and is back in force.
+
 **This changes a locked decision and it changes the FYP references section.**
 `MASTER_CLARIFICATIONS §12` locked the body-map asset to
 `react-muscle-highlighter` (MIT, Sorooj Shehryar) with its attribution required
@@ -14264,3 +14270,306 @@ idle check reports `at /medical/dashboard, token=kept` while the
 merely going red.
 
 [owasp]: https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html
+
+---
+
+## 149. The "Data Backup" button exported 2 of 9 tables (2026-10-09, JC)
+
+JC, looking at the upload page: *"There is a data backup thingy at the upload
+pdf page. Is that a leftover feature or does it actually make an excel file that
+contains all the data backup of every athlete we placed within the system?"*
+
+Neither, quite. It was live, admin-only, audited as `export.backup`, and it
+produced a real 156 KB workbook. It was also **not a backup**.
+
+### What it actually contained
+
+Measured by downloading it and reading it back, 2026-10-09: **Athletes** (62
+rows x 24 cols) and **MuscleFlags** (336 x 7). Two of the nine tables. Absent:
+
+- **`screenings` entirely** — 74 rows, 43 columns. The athlete row carries only
+  the *latest* screening flattened into summary scores, so **18 history rows had
+  no representation anywhere in the file**.
+- **`assessedAt`** — one of 30 Screening columns with no athlete-row equivalent.
+  So the scores that *were* exported sat in the file **with no date on them**.
+  Also gone: `subitems` (the 25-cell table Total Score is the mean of),
+  `overallBand`, `factors`, `prescription`, `summaryText`, the clinician-override
+  columns and the escalation-response columns.
+- **the 49 `cohort_thresholds` rows and the norm version** — the ruler every band
+  was measured against. Without them no verdict in the file is reproducible.
+- `audit_logs` (1,714), `athlete_disciplines` (22), `settings` (7).
+- `users` — correctly absent, and deliberately still partly so (below).
+
+### Why it was narrow, which is the interesting part
+
+`git log` dates the route to **2026-07-01**, and its own opening comment says it
+exists "so the Excel-era statistics and data are preserved now that ingestion is
+moving to HoloMotion PDFs". At that moment athletes + muscle flags genuinely
+**was** the data model. Screening history became the heart of the system
+afterwards and the export was never widened — the four commits touching it since
+are incidental sweeps (a date fix, the error-handling pass, the audit pass, the
+HoloMotion cut).
+
+So: not abandoned. **Frozen at a data model the system outgrew.**
+
+### Why it read as fine
+
+The card was headed "Data Backup" and offered a snapshot "for records, review,
+or **handover**". The button's own body text was accurate — "all current athlete
+and muscle-flag data" — and *that is what made it survive*: each half was
+defensible, and only together did they describe a roster export as a backup.
+This is the house defect class, found the only way it can be: by downloading the
+file and reading it.
+
+### JC's instruction
+
+*"Do number 12"* — both offered options, so the export is widened **and** the
+copy now names the sheets. A heading and its contents cannot drift apart again
+without a reader being able to see it.
+
+### The trap widening it walks into
+
+`XLSX.utils.json_to_sheet` stringifies with `String()`, so a JSON column lands
+in the cell as the literal text `[object Object]`. There are **fourteen** such
+columns across the added tables. The old export looked healthy precisely because
+**Athletes and MuscleFlags are the only two tables in the schema with no JSON
+column** — the defect had nothing to land on. `cellValue` in
+`utils/backupWorkbook.js` encodes every value; `backupWorkbook.test.js` pins it.
+
+Dates become **ISO-8601 strings, not Excel date cells**: an Excel date carries
+no zone, so the reader's machine decides what it means, and §45 is the worked
+example of that costing a month-end column.
+
+### And a defect only running it could find
+
+The first widened build **500'd**. `xlsx` does not truncate past Excel's
+32,767-character cell limit — it **throws**, after every sheet is built. On the
+live database exactly one cell is over: `NormVersions.snapshot` at **35,076
+characters**, the pinned 49-cohort norm set in a single cell. No fixture-sized
+unit test could reach it; the limit belongs to the file format.
+
+Oversize values are now clipped with a **loud, deliberately invalid-JSON marker**
+naming how much went, so a restore fails rather than quietly loading half an
+object — and the **Manifest sheet** (new, first in the book) reports it. Rule 2:
+a partial result must never read as a complete one.
+
+### What is still deliberately withheld
+
+`password`, `resetTokenHash`, `resetTokenExpiresAt`, `resetCodeAttempts`. A
+backup is mailed and kept on a shared drive; a password hash in it is a durable
+liability, and the reset columns would let a holder take over an account with a
+code outstanding. Everything else about a user is ordinary institutional record.
+
+`audit_logs` is capped at 50,000 newest rows — unbounded over an institution's
+lifetime, and a backup that exhausts memory is worse than one that says what it
+left out. The manifest names the truncation when it bites.
+
+### Measured after
+
+156 KB to **1.58 MB**; 2 sheets to **10**; 2,278 rows; **zero** `[object Object]`
+cells anywhere in the workbook; the one clipped cell named in the manifest.
+26 tests, 4 registered mutations.
+
+---
+
+## 150. The body map had a white hole at the armpit, in every view and every report (2026-10-09, JC)
+
+> **SUPERSEDED by §152 (2026-10-09).** JC reverted to the licensed asset.
+> The defects below were real and are recorded; they belonged to §144's
+> geometry and left with it.
+
+JC: *"This is just unacceptable compared to what we had. It is too ugly and not
+representable of a human silhouette."*
+
+Rendering the figure and looking at it — which is the only thing that finds this
+class — showed a **white triangular gap at the armpit**, present on every
+dashboard and in every printed report for as long as the original figure has
+existed (§144).
+
+### The cause
+
+`FRONT_OUTLINE` was three subpaths in one `d`: torso, right arm, left arm. The
+left arm was produced by reflecting the right arm's **finished path string**.
+That mirrors the coordinates but **leaves the traversal order alone**, so the
+contour wound the opposite way — and SVG and pdfkit both fill `nonzero`, where
+two opposite windings **cancel**.
+
+It is invisible to every other kind of check. The path parses. The bounding box
+is right. The shape is correctly mirrored. The figure is the correct size. Only
+the **fill** is wrong, and only where two contours overlap. `figure.test.ts` had
+25 passing cases and none of them could see it.
+
+Fixed by mirroring the **points** and reversing them, so the winding is
+preserved. Proven by reintroducing the old line: 2 guards fail.
+
+### The second half: the order is the drawing
+
+With the hole gone the figure still read as "shapes plastered on shapes" — a
+hard diagonal seam ran from each shoulder across the chest. That is the arm's
+**inner** edge, which lies medial to the ribcage and therefore *inside* the
+body, being stroked because all three contours shared one `<path>`.
+
+`FRONT_OUTLINE_PARTS` is now **arms first, torso last**. Painted last, the trunk
+covers each arm's inner edge instead of letting it draw a line across the chest.
+Anatomical atlases layer the limb under the trunk for exactly this reason. The
+joined `FRONT_OUTLINE` string is kept for consumers that fill one path, and is
+now correct too, because the winding agrees.
+
+### Proportions, measured off the render rather than guessed
+
+| | was | now | why |
+|---|---|---|---|
+| head | 112 x 172 (ratio **1.54**) | 124 x 156 (**1.26**) | a human head is ~1.30; nothing about a silhouette is as quick to spot as a head the wrong shape |
+| shoulder : hip | 172 : 140 = **1.23** | 172 : 126 = **1.37** | the trunk now tapers, which is what makes a standing figure read as a body rather than a slab |
+| trunk shoulder line | steep drop from the neck | trapezius slope only | the deltoid is carried by the arm shape, so the trunk was drawing it twice |
+
+### On restoring the old figure
+
+JC asked whether it still existed. It does — `8bb5278^` holds `muscles.ts`
+(34,796 B), `bodyFront.ts` (26,938 B), `bodyBack.ts` (22,902 B) and
+`outlines.ts` (18,162 B).
+
+**It was not restored, and this is a recommendation rather than a refusal.**
+That figure is `react-muscle-highlighter` (MIT, Sorooj Shehryar) — third-party
+path data, whose attribution JC ordered stripped from the repository one day
+earlier (§144). Restoring it reinstates the attribution obligation in a
+submitted artifact and brings back the taxonomy mismatch §4 was opened about: a
+*workout* atlas's training regions standing in for a clinical instrument's
+individual muscles. The defects above are all in **our** figure and all fixable,
+which is what was done. If JC still prefers the old one after seeing this, the
+rule changes and the files come back from git.
+
+### Guards
+
+Five new cases in `figure.test.ts`: every front contour winds the same way,
+every back contour likewise, the two arms are genuinely mirrored (a tempting
+"fix" for the winding is to stop mirroring, which draws one arm on itself),
+arms precede the torso, and the joined string still carries three contours.
+Two registered mutations. `npm run export:bodymap` regenerated; `pdfDraw.js`
+and `utils/bodymap.js` take the parts so the **reports get the same fix**.
+
+---
+
+## 151. The subitem table the dashboards never showed (2026-10-09, JC)
+
+JC, with a photograph of the HoloMotion app beside the dashboard: *"make sure
+that you include the information from the HoloMotion PDF as shown from the
+picture of a phone screen within the athlete dashboard that is accessed by the
+medical staff."*
+
+Three blocks on that screen. AIRMS already drew two — the score gauges and the
+eight Exercise Risk indicators are both in `ScreeningPanel`. The **25-cell
+Physical Fitness Subitem Score** was the one that was not, and it is the densest
+thing the instrument produces: **Total Score is literally its mean.**
+
+The system stored it, aggregated it at squad level (`utils/subitemAggregate.js`),
+drew it on the admin heatmap and printed it in the PDF — and never showed an
+individual athlete's own 25 numbers on any dashboard.
+
+### Why it was left out, and why that reasoning no longer holds
+
+`ScreeningPanel`'s header said the subitem scores are "NOT rendered here — the
+BodyMap card that sits beside this one draws them". True of the ROM/Stability
+*values*: the map paints them onto the figure. But **the figure paints the worse
+of left and right** (§4a), so the **L/R split is discarded before it reaches the
+screen** — and that split is the entire point of a table with separate L and R
+columns, and the thing a clinician reads asymmetry off. A reader could see that
+the neck was amber; not that it was 96 right and 61 left.
+
+So this is not a second view of the same data. The map answers *where*; the
+table answers *which side, by how much* — the same split §23 made at squad
+level, where left-right asymmetry turned out to be the only bilateral signal the
+report carries and three surfaces were collapsing it.
+
+### How it is drawn
+
+HoloMotion's own row order and printed names, so the screen can be laid beside
+the PDF and read line for line (§21 rests on exactly that). Cells carry the
+**tier** palette — §135's middle column, never the band one: these are 0-100
+quality scores, not a cohort verdict, and the two must not be confusable on the
+same page. Ink from `TIER_INK`, measured per theme rather than assumed white
+(§121). A cell with no reading is **dashed, never a zero** (§54) — on a grid of
+numbers a fabricated 0 reads as "measured, and terrible". The tier is named in
+the cell's title, never carried by colour alone (`SILENT_FAILURES` 3i).
+
+Left-right gaps of **10 or more** are listed beneath, using the same threshold
+the squad panel counts on, so an athlete flagged here is an athlete counted
+there. The report does not print this — the subtraction is left to the reader on
+paper, and leaving it to them on screen too would reproduce a limitation rather
+than the data.
+
+### One trap it sprang on the way in
+
+`subitems` is now resolved inside `ScreeningPanel` like every other field. It
+deliberately was not before, because the panel did not read it — the four call
+sites lifted it across for `BodyMap`'s sake. That is exactly how §70.4 misled:
+the one field being hand-lifted was the one field this panel ignored, so the
+lift looked like it was doing work it was not.
+
+Two CSS tokens were invented on the first pass — `--surface-2` and `--text-dim`,
+**neither declared anywhere**. A `var()` naming an undeclared token with no
+fallback resolves to *nothing*, so the cells would have rendered transparent in
+both themes. This is §121.9 one step worse — there is not even a fallback to
+notice. `lib/cssTokens.test.ts` caught it.
+
+---
+
+## 152. The redraw is reverted; the licensed asset is back (2026-10-09, JC)
+
+> **This supersedes §144 and §150.** Both stand below with their reasoning
+> intact, including the parts that turned out not to matter. The rule **in
+> force** is the one stated here and in `CLAUDE.md`'s locked-decisions list:
+> the body map is `react-muscle-highlighter` (MIT, Sorooj Shehryar), re-sliced
+> by `muscles.ts`, **and the attribution is owed.**
+
+JC, after seeing the fixed figure: *"use the old design for now please. This new
+one just reeks to me."*
+
+That is the decision. §144's original geometry is removed from the tree and the
+licensed asset restored, along with every attribution that goes with it.
+
+### What this costs, stated plainly rather than argued
+
+**The attribution comes back, everywhere, including JC's report.** It is a
+licence obligation and not a preference: the project distributes the path data,
+so the MIT notice travels with it. Restored in the source headers, `README.md`,
+`CLAUDE.md`, `MASTER_CLARIFICATIONS.md`, `FYP_RUBRICS.md`,
+`docs/fyp/REFERENCES.md`, `REPORT_EDIT_PACK.md` and `VIVA_ANSWERS.md`. The one
+thing that cannot be fixed from here is the **references section of the
+submitted report**, which is JC's document.
+
+**The §4 taxonomy mismatch returns with it.** A *workout* atlas's training
+regions standing in for a clinical instrument's individual muscles is what §4a
+and §138 were written to work around, and those workarounds are back in force
+too: 16 muscles recovered from sub-paths the asset already draws separately, 6
+deep ones as schematic insets in their parent's measured box.
+
+**Two real defects fixed in §150 go back into the tree**, and they should be
+recorded as *known* rather than quietly reverted:
+
+1. The **white hole at the armpit** was a property of §144's figure only — the
+   licensed outlines do not have it, because `outlines.ts` is a single
+   silhouette path per view rather than three overlapping contours. So this
+   particular defect leaves with the geometry that caused it.
+2. The **arms-behind-torso layering** and the winding guard were also specific
+   to that construction. The five `figure.test.ts` cases and their two
+   registered mutations are removed with the file they guarded — a guard whose
+   subject no longer exists must not stay in the registry pretending to measure
+   something (§123's lesson, applied deliberately this time instead of by
+   accident).
+
+`muscles.test.ts` returns and is what guards the partition again.
+
+### What is NOT reverted
+
+§149 (the backup) and §151 (the subitem matrix) are untouched — neither has
+anything to do with the figure.
+
+### The process note worth keeping
+
+This is the second time in two days a locked decision moved, and the first time
+it moved *back*. The rule that made the revert cheap is JC's own, from
+2026-10-08: **rules files state the rule in force; decision logs keep the
+history.** Because §144's reasoning lives here and not in seven rules files as
+strikethroughs, reverting it is an edit to the rule statements plus a banner —
+not an archaeology exercise across the repo.

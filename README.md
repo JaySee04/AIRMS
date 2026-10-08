@@ -90,7 +90,7 @@ password setting rather than seeded data. Real accounts are created by
 - **Backend:** Node.js · Express · Sequelize · JWT auth
 - **Database:** MySQL 8 (matches ISN's production target)
 - **Ingestion:** HoloMotion PDF via a provider-agnostic vision model, with on-device name redaction first
-- **Body map:** original geometry, built from anatomical landmarks — each muscle placed by its origin and insertion ([§144](docs/DESIGN_DECISIONS.md))
+- **Body map:** path data adapted from [`react-muscle-highlighter`](https://github.com/soroojshehryar/react-muscle-highlighter) (MIT, © 2024 Sorooj Shehryar)
 
 No Tailwind, no CSS-in-JS, no component library — [a recorded decision](docs/DESIGN_DECISIONS.md), not an omission.
 
@@ -238,8 +238,7 @@ as the same opaque error, and the settings that cause them, are in
 - **Dr Hoo Wai Lam** — academic supervisor
 - **Shewin** and **Keying** — prior student work this project iterates on
 
-The body map carries no third-party attribution: the figure is original geometry
-built from anatomical landmarks ([§144](docs/DESIGN_DECISIONS.md)).
+- **Sorooj Shehryar** — [`react-muscle-highlighter`](https://github.com/soroojshehryar/react-muscle-highlighter) body-map path data (MIT). *This attribution is a locked decision and must remain in the FYP references section.*
 
 Academic citations for the risk model and load methodology are collected in
 [`docs/fyp/REFERENCES.md`](docs/fyp/REFERENCES.md).

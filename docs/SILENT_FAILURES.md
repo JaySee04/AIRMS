@@ -2237,6 +2237,70 @@ mutation turns the delete into a **comment** instead of removing it — the hard
 case for a source-text guard, and the one that proves the stripper does real work.
 
 
+### 4g. A control that names a thing bigger than it exports (2026-10-09, §149)
+
+**The defect:** `GET /api/export/backup.xlsx`, headed **"Data Backup"** and
+offered "for records, review, or handover", wrote **2 of the 9 tables** for three
+months. No screenings — so 18 history rows existed nowhere in the file — no
+cohort norms, no audit trail, and the scores it *did* write carried **no
+`assessedAt`**, because that column lives on `screenings`.
+
+**Why nothing caught it.** The file was valid. It opened. It had the right name,
+the right MIME type, a plausible size, and an audit row recording a successful
+export. Every automated check in the repo asks about *source* or about *status*;
+none of them downloads a file and reads it. This is the same blind spot that let
+every PDF report answer 500 on hosted for twenty-three days (4a) — the lesson did
+not generalise from PDFs to spreadsheets.
+
+**And the copy was individually honest.** The heading overclaimed; the body text
+("all current athlete and muscle-flag data") was *exactly right*. Each half was
+defensible on its own, which is why neither was ever questioned. **A label and
+its contents can drift apart one clause at a time.**
+
+**The sweep:** for any artifact-producing endpoint, ask *what is the complete set
+of things a reader would expect in this, and is each one present* — not *did it
+produce something*.
+
+**Second instance, inside the fix.** Widening it walked into
+`XLSX.utils.json_to_sheet`, which stringifies with `String()`. Fourteen JSON
+columns would have become the literal text `[object Object]` — in a *bigger*
+file that still opens cleanly. The old export was immune only by accident:
+Athletes and MuscleFlags are the schema's **only two tables with no JSON
+column**, so the defect had nothing to land on.
+
+**Third instance, same hour.** The first widened build 500'd, because `xlsx`
+**throws** past Excel's 32,767-character cell limit instead of truncating —
+`NormVersions.snapshot` measures 35,076 on the live database. No fixture-sized
+unit test can reach that: the limit belongs to the file format, not to the code.
+**Running it against real data was the only way.**
+
+### 4h. A fill rule can delete geometry that is provably correct (2026-10-09, §150)
+
+**The defect:** the body map had a **white hole at the armpit** — on every
+dashboard and in every printed report, for as long as the original figure has
+existed.
+
+**The cause:** the left arm was made by reflecting the right arm's *finished path
+string*. That mirrors the coordinates but leaves the traversal order alone, so
+the contour wound the opposite way; SVG and pdfkit both fill `nonzero`, where two
+opposite windings **cancel**.
+
+**Why 25 passing tests could not see it.** The path parses. The bounding box is
+right. The shape is correctly mirrored — *provably*, which is what made it feel
+safe. The figure is the correct size and in the correct place. Every property the
+suite knew how to ask about was true. **Only the fill was wrong, and only where
+two contours overlapped.**
+
+**The rule it adds:** when geometry is composed of overlapping pieces, the
+assertions must cover the *composition*, not only each piece. Winding, draw
+order and fill rule are properties of the whole that no per-shape check reaches.
+
+**It was found by rendering the figure and looking at it** — the same method that
+found §30b's overprinted bar, §105's poorer KPI set and §144's face-marking hair.
+That is now four. **For anything that draws, the standing answer is: produce the
+artifact and read it.**
+
+
 ## The rules for writing a check in this repo
 
 Every rule below is here because breaking it already cost this project

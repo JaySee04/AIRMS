@@ -1,8 +1,14 @@
 'use client';
 
-// Admin one-click data backup. Downloads the current HoloMotion-derived data
-// (athletes + muscle flags) as a multi-sheet Excel workbook — an offline
-// snapshot for records, review, or handover.
+// Admin one-click data backup. Downloads the whole database as a multi-sheet
+// Excel workbook — the offline record ISN keeps, reviews and hands over.
+//
+// THE COPY BELOW NAMES THE SHEETS ON PURPOSE (§149). This card said "all
+// current athlete and muscle-flag data" under a heading reading "Data Backup",
+// offered "for handover", while exporting 2 of 9 tables — no screenings, no
+// norms, no trail. Either half alone was defensible; together they described a
+// roster export as a backup. Listing what is inside is what stops the heading
+// and the contents drifting apart again, since a reader can now check.
 
 import { useState } from 'react';
 import { getSession } from '@/lib/auth';
@@ -52,8 +58,9 @@ export default function DataBackupCard() {
     <div className="card">
       <h2 className="card-title">Data Backup</h2>
       <p className="text-muted" style={{ fontSize: 'var(--fs-md)', marginTop: 0 }}>
-        Export all current athlete and muscle-flag data to a single Excel workbook —
-        an offline snapshot for records, review, or handover.
+        Every table in one Excel workbook — athletes, every screening ever imported,
+        muscle flags, disciplines, the cohort norms in force, settings, accounts and
+        the activity log. One sheet each, with a manifest listing the row counts.
       </p>
       {error && <div className="alert alert-error">{error}</div>}
       <button type="button" className="btn btn-gold" onClick={download} disabled={busy}>

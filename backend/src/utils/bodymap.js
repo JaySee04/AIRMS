@@ -1,17 +1,14 @@
 // Body-figure geometry for the PDF reports — the backend counterpart of
 // frontend/src/components/dashboard/BodyMap.tsx's "muscle hero" figure.
 //
-// bodymapData.json is a GENERATED asset (not hand-written): the frontend's
-// bodymap-data/{anatomy,figure}.ts converted to plain JSON so the backend can
-// require() it without a TypeScript toolchain. The .ts files are canonical.
-//
-// REGENERATE WITH `cd frontend; npm run export:bodymap` WHENEVER THE FIGURE
-// CHANGES. This comment used to say regeneration would never be needed because
-// the asset was a locked decision (react-muscle-highlighter, MIT). §144 removed
-// that asset on JC's instruction and authored an original anatomical figure —
-// at which moment the screen and the printed report would have drawn DIFFERENT
-// BODIES, silently, because nothing checked. tests/bodymapData.test.js now
-// fails if the committed copy drifts from its source.
+// bodymapData.json is a GENERATED asset (not hand-written): it's the frontend
+// bodymap-data/*.ts source (path data adapted from react-muscle-highlighter,
+// https://github.com/soroojshehryar/react-muscle-highlighter, MIT License,
+// Copyright (c) 2024 Sorooj Shehryar — see MASTER_CLARIFICATIONS.md, this
+// asset is a locked decision) converted to plain JSON so the backend can
+// require() it without a TypeScript toolchain. The frontend .ts files remain
+// the canonical source; regenerate this JSON only if that source ever
+// changes (it shouldn't — it's locked).
 //
 // This module only does GEOMETRY/DATA (which library slug belongs to which
 // HoloMotion subitem region, and the worst-of-ROM/Stability raw value per
