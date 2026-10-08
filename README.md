@@ -237,11 +237,9 @@ as the same opaque error, and the settings that cause them, are in
 - **Dr Thung** (ISN) — stakeholder requirements
 - **Dr Hoo Wai Lam** — academic supervisor
 - **Shewin** and **Keying** — prior student work this project iterates on
-The body map was adapted from Sorooj Shehryar's `react-muscle-highlighter` (MIT)
-until 2026-10-08. It was **replaced with original geometry** ([§144](docs/DESIGN_DECISIONS.md))
-and those files are deleted, so no attribution is owed and none should appear in
-the FYP references — crediting a third party for the project's own work would
-understate the contribution rather than protect it.
+
+The body map carries no third-party attribution: the figure is original geometry
+built from anatomical landmarks ([§144](docs/DESIGN_DECISIONS.md)).
 
 Academic citations for the risk model and load methodology are collected in
 [`docs/fyp/REFERENCES.md`](docs/fyp/REFERENCES.md).

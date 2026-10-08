@@ -142,23 +142,19 @@ The athlete key became the identity-card number on 2026-08-04. State it and own 
 
 ## R9 · References
 
-**REVERSED 2026-10-08 — do NOT add this, and remove it if an earlier draft has it:**
+**No body-map citation is owed.** The figure is original work — built from
+anatomical landmarks, each muscle placed by its origin and insertion
+(`DESIGN_DECISIONS.md §144`). **If a draft carries a `react-muscle-highlighter`
+/ Shehryar entry, delete it**: a licence notice is owed only while you distribute
+the code it covers, and keeping it would credit a third party for your own work.
 
-> ~~Shehryar, S. (2023). *react-muscle-highlighter* [Computer software]. MIT License. https://github.com/soroojshehryar/react-muscle-highlighter — anatomical path data adapted for the AIRMS body-map component.~~
-
-This instruction stood while the project shipped that path data. It no longer
-does: JC replaced the body map with original geometry on 2026-10-08
-(`DESIGN_DECISIONS.md §144`) and the licensed files are deleted.
-
-The 2026-08-04 note above — *"no path data was redrawn"* — is exactly what
-changed. It **was** redrawn, from anatomical landmarks, because a re-partition of
-a workout atlas could not place a muscle by its origin and insertion (sartorius
-crosses the whole thigh diagonally; iliopsoas inserts below the hip joint).
-
-Keeping the entry would credit a third party for the project's own work, which
-in a graded artifact understates your contribution. The body map belongs in
-Chapter 3 as original design work instead, with the landmark method and the
-origin/insertion placement as the thing being defended.
+Write the body map up in **Chapter 3 as original design work** instead. The
+defensible claim is the method: one landmark system, both the region and muscle
+layers derived from it, each muscle anchored at origin and insertion — which is
+what lets a 22-muscle clinical vocabulary be drawn at all. A workout atlas's
+regions cannot express it (sartorius crosses the whole thigh diagonally;
+iliopsoas inserts below the hip joint), and that limitation is the argument for
+why it was drawn rather than borrowed.
 
 Keep the sRPE citations (Inoue 2022, Yang 2024) **only** where the report discusses the composite model as a designed artefact. If any passage implies session load is being collected, remove it — nothing computes it.
 

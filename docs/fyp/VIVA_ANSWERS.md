@@ -257,20 +257,17 @@ Answers grounded in `docs/MASTER_CLARIFICATIONS.md`, `docs/DESIGN_DECISIONS.md`,
 
 ## 13. Body Map
 
-> **THIS SECTION DESCRIBES THE FYP I BODY MAP AND IS NO LONGER THE BUILD.**
-> Two changes overtook it: §4a (2026-08-04) made *Muscle Flags* draw HoloMotion's
-> **22 individual muscles** rather than aggregated regions, and §144 (2026-10-08)
-> replaced the third-party asset with **original geometry**. Rows 2 and 3 are
-> rewritten below because they would otherwise be answered wrongly on licensing;
-> row 1's premise — aggregation to library regions — applies only to the
-> *ROM & Stability* mode now, where HoloMotion genuinely reports five regions.
-> The current dossier is [VIVA_FYP2.md](VIVA_FYP2.md).
+> Answers below are the **current** build (rewritten 2026-10-08). The body map is
+> original geometry and draws HoloMotion's 22 named muscles in *Muscle Flags*
+> mode; how it got there is `DESIGN_DECISIONS.md` §4 → §4a → §144. The current
+> dossier is [VIVA_FYP2.md](VIVA_FYP2.md).
 
 | # | Question | Answer |
 |---|---|---|
-| 1 | Why aggregate 26 muscles to ~10 library regions? | **Superseded — see the banner above.** The figure draws all 22 named muscles in *Muscle Flags* mode; aggregation now applies only to *ROM & Stability*, where the instrument itself reports five regions, so mode grain matches data grain. The original answer, for the FYP I build: showing 26 muscles on a thumbnail-scale silhouette is visually unreadable and not how clinicians communicate; the side cards preserved full granularity. |
-| 2 | MIT attribution — where does it live? | **ANSWER CHANGED 2026-10-08 — do not give the old one.** Nowhere: there is no third-party asset any more. JC replaced the body map with original geometry (`DESIGN_DECISIONS.md §144`) and the licensed files are deleted, so no attribution is owed and it must be **removed** from the references. The figure is built from anatomical landmarks with each muscle placed by its origin and insertion — defensible muscle by muscle rather than by citation. |
-| 3 | If react-muscle-highlighter were ever de-licensed, fallback? | **Moot since 2026-10-08** — nothing in the project derives from it. Worth saying what the real fallback turned out to be: the asset was a *workout* atlas whose regions could not express a clinical muscle's origin and insertion (sartorius crosses the whole thigh; iliopsoas inserts below the hip), so it was replaced for **fitness**, not for licensing. §144. |
+| 1 | Why does the figure aggregate in one mode and not the other? | Because the instrument does. *Muscle Flags* draws all **22 named muscles**, since HoloMotion names individual muscles there and merging them loses clinically distinct findings — every glute finding, weak or tight, used to become one blob. *ROM & Stability* draws **5 regions**, because the subitem score genuinely is five regions. Mode grain matches data grain, and the cards beside the figure carry the muscle name and side in words either way. |
+| 2 | What is the body map based on — is any of it third-party? | None of it. The geometry is original: one landmark system (a 7.5-head standing figure), with both the region and muscle layers derived from it, and **each muscle placed by its anatomical origin and insertion**. Nothing is traced from the HoloMotion report either — that is the reference for *which* muscles and *which view*, never for path data. So there is no attribution to give and none in the references. If pressed on what it is based on, the answer is human anatomy, and the figure can be defended muscle by muscle. |
+| 3 | Why draw it yourself rather than use an existing atlas? | It did use one, and the atlas could not express the data. Available figures are *workout* atlases: their parts are training regions, so a clinical muscle had to be fitted inside whatever blob happened to cover it. Two cases show why that fails — **sartorius** runs from the ASIS diagonally across the whole thigh to the medial tibia, and **iliopsoas** inserts on the femur *below and behind* the hip joint. Neither can be drawn by reshaping a region that does not contain its anchors. Placing muscles by origin and insertion required authoring the geometry. |
+| 3b | How do you know left and right are the right way round? | Because it was wrong first, and the fix is pinned. On an **anterior** view the subject faces you, so their right limb is on *your left*; on a **posterior** view the sides agree. The geometry is authored once per side and mirrored, so the front view needs its sides swapped — until that existed, every anterior flag was painted on the wrong half of the body while the figure looked perfect. It was caught by reading the findings list against the drawing, and `figure.test.ts` now asserts the convention in both directions. |
 | 4 | Why render head/hands/feet inert rather than omit? | Anatomical context — the silhouette must read as a human body. Removing limbs would look broken. Rendering them inert (no hover, no tooltip, no cursor change) communicates "not tracked here" without breaking the figure. |
 | 5 | Flag cards redundant with hover tooltips? | They are complementary: tooltips are exploratory (hover to discover), cards are persistent (visible at a glance with no interaction). Clinicians scan the cards; athletes hover. Different modalities, same data — defensible duplication. |
 

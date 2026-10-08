@@ -295,32 +295,20 @@ lead with Washif (2024) — already done in §2 — and keep Hopkins/Weir as an
 optional footnote for method provenance. Cutting them entirely is defensible
 under the post-2022 rule.
 
-### 6.3 ~~MIT License — a licence obligation, not a citation~~ — **REMOVE IT (2026-10-08)**
+### 6.3 The body map needs no citation — it is original work
 
-> ~~Shehryar, S. *react-muscle-highlighter*. MIT License.~~
-> ~~https://github.com/soroojshehryar/react-muscle-highlighter~~
+**There is no third-party asset in this project, so nothing is owed here.** The
+figure is built from anatomical landmarks and every muscle is placed by its
+origin and insertion (`DESIGN_DECISIONS.md §144`), which means it is argued
+muscle by muscle rather than cited. If an examiner asks what the figure is based
+on, the answer is human anatomy and the method is §144.
 
-**This entry must NOT appear in the report.** It was a licence obligation while
-the project shipped that path data; on 2026-10-08 JC replaced the body map with
-original geometry (`DESIGN_DECISIONS.md §144`), and the licensed files —
-`bodyFront.ts`, `bodyBack.ts`, `outlines.ts`, `muscles.ts` — are **deleted**.
-Nothing in the repository derives from them.
-
-The reasoning inverts completely. The MIT licence obliges you to retain the
-notice *in distributions of that code*; AIRMS no longer distributes it, so the
-obligation is discharged by removal. Keeping the entry would instead **credit a
-third party for work that is the project's own**, which is the opposite error
-and a worse one in a graded artifact — it understates original contribution and
-misdescribes what was built.
-
-**Cost of cutting: none. Cost of keeping: a false attribution in your own
-report.** Delete it.
-
-The body map is now defensible as original work — the figure is built from
-anatomical landmarks and every muscle is placed by its origin and insertion,
-so it can be argued muscle by muscle in viva rather than cited. If an examiner
-asks what the figure is based on, the answer is human anatomy, and the method
-is in §144.
+**If an earlier draft carries a `react-muscle-highlighter` / Shehryar entry,
+delete it.** A licence notice is owed only while you distribute the code it
+covers; AIRMS does not, so the obligation is discharged by removal. Leaving it in
+would credit a third party for the project's own work — which understates the
+contribution and misdescribes what was built, the worse error of the two in a
+graded artifact.
 
 ---
 
