@@ -169,7 +169,7 @@ function svg(outline, parts, inert, states, viewBox, figure, deep = new Set()) {
   <path d="${outline}" fill="var(--body)" stroke="var(--ink)" stroke-width="3" stroke-opacity=".6"/>
   ${inert.flatMap(paint).join('\n  ')}
   ${parts.flatMap(paint).join('\n  ')}
-  <text x="50%" y="30" class="figlabel">${figure}</text>
+  <text x="${Number(viewBox.split(' ')[0]) + 362}" y="30" class="figlabel">${figure}</text>
 </svg>`;
 }
 

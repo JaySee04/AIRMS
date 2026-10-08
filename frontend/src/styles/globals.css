@@ -1401,7 +1401,24 @@ label:has(> input[type='radio']) {
 }
 .bm-fig svg {
   width: 100%;
-  max-width: 260px;
+  /* MEASURED BEFORE CHANGING (2026-10-09, §155). At 260px the figure rendered
+     260 x 620 CSS px inside a ~560px panel — less than half the width it was
+     given — and of the 87 drawn parts, EIGHTY-ONE were smaller than WCAG
+     2.5.8's 24x24 minimum target. The smallest were 3.0 x 14.6 px.
+     So "there is quite a lot of space, make it bigger" is not a preference: a
+     3px hover target is an accessibility failure, and the room to fix it was
+     already allocated and being wasted.
+     340px is the ceiling that keeps BOTH figures side by side at the card's
+     narrowest supported width — going wider stacks them, and the front/back
+     pair has to be read together (it is how HoloMotion prints it). Height
+     follows the 1:2 viewBox, so this is 340 x 810.
+     THIS HELPS PROPORTIONALLY AND DOES NOT FINISH THE JOB: at 340px the
+     smallest parts are 3.9 x 19 px and 63 of 87 are still under 24x24 (measured, not estimated). The
+     muscles that matter most clinically are some of the smallest ones
+     (piriformis, rectus capitis anterior, sartorius), which is why the flag
+     CARDS beside the figure remain the reliable way to reach a finding and the
+     drawing is never the only carrier of one. */
+  max-width: 340px;
   height: auto;
   display: block;
 }
@@ -1500,9 +1517,44 @@ label:has(> input[type='radio']) {
   pointer-events: none;
   cursor: default;
 }
-.bodymap-region--weak  { fill: var(--flag-weak);  stroke: rgba(15, 44, 74, 0.30); }
-.bodymap-region--tight { fill: var(--flag-tight); stroke: rgba(15, 44, 74, 0.30); }
-.bodymap-region--both  { fill: var(--flag-both);  stroke: rgba(15, 44, 74, 0.30); }
+.bodymap-region--weak  { fill: var(--flag-weak);  }
+.bodymap-region--tight { fill: var(--flag-tight); }
+.bodymap-region--both  { fill: var(--flag-both);  }
+
+/* A FLAGGED MUSCLE HAS TO READ AT THE SIZE IT IS ACTUALLY DRAWN (§155).
+   JC: "find a way to make the visibility of the parts highlighted better."
+
+   Making the figure bigger helps proportionally and does not finish the job —
+   measured, at 340px the smallest parts are 3.9 x 19 px and 63 of 87 are still
+   under WCAG 2.5.8's 24x24 minimum. And the muscles that matter most clinically
+   are among the smallest: rectus capitis anterior, piriformis, sartorius. A
+   4px-wide orange sliver on a blue-grey body is a finding nobody sees.
+
+   So a flag is given an EDGE and a HALO rather than more area:
+
+   `paint-order: stroke fill` draws the stroke BEFORE the fill, which puts the
+   whole stroke width OUTSIDE the shape instead of straddling its boundary — so
+   a 3.9px sliver becomes a ~9px mark without the fill being eaten by its own
+   outline. Default paint order would centre the stroke and swallow a thin
+   muscle entirely.
+
+   The halo separates the mark from the body beneath it. It is deliberately the
+   flag's OWN hue rather than a neutral glow: a grey shadow on a blue-grey body
+   is invisible, which is the mistake this is avoiding.
+
+   Applied ONLY to flagged parts. Unflagged muscles keep the quiet hairline from
+   §154 — if everything shouts, nothing does, and the §33 failure here is a
+   figure where a clinician cannot tell at a glance that anything was found. */
+.bodymap-region--weak,
+.bodymap-region--tight,
+.bodymap-region--both {
+  stroke: var(--bg-elev-2);
+  stroke-width: 2.6;
+  paint-order: stroke fill;
+}
+.bodymap-region--weak  { filter: drop-shadow(0 0 2.5px var(--flag-weak)); }
+.bodymap-region--tight { filter: drop-shadow(0 0 2.5px var(--flag-tight)); }
+.bodymap-region--both  { filter: drop-shadow(0 0 2.5px var(--flag-both)); }
 
 /* ROM & Stability mode — same figure, tier-coloured by region instead of
    weak/tight (see BodyMap.tsx's subitems mode). Reuses the risk-tier CSS
