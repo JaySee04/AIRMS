@@ -14573,3 +14573,94 @@ it moved *back*. The rule that made the revert cheap is JC's own, from
 history.** Because §144's reasoning lives here and not in seven rules files as
 strikethroughs, reverting it is an edit to the rule statements plus a banner —
 not an archaeology exercise across the repo.
+
+---
+
+## 153. The loop was the fault, not the geometry (2026-10-09, JC)
+
+JC, after the §144 redraw was built, reviewed and reverted: *"how should I make
+you do the correct thing for the muscle flagging?"*
+
+The honest answer is that the geometry was never where this went wrong.
+
+### What actually happened
+
+~900 lines of landmark system, 25 tests and three documentation sections were
+written, committed **and deployed** before JC saw a single picture of the
+result. The feedback cycle was therefore **full implementation → verdict**,
+which is the most expensive one available. It cost two sessions and ended in a
+revert (§152).
+
+The tool was not missing. Rendering the figure to a PNG and *looking* at it is
+exactly what found the white hole at the armpit that 25 passing tests could not
+see (§150). It was used at the wrong moment: to check my own work **after**
+building, rather than to get JC's verdict **before** building.
+
+### The four layers, because they have different owners
+
+"Muscle flagging" is not one thing, and the failures have been in different
+parts of it. Naming the layer removes most of the guesswork from an instruction:
+
+| layer | what it is | who decides |
+|---|---|---|
+| **Vocabulary** | *which* 22 muscles exist | HoloMotion — not a choice anyone here has |
+| **Placement** | where each sits, and **which side** | anatomy — checkable, not taste |
+| **State** | weak / tight / both | the data |
+| **Look** | line weight, fill, proportions, silhouette | **JC** — not derivable |
+
+Placement is where the dangerous bug lives and it has already bitten: every
+anterior flag was painted on the **wrong side of the body** until `anterior()`
+existed, because on a front view the subject's right limb is on the viewer's
+left. No amount of "looks fine" catches that. Look is the opposite — no test
+reaches it, and guessing produces exactly what was rejected.
+
+### `npm run bodymap:proof`
+
+One command, no dev server, nothing written into the app. It produces a
+self-contained HTML sheet carrying:
+
+- HoloMotion's own **Muscle Imbalance page**, rendered out of a real report and
+  located by searching for the heading rather than assuming a page number;
+- our front and back figures beside it, in **both themes**;
+- **the same findings lit on both** — the flags come from the production
+  text-layer extractor reading that PDF (`Gluteus Medius L`, `Piriformis L/R`
+  weak; `Gluteus Maximus L/R`, `Iliopsoas L` tight), not from a fixture.
+
+That last property is the one that matters. With the same six findings on both
+figures, *"too ugly and not representable of a human silhouette"* stops being a
+verdict to interpret and becomes a visible gap — on first run it showed
+immediately that HoloMotion draws a **wireframe on black with magenta
+highlights** where ours is a filled figure on a light card.
+
+It is also the only automated form of the body-map lock's standing instruction,
+**"AND THEN RENDER A REPORT AND LOOK AT IT"**, which until now nothing did.
+
+It **exits 1** when the reference page did not render, or when **no flags lit** —
+a blank figure beside a flagged reference page is the exact failure worth
+catching, and rule 2 says a check that could not measure must not read as clean.
+
+### It sprang §149's own trap on its first run
+
+The reference image came out **broken**, and the script reported success.
+`renderPdfPages` returns `{ page, base64, mediaType }`; the first version
+guessed with `img.data ?? img.buffer ?? img`, the fallback chain reached the
+**object**, and `String(object)` is `[object Object]` — so the sheet shipped
+`data:image/png;base64,[object Object]` while the console printed
+`reference page : 3` and exited 0.
+
+That is §149's defect verbatim, inside the tool built to prevent that class,
+written in the same session. **Rule 5 is the rule it broke** — read the
+payload's real keys, print the raw response once first. The check now asserts
+the **bytes** (a real PNG's base64 begins `iVBORw0KGgo`) rather than that a
+variable is truthy, which is the difference between presence and identity
+(rule 4).
+
+### The working rule from here
+
+**Nothing about the figure gets built until that sheet has been in front of JC.**
+Phrases that work: *"render it and show me before you touch the component"*,
+*"put ours next to the HoloMotion page"*, *"show me three options as pictures"*,
+*"this is a look problem, not a correctness problem"*. The phrase that misled —
+and the fault is in the reading, not the asking — was *"redo the muscle flag
+diagram"*, taken as licence to rebuild from first principles when what was
+wanted was for it to **look like the instrument's**.

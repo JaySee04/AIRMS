@@ -419,6 +419,7 @@ Generated into both packages from `shared/facts.js` — see DESIGN_DECISIONS §5
 | backend | `verify:textlayer` | `node scripts/verify-textlayer-extract.js` |
 | backend | `bootstrap:admin` | `node scripts/bootstrap-admin.js` |
 | backend | `verify:reports` | `node scripts/verify-report-downloads.js` |
+| backend | `bodymap:proof` | `node scripts/bodymap-proof.js` |
 | frontend | `dev` | `next dev` |
 | frontend | `build` | `next build` |
 | frontend | `start` | `next start` |

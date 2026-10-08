@@ -328,6 +328,27 @@ cd backend; npm run verify:textlayer -- scripts/samples/nazwan.pdf
                                      # scripts/lib/expectedDivergence.js so jest can
                                      # reach it (the script needs a real PDF and a
                                      # subprocess), with four registered mutations.
+cd backend; npm run bodymap:proof    # THE FIGURE, BESIDE THE INSTRUMENT'S OWN FIGURE —
+                                     # before anything about it is built (§153). Writes a
+                                     # self-contained HTML sheet to scripts/samples/ (gitignored):
+                                     # HoloMotion's Muscle Imbalance page rendered out of a real
+                                     # report, our front/back figures beside it, both themes, and
+                                     # THE SAME FINDINGS LIT on both — the flags are read from the
+                                     # PDF by the production text-layer extractor, not invented,
+                                     # so any difference is ours.
+                                     # Needs no dev server and writes nothing into the app.
+                                     # WHY: §144 was a full redraw — ~900 lines, 25 tests, three
+                                     # doc sections — built, committed and deployed before JC saw
+                                     # a single picture, then reverted on sight (§152). The loop
+                                     # was the fault, not the geometry. A render costs 30 seconds.
+                                     # It is also the only automated form of the body-map lock's
+                                     # standing order, "AND THEN RENDER A REPORT AND LOOK AT IT".
+                                     # `-- --pdf <file>` for another report, `--page N` for the
+                                     # compact layout (no text layer, so the page cannot be found
+                                     # by searching for "Muscle Imbalance").
+                                     # EXITS 1 if the reference page did not render or NO FLAGS
+                                     # LIT — a blank figure beside a flagged reference page is the
+                                     # failure to look for, and rule 2 says it must not read clean.
 cd backend; npm run verify:reports              # can each role DOWNLOAD the reports it is entitled to?
 cd backend; npm run verify:reports -- --hosted  # ...from the deployed instance (25/25 on 2026-10-05)
                                      # 5 reports x 5 roles, and it asserts the PDF's %%EOF

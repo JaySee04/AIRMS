@@ -30,7 +30,8 @@
     "make:fixture": "node scripts/make-synthetic-report.js",
     "verify:textlayer": "node scripts/verify-textlayer-extract.js",
     "bootstrap:admin": "node scripts/bootstrap-admin.js",
-    "verify:reports": "node scripts/verify-report-downloads.js"
+    "verify:reports": "node scripts/verify-report-downloads.js",
+    "bodymap:proof": "node scripts/bodymap-proof.js"
   },
   "dependencies": {
     "@firecrawl/pdf-inspector": "^1.17.0",
