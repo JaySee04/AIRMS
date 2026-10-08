@@ -89,14 +89,19 @@ const headShape = smooth([
   [L.cx - L.headRx + 16, L.headTop + 20],
 ], 0.85);
 
+// A HAIRLINE, not a widow's peak. The first version dipped to a single centre
+// point, which renders as a sharp V — at report scale that reads as a FACE
+// marking on a figure that deliberately has no face. Two shallow points either
+// side of centre give a gentle hairline instead.
 const hairShape = smooth([
-  [L.cx, L.headTop + 2],
-  [L.cx + L.headRx - 10, L.headTop + 22],
-  [L.cx + L.headRx - 18, L.headTop + 62],
-  [L.cx, L.headTop + 44],
-  [L.cx - L.headRx + 18, L.headTop + 62],
-  [L.cx - L.headRx + 10, L.headTop + 22],
-], 0.9);
+  [L.cx, L.headTop + 1],
+  [L.cx + L.headRx - 8, L.headTop + 26],
+  [L.cx + L.headRx - 14, L.headTop + 58],
+  [L.cx + 24, L.headTop + 52],
+  [L.cx - 24, L.headTop + 52],
+  [L.cx - L.headRx + 14, L.headTop + 58],
+  [L.cx - L.headRx + 8, L.headTop + 26],
+], 0.85);
 
 const neckShape = smooth([
   [L.cx - L.neckHalf, L.neckTop + 20],

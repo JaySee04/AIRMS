@@ -473,6 +473,21 @@ npm run dev:frontend       # frontend only
 # frontend-only change shipped three backend failures across two commits because
 # neither commit touched backend code and so neither ran `cd backend; npx jest`.
 # Run BOTH before committing either.
+#
+# NEVER RUN `npm run mutate` AND `npx jest` AT THE SAME TIME (2026-10-08, §145).
+# `mutate` EDITS SOURCE FILES IN PLACE — 116 of them, one at a time, restoring
+# each in a finally — and several suites read those same files as TEXT
+# (roleRouting, pageWiring, contrastPages, athleteDisclosure, codebaseHygiene).
+# A concurrent jest therefore reads a file mid-mutation and fails on a defect
+# that does not exist.
+# MEASURED: 2 of 6 concurrent runs failed, 0 of 5 sequential ones did. One run
+# reported 512 tests instead of 529, because a mutated file broke a whole suite
+# at import.
+# WHY THIS MATTERS MORE THAN IT SOUNDS: the failure names a REAL test and a REAL
+# file, is gone on the re-run, and so reads exactly like §141's 11/12 — a
+# one-off that will not reproduce, which is the worst thing a check can emit. It
+# cost ~20 minutes here and the first instinct was to call it harness variance,
+# which is the instinct §130.1 was corrected for. Run them one after the other.
 cd frontend; npm run typecheck   # tsc --noEmit -p tsconfig.json. A NAMED script since
                                  # 2026-09-13 because CI needs one: `npm --prefix frontend
                                  # exec -- tsc` does NOT change the working directory
@@ -1621,6 +1636,8 @@ From `docs/MASTER_CLARIFICATIONS.md §12`:
 - ~~The body map asset source — path data adapted from MIT-licensed `react-muscle-highlighter`~~ — **REPLACED 2026-10-08 on JC's instruction (`DESIGN_DECISIONS.md §144`).** The figure is now ORIGINAL geometry: `bodymap-data/anatomy.ts` holds one landmark system and `figure.ts` derives both layers from it — 23 regions for ROM & Stability, HoloMotion's 22 muscles for flags. Each muscle is placed by its **origin and insertion**, which is what a reshape of a donated atlas could never express (sartorius crosses the whole thigh diagonally; iliopsoas inserts BELOW the hip). The licensed asset and its files are deleted. **The MIT attribution must now be REMOVED from the FYP references section** — crediting an asset the project does not ship is its own kind of wrong. Not traced from the HoloMotion report either: that is the reference for WHICH muscles and which view, never for path data.
   **`anterior()` is load-bearing**: in a front view the subject's RIGHT limb is on the VIEWER'S LEFT, in a back view the sides agree. Every anterior flag was painted on the wrong side of the body until this existed, found by screenshotting the page and reading the findings list against the drawing. Do not remove it.
   **Regenerate `backend/src/utils/bodymapData.json` with `cd frontend; npm run export:bodymap` after ANY change to the figure** — the PDF reports draw from it, and `backend/tests/bodymapData.test.js` fails if the committed copy drifts.
+  **AND THEN RENDER A REPORT AND LOOK AT IT.** `verify:reports` asserts the `%%EOF` trailer, never the drawing, and the structural test proves only that slugs match and paths parse. The figure is drawn on the individual report (p2) and the team report (p2, the squad average). That pass caught the hair shape dipping to a single centre point — invisible as styling on a dashboard, a FACE MARKING at print scale on a figure that has no face. Same lesson as §30b and §105.
+  Measured at §144: figure source 102,798 -> 33,894 bytes, `bodymapData.json` 61,160 -> 24,618, import 6.4 ms for 102 paths — and that cost is OFF the critical path, because `BodyMap` is `dynamic(..., { ssr: false })` on all four pages that mount it. Do not "optimise" the generator into precomputed literals; that is the 100 KB this replaced.
 - ~~The aggregation policy: figure shows regions, side cards show specific muscles~~ — **changed 2026-08-04.** The body map's Muscle Flags mode now draws HoloMotion's 22 individual muscles (`bodymap-data/muscles.ts` partitions the licensed geometry; 16 come from sub-paths the asset already had, 6 deep ones are insets). ROM & Stability mode still draws regions — the subitem score is genuinely 5 regions. Side cards unchanged. The **asset source + MIT attribution stay locked**; only the grain changed. See `docs/DESIGN_DECISIONS.md §4a`
 - The Figma-derived UI (split login card, sidebar branding, topbar dropdown)
 - The MySQL schema for `Athlete` and `Screening` (Sequelize models in `backend/src/models/`). ~~`Injury`~~ — that model was deleted by the HoloMotion-only cut (2026-08-02); the lock no longer has a subject
@@ -1847,6 +1864,14 @@ something; the full version carries the instance for each.
     and tap are three code paths wearing one name; a check that picks whichever
     gesture was easiest to automate is testing the convenience. The hard-to-
     automate gesture is usually the one the implementation forgot (4c / §131.6).
+11. **Reproduce under a hypothesis before touching the code it accuses.** An
+    intermittent failure names the file you just changed, and that coincidence
+    is the trap. Make it happen on purpose or you have not diagnosed it;
+    "harness variance" is a verdict to earn, not reach for. §145 — `roleRouting`
+    started failing right after §142 rewrote that routing, and the cause was a
+    concurrent `npm run mutate` editing source in place (2 of 6 concurrent runs
+    failed, 0 of 5 sequential; the tell was a run reporting 512 tests instead of
+    529). Cuts both ways: §130.1 reached for "variance" and it reproduced 4 in 5.
 
 ## Explaining a card: which words stay on it (2026-10-06, `DESIGN_DECISIONS.md §131`)
 

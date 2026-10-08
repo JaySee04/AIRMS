@@ -35,9 +35,10 @@
 
 export type Pt = [number, number];
 
+// The per-figure box, and where the BACK figure's window starts. Both figures
+// share one 1448-wide space so BodyMap's two <svg>s can window it by viewBox:
+// front `0 0 724 1448`, back `724 0 724 1448`.
 export const FIG_W = 724;
-export const FIG_H = 1448;
-export const FRONT_X0 = 0;
 export const BACK_X0 = 724;
 
 const r1 = (n: number) => Math.round(n * 10) / 10;
@@ -209,10 +210,6 @@ export function sheet(spine: Pt[], halfWidth: number | number[]): string {
 // across-axis sign, so the two sides were subtly different shapes.
 export function mirrorPts(pts: Pt[], cx = LM.cx): Pt[] {
   return pts.map(([x, y]) => [2 * cx - x, y] as Pt);
-}
-
-export function mirrorPt(p: Pt, cx = LM.cx): Pt {
-  return [2 * cx - p[0], p[1]];
 }
 
 // Shift a finished path string into the BACK figure's window. Operates on the

@@ -13928,3 +13928,91 @@ copy is loud rather than quiet.
   **retired**, not failed.
 - The body map is now original work, which is a *stronger* position in viva, not
   a weaker one — the figure can be defended muscle by muscle against anatomy.
+
+### What it cost, measured
+
+A generator that computes paths at import replaces ~100 KB of literal path data,
+so the trade could have gone either way. It did not:
+
+| | before | after | |
+|---|---|---|---|
+| figure source | **102,798 B** | **33,894 B** | −67% |
+| `bodymapData.json` (shipped to the API) | **61,160 B** | **24,618 B** | −60% |
+| import cost | parse 100 KB of literals | **6.4 ms**, 102 paths | once per load |
+
+**And the 6.4 ms is off the critical path.** `BodyMap` is `dynamic(..., { ssr:
+false })` on all four pages that mount it, so generation happens in a lazily
+loaded chunk after first paint. There is nothing to optimise here and the reason
+is structural, which is worth writing down so the next reader does not go looking:
+**the figure cannot be on the critical path, because the component that needs it
+is never on the critical path.**
+
+Dead exports removed in the same pass (`mirrorPt`, `FIG_H`, `FRONT_X0` — authored
+for symmetry with their siblings and never used). A landmark module invites
+exactly this: constants that look like they *should* be needed.
+
+### The check that mattered, and that nothing else performs
+
+**The PDF reports draw this figure too, and `verify:reports` asserts the `%%EOF`
+trailer — never the drawing.** The structural test proves slugs match and paths
+parse; neither can tell you the printed body looks like a body.
+
+So both report figures were **rendered and read**, which is how §30b (a bar
+overprinting the row beneath it) and §105 (a document quoting poorer KPIs than
+its own page) were found:
+
+- **Individual report, page 2** — front/back figure, tier-coloured, legible at
+  print scale beside the priority-areas table.
+- **Team report, page 2** — the squad body map, same geometry fed the group
+  average, with its mean-is-not-the-squad caveat intact.
+
+That pass found one real defect the screen had hidden: the hair shape dipped to
+a **single centre point**, rendering as a sharp V. At dashboard scale it read as
+styling; at report scale it reads as a **face marking** on a figure that
+deliberately has no face. Two shallow points either side of centre give a
+hairline instead. **Look at the artifact, not the status code** — rule 3, one
+more time.
+
+## 145. The flaky suite that was two of my own commands (2026-10-08)
+
+While finishing §144 the frontend suite started failing on `roleRouting` — *"no
+landing page redirects the role it is the landing page for"* — then passing, then
+failing. In isolation the suite was 16/16 every time.
+
+Two things made this worth a section rather than a shrug.
+
+**First, it named a plausible culprit.** I had just rewritten `src/app/page.tsx`
+to stop redirecting (§142). A routing test failing right after a routing change
+is about as convincing as circumstantial evidence gets, and the obvious move was
+to go edit the thing I had just touched.
+
+**Second, the honest diagnosis was in the notification I had not read yet.**
+`npm run mutate` was running in the background. It **edits source files in
+place** — 116 of them, one at a time, restored in a `finally` — and roughly five
+suites read those same files as TEXT (`roleRouting`, `pageWiring`,
+`contrastPages`, `athleteDisclosure`, `codebaseHygiene`). A concurrent `jest`
+reads a file mid-mutation and fails on a defect that exists for about a second.
+
+Measured deliberately rather than inferred, by starting `mutate` and looping
+`jest` against it:
+
+| | failures |
+|---|---|
+| jest **while** mutate runs | **2 of 6** |
+| jest alone | **0 of 5** |
+
+One of those runs reported **512 tests instead of 529** — a mutated file broke a
+whole suite at import, which is the tell: a product defect does not change how
+many tests exist.
+
+**Why this is the same shape as §141.** The failure names a real test and a real
+file, and it is gone on the re-run. That is the signature of the thing §141 was
+written about four hours earlier — *a one-off that will not reproduce is the
+worst thing a check can produce, because there is nothing to diagnose and
+nothing to dismiss.* The first instinct was "harness variance", which is exactly
+the instinct §130.1 was corrected for. The rule that saved it is the dull one:
+**reproduce it under a hypothesis before touching the code it accuses.**
+
+Recorded in `CLAUDE.md` beside the existing warning that `mutate` resurrects
+orphaned dev servers — same cause (it writes to the working tree), different
+casualty.

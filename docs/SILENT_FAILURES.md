@@ -2394,6 +2394,30 @@ where a click focuses nothing; then the mutation registry made the same point
 about the test itself, surviving until the case was rewritten to open the panel
 the way a reader actually does.
 
+### 11. Reproduce under a hypothesis before touching the code it accuses
+
+An intermittent failure names a file and a test, and the named file is usually
+the one you just changed. That coincidence is the trap: the cheapest next action
+is to go edit it, and if the flake then does not recur you will believe you fixed
+something.
+
+Form a hypothesis about the *mechanism* and make the failure happen on purpose.
+If you cannot, you have not diagnosed it — and "harness variance" is a verdict
+you must earn, not reach for.
+
+*Evidence:* §145 — `roleRouting` began failing intermittently immediately after
+§142 rewrote the routing on `src/app/page.tsx`. About as convincing as
+circumstantial evidence gets, and wrong. `npm run mutate` was running in the
+background; it **edits source files in place**, and five suites read those same
+files as text, so a concurrent `jest` reads one mid-mutation. Proven by starting
+`mutate` and looping `jest` against it: **2 of 6 concurrent runs failed, 0 of 5
+sequential**. The tell was in the run that reported **512 tests instead of 529** —
+a product defect does not change how many tests exist.
+
+Same shape as §141's 11/12 and the same remedy. Note also §130.1, where "harness
+variance" was reached for and was wrong in the other direction: it reproduced 4
+times in 5 and the cause was a dev-server cold compile.
+
 ### What this adds up to
 
 A check earns its place by being able to go red for the right reason, and by
