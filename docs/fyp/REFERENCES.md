@@ -244,7 +244,7 @@ is complete, not because their details are confirmed.
 | Sprouse et al. (2024) | ✅ | IIS framework, injury data variables | **No** — same |
 | Waldén et al. (2023) | ✅ | football extension of the IOC consensus | **No** — same |
 | Yang et al. (2024) | ✅ | sRPE physiological correspondence | **No** — sRPE retired |
-| ~~Inoue et al. (2022)~~ | ❌ **dropped 2026-09-09** | sRPE scale reliability | Sat exactly on the "after 2022" boundary and carried a claim Yang (2024) already carries. Removed rather than argued over |
+| Inoue et al. (2022) | ❌ **dropped 2026-09-09** | sRPE scale reliability | Sat exactly on the "after 2022" boundary and carried a claim Yang (2024) already carries. Removed rather than argued over |
 | Impellizzeri (2020) | ❌ | ACWR methodological critique | **No** — FYP I artefact |
 | Andrade et al. (2020), Bahr et al. (2020) | ❌ | superseded in the 2026-06-04 refresh | — |
 

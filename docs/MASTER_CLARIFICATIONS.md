@@ -72,7 +72,7 @@ the clinician, the coach and the administrator."**
 | Posture Evaluation | 2026-08-01 |
 | Excel screening **import** (the backup **export** remains) | 2026-07-12 |
 | Displaying Lumbar Disc Herniation anywhere — extracted and stored, never shown, because ISN's facilities cannot support the assessment. **Enforced since 2026-08-18 in one place per package** — `backend/src/utils/riskIndicators.js` and the `INDICATORS` list in `frontend/src/lib/screeningAlerts.ts` — where `EXCLUDED_RISK_KEYS` names the exclusion as a *value*, so it is asserted by tests across every derived view rather than left as an absence nobody checks. It had previously been re-declared by hand in eight files (`DESIGN_DECISIONS §31`) | Dr Thung |
-| ~~Responsive/mobile layouts~~ — **superseded 2026-08-12.** The app had genuinely none, and every route scrolled sideways (245-692px on a phone). Since `DESIGN_DECISIONS §28` the shell has a breakpoint and the layout holds from 360px up, verified across five roles and six widths. It is a **usable narrow layout, not a mobile app** — no native shell, no offline mode, and the dense analytics tables still scroll inside their own containers by design | 2026-07-16, rebuilt 2026-08-12 |
+| A **mobile app** — native shell, offline mode. A *usable narrow layout* is shipped and is not this: since `DESIGN_DECISIONS §28` the shell has a breakpoint and holds from 360px up (verified across five roles and six widths, and `npm run verify:layout` checks 24 pages at 1440/1024/390 every run). Dense analytics tables scroll inside their own containers by design | narrow layout shipped 2026-08-12 |
 | Any feature outside the six-module FDD | Standing |
 
 ---
@@ -313,12 +313,16 @@ These rules came from JC's Figma mockups and explicit feedback. **Do not deviate
 - `myodynamia` and `tension` flags live in the normalised `muscle_flags` table, discriminated by `flag_type`; the serialiser splits them back into two arrays for the frontend
 - See [backend/src/models/Athlete.js](../backend/src/models/Athlete.js) and [backend/src/models/MuscleFlag.js](../backend/src/models/MuscleFlag.js)
 
-### ~~`Injury` (MySQL `injuries` table)~~ — DELETED 2026-08-02
+### `Injury` (MySQL `injuries` table) — deleted 2026-08-02, recorded below
 
-> The `Injury` and `SelfReport` models were removed by the HoloMotion-only cut.
-> **Nothing in the running system uses these enums.** They are retained here as a
-> record of the FYP I schema (and because the report/FDD still cite them pending
-> JC's rewrite) — not as a live constraint.
+> **There is no injury table, and these enums constrain nothing.** `Injury` and
+> `SelfReport` were removed by the HoloMotion-only cut; what survives is a single
+> clinician-set flag on the Athlete row (`isInjured` / `injuryNote` / `injuryBy` /
+> `injuryAt`), whose purpose is cohort-norm eligibility.
+>
+> The FYP I shape is kept here for one reason: **the report and FDD still cite it**,
+> so a reader checking those documents against the schema needs to find it. Treat
+> it as a record, never as a constraint.
 
 - `bodyPart` enum: `Neck`, `Shoulder`, `Spine`, `Lumbar/Pelvis`, `Knee`, `Ankle`, `Hip`, `Elbow`, `Wrist`, `Other`
 - `injuryType` enum: `Sprain`, `Strain`, `Tendinitis`, `Bursitis`, `Fracture`, `Contusion`, `Dislocation`, `Other`
@@ -364,7 +368,7 @@ These rules came from JC's Figma mockups and explicit feedback. **Do not deviate
 - **The body map is original geometry and stays that way** — no third-party path data, nothing traced from the HoloMotion report, a muscle placed by origin and insertion, and `anterior()` keeping the subject's side correct on each view. Full rule in §8 above; history in [DESIGN_DECISIONS.md §144](DESIGN_DECISIONS.md). **No attribution is owed and none belongs in the FYP references.**
 - **Mode grain matches data grain** — Muscle Flags draws the 22 named muscles, ROM & Stability draws the 5 regions, because that is what the instrument reports in each. Cards list specifics either way. [DESIGN_DECISIONS.md §4a](DESIGN_DECISIONS.md).
 - The Figma-derived UI design (split login card, sidebar branding, topbar dropdown)
-- The MySQL schema for `Athlete`, `MuscleFlag` and `Screening` (see [backend/src/models/](../backend/src/models/)). ~~`Injury`, `SelfReport`~~ — both models were deleted 2026-08-02, so those locks no longer have a subject. Live models: `User`, `Athlete`, `AthleteDiscipline`, `Screening`, `MuscleFlag`, `CohortThreshold`, `CohortNormVersion`, `Setting`
+- The MySQL schema for `Athlete`, `MuscleFlag` and `Screening` (see [backend/src/models/](../backend/src/models/)). The live models are exactly: `User`, `Athlete`, `AthleteDiscipline`, `Screening`, `MuscleFlag`, `CohortThreshold`, `CohortNormVersion`, `Setting`, `AuditLog` — there is no `Injury` or `SelfReport`, both deleted 2026-08-02
 - The single-database direction: AIRMS persists to MySQL. The historical MongoDB stack is documented in [MONGO_RECOVERY.md](MONGO_RECOVERY.md) as an emergency restoration path, not a supported alternative
 - The ACWR thresholds 0.8 / 1.3 / 1.5 as the baseline (personalised modifiers are ±15% around these)
 
