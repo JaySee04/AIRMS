@@ -1328,7 +1328,7 @@ label:has(> input[type='radio']) {
   --bodymap-fill-mid: #c8d2e0;
   --bodymap-outline: rgba(15, 44, 74, 0.65);
   --bodymap-region-fill: #c8d2e0;
-  --bodymap-region-stroke: rgba(15, 44, 74, 0.25);
+  --bodymap-region-stroke: rgba(15, 44, 74, 0.55);
   --bodymap-region-hover: #b6c2d4;
 }
 [data-theme="dark"] {
@@ -1339,7 +1339,7 @@ label:has(> input[type='radio']) {
   --bodymap-fill-mid: #2d3f56;
   --bodymap-outline: rgba(200, 220, 240, 0.55);
   --bodymap-region-fill: #2d3f56;
-  --bodymap-region-stroke: rgba(200, 220, 240, 0.2);
+  --bodymap-region-stroke: rgba(200, 220, 240, 0.42);
   --bodymap-region-hover: #3a4d66;
 }
 
@@ -3779,6 +3779,17 @@ textarea:focus-visible,
   stroke-dasharray: 7 5;
   stroke-width: 2.2;
   stroke-linecap: round;
+  /* A DEEP MUSCLE LIES UNDER A SUPERFICIAL ONE, AND BOTH CAN BE FLAGGED AT ONCE
+     (2026-10-09, §154). Piriformis and gluteus medius sit beneath gluteus
+     maximus, so their shapes necessarily overlap it — and painted OPAQUE the
+     deep finding erases the superficial one it is drawn on top of. On the
+     sample report that is exactly what happened: a weak gluteus medius hid a
+     tight gluteus maximus underneath it.
+     HoloMotion draws the same overlap and solves it the same way — the blue
+     deep shape on its figure is translucent, with the crimson glute reading
+     through. Measured off page 3 of nazwan.pdf at 5x. This is the ONE place
+     overlap is correct; two superficial muscles must never overlap. */
+  fill-opacity: 0.68;
 }
 .bodymap-region-group.is-active .bodymap-deep { stroke-width: 3; }
 

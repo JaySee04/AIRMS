@@ -136,7 +136,15 @@ const FILLS = {
   weak: '#4a89c4', tight: '#d08244', both: '#8a6bb5', none: 'var(--body)',
 };
 
-function svg(outline, parts, inert, states, viewBox, figure) {
+// THE SHEET MUST MIRROR THE APP, or it stops being evidence and becomes a
+// second opinion. These two numbers track globals.css: `.bodymap-region`'s
+// stroke opacity (every part reads as a part even unflagged — §154) and
+// `.bodymap-deep`'s fill-opacity (a deep muscle is translucent so the
+// superficial one it lies over still reads).
+const PART_STROKE = 0.55;
+const DEEP_FILL = 0.68;
+
+function svg(outline, parts, inert, states, viewBox, figure, deep = new Set()) {
   const paint = (p) => {
     const sides = [['left', 'L'], ['right', 'R'], ['common', 'B']];
     return sides.flatMap(([k, side]) => {
@@ -147,8 +155,14 @@ function svg(outline, parts, inert, states, viewBox, figure) {
       const st = side === 'B'
         ? (states.get(`${p.slug}:L`) ?? states.get(`${p.slug}:R`))
         : states.get(`${p.slug}:${side}`);
+      // A deep muscle with nothing to report is not drawn at all: it would
+      // assert an interior the figure is otherwise not showing. HoloMotion
+      // does the same — piriformis appears only when flagged.
+      const isDeep = deep.has(p.slug);
+      if (isDeep && !st) return [];
       const fill = st ? FILLS[st] : 'var(--body)';
-      return paths.map((d) => `<path d="${d}" fill="${fill}" stroke="var(--ink)" stroke-width="1.1" stroke-opacity=".32"/>`);
+      const op = isDeep ? ` fill-opacity="${DEEP_FILL}" stroke-dasharray="7 5"` : '';
+      return paths.map((d) => `<path d="${d}" fill="${fill}"${op} stroke="var(--ink)" stroke-width="1.1" stroke-opacity="${PART_STROKE}"/>`);
     });
   };
   return `<svg viewBox="${viewBox}" xmlns="http://www.w3.org/2000/svg" class="fig">
@@ -256,8 +270,8 @@ async function main() {
   const states = flagStates(found, muscles);
 
   const svgs = [
-    svg(outlines.FRONT_OUTLINE, muscles.muscleFront, muscles.INERT_FRONT, states, '0 0 724 1448', 'Front'),
-    svg(outlines.BACK_OUTLINE, muscles.muscleBack, muscles.INERT_BACK, states, '724 0 724 1448', 'Back'),
+    svg(outlines.FRONT_OUTLINE, muscles.muscleFront, muscles.INERT_FRONT, states, '0 0 724 1448', 'Front', muscles.MARKER_MUSCLES),
+    svg(outlines.BACK_OUTLINE, muscles.muscleBack, muscles.INERT_BACK, states, '724 0 724 1448', 'Back', muscles.MARKER_MUSCLES),
   ].join('');
 
   fs.writeFileSync(OUT, page({
