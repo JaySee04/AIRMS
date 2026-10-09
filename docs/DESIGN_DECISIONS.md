@@ -14855,3 +14855,68 @@ Cited by `DecisionPanel.tsx`, `InfoTip.test.tsx` and `mutation-check.js`. What
 those comments attribute to it: JC moved explanatory lines **out of card prose
 and into `InfoTip`**, and it **split the comment stripper into `codeOf`** (later
 re-pointed by §140). Same caveat — **the original entry was never written.**
+
+---
+
+## 159. The three go-live items that were not JC's alone (2026-10-09, JC)
+
+JC: *"Fix the stuff that is not mine alone, then only tell me what I need to
+manually do."*
+
+Three of the remaining blockers were being reported as "his" when only the
+**decision** was his and the **mechanism** was mine. Shipping the mechanism turns
+each from a project into one edit.
+
+### TLS — `deploy/nginx-airms.conf`
+
+AIRMS speaks plain HTTP by design and terminates TLS at a proxy. "Set up a
+reverse proxy" is a day's work for someone who has not done it; a reviewed config
+is ten minutes. It carries the two origins, HSTS **without preload** (close to
+irreversible — ISN's call, not a default to inherit), and
+`client_max_body_size 20m` matched to `AIRMS_MAX_UPLOAD_BYTES`, because nginx's
+default is 1 MB and would refuse every report as an opaque 413 *before any AIRMS
+code runs or any AIRMS log sees it*.
+
+**`X-Forwarded-For` is the load-bearing line.** The login throttle is keyed per
+IP. Without it every request looks like the proxy, so one brute-force attempt
+locks out the whole institution while the real attacker goes unthrottled — the
+§48 NAT lesson with the proxy playing the NAT. Checked rather than assumed:
+`server.js` already sets `app.set('trust proxy', 1)`, which is exactly one hop
+and matches this topology.
+
+**It deliberately sets no CSP.** AIRMS sets its own, and two
+`Content-Security-Policy` headers are enforced as an **intersection** — a second
+copy silently changes the effective policy (§92).
+
+### The database user — `deploy/airms-db-user.sql`
+
+`SECURITY.md` §6.2 had the `GRANT` written out *in prose*. This is the same thing
+you can run. It withholds `DROP` (so a stray `npm run seed` cannot reach
+production even past its own refusals), `GRANT` (a compromised session cannot
+widen itself) and `FILE` (no `SELECT … INTO OUTFILE`, so an injection foothold
+cannot write a webshell), and is scoped to the `airms` schema so it cannot reach
+another database on the same server. It keeps `CREATE/ALTER/INDEX` because the
+migration scripts run as this user — dropping those is defensible and then the
+line comes out.
+
+### Backups — `deploy/airms-backup.{sh,service,timer}`
+
+The gap list said backups "are not covered" and that the Excel export "is not a
+database backup strategy". Both still true: that export is a readable snapshot
+for a person, and since §149 a controlled artifact holding every IC and the full
+read-trail.
+
+Nightly `--single-transaction` dump — consistent **without locking**, so it
+cannot block a clinician mid-screening — gzipped, archive-verified, rotated at
+30 days. Two details that are the whole point:
+
+- **Written to `.part` and renamed only once whole.** A half-written file with
+  the right name is worse than no file: it is the one you reach for in an
+  emergency.
+- **Fails loudly under 10 KB.** An empty or near-empty dump still gzips cleanly
+  and still passes `gzip -t`, so "the archive is valid" does not mean "the
+  backup is real" — presence versus identity, rule 4, at the filesystem.
+
+**The policy stays ISN's**: where copies live, retention, and whether an off-box
+copy is required. An on-box backup alone does not survive the event most backups
+exist for, and that sentence is in the script rather than left implied.

@@ -211,6 +211,29 @@ Running both is wasteful but safe — the sends take a cross-process lock.
 
 ---
 
+## 5b. Reverse proxy, database user, backups
+
+All three ship in `deploy/` and all three need one edit from you — a hostname, a
+password, a path. None of them are optional on a server holding clinical data.
+
+```sh
+# TLS. Replace the two hostnames, then let certbot fill in the certificates.
+sudo cp deploy/nginx-airms.conf /etc/nginx/sites-available/airms
+sudo ln -s /etc/nginx/sites-available/airms /etc/nginx/sites-enabled/
+sudo certbot --nginx -d airms.isn.gov.my -d airms-api.isn.gov.my
+sudo nginx -t && sudo systemctl reload nginx
+
+# Least-privilege database user. EDIT THE PASSWORD FIRST.
+sudo mysql < deploy/airms-db-user.sql
+# then set MYSQL_USER=airms / MYSQL_PASSWORD=... in /etc/airms/api.env
+
+# Nightly backups.
+sudo install -m 755 deploy/airms-backup.sh /usr/local/bin/airms-backup
+sudo install -d -o airms -g airms -m 750 /var/backups/airms
+sudo cp deploy/airms-backup.{service,timer} /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable --now airms-backup.timer
+```
+
 ## 6. Verify the install
 
 **Run `cd backend; npm run verify:install` first.** It reads the CONFIGURATION —
@@ -257,12 +280,32 @@ now.
    else. **Written and reviewed, not yet run on a real ISN box** — that is the
    remaining untested part, and it is now a deployment step rather than an
    absence.
-2. **Backups are not covered.** `GET /api/export/backup.xlsx` exports data for
-   an administrator; it is not a database backup strategy. ISN's own MySQL
-   backup policy should cover the `airms` database.
-3. **TLS is assumed to terminate at a reverse proxy.** AIRMS speaks plain HTTP
-   and has no certificate handling. Serving it without TLS would put IC numbers
-   and clinical notes on the wire in clear.
+2. **Backups: the MECHANISM now ships, the POLICY is still ISN's**
+   (2026-10-09, §159). `GET /api/export/backup.xlsx` exports data for an
+   administrator; it is not a database backup strategy, and since §149 it is
+   also a controlled artifact holding every IC and the full read-trail.
+   `deploy/airms-backup.sh` + `.service` + `.timer` take a nightly
+   `--single-transaction` dump (consistent, no table locks, so it cannot block a
+   clinician), gzip it, verify the archive, rotate at `AIRMS_BACKUP_KEEP_DAYS`
+   (30), and **fail loudly on a suspiciously small dump** — an almost-empty file
+   still gzips cleanly, and that is the one you reach for in an emergency.
+   **Still ISN's to decide:** where copies live, retention, and whether an
+   off-box copy is required. An on-box backup alone does not survive the event
+   most backups exist for.
+3. **TLS terminates at a reverse proxy, and `deploy/nginx-airms.conf` is that
+   proxy** (2026-10-09, §159). AIRMS speaks plain HTTP and has no certificate
+   handling; serving it without TLS puts IC numbers and clinical notes on the
+   wire in clear. The config carries the two origins, HSTS (**without** preload
+   — close to irreversible, so ISN's call), `client_max_body_size 20m` matched to
+   `AIRMS_MAX_UPLOAD_BYTES`, and `X-Forwarded-For`, which the API already trusts
+   one hop of (`app.set('trust proxy', 1)`). Without that header the login
+   throttle keys every request to the proxy, so one brute-force attempt locks out
+   the whole institution while the attacker goes unthrottled — the §48 NAT lesson
+   with the proxy playing the part of the NAT.
+   **It deliberately sets no CSP or frame-ancestors**: AIRMS sets those itself,
+   and two `Content-Security-Policy` headers are enforced as an INTERSECTION, so
+   a second copy silently changes the effective policy.
+   **Still ISN's:** the certificates, and the hostnames.
 4. **The vision throttle may bite during bulk onboarding.** The preview endpoint
    is capped at 60/hour per user — written when every call drew third-party
    quota, which most no longer do. Importing a large squad in one sitting will

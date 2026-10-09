@@ -1,0 +1,17 @@
+# Nightly, off-hours for ISN (Asia/Kuala_Lumpur).
+#
+#   sudo systemctl enable --now airms-backup.timer
+#   systemctl list-timers airms-backup
+[Unit]
+Description=Nightly AIRMS database backup
+
+[Timer]
+OnCalendar=*-*-* 02:30:00
+# Run on boot if the machine was off when the backup was due. A backup that
+# silently skips a day is the one you discover during a restore.
+Persistent=true
+RandomizedDelaySec=600
+Unit=airms-backup.service
+
+[Install]
+WantedBy=timers.target

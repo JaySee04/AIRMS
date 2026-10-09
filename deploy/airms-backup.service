@@ -1,0 +1,22 @@
+# Nightly AIRMS database dump. Driven by airms-backup.timer.
+[Unit]
+Description=AIRMS database backup
+After=mysql.service
+
+[Service]
+Type=oneshot
+User=airms
+Group=airms
+EnvironmentFile=/etc/airms/api.env
+ExecStart=/usr/local/bin/airms-backup
+# No Restart: a failed backup is reported by `systemctl status` and by the
+# timer's own failure state. Retrying immediately against a down database would
+# bury that signal; tomorrow's timer is the retry.
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=airms-backup
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/backups/airms
