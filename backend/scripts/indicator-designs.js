@@ -17,11 +17,10 @@
 // Read from shared/facts.js rather than typed, so the sheet cannot drift from
 // the app's own list (§31).
 const fs = require('fs');
-const path = require('path');
-const { execFileSync } = require('child_process');
+const { openInBrowser, samplePath } = require('./lib/openSheet');
 const { RISK_INDICATORS, EXCLUDED_RISK_KEYS } = require('../src/shared/facts');
 
-const OUT = path.join(__dirname, 'samples', 'indicator-designs.html');
+const OUT = samplePath('indicator-designs.html');
 const SHOWN = RISK_INDICATORS.filter((i) => !EXCLUDED_RISK_KEYS.includes(i.key));
 
 // ---------------------------------------------------------------------------
@@ -196,10 +195,4 @@ console.log(`\n  ${SHOWN.length} indicators x ${DIRECTIONS.length} directions x 
 console.log(`  excluded (by design): ${EXCLUDED_RISK_KEYS.join(', ')}`);
 console.log(`  written: ${OUT}\n`);
 
-if (!process.argv.includes('--no-open')) {
-  try {
-    if (process.platform === 'win32') execFileSync('cmd', ['/c', 'start', '', OUT], { stdio: 'ignore' });
-    else if (process.platform === 'darwin') execFileSync('open', [OUT], { stdio: 'ignore' });
-    else execFileSync('xdg-open', [OUT], { stdio: 'ignore' });
-  } catch { console.log('  (could not open a browser — open the path above)'); }
-}
+openInBrowser(OUT);

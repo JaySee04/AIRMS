@@ -421,6 +421,7 @@ Generated into both packages from `shared/facts.js` — see DESIGN_DECISIONS §5
 | backend | `verify:reports` | `node scripts/verify-report-downloads.js` |
 | backend | `bodymap:proof` | `node scripts/bodymap-proof.js` |
 | backend | `indicators:proof` | `node scripts/indicator-designs.js` |
+| backend | `indicators:combined` | `node scripts/indicator-combined.js` |
 | frontend | `dev` | `next dev` |
 | frontend | `build` | `next build` |
 | frontend | `start` | `next start` |
