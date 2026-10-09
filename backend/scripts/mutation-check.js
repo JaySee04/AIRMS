@@ -1425,6 +1425,15 @@ const MUTATIONS = [
     replace: '  return s;',
     test: 'tests/backupWorkbook.test.js',
   },
+  {
+    guard: 'decision refs: a cited section must exist',
+    why: '§158 — six files cited sections never written; a dangling §N reads as "you looked in the wrong place"',
+    pkg: 'backend',
+    file: 'src/utils/num.js',
+    find: '// Turning a stored value into a number, once.',
+    replace: '// Turning a stored value into a number, once (see §9999).',
+    test: 'tests/decisionRefs.test.js',
+  },
 ];
 
 function pkgDir(pkg) {

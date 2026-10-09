@@ -99,8 +99,8 @@ cd backend; npm run coverage         # 82.4% statements / 72.3% branches (re-mea
                                      # a missing transitive dep (fs.realpath) before it would run.
 cd backend; npm run mutate           # BREAK each registered guard on purpose and prove its
                                      # test fails. A surviving mutation exits non-zero: the
-                                     # test is not testing what it claims. 128 guards across
-                                     # both packages. 127 are EXERCISED here; one is
+                                     # test is not testing what it claims. 129 guards across
+                                     # both packages. 128 are EXERCISED here; one is
                                      # listed with a `skip` because jsdom computes no
                                      # layout and only a real browser can see it (e2e
                                      # section 4l). A skip is REPORTED every run and is
@@ -675,7 +675,7 @@ cd frontend; npm run e2e   # END-TO-END smoke: a real Chrome against the running
 cd frontend; npm run build
 
 # Unit tests (jest, in both packages — no linter configured for the backend)
-cd backend; npx jest      # 74 suites / 1159 tests: cohorts, overallIndicator, permissions, rbac, pdfDraw,
+cd backend; npx jest      # 75 suites / 1161 tests: cohorts, overallIndicator, permissions, rbac, pdfDraw,
                           # rateLimitReading (WHEN IS A HOSTED RATE-LIMIT READING WORTH A
                           # VERDICT. The login throttle is keyed per IP, so verify:claims'
                           # two throttle claims read a counter that `verify:reports

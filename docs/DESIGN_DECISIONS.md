@@ -14664,3 +14664,194 @@ Phrases that work: *"render it and show me before you touch the component"*,
 and the fault is in the reading, not the asking — was *"redo the muscle flag
 diagram"*, taken as licence to rebuild from first principles when what was
 wanted was for it to **look like the instrument's**.
+
+---
+
+## 154. Every part reads as a part, and a deep muscle stops erasing (2026-10-09, JC)
+
+JC, after the proof sheet: *"Draw specific parts that are still there even if not
+highlighted, and not overlapped with each other unless the holomotion systems
+does otherwise."*
+
+**Researched first.** The web has the vendor (`holomotion.tech`,
+`holowellness.net`) and a Frontiers paper using the system on Malaysian
+university athletes, but **no muscle-map diagrams**. The authoritative source is
+the report already held, so page 3 of `nazwan.pdf` was rendered at 5× and read.
+
+**What HoloMotion does, measured off that render:**
+
+1. **Every muscle is drawn, flagged or not** — a thin white outline on black.
+   The six-pack is six separate ovals; the three vasti, sartorius, the forearm
+   heads and erector spinae are each their own closed shape.
+2. **Superficial muscles do not overlap.** Each is a separate contour.
+3. **Deep muscles do overlap, and that is the "unless".** Piriformis and gluteus
+   medius lie beneath gluteus maximus, so their shapes necessarily sit on top of
+   it — and HoloMotion draws them **translucent**, the crimson glute reading
+   through the blue.
+
+**Two changes, presentation only; no geometry moved.** Unflagged parts carried a
+stroke at 0.25/0.20 opacity and read as a smooth body rather than an anatomy —
+now 0.55/0.42. And `.bodymap-deep` was painted **opaque**, so a deep finding
+*erased* the superficial one beneath it: on this very report a weak gluteus
+medius was hiding a tight gluteus maximus. Now `fill-opacity: 0.68`.
+
+A deep muscle with nothing to report is still not drawn at all. HoloMotion
+agrees: piriformis appears only when flagged, and drawing it unflagged would
+assert an interior the figure is otherwise not showing.
+
+---
+
+## 155. A flag has to read at the size it is actually drawn (2026-10-09, JC)
+
+JC: *"There is quite a lot of space for the athletes. Make the diagram bigger so
+that the interactions to the specific flags are easier to hover over, is that a
+good call?"* — then: *"either that or find a way to make the visibility of the
+parts highlighted better."*
+
+**It is a good call, and the measurement makes it more than preference.** At
+`max-width: 260px` the figure rendered **260 × 620 CSS px inside a ~560px
+panel** — under half the width it was given — and of 87 drawn parts, **81 were
+smaller than WCAG 2.2 §2.5.8's 24 × 24 minimum**, the smallest 3.0 × 14.6 px.
+The room to fix an accessibility failure was already allocated and wasted.
+
+**Both halves, because size alone does not finish it.**
+
+- **260 → 340px.** 340 is the ceiling that keeps both figures side by side at the
+  card's narrowest supported width; wider stacks them, and the front/back pair
+  must be read together. Measured after: smallest 3.9 × 19.1 px, **63 of 87**
+  still under 24 × 24.
+- **A flag gets an EDGE and a HALO rather than more area.** `paint-order: stroke
+  fill` puts the whole stroke outside the shape instead of straddling its
+  boundary, so a 3.9px sliver becomes a ~9px mark without the fill being eaten by
+  its own outline. The halo is the flag's **own hue** — a grey shadow on a
+  blue-grey body is invisible. Applied only to flagged parts: if everything
+  shouts, nothing does.
+
+**A guessed number nearly shipped as a measured one.** The first draft of the
+comment said "78 of 87" at the new size — arrived at by *scaling* the old figure
+rather than re-running the measurement. The truth is 63. Corrected before commit;
+it is §149's class in miniature, inside a comment.
+
+**Found while measuring:** the proof sheet's figure label used `x="50%"`, which
+in SVG resolves against the viewBox *width* and not its origin, so on the back
+figure (viewBox starting at 724) the label was drawn off-screen. Chasing it
+produced a useful negative — **zero app paths fall outside either viewBox**, so
+nothing in the figure is silently clipped.
+
+---
+
+## 156. Three review sheets, one set of helpers (2026-10-09)
+
+Three standalone sheets now exist — the body-map proof (§153), the per-indicator
+design directions, and the combined indicator diagram. Each had grown its own
+copy of "where do samples live" and "open it in the default browser", including
+the same three-platform switch and the same try/catch.
+
+The second copy is duplication; **the third is a decision with three homes.**
+`backend/scripts/lib/openSheet.js` owns both.
+
+The open stays wrapped, and that is the load-bearing part: a headless box has no
+browser, and **opening is a convenience, never the result**. A sheet that
+rendered correctly must not report failure because nothing could display it —
+that would be rule 2 pointing the wrong way, failing a check that *did* measure.
+
+---
+
+## 157. Making the ISN install something you can hand over (2026-10-09, JC)
+
+JC: *"we are about to deploy our project into the ISN servers soon, so it should
+be industrial level ready at this point"*, then *"Settle, then have the stuff
+needed to be decided by me pointed out later."*
+
+### The process manager
+
+`DEPLOY_ISN.md`'s own gap list opened with *"No process-manager configuration
+ships. Step 5 is the least-tested part of this document."* On a demo that is a
+footnote; on a government server it is the difference between "it runs" and "it
+runs unattended" — nobody is logged in at 3am to restart a crashed node process.
+
+Four units in `deploy/`. The decisions worth recording:
+
+- **`Restart=always`, not `on-failure`.** `server.js` deliberately exits 1
+  without `JWT_SECRET`, so a clean exit is not a reason to stay down. Bounded by
+  `StartLimitBurst` so a configuration error fails loudly rather than hammering
+  MySQL and filling the journal.
+- **Secrets in `EnvironmentFile`, never `Environment=`** — `systemctl show`
+  prints the latter to any user who can ask, and `JWT_SECRET` is in there.
+- **`ProtectSystem=strict` with exactly one writable path**, `/var/lib/airms`,
+  for the tesseract cache the on-device redaction needs. Redaction failing is the
+  one failure that must not be quiet: it is what keeps the athlete's name off a
+  third-party host.
+- **The mail timer is hourly, not monthly.** The digest is marker-driven, so a
+  server that was down when the month turned sends *late* rather than never. A
+  monthly timer would reintroduce the failure that design exists to prevent.
+
+They are **written and reviewed but never run on a real box.** That is now a
+deployment step rather than an absence, and the gap list says so.
+
+### `npm run verify:install`
+
+Every other guard here reads the **code**, or calls a **running instance**. A
+whole class of fault is invisible to both because it lives in the
+**configuration of one deployment**: a JWT secret left at a placeholder, TLS
+terminating nowhere, the app connecting as `root`, an `SMTP_FROM` the provider
+will silently rewrite, `SQL_SYNC` left on. None of those breaks a test. All of
+them are found on the day, by a clinician.
+
+Read-only, and it **separates blockers from warnings** — reporting everything at
+one severity is how a real finding gets waved through with the noise. Exits 1 on
+any blocker. Against the development machine it correctly refuses: placeholder
+`JWT_SECRET`, and `root`.
+
+### A doc that promised a knob the code did not have
+
+Gap 4 said raising the vision cap *"is a configuration decision, not a code
+change"* — and `LIMIT` was a hardcoded `60`. On the day ISN hit the cap during
+bulk onboarding, the documented remedy would not have existed. That is this
+project's defect class aimed at the **operator** instead of the clinician.
+`AIRMS_VISION_HOURLY_CAP` now exists; a garbage or zero value falls back to 60
+rather than refusing every import, and `env` is a parameter so a test can set it.
+
+---
+
+## 158. A cited section that does not exist (2026-10-09)
+
+This codebase is comment-heavy on purpose, and the comments lean on this file by
+section number. **That only works while the number resolves.**
+
+Writing §154–§157 exposed that it had stopped: six source files cited sections
+that had never been written. `backend/tests/decisionRefs.test.js` now fails on
+any `§N` in `backend/src`, `backend/scripts` or `frontend/src` with no matching
+heading here.
+
+It is the documentation form of the defect this project keeps producing — a
+wrong answer that looks like a right one. A reader who follows `§155` and finds
+nothing does not conclude "the comment is stale"; they conclude **they looked in
+the wrong place**. And nothing else catches it: the prose parses, the build is
+green, every other guard reads code.
+
+Deliberately **one-directional**. A section nobody cites is fine — most of this
+file is history no line of code needs to point at. Only the dangling citation is
+a defect.
+
+It immediately found debt older than the sections that prompted it: **§125 and
+§136 were cited by five pre-existing files and had never been written**, and the
+numbering here skips 124 → 126 and 135 → 137. Both are reconstructed below from
+what the citing code attributes to them, and labelled as such rather than
+invented wholesale.
+
+## 125. Reconstructed from citations — deep muscles reshaped, trapezius sided (2026-10-06)
+
+Cited by `bodymap-data/muscles.ts`, `muscles.test.ts` and `globals.css`. What
+those comments attribute to it: the six deep muscles were **reshaped, not
+recoloured** — taking the same box-fraction arguments, position, extents and
+angle — and **the trapezius, a posterior muscle, had been drawn only on the
+front** and was fixed. **The original entry was never written**; this is the
+record of what the code says it decided, not a recovered text.
+
+## 136. Reconstructed from citations — caveats moved into InfoTip (2026-10-06/07)
+
+Cited by `DecisionPanel.tsx`, `InfoTip.test.tsx` and `mutation-check.js`. What
+those comments attribute to it: JC moved explanatory lines **out of card prose
+and into `InfoTip`**, and it **split the comment stripper into `codeOf`** (later
+re-pointed by §140). Same caveat — **the original entry was never written.**
