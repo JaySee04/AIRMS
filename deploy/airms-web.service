@@ -1,0 +1,51 @@
+# AIRMS web (Next.js) — systemd unit for an ISN server. See airms-api.service
+# for the reasoning; this is the same shape with three differences.
+
+[Unit]
+Description=AIRMS web (Next.js)
+Documentation=file:///opt/airms/docs/DEPLOY_ISN.md
+# The web app calls the API from the BROWSER, not from the server, so it does
+# not need the API up to start — it needs it up when somebody loads a page.
+# Ordering it after airms-api is tidiness, not a dependency.
+After=network-online.target airms-api.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=airms
+Group=airms
+WorkingDirectory=/opt/airms/frontend
+
+# NEXT_PUBLIC_API_URL is baked in AT BUILD TIME, not read here — changing it in
+# this file does nothing. If the API origin changes, rebuild the frontend.
+# That trap costs an afternoon when the symptom is "every panel is empty",
+# which looks identical to a CORS failure and is not one.
+EnvironmentFile=/etc/airms/web.env
+Environment=NODE_ENV=production
+
+ExecStart=/usr/bin/npx next start -p 3000
+
+Restart=always
+RestartSec=5
+StartLimitBurst=5
+StartLimitIntervalSec=60
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=airms-web
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+LockPersonality=true
+# Next writes its build cache under .next/cache at runtime.
+ReadWritePaths=/opt/airms/frontend/.next
+
+[Install]
+WantedBy=multi-user.target

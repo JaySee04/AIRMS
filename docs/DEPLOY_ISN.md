@@ -213,6 +213,15 @@ Running both is wasteful but safe — the sends take a cross-process lock.
 
 ## 6. Verify the install
 
+**Run `cd backend; npm run verify:install` first.** It reads the CONFIGURATION —
+the one class of fault no test in this repository can see, because it belongs to
+this deployment rather than to the code: a JWT secret left at a placeholder, the
+app connecting as `root`, a plain-HTTP origin (so IC numbers travel in clear), an
+`SMTP_FROM` the provider will silently rewrite, `SQL_SYNC` left on. It separates
+**blockers** (patient data at risk, or the system will not work) from
+**warnings** (an operator may knowingly accept), exits 1 on any blocker, and
+changes nothing. Re-run it after any edit to `/etc/airms/*.env`.
+
 In this order. Each answers a different question, and the first two need the
 servers running:
 
@@ -238,8 +247,16 @@ the printed PDF. Nothing else substitutes for that.
 Honest list, because discovering these on the day is worse than reading them
 now.
 
-1. **No process-manager configuration ships.** Step 5 is the least-tested part
-   of this document.
+1. ~~**No process-manager configuration ships.**~~ **Closed 2026-10-09 (§157).**
+   `deploy/` ships four systemd units: `airms-api.service`, `airms-web.service`,
+   and `airms-mail.service` + `airms-mail.timer` for the scheduled mail.
+   `Restart=always` with a burst limit, journald logging, and the hardening set
+   (`ProtectSystem=strict`, `NoNewPrivileges`, …) with exactly one writable path
+   — `/var/lib/airms`, for the tesseract cache the on-device redaction needs.
+   Adjust `User`, `WorkingDirectory` and the `EnvironmentFile` path; nothing
+   else. **Written and reviewed, not yet run on a real ISN box** — that is the
+   remaining untested part, and it is now a deployment step rather than an
+   absence.
 2. **Backups are not covered.** `GET /api/export/backup.xlsx` exports data for
    an administrator; it is not a database backup strategy. ISN's own MySQL
    backup policy should cover the `airms` database.
@@ -249,7 +266,11 @@ now.
 4. **The vision throttle may bite during bulk onboarding.** The preview endpoint
    is capped at 60/hour per user — written when every call drew third-party
    quota, which most no longer do. Importing a large squad in one sitting will
-   hit it. Raising it is a configuration decision, not a code change.
+   hit it. **Raise it with `AIRMS_VISION_HOURLY_CAP`** (2026-10-09, §157). This
+   line previously said "a configuration decision, not a code change" while the
+   limit was a hardcoded constant — so on the day ISN hit the cap, the documented
+   remedy did not exist. A garbage or zero value falls back to 60 rather than
+   refusing every import.
 5. **Layout assumptions are current-version.** The text-layer reader is built on
    the layouts ISN produces today. A HoloMotion update that moves the data is
    handled safely — the report falls back to vision rather than storing nulls

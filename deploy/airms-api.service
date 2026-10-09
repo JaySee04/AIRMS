@@ -1,0 +1,79 @@
+# AIRMS API — systemd unit for an ISN server.
+#
+#   sudo cp deploy/airms-*.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now airms-api airms-web
+#   systemctl status airms-api
+#
+# WHY THIS EXISTS (2026-10-09, §157). DEPLOY_ISN.md's own known-gaps list opened
+# with "No process-manager configuration ships. Step 5 is the least-tested part
+# of this document." For a demo that is a footnote; for a government server it
+# is the difference between "it runs" and "it runs unattended" — nobody is
+# logged in at 3am to restart a crashed node process.
+#
+# ADJUST THREE THINGS AND NOTHING ELSE: User/Group, WorkingDirectory, and the
+# path in EnvironmentFile.
+
+[Unit]
+Description=AIRMS API (Express/Sequelize)
+Documentation=file:///opt/airms/docs/DEPLOY_ISN.md
+# The API is useless without the database, and on a reboot MySQL is usually
+# slower to be ready than node is to try. `After` orders startup; it does NOT
+# wait for MySQL to accept connections, which is what Restart below covers.
+After=network-online.target mysql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=airms
+Group=airms
+WorkingDirectory=/opt/airms/backend
+
+# Secrets live in a file root owns and the service user can read, NOT in this
+# unit: `systemctl show` prints Environment= values to any user who can ask, and
+# JWT_SECRET and MYSQL_PASSWORD are in there.
+#   sudo chown root:airms /etc/airms/api.env && sudo chmod 640 /etc/airms/api.env
+EnvironmentFile=/etc/airms/api.env
+Environment=NODE_ENV=production
+
+ExecStart=/usr/bin/node src/server.js
+
+# RESTART ALWAYS, NOT ON-FAILURE. A clean exit(0) is not a reason to stay down:
+# server.js deliberately exits 1 without JWT_SECRET, and a misconfigured restart
+# loop that gives up silently is how an outage lasts until somebody notices.
+Restart=always
+RestartSec=5
+# ...but do not loop for ever on a configuration error. Five failures inside a
+# minute stops the unit and leaves a failed state for monitoring to catch,
+# rather than hammering MySQL and filling the journal.
+StartLimitBurst=5
+StartLimitIntervalSec=60
+
+# Logs go to the journal, which already rotates. Do NOT add a file path here
+# without rotation — an unrotated log on a clinical server fills the disk and
+# takes the database down with it.
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=airms-api
+
+# Hardening. Each line is a capability the API genuinely does not need.
+# NoNewPrivileges blocks setuid escalation; ProtectSystem=strict makes the whole
+# filesystem read-only except what is named below.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+LockPersonality=true
+# The ONE writable path: tesseract caches its trained data during OCR
+# (TESSERACT_CACHE_PATH). Without this, redaction fails on a read-only
+# filesystem — and redaction failing is the one failure that must not be quiet,
+# because it is what keeps the athlete's name off a third-party host.
+ReadWritePaths=/var/lib/airms
+
+[Install]
+WantedBy=multi-user.target

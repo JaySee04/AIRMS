@@ -1,0 +1,29 @@
+# One scheduled-mail pass, then exit. Driven by airms-mail.timer.
+
+[Unit]
+Description=AIRMS scheduled mail — one pass
+After=network-online.target mysql.service airms-api.service
+
+[Service]
+# oneshot, not simple: this runs and exits, and systemd should treat the exit as
+# completion rather than as a crash to restart.
+Type=oneshot
+User=airms
+Group=airms
+WorkingDirectory=/opt/airms/backend
+EnvironmentFile=/etc/airms/api.env
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node src/mailTick.js
+
+# No Restart. A failed tick is reported by `systemctl status` and persisted by
+# AIRMS itself (digest_last_result / rescreen_reminder_last_result, shown on the
+# admin Settings tile in red). Retrying immediately against a down relay would
+# bury that signal under noise; the next hourly tick is the retry.
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=airms-mail
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true

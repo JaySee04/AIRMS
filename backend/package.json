@@ -33,7 +33,8 @@
     "verify:reports": "node scripts/verify-report-downloads.js",
     "bodymap:proof": "node scripts/bodymap-proof.js",
     "indicators:proof": "node scripts/indicator-designs.js",
-    "indicators:combined": "node scripts/indicator-combined.js"
+    "indicators:combined": "node scripts/indicator-combined.js",
+    "verify:install": "node scripts/verify-install.js"
   },
   "dependencies": {
     "@firecrawl/pdf-inspector": "^1.17.0",

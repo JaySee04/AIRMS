@@ -1,0 +1,28 @@
+# AIRMS scheduled mail — the OS scheduler ISN uses instead of the in-process
+# ticker. Pair with airms-mail.service and set MAIL_SCHEDULER=off in
+# /etc/airms/api.env so the two do not both run. (Running both is wasteful but
+# not wrong — the sends take a cross-process lock — but one is clearer.)
+#
+#   sudo systemctl enable --now airms-mail.timer
+#   systemctl list-timers airms-mail
+#
+# HOURLY, NOT MONTHLY, AND THAT IS DELIBERATE. The digest and the rescreen
+# reminder are marker-driven, not cron-driven: each tick asks "has the due
+# moment passed", so a server that was down when the month turned sends LATE
+# rather than never. A monthly timer would reintroduce exactly the failure the
+# marker design exists to prevent.
+
+[Unit]
+Description=AIRMS scheduled mail tick
+
+[Timer]
+OnCalendar=hourly
+# Survive downtime: if the machine was off when a tick was due, run once on
+# boot rather than waiting for the next hour.
+Persistent=true
+# Stagger so every AIRMS install does not hit the relay on the hour.
+RandomizedDelaySec=300
+Unit=airms-mail.service
+
+[Install]
+WantedBy=timers.target

@@ -74,7 +74,25 @@ const logger = require('./logger');
 // honest work is removed within a week and then protects nothing. Now that only
 // provider calls are counted it is looser still, which is the intended
 // direction: a compact-layout report costs one, an expanded one costs none.
-const LIMIT = 60;
+// CONFIGURABLE SINCE 2026-10-09 (§157), because the deployment doc already
+// claimed it was. DEPLOY_ISN.md's known-gaps list said "raising it is a
+// configuration decision, not a code change" — and it was a hardcoded constant,
+// so on the day ISN hit the cap during bulk onboarding the documented remedy
+// would not have existed. A doc that promises a knob the code does not have is
+// this project's defect class aimed at the operator instead of the clinician.
+// `env` is a parameter rather than a direct process.env read so a test can set
+// it without mutating the process (the uploadLimits pattern).
+const DEFAULT_LIMIT = 60;
+
+function hourlyCap(env = process.env) {
+  const n = Number(env.AIRMS_VISION_HOURLY_CAP);
+  // Rejects 0, negatives, NaN and Infinity. A cap of 0 would refuse every
+  // import, and reading a typo as "disable the feature" is worse than ignoring
+  // it — §54's rule, one layer out: an unusable value stays unused.
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : DEFAULT_LIMIT;
+}
+
+const LIMIT = hourlyCap();
 const WINDOW_MS = 60 * 60 * 1000;
 
 /**
@@ -191,5 +209,7 @@ async function reserveVisionCall(req) {
 }
 
 module.exports = {
+  hourlyCap,
+  DEFAULT_LIMIT,
   visionThrottle, reserveVisionCall, readQuota, visionKey, LIMIT, WINDOW_MS, store,
 };
