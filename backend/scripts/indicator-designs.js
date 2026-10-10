@@ -17,7 +17,7 @@
 // Read from shared/facts.js rather than typed, so the sheet cannot drift from
 // the app's own list (§31).
 const fs = require('fs');
-const { openInBrowser, samplePath } = require('./lib/openSheet');
+const { sheet, openInBrowser, samplePath } = require('./lib/sheet');
 const { RISK_INDICATORS, EXCLUDED_RISK_KEYS } = require('../src/shared/facts');
 
 const OUT = samplePath('indicator-designs.html');
@@ -126,7 +126,7 @@ const SIZES = [{ px: 56, label: '56px — card' }, { px: 32, label: '32px — st
 function render() {
   const band = (i) => ['low', 'moderate', 'high'][i % 3];
   const row = (d) => `
-  <section class="dir">
+  <section class="card" style="margin-bottom:16px">
     <h2><span class="tag">${d.id}</span> ${d.name}</h2>
     <p class="note">${d.note}</p>
     ${SIZES.map((s) => `
@@ -142,52 +142,26 @@ function render() {
     </div>`).join('')}
   </section>`;
 
-  return `<!doctype html><meta charset="utf-8"><title>Indicator diagram directions</title>
-<style>
-  :root { --bg:#eef2f6; --card:#fff; --text:#15324a; --muted:#5a6b7d; --line:#d7dee6;
-          --ghost:#cdd7e2; --low:#397342; --moderate:#8a6818; --high:#b4443c; }
-  .dark { --bg:#0b1726; --card:#13263a; --text:#e8edf2; --muted:#9fb3c8; --line:#24405c;
-          --ghost:#2d4258; --low:#6fbf7f; --moderate:#e0ad55; --high:#e8766c; }
-  * { box-sizing:border-box }
-  body { margin:0; font:14px/1.55 system-ui,Segoe UI,sans-serif; background:#e6ebf1; color:#15324a }
-  header { padding:20px 26px; background:#15324a; color:#fff }
-  header h1 { margin:0 0 5px; font-size:19px }
-  header p { margin:0; opacity:.82; font-size:13px; max-width:70ch }
-  .band { background:var(--bg); color:var(--text); padding:22px 26px 30px }
-  .bandhead { font:600 11px system-ui; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin-bottom:14px }
-  .dir { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:18px 20px 20px; margin-bottom:16px }
-  .dir h2 { margin:0 0 4px; font-size:15px; display:flex; align-items:center; gap:9px }
-  .tag { background:var(--text); color:var(--card); width:23px; height:23px; border-radius:6px;
-         display:grid; place-items:center; font-size:12px; font-weight:700 }
-  .note { margin:0 0 16px; color:var(--muted); font-size:13px; max-width:78ch }
+  return sheet({
+    title: 'Indicator diagram directions',
+    heading: 'Indicator diagrams — three directions, for a decision',
+    intro: 'The seven SHOWN exercise-risk indicators, read from <code>shared/facts.js</code>. Nothing here is in '
+      + 'the app: this is a sheet to choose from. Colours are the band inks, cycled only so you can see each '
+      + 'shape carry a status tint — they are not real values for these indicators.',
+    warn: '<b>Lumbar Disc Herniation is deliberately absent.</b> It is the eighth indicator the instrument '
+      + 'prints and the one <code>EXCLUDED_RISK_KEYS</code> withholds on Dr Thung&rsquo;s instruction — stored, '
+      + 'never scored, charted, printed <i>or named</i>. A design sheet would name it, so it is not drawn here.',
+    body: () => DIRECTIONS.map(row).join(''),
+  }) + `<style>
   .sizerow { display:flex; align-items:center; gap:16px; padding:11px 0; border-top:1px dashed var(--line) }
   .sizelabel { width:96px; flex:none; font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em }
   .icons { display:flex; gap:22px; align-items:flex-start; flex-wrap:wrap }
   .ic { margin:0; width:max(var(--s), 74px); text-align:center }
   .ic svg { width:var(--s); height:var(--s); display:block; margin:0 auto }
-  .ic.low svg { color:var(--low) } .ic.moderate svg { color:var(--moderate) } .ic.high svg { color:var(--high) }
+  .ic.low svg { color:var(--lowink) } .ic.moderate svg { color:var(--moderateink) } .ic.high svg { color:var(--highink) }
   figcaption { margin-top:7px; font-size:11px; line-height:1.35; color:var(--text) }
   figcaption span { color:var(--muted) }
-  .note2 { padding:14px 26px; background:#fff6e5; color:#5c4813; font-size:13px; border-top:1px solid #e8d9b5 }
-  .dark .note2 { background:#2a2214; color:#e8d9b5; border-color:#4a3c22 }
-</style>
-<header>
-  <h1>Indicator diagrams — three directions, for a decision</h1>
-  <p>The seven SHOWN exercise-risk indicators, read from <code>shared/facts.js</code>. Nothing here is in the
-     app: this is a sheet to choose from. Colours are the band inks, cycled only so you can see each shape
-     carry a status tint — they are not these indicators' real values.</p>
-</header>
-<div class="note2">
-  <b>Lumbar Disc Herniation is deliberately absent.</b> It is the eighth indicator the instrument prints and
-  the one <code>EXCLUDED_RISK_KEYS</code> withholds on Dr Thung's instruction — stored, never scored, charted,
-  printed <i>or named</i>. A design sheet would name it, so it is not drawn here either.
-</div>
-${['', 'dark'].map((cls) => `
-<div class="band ${cls}">
-  <div class="bandhead">${cls ? 'Dark theme' : 'Light theme'}</div>
-  ${DIRECTIONS.map(row).join('')}
-</div>`).join('')}
-`;
+</style>`;
 }
 
 fs.writeFileSync(OUT, render());
