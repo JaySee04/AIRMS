@@ -98,3 +98,6 @@ AIRMS-System-Guide.pdf
 
 # Generated install bundle — contains secrets (deploy/configure.sh).
 deploy/out/
+
+# Rendered-copy dump for the comprehension audit (npm run verify:copy).
+frontend/scripts/copy-dump.md
