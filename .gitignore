@@ -95,3 +95,6 @@ SUBMISSION_WORKFLOW.md
 
 # Rendered deliverable — regenerate with backend/scripts/guide-to-pdf.js
 AIRMS-System-Guide.pdf
+
+# Generated install bundle — contains secrets (deploy/configure.sh).
+deploy/out/
