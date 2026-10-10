@@ -108,6 +108,38 @@ screen.
 
 ---
 
+### A5. Lee et al. (2026) — an INDEPENDENT description of the instrument this project is built on
+
+> *The relative age effect among Malaysian university athletes: a cross-sectional
+> survivorship analysis with exploratory AI-based movement screening.*
+> Frontiers in Sports and Active Living (2026).
+> https://pmc.ncbi.nlm.nih.gov/articles/PMC13437974/
+
+**Why this is the most useful reference added late (found 2026-10-09).** Every
+other description of HoloMotion in this project comes from HoloMotion — its own
+reports, its own app. This is a peer-reviewed, *Malaysian university athlete*
+study using the same instrument, and it independently documents:
+
+- the four outcomes AIRMS reads (total movement score, exercise risk score, joint
+  pain index, ligament strain index) and that the last two are **modelled
+  tissue-level loading, not clinical injury events**;
+- the regional sub-scores — neck, shoulder and upper limb, torso, pelvis, lower
+  limb across ROM / stability / symmetry — i.e. exactly the 25-cell table;
+- **the instrument's own banding: low 0–15, medium 16–55, high 56–100**;
+- within-day reliability: ICC > 0.90 for mobility and pelvis, 0.83–0.89 for most
+  domains, *moderate* for symmetry / neck pain / shoulder pain; between-day
+  **poor for shoulder pain (ICC = 0.304)**;
+- and the authors' own caveat that **no independent criterion-validity study
+  against marker-based motion capture has been published**.
+
+**Use it for the limitations section, not the justification section.** It is
+evidence about the INSTRUMENT, and most of what it says is a caution. A panel
+that finds this paper after you did is a much worse moment than one where you
+cited it yourself.
+
+**It also contradicts one AIRMS number, and that is answerable.** See
+`VIVA_FYP2.md` Q16.
+
 ## 3. Cluster B — standards in force
 
 ### B1. NIST SP 800-63-4 (2025) — the current revision

@@ -45,9 +45,13 @@ clinician's time. See §3 Q1.
 
 ---
 
-## 2. Numbers, measured 2026-09-05
+## 2. Numbers, measured 2026-10-10
 
-Re-measure before the viva; these drift with every reseed. Last run **2026-09-05**.
+Re-measure before the viva; these drift with every reseed. Last run **2026-10-10**.
+Re-measured that day: the clinical figures below — band split, screenings,
+repeat pairs, cohort sizes, muscle flags — are **unchanged** since 2026-09-05.
+Only the repository counts moved, which is exactly the split H7 predicted:
+what the database answers stayed right, what it does not drifted.
 
 **Run `cd backend; npm run measure:facts`** — it now prints every row of this
 table that a database or the repository can answer, which it did not on
@@ -78,7 +82,7 @@ node -e "require('dotenv').config();const{sequelize,Athlete,Screening,CohortThre
 | Audit rows | **324 local** | **a reseed clears the trail**, so this number says how much has been done since the last one, not how much the system has ever recorded. It read "11 hosted / 1 local" until 2026-09-05, measured just after a reseed. All 5 roles ARE represented — the §20 property that a read-only role appears at all was verified by downloading one report as coach and one as executive |
 | Users | 10 | across 5 roles — 4 reach a deliverable inbox (§5 L7) |
 | Muscle flags | 336 | |
-| Commits, FYP I → FYP II | **386** | on `feat/mysql-migration`; re-count with `git rev-list --count HEAD` |
+| Commits, FYP I → FYP II | **555** | on `feat/text-layer-extraction`; re-count with `git rev-list --count HEAD` |
 | Tests | **572 backend (36 suites) + 261 frontend (15)** | new since 2026-08-25: `numRound`, `systemMap`, `sharedFacts`, `crossPackage`, `scriptImports`, and the first component suite above `lib/` — `OverallRiskBadge`, the hero |
 
 **The settings that decide bands** (`backend/src/utils/settings.js`, live values):
@@ -514,6 +518,64 @@ class of risk that was mostly latent — say that, rather than overselling it.
 reports **found 0 vulnerabilities**.*
 
 ---
+
+
+### Q16 · "The instrument's own scale calls 16–55 medium. You call 25 elevated. Why?"
+
+**This is the question most likely to be asked from a document you did not
+write.** Lee et al. (2026) — `REFERENCES.md` A5, a Malaysian university study
+using HoloMotion — states the instrument's banding as **low 0–15, medium 16–55,
+high 56–100**. AIRMS uses `WATCH_THRESHOLD = 15` and `HIGH_THRESHOLD = 25`.
+
+**The lower edge agrees exactly. The upper one does not, and the gap is large.**
+
+**The answer:** AIRMS's bands are not the instrument's bands, and are not trying
+to be. They answer a different question.
+
+- HoloMotion's 16–55 "medium" describes **one reading on its own scale**. It is
+  a property of the measurement.
+- AIRMS's band is a **triage decision for a specific squad** — who should a
+  clinician see next, out of these sixty athletes. That is a property of the
+  population, which is why the overall indicator is cohort-normed at all.
+
+On a 56-point threshold, **almost nobody in the ISN roster is ever flagged**: the
+measured spread on a real report is 8–26. A band that fires for no one is not a
+conservative band, it is an absent one — and the whole mission is turning a
+report into something a clinician can act on.
+
+**What to concede, because it is true:** 25 is a judgement, not a derived value.
+It has not been validated against injury outcomes — nothing here has, and Q1
+already says so. It is defensible as a *worklist* cut-off and would be
+indefensible as a *clinical* one, which is exactly why no AIRMS surface says
+"safe", "cleared" or "fit to play".
+
+**What strengthens the answer:** the sport-tightened thresholds (12/20) already
+concede that one number cannot serve every sport, and the clinician override
+exists precisely because the band is a prompt, not a verdict.
+
+**Do not** quietly change 25 to 56 before the viva to make the discrepancy go
+away. It would un-flag most of the roster, and you would be unable to explain
+why the system you built finds nothing.
+
+### Q17 · "Is the body map accessible?"
+
+**Volunteer the number before you are asked.** 63 of 87 drawn parts are smaller
+than WCAG 2.2 §2.5.8's 24 × 24 CSS px minimum target (measured 2026-10-09; it
+was 81 before the figure was enlarged).
+
+**The mitigation is real and is the reason this is a defensible position rather
+than an excuse:** the figure is never the only carrier of a finding. Every
+flagged muscle is listed in words, with its side, on the cards beside the
+figure — so the information is reachable by keyboard, by screen reader, and by
+anybody who cannot hit a 4px target. §2.5.8 itself exempts a control whose
+function is available through an equivalent alternative.
+
+**What is honestly still owed:** the equivalence has not been audited against
+the criterion's exemption wording. `verify:a11y` reports 0 findings across
+11,889 elements and `verify:contrast` 0 below AA across both themes, but neither
+measures target size — so this one number came from a deliberate measurement,
+not from a sweep that would catch it again. That is a gap in the guard set, and
+saying so is better than implying the zeroes cover it.
 
 ## 4. Where the design argues against itself
 

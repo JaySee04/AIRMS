@@ -1,5 +1,10 @@
 # Things for JC to check — FYP II redesign
 
+> **STALE ITEMS, flagged 2026-10-09.** Two entries below predate changes that
+> make them impossible as written: the athlete key is an **IC number** since
+> §A2, so `ATH0061` does not exist, and the **injury-floor** toggle went with
+> the HoloMotion-only cut. Re-read before working this list.
+
 > Running list of items I can't verify myself (they need your eyes, your
 > judgement, or a real device/inbox). Grouped by build stage. Tick them off as
 > you go; tell me if any is wrong and I'll fix. Nothing here blocks me
