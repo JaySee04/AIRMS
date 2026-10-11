@@ -434,4 +434,5 @@ Generated into both packages from `shared/facts.js` — see DESIGN_DECISIONS §5
 | frontend | `verify:contrast` | `node scripts/verify-contrast.js` |
 | frontend | `verify:a11y` | `node scripts/verify-a11y.js` |
 | frontend | `verify:layout` | `node scripts/verify-layout.js` |
+| frontend | `verify:copy` | `node scripts/verify-copy.js` |
 

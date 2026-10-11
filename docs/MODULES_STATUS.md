@@ -19,7 +19,8 @@
 > - **Cohort norms auto-generate + go live on every import**; manual edits are
 >   kept and flagged "review · new data" on drift; new `norm_auto_overwrite`
 >   setting; norm-editing opened to medical via the `editCohortNorms` capability
->   (`/medical/cohort-norms`).
+>   (`/medical/cohort-norms`). **Both were removed on 2026-10-05 (DD §123) — norms
+>   are admin-only and `editCohortNorms` no longer exists as a permission key.**
 > - **Admin `/admin/personnel`** merges the old Coaches + Staff Permissions pages.
 > - **Reports overhaul** — layout bugs fixed, by-gender/by-age slicing added,
 >   **individual-by-name** search, and a new **`/coach/reports`** page.
@@ -147,7 +148,7 @@
 | **G** | **General (auth + RBAC)** | **all** | ✅ **fully complete** | `/`, `/forgot-password`, `/verify-otp`, `/reset-password`, `<role>/profile` | `/api/auth/login`, `/api/auth/forgot-password`, `/api/auth/verify-otp`, `/api/auth/reset-password`, `/api/auth/change-password`, `/api/auth/me` |
 | 1 | Athlete Dashboard & Overall Risk Indicator | athlete | ✅ **fully complete** | `/athlete/dashboard`, `/athlete/history`, `/athlete/squad` | `/api/athletes/:id`, `/api/screenings/:id/full`, `/api/athletes/teammates` |
 | 2 | **Athlete Roster & Identity Management** *(recast 2026-08-06 from Injury & Recovery Logging, removed 2026-08-02)* | admin + medical | 🟢 **functional** — roster CRUD, IC-number key, ISN directory lookup, event vocabulary, injury-status flag | `/admin/personnel`, roster surfaces in `/medical/dashboard`, import flow | `/api/athletes` (incl. `PATCH /:id/injury`), `/api/isn` |
-| 3 | Screening Data Ingestion | admin + medical | 🟢 **functional — HoloMotion PDF ingestion (batch + on-device name redaction + roster attach + ISN directory lookup)** | `/admin/data-upload`, `/medical/data-upload` | `/api/upload/screening/pdf[/preview\|/status]`, `/api/isn/athletes` |
+| 3 | Screening Data Ingestion | admin | 🟢 **functional — HoloMotion PDF ingestion (batch + on-device name redaction + roster attach + ISN directory lookup)** | `/admin/data-upload` | `/api/upload/screening/pdf[/preview\|/status]`, `/api/isn/athletes` |
 | 4 | Cohort Norms & Governance | admin | 🟢 **functional — norm engine, versioning, membership model, alerts, tunable settings, data backup** | `/admin/thresholds`, `/admin/settings` | `/api/cohorts` (incl. `/versions`, `/:id/members`), `/api/export/backup.xlsx` |
 | 5 | Analytics & Reporting | admin (+ coach) | 🟢 **functional — screening-derived only** (the injury half went with the cut) | `/admin/dashboard`, `/admin/reports`, `/coach/reports` | `/api/athletes/analytics/screening`, `/api/screening-reports/*` |
 | 6 | Clinical & Squad Monitoring | medical + coach | 🟢 **functional** — roster cohort verdict, clinician watchlist | `/medical/dashboard`, `/coach/dashboard` | `/api/athletes`, `/api/athletes/:id`, `/api/coach/readiness`, `/api/watchlist` |
@@ -320,7 +321,7 @@ restructure split it in two — see Module 4 below for the governance half.)*
 **Current state (functional):**
 
 *HoloMotion PDF ingestion (the sole import path):*
-- ✅ [`PdfScreeningUpload`](../frontend/src/components/upload/PdfScreeningUpload.tsx) on `/admin/data-upload` + `/medical/data-upload` — **batch-capable**: drop one or many PDFs; extraction runs sequentially with 3s spacing (one vision call per file, inside free-tier rate limits)
+- ✅ [`PdfScreeningUpload`](../frontend/src/components/upload/PdfScreeningUpload.tsx) on `/admin/data-upload` — admin-only since DD §123 — **batch-capable**: drop one or many PDFs; extraction runs sequentially with 3s spacing (one vision call per file, inside free-tier rate limits)
 - ✅ **On-device name redaction (privacy)** — the athlete's name is the only direct identifier printed on the report, so a local page-1 OCR pass locates it and blacks out the value **before any image reaches the vision model** ([`redactName.js`](../backend/src/utils/redactName.js)); age/gender/time and every score stay intact, and it fails **closed** (covers the top-left Information region if OCR can't pinpoint the name). See [`DESIGN_DECISIONS §18`](DESIGN_DECISIONS.md)
 - ✅ **Roster attach** — since the name is redacted, the operator attaches each report to a roster athlete via a **name-search picker** ([`AthleteSearchSelect`](../frontend/src/components/ui/AthleteSearchSelect.tsx)) that fills Athlete ID / sport / programme from the roster (clearing it undoes the whole autofill); a new athlete is entered manually, sport picked from the **searchable list of ISN's 52 sports** ([`lib/sports.ts`](../frontend/src/lib/sports.ts)). The commit backfills the name server-side from the chosen ID
 - ✅ The report has **no text layer** (jsPDF bakes everything in as graphics — verified pdf-parse/pdfjs extract zero text), so the backend renders the data-bearing bands to images ([`pdfRender.js`](../backend/src/utils/pdfRender.js)) and a configurable vision model reads them ([`visionClient.js`](../backend/src/utils/visionClient.js)), returning structured JSON mapped onto `Athlete` columns + `muscle_flags` ([`holomotionExtract.js`](../backend/src/utils/holomotionExtract.js))

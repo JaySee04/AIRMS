@@ -160,9 +160,16 @@ system closes the loop.
 > the data and then it will add into the picture and then people will just,
 > without any, you know, it's simple step"* — 13:00
 
-Drag HoloMotion PDFs onto `/medical/data-upload` or `/admin/data-upload`; they
-extract automatically, the operator confirms a preview, and the commit
-re-scores the cohort and emails the flagged athletes' staff. Batch-capable.
+Drag HoloMotion PDFs onto `/admin/data-upload`; they extract automatically, the
+operator confirms a preview, and the commit re-scores the cohort and emails the
+flagged athletes' staff. Batch-capable.
+
+**Import is administrator-only** (DD §123, 2026-10-05). `/medical/data-upload`
+is deleted and the two upload routes are `rbac('admin')` — checked against
+`docs/SYSTEM_MAP.md` §2 rather than inferred. This row stays ✅: the quote asks
+for a simple upload step, not for a clinician to be the one taking it. But if a
+demo script or a slide still sends a clinician to that page, it now lands on the
+role gate.
 
 ## 9. The doctor traces an athlete by IC number ✅
 
