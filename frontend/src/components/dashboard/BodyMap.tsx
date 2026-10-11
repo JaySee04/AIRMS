@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState } from 'react';
 import type { MouseEvent as ReactMouseEvent, FocusEvent as ReactFocusEvent } from 'react';
 import { bodyFront } from './bodymap-data/bodyFront';
+import { MUSCLE_CLIPS, clipPathsFor } from './bodymap-data/muscles';
 import { bodyBack } from './bodymap-data/bodyBack';
 import { FRONT_OUTLINE, BACK_OUTLINE } from './bodymap-data/outlines';
 import {
@@ -248,6 +249,25 @@ function mergeTierState(a?: TierState, b?: TierState): TierState | undefined {
   return TIER_RANK[a] <= TIER_RANK[b] ? a : b;
 }
 
+// Ids must be stable and valid: a muscle name has spaces, and two figures live
+// in two SVGs on one page.
+const slugId = (name: string) => name.replace(/[^a-zA-Z0-9]+/g, '-').toLowerCase();
+
+/** <defs> of every clipPath the figures reference. */
+function ClipDefs({ fig }: { fig: 'front' | 'back' }) {
+  const entries = Object.entries(MUSCLE_CLIPS).filter(([, spec]) => spec.fig === fig);
+  if (!entries.length) return null;
+  return (
+    <defs>
+      {entries.map(([name]) => (
+        <clipPath key={name} id={`bm-clip-${slugId(name)}`}>
+          {clipPathsFor(name).map((d, i) => <path key={i} d={d} />)}
+        </clipPath>
+      ))}
+    </defs>
+  );
+}
+
 function renderParts(
   data: BodyPart[],
   states: Map<string, string>,
@@ -338,6 +358,10 @@ function renderParts(
         <g
           key={`${part.slug}-${sideTag}-group`}
           className={`${groupClassForState(state)}${isActive ? ' is-active' : ''}`}
+          // A CONSTRUCTED muscle is clipped to the region the atlas drew, so it
+          // cannot leave the body however the geometry is authored. Recovered
+          // sub-paths are already the atlas's own outline and need no clip.
+          clipPath={MUSCLE_CLIPS[part.slug] ? `url(#bm-clip-${slugId(part.slug)})` : undefined}
           data-slug={part.slug}
           data-side={sideTag}
           {...a11y}
@@ -491,6 +515,7 @@ export default function BodyMap({
           <div className="bm-fig">
             <div className="bm-fig-title">Front</div>
             <svg viewBox="0 0 724 1448" xmlns="http://www.w3.org/2000/svg" aria-label="Front body view">
+              <ClipDefs fig="front" />
               <path className="bodymap-silhouette" d={FRONT_OUTLINE} />
               {renderParts(parts.frontData, parts.states, parts.inScope, parts.tooltipFor, parts.merge, parts.markers, parts.interaction)}
             </svg>
@@ -498,6 +523,7 @@ export default function BodyMap({
           <div className="bm-fig">
             <div className="bm-fig-title">Back</div>
             <svg viewBox="724 0 724 1448" xmlns="http://www.w3.org/2000/svg" aria-label="Back body view">
+              <ClipDefs fig="back" />
               <path className="bodymap-silhouette" d={BACK_OUTLINE} />
               {renderParts(parts.backData, parts.states, parts.inScope, parts.tooltipFor, parts.merge, parts.markers, parts.interaction)}
             </svg>

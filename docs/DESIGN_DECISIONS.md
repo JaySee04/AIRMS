@@ -14920,3 +14920,110 @@ cannot block a clinician mid-screening — gzipped, archive-verified, rotated at
 **The policy stays ISN's**: where copies live, retention, and whether an off-box
 copy is required. An on-box backup alone does not survive the event most backups
 exist for, and that sentence is in the script rather than left implied.
+
+## 160. The deep muscles are drawn at their true extent (2026-10-12, JC)
+
+> **Supersedes the inset conventions recorded in §4a and §138** for two of the
+> five deep muscles. Those sections' reasoning is left intact below the banner,
+> including the part that was right.
+
+JC's instruction, after I declined to ship the prototype's iliopsoas and
+internal oblique on the grounds that they broke three standing guards:
+**"Nah screw that just change them."**
+
+### What the old convention was, and why it existed
+
+Every deep muscle was an **inset**: positioned and scaled as a fraction of ONE
+surface region's measured bounding box. Containment then fell out of the
+construction rather than being checked, and two guards made the size discipline
+explicit — a deep muscle stays *inside* the structure it lies under, and stays a
+*minority* of it, "big enough to see, never big enough to read as the parent
+muscle itself".
+
+The reasoning was sound and is worth keeping: **a deep shape drawn large asserts
+an interior the figure is not otherwise showing.** The atlas is a surface
+illustration; a confident-looking deep structure painted across half the abdomen
+claims a view the drawing has not earned. That is the §33 reassurance failure
+wearing anatomy, and it is why the dashed edge and the hide-when-unflagged rule
+both stay.
+
+### What it cost
+
+The convention optimised for epistemic modesty and paid for it in the one thing
+the figure exists to carry — **where a muscle runs**.
+
+| | old (inset) | new (sheet) |
+|---|---|---|
+| **Iliopsoas** | a spindle in the groin | lumbar spine → iliac fossa → lesser trochanter |
+| **Internal Oblique** | a wedge mid-flank | iliac crest → linea semilunaris → lower ribs |
+
+The iliopsoas was the clearer error. Psoas major originates at **T12–L5** —
+level with the bottom of the ribcage — and converges with iliacus across the
+pelvic brim onto the lesser trochanter. The inset drew roughly **the last fifth
+of it**. Nothing else on the front of the body connects the lumbar spine to the
+thigh, so that course *is* the clinical content: a flagged iliopsoas is read as a
+hip-flexor finding, and confined to the groin it reads as an abdominal one.
+
+The internal oblique failed differently: it was too small to show a
+**direction**, which is the only thing distinguishing it from the external
+oblique lying directly over it. Two muscles differing solely in the grain of
+their fibres, drawn as two similar blobs in the same place, is a distinction the
+figure asserts and does not make.
+
+The spindle also rested on a word rather than a measurement. The textbook calls
+the iliopsoas *"fusiform (spindle-shaped)"*, set against the piriformis's pear —
+and §138 took that as a shape instruction. It describes the **belly**, and says
+nothing about the course.
+
+### What replaced the guarantee, and why it is stronger
+
+Containment is now a **render-time `clipPath`** (`MUSCLE_CLIPS` in `muscles.ts`,
+applied by `BodyMap.tsx`) rather than a fraction of a parent box. That is not a
+weakening: **a clip cannot be overshot.** The twelve rounds of adjusting
+fractions that preceded it were each one bad number away from a shape outside
+the body; a clip is structurally incapable of it. The same mechanism is what put
+the other seven rebuilt muscles inside their regions.
+
+But it **fails in a new direction**, and that is the part worth writing down.
+Name the wrong regions and the clip erases most of the muscle — and a muscle
+clipped away looks exactly like **a muscle nobody flagged**. A missing finding
+that renders cleanly is this project's defect class precisely.
+
+So the guard measures **overlap**, not membership: the union of the regions named
+in `MUSCLE_CLIPS` must cover at least 90% of the shape's box. Asserting the
+muscle merely *appears* in the map would pass against a wrong list. Writing the
+guard that way found a real defect on its first run — the internal oblique's
+medial edge sat 5 units past the `obliques` strip, because it inserts into the
+**rectus sheath** at the linea semilunaris, so `abs` belongs in its clip list and
+was missing.
+
+Two measurement notes, both of which cost a wrong conclusion first:
+
+- `bbox()` extends to **control points**, which overshoot the curve they steer.
+  An exact 1px containment bound therefore fails on a shape that renders
+  perfectly inside, and did — by 1.4 units on the internal oblique's lateral
+  edge. Overlap is immune to this *and* is the better question.
+- `Adductors` is an atlas **region**, not one of HoloMotion's 22 muscles. There
+  is no adductor in the set, which is part of why the iliopsoas carries weight on
+  this figure at all.
+
+### The guards, restated
+
+| old | now |
+|---|---|
+| deep muscle inside one parent's box | **inset** muscles (piriformis, gluteus minimus) only — unchanged |
+| deep muscle a minority of its parent | **inset** muscles only — unchanged |
+| iliopsoas is a SPINDLE, fattest in the middle | iliopsoas is a **descending sheet** crossing the pelvic brim: taller than wide, starting level with the upper abdomen, ending past the top of the adductors |
+| — | *(new)* a deep **sheet** is clipped to regions that measurably cover it |
+
+Both new guards are registered in `scripts/mutation-check.js` (131 guards), and
+four mutations were run before registering them: dropping `abs` from the oblique's
+clip, unlisting the iliopsoas entirely, stopping the iliopsoas at the pelvic brim
+(the old spindle's reach), and flattening it to a wide patch. All four were caught,
+each by the guard that should have caught it.
+
+**Unchanged, and not up for revisiting without another decision:** the five-muscle
+deep set, the dashed edge, and hiding a deep muscle entirely when unflagged. The
+modesty argument still holds for *whether* to draw an inferred structure. It was
+only ever wrong about **how big**.
+

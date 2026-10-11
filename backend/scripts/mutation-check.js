@@ -312,6 +312,43 @@ const MUTATIONS = [
     test: null,
   },
   {
+    // §160. The two guards that replaced the deep-muscle INSET conventions when
+    // JC chose anatomical truth over them on 2026-10-12. The iliopsoas and the
+    // internal oblique are now sheets that cross several atlas regions, so
+    // containment moved from "scaled as a fraction of one parent box" to a
+    // render-time clipPath. That is a stronger guarantee - a clip cannot be
+    // overshot - but it fails in a NEW direction: name the wrong regions and the
+    // clip erases most of the muscle, which on screen is indistinguishable from
+    // a muscle nobody flagged. Hence a MEASURED overlap rather than a check
+    // that the muscle merely appears in MUSCLE_CLIPS.
+    guard: 'bodymap: a deep sheet is clipped to regions that actually cover it',
+    why: 'a wrong region list clips the finding away and reads as "not flagged"',
+    pkg: 'frontend',
+    from: ROOT,
+    file: 'frontend/src/components/dashboard/bodymap-data/muscles.ts',
+    find: "  'Internal Oblique': { fig: 'front', slugs: ['obliques', 'abs'] },",
+    replace: "  'Internal Oblique': { fig: 'front', slugs: ['obliques'] },",
+    test: 'src/components/dashboard/bodymap-data/muscles.test.ts',
+  },
+  {
+    // The form guard that replaced "iliopsoas is a SPINDLE, fattest in the
+    // middle". That was built on the textbook word "fusiform", which is true of
+    // the psoas belly and silent about the thing the figure has to carry: where
+    // the muscle RUNS. Nothing else on the front connects the lumbar spine to
+    // the thigh, and a flagged iliopsoas is read as a hip-flexor finding rather
+    // than an abdominal one. This mutation restores the old reach - a shape
+    // stopping at the pelvic brim - which is anatomically about the last fifth
+    // of the muscle.
+    guard: 'bodymap: the iliopsoas crosses the pelvic brim into the thigh',
+    why: 'confined to the groin it reads as an abdominal finding, not a hip one',
+    pkg: 'frontend',
+    from: ROOT,
+    file: 'frontend/src/components/dashboard/bodymap-data/muscles.ts',
+    find: '        maxY: ab.minY + (ab.maxY - ab.minY) * 0.26,',
+    replace: '        maxY: ab.minY + (ab.maxY - ab.minY) * 0.0,',
+    test: 'src/components/dashboard/bodymap-data/muscles.test.ts',
+  },
+  {
     // §135. The rule globals.css states at the top of its --series-* block and
     // that three surfaces broke: "status hues must never stand in as a chart's
     // series colour". The same muscle-flag COUNT was drawn --risk-moderate on

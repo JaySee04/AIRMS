@@ -319,6 +319,72 @@ export function at(parent: Box, fx: number, fy: number): { cx: number; cy: numbe
   };
 }
 
+/**
+ * A SHEET: a closed, smooth shape through fractional points of `parent`.
+ *
+ * `strap`, `spindle` and `wedge` all make BANDS, and several of these muscles
+ * are sheets — a pectoralis or a latissimus drawn as a band is the "plastered
+ * on" complaint (§138) in a different costume.
+ *
+ * SMOOTH BY CONSTRUCTION. Each VERTEX becomes a quadratic control point and
+ * each EDGE MIDPOINT an anchor, which is the standard way to round a closed
+ * polygon and guarantees tangent continuity at every midpoint — so the shape
+ * has no corners anywhere. The first version drew straight lines between
+ * vertices and every sheet read as a cut-out polygon.
+ *
+ * `bow` on a point offsets its control point perpendicular to the local
+ * direction of travel, pushing that border in or out. IT MUST BE MIRRORED
+ * BETWEEN SIDES: the two sides travel in opposite x-directions, so one fixed
+ * sign bulges one side laterally and the other medially, and the pair stops
+ * being a mirror image. Use `medialSign` for that.
+ */
+export function sheet(parent: Box, pts: Array<[number, number, number?]>): string {
+  const P = pts.map(([fx, fy, bow]) => ({ ...at(parent, fx, fy), bow: bow ?? 0 }));
+  const n = (v: number) => v.toFixed(2);
+  const mid = (a: { cx: number; cy: number }, b: { cx: number; cy: number }) =>
+    ({ cx: (a.cx + b.cx) / 2, cy: (a.cy + b.cy) / 2 });
+
+  const start = mid(P[P.length - 1], P[0]);
+  let d = `M ${n(start.cx)} ${n(start.cy)}`;
+  for (let i = 0; i < P.length; i += 1) {
+    const v = P[i];
+    const nxt = P[(i + 1) % P.length];
+    const end = mid(v, nxt);
+    let { cx, cy } = v;
+    if (v.bow) {
+      const prev = P[(i - 1 + P.length) % P.length];
+      const dx = nxt.cx - prev.cx;
+      const dy = nxt.cy - prev.cy;
+      const len = Math.hypot(dx, dy) || 1;
+      cx += (-dy / len) * len * v.bow;
+      cy += (dx / len) * len * v.bow;
+    }
+    d += ` Q ${n(cx)} ${n(cy)} ${n(end.cx)} ${n(end.cy)}`;
+  }
+  return `${d} Z`;
+}
+
+/**
+ * Which way is MEDIAL for a box, derived from the figure rather than assumed.
+ *
+ * Returns X(m): m = 1 at the body's midline, 0 at the far lateral edge.
+ *
+ * THE MIDLINE COMES FROM THE NECK, NOT THE HEAD. `midlineOf` below uses the
+ * head, which is fine for the front but wrong behind: on the back figure the
+ * head box centres at x 1050 while the true midline — where the left and right
+ * necks meet — is 1084. Anchoring a back muscle on the head mirrors it.
+ */
+export function medialX(fig: Figure, box: Box): (m: number) => number {
+  const nl = unionBox(paths(fig, 'neck', 'left'));
+  const nr = unionBox(paths(fig, 'neck', 'right'));
+  const midline = (nl.maxX + nr.minX) / 2;
+  const toMaxX = (box.minX + box.maxX) / 2 < midline;
+  return (m: number) => (toMaxX ? m : 1 - m);
+}
+
+/** +1 or -1, so a `bow` can be mirrored between sides. See `sheet`. */
+export const medialSign = (X: (m: number) => number): number => (X(1) === 0 ? -1 : 1);
+
 // A deep muscle: an oval placed at (fx, fy) of the parent box, with radii given
 // as fractions of that box and an angle given in degrees clockwise from the
 // horizontal. `rot` is mirrored by the caller for the right side, since a
@@ -475,6 +541,11 @@ const MIDLINE: Record<Figure, number> = { front: midlineOf('front'), back: midli
 type SidedPaths = { left: string[]; right: string[] };
 const acc = new Map<string, { fig: Figure; sided: SidedPaths }>();
 
+// The two MEDIAL hamstrings. They are not in HoloMotion's vocabulary, so they
+// are not flaggable - but they are real parts of the thigh and must still draw,
+// or removing them from Biceps Femoris leaves a hole. Appended to INERT_BACK.
+const MEDIAL_HAMSTRINGS: string[] = [];
+
 function put(fig: Figure, muscle: string, side: Side, ds: string[]) {
   if (!ds.length) return;
   const cur = acc.get(muscle) ?? { fig, sided: { left: [], right: [] } };
@@ -484,7 +555,32 @@ function put(fig: Figure, muscle: string, side: Side, ds: string[]) {
 
 (['left', 'right'] as const).forEach((side) => {
   // -- 1:1 regions: the library part IS the HoloMotion muscle -----------------
-  put('front', 'Pectoralis Major', side, paths('front', 'chest', side));
+  // PECTORALIS MAJOR: A FAN, NOT A PAD (2026-10-11).
+  //
+  // Origins are the medial half of the CLAVICLE, the sternum and the costal
+  // cartilages of ribs 1-6; insertion is a narrow tendon on the humerus. So the
+  // muscle is broad all down the midline and converges to a point at the arm,
+  // and its inferior border sweeps UP to the axilla rather than straight across.
+  //
+  // The atlas sub-path is a rounded pad that stops short of the sternum, never
+  // reaches the clavicle and does not converge. It is a pectoral REGION, not the
+  // muscle. Measured on this asset (left): chest x 251..360, y 316..438.
+  {
+    const cb = unionBox(paths('front', 'chest', side));
+    const db = unionBox(paths('front', 'deltoids', side));
+    if (cb.maxX > cb.minX) {
+      const box = { ...cb, minY: Math.min(cb.minY, db.minY + (db.maxY - db.minY) * 0.1) };
+      const X = medialX('front', box);
+      put('front', 'Pectoralis Major', side, [sheet(box, [
+        [X(0.98), 0.10],          // sternoclavicular, at the midline
+        [X(0.32), 0.04, -0.05],   // out along the clavicle, which rises laterally
+        [X(0.03), 0.26],          // humeral insertion, the narrow end
+        [X(0.20), 0.44, 0.08],    // inferior border leaving the axilla
+        [X(0.92), 0.97, 0.07],    // down and medially to rib 6
+        [X(1.00), 0.88, 0.01],    // up the sternal edge
+      ])]);
+    }
+  }
   put('front', 'Biceps Brachii', side, paths('front', 'biceps', side));
   put('front', 'Rectus Abdominis', side, paths('front', 'abs', side));
   // THE TRAPEZIUS IS A POSTERIOR MUSCLE AND WAS DRAWN ONLY ON THE FRONT
@@ -516,15 +612,132 @@ function put(fig: Figure, muscle: string, side: Side, ds: string[]) {
   // fig|slug, which is a change to the whole partition for one muscle's sliver.
   // Not worth it: a surface atlas shows the trapezius on the posterior view, and
   // that is where a reader looks for it.
-  put('back', 'Upper Trapezius', side, paths('back', 'trapezius', side));
-  put('back', 'Biceps Femoris', side, paths('back', 'hamstring', side));
+  // UPPER TRAPEZIUS: THE NECK-TO-SHOULDER SLOPE (2026-10-11).
+  //
+  // Origin the occiput and the nuchal ligament, insertion the lateral clavicle
+  // and the ACROMION, so the descending fibres run down and OUT and the muscle
+  // forms the visible slope a clinician palpates for a stiff neck.
+  //
+  // The atlas sub-path is a vertical triangle pointing down the midline that
+  // never reaches the shoulder: it occupies middle and lower trapezius territory
+  // and misses the upper one entirely. Measured (left, back): neck x 1023..1078
+  // y 219..294, trapezius x 1003..1080 y 297..473, deltoids x 914..981.
+  {
+    const tb = unionBox(paths('back', 'trapezius', side));
+    const db = unionBox(paths('back', 'deltoids', side));
+    const nb = unionBox(paths('back', 'neck', side));
+    if (tb.maxX > tb.minX) {
+      const nl = unionBox(paths('back', 'neck', 'left'));
+      const nr = unionBox(paths('back', 'neck', 'right'));
+      const midline = (nl.maxX + nr.minX) / 2;
+      // The acromion is the deltoid MEDIAL third, not its outer edge. Spanning
+      // to the outer edge overhung the silhouette and met its opposite number
+      // as one cape across the back.
+      const dW = db.maxX - db.minX;
+      const acromion = db.minX < midline ? db.minX + dW * 0.30 : db.maxX - dW * 0.30;
+      const box = {
+        minX: Math.min(acromion, midline), maxX: Math.max(acromion, midline),
+        minY: nb.minY + (nb.maxY - nb.minY) * 0.30,
+        maxY: tb.minY + (tb.maxY - tb.minY) * 0.62,
+      };
+      const X = medialX('back', box);
+      put('back', 'Upper Trapezius', side, [sheet(box, [
+        [X(0.95), 0.04],          // occiput / nuchal line at the midline
+        [X(0.95), 0.80],          // down the spine to C7-T1
+        [X(0.14), 0.88, 0.05],    // out to the acromion, inferior border
+        [X(0.18), 0.62],          // the acromial attachment
+        [X(0.58), 0.22, 0.12],    // back up the slope, concave
+      ])]);
+    }
+  }
+  // BICEPS FEMORIS IS ONE OF THREE HAMSTRINGS (2026-10-11).
+  //
+  // It is the LATERAL one, running to the head of the fibula; semitendinosus and
+  // semimembranosus occupy the medial half. Clinically a lateral and a medial
+  // hamstring strain are different injuries, so the distinction is worth drawing.
+  //
+  // This used to assign the WHOLE hamstring region - all four sub-paths - so a
+  // lateral finding lit the medial hamstrings too. The atlas already draws the
+  // four separately, so this is a SELECTION, not new geometry: take the two most
+  // lateral by measured distance from the midline. Measured centres (left):
+  // 972, 999, 1033, 1044 against a midline of 1084.
+  //
+  // The medial pair still has to DRAW or the thigh gains a hole, so they go to
+  // INERT_BACK - the same treatment the figure gives every part HoloMotion does
+  // not report on.
+  {
+    const hs = paths('back', 'hamstring', side);
+    if (hs.length) {
+      const nl = unionBox(paths('back', 'neck', 'left'));
+      const nr = unionBox(paths('back', 'neck', 'right'));
+      const midline = (nl.maxX + nr.minX) / 2;
+      const ranked = hs
+        .map((d) => ({ d, dist: Math.abs(centreX(d) - midline) }))
+        .sort((a, b) => b.dist - a.dist);
+      put('back', 'Biceps Femoris', side, ranked.slice(0, 2).map((x) => x.d));
+      MEDIAL_HAMSTRINGS.push(...ranked.slice(2).map((x) => x.d));
+    }
+  }
 
   // -- Deltoid: the figure already separates it ------------------------------
   // HoloMotion names "Lateral Deltoid" (myodynamia) and "Middle Deltoid"
   // (tension). Anatomically those are the SAME head, so both map to the front
   // deltoid; the posterior head is genuinely separate and lives on the back.
-  put('front', 'Lateral Deltoid', side, paths('front', 'deltoids', side));
-  put('back', 'Posterior Deltoid', side, paths('back', 'deltoids', side));
+  // LATERAL DELTOID: ACROMION TO DELTOID TUBEROSITY (2026-10-11).
+  //
+  // Origin the acromion, insertion a third of the way down the lateral humerus,
+  // so it is an inverted triangle that DESCENDS THE ARM. The atlas sub-path is a
+  // cap sitting on top of the shoulder that stops where the arm begins: it has
+  // neither attachment, which is why no deltoid was recognisable.
+  // Measured (left): deltoids x 193..278 y 298..398, biceps x 181..223 y 404..493.
+  {
+    const db = unionBox(paths('front', 'deltoids', side));
+    const bb = unionBox(paths('front', 'biceps', side));
+    if (db.maxX > db.minX) {
+      const box = {
+        minX: Math.min(db.minX, bb.minX), maxX: Math.max(db.maxX, bb.maxX),
+        minY: db.minY, maxY: bb.minY + (bb.maxY - bb.minY) * 0.42,
+      };
+      const X = medialX('front', box);
+      put('front', 'Lateral Deltoid', side, [sheet(box, [
+        [X(0.92), 0.08],          // acromion, medial end
+        [X(0.22), 0.16, -0.05],   // over the cap to the outer acromion
+        [X(0.14), 0.70, 0.03],    // down the lateral border of the arm
+        [X(0.34), 0.97],          // deltoid tuberosity, the converging point
+        [X(0.72), 0.52, -0.07],   // back up the medial border
+      ])]);
+    }
+  }
+  // POSTERIOR DELTOID: SPINE OF SCAPULA TO HUMERUS (2026-10-11).
+  //
+  // A triangle with its base MEDIAL along the scapular spine and its apex
+  // LATERAL and low on the arm. The atlas sub-path is a rounded cap on the top
+  // outer corner of the shoulder with neither attachment - the same fault the
+  // front deltoid had. The scapular spine is not drawn by the atlas, so the
+  // medial limit is the deltoid own medial edge.
+  {
+    const db = unionBox(paths('back', 'deltoids', side));
+    const tb = unionBox(paths('back', 'triceps', side));
+    if (db.maxX > db.minX) {
+      const armBottom = tb.maxY > tb.minY
+        ? tb.minY + (tb.maxY - tb.minY) * 0.34
+        : db.maxY + (db.maxY - db.minY) * 0.45;
+      const box = {
+        minX: Math.min(db.minX, tb.minX > 0 ? tb.minX : db.minX),
+        maxX: Math.max(db.maxX, tb.maxX > 0 ? tb.maxX : db.maxX),
+        minY: db.minY + (db.maxY - db.minY) * 0.12,
+        maxY: armBottom,
+      };
+      const X = medialX('back', box);
+      put('back', 'Posterior Deltoid', side, [sheet(box, [
+        [X(0.90), 0.10],          // medial edge toward the scapular spine
+        [X(0.48), 0.02],          // out along the spine to the acromion
+        [X(0.20), 0.34],          // over the posterior shoulder
+        [X(0.36), 0.92],          // deltoid tuberosity, the apex
+        [X(0.62), 0.50, 0.07],    // back up the inferior border
+      ])]);
+    }
+  }
 
   // -- Quadriceps: three sub-paths = the three vasti --------------------------
   // Tallest sub-path runs hip→knee = rectus femoris. Of the remaining two, the
@@ -533,7 +746,27 @@ function put(fig: Figure, muscle: string, side: Side, ds: string[]) {
   {
     const q = paths('front', 'quadriceps', side);
     const { hit: rf, rest } = pick(q, height);
-    put('front', 'Rectus Femoris', side, rf);
+    // THE CENTRAL STRIP, NOT THE WHOLE ANTERIOR MASS (2026-10-11).
+    //
+    // The tallest quadriceps sub-path spans x 240..309 of a thigh running
+    // 240..328 - i.e. most of the front of the thigh. It is in the right PLACE
+    // and far too wide, so it swallowed the territory the two vasti should read
+    // against. Rectus femoris is a fusiform strip from the AIIS to the patellar
+    // tendon, with vastus lateralis outside it and vastus medialis inside.
+    //
+    // NOTE: an earlier review called the quads MISLABELLED. That was wrong and
+    // was withdrawn after measuring - both vasti are correctly placed.
+    const qbRF = unionBox(q);
+    const Xr = medialX('front', qbRF);
+    put('front', 'Rectus Femoris', side, [sheet(qbRF, [
+      [Xr(0.44), 0.02],         // AIIS
+      [Xr(0.30), 0.42, 0.04],   // lateral border, widest at mid-thigh
+      [Xr(0.42), 0.94],         // patellar tendon
+      [Xr(0.56), 0.94],
+      [Xr(0.72), 0.42, 0.04],   // medial border
+      [Xr(0.58), 0.02],
+    ])]);
+    void rf;
     if (rest.length) {
       const mid = MIDLINE.front;
       const medial = rest.reduce((a, b) => (Math.abs(centreX(a) - mid) < Math.abs(centreX(b) - mid) ? a : b));
@@ -552,18 +785,73 @@ function put(fig: Figure, muscle: string, side: Side, ds: string[]) {
     }
   }
 
-  // -- Neck: superficial column = SCM ----------------------------------------
+  // -- SCM: THE DIAGONAL (2026-10-11) ----------------------------------------
+  //
+  // Origins the manubrium and the medial clavicle; insertion the MASTOID
+  // PROCESS, behind and below the ear. So it crosses the neck diagonally, and
+  // that diagonal is the feature a clinician recognises.
+  //
+  // It used to be the TALLEST neck sub-path: a short near-vertical sliver in the
+  // hollow of the throat that never reached the skull. Measured (front): head
+  // x 298..427 y 125..259, neck x 326..400 y 240..317 — the skull is wider than
+  // the neck, so the mastoid sits lateral to the throat. Only its HEIGHT is
+  // inferred; the atlas draws no ear.
   {
-    const n = paths('front', 'neck', side);
-    const { hit: scm } = pick(n, height);
-    put('front', 'Sternocleidomastoid', side, scm);
+    const nb = unionBox(paths('front', 'neck', side));
+    const hb = unionBox(paths('front', 'head', side).concat(
+      (bodyFront.find((bp) => bp.slug === 'head')?.path.common ?? []),
+    ));
+    if (nb.maxX > nb.minX && hb.maxX > hb.minX) {
+      const span = { minX: hb.minX, maxX: hb.maxX, minY: hb.maxY - (hb.maxY - hb.minY) * 0.10, maxY: nb.maxY };
+      const lateral = side === 'left' ? -1 : 1;
+      put('front', 'Sternocleidomastoid', side, [strap(
+        span,
+        [0.5 + lateral * 0.30, 0.05],   // mastoid: lateral and high
+        [0.5 + lateral * 0.10, 0.98],   // sternoclavicular: near the midline
+        (nb.maxX - nb.minX) * 0.15,
+        // NO BOW. Bow is perpendicular to travel, so one fixed sign mirrors
+        // wrong: the two straps hooked inward and met at the throat, reading as
+        // a single W rather than two muscles.
+        { taper: 0.62 },
+      )]);
+    }
   }
 
-  // -- Latissimus dorsi: the large lower sheet of the upper-back group -------
+  // -- LATISSIMUS DORSI: A CONVERGING SHEET (2026-10-11) ---------------------
+  //
+  // Origin is enormous and LOW: T7 to L5, the thoracolumbar fascia, the iliac
+  // crest and the lower ribs. Insertion is a narrow tendon on the HUMERUS. So it
+  // is a triangle converging upwards and laterally - wide at the hip, a tendon
+  // at the axilla.
+  //
+  // It used to be the taller upper-back sub-path: a parallel-sided slab on the
+  // mid-back with neither attachment and no convergence, sitting roughly where
+  // the RHOMBOIDS are. Measured (left, back): upper-back x 955..1064 y 322..585,
+  // lower-back x 979..1078 y 489..641, gluteal top y 615, deltoids x 914..981.
   {
-    const ub = paths('back', 'upper-back', side);
-    const { hit: lat } = pick(ub, height);
-    put('back', 'Latissimus Dorsi', side, lat);
+    const ub = unionBox(paths('back', 'upper-back', side));
+    const lb = unionBox(paths('back', 'lower-back', side));
+    const gl = unionBox(paths('back', 'gluteal', side));
+    const db = unionBox(paths('back', 'deltoids', side));
+    if (ub.maxX > ub.minX) {
+      const nl = unionBox(paths('back', 'neck', 'left'));
+      const nr = unionBox(paths('back', 'neck', 'right'));
+      const midline = (nl.maxX + nr.minX) / 2;
+      const box = {
+        minX: Math.min(ub.minX, db.minX + (db.maxX - db.minX) * 0.5),
+        maxX: Math.max(midline, ub.maxX),
+        minY: db.maxY - (db.maxY - db.minY) * 0.15,
+        maxY: Math.min(gl.minY, lb.maxY),
+      };
+      const X = medialX('back', box);
+      put('back', 'Latissimus Dorsi', side, [sheet(box, [
+        [X(0.26), 0.02],          // humeral tendon at the axilla - the apex
+        [X(0.14), 0.30, 0.04],    // lateral border descending over the flank
+        [X(0.40), 0.96, 0.05],    // out along the iliac crest
+        [X(0.96), 0.98],          // thoracolumbar fascia at the spine
+        [X(0.96), 0.30, -0.03],   // up the spine to about T7
+      ])]);
+    }
   }
 
   // -- External oblique: the superficial flank slips --------------------------
@@ -616,10 +904,43 @@ function put(fig: Figure, muscle: string, side: Side, ds: string[]) {
       // FUSIFORM — "spindle-shaped", explicitly contrasted with the piriformis's
       // pear (ScienceDirect). A long belly tapering to the tendon that reaches the
       // lesser trochanter, which is the form an ellipse cannot carry.
-      put('front', 'Iliopsoas', side,
-        deepSpindle(ab, side === 'left' ? 0.68 : 0.32, 0.12, 0.10, 0.175, 15 * mirror, ab,
-          // Proximal belly, long distal tendon to the lesser trochanter.
-          { mirror, swell: 0.38, tip: 0.18 }));
+      //
+      // REBUILT AS A SHEET (2026-10-12, JC). It was a spindle confined to the
+      // groin - roughly the last fifth of the muscle. Psoas major starts at
+      // T12-L5, level with the bottom of the ribcage, and iliacus fills the iliac
+      // fossa; they converge across the pelvic brim onto the lesser trochanter.
+      //
+      // THIS DELIBERATELY RELAXES TWO DEEP-MUSCLE CONVENTIONS. The old rules were
+      // that a deep shape stays inside the single structure it lies under and
+      // stays a minority of it, so the figure never asserts a large interior it
+      // cannot see. JC chose anatomical truth over those: "screw that just change
+      // them." Containment is now enforced by MUSCLE_CLIPS at render time rather
+      // than by the geometry, which is a stronger guarantee - a clip cannot be
+      // overshot - and the dashed deep edge still marks it as inferred.
+      //
+      // Measured: abs x 303..362 y 426..716, adductors x 274..351 y 647..899.
+      const absB = unionBox(paths('front', 'abs', side));
+      const ipBox = {
+        minX: Math.min(absB.minX, ab.minX), maxX: Math.max(absB.maxX, ab.maxX),
+        minY: absB.minY + (absB.maxY - absB.minY) * 0.06,
+        maxY: ab.minY + (ab.maxY - ab.minY) * 0.26,
+      };
+      const Xi = medialX('front', ipBox);
+      // The WIDTH is the iliacus. Psoas descends as a narrow belly beside the
+      // spine, then iliacus fans across the whole iliac fossa before the two
+      // converge on one tendon - so the shape is narrow at both ends and broad
+      // at the pelvis. Drawn 0.22 of the box wide through the middle at first,
+      // which rendered as a sliver and showed only the psoas half.
+      put('front', 'Iliopsoas', side, [sheet(ipBox, [
+        [Xi(0.93), 0.02],         // T12/L1 beside the spine
+        [Xi(0.74), 0.05],         // psoas belly at its origin
+        [Xi(0.55), 0.46, 0.03],   // psoas descending, still narrow
+        [Xi(0.17), 0.70, 0.05],   // iliacus, widest across the iliac fossa
+        [Xi(0.38), 0.92, 0.04],   // converging over the pelvic brim
+        [Xi(0.54), 0.99],         // lesser trochanter, the tendon
+        [Xi(0.66), 0.74, -0.04],  // back up the medial border
+        [Xi(0.84), 0.44, -0.02],
+      ])]);
     }
   }
   {
@@ -636,8 +957,22 @@ function put(fig: Figure, muscle: string, side: Side, ds: string[]) {
       //
       // Clamped to the external oblique, which is the sheet it lies deep to and
       // which is this same box, so the limit is explicit rather than incidental.
-      put('front', 'Internal Oblique', side,
-        deepWedge(bb, 0.5, 0.58, 0.30, 0.13, -30 * mirror, 0.5, bb, { mirror }));
+      // REBUILT AS A SHEET (2026-10-12, JC) - same decision as the iliopsoas.
+      // The wedge was a small blob mid-flank that reached neither the iliac crest
+      // nor the ribs, and was too small to show a DIRECTION - which is the one
+      // thing distinguishing it from the external oblique lying over it.
+      const ioBox = {
+        minX: bb.minX, maxX: bb.maxX,
+        minY: bb.minY + (bb.maxY - bb.minY) * 0.16, maxY: bb.maxY,
+      };
+      const Xo = medialX('front', ioBox);
+      put('front', 'Internal Oblique', side, [sheet(ioBox, [
+        [Xo(0.08), 0.86],         // iliac crest, lateral end
+        [Xo(0.70), 0.97, 0.04],   // along the crest / inguinal ligament
+        [Xo(0.92), 0.58, 0.05],   // up to the linea semilunaris
+        [Xo(0.48), 0.08, 0.06],   // to the lower ribs
+        [Xo(0.10), 0.38, 0.05],   // back down the lateral border
+      ])]);
     }
   }
   {
@@ -664,12 +999,22 @@ function put(fig: Figure, muscle: string, side: Side, ds: string[]) {
       // separate findings.
       const originFx = side === 'left' ? 0.22 : 0.78;
       const insertFx = side === 'left' ? 0.80 : 0.20;
+      // IT MUST CROSS THE THIGH (2026-10-11). Origin the ASIS at the front and
+      // OUTSIDE of the hip; insertion the pes anserinus on the MEDIAL tibia. The
+      // crossing is the entire identity of the muscle, and the previous shape
+      // stayed lateral the whole way down, reading as a fourth quadriceps.
+      //
+      // The bow is MIRRORED off the medial axis. It is perpendicular to the
+      // direction of travel and the two sides travel in opposite x-directions,
+      // so one fixed sign bulges one leg laterally and the other medially - the
+      // pair stops being a mirror image, which is visible as plain asymmetry.
+      const Xs = medialX('front', qb);
       put('front', 'Sartorius', side, [strap(
-        qb, [originFx, 0.08], [insertFx, 0.88], 9,
-        // Bowed LATERALLY on each side (so the sweep mirrors), and tapered
-        // because both ends are tendon. Width 9 rather than 7: at 7 it drew as
-        // a hairline on a 2x screenshot.
-        { bow: 0.055 * mirror, taper: 0.55 },
+        qb,
+        [Xs(0.08), 0.02],   // ASIS: outer hip, high
+        [Xs(0.88), 0.99],   // pes anserinus: inner knee, low
+        (qb.maxX - qb.minX) * 0.13,
+        { bow: 0.07 * medialSign(Xs), taper: 0.5 },
       )]);
     }
   }
@@ -706,6 +1051,51 @@ export const RENDERABLE_MUSCLES: Set<string> = new Set([...acc.keys()]);
 // The name is kept as MARKER_MUSCLES to avoid a rename touching every caller
 // days before assessment; it means "the deep set", and the 2026-08-22 change
 // replaced how they are drawn, not which they are.
+/**
+ * CONSTRUCTED MUSCLES ARE CLIPPED TO THE REGION THE ATLAS ALREADY DREW.
+ *
+ * A shape built from fractions of a bounding box can leave the body, because a
+ * box is a rectangle and a body is not. Every overflow the 2026-10-11 rebuild
+ * produced - square deltoid corners past the shoulder, a trapezius cape across
+ * the back, a pectoralis reaching into the arm - was exactly that.
+ *
+ * Clipping to the atlas's own outline is exact and costs nothing: the shape is
+ * authored freely and the licensed geometry decides where it stops. Whatever a
+ * constructed muscle gets wrong, it can no longer escape the figure.
+ *
+ * Only muscles RECOVERED from sub-paths are absent here; they are already the
+ * atlas's own geometry and cannot overflow.
+ */
+export const MUSCLE_CLIPS: Record<string, { fig: Figure; slugs: string[] }> = {
+  'Sternocleidomastoid': { fig: 'front', slugs: ['neck', 'head'] },
+  'Pectoralis Major': { fig: 'front', slugs: ['chest'] },
+  'Lateral Deltoid': { fig: 'front', slugs: ['deltoids', 'biceps'] },
+  'Latissimus Dorsi': { fig: 'back', slugs: ['upper-back', 'lower-back'] },
+  // The two deep sheets (2026-10-12): containment is a CLIP now, not a geometry
+  // constraint, so these must be listed or they can escape the body.
+  // 'abs' because the internal oblique inserts into the rectus sheath at the
+  // linea semilunaris, so its medial edge genuinely lies under the rectus
+  // abdominis. Measured: with 'obliques' alone the left shape sat 5 units past
+  // the strip's medial edge and the clip was cutting that insertion off.
+  'Internal Oblique': { fig: 'front', slugs: ['obliques', 'abs'] },
+  'Iliopsoas': { fig: 'front', slugs: ['abs', 'obliques', 'adductors'] },
+  'Sartorius': { fig: 'front', slugs: ['quadriceps', 'adductors'] },
+  'Rectus Femoris': { fig: 'front', slugs: ['quadriceps'] },
+  'Upper Trapezius': { fig: 'back', slugs: ['trapezius', 'deltoids', 'neck'] },
+  'Posterior Deltoid': { fig: 'back', slugs: ['deltoids', 'triceps'] },
+};
+
+/** The path data a muscle's clip is built from. Empty when it needs no clip. */
+export function clipPathsFor(name: string): string[] {
+  const spec = MUSCLE_CLIPS[name];
+  if (!spec) return [];
+  const src = spec.fig === 'front' ? bodyFront : bodyBack;
+  return spec.slugs.flatMap((slug) => {
+    const part = src.find((x) => x.slug === slug);
+    return part ? [...(part.path.common ?? []), ...(part.path.left ?? []), ...(part.path.right ?? [])] : [];
+  });
+}
+
 export const MARKER_MUSCLES: Set<string> = new Set([
   'Piriformis', 'Gluteus Minimus', 'Iliopsoas', 'Internal Oblique', 'Rectus Capitis Anterior',
 ]);
@@ -722,6 +1112,8 @@ export const MUSCLE_ALIASES: Record<string, string> = {
 export const INERT_FRONT: BodyPart[] = bodyFront.filter((p) => [
   'triceps', 'forearm', 'hands', 'knees', 'tibialis', 'calves', 'ankles', 'feet', 'head', 'hair', 'adductors',
 ].includes(p.slug));
-export const INERT_BACK: BodyPart[] = bodyBack.filter((p) => [
+export const INERT_BACK: BodyPart[] = ([
+  { slug: 'hamstring-medial', color: '', path: { common: MEDIAL_HAMSTRINGS } } as BodyPart,
+]).concat(bodyBack.filter((p) => [
   'triceps', 'forearm', 'hands', 'calves', 'ankles', 'feet', 'head', 'hair', 'adductors', 'lower-back', 'trapezius', 'neck',
-].includes(p.slug));
+].includes(p.slug)));

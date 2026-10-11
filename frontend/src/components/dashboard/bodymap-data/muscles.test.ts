@@ -1,6 +1,10 @@
 // Throwaway harness: prove the geometric partition assigns each HoloMotion
 // muscle to the right place on the figure before it is wired into BodyMap.
-import { muscleFront, muscleBack, RENDERABLE_MUSCLES } from '@/components/dashboard/bodymap-data/muscles';
+import {
+  muscleFront, muscleBack, RENDERABLE_MUSCLES, MUSCLE_CLIPS, unionBox,
+} from '@/components/dashboard/bodymap-data/muscles';
+import { bodyFront } from '@/components/dashboard/bodymap-data/bodyFront';
+import { bodyBack } from '@/components/dashboard/bodymap-data/bodyBack';
 
 function bbox(d: string) {
   const re = /([MmLlHhVvCcSsQqTtAaZz])([^MmLlHhVvCcSsQqTtAaZz]*)/g;
@@ -129,16 +133,31 @@ describe('HoloMotion muscle partition', () => {
     });
   });
 
-  it('keeps every deep muscle inside the structure it lies under', () => {
-    // The containment guarantee the marker had, kept now that size varies: a
-    // deep muscle is positioned and scaled from its PARENT's measured box, so it
-    // cannot drift outside the muscle it is supposed to be underneath however
-    // the asset is scaled.
-    const parentOf: Record<string, string> = {
-      Piriformis: 'Gluteus Maximus',
-      'Gluteus Minimus': 'Gluteus Maximus',
-      'Internal Oblique': 'External Oblique',
-    };
+  // CONTAINMENT IS NOW GUARANTEED TWO DIFFERENT WAYS (2026-10-12, JC's call).
+  // Until then every deep muscle was an inset scaled from ONE parent's box, so
+  // containment fell out of the construction. That kept the figure honest and
+  // drew the iliopsoas as a groin spindle - roughly the last fifth of a muscle
+  // that starts at T12 - and the internal oblique as a mid-flank blob too small
+  // to show the direction that is the only thing distinguishing it from the
+  // external oblique lying over it. JC chose the anatomy: "screw that just
+  // change them."
+  //
+  // So those two are now SHEETS that legitimately cross several atlas regions,
+  // and containment is enforced by a render-time clipPath instead - a stronger
+  // guarantee than a fraction, because a clip cannot be overshot. The two guards
+  // below split along that line, and the clip is itself checked by MEASUREMENT
+  // (does the union of the listed regions actually cover the shape) rather than
+  // by the muscle merely appearing in the map. Being listed with the wrong
+  // regions clips a muscle away to nothing, which looks like an unflagged
+  // muscle and not like a defect.
+  const INSET_PARENT: Record<string, string> = {
+    Piriformis: 'Gluteus Maximus',
+    'Gluteus Minimus': 'Gluteus Maximus',
+  };
+  const CLIPPED_DEEP = ['Iliopsoas', 'Internal Oblique'];
+
+  it('keeps every inset deep muscle inside the structure it lies under', () => {
+    const parentOf = INSET_PARENT;
     Object.entries(parentOf).forEach(([slug, parent]) => {
       (['left', 'right'] as const).forEach((s) => {
         const d = box(slug, s);
@@ -151,16 +170,41 @@ describe('HoloMotion muscle partition', () => {
     });
   });
 
-  it('sizes a deep muscle as a minority of its parent, never a blob', () => {
+  it('clips the two deep SHEETS to regions that actually cover them', () => {
+    // The replacement for the inset guarantee. Each sheet must be listed in
+    // MUSCLE_CLIPS, and the union of the atlas regions named there must contain
+    // the shape - otherwise the clip silently erases part of a finding.
+    CLIPPED_DEEP.forEach((slug) => {
+      const entry = MUSCLE_CLIPS[slug];
+      expect(entry).toBeDefined();
+      const figure = entry.fig === 'front' ? bodyFront : bodyBack;
+      (['left', 'right'] as const).forEach((s) => {
+        const region = unionBox(figure
+          .filter((pt) => entry.slugs.includes(pt.slug))
+          .flatMap((pt) => [...(pt.path[s] ?? []), ...(pt.path.common ?? [])]));
+        expect(region.maxX).toBeGreaterThan(region.minX);
+        const d = box(slug, s);
+        // Measured as OVERLAP, not as a 1px bound. bbox() extends to CONTROL
+        // points, which overshoot the curve they steer, so an exact bound here
+        // fails on a shape that renders perfectly inside - it did, by 1.4 units
+        // on the internal oblique's lateral edge. Overlap is also the stronger
+        // question: the failure worth catching is a WRONG region list, which
+        // clips most of the muscle away and then looks exactly like a muscle
+        // nobody flagged.
+        const lap = Math.max(0, Math.min(d.maxX, region.maxX) - Math.max(d.minX, region.minX))
+          * Math.max(0, Math.min(d.maxY, region.maxY) - Math.max(d.minY, region.minY));
+        const own = (d.maxX - d.minX) * (d.maxY - d.minY);
+        expect(lap / own).toBeGreaterThan(0.9);
+      });
+    });
+  });
+
+  it('sizes an inset deep muscle as a minority of its parent, never a blob', () => {
     // The old marker was fixed-radius so a hip finding could not shout over a
     // neck one. Anatomy legitimately differs in size, so the guard becomes
     // proportional instead: big enough to see, never big enough to read as the
     // parent muscle itself.
-    const parentOf: Record<string, string> = {
-      Piriformis: 'Gluteus Maximus',
-      'Gluteus Minimus': 'Gluteus Maximus',
-      'Internal Oblique': 'External Oblique',
-    };
+    const parentOf = INSET_PARENT;
     Object.entries(parentOf).forEach(([slug, parent]) => {
       (['left', 'right'] as const).forEach((s) => {
         const d = box(slug, s);
@@ -360,11 +404,27 @@ describe('deep muscle form', () => {
     }
   });
 
-  it('draws iliopsoas as a SPINDLE, fattest in the middle', () => {
+  it('draws iliopsoas as a DESCENDING sheet that crosses the pelvic brim', () => {
+    // It was a spindle until 2026-10-12, on the textbook word "fusiform" - true
+    // of the psoas belly and false of what the figure needs to show, which is
+    // where the muscle RUNS. Nothing else on the front of the body connects the
+    // lumbar spine to the thigh, and that course is the finding: a flagged
+    // iliopsoas is read as a hip flexor problem, not an abdominal one.
+    //
+    // So the form guard is now about the course rather than the belly: clearly
+    // taller than wide, starting level with the upper abdomen and ending in the
+    // thigh, past the top of the adductors.
     (['left', 'right'] as const).forEach((s) => {
-      const w = spread((by('Iliopsoas').path[s] ?? [])[0] ?? '');
-      expect(w.middle).toBeGreaterThan(w.start);
-      expect(w.middle).toBeGreaterThan(w.end);
+      const d = box('Iliopsoas', s);
+      const abs = box('Rectus Abdominis', s);
+      // The thigh is an atlas REGION here, not a HoloMotion muscle - there is no
+      // adductor in the 22, which is part of why this muscle matters on the map.
+      const add = unionBox(bodyFront
+        .filter((pt) => pt.slug === 'adductors')
+        .flatMap((pt) => pt.path[s] ?? []));
+      expect(d.maxY - d.minY).toBeGreaterThan((d.maxX - d.minX) * 1.5);
+      expect(d.minY).toBeLessThan(abs.minY + (abs.maxY - abs.minY) * 0.25);
+      expect(d.maxY).toBeGreaterThan(add.minY);
     });
   });
 

@@ -99,8 +99,8 @@ cd backend; npm run coverage         # 82.4% statements / 72.3% branches (re-mea
                                      # a missing transitive dep (fs.realpath) before it would run.
 cd backend; npm run mutate           # BREAK each registered guard on purpose and prove its
                                      # test fails. A surviving mutation exits non-zero: the
-                                     # test is not testing what it claims. 129 guards across
-                                     # both packages. 128 are EXERCISED here; one is
+                                     # test is not testing what it claims. 131 guards across
+                                     # both packages. 130 are EXERCISED here; one is
                                      # listed with a `skip` because jsdom computes no
                                      # layout and only a real browser can see it (e2e
                                      # section 4l). A skip is REPORTED every run and is
@@ -329,7 +329,7 @@ cd backend; npm run verify:textlayer -- scripts/samples/nazwan.pdf
                                      # reach it (the script needs a real PDF and a
                                      # subprocess), with four registered mutations.
 cd backend; npm run bodymap:proof    # THE FIGURE, BESIDE THE INSTRUMENT'S OWN FIGURE —
-                                     # before anything about it is built (§153). Writes a
+                                     # before anything about it is built (§160). Writes a
                                      # self-contained HTML sheet to scripts/samples/ (gitignored):
                                      # HoloMotion's Muscle Imbalance page rendered out of a real
                                      # report, our front/back figures beside it, both themes, and
@@ -795,7 +795,7 @@ cd backend; npx jest      # 75 suites / 1161 tests: cohorts, overallIndicator, p
                           # other suite. Static: it reads both files as text and never
                           # require()s the target, because several modules build a Sequelize
                           # instance at import time)
-cd frontend; npx jest     # 31 suites / 529 tests (the run is pinned to UTC by
+cd frontend; npx jest     # 31 suites / 530 tests (the run is pinned to UTC by
                           # jest.globalSetup.js - this machine sits IN the institution
                           # zone, which made the date tests pass for the wrong reason
                           # until mutation testing said so; see DD 62): lib/risk.ts, lib/screeningUploadStore.ts, bodymap-data/muscles.ts,
@@ -1709,7 +1709,7 @@ From `docs/MASTER_CLARIFICATIONS.md §12`:
 - The role model: FYP I shipped **3 roles** (athlete / medical / admin); **FYP II promotes `coach` to a first-class 4th role** (read-only, sport-scoped — squad readiness, team-report download, athlete screening detail, individual screening-PDF download for their sport's athletes). **A 5th role, `executive`, was added on JC's instruction 2026-08-08** — read-only institutional oversight (admin analytics + the three PDF reports) with no write access anywhere: no import, no norm edits, no roster or personnel changes, no settings, no backup export. It is deliberately NOT a "super admin": it has strictly fewer powers than `admin`, and naming it super-admin would misdescribe it. Adding *further* roles still needs discussion.
 - The composite risk model formula
 - sRPE method for load calculation (`load = duration × intensity`) — validated by Inoue (2022) for scale reliability and Yang (2024) for physiological correspondence. **Retired 2026-07-20** along with Activity Tracking (the only thing that computed it) — the formula itself stays locked/citable for the FYP report, it's just not implemented anywhere right now
-- **The body map asset is `react-muscle-highlighter` (MIT, Sorooj Shehryar), and the attribution must stay.** Path data lives in `frontend/src/components/dashboard/bodymap-data/` with the MIT notice at the top of every file; `muscles.ts` re-slices it into HoloMotion's **22 muscle names rendered as 21 shapes** — `Middle Deltoid` aliases to `Lateral Deltoid`, the same anatomical head. Most are recovered from sub-paths the asset already draws separately; the rest are constructed from a parent's **measured** bounding box. **Exactly five are the deep set** (`MARKER_MUSCLES`: Piriformis, Gluteus Minimus, Iliopsoas, Internal Oblique, Rectus Capitis Anterior) — dashed edge, and hidden entirely when unflagged, because a deep muscle drawn unflagged asserts an interior the figure is not otherwise showing. **This attribution belongs in the FYP references section** — it is a licence obligation, not a style choice. What AIRMS may claim is the **re-slicing and the clinical mapping**, not the paths.
+- **The body map asset is `react-muscle-highlighter` (MIT, Sorooj Shehryar), and the attribution must stay.** Path data lives in `frontend/src/components/dashboard/bodymap-data/` with the MIT notice at the top of every file; `muscles.ts` re-slices it into HoloMotion's **22 muscle names rendered as 21 shapes** — `Middle Deltoid` aliases to `Lateral Deltoid`, the same anatomical head. Most are recovered from sub-paths the asset already draws separately; the rest are constructed from the **measured** bounding boxes of the atlas regions they lie across, and are **clipped to those regions at render time** (`MUSCLE_CLIPS` in `muscles.ts`, applied by `BodyMap.tsx`). Clipping is what keeps a constructed shape inside the body: it cannot be overshot, where a fraction of one parent box can. **Exactly five are the deep set** (`MARKER_MUSCLES`: Piriformis, Gluteus Minimus, Iliopsoas, Internal Oblique, Rectus Capitis Anterior) — dashed edge, and hidden entirely when unflagged, because a deep muscle drawn unflagged asserts an interior the figure is not otherwise showing. A deep muscle is otherwise drawn **at its true extent**: the iliopsoas runs from the lumbar spine across the pelvic brim to the thigh and the internal oblique spans crest to ribs, because where a deep muscle *runs* is the finding — a flagged iliopsoas is a hip-flexor problem, not an abdominal one. It is **not** sized as a token fraction of one surface region (§160). **This attribution belongs in the FYP references section** — it is a licence obligation, not a style choice. What AIRMS may claim is the **re-slicing and the clinical mapping**, not the paths.
   **Mode grain matches data grain**: Muscle Flags draws the 22 muscles, ROM & Stability draws the 5 regions, because the subitem score genuinely is 5 regions.
   **`anterior()` is load-bearing**: in a front view the subject's RIGHT limb is on the VIEWER'S LEFT, in a back view the sides agree. Every anterior flag was painted on the wrong side of the body until this existed, found by screenshotting the page and reading the findings list against the drawing. Do not remove it.
   **Regenerate `backend/src/utils/bodymapData.json`** if the figure source ever changes — the PDF reports draw from it.

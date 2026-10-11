@@ -639,6 +639,61 @@ const PROPOSALS = {
     },
   },
 
+  'Latissimus Dorsi': {
+    clip: { fig: 'back', slugs: ['upper-back', 'lower-back'] },
+    why: [
+      'Origin: the spinous processes of T7 down to L5, the THORACOLUMBAR',
+      'FASCIA, the ILIAC CREST and the lower ribs — an enormous, LOW, medial',
+      'base. Insertion: the intertubercular groove of the HUMERUS — a narrow',
+      'tendon at the armpit.',
+      '',
+      'So it is a triangle that converges UPWARDS AND LATERALLY: broad across',
+      'the lower back, narrowing to a point at the arm. The reference shows it',
+      'plainly — wide at the hip, a tendon at the axilla.',
+      '',
+      'The shipped shape is the LOWER sub-path of the upper-back region: a',
+      'parallel-sided slab on the mid-back that reaches neither the iliac',
+      'crest nor the arm. It carries neither of the muscle attachments and',
+      'no convergence, and it sits roughly where the RHOMBOIDS are — the',
+      'territory beside the muscle rather than the muscle.',
+    ],
+    build({ figure, g }) {
+      const out = {};
+      for (const side of ['left', 'right']) {
+        const ub = g.unionBox(sidePaths(figure.back, 'upper-back', side));
+        const lb = g.unionBox(sidePaths(figure.back, 'lower-back', side));
+        const glute = g.unionBox(sidePaths(figure.back, 'gluteal', side));
+        const delt = g.unionBox(sidePaths(figure.back, 'deltoids', side));
+        if (!(ub.maxX > ub.minX)) { out[side] = []; continue; }
+
+        const nl = g.unionBox(sidePaths(figure.back, 'neck', 'left'));
+        const nr = g.unionBox(sidePaths(figure.back, 'neck', 'right'));
+        const midline = (nl.maxX + nr.minX) / 2;
+
+        // Measured (left, back): upper-back x 955..1064 y 322..585, lower-back
+        // x 979..1078 y 489..641, gluteal top y 615, deltoid x 914..981.
+        // The axilla sits just below the deltoid; the iliac crest just above the
+        // gluteal box. The muscle has to span from one to the other.
+        const box = {
+          minX: Math.min(ub.minX, delt.minX + (delt.maxX - delt.minX) * 0.5),
+          maxX: Math.max(midline, ub.maxX),
+          minY: delt.maxY - (delt.maxY - delt.minY) * 0.15,
+          maxY: Math.min(glute.minY, lb.maxY),
+        };
+        const X = medialAxis(g, figure, box, 'back');
+
+        out[side] = [poly(g.at, box, [
+          [X(0.26), 0.02],          // humeral tendon at the axilla — the apex
+          [X(0.14), 0.30, 0.04],    // lateral border descending over the flank
+          [X(0.40), 0.96, 0.05],    // out along the iliac crest
+          [X(0.96), 0.98],          // thoracolumbar fascia at the spine
+          [X(0.96), 0.30, -0.03],   // up the spine to about T7
+        ])];
+      }
+      return out;
+    },
+  },
+
   'Biceps Femoris': {
     why: [
       'THE HAMSTRINGS ARE THREE MUSCLES AND HOLOMOTION NAMES ONE OF THEM.',

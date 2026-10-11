@@ -195,7 +195,7 @@ Pages mapped to the 4 roles + profile pages. **The URL hierarchy is the role bou
 | [scripts/export-bodymap.js](../frontend/scripts/export-bodymap.js) | `npm run export:bodymap` → `backend/src/utils/bodymapData.json`, the copy the **PDF reports** draw from. Run it after ANY change to the figure; `backend/tests/bodymapData.test.js` fails when the committed copy drifts. Was a one-time hand conversion, which is exactly how the screen and the printed report came within one commit of drawing different bodies |
 | [bodymap-data/bodyFront.ts](../frontend/src/components/dashboard/bodymap-data/bodyFront.ts) | MIT-licensed path data (front view) — Sorooj Shehryar's react-muscle-highlighter. **The attribution header must stay** |
 | [bodymap-data/bodyBack.ts](../frontend/src/components/dashboard/bodymap-data/bodyBack.ts) | MIT-licensed path data (back view) |
-| [bodymap-data/muscles.ts](../frontend/src/components/dashboard/bodymap-data/muscles.ts) | **2026-08-04** Muscle-level partition of the SAME licensed geometry into HoloMotion's 22 muscle names, drawn as **21 shapes** (`Middle Deltoid` shares `Lateral Deltoid`'s — same anatomical head). Most are recovered from sub-paths the asset already contains (it draws the three vasti / two glute heads separately and merely labels them all `quadriceps` / `gluteal`); the rest are constructed from a parent's **measured** bounding box. **The deep set is exactly five** — Piriformis, Gluteus Minimus, Iliopsoas, Internal Oblique, Rectus Capitis Anterior (`MARKER_MUSCLES`) — drawn with a dashed edge and hidden when unflagged. **Sartorius is NOT one of them**: it is constructed rather than recovered, but it is a surface muscle and always draws. It was listed as deep here until 2026-10-11, which is where the "six deep muscles" figure in the other docs came from. Sub-paths are chosen by measured geometry, **never array index** — the asset does not order left and right limbs identically, so index slicing would mirror-swap muscles. Also exports `INERT_FRONT`/`INERT_BACK` (drawn, never flaggable), `RENDERABLE_MUSCLES` and `MUSCLE_ALIASES` (the deliberate Middle/Lateral Deltoid collapse — same anatomical head) |
+| [bodymap-data/muscles.ts](../frontend/src/components/dashboard/bodymap-data/muscles.ts) | **2026-08-04** Muscle-level partition of the SAME licensed geometry into HoloMotion's 22 muscle names, drawn as **21 shapes** (`Middle Deltoid` shares `Lateral Deltoid`'s — same anatomical head). Most are recovered from sub-paths the asset already contains (it draws the three vasti / two glute heads separately and merely labels them all `quadriceps` / `gluteal`); the rest are constructed from the **measured** bounding boxes of the atlas regions they lie across, and are **clipped to those regions at render time** (`MUSCLE_CLIPS` in `muscles.ts`, applied by `BodyMap.tsx`). Clipping is what keeps a constructed shape inside the body: it cannot be overshot, where a fraction of one parent box can. **The deep set is exactly five** — Piriformis, Gluteus Minimus, Iliopsoas, Internal Oblique, Rectus Capitis Anterior (`MARKER_MUSCLES`) — drawn with a dashed edge and hidden when unflagged. **Sartorius is NOT one of them**: it is constructed rather than recovered, but it is a surface muscle and always draws. It was listed as deep here until 2026-10-11, which is where the "six deep muscles" figure in the other docs came from. Sub-paths are chosen by measured geometry, **never array index** — the asset does not order left and right limbs identically, so index slicing would mirror-swap muscles. Also exports `INERT_FRONT`/`INERT_BACK` (drawn, never flaggable), `RENDERABLE_MUSCLES` and `MUSCLE_ALIASES` (the deliberate Middle/Lateral Deltoid collapse — same anatomical head) |
 | [bodymap-data/muscles.test.ts](../frontend/src/components/dashboard/bodymap-data/muscles.test.ts) | Guards the partition: every HoloMotion muscle resolves, no shape is claimed twice, and the anatomical relationships that would catch a mirror-swap hold on **both** sides (e.g. vastus medialis is medial to vastus lateralis on each leg) |
 | [bodymap-data/outlines.ts](../frontend/src/components/dashboard/bodymap-data/outlines.ts) | Single-path silhouette outlines for front + back |
 | [bodymap-data/types.ts](../frontend/src/components/dashboard/bodymap-data/types.ts) | `BodyPart` interface |
@@ -393,7 +393,7 @@ curl http://localhost:5000/api/health
 
 Jest still covers mostly **pure logic**, and there is still no linter for the
 backend. What exists beyond it, and what genuinely remains unguarded, is the
-table below plus the four verification commands — `npm run mutate` (129 guards),
+table below plus the four verification commands — `npm run mutate` (131 guards),
 `npm run audit:access` (66 endpoints × every role, plus anonymous),
 `npm run verify:claims` (a *running* instance) and `npm run verify:csp`
 (real Chrome, production build). The honest gap is **route handlers and pages**:
@@ -429,7 +429,7 @@ most are covered by e2e or by nobody.
 
 **Continuous integration — [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)** (2026-09-13).
 Three jobs on push/PR to `feat/mysql-migration` and `main`: **checks** (both jest
-suites, typecheck, lint), **mutate** (the 129 guards — separate because it exceeds
+suites, typecheck, lint), **mutate** (the 131 guards — separate because it exceeds
 two minutes), and **csp** (build + real Chrome + `verify:csp`). **No database
 service**, because every backend suite is DB-free. `audit:access`,
 `verify:claims` and `e2e` need a *live* instance and are deliberately **left out
@@ -437,7 +437,7 @@ rather than half-wired** — a green tick that quietly skipped them is a worse
 signal than no tick at all. Until this existed, every test and every guard ran
 only when somebody remembered, on a branch where a push **is** a deploy.
 
-Counts as of 2026-10-09: **75 backend suites / 1161 tests**, **31 frontend suites / 529 tests**.
+Counts as of 2026-10-12: **75 backend suites / 1161 tests**, **31 frontend suites / 530 tests**.
 
 The **suite** counts above are guarded (`codebaseHygiene.test.js`); the test
 totals are not, deliberately — measuring them means running jest inside jest,

@@ -259,7 +259,7 @@ the fill (`--risk-*`), text on the card (`--risk-*-ink`) and text on that fill
 
 ```bash
 cd backend;  npx jest        # 75 suites / 1161 tests
-cd frontend; npx jest        # 31 suites / 529 tests
+cd frontend; npx jest        # 31 suites / 530 tests
 cd frontend; npm run typecheck
 cd frontend; npm run lint
 ```
@@ -276,7 +276,7 @@ six concurrent runs failed; none of five sequential ones did.
 
 | Command | What only it can tell you |
 |---|---|
-| `npm run mutate` | That each registered guard can actually fail. 129 guards |
+| `npm run mutate` | That each registered guard can actually fail. 131 guards |
 | `npm run map` | Regenerates `SYSTEM_MAP.md`; both suites fail if it is stale |
 | `npm run audit:access` | The permission matrix, by **calling** all 67 endpoints as every role and with no token |
 | `npm run verify:claims` | Operational claims against a **running** instance — things only true or false of a deployment |
