@@ -1,6 +1,6 @@
 # AIRMS documentation — index
 
-Thirty-odd documents live here. This page says what each one is, **whether it is
+Forty documents live here. This page says what each one is, **whether it is
 current or historical**, and which you may edit freely.
 
 If you are new: read [`MASTER_CLARIFICATIONS.md`](MASTER_CLARIFICATIONS.md)
@@ -45,8 +45,9 @@ not trip it.)
 
 | Document | Kind | What it is |
 |---|---|---|
+| [`HANDOVER.md`](HANDOVER.md) | Reference | **For whoever maintains this next.** The tech stack and its three non-negotiable version pins, the five non-obvious architectural facts, how decisions are recorded, the rules for writing a check, what to run before committing, and what was deliberately removed. Start here if you have to CHANGE the code. |
 | [`PROJECT_GUIDE.md`](PROJECT_GUIDE.md) | Reference | **File-level map**: every model, route, page, component and lib module, with what each is for. The fastest way to find where something lives. |
-| [`SYSTEM_MAP.md`](SYSTEM_MAP.md) | **Generated** | Every attribute of the system, read from the code: 9 models with all columns and enum values, 66 endpoints with their RBAC lists, 25 pages, every setting, audited action, shared fact, env var and script. Regenerate with `cd backend; npm run map`. |
+| [`SYSTEM_MAP.md`](SYSTEM_MAP.md) | **Generated** | Every attribute of the system, read from the code: 9 models with all 144 columns and enum values, 67 endpoints with their RBAC lists, 24 pages, every setting, audited action, shared fact, env var and script. Regenerate with `cd backend; npm run map`. |
 | [`PERMISSIONS.md`](PERMISSIONS.md) | Reference | **Who can actually do what — measured** by calling every endpoint as every role, not described from intent. Read before touching RBAC or answering a viva question about access. |
 | [`SECURITY.md`](SECURITY.md) | Reference | The security posture, **measured**: nine checks, each with the command that produced the answer. Re-run the commands before quoting a number. |
 | [`DEPLOY.md`](DEPLOY.md) | Reference | Deployment, and the platform faults that all present as the same opaque error. Read before deploying. |
@@ -58,7 +59,7 @@ not trip it.)
 
 | Document | Kind | What it is |
 |---|---|---|
-| [`DESIGN_DECISIONS.md`](DESIGN_DECISIONS.md) | **Log** | Numbered sections, ~109 of them. **Read before proposing an "improvement"** — it may already have been considered and rejected, with the reasoning and the measurement. The single most useful document for a handover. |
+| [`DESIGN_DECISIONS.md`](DESIGN_DECISIONS.md) | **Log** | Numbered sections, 160 of them. **Read before proposing an "improvement"** — it may already have been considered and rejected, with the reasoning and the measurement. The single most useful document for a handover. |
 | [`SILENT_FAILURES.md`](SILENT_FAILURES.md) | **Log** | **The defect class this project keeps producing** — a wrong answer that looks like a right one — with its sub-patterns, the sweeps that find each, and the standing guards. Read before an audit or a bug hunt; add to it when you find a new instance. |
 
 ## Academic and FYP artefacts — [`fyp/`](fyp/)
@@ -66,7 +67,7 @@ not trip it.)
 | Document | What it is |
 |---|---|
 | [`fyp/VIVA_FYP2.md`](fyp/VIVA_FYP2.md) | **The FYP II viva dossier**: the thesis, fifteen hard questions with citations, weaknesses to volunteer, demo landmines, and headline numbers measured against the live database. Re-measure §2 before quoting it. |
-| [`fyp/REPORT_TABLE_4-1.md`](fyp/REPORT_TABLE_4-1.md) | UC-1–47, the authority for report Chapter 4. |
+| [`fyp/REPORT_TABLE_4-1.md`](fyp/REPORT_TABLE_4-1.md) | UC-1–72, the authority for report Chapter 4. **Eleven rows are superseded by the build** — the correction schedule is in the rewritten §4.1.1. |
 | [`fyp/FYP2_MODULES_USECASES.md`](fyp/FYP2_MODULES_USECASES.md) | The six-module decomposition and its use cases; Appendix A/B maps old module numbers to new. |
 | [`fyp/REFERENCES.md`](fyp/REFERENCES.md) | Academic citations. The body-map MIT attribution belongs here and is **locked**. |
 | [`fyp/ACWR_REBUILD.md`](fyp/ACWR_REBUILD.md) | The dormant composite-risk model's history and its rebuild spec. Why `risk.ts`, `AcwrGauge` and `WorkloadChart` are retained with no callers. |
