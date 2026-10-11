@@ -80,6 +80,7 @@ backend/.tesseract/
 # Local-only tooling
 sync-to-submission.ps1
 SUBMISSION_WORKFLOW.md
+sync-to-isn.ps1
 
 # Added by `vercel link`. `.vercel/` holds the project id; `.env*` covers the
 # .env.local the CLI writes (it carries a short-lived OIDC token).
@@ -101,3 +102,10 @@ deploy/out/
 
 # Rendered-copy dump for the comprehension audit (npm run verify:copy).
 frontend/scripts/copy-dump.md
+
+# Report prose (chapters, drafts). Yours, not repo content.
+report/
+
+# Mail simulation manifest (npm run mail:simulate)
+backend/scripts/mail-manifest.md
+backend/scripts/mail-cast.json
