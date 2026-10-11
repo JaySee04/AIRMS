@@ -269,6 +269,35 @@ async function main() {
   const { muscles, outlines } = loadFigure();
   const states = flagStates(found, muscles);
 
+  // LIGHT A NAMED MUSCLE, for checking one shape against an anatomy reference.
+  //
+  //   npm run bodymap:proof -- --muscle "Sternocleidomastoid"
+  //   npm run bodymap:proof -- --muscle "Sartorius,Iliopsoas" --no-open
+  //
+  // The PDF's own findings still light, so the sheet keeps its reference page
+  // and stays honest about what the report actually said; these are ADDED. A
+  // name the figure cannot render is reported rather than ignored, because a
+  // silently-dropped name looks exactly like a muscle that drew nothing.
+  const want = arg('--muscle', '');
+  if (want) {
+    const { RENDERABLE_MUSCLES, MUSCLE_ALIASES } = muscles;
+    for (const raw of want.split(',').map((s) => s.trim()).filter(Boolean)) {
+      const name = MUSCLE_ALIASES[raw] ?? raw;
+      if (!RENDERABLE_MUSCLES.has(name)) {
+        console.error(`  --muscle "${raw}": the figure has no such muscle. Known names:`);
+        console.error(`    ${[...RENDERABLE_MUSCLES].sort().join(', ')}`);
+        process.exit(2);
+      }
+      // SIDE KEYS ARE 'L'/'R', not 'left'/'right' — flagStates builds them from
+      // the PDF's own side letters. The first version wrote 'left'/'right',
+      // which set two map entries that matched no part, so the sheet rendered
+      // with nothing lit while this script cheerfully reported the muscle as
+      // a finding. Rule 5, in the tool written to enforce it.
+      states.set(`${name}:L`, 'weak');
+      states.set(`${name}:R`, 'tight');
+    }
+  }
+
   const svgs = [
     svg(outlines.FRONT_OUTLINE, muscles.muscleFront, muscles.INERT_FRONT, states, '0 0 724 1448', 'Front', muscles.MARKER_MUSCLES),
     svg(outlines.BACK_OUTLINE, muscles.muscleBack, muscles.INERT_BACK, states, '724 0 724 1448', 'Back', muscles.MARKER_MUSCLES),

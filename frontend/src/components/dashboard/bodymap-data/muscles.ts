@@ -26,7 +26,7 @@ import type { BodyPart } from './types';
 
 export type Figure = 'front' | 'back';
 type Side = 'left' | 'right';
-type Box = { minX: number; minY: number; maxX: number; maxY: number };
+export type Box = { minX: number; minY: number; maxX: number; maxY: number };
 
 // ---------------------------------------------------------------------------
 // Geometry helpers
@@ -91,7 +91,7 @@ function bbox(d: string): Box {
 
 const EMPTY_BOX: Box = { minX: 0, minY: 0, maxX: 0, maxY: 0 };
 
-const unionBox = (ds: string[]): Box => (ds.length
+export const unionBox = (ds: string[]): Box => (ds.length
   ? ds.map(bbox).reduce((a, b) => ({
     minX: Math.min(a.minX, b.minX),
     minY: Math.min(a.minY, b.minY),
@@ -312,7 +312,7 @@ function fitInside(d: string, limit: Box, cx: number, cy: number): string {
 }
 
 // Fractional point inside a parent's measured box.
-function at(parent: Box, fx: number, fy: number): { cx: number; cy: number } {
+export function at(parent: Box, fx: number, fy: number): { cx: number; cy: number } {
   return {
     cx: parent.minX + (parent.maxX - parent.minX) * fx,
     cy: parent.minY + (parent.maxY - parent.minY) * fy,
@@ -394,7 +394,7 @@ function deepWedge(
 // A strap muscle drawn as the band it is: a thin quad from origin to insertion.
 // Used for sartorius, which really does run as a single diagonal strap and so
 // reads better as a band than as two disconnected dots.
-function strap(
+export function strap(
   parent: Box, from: [number, number], to: [number, number], w: number,
   { bow = 0, taper = 0.7 }: { bow?: number; taper?: number } = {},
 ): string {

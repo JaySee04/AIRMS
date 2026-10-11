@@ -420,6 +420,7 @@ Generated into both packages from `shared/facts.js` — see DESIGN_DECISIONS §5
 | backend | `bootstrap:admin` | `node scripts/bootstrap-admin.js` |
 | backend | `verify:reports` | `node scripts/verify-report-downloads.js` |
 | backend | `bodymap:proof` | `node scripts/bodymap-proof.js` |
+| backend | `bodymap:prototype` | `node scripts/bodymap-prototype.js` |
 | backend | `indicators:proof` | `node scripts/indicator-designs.js` |
 | backend | `indicators:combined` | `node scripts/indicator-combined.js` |
 | backend | `verify:install` | `node scripts/verify-install.js` |

@@ -109,3 +109,6 @@ report/
 # Mail simulation manifest (npm run mail:simulate)
 backend/scripts/mail-manifest.md
 backend/scripts/mail-cast.json
+
+# Body map prototype sheet (npm run bodymap:prototype)
+backend/scripts/samples/bodymap-prototype.html
