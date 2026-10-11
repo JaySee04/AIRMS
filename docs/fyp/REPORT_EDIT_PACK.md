@@ -152,8 +152,8 @@ Keep the sRPE citations (Inoue 2022, Yang 2024) **only** where the report discus
 
 ## R10 · Slides checklist
 
-1. Tech-stack slide(s): **MongoDB → MySQL**
-2. Requirements slides: the use-case count is now **47**, not 33 (and not 44)
+1. ~~Tech-stack slide(s): MongoDB → MySQL~~ — **done** (JC, 2026-10-11)
+2. Requirements slides: the use-case count is now **73**, not 33/44/47. Count it (`grep -c "| UC-" REPORT_TABLE_4-1.md`) rather than trusting any figure written down — this line has been wrong three times
 3. Module slides: Module 2 is no longer Injury & Recovery Logging; remove self-report and injury-log screenshots
 4. Comparison slide: updated Bulk Data Import cell (R5)
 5. Diagram slides: mirror R6, including the p. 38 mislabel — and note that "Self-Reported Injury Workflow" is not merely mislabelled, the workflow is gone
@@ -166,8 +166,8 @@ Keep the sRPE citations (Inoue 2022, Yang 2024) **only** where the report discus
 ## Still outstanding from earlier reviews (unchanged, verify against current draft)
 
 1. **Original Literary Work Declaration** — "Field of Study" blank; Witness Signature / Name / Designation blank
-2. **§2.1 duplicate paragraph** — "In conclusion, while ACWR represents…" appears twice; delete the second
-3. **Table 5.1 Database label** — shows the MySQL logo, labelled "MongoDB". Change the label
+2. **§2.1 is replaced, not patched** — the ACWR cluster comes out of Chapter 2 entirely (2026-10-10), so both copies of "In conclusion, while ACWR represents…" go rather than the second one
+3. ~~**Table 5.1 Database label**~~ — **done** (JC, 2026-10-11)
 4. **List of Appendices** — absent from front-matter TOC; confirm whether the template requires it
 
 ---

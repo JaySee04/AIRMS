@@ -72,10 +72,12 @@ Total 100% across four components:
 
 ## 5. Outstanding items before viva
 
+### Current — Chapter 2 rewrite
+
+**Chapter 2 cites only methods the build uses** (JC, 2026-10-10: *"only include the ones we currently implement — remove the ancient stuff like ACWR"*). The live set is Clusters A and B of [`fyp/REFERENCES.md`](fyp/REFERENCES.md) — Velarde-Sotres (2025), Lee et al. (2026), Washif et al. (2024), NIST SP 800-63-4 (2025), WCAG 2.2, PDPA (Amendment) Act 2024. **ACWR and sRPE come out of the review entirely** (Qin, Michailidis, Gabbett, Yang, Inoue), with injury surveillance (Costello, Sprouse, Waldén) and the pre-2022 method entries (Hopkins, Weir, Bahr, Robertson, Impellizzeri). The §2.5 summary table and the §2.6 comparison columns are rebuilt on the live set. This supersedes the 2026-06-04 citation refresh and the 2026-08-21 §2.5 cluster, both of which were ✅ against a system that has since removed what they cite
+
 ### Previously resolved (pre-2026-06-11)
 
-- ✅ Literature review citation refresh — Qin (2025) + Michailidis (2024) + Sprouse (2024) + Inoue (2022) + Yang (2024) carry the sRPE/ACWR/surveillance clusters
-- ✅ Section 2.5 Summary Table — 7 papers across 4 clusters
 - ✅ Front-matter pages — TOC, List of Figures, List of Tables, Symbols all populated
 - ✅ Acknowledgements — panel names (Dr. Fairuz Amalina, Dr. Maizatul Akmar Ismail) filled in
 - ✅ Chapter 2.6 Existing Systems — Kitman Labs, Teamworks, Catapult Sports, ATS each with table + screenshot
@@ -84,25 +86,34 @@ Total 100% across four components:
 - ✅ Conclusion Chapter 7 — present and complete
 - ✅ Project Logbook signatures — present in `FYP I REPORT (3).pdf` appendix
 
-### Issues found in 2026-06-11 review (`FYP I REPORT (3).pdf`) — fix in Word document
+### Issues found in 2026-06-11 review — SUPERSEDED by the 2026-10-10 chapter rewrite
 
-1. **§ Abbreviations (pp. 12–13)** — `NoSQL` and `ODM` listed but neither term has any referent in the MySQL/Sequelize stack. Remove both rows.
-2. **§2.4 (p. 23)** — "a Mongoose pre-save hook automatically computes the AU load" — system uses Sequelize, not Mongoose. Change to "a Sequelize model hook automatically computes the AU load at write time, persisting the derived value."
-3. **§2.1–2.3 and §2.6 framing** — repeated "student wellness," "student sports portal," "university sports environments," "university student athletes," "open-access platform." AIRMS serves ISN national elite athletes, not university students. Replace with institutional/ISN/elite framing throughout; remove "open-access" (contradicts the NDA).
-4. **Conclusion (p. 59–61) — overclaims for FYP I** — "all three project objectives were successfully achieved," "end-to-end testing confirm," "usability assessment with medical practitioners confirming." No evaluation chapter, no participants, no results exist in this report. Objective 3 is planned, not complete. Soften to expected/planned outcomes.
-5. **§5.1.1 (p. 47) — normalisation claim vs ERD** — "Its normalised relational model" but `injuries` and `self_reports` snapshot `athlete_name`, `sport`, `gender`, `athlete_age` (visible in ERD Fig 4.9). Qualify: intentional snapshot denormalisation in event-log tables; `athletes`, `muscle_flags`, `recovery_baselines` are normalised.
-6. **§5.1.1 (p. 48) — "Module 3 promotion"** — modules are not numbered anywhere else in Ch. 5. Change to "the self-report approval workflow's promotion."
-7. **Conclusion (p. 61) — SHA-256 and password policy specifics** — "SHA-256-hashed single-use tokens … complexity policy of at least ten characters with mixed case, digit, and symbol" never appear as requirements in Chapter 4. Trim to "an email-driven password reset flow, and an in-place change-password capability with complexity enforcement."
-8. **Table 5.1 (p. 47) — Database label** — table shows MySQL logo but the label underneath reads "MongoDB." Change label to "MySQL."
+Eight items were raised against `FYP I REPORT (3).pdf`. **Seven of them no longer
+exist as tasks**, because the chapter they sat in has been rewritten rather than
+patched (`report/FYP2_CHAPTERS_1-7.md`). Recorded here so nobody re-opens them:
+
+| # | Item | Why it is closed |
+|---|---|---|
+| 1 | `NoSQL` / `ODM` in the abbreviations list | Removed. JC, 2026-10-11 |
+| 2 | §2.4 "a Mongoose pre-save hook" | Chapter 2 is wholly replaced; no such passage survives |
+| 3 | §2.1–2.3 / §2.6 "student wellness" framing | Same — the new chapter is ISN/elite framed throughout |
+| 4 | Conclusion overclaims | Chapter 7 is rewritten: two objectives achieved, the third **partially**, with the usability track named as outstanding |
+| 5 | §5.1.1 normalisation claim vs ERD | `injuries` and `self_reports` no longer exist; §4.4 states the one deliberate denormalisation (the audit trail) and why |
+| 6 | §5.1.1 "Module 3 promotion" | The self-report approval workflow is deleted |
+| 7 | Conclusion SHA-256 / password specifics | Chapter 7 makes no such claim, and NFR-5 now states credential establishment as a requirement, so the detail has a home |
+| 8 | Table 5.1 labelled "MongoDB" | Corrected. JC, 2026-10-11 |
 
 ### Still outstanding from earlier reviews
 
 1. **Original Literary Work Declaration (p. 4)** — "Field of Study" still blank; Witness Signature / Name / Designation still blank.
-2. **§2.1 duplicate paragraph** — "In conclusion, while ACWR represents..." appears twice (p. 19). Delete the second occurrence.
-3. **Sprint count inconsistency** — report (p. 29) says "two broad sprints"; slides mention "three." Align across both artefacts.
-4. **UC-2 reset password user role** — slide says "Medical Staff, Administrator"; report (p. 33) lists all three roles. Pick one.
-5. **Slides p. 38 subheading** — Data Import activity diagram mislabelled as "Self-Reported Injury Workflow."
-6. **List of Appendices** — not in report front-matter TOC; confirm whether template requires it.
+2. **Sprint count inconsistency** — report says "two broad sprints"; slides say three; the rewritten §3.1.3 describes three. Align all three.
+3. **UC-2 reset password user role** — slide says "Medical Staff, Administrator"; the report lists more. It is now **five roles**; use that.
+4. **Slides p. 38 subheading** — the Data Import activity diagram is labelled "Self-Reported Injury Workflow". That workflow does not exist, so this needs a new label rather than a corrected one.
+5. **List of Appendices** — not in the front-matter TOC; confirm whether the template requires it.
+
+> **§2.1's duplicate paragraph is closed** — the old §2.1 was the ACWR cluster and
+> came out whole, taking both copies of "In conclusion, while ACWR represents…"
+> with it.
 
 ### Deliverables-shift items (2026-07-03 review — report + slides vs. shipped system)
 

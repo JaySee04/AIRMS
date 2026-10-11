@@ -29,7 +29,7 @@ As of the 2026-06-04 draft, the Literature Review citations have been **refreshe
 - Section 2.5 Summary Table now spans 7 papers across 4 thematic clusters
 - Table of Contents, List of Figures, List of Tables, List of Symbols and Abbreviations all populated; Acknowledgements panel names filled in
 
-Remaining gaps are limited to blank fields on the Original Literary Work Declaration, supervisor signatures in the project logbook, a duplicate paragraph in §2.1, and a few slides/report consistency items (sprint count, UC-2 user role, slide 38 subheading). See `docs/FYP_RUBRICS.md` §5 for the full punch list.
+Remaining gaps are limited to blank fields on the Original Literary Work Declaration, supervisor signatures in the project logbook, the Chapter 2 rewrite onto the live citation set (§2.1 replaces the ACWR cluster), and a few slides/report consistency items (sprint count, UC-2 user role, slide 38 subheading). See `docs/FYP_RUBRICS.md` §5 for the full punch list.
 
 ## What's in them
 

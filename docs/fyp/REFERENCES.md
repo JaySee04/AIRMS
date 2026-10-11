@@ -24,11 +24,17 @@ surveillance.
 |---|---|---|
 | **A — methods in force** (§2) | What AIRMS computes and displays now | "Why is that number what it is?" |
 | **B — standards in force** (§3) | Security, accessibility, licensing | Normative compliance |
-| **C — Chapter 2 lineage** (§5) | ACWR, sRPE, injury surveillance | Motivation, and the road not taken |
+| **C — FYP I lineage** (§5) | ACWR, sRPE, injury surveillance | Nothing in the report. Viva background only |
+
+**Clusters A and B are the literature review. Cluster C is not** (JC,
+2026-10-10: *"only include the ones we currently implement — remove the ancient
+stuff like ACWR"*). Chapter 2 cites what the build uses and nothing else, so a
+reader cannot meet a method in the review and fail to find it in the demo.
 
 Answering *"is that implemented?"* with a Cluster C citation is the fastest way
 to lose credibility, because the honest answer for those is "deliberately
-removed, and here is why".
+removed, and here is why". Those answers are worth having in the room; they are
+not worth a section in the report.
 
 ---
 
@@ -172,17 +178,28 @@ path.
 
 > W3C (2023). *Web Content Accessibility Guidelines (WCAG) 2.2*, W3C
 > Recommendation, 5 October 2023. SC 1.4.1 "Use of Color" (Level A);
-> SC 2.2.2 "Pause, Stop, Hide" (Level A).
+> SC 2.5.8 "Target Size (Minimum)" (Level AA).
 
 **SC 1.4.1** supports the rule that no band is ever named by colour alone
 (`SILENT_FAILURES 3i`) — "Green" reads as "you are fine", and colour must not be
 the only channel carrying meaning. Enforced by an e2e check across 12 routes.
 
-**SC 2.2.2** supports the Direction-of-travel card's 10-second rotation holding
-the moment the reader clicks, and not rotating at all under
-`prefers-reduced-motion` (`DESIGN_DECISIONS §38`).
+**SC 2.5.8** is the criterion the body map is measured against, and the honest
+one to cite: **63 of 87 drawn parts are smaller than the 24 × 24 CSS px
+minimum** (measured 2026-10-09). The criterion's own exemption for a control
+whose function is available through an equivalent alternative is what the design
+rests on — every flagged muscle is listed in words, with its side, on the cards
+beside the figure — and that equivalence has not been audited against the
+exemption wording. Volunteer the number; see `VIVA_FYP2.md` Q17.
 
-Already post-2022; no change needed.
+**SC 2.2.2 "Pause, Stop, Hide" no longer applies to anything in the build** and
+was removed from this entry on 2026-10-10. It was cited for the
+Direction-of-travel card's 10-second rotation; `DESIGN_DECISIONS §95` deleted
+the rotation, because the card draws both readings at once and a rotation shows
+one of them at any instant. Nothing in the app now moves without user input, so
+there is no pause obligation to claim compliance with. Do not re-add it.
+
+Already post-2022; the criteria cited now match the build.
 
 ---
 
@@ -261,12 +278,21 @@ window on purpose.
 
 ---
 
-## 5. Cluster C — Chapter 2 lineage
+## 5. Cluster C — FYP I lineage, and out of the report
 
-Held in `docs/fyp/README.md` with one-line descriptions. **Full bibliographic
-details were not re-verified in this pass** and should be checked against the
-report's reference list before submission — they are recorded here so the mapping
-is complete, not because their details are confirmed.
+**None of these belongs in the FYP II literature review** (JC, 2026-10-10).
+Every row's `Built?` column already said **No**, and a review section that
+walks a panel through ACWR and injury surveillance invites the one question
+with no good answer: *where is it in the demo?* Chapter 1 names ACWR, injury
+logging and prediction as out of scope; Chapter 2 now simply does not raise
+them.
+
+Kept here because the *answers* are still needed — a panel may ask why the
+obvious method was not used, and "deliberately removed, and here is why" is a
+strong answer delivered out loud and a weak one printed in a review.
+
+**Full bibliographic details were not re-verified in this pass.** They do not
+need to be any more: nothing here enters the report's reference list.
 
 | Reference | Post-2022? | Supports | Built? |
 |---|---|---|---|
@@ -303,12 +329,18 @@ needed to satisfy a recency requirement** — every claim in §2 leads with a
 > 273–280.
 
 `MASTER_CLARIFICATIONS §12` **locks** the ACWR thresholds 0.8 / 1.3 / 1.5, and
-they are Gabbett's numbers. **Cost of cutting:** citing Qin (2025) for those exact
-figures would misattribute them — Qin *evaluates* the bands, Gabbett *defined*
-them. **Recommendation:** keep as origin-of-constant, and let Qin (2025) and
-Michailidis (2024) carry the recency. If the rule is absolute, cite Qin/Michailidis
-and describe the thresholds as "the widely used bands" without naming Gabbett —
-accurate, weaker, and it slightly undermines a locked decision.
+they are Gabbett's numbers.
+
+**It is out of the report, with the rest of Cluster C** (§5, 2026-10-10). The
+recency rule was never what decided it: ACWR is not discussed in Chapter 2 at
+all, so there is no passage left for an origin-of-constant citation to serve.
+The lock stands — `risk.ts` still carries the thresholds as a designed
+artefact — and the attribution belongs wherever that code is described, which
+is a codebase comment, not a reference list.
+
+**Say Gabbett's name if the model is raised in the viva.** Qin (2025)
+*evaluates* those bands; Gabbett *defined* them, and crediting the wrong paper
+for a number is a worse look than citing a 2016 one.
 
 ### 6.2 Hopkins (2000) and Weir (2005) — the definitions of the method
 
