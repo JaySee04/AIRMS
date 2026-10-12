@@ -12,6 +12,7 @@ import ClinicianBandOverride from '@/components/dashboard/ClinicianBandOverride'
 import EscalationResponse from '@/components/dashboard/EscalationResponse';
 import type { AthleteRisks } from '@/lib/screeningAlerts';
 import { INSTRUMENT_BANDS, RADAR_LABELS, highThresholdsFor, riskBand, riskRadarSeries } from '@/lib/screeningAlerts';
+import { selectionFromSearch, selectionMatchesSearch, selectionSearch } from '@/lib/selectionUrl';
 
 // Chart.js and the body-map path data are the heaviest client code on this
 // page and render nothing on the server anyway — split them out so the
@@ -125,10 +126,44 @@ export default function MedicalDashboard() {
   // Read from `window.location` rather than useSearchParams: that hook forces a
   // Suspense boundary on any page that calls it, and this page is one large
   // client component. Once only — the rail and the worklist drive every
-  // subsequent selection, and re-reading the URL would fight them.
+  // subsequent selection, and re-reading the URL on every render would fight
+  // them. The two effects below keep the address in step instead, which is a
+  // different thing from re-reading it.
   useEffect(() => {
-    const id = new URLSearchParams(window.location.search).get('athlete');
+    const id = selectionFromSearch(window.location.search);
     if (id) setSelectedId(id);
+  }, []);
+
+  // THE ADDRESS FOLLOWS THE SELECTION (2026-10-12, JC, §161).
+  //
+  // Opening a record used to change nothing in the address bar, so the record
+  // could not be bookmarked or sent to anybody, the browser's back button left
+  // the PAGE instead of returning to the worklist, and — the one that bites —
+  // `?athlete=<IC>` outlived "Back to worklist", so a reload put the clinician
+  // back inside the record they had just left.
+  //
+  // pushState, not replaceState: the whole point is that BACK returns to the
+  // worklist, and replace would leave the history exactly as broken as it was.
+  // Next supports the native call for search-param updates, and nothing here
+  // reads the param through the router, so no re-render is needed.
+  //
+  // The mount run is skipped: at that moment the ADDRESS is the truth and the
+  // selection has not caught up, so syncing would clobber a deep link with the
+  // empty worklist URL before the effect above has read it.
+  const urlSynced = useRef(false);
+  useEffect(() => {
+    if (!urlSynced.current) { urlSynced.current = true; return; }
+    if (selectionMatchesSearch(selectedId, window.location.search)) return;
+    window.history.pushState(null, '', `${window.location.pathname}${selectionSearch(selectedId)}`);
+  }, [selectedId]);
+
+  // ...and BACK moves the selection. Without this the entries pushed above are
+  // addresses the page ignores: the URL would change on back and the open record
+  // would not, which is worse than not pushing at all.
+  useEffect(() => {
+    const onPop = () => setSelectedId(selectionFromSearch(window.location.search));
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
   }, []);
 
   // THE RAIL FOLDS AWAY ONCE AN ATHLETE IS OPEN (2026-10-05, JC).

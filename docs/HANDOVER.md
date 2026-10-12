@@ -259,7 +259,7 @@ the fill (`--risk-*`), text on the card (`--risk-*-ink`) and text on that fill
 
 ```bash
 cd backend;  npx jest        # 75 suites / 1161 tests
-cd frontend; npx jest        # 31 suites / 530 tests
+cd frontend; npx jest        # 32 suites / 541 tests
 cd frontend; npm run typecheck
 cd frontend; npm run lint
 ```
@@ -276,13 +276,13 @@ six concurrent runs failed; none of five sequential ones did.
 
 | Command | What only it can tell you |
 |---|---|
-| `npm run mutate` | That each registered guard can actually fail. 131 guards |
+| `npm run mutate` | That each registered guard can actually fail. 134 guards |
 | `npm run map` | Regenerates `SYSTEM_MAP.md`; both suites fail if it is stale |
 | `npm run audit:access` | The permission matrix, by **calling** all 67 endpoints as every role and with no token |
 | `npm run verify:claims` | Operational claims against a **running** instance — things only true or false of a deployment |
 | `npm run verify:schema` | Column and index drift between the models and the **live database**. The only thing that proves a migration landed |
 | `npm run verify:reports` | That every PDF actually downloads and ends with a valid trailer |
-| `npm run e2e` (frontend) | Real Chrome against the running app, 176 checks |
+| `npm run e2e` (frontend) | Real Chrome against the running app, 182 checks |
 | `npm run verify:contrast` / `verify:a11y` / `verify:layout` | Colour, roles and geometry, measured in a browser |
 | `npm run measure:facts` | Headline numbers from the database. **Run before quoting any figure** — the docs have carried four different band splits, each true when written |
 

@@ -1181,6 +1181,83 @@ async function visit(browser, route, session) {
       const typed = await r.page.evaluate(() => document.querySelector('#med-search')?.value ?? null);
       check('medical rail: the shortcut key does not land in the search box',
         typed === '', `value=${JSON.stringify(typed)}`);
+
+      // ── 9b. The ADDRESS follows the selection (2026-10-12, §161) ──────────
+      //
+      // Opening a record used to change nothing in the address bar, which made
+      // three things wrong at once and all of them read to JC as "there is no
+      // back button on the medical dashboard":
+      //
+      //   - the open record could not be bookmarked or sent to anybody;
+      //   - the browser's back button left the PAGE rather than returning to
+      //     the worklist (measured: out to '/' and back in as a fresh load,
+      //     which lands on the worklist and so LOOKS like it worked);
+      //   - `?athlete=` outlived "Back to worklist", so a reload put the
+      //     clinician back inside the record they had just left.
+      //
+      // IN E2E AND NOT JSDOM, for a harder reason than section 9's. History,
+      // popstate and the back button are the browser; jsdom has a stub that
+      // does not fire popstate for a real back. A mounted test could only
+      // assert that pushState was CALLED, which is the §119 shape — proving
+      // the call, not the behaviour.
+      //
+      // The marker is what separates a real in-page step from a reload. A full
+      // navigation lands on the worklist too, so URL and content alone cannot
+      // tell the fix from the bug it replaced.
+      await r.page.evaluate(() => { document.querySelector('.athlete-row')?.click(); });
+      await r.page.waitForFunction(() => !!document.querySelector('.medical-id-actions'), { timeout: SETTLE_MS * 3 })
+        .catch(() => {});
+      await r.page.evaluate(() => { window.__navAlive = 'planted'; });
+      const opened = await r.page.evaluate(() => location.search);
+      check('medical nav: opening a record puts it in the address bar',
+        /^\?athlete=.+/.test(opened), `search=${JSON.stringify(opened)}`);
+
+      await r.page.goBack().catch(() => {});
+      await r.page.waitForFunction(() => !document.querySelector('.medical-id-actions'), { timeout: SETTLE_MS * 3 })
+        .catch(() => {});
+      const back = await r.page.evaluate(() => ({
+        search: location.search,
+        open: !!document.querySelector('.medical-id-actions'),
+        folded: !!document.querySelector('.medical-rail--folded'),
+        alive: window.__navAlive ?? null,
+      }));
+      check('medical nav: BACK returns to the worklist and unfolds the rail',
+        back.search === '' && !back.open && !back.folded,
+        `search=${JSON.stringify(back.search)} open=${back.open} folded=${back.folded}`);
+      check('medical nav: back is an in-page step, not a reload of the page',
+        back.alive === 'planted', `marker=${JSON.stringify(back.alive)}`);
+
+      // Forward must re-open it. Pushing an entry the page then ignores would
+      // be worse than pushing nothing: the address would move and the record
+      // would not.
+      await r.page.goForward().catch(() => {});
+      await r.page.waitForFunction(() => !!document.querySelector('.medical-id-actions'), { timeout: SETTLE_MS * 3 })
+        .catch(() => {});
+      const fwd = await r.page.evaluate(() => ({
+        search: location.search, open: !!document.querySelector('.medical-id-actions'),
+      }));
+      check('medical nav: FORWARD re-opens the record it went back from',
+        /^\?athlete=.+/.test(fwd.search) && fwd.open,
+        `search=${JSON.stringify(fwd.search)} open=${fwd.open}`);
+
+      // "Back to worklist" must clear the param, not just the selection. This
+      // is the one with a clinical edge: the address bar asserting an open
+      // record that is not open, and the next reload believing it.
+      await r.page.evaluate(() => {
+        const b = [...document.querySelectorAll('button')].find((x) => /back to worklist/i.test(x.textContent || ''));
+        if (b) b.click();
+      });
+      await r.page.waitForFunction(() => !document.querySelector('.medical-id-actions'), { timeout: SETTLE_MS * 3 })
+        .catch(() => {});
+      const cleared = await r.page.evaluate(() => location.search);
+      check('medical nav: "Back to worklist" clears the athlete from the address',
+        cleared === '', `search=${JSON.stringify(cleared)}`);
+
+      await r.page.reload({ waitUntil: 'networkidle2' });
+      await new Promise((x) => setTimeout(x, SETTLE_MS));
+      const afterReload = await r.page.evaluate(() => !!document.querySelector('.medical-id-actions'));
+      check('medical nav: a reload after leaving stays on the worklist',
+        !afterReload, `recordOpen=${afterReload}`);
     }
     // ── 10. Sign in once on a device, and stay — but not forever (§148) ───────
     //

@@ -312,6 +312,65 @@ const MUTATIONS = [
     test: null,
   },
   {
+    // §161. The medical dashboard opened a record without changing the address,
+    // which JC reported as "there is no back button". The back button was there;
+    // the ADDRESS was not following the selection, so the browser's own back
+    // left the page, the record could not be bookmarked, and `?athlete=`
+    // outlived "Back to worklist" - a reload then put the clinician back inside
+    // the record they had just left.
+    //
+    // This half is the pure one. An empty `?athlete=` must read as the WORKLIST
+    // and not as a record whose id is the empty string: that opens the pane,
+    // 404s the fetch, and parks the clinician on a permanent "could not load"
+    // for a record nobody asked for.
+    guard: 'medical nav: an empty ?athlete= is the worklist, not a blank record',
+    why: 'returning "" selects a record that cannot exist and cannot be dismissed',
+    pkg: 'frontend',
+    from: ROOT,
+    file: 'frontend/src/lib/selectionUrl.ts',
+    find: "  return trimmed === '' ? null : trimmed;",
+    replace: '  return trimmed;',
+    test: 'src/lib/selectionUrl.test.ts',
+  },
+  {
+    // The companion. '?' and '' are different URLs to the browser, so writing a
+    // bare '?' for the worklist pushes a history entry that changes nothing a
+    // reader can see - a back press that appears to do nothing, which is the
+    // exact complaint this section exists to fix, reintroduced one layer down.
+    guard: 'medical nav: the worklist is "", never a bare "?"',
+    why: 'a "?" entry makes one back press look like a no-op',
+    pkg: 'frontend',
+    from: ROOT,
+    file: 'frontend/src/lib/selectionUrl.ts',
+    find: "  if (!athleteId) return '';",
+    replace: "  if (!athleteId) return '?';",
+    test: 'src/lib/selectionUrl.test.ts',
+  },
+  {
+    // §161, the browser half. Registered as a NOTE with no `test` because the
+    // registry runs jest and jsdom's history stub does not fire popstate for a
+    // real back - a mounted test could only assert that pushState was CALLED,
+    // which proves the call and not the behaviour.
+    //
+    // WHAT THIS ONE IS WORTH: replaceState passes every check that reads the
+    // URL and the content, because back then leaves the page and bounces back
+    // in to the worklist, which is where it should have landed anyway. Only the
+    // planted-marker check can tell an in-page step from a reload. Verified by
+    // running all three mutations against `npm run e2e`: dropping pushState
+    // gave 179/182, replaceState 181/182 (the marker alone), and dropping the
+    // popstate listener 181/182 ("search='' open=true" - the URL moved and the
+    // record did not).
+    skip: 'needs a real browser — e2e §9b, "back is an in-page step, not a reload"',
+    guard: 'medical nav: the address follows the selection, and back follows it home',
+    why: 'replaceState looks identical unless you check the page was never reloaded',
+    pkg: 'frontend',
+    from: ROOT,
+    file: 'frontend/src/app/medical/dashboard/page.tsx',
+    find: "    window.history.pushState(null, '', `${window.location.pathname}${selectionSearch(selectedId)}`);",
+    replace: "    window.history.replaceState(null, '', `${window.location.pathname}${selectionSearch(selectedId)}`);",
+    test: null,
+  },
+  {
     // §160. The two guards that replaced the deep-muscle INSET conventions when
     // JC chose anatomical truth over them on 2026-10-12. The iliopsoas and the
     // internal oblique are now sheets that cross several atlas regions, so

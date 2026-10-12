@@ -92,15 +92,15 @@ cd backend; npm run coverage         # 82.4% statements / 72.3% branches (re-mea
                                      # line deleted — it now asserts the phrase only the route writes,
                                      # naming what the override REPLACED.
                                      # The FRONTEND was the remaining blind spot and is
-                                     # now partly closed: e2e (176 checks), FIVE jsdom component
+                                     # now partly closed: e2e (182 checks), FIVE jsdom component
                                      # suites, and since 2026-09-12 ONE test that mounts a page.tsx
                                      # (athlete/dashboard - DD 85d). The other 25 authenticated
                                      # pages are still covered by e2e or by nobody. Coverage needed
                                      # a missing transitive dep (fs.realpath) before it would run.
 cd backend; npm run mutate           # BREAK each registered guard on purpose and prove its
                                      # test fails. A surviving mutation exits non-zero: the
-                                     # test is not testing what it claims. 131 guards across
-                                     # both packages. 130 are EXERCISED here; one is
+                                     # test is not testing what it claims. 134 guards across
+                                     # both packages. 132 are EXERCISED here; two are
                                      # listed with a `skip` because jsdom computes no
                                      # layout and only a real browser can see it (e2e
                                      # section 4l). A skip is REPORTED every run and is
@@ -617,7 +617,7 @@ cd frontend; npm run verify:csp   # the CSP, in REAL CHROME against a PRODUCTION
 
 # Frontend production build
 cd frontend; npm run e2e   # END-TO-END smoke: a real Chrome against the running
-                           # servers (needs `npm run dev`). 176 checks - auth boundaries,
+                           # servers (needs `npm run dev`). 182 checks - auth boundaries,
                            # SIGN IN ONCE AND STAY, plus the IDLE LOCK that makes it
                            # safe (section 10, DD 148). A device with a live session
                            # goes straight to its dashboard; signing out still lands
@@ -795,7 +795,7 @@ cd backend; npx jest      # 75 suites / 1161 tests: cohorts, overallIndicator, p
                           # other suite. Static: it reads both files as text and never
                           # require()s the target, because several modules build a Sequelize
                           # instance at import time)
-cd frontend; npx jest     # 31 suites / 530 tests (the run is pinned to UTC by
+cd frontend; npx jest     # 32 suites / 541 tests (the run is pinned to UTC by
                           # jest.globalSetup.js - this machine sits IN the institution
                           # zone, which made the date tests pass for the wrong reason
                           # until mutation testing said so; see DD 62): lib/risk.ts, lib/screeningUploadStore.ts, bodymap-data/muscles.ts,
@@ -935,7 +935,7 @@ counting paint ops is a trap — the dead-band *zone* is itself a fill, so fill
 counts coincide between opposite renderings; assert on the fill **colour**.
 
 **Frontend coverage, stated accurately (2026-09-12).** There are end-to-end
-tests (`cd frontend; npm run e2e`, 176 checks), FIVE jsdom component suites
+tests (`cd frontend; npm run e2e`, 182 checks), FIVE jsdom component suites
 — `DashboardLayout` (the access gate), `OverallRiskBadge` (the hero),
 `ScreeningPanel` (§70.4's field resolution) and `DecisionPanel` (what the change
 list CLAIMS to cover — DD 79.4, and it is a jsdom test rather than an e2e check

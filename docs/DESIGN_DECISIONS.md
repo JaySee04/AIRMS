@@ -15027,3 +15027,102 @@ deep set, the dashed edge, and hiding a deep muscle entirely when unflagged. The
 modesty argument still holds for *whether* to draw an inferred structure. It was
 only ever wrong about **how big**.
 
+## 161. The address follows the selection (2026-10-12, JC)
+
+JC: **"There is no back button for the medical staff dashboard. Fix the
+navigation issue."**
+
+There is a back button. §107 put *"← Back to worklist"* in the record's action
+footer and it renders, visibly, 265px down a 900px viewport. Measured in a real
+browser before changing anything, because "the control is missing" and "the
+control does not do what the control implies" are different repairs and the
+first one was already built.
+
+What was missing is that **the address bar never knew which record was open.**
+
+### Measured first
+
+| step | URL | record open |
+|---|---|---|
+| open an athlete from the rail | `/medical/dashboard` *(unchanged)* | yes |
+| browser **back** | `/medical/dashboard` | no |
+| deep-link `?athlete=030109371036` | `?athlete=030109371036` | yes |
+| press "Back to worklist" | `?athlete=030109371036` **(stale)** | no |
+| **reload** | `?athlete=030109371036` | **yes** |
+
+Three faults, one cause:
+
+1. **The open record was not addressable.** A clinician could not bookmark the
+   record they were reading, send it to a colleague, or reload it. Sport
+   Assessment links *in* with `?athlete=` (§123), so the capability existed in
+   one direction only.
+2. **The browser's back button left the page.** Opening a record pushed no
+   history entry, so back went out to `/` and bounced back in as a fresh load.
+   That lands on the worklist, which is where back *should* go — so the defect
+   presented as a slow, flickering, working back button.
+3. **`?athlete=` outlived "Back to worklist".** The selection cleared and the
+   address did not, so a reload put the clinician back inside the record they
+   had explicitly left.
+
+(3) is the one with a clinical edge. The address bar asserted an open record
+when none was open, and the next reload believed the address bar over the user.
+
+### What was NOT changed, and why
+
+The original comment on the deep-link read is still correct and still load-bearing:
+
+> Read from `window.location` rather than useSearchParams: that hook forces a
+> Suspense boundary on any page that calls it, and this page is one large client
+> component. **Once only** — the rail and the worklist drive every subsequent
+> selection, and re-reading the URL would fight them.
+
+Both constraints are kept. No `useSearchParams`, no Suspense boundary, and the
+URL is still read once on mount. **Writing the address when the selection
+changes is a different thing from re-reading it on every render**, and the loop
+the original warned about is closed by a guard rather than by not writing at
+all: `selectionMatchesSearch` returns early when the address already says what
+the page says, which is exactly the state a `popstate` leaves behind.
+
+`pushState`, not `replaceState` — the entire point is that **back** returns to
+the worklist, and replace would leave the history as broken as it was. Next
+supports the native call for search-param updates, and nothing on this page
+reads the param through the router, so no re-render is needed.
+
+The mount run is skipped via a ref. At mount the **address** is the truth and
+the selection has not caught up, so syncing on the first pass would clobber a
+deep link with the empty worklist URL before the read effect had seen it.
+
+### The guard that earned its place
+
+`lib/selectionUrl.ts` holds the pure half so it can be tested without mounting
+the page — 1274 lines and a dozen fetches, the "large brittle investment" the
+testing notes warn against. Eleven cases, two registered mutations.
+
+The browser half is e2e §9b, and **one of its five checks is the only thing
+that can see the most likely wrong fix.** Swapping `pushState` for
+`replaceState` passes every check that reads the URL and the page content:
+back still leaves the page, still bounces back in, and still lands on the
+worklist. So §9b plants a marker on `window` before going back and asserts it
+survived — a full navigation destroys it, an in-page `popstate` does not.
+
+Proven by running all three mutations against the live suite:
+
+| mutation | result |
+|---|---|
+| drop the `pushState` | **179/182** — address, marker and forward all red |
+| `replaceState` instead | **181/182** — *the marker alone* |
+| drop the `popstate` listener | **181/182** — `search="" open=true`: the URL moved, the record did not |
+
+The middle row is the lesson. Without the marker check that mutation ships
+green, and the back button goes back to being a full page load that happens to
+look right.
+
+### What this does not change
+
+The rail fold (§122) is untouched: the rail still folds when a record opens and
+unfolds when it closes, and back now drives that too, because the fold is
+derived from the selection and the selection is now derived from history. The
+"← Back to worklist" button stays exactly where §107 put it — it was never the
+problem, and removing it in favour of the browser control would strand anyone
+who arrived by deep link with no history to go back to.
+
