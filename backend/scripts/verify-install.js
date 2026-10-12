@@ -159,8 +159,41 @@ if (isTrue(env.MAILER_DRY_RUN)) {
 } else { ok('MAILER_DRY_RUN', 'off'); }
 if (env.NODE_ENV !== 'production') {
   warn('NODE_ENV', `is "${env.NODE_ENV ?? 'unset'}"`,
-    'set production — it also arms the seeder\'s refusal to run here');
+    'set production — it arms the seeder\'s refusal to run here, AND the\n'
+    + '        fail-closed default for the ISN athlete directory below');
 } else { ok('NODE_ENV', 'production'); }
+
+// --- 9. Which athlete directory is served (§162) -----------------------------
+//
+// CONFIGURATION, so it belongs here rather than only in `verify:data` — this
+// command runs first in the documented order and needs no database.
+//
+// The records built into the source are FABRICATED: nine invented or demo
+// people with invented IC numbers, offered to a clinician creating an athlete
+// and filling name, IC, date of birth, sport and programme from the hit. On a
+// real install that is a patient who does not exist, created in two clicks.
+//
+// Note the interaction with NODE_ENV directly above, which is why this is not
+// simply "is AIRMS_ISN_DIRECTORY set": leaving BOTH unset is the dangerous
+// combination, and it is also the one an operator reaches by doing nothing.
+{
+  const setting = String(env.AIRMS_ISN_DIRECTORY ?? '').trim();
+  const remedy = 'set AIRMS_ISN_DIRECTORY=none, or point it at an ISN export';
+  if (setting === 'demo') {
+    block('ISN directory', 'is "demo" — FABRICATED athlete records are searchable', remedy);
+  } else if (!setting && env.NODE_ENV !== 'production') {
+    block('ISN directory', 'unset with NODE_ENV not production — FABRICATED records are served',
+      `${remedy} (or set NODE_ENV=production, which makes empty the default)`);
+  } else if (!setting) {
+    ok('ISN directory', 'unset with NODE_ENV=production — empty, the fail-closed default');
+  } else if (setting === 'none') {
+    ok('ISN directory', 'none — the lookup returns nothing and the operator types the details');
+  } else {
+    // Existence is NOT checked here: this command reads configuration, and the
+    // module refuses loudly at boot on an unreadable or malformed file.
+    ok('ISN directory', `a file — ${setting}`);
+  }
+}
 
 // --- report -----------------------------------------------------------------
 const pad = (s, n) => String(s).padEnd(n);
