@@ -312,6 +312,40 @@ const MUTATIONS = [
     test: null,
   },
   {
+    // §162. The ISN athlete directory ships FABRICATED records, and until
+    // 2026-10-12 served them unconditionally. Measured on a running instance:
+    // nine invented people returned to a signed-in clinician, and roster entry
+    // fills name, IC, date of birth, sport and programme from the hit. So on an
+    // ISN server the quickest way to create an athlete was to accept somebody
+    // who does not exist, with nothing on screen saying so.
+    //
+    // Unset in production must mean EMPTY. Defaulting the other way is silent -
+    // a plausible name with a plausible IC - which is this project's defect
+    // class aimed at the roster.
+    guard: 'isn directory: production with nothing configured serves NOBODY',
+    why: 'a fail-open default puts invented people in a real clinical roster',
+    pkg: 'backend',
+    from: ROOT,
+    file: 'backend/src/mock/isnDirectory.js',
+    find: "    return { mode: 'none', source: 'fail-closed default (production, AIRMS_ISN_DIRECTORY unset)', records: [] };",
+    replace: "    return { mode: 'demo', source: 'fail-open', records: DEMO_DIRECTORY };",
+    test: 'tests/isnDirectory.test.js',
+  },
+  {
+    // The flag `npm run verify:data` blocks on. If a fixture directory ever
+    // reported itself as real, that command would certify a fabricated install
+    // as ready to hold real athletes - the check answering the question it was
+    // built to stop anyone having to ask.
+    guard: 'isn directory: a fixture directory reports itself AS a fixture',
+    why: 'verify:data reads this flag to decide whether the install is clean',
+    pkg: 'backend',
+    from: ROOT,
+    file: 'backend/src/mock/isnDirectory.js',
+    find: "    isFixture: resolved.mode === 'demo',",
+    replace: '    isFixture: false,',
+    test: 'tests/isnDirectory.test.js',
+  },
+  {
     // §161. The medical dashboard opened a record without changing the address,
     // which JC reported as "there is no back button". The back button was there;
     // the ADDRESS was not following the selection, so the browser's own back

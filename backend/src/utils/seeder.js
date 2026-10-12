@@ -709,4 +709,11 @@ if (require.main === module) {
     });
 }
 
-module.exports = { seed };
+// buildUsers and DEMO_PASSWORD are exported so the two guards that need to
+// recognise a seeded database DERIVE the demo set rather than retyping it
+// (refuseIfProduction above, and scripts/verify-data.js). A hand-typed copy
+// drifts in the dangerous direction: a demo account added later stops being
+// recognised AS a demo account, so a fabricated database starts reading as a
+// real one. Requiring this file is inert — the seed only runs under
+// `require.main === module`.
+module.exports = { seed, buildUsers, DEMO_PASSWORD };

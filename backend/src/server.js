@@ -30,6 +30,7 @@ const { startScheduler, stopScheduler } = require('./utils/scheduler');
 const screeningRoutes = require('./routes/screenings');
 const screeningReportRoutes = require('./routes/screeningReports');
 const isnRoutes = require('./routes/isn');
+const { isnDirectoryStatus } = require('./mock/isnDirectory');
 
 // REFUSE TO START WITHOUT A SIGNING SECRET.
 //
@@ -259,7 +260,27 @@ async function start() {
     console.log('Sequelize sync complete (tables created if missing).');
   }
 
-  const server = app.listen(PORT, () => console.log(`AIRMS backend running on port ${PORT}`));
+  const server = app.listen(PORT, () => {
+    console.log(`AIRMS backend running on port ${PORT}`);
+    // WHICH ATHLETE DIRECTORY IS SERVED, said out loud at boot (§162).
+    //
+    // Deliberately NOT on /api/health: that endpoint is unauthenticated and its
+    // stated surface is an ok flag and whether the database answered. The
+    // operator installing this is the one who needs to know, and they are
+    // looking at the log.
+    //
+    // The fixture case is a WARNING because it is the dangerous one: nine
+    // invented people, with invented ICs, offered to a clinician creating a
+    // real athlete record.
+    const dir = isnDirectoryStatus();
+    if (dir.isFixture) {
+      console.warn(`[isn] DEMO DIRECTORY ACTIVE — ${dir.count} FABRICATED athlete records are`
+        + ' searchable and can be used to create roster entries.'
+        + ' Set AIRMS_ISN_DIRECTORY=none, or a path to the ISN export, on a real install.');
+    } else {
+      console.log(`[isn] athlete directory: ${dir.mode} (${dir.source}), ${dir.count} record(s)`);
+    }
+  });
 
   // Monthly digest (§16). Hourly tick against a persisted month marker rather
   // than a cron instant, so a process that was down when the report came due

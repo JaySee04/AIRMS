@@ -70,3 +70,105 @@ describe('the 2025-07-29 demo reports', () => {
       .toEqual(['Badminton/PELAPIS/Female', 'Badminton/PELAPIS/Female', 'Badminton/PELAPIS/Female']);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WHICH DIRECTORY IS SERVED (§162)
+//
+// The records above are FABRICATED, and until 2026-10-12 they were served
+// unconditionally. Measured on a running instance: `GET /api/isn/athletes?q=a`
+// returned all nine to a signed-in clinician, and roster entry fills Name, IC,
+// date of birth, sport and programme straight from the hit — so the quickest
+// way to create an athlete on an ISN server was to accept an invented person
+// with an invented IC.
+//
+// Each case re-requires the module, because the source is resolved ONCE at
+// require time: the cost of resolving per call would be a file read on every
+// keystroke of an autocomplete.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('which ISN directory is served', () => {
+  const load = (env) => {
+    const saved = { ...process.env };
+    Object.assign(process.env, env);
+    let mod;
+    jest.isolateModules(() => { mod = require('../src/mock/isnDirectory'); });
+    process.env = saved;
+    return mod;
+  };
+
+  it('serves the demo records in development, so nothing changes locally', () => {
+    const m = load({ NODE_ENV: 'development', AIRMS_ISN_DIRECTORY: '' });
+    expect(m.isnDirectoryStatus()).toMatchObject({ mode: 'demo', isFixture: true });
+    expect(m.ISN_DIRECTORY.length).toBeGreaterThan(0);
+  });
+
+  // THE GUARD THIS SECTION EXISTS FOR. Unset in production must mean EMPTY.
+  // Defaulting the other way is how nine invented people reach a clinical
+  // roster, and it is silent — a plausible name with a plausible IC.
+  it('FAILS CLOSED: production with nothing set serves NOBODY', () => {
+    const m = load({ NODE_ENV: 'production', AIRMS_ISN_DIRECTORY: '' });
+    expect(m.ISN_DIRECTORY).toEqual([]);
+    expect(m.isnDirectoryStatus()).toMatchObject({ mode: 'none', count: 0, isFixture: false });
+  });
+
+  it('still serves the demo records when production ASKS for them', () => {
+    // The stakeholder demo runs with NODE_ENV=production, so opting back in has
+    // to be possible — the point is that it is a choice somebody made.
+    const m = load({ NODE_ENV: 'production', AIRMS_ISN_DIRECTORY: 'demo' });
+    expect(m.isnDirectoryStatus()).toMatchObject({ mode: 'demo', isFixture: true });
+    expect(m.ISN_DIRECTORY.length).toBe(m.DEMO_DIRECTORY.length);
+  });
+
+  it('reports a fixture directory AS a fixture, which is what verify:data reads', () => {
+    // isFixture is the flag `npm run verify:data` blocks on. If it ever reported
+    // false for the demo set, that command would certify a fabricated install
+    // as ready for real athletes.
+    expect(load({ NODE_ENV: 'development' }).isnDirectoryStatus().isFixture).toBe(true);
+    expect(load({ NODE_ENV: 'production', AIRMS_ISN_DIRECTORY: 'none' })
+      .isnDirectoryStatus().isFixture).toBe(false);
+  });
+
+  it('refuses a malformed export rather than loading half of it', () => {
+    // Half a directory loaded is a roster where some athletes autocomplete and
+    // others do not, which reads as "ISN has not registered them yet".
+    const fs = require('fs');
+    const os = require('os');
+    const path = require('path');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'isn-dir-'));
+    const write = (name, body) => {
+      const f = path.join(dir, name);
+      fs.writeFileSync(f, body);
+      return f;
+    };
+    const cases = [
+      ['not an array', write('a.json', '{"not":"an array"}'), /must hold a JSON ARRAY/],
+      ['short IC', write('b.json', '[{"icNumber":"12345","name":"X"}]'), /12-digit icNumber/],
+      ['no name', write('c.json', '[{"icNumber":"990101101234","name":"  "}]'), /has no name/],
+      // A duplicate makes searchIsn return two hits for one person, so the
+      // importer's unique-match rule declines and that athlete silently stops
+      // being findable.
+      ['duplicate IC', write('d.json', '[{"icNumber":"990101101234","name":"A"},'
+        + '{"icNumber":"990101101234","name":"B"}]'), /duplicate icNumber/],
+      ['missing file', path.join(dir, 'nope.json'), /could not read/],
+    ];
+    for (const [label, file, pattern] of cases) {
+      expect(() => load({ NODE_ENV: 'production', AIRMS_ISN_DIRECTORY: file }))
+        .toThrow(expect.objectContaining({ message: expect.stringMatching(pattern) }));
+      expect(label).toBeTruthy();
+    }
+  });
+
+  it('loads a well-formed export and serves it as real, not as a fixture', () => {
+    const fs = require('fs');
+    const os = require('os');
+    const path = require('path');
+    const f = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'isn-ok-')), 'isn.json');
+    fs.writeFileSync(f, JSON.stringify([{
+      icNumber: '990101101234', name: 'Real Athlete', dateOfBirth: '1999-01-01',
+      gender: 'Female', sport: 'Badminton', programme: 'PODIUM',
+    }]));
+    const m = load({ NODE_ENV: 'production', AIRMS_ISN_DIRECTORY: f });
+    expect(m.isnDirectoryStatus()).toMatchObject({ mode: 'file', count: 1, isFixture: false });
+    expect(m.getIsnByIC('990101101234').name).toBe('Real Athlete');
+    expect(m.searchIsn('real')).toHaveLength(1);
+  });
+});

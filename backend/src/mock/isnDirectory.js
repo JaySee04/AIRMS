@@ -13,11 +13,51 @@
 // so we look them up in ISN and pull their Name / IC / age / sport / programme /
 // etc. to create the athlete pre-filled.
 //
-// ADD RECORDS HERE — append athletes to ISN_DIRECTORY below (JC will supply
-// names). `icNumber` is the athlete key (12 digits) and must be unique.
+// WHICH DIRECTORY IS SERVED IS A DEPLOYMENT DECISION, AND IT FAILS CLOSED
+// (2026-10-12, DESIGN_DECISIONS §162).
+//
+// The records below are FABRICATED. Six are invented people; three are the real
+// athletes whose reports were handed to Dr Thung for the demo, carrying dates of
+// birth tuned so the age DERIVED at the screening date matches the printed
+// report. Neither set belongs in a database of real athletes.
+//
+// Until now they were served unconditionally. Measured on a running instance:
+// `GET /api/isn/athletes?q=a` returned all nine to a signed-in clinician, and
+// the roster-entry form fills Name / IC / date of birth / sport / programme
+// straight from the hit. So on an ISN install the quickest path to creating an
+// athlete was to accept an INVENTED PERSON WITH AN INVENTED IC, with nothing on
+// screen saying the directory was a fixture. A fabricated patient that looks
+// exactly like a real one is this project's defect class, pointed at the roster.
+//
+// AIRMS_ISN_DIRECTORY picks the source:
+//
+//   unset, NODE_ENV !== 'production'   the demo records (development, tests)
+//   unset, NODE_ENV === 'production'   EMPTY — the fail-closed default
+//   'demo'                             the demo records, chosen deliberately;
+//                                      what the stakeholder demo sets, since
+//                                      that runs with NODE_ENV=production
+//   'none'                             empty, chosen deliberately
+//   <path to a .json file>             ISN's own export: an array of records in
+//                                      the shape below
+//
+// Empty is SAFE, not broken: the lookup returns nothing and the operator types
+// the athlete's details, which is what they would do for anyone not in the
+// directory anyway. Serving a fixture is the unsafe state, so that is the one
+// that has to be asked for.
+//
+// A malformed export THROWS at require time rather than being filtered. Half a
+// directory silently loaded is a roster where some athletes autocomplete and
+// others do not, which reads as "ISN has not registered them yet".
+//
+// ADD DEMO RECORDS HERE — append to DEMO_DIRECTORY below. `icNumber` is the
+// athlete key (12 digits) and must be unique. Real records belong in the JSON
+// export named by AIRMS_ISN_DIRECTORY, never in this file.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const ISN_DIRECTORY = [
+const fs = require('fs');
+const path = require('path');
+
+const DEMO_DIRECTORY = [
   {
     icNumber: '020714101234',
     name: 'Nurul Aina Binti Rahman',
@@ -192,6 +232,65 @@ const ISN_DIRECTORY = [
   },
 ];
 
+// Validated on the way in, because this is the one place a real athlete's
+// identity enters the system from outside the HoloMotion report.
+function loadFromFile(file) {
+  const abs = path.resolve(file);
+  let parsed;
+  try {
+    parsed = JSON.parse(fs.readFileSync(abs, 'utf8'));
+  } catch (e) {
+    throw new Error(`AIRMS_ISN_DIRECTORY: could not read ${abs} — ${e.message}`);
+  }
+  if (!Array.isArray(parsed)) {
+    throw new Error(`AIRMS_ISN_DIRECTORY: ${abs} must hold a JSON ARRAY of athlete records`);
+  }
+  const seen = new Set();
+  parsed.forEach((r, i) => {
+    if (!r || typeof r !== 'object') throw new Error(`AIRMS_ISN_DIRECTORY: record ${i} is not an object`);
+    if (!/^\d{12}$/.test(String(r.icNumber ?? ''))) {
+      throw new Error(`AIRMS_ISN_DIRECTORY: record ${i} has no 12-digit icNumber`);
+    }
+    if (!String(r.name ?? '').trim()) {
+      throw new Error(`AIRMS_ISN_DIRECTORY: record ${i} (${r.icNumber}) has no name`);
+    }
+    // A duplicate IC is worse than a missing record: searchIsn would return two
+    // hits for one person and the importer's unique-match rule would decline,
+    // so that athlete silently stops being findable.
+    if (seen.has(r.icNumber)) throw new Error(`AIRMS_ISN_DIRECTORY: duplicate icNumber ${r.icNumber}`);
+    seen.add(r.icNumber);
+  });
+  return parsed;
+}
+
+function resolveDirectory() {
+  const setting = String(process.env.AIRMS_ISN_DIRECTORY ?? '').trim();
+  if (setting === 'none') return { mode: 'none', source: 'disabled', records: [] };
+  if (setting === 'demo') return { mode: 'demo', source: 'demo fixtures', records: DEMO_DIRECTORY };
+  if (setting) return { mode: 'file', source: path.resolve(setting), records: loadFromFile(setting) };
+  if (process.env.NODE_ENV === 'production') {
+    // Fail closed. Nothing is logged at require time — server.js reports it at
+    // boot, where an operator will actually see it.
+    return { mode: 'none', source: 'fail-closed default (production, AIRMS_ISN_DIRECTORY unset)', records: [] };
+  }
+  return { mode: 'demo', source: 'demo fixtures (development default)', records: DEMO_DIRECTORY };
+}
+
+const resolved = resolveDirectory();
+const ISN_DIRECTORY = resolved.records;
+
+// What is actually being served, for the boot log, /api/health and
+// `npm run verify:data`. A fixture directory on a real install has to be
+// VISIBLE, not merely configurable.
+function isnDirectoryStatus() {
+  return {
+    mode: resolved.mode,
+    source: resolved.source,
+    count: ISN_DIRECTORY.length,
+    isFixture: resolved.mode === 'demo',
+  };
+}
+
 function ageFromDob(dob) {
   if (!dob) return null;
   const d = new Date(dob);
@@ -241,4 +340,4 @@ function getIsnByIC(ic) {
   return hit ? toAirmsRecord(hit) : null;
 }
 
-module.exports = { searchIsn, getIsnByIC, ISN_DIRECTORY };
+module.exports = { searchIsn, getIsnByIC, ISN_DIRECTORY, DEMO_DIRECTORY, isnDirectoryStatus };

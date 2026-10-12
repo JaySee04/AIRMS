@@ -99,8 +99,8 @@ cd backend; npm run coverage         # 82.4% statements / 72.3% branches (re-mea
                                      # a missing transitive dep (fs.realpath) before it would run.
 cd backend; npm run mutate           # BREAK each registered guard on purpose and prove its
                                      # test fails. A surviving mutation exits non-zero: the
-                                     # test is not testing what it claims. 134 guards across
-                                     # both packages. 132 are EXERCISED here; two are
+                                     # test is not testing what it claims. 136 guards across
+                                     # both packages. 134 are EXERCISED here; two are
                                      # listed with a `skip` because jsdom computes no
                                      # layout and only a real browser can see it (e2e
                                      # section 4l). A skip is REPORTED every run and is
@@ -254,6 +254,41 @@ cd backend; npm run bootstrap:admin -- --email "x@isn.gov.my" --name "Name"
 #   prints the target it was pointed at. `--force` overrides. It drops every table
 #   and inserts fabricated data, which is right for development and catastrophic
 #   against an institution's; it was one command away with no confirmation.
+cd backend; npm run verify:data      # IS THIS DATABASE FREE OF FABRICATED DATA? READ-ONLY.
+                                     # The question nothing else could answer (2026-10-12, DD 162).
+                                     # verify:install reads CONFIGURATION, verify:schema reads the
+                                     # SCHEMA, verify:claims reads BEHAVIOUR — so an install can be
+                                     # green on all three while serving sixty invented athletes
+                                     # beside the real ones. Nobody was asking the TABLES.
+                                     # Six checks, and ANY fabricated artefact is a blocker: there
+                                     # is no safe amount of fake patient data in a clinical system,
+                                     # and "we know which ones are fake" is exactly the knowledge
+                                     # that does not survive a handover. Demo accounts (DERIVED from
+                                     # buildUsers(), never retyped — a demo account added later must
+                                     # not quietly stop counting as one); the published password
+                                     # WHEREVER it appears (NOT redundant with the first: somebody
+                                     # copies `airms2026` out of these docs while setting up, and
+                                     # that account passes every other check — proven by planting it
+                                     # on a bootstrapped real admin); known fixture athletes; the ISN
+                                     # directory mode; THE NORMS IN FORCE; and the audit trail.
+                                     # THE NORMS CHECK IS THE SUBTLE ONE. A cohort norm is the ruler
+                                     # every band is measured against, so norms computed over
+                                     # fabricated athletes score a real athlete against invented
+                                     # peers and the verdict looks exactly like a real one.
+                                     # The audit finding is a WARNING, not a blocker — audit_logs is
+                                     # append-only with no delete path, so it cannot be "fixed"
+                                     # without dropping the table, which is a decision rather than a
+                                     # remedy a script should imply.
+                                     # MEASURED BOTH WAYS, because a check that has only ever said
+                                     # "not ready" is untested where it counts: seeded dev database
+                                     # exit 1 (5 blockers), a clean install built the way ISN would
+                                     # (empty schema -> bootstrap:admin -> AIRMS_ISN_DIRECTORY=none)
+                                     # exit 0, and that same clean install with the password planted
+                                     # exit 1 on that check alone.
+                                     # It deliberately CANNOT name the ~60 seeded athletes: they
+                                     # carry no marker, and guessing which roster rows are fake would
+                                     # be worse than saying so. The remedy for a seeded database is
+                                     # an EMPTY one, not a cleanup pass.
 cd backend; npm run verify:schema    # compare the LIVE database against what the models declare.
                                      # READ-ONLY. FOUR sections: redundant indexes in the database,
                                      # index DRIFT between models and database, redundancy declared

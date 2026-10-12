@@ -35,7 +35,8 @@
     "bodymap:prototype": "node scripts/bodymap-prototype.js",
     "indicators:proof": "node scripts/indicator-designs.js",
     "indicators:combined": "node scripts/indicator-combined.js",
-    "verify:install": "node scripts/verify-install.js"
+    "verify:install": "node scripts/verify-install.js",
+    "verify:data": "node scripts/verify-data.js"
   },
   "dependencies": {
     "@firecrawl/pdf-inspector": "^1.17.0",

@@ -15126,3 +15126,131 @@ derived from the selection and the selection is now derived from history. The
 problem, and removing it in favour of the browser control would strand anyone
 who arrived by deep link with no history to go back to.
 
+## 162. Nothing asked what was IN the database (2026-10-12, JC)
+
+JC, on moving to an ISN server: **"we will be using real athlete data. So prep
+for that."**
+
+### The hole
+
+Three commands look at an install, and none of them can see a fabricated
+patient:
+
+| command | what it reads |
+|---|---|
+| `verify:install` | the CONFIGURATION — every check is an environment variable |
+| `verify:schema` | the SHAPE of the database — `information_schema` |
+| `verify:claims` | the BEHAVIOUR of a running instance |
+
+So an ISN server could be correctly configured, correctly migrated, behaving
+correctly, and serving sixty invented athletes beside the real ones, with every
+guard green. §9 of the rules says *ask the system of record*; for this question
+the system of record is the tables, and nobody was asking them.
+
+### The one that would have caused harm
+
+`GET /api/isn/athletes` served **nine fabricated people** unconditionally.
+Measured on a running instance before changing anything — a signed-in clinician
+searching the ISN directory got all nine, and the roster-entry form fills Name,
+IC, date of birth, sport and programme straight from the hit.
+
+So on an ISN install the quickest way to create an athlete was to accept an
+**invented person with an invented IC**, with nothing on screen saying the
+directory was a fixture. Six are wholly invented; the other three are the real
+athletes whose reports were handed over for the demo, carrying dates of birth
+tuned so the age derived at the screening date matches the printed report —
+their real identities attached to fabricated facts.
+
+A fabricated patient that looks exactly like a real one is this project's defect
+class, pointed at the roster.
+
+### What changed
+
+**`AIRMS_ISN_DIRECTORY` picks the source, and it fails closed.**
+
+| value | directory served |
+|---|---|
+| unset, `NODE_ENV !== 'production'` | the demo records — development and tests unchanged |
+| unset, `NODE_ENV === 'production'` | **empty** |
+| `demo` | the demo records, chosen deliberately — what the stakeholder demo sets, since that runs with `NODE_ENV=production` |
+| `none` | empty, chosen deliberately |
+| a path to a `.json` file | ISN's own export |
+
+**Empty is safe, not broken.** The lookup returns nothing and the operator types
+the athlete's details — which is what they already do for anyone not in the
+directory. Serving a fixture is the unsafe state, so that is the one that has to
+be asked for.
+
+A malformed export **throws at require time** rather than being filtered. Half a
+directory silently loaded is a roster where some athletes autocomplete and others
+do not, which reads to an operator as "ISN has not registered them yet". Four
+refusals verified: a non-array file, a record with no 12-digit IC, a duplicate IC
+(which would make `searchIsn` return two hits and the importer's unique-match
+rule decline, so that athlete silently stops being findable), and an unreadable
+path.
+
+**The boot log says which directory is active**, and the fixture case is a
+warning rather than a line of status. Deliberately **not** on `/api/health`: that
+endpoint is unauthenticated and its stated surface is an ok flag and whether the
+database answered. The operator installing this is the one who needs to know, and
+they are reading the log.
+
+### `npm run verify:data`
+
+READ-ONLY, exits 0 ready / 1 blocker / 2 could not check — the same shape as
+`verify:install`, for the same reason.
+
+The question is deliberately absolute: on a database about to hold real
+athletes, **any** fabricated artefact is a blocker. There is no safe amount of
+fake patient data in a clinical system, and "we know which ones are fake" is
+precisely the knowledge that does not survive a handover.
+
+Six checks: demo accounts, the published password *wherever it appears*, fixture
+athletes on the roster, the ISN directory mode, **the norms in force**, and the
+audit trail.
+
+**The norms check is the subtle one.** A cohort norm is the ruler every band is
+measured against. Norms computed over fabricated athletes do not announce
+themselves — a real athlete is simply scored against invented peers, and the
+verdict looks exactly like a real one. On the dev database it correctly reports
+that `Pre-viva baseline 2026-08-25` is pinned and would do exactly that.
+
+**The password check is not redundant with the demo-account check**, and that was
+verified rather than assumed: an account created by hand can still carry the
+published password — somebody copies it out of the docs while setting up — and
+it would pass every other check here. Proven by planting `airms2026` on a
+bootstrapped real admin on a clean database: demo accounts `ok`, password
+`BLOCK`.
+
+The demo list is **derived from `buildUsers()`**, never retyped, so a demo
+account added later cannot quietly stop being recognised as one. That is the
+direction that fails silently — a fabricated database starting to read as a real
+one. `seeder.js` now exports `buildUsers` and `DEMO_PASSWORD` for it; requiring
+the file is inert, since the seed only runs under `require.main === module`.
+
+The audit-trail finding is a **warning, not a blocker**: `audit_logs` is
+append-only by design with no delete path anywhere, so it cannot be "fixed"
+without dropping the table — which is a decision, not a remedy a script should
+imply. What it says instead is that starting from an empty database is the only
+clean trail.
+
+### Measured both ways
+
+Rule 1, and rule 2 in the direction that is easy to skip — a check that has only
+ever said *not ready* is untested where it counts.
+
+| database | result |
+|---|---|
+| the seeded dev database | **exit 1** — 5 blockers, 1 warning |
+| a clean install built the way ISN would (empty schema → `bootstrap:admin` → `AIRMS_ISN_DIRECTORY=none`) | **exit 0** — ready |
+| that same clean install with `airms2026` planted on the real admin | **exit 1** — the password check alone |
+
+### What this does not do
+
+It cannot name the ~60 seeded athletes individually: they carry no marker, and
+inventing a heuristic that guesses which roster rows are fake would be worse
+than saying so. It reports what it actually knows — the known fixture ICs — and
+tells the operator to treat the whole database as fabricated if the demo
+accounts blocked. **The remedy for a seeded database is an empty one**, not a
+cleanup pass.
+

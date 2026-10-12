@@ -276,7 +276,7 @@ six concurrent runs failed; none of five sequential ones did.
 
 | Command | What only it can tell you |
 |---|---|
-| `npm run mutate` | That each registered guard can actually fail. 134 guards |
+| `npm run mutate` | That each registered guard can actually fail. 136 guards |
 | `npm run map` | Regenerates `SYSTEM_MAP.md`; both suites fail if it is stale |
 | `npm run audit:access` | The permission matrix, by **calling** all 67 endpoints as every role and with no token |
 | `npm run verify:claims` | Operational claims against a **running** instance — things only true or false of a deployment |

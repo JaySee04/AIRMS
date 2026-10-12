@@ -92,6 +92,21 @@ SMTP_USER=
 SMTP_PASS=
 SMTP_FROM='AIRMS <injriskdashboard@isn.gov.my>'
 
+# WHICH ATHLETE DIRECTORY THE LOOKUP SEARCHES. Leave UNSET on a real install:
+# with NODE_ENV=production and nothing here the directory is EMPTY, which is the
+# safe state. The records built into the source are FABRICATED — nine invented
+# or demo people with invented IC numbers — and roster entry fills name, IC,
+# date of birth, sport and programme straight from a hit, so serving them on a
+# real server means an operator can create a patient who does not exist.
+# Empty is not broken: the operator types the athlete's details, exactly as they
+# already do for anyone the directory does not know.
+#   (unset, production)  empty
+#   none                 empty, said out loud
+#   demo                 the fabricated records — demonstrations only
+#   /path/to/isn.json    ISN's own export: a JSON array of athlete records
+# A malformed export refuses at boot rather than loading half of itself.
+# AIRMS_ISN_DIRECTORY=
+#
 # Leave blank unless ISN produces the compact 12-page layout.
 VISION_API_KEY=
 
@@ -249,11 +264,28 @@ In this order. Each answers a different question, and the first two need the
 servers running:
 
 ```powershell
+cd backend; npm run verify:data       # is the database free of FABRICATED data?
 cd backend; npm run verify:schema     # does the database match the models?
 cd backend; npm run verify:claims     # do the operational claims hold here?
 cd backend; npm run audit:access      # call all 66 endpoints as every role
-cd frontend; npm run e2e              # 110 checks in a real browser
+cd frontend; npm run e2e              # 182 checks in a real browser
 ```
+
+**`verify:data` is the one that is specific to holding real athletes**, and it
+exists because none of the others can see a fabricated patient: `verify:install`
+reads configuration, `verify:schema` reads the schema, `verify:claims` reads
+behaviour. An install can be green on all three while serving sixty invented
+athletes beside the real ones.
+
+It is READ-ONLY and treats **any** fabricated artefact as a blocker — demo
+accounts, the published demo password wherever it appears, known fixture
+athletes on the roster, a fixture ISN directory, norms computed over invented
+peers, and demo rows in the audit trail. On a database built the way §4
+describes (empty schema, then `bootstrap:admin`) it reports **ready**.
+
+**Do not try to clean a seeded database.** The ~60 seeded athletes carry no
+marker, so nothing can name them individually, and `audit_logs` is append-only
+with no delete path anywhere. The remedy is an empty database.
 
 `verify:schema` section 4 must report `none`. It asks `information_schema`
 directly, which is the only thing that proves the schema is right — an endpoint
