@@ -31,8 +31,8 @@
 # the documented hosted pacing; the whole run is a few dozen requests.
 #
 # NO SECRETS NEEDED for the API half. It signs in with the seeded demo account,
-# whose password is in CLAUDE.md on purpose — the seeded dataset is fabricated
-# and is explicitly not a security boundary. The SCHEMA half does need a
+# whose password is published in the project docs on purpose — that dataset is
+# fabricated and is explicitly not a security boundary. The SCHEMA half needs a
 # database URL and is skipped without one, loudly (see below).
 
 name: Hosted health
