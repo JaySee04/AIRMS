@@ -267,7 +267,7 @@ servers running:
 cd backend; npm run verify:data       # is the database free of FABRICATED data?
 cd backend; npm run verify:schema     # does the database match the models?
 cd backend; npm run verify:claims     # do the operational claims hold here?
-cd backend; npm run audit:access      # call all 66 endpoints as every role
+cd backend; npm run audit:access      # call all 67 endpoints as every role
 cd frontend; npm run e2e              # 182 checks in a real browser
 ```
 
