@@ -12,6 +12,7 @@ import {
   SessionUser, PermissionKey, Role, hasPermission, firstPermittedPath, landingPathFor,
 } from '@/lib/auth';
 import { idleExpiredNow, touchIdle, clearIdle } from '@/lib/idleLock';
+import { SECTION_HOME_EVENT } from '@/lib/urlParam';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -251,6 +252,13 @@ export default function DashboardLayout({ children, allowedRoles, title, require
   // Navigating closes the drawer — otherwise it stays over the page the user
   // just asked for.
   useEffect(() => { setNavOpen(false); }, [pathname]);
+  // ...and so does a sidebar click on the page already open (§163), which
+  // changes no pathname and so would otherwise leave the drawer over the page.
+  useEffect(() => {
+    const close = () => setNavOpen(false);
+    window.addEventListener(SECTION_HOME_EVENT, close);
+    return () => window.removeEventListener(SECTION_HOME_EVENT, close);
+  }, []);
 
   // Escape closes it, which is what a keyboard user expects of anything that
   // covers the page.
@@ -278,6 +286,12 @@ export default function DashboardLayout({ children, allowedRoles, title, require
 
   return (
     <div className={`app-shell${navOpen ? ' nav-open' : ''}`}>
+      {/* SKIP TO CONTENT (§164, WCAG 2.4.1). The first thing Tab reaches on
+          every page. Without it a keyboard user crossed up to eight sidebar
+          links and four topbar controls before the first thing on the page —
+          on every page, every time. Hidden until focused, so it costs a mouse
+          user nothing. */}
+      <a href="#main-content" className="skip-link">Skip to main content</a>
       <Sidebar user={user} />
       {/* Tapping away from an open drawer closes it. Rendered only while open so
           it can never intercept clicks on the desktop layout. */}
@@ -299,7 +313,9 @@ export default function DashboardLayout({ children, allowedRoles, title, require
           onToggleTheme={() => setTheme((t) => (t === 'light' ? 'dark' : 'light'))}
           onLogout={handleLogout}
         />
-        <main className="page-content">
+        {/* tabIndex -1 so the skip link MOVES focus here rather than only
+            scrolling: without it the next Tab starts from the sidebar again. */}
+        <main id="main-content" tabIndex={-1} className="page-content">
           {blocked ? null : children}
         </main>
         {/* Shown once per user, and only to someone the gate has let in —

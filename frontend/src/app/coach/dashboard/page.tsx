@@ -18,6 +18,8 @@ import SectionHeading from '@/components/layout/SectionHeading';
 import CardHead from '@/components/layout/CardHead';
 import InfoTip from '@/components/ui/InfoTip';
 import { api } from '@/lib/api';
+import { useUrlParam } from '@/lib/useUrlParam';
+import BackBar from '@/components/layout/BackBar';
 import { MuscleEntry } from '@/lib/risk';
 import { computeBodyPartAlerts, AthleteRisks, BodyRegion, RADAR_LABELS, highThresholdsFor, riskRadarSeries } from '@/lib/screeningAlerts';
 import { getInitials } from '@/lib/name';
@@ -144,7 +146,12 @@ export default function CoachDashboard() {
 
   // Selected athlete → read-only detail view. `picked` is a PAST screening the
   // coach chose to view (null = the athlete's latest/live data).
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  //
+  // In the ADDRESS since §163, for the reasons §161 gave the medical record:
+  // opening an athlete pushed no history entry, so the browser's back button
+  // left the page — measured, a full reload back onto the squad — and the open
+  // athlete could not be bookmarked or reloaded.
+  const [selectedId, setSelectedId] = useUrlParam('athlete');
   const [picked, setPicked] = useState<FullScreening | null>(null);
 
   async function downloadTeamReport() {
@@ -477,6 +484,15 @@ export default function CoachDashboard() {
     () => (selectedId ? data?.athletes.find((a) => a.athleteId === selectedId) ?? null : null),
     [selectedId, data],
   );
+  // An address naming nobody in THIS squad — a stale bookmark, another sport's
+  // athlete — falls back to the squad. REPLACED rather than pushed: a pushed
+  // entry would be one that BACK returns to and immediately bounces off again,
+  // a back button that appears to do nothing.
+  useEffect(() => {
+    if (!data || !selectedId || selected) return;
+    window.history.replaceState(null, '', window.location.pathname);
+    setSelectedId(null);
+  }, [data, selectedId, selected, setSelectedId]);
 
   // ── Detail view ─────────────────────────────────────────────────────────
   if (selected) {
@@ -508,11 +524,9 @@ export default function CoachDashboard() {
     };
     return (
       <DashboardLayout allowedRoles={['coach']} title="Squad Readiness">
-        <button type="button" className="btn btn-outline btn-sm" style={{ marginBottom: 16 }} onClick={() => setSelectedId(null)}>
-          ← Back to squad
-        </button>
+        <BackBar label="Back to squad" onBack={() => setSelectedId(null)} current={selected.name} />
 
-        {dlError && <div className="alert alert-error" style={{ marginBottom: 16 }}>{dlError}</div>}
+        {dlError && <div role="alert" className="alert alert-error" style={{ marginBottom: 16 }}>{dlError}</div>}
 
         <div className="card" style={{ marginBottom: 20 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
@@ -573,7 +587,7 @@ export default function CoachDashboard() {
             )}
           />
           <div style={{ display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap' }}>
-            <div style={{ flex: '1 1 420px', minWidth: 300, maxWidth: 520 }}>
+            <div style={{ flex: '1 1 420px', minWidth: 'min(300px, 100%)', maxWidth: 520 }}>
               <RiskRadar
                 labels={RADAR_LABELS}
                 values={riskRadarSeries(view.risks)}
@@ -615,8 +629,8 @@ export default function CoachDashboard() {
   // ── Roster view ─────────────────────────────────────────────────────────
   return (
     <DashboardLayout allowedRoles={['coach']} title="Squad Readiness">
-      {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
-      {dlError && <div className="alert alert-error" style={{ marginBottom: 16 }}>{dlError}</div>}
+      {error && <div role="alert" className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
+      {dlError && <div role="alert" className="alert alert-error" style={{ marginBottom: 16 }}>{dlError}</div>}
 
       {/* ── 1. WHO NEEDS LOOKING AT, AND WHO IS FREE TO WORK (§124) ────────
           The first question a coach has. It used to be answered fourth, after

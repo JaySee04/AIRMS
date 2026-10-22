@@ -47,7 +47,7 @@ export default function InjuryStatusControl({ athleteId, isInjured, injuryNote, 
         <span className="card-sub">Set by medical staff — separate from the risk band. An injured athlete is excluded from cohort-norm calculation (still scored against it).</span>
       </div></div>
       {notice}
-      {err && <div className="alert alert-error" style={{ marginBottom: 10 }}>{err}</div>}
+      {err && <div role="alert" className="alert alert-error" style={{ marginBottom: 10 }}>{err}</div>}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <span className={isInjured ? 'badge-high' : 'badge-low'}>{isInjured ? 'Injured' : 'Not injured'}</span>
         {isInjured && injuryNote && <span style={{ fontSize: 'var(--fs-md)' }}>{injuryNote}</span>}

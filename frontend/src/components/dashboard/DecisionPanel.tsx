@@ -221,7 +221,7 @@ export default function DecisionPanel({
   if (error) {
     return (
       <div className="card" style={{ marginBottom: 20 }}>
-        <div className="alert alert-warning" style={{ marginBottom: 0 }}>{error}</div>
+        <div role="status" className="alert alert-warning" style={{ marginBottom: 0 }}>{error}</div>
       </div>
     );
   }

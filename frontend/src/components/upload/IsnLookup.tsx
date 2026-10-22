@@ -45,7 +45,7 @@ export default function IsnLookup({ onPick }: { onPick: (r: IsnRecord) => void }
         />
         <button type="button" className="btn btn-outline btn-sm" onClick={search} disabled={busy || !q.trim()}>{busy ? '…' : 'Search ISN'}</button>
       </div>
-      {err && <div className="alert alert-error" style={{ marginTop: 8 }}>{err}</div>}
+      {err && <div role="alert" className="alert alert-error" style={{ marginTop: 8 }}>{err}</div>}
       {searched && !busy && results.length === 0 && !err && (
         <div className="text-muted" style={{ fontSize: 'var(--fs-sm)', marginTop: 8 }}>No ISN athlete matches “{q.trim()}”.</div>
       )}

@@ -7,6 +7,17 @@
   --brand-gold: #f5c518;
   --brand-gold-light: #ffd86b;
 
+  /* THE KEYBOARD FOCUS COLOUR, which is not the brand gold (§164).
+     Every focus ring was --brand-gold, and nobody measured it as a ring:
+     #f5c518 is 1.63:1 on a light card and 1.39:1 on the light page, against
+     the 3:1 WCAG 1.4.11 asks of a focus indicator. In the default theme a
+     keyboard user could barely see where they were, on every page. Dark mode
+     was fine (9.47:1), which is why it read as working.
+     Navy is the mirror image (14.19:1 light, 1.09:1 dark), so the ring follows
+     the theme — the rule the athlete rail's keyboard cursor already used.
+     The SIDEBAR is navy in both themes and overrides this back to gold. */
+  --focus-ring: var(--brand-navy);
+
   /* ── Surfaces and edges ──────────────────────────────────────────────
      A panel reads as SOLID when two things are true: its edge is visible, and
      it sits on a ground darker than itself. Both were nearly absent, and the
@@ -211,6 +222,7 @@
   --bg: #0f1923;
   --bg-card: #1a2535;
   --bg-sidebar: #0a1a2a;
+  --focus-ring: var(--brand-gold);
   /* Matched to the light ramp by RATIO, not by hue: 1.33:1 -> 1.91:1 against
      the card. Dark mode needs the edge more than light mode does, because a
      shadow on near-black is invisible, so the border is doing all of the work
@@ -616,6 +628,22 @@ button { cursor: pointer; font-family: inherit; }
   /* The role caption is the first thing to go — the avatar and name already
      say who is signed in, and the row has to fit a menu button now. */
   .topbar-role-info { display: none; }
+}
+/* 400% ZOOM (§164). WCAG 1.4.10 lays a 1280px screen out at 320 CSS px, and
+   there the topbar alone was 325-346px wide: six pages scrolled sideways for
+   every low-vision reader who zoomed in. Same order of sacrifice as above —
+   the full name goes next (the initials stay, and the dropdown header still
+   names the account), and a long title steps down and truncates rather than
+   pushing the account menu off the screen. */
+@media (max-width: 480px) {
+  .topbar-username { display: none; }
+  .topbar-left { min-width: 0; }
+  .topbar-title {
+    font-size: var(--fs-lg);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 }
 @media (max-width: 900px) and (prefers-reduced-motion: reduce) {
   .sidebar { transition: none; }
@@ -1673,15 +1701,16 @@ label:has(> input[type='radio']) {
      meant to fail — the §118 prose-blindness trap.) */
   background: rgba(127, 145, 170, 0.14);
 }
-/* --brand-gold, matching the global focus ring below. This said var(--primary),
-   which is defined nowhere, so the declaration was invalid at computed-value
+/* --focus-ring, matching the global focus ring below (§164 made it theme-aware;
+   it was the brand gold, which a light card cannot show). Before that it named
+   a token defined nowhere, so the declaration was invalid at computed-value
    time and `outline` fell back to its initial value of `none` -- and because
    this rule is MORE specific than the global `button:focus-visible`, it took
    the working gold ring down with it. Measured in Chrome: outline-style
    computed `none` here while an ordinary button computed `solid 2px`.
    The offset stays negative: the row is full-bleed with -8px margins, so an
    outset ring would be clipped by the card. */
-.bm-card-item:focus-visible { outline: 2px solid var(--brand-gold, #c89b3c); outline-offset: -2px; }
+.bm-card-item:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
 
 
 .bm-legend {
@@ -1959,6 +1988,49 @@ label:has(> input[type='radio']) {
   white-space: nowrap;
   border: 0;
 }
+
+/* The accessibility statement (§164, app/accessibility). A reading page, not a
+   dashboard: one column at a comfortable measure, body-size text, the page
+   ground rather than a card. */
+.statement {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: var(--sp-xl) 16px 48px;
+  line-height: 1.65;
+  font-size: var(--fs-md);
+  color: var(--text);
+}
+.statement h1 { font-size: var(--fs-2xl); margin: var(--sp-md) 0; }
+.statement h2 { font-size: var(--fs-xl); margin: var(--sp-xl) 0 var(--sp-sm); }
+.statement ul { padding-left: 1.2em; }
+.statement li { margin-bottom: var(--sp-sm); }
+.statement a { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
+.statement kbd {
+  font-family: inherit; font-size: 0.9em; padding: 1px 6px;
+  border: 1px solid var(--border); border-radius: var(--r-xs); background: var(--bg-card);
+}
+.statement-meta { margin-top: var(--sp-xl); color: var(--text-muted); font-size: var(--fs-sm); }
+
+/* Skip to content (§164). Off-screen until it has keyboard focus, then pinned
+   top-left above everything, including the sticky topbar (z 50) and the back
+   bar (z 40). Moved rather than clipped, so the focused state is a real box
+   with a real focus ring. */
+.skip-link {
+  position: absolute;
+  left: var(--sp-sm);
+  top: -100px;
+  z-index: 100;
+  padding: var(--sp-sm) var(--sp-md);
+  border-radius: var(--r-sm);
+  background: var(--brand-navy);
+  color: #fff;
+  font-weight: 600;
+  text-decoration: none;
+}
+.skip-link:focus { top: var(--sp-sm); }
+/* The target is focusable only so the skip lands there; it is not a control,
+   so it draws no ring of its own. */
+#main-content:focus { outline: none; }
 
 /* Search box with a trailing affordance: the "/" hint, swapped for a clear
    button as soon as there is something to clear. */
@@ -2560,6 +2632,11 @@ tr.row-flash > td { animation: row-flash 1.6s ease-out; }
   border-radius: var(--r-sm);
   font-size: var(--fs-md);
   font-weight: 600;
+  /* A <button> computes `line-height: normal`; an <a> inherits the body's 1.55.
+     So a link styled as a button stood 4px taller than the button beside it —
+     measured 31px against 27px in the §163 back bar, and the same on Cohort
+     Norms' Settings link. Pinning `normal` changes no <button> at all. */
+  line-height: normal;
   border: none;
   /* `transition: opacity` was animating the ONE property no button variant
      changes. Every hover here swaps `background` (and `.btn-outline` also its
@@ -2880,7 +2957,7 @@ tr.row-flash > td { animation: row-flash 1.6s ease-out; }
 }
 [data-theme="dark"] .password-toggle:hover { background: rgba(255, 255, 255, 0.08); }
 .password-toggle:focus-visible {
-  outline: 2px solid var(--brand-navy);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 1px;
 }
 
@@ -3042,7 +3119,7 @@ tbody tr:hover { background: var(--bg); }
 .band-choice--low.is-current  { background: var(--risk-low-bg); }
 .band-choice--mod.is-current  { background: var(--risk-moderate-bg); }
 .band-choice--high.is-current { background: var(--risk-high-bg); }
-.band-choice.is-pending { border-color: var(--brand-gold); box-shadow: 0 0 0 2px var(--brand-gold); }
+.band-choice.is-pending { border-color: var(--focus-ring); box-shadow: 0 0 0 2px var(--focus-ring); }
 .band-choice-dot { width: 12px; height: 12px; flex-shrink: 0; margin-top: 3px; border-radius: 50%; }
 .band-choice--low  .band-choice-dot { background: var(--risk-low); }
 .band-choice--mod  .band-choice-dot { background: var(--risk-moderate); }
@@ -3063,7 +3140,7 @@ tbody tr:hover { background: var(--bg); }
 .band-override-note { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border); }
 .band-override-note label { display: block; font-size: var(--fs-sm); line-height: 1.5; margin-bottom: 6px; }
 .band-override-textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-card); color: var(--text); font: inherit; font-size: var(--fs-md); resize: vertical; }
-.band-override-textarea:focus { outline: 2px solid var(--brand-gold); outline-offset: 1px; }
+.band-override-textarea:focus { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
 .band-override-actions {
   display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
   margin-top: 10px;
@@ -3142,9 +3219,23 @@ select:focus-visible,
 textarea:focus-visible,
 [role="button"]:focus-visible,
 [role="option"]:focus-visible {
-  outline: 2px solid var(--brand-gold, #c89b3c);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
   border-radius: var(--r-xs);
+}
+/* The sidebar is navy in BOTH themes, so the theme's ring would vanish on it
+   (navy on navy, 1.00:1). Gold there: 8.71:1. */
+.sidebar :focus-visible { outline-color: var(--brand-gold); }
+/* Form fields re-take the ring. `.form-group input:focus { outline: none }` and
+   the rail search's twin out-rank the rule above, leaving only a navy border —
+   1.09:1 on a dark card, i.e. focusing a field in dark mode made its edge
+   FAINTER than at rest (§164). Same specificity, later, so it wins. */
+.form-group input:focus-visible,
+.form-group select:focus-visible,
+.form-group textarea:focus-visible,
+.medical-rail-search-input:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
 }
 
 /* Respect the OS reduced-motion preference: collapse transitions and
@@ -3380,6 +3471,20 @@ textarea:focus-visible,
   display: flex; flex-wrap: wrap; gap: var(--sp-md);
   margin-top: var(--sp-sm); font-size: var(--fs-xs);
 }
+/* "Show as table" under a chart (§164, Charts.tsx ChartTable). Quiet until
+   asked for: the chart stays the first reading. The summary is underlined so
+   it reads as an action rather than a caption, in the body text colour so it
+   carries the same contrast as everything else on the card. */
+.chart-table { margin-top: var(--sp-sm); font-size: var(--fs-sm); }
+.chart-table > summary {
+  cursor: pointer;
+  width: fit-content;
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.chart-table[open] > summary { margin-bottom: var(--sp-sm); }
+.chart-table td { font-variant-numeric: tabular-nums; }
 .periodchart-key { display: inline-flex; align-items: center; gap: 6px; }
 .periodchart-key em { font-style: normal; color: var(--text-muted); font-size: var(--fs-2xs); }
 .periodchart-key-col {
@@ -5132,6 +5237,35 @@ textarea:focus-visible,
      identity without drawing a second card edge inside the card. */
   border-top: 1px solid var(--border-subtle);
 }
+/* THE WAY OUT OF A DRILL-DOWN (§163, components/layout/BackBar.tsx). Sticky
+   beneath the topbar, because a record runs several screens and a back button
+   that scrolls away is one the reader has to go looking for. Painted in the
+   PAGE colour, not the card's, so it reads as part of the page chrome rather
+   than as another card, and content scrolls cleanly underneath it. z-index sits
+   under the topbar's 50 so the account dropdown still opens over it. */
+.back-bar {
+  position: sticky;
+  top: var(--topbar-height);
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-sm);
+  margin: 0 0 var(--sp-md);
+  padding: var(--sp-sm) 0;
+  background: var(--bg);
+}
+.back-bar-current {
+  margin-left: auto;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+@media print { .back-bar { display: none; } }
 /* THE IDENTITY CARD HUGS ITS CONTENT — tried stretched first and it was worse
    (§137). Matching the radar column's height gave a 230px block of empty TINTED
    card: a wash that large stops reading as "this athlete's band" and starts

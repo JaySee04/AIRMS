@@ -1259,6 +1259,147 @@ async function visit(browser, route, session) {
       check('medical nav: a reload after leaving stays on the worklist',
         !afterReload, `recordOpen=${afterReload}`);
     }
+    // ── 9c. One way out of every drill-down (2026-10-13, JC, §163) ──────────
+    //
+    // JC: "make sure there are easily accessible navigation features like the
+    // dashboard back button for the medical staff". Measured before the fix:
+    //   - the sidebar's own "Medical Dashboard" link, clicked with a record
+    //     open, changed the ADDRESS to the worklist and left the RECORD open;
+    //   - a record that failed to load had no back control at all;
+    //   - the coach's drill-down was not in the address, so BACK reloaded;
+    //   - Sport Assessment -> record -> BACK came home on the FIRST sport,
+    //     and the record offered no way back to the sport it came from.
+    // Every one is a history or layout claim, so it lives here, not in jsdom.
+    {
+      const r = await visit(browser, '/medical/dashboard', sessions.medical);
+      await r.page.setViewport({ width: 1440, height: 900 });
+      await r.page.evaluate(() => { document.querySelector('.athlete-row')?.click(); });
+      await r.page.waitForFunction(() => !!document.querySelector('.medical-id-actions'), { timeout: SETTLE_MS * 3 })
+        .catch(() => {});
+      // STICKY: the back bar is still on screen two thousand pixels into the
+      // record — a back button that scrolls away is one the reader goes hunting for.
+      await r.page.evaluate(() => window.scrollTo(0, 2000));
+      await new Promise((x) => setTimeout(x, 200));
+      const stuck = await r.page.evaluate(() => {
+        const b = document.querySelector('.back-bar');
+        if (!b) return null;
+        const rect = b.getBoundingClientRect();
+        return { top: Math.round(rect.top), visible: rect.bottom > 0 && rect.top < innerHeight, y: Math.round(scrollY) };
+      });
+      check('drill-down: the back bar stays on screen when the record is scrolled',
+        !!stuck && stuck.visible && stuck.y > 0, JSON.stringify(stuck));
+
+      await r.page.evaluate(() => { window.__navAlive = 'planted'; document.querySelector('.sidebar-link.active')?.click(); });
+      await r.page.waitForFunction(() => !document.querySelector('.medical-id-actions'), { timeout: SETTLE_MS * 3 })
+        .catch(() => {});
+      const home = await r.page.evaluate(() => ({
+        search: location.search, open: !!document.querySelector('.medical-id-actions'), alive: window.__navAlive ?? null,
+      }));
+      check('drill-down: the sidebar link to the open page closes the record AND clears the address',
+        home.search === '' && !home.open && home.alive === 'planted', JSON.stringify(home));
+    }
+    {
+      // An id that resolves to nothing must still leave a way out.
+      const r = await visit(browser, '/medical/dashboard?athlete=000000000000', sessions.medical);
+      const out = await r.page.evaluate(() => /back to worklist/i.test(document.querySelector('.back-bar')?.textContent || ''));
+      check('drill-down: a record that fails to load still offers "Back to worklist"', out);
+    }
+    {
+      const r = await visit(browser, '/coach/dashboard', sessions.coach);
+      await r.page.evaluate(() => { window.__navAlive = 'planted'; document.querySelector('.athlete-row, .quick-list button')?.click(); });
+      await r.page.waitForFunction(() => !!document.querySelector('.back-bar'), { timeout: SETTLE_MS * 3 }).catch(() => {});
+      const opened = await r.page.evaluate(() => location.search);
+      await r.page.goBack().catch(() => {});
+      await r.page.waitForFunction(() => !document.querySelector('.back-bar'), { timeout: SETTLE_MS * 3 }).catch(() => {});
+      const back = await r.page.evaluate(() => ({
+        search: location.search, bar: !!document.querySelector('.back-bar'), alive: window.__navAlive ?? null,
+      }));
+      check('coach nav: opening an athlete puts them in the address',
+        /^\?athlete=.+/.test(opened), `search=${JSON.stringify(opened)}`);
+      check('coach nav: BACK returns to the squad in-page, not by reloading',
+        back.search === '' && !back.bar && back.alive === 'planted', JSON.stringify(back));
+    }
+    {
+      const r = await visit(browser, '/medical/sport-assessment', sessions.medical);
+      const chosen = await r.page.evaluate(() => {
+        const s = document.querySelector('#sport-pick');
+        if (!s || s.options.length < 2) return null;
+        const v = s.options[s.options.length - 1].value;
+        s.value = v; s.dispatchEvent(new Event('change', { bubbles: true }));
+        return v;
+      });
+      await new Promise((x) => setTimeout(x, SETTLE_MS));
+      const row = await r.page.evaluate(() => { const a = document.querySelector('.sport-shortlist-row'); if (a) a.click(); return !!a; });
+      if (!chosen || !row) {
+        // Rule 2: a scenario the data cannot stage is a FAILURE to measure,
+        // never a pass. The last sport on the seeded roster has a shortlist.
+        check('sport nav: the round trip could be staged on this data', false,
+          `sport=${chosen} shortlist=${row}`);
+      } else {
+        await r.page.waitForFunction(() => !!document.querySelector('.back-bar a'), { timeout: SETTLE_MS * 3 }).catch(() => {});
+        const offer = await r.page.evaluate(() => document.querySelector('.back-bar a')?.textContent || '');
+        check('sport nav: a record opened from Sport Assessment offers the way back to that sport',
+          offer.includes(chosen), `offer=${JSON.stringify(offer)} sport=${chosen}`);
+        await r.page.goBack().catch(() => {});
+        await r.page.waitForFunction(() => !!document.querySelector('#sport-pick'), { timeout: SETTLE_MS * 3 }).catch(() => {});
+        await new Promise((x) => setTimeout(x, SETTLE_MS));
+        const kept = await r.page.evaluate(() => document.querySelector('#sport-pick')?.value ?? null);
+        check('sport nav: BACK from the record returns to the SAME sport, not the first',
+          kept === chosen, `kept=${kept} chose=${chosen}`);
+      }
+    }
+    // ── 9d. Accessibility that only a browser can show (2026-10-14, §164) ────
+    //
+    // jsdom has no focus model worth the name and no layout, so these are here:
+    // a skip link that is rendered but does not MOVE focus is the classic broken
+    // one (an href with no focusable target scrolls and leaves Tab where it was).
+    {
+      const r = await visit(browser, '/medical/dashboard', sessions.medical);
+      await r.page.evaluate(() => { document.activeElement && document.activeElement.blur(); window.scrollTo(0, 0); });
+      await r.page.keyboard.press('Tab');
+      const first = await r.page.evaluate(() => ({
+        text: (document.activeElement?.textContent || '').trim(),
+        top: Math.round(document.activeElement?.getBoundingClientRect().top ?? -999),
+      }));
+      check('a11y: the first Tab on a page is "Skip to main content", and it is on screen',
+        first.text === 'Skip to main content' && first.top >= 0, JSON.stringify(first));
+      await r.page.keyboard.press('Enter');
+      await new Promise((x) => setTimeout(x, 150));
+      const landed = await r.page.evaluate(() => document.activeElement?.id || document.activeElement?.tagName);
+      check('a11y: the skip link MOVES focus to the content, past the navigation',
+        landed === 'main-content', `focus=${landed}`);
+    }
+    {
+      // Readable while signed OUT — the one reader who most needs it may be the
+      // one who cannot use the sign-in form.
+      const r = await visit(browser, '/', null);
+      const linked = await r.page.evaluate(() => [...document.querySelectorAll('a')].some((a) => a.getAttribute('href') === '/accessibility'));
+      const s = await visit(browser, '/accessibility', null);
+      const h1 = await s.page.evaluate(() => document.querySelector('h1')?.textContent || '');
+      check('a11y: the sign-in page links the accessibility statement', linked);
+      check('a11y: the statement opens with no session, and says it only partially conforms',
+        s.url === '/accessibility' && /Accessibility statement/.test(h1) && /partially conforms/.test(s.text),
+        `at ${s.url} h1=${JSON.stringify(h1)}`);
+    }
+    {
+      // A chart's values, reachable without a pointer: focus the disclosure and
+      // press Enter, as a keyboard user would.
+      const r = await visit(browser, '/admin/dashboard', sessions.admin);
+      const opened = await r.page.evaluate(() => {
+        const sm = document.querySelector('.chart-table > summary');
+        if (!sm) return null;
+        sm.focus();
+        return true;
+      });
+      if (opened) await r.page.keyboard.press('Enter');
+      await new Promise((x) => setTimeout(x, 150));
+      const t = await r.page.evaluate(() => {
+        const d = document.querySelector('.chart-table');
+        return d ? { open: d.open, rows: d.querySelectorAll('tbody tr').length } : null;
+      });
+      check('a11y: a chart\'s "Show as table" opens from the keyboard and holds rows',
+        !!t && t.open && t.rows > 0, JSON.stringify(t));
+    }
     // ── 10. Sign in once on a device, and stay — but not forever (§148) ───────
     //
     // JC has now settled this question three times, so what is pinned here is

@@ -92,18 +92,22 @@ cd backend; npm run coverage         # 82.4% statements / 72.3% branches (re-mea
                                      # line deleted — it now asserts the phrase only the route writes,
                                      # naming what the override REPLACED.
                                      # The FRONTEND was the remaining blind spot and is
-                                     # now partly closed: e2e (182 checks), FIVE jsdom component
+                                     # now partly closed: e2e (194 checks), FIVE jsdom component
                                      # suites, and since 2026-09-12 ONE test that mounts a page.tsx
                                      # (athlete/dashboard - DD 85d). The other 25 authenticated
                                      # pages are still covered by e2e or by nobody. Coverage needed
                                      # a missing transitive dep (fs.realpath) before it would run.
 cd backend; npm run mutate           # BREAK each registered guard on purpose and prove its
                                      # test fails. A surviving mutation exits non-zero: the
-                                     # test is not testing what it claims. 136 guards across
-                                     # both packages. 134 are EXERCISED here; two are
-                                     # listed with a `skip` because jsdom computes no
-                                     # layout and only a real browser can see it (e2e
-                                     # section 4l). A skip is REPORTED every run and is
+                                     # test is not testing what it claims. 142 guards across
+                                     # both packages. 137 are EXERCISED here; five are
+                                     # listed with a `skip` because only a real browser
+                                     # can see them — one is layout (jsdom computes none,
+                                     # e2e 4l), three are HISTORY (jsdom's stub fires
+                                     # no popstate for a real back, e2e 9b/9c) and one is
+                                     # FOCUS (the skip link, e2e 9d). Each skip
+                                     # names the e2e check that catches it, and each was
+                                     # proven by breaking it under `npm run e2e`. A skip is REPORTED every run and is
                                      # never counted as caught — a guard left OUT of this
                                      # file looks exactly like one nobody wrote, which is
                                      # how section 123's guard retired itself while the
@@ -652,7 +656,7 @@ cd frontend; npm run verify:csp   # the CSP, in REAL CHROME against a PRODUCTION
 
 # Frontend production build
 cd frontend; npm run e2e   # END-TO-END smoke: a real Chrome against the running
-                           # servers (needs `npm run dev`). 182 checks - auth boundaries,
+                           # servers (needs `npm run dev`). 194 checks - auth boundaries,
                            # SIGN IN ONCE AND STAY, plus the IDLE LOCK that makes it
                            # safe (section 10, DD 148). A device with a live session
                            # goes straight to its dashboard; signing out still lands
@@ -830,7 +834,7 @@ cd backend; npx jest      # 75 suites / 1161 tests: cohorts, overallIndicator, p
                           # other suite. Static: it reads both files as text and never
                           # require()s the target, because several modules build a Sequelize
                           # instance at import time)
-cd frontend; npx jest     # 32 suites / 541 tests (the run is pinned to UTC by
+cd frontend; npx jest     # 33 suites / 558 tests (the run is pinned to UTC by
                           # jest.globalSetup.js - this machine sits IN the institution
                           # zone, which made the date tests pass for the wrong reason
                           # until mutation testing said so; see DD 62): lib/risk.ts, lib/screeningUploadStore.ts, bodymap-data/muscles.ts,
@@ -970,7 +974,7 @@ counting paint ops is a trap — the dead-band *zone* is itself a fill, so fill
 counts coincide between opposite renderings; assert on the fill **colour**.
 
 **Frontend coverage, stated accurately (2026-09-12).** There are end-to-end
-tests (`cd frontend; npm run e2e`, 182 checks), FIVE jsdom component suites
+tests (`cd frontend; npm run e2e`, 194 checks), FIVE jsdom component suites
 — `DashboardLayout` (the access gate), `OverallRiskBadge` (the hero),
 `ScreeningPanel` (§70.4's field resolution) and `DecisionPanel` (what the change
 list CLAIMS to cover — DD 79.4, and it is a jsdom test rather than an e2e check
@@ -1629,6 +1633,8 @@ Forgetting the sync is the one hazard the design trades for, so **both** test su
 - Every authenticated page wraps its content in `<DashboardLayout allowedRoles={[...]} title="...">` (`components/layout/`). The layout enforces client-side role gating; backend RBAC is the actual security
 - Auth state is JWT in `localStorage`, managed via `lib/auth.ts` (`saveSession` / `getSession` / `clearSession`). API calls go through `lib/api.ts` which auto-attaches the bearer token. **`lib/api.ts` throws `ApiError` carrying the HTTP status**, and `isAuthError()` tells a refusal (401/403) from a network failure — a bare `Error` collapsed those into one, and they need opposite handling
 - **`DashboardLayout` confirms the session with the SERVER, for every role** (2026-09-01). The gate reads `airms_user` from `localStorage`, which is a login-time snapshot the browser owns — it answers "what does this browser claim?", not "who is this?". Measured with a real browser against 20 protected routes: with no session every route already bounced to `/`, nothing painted, and all 46 API calls returned 401; as a coach, every admin/medical route bounced and every call 403'd. What did NOT hold was an **expired** token (7-day JWT: on day 8 the snapshot still said "admin", so the shell rendered and every panel failed 401 — a broken page instead of the sign-in screen) and a hand-edited snapshot, which rendered an empty admin shell. `/auth/me` on mount settles both; only `isAuthError` ends the session, because signing everyone out whenever the API blinks would be its own outage. **Since 2026-09-17 that confirmation is cached for 60 seconds per tab** (`§111.7`): this component mounts on every page, so it fired on every navigation — measured A/B against a production build, one admin opening five pages cost **7** calls and now costs **2**. It does not weaken the guarantee, which was only ever "within one navigation" and is already unbounded for anyone who sits on one page; the backend re-reads the user row on every request regardless. Keyed by token in `sessionStorage`, and marked **only when the server answers**, so a refusal or a network failure is never mistaken for a confirmation. Note the trap it exposed: with the cache in place, §80.2's mutation guard SURVIVED, because its test counted `/auth/me` calls as a proxy for effect re-runs and the cache separated the two — that test now mocks a reply that never arrives
+- **Accessibility has four standing rules** (2026-10-14, `DESIGN_DECISIONS.md §164`). (1) **Every `.alert` box carries a live role** — `role="alert"` for an error, `role="status"` otherwise, written immediately before `className`; `src/app/alertRoles.test.ts` finds one without, including a class chosen in a ternary. (2) **A focus ring uses `var(--focus-ring)`, never `--brand-gold`** — the gold is 1.63:1 on a light card and was every ring in the app; `cssTokens.test.ts` computes the ratio in both themes and refuses a gold `outline`. (3) **A chart whose values are drawn rather than written gets `ChartTable`** ("Show as table") in `components/charts/Charts.tsx`; one whose values are already text does not. (4) **`verify:layout` sweeps 320px** — WCAG 1.4.10's 400% zoom, not a phone. `/accessibility` is the public statement and must stay honest: it says *partially conforms* and lists its gaps; re-measure before changing a claim on it. ISN's answer on *Pekeliling Pendigitalan Bil. 1/2025* decides whether Bahasa Melayu is required.
+- **A drill-down keeps its state in the ADDRESS and leaves through ONE bar** (2026-10-13, `DESIGN_DECISIONS.md §163`). Page state that a reader opens and leaves — the medical record and the coach's squad member (`?athlete=`), Sport Assessment's sport (`?sport=`) — goes through `useUrlParam(name, 'push' | 'replace')` in `lib/useUrlParam.ts`: read on mount, written on change, following back/forward. `push` for a drill-down so BACK steps out of it, `replace` for a filter. The way out is `components/layout/BackBar.tsx`, sticky beneath the topbar and rendered from the moment something is **selected**, not once it has loaded. The sidebar link to the page already open dispatches `SECTION_HOME_EVENT` rather than navigating to itself, because a Next `<Link>` to the same pathname does not remount the page and the address and the screen then disagree. **Do not hand-write a fourth set of history effects, and do not gate the hook's first write on a "first run" ref** — StrictMode runs mount effects twice and that version erased deep links (§163). History is browser-only, so these are pinned by e2e §9b/§9c, not jsdom.
 - Modules 1 and 6 (Athlete Dashboard & Overall Risk Indicator, Clinical & Squad Monitoring) share the same dashboard components (`BodyMap`, `RiskRadar`, `ScreeningPanel` — the embedded HoloMotion report with threshold strips; there are no standalone screening pages) and the same `classifyCompositeRisk()` from `lib/risk.ts` — the medical view is "the athlete dashboard with a clinician's affordances added"
 - **Security headers are set in `next.config.js`** (2026-09-13, `DESIGN_DECISIONS.md §91.5`). The API had the full helmet set for months while the WEB APP — the half that actually paints names, ICs and clinical notes — sent none. Five now: `frame-ancestors 'none'` + `X-Frame-Options: DENY` (verified no `<iframe>`/`<embed>` anywhere; PDFs download via blob URL, never framed — and the controls a clickjack would bait include *declare injured* and *override a band*), `Referrer-Policy: strict-origin-when-cross-origin` (routes carry ICs), `nosniff`, and a `Permissions-Policy` denying camera/mic/geolocation. **The full CSP is in `src/middleware.ts`** (2026-09-13, `§92`), not next.config — it carries a per-request nonce, which a static header cannot. Declared in ONE place on purpose: two `Content-Security-Policy` headers are enforced as an *intersection*, so a second copy would silently change the effective policy. **`export const dynamic = 'force-dynamic'` in `src/app/layout.tsx` is REQUIRED by it and is the one-line rollback point** — with routes statically prerendered the HTML carries no nonce, and Chrome blocked all 16 inline scripts: pages rendered their server HTML and never hydrated, i.e. a dead page that looks alive. **Verify with `cd frontend; npm run verify:csp`** (real Chrome, production build — `next dev` needs `'unsafe-eval'`, so a dev run proves nothing). 20/20, and `npm run e2e` was 110/110 against that same hardened build on 2026-09-13 (the suite is 150 checks now) — both re-run against the HOSTED instance after deploy, not just locally. `connect-src` is derived from `NEXT_PUBLIC_API_URL` because web and API are always different origins; **if dashboards render but every panel is empty, check CORS/`FRONTEND_URL` before the CSP — the two failures look identical from the page.** `outputFileTracingRoot: __dirname` is also set: three lockfiles made Next infer the REPO ROOT as its build root, which is not the Vercel build context.
 - Styling: a single `frontend/src/styles/globals.css` with CSS custom properties. Dark mode via `[data-theme="dark"]` on `<html>`. **Do not introduce CSS-in-JS, Tailwind, or component libraries.**

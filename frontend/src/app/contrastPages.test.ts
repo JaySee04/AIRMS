@@ -49,7 +49,7 @@ const SCRIPT = path.join(__dirname, '..', '..', 'scripts', 'lib', 'pages.js');
 
 /** Routes with no DashboardLayout — sign-in and the account-recovery flow. */
 const PUBLIC_ROUTES = new Set([
-  '/', '/activate', '/forgot-password', '/reset-password', '/verify-otp',
+  '/', '/activate', '/forgot-password', '/reset-password', '/verify-otp', '/accessibility',
 ]);
 
 type Listed = { role: string; route: string };

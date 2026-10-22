@@ -247,7 +247,7 @@ export default function AuditPage() {
           </div>
         </div>
 
-        {error && <div className="alert alert-error">{error}</div>}
+        {error && <div role="alert" className="alert alert-error">{error}</div>}
 
         {!error && entries.length === 0 && (
           <div className="empty-state" style={{ padding: 24 }}>

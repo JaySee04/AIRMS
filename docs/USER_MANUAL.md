@@ -121,6 +121,48 @@ Medical nav links are hidden individually when an admin has revoked that capabil
 
 The initials avatar filters out honorifics — e.g. "Dr. Lim Wei Han" displays as "LH" not "DL".
 
+### Getting back (2026-10-13)
+
+Two pages open an athlete **inside themselves** rather than on a new page: the
+**Medical Dashboard** and **Squad Readiness**. In both:
+
+- A **back bar** sits at the top of the open record — **"← Back to worklist"**
+  (medical) or **"← Back to squad"** (coach) — with the athlete's name at the
+  right. It **stays on screen as you scroll**, so you never have to scroll up to
+  leave a record. It is there even while a record is loading, or if it fails to.
+- The **browser's back button** works the same way: it closes the record and
+  returns to the list, and **forward** re-opens it.
+- The open athlete is **in the address bar** (`?athlete=<IC>`), so a record can
+  be bookmarked, reloaded or sent to a colleague with access.
+- Clicking the **sidebar entry for the page you are on** returns it to its start
+  and closes any open record.
+
+**From Sport Assessment.** Opening an athlete from *Who to see first* adds a
+second button, **"← Back to *Sport* assessment"**, which returns to the sport you
+were reading. The browser's back button does the same, and the chosen sport is
+kept in the address (`?sport=`).
+
+On **Settings**, the link to Cohort Norms is a plain cross-link (**"Cohort
+Norms →"**); both pages are in the sidebar.
+
+### Accessibility (2026-10-14)
+
+- **Keyboard.** The first <kbd>Tab</kbd> on any signed-in page shows **Skip to
+  main content**, which jumps past the sidebar and topbar. Every focused control
+  shows a ring: navy in the light theme, gold in the dark theme.
+- **Screen readers.** Errors are announced as they appear, and confirmations
+  ("Saved", import results) when the reader is free.
+- **Charts.** Charts whose values are drawn rather than written — the
+  distribution histogram, the risk-vs-movement scatter and the period columns —
+  have a **Show as table** link beneath them. The scatter's table names which
+  quadrant each athlete falls in.
+- **Zoom.** Every page fits the screen at 400% browser zoom. On a very narrow
+  screen the topbar shows your initials rather than your full name; the
+  account menu still names you.
+- **The accessibility statement** is at **`/accessibility`** — linked from the
+  sign-in page and from **Account actions** on every Profile page. It lists what
+  does not work yet, and how to report a problem.
+
 ### The **i** button on a card (2026-10-06)
 
 Most cards carry a small **i** beside the title. It explains how that panel is
@@ -297,7 +339,9 @@ The medical staff's home page — **search → select athlete → see their full
 
 **Right pane, before any selection** — the clinician's entry points: roster/active-injury/pending-report stat tiles, plus two quick-access lists (athletes with active injuries; injuries logged in the last 14 days) that select the athlete on click.
 
-**On selection** — the full athlete view renders in the right pane:
+**On selection** — the search rail folds away, the back bar appears at the top
+(see [Getting back](#getting-back-2026-10-13)), and the full athlete view
+renders in the right pane:
 - **Profile header card** — avatar, IC number · sport · programme · age · gender, events editor, "Download PDF" / "Team PDF" buttons, and the **injury-status control**. (This was a "+ Log Injury" button deep-linking to `/medical/injury-log`; that page was removed 2026-08-02. What remains is a single clinician-set **flag** whose purpose is cohort-norm eligibility, not an injury log — setting it rebuilds the norms and rescores every indicator in the same request, and a one-time notice discloses that the published norm moves.)
 - **Overall Risk Indicator hero** — the same cohort-normed verdict the athlete sees (see [§4.1](#41-overall-risk-indicator--the-hero-the-one-verdict)), with clinician-only **band-override buttons** underneath (Green / Amber / Red + a required assessment note)
 - **Sport-Critical Screening Alert** — the same banner the athlete sees, flagging a sport-important body region that's out of screening range (see [§13](#13-sport-critical-screening-alerts))

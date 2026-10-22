@@ -110,11 +110,16 @@ export default function AdminSettingsPage() {
 
   return (
     <DashboardLayout allowedRoles={['admin']} title="Settings">
-      {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
-      {msg && <div className="alert alert-success" style={{ marginBottom: 16 }}>{msg}</div>}
+      {error && <div role="alert" className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
+      {msg && <div role="status" className="alert alert-success" style={{ marginBottom: 16 }}>{msg}</div>}
 
+      {/* A CROSS-LINK, NOT A BACK BUTTON (§163). This read "← Back to Cohort
+          Norms" from when Settings was reached only through that page; it has
+          had its own sidebar entry since §87, so "back" claimed a history most
+          readers never had. The two pages are siblings — the norm-affecting
+          settings live on Cohort Norms — so this names where it goes. */}
       <div style={{ marginBottom: 16 }}>
-        <Link href="/admin/thresholds" className="btn btn-outline btn-sm">← Back to Cohort Norms</Link>
+        <Link href="/admin/thresholds" className="btn btn-outline btn-sm">Cohort Norms &rarr;</Link>
       </div>
 
       {/* HOW THE INSTITUTION'S MAIL AND TRAIL ARE ACTUALLY BEHAVING.
@@ -145,13 +150,13 @@ export default function AdminSettingsPage() {
             <span className="card-sub">Conditions that do not stop AIRMS working, and that nobody else will report.</span>
           </div></div>
           {settings?.mailSender?.concern && (
-            <div className="alert alert-warning" style={{ marginBottom: 12 }}>
+            <div role="status" className="alert alert-warning" style={{ marginBottom: 12 }}>
               <strong>Mail is sent as {settings.mailSender.from}</strong>
               <div style={{ marginTop: 4, fontSize: 'var(--fs-sm)' }}>{settings.mailSender.concern}</div>
             </div>
           )}
           {(settings?.auditHealth?.count ?? 0) > 0 && (
-            <div className="alert alert-error">
+            <div role="alert" className="alert alert-error">
               <strong>
                 {settings!.auditHealth!.count} activity-log write
                 {settings!.auditHealth!.count === 1 ? '' : 's'} failed

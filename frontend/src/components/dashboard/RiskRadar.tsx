@@ -273,7 +273,17 @@ export default function RiskRadar({
 
   return (
     <div style={{ position: 'relative', height }}>
-      <canvas ref={canvasRef} />
+      {/* A canvas is a picture to assistive technology, and this one had no
+          name — a screen reader passed over it in silence (§164). The label
+          reads out what the spokes draw, each against its Elevated line. */}
+      <canvas
+        ref={canvasRef}
+        role="img"
+        aria-label={`Exercise risk indicators: ${labels.map((l, i) => {
+          const t = thresholds?.[i];
+          return `${l} ${values[i]}${t == null ? '' : ` (Elevated at ${t})`}`;
+        }).join(', ')}`}
+      />
     </div>
   );
 }

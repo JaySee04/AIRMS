@@ -62,7 +62,7 @@ export default function AthleteSquadPage() {
 
   return (
     <DashboardLayout allowedRoles={['athlete']} title="My Squad">
-      {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
+      {error && <div role="alert" className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
       <div className="card">
         <div className="card-header"><div>
           <h2 className="card-title" style={{ marginBottom: 0 }}>{data?.sport ?? 'My'} Squad</h2>

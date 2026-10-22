@@ -62,7 +62,7 @@ export default function DataBackupCard() {
         muscle flags, disciplines, the cohort norms in force, settings, accounts and
         the activity log. One sheet each, with a manifest listing the row counts.
       </p>
-      {error && <div className="alert alert-error">{error}</div>}
+      {error && <div role="alert" className="alert alert-error">{error}</div>}
       <button type="button" className="btn btn-gold" onClick={download} disabled={busy}>
         {busy ? 'Preparing…' : 'Download backup (.xlsx)'}
       </button>

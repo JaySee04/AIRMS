@@ -50,7 +50,7 @@ export default function ForgotPasswordPage() {
               Enter the email address associated with your AIRMS account and we&apos;ll send you a 6-digit code to reset your password.
             </p>
             <form onSubmit={handleSubmit}>
-              {error && <div className="alert alert-error">{error}</div>}
+              {error && <div role="alert" className="alert alert-error">{error}</div>}
               <div className="form-group">
                 <label htmlFor="email">Email</label>
                 <input

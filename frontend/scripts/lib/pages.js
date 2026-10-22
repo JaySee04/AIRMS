@@ -46,7 +46,8 @@ const PAGES = [
   ['athlete', '/athlete/squad'], ['athlete', '/athlete/profile'],
 ];
 
-/** Routes with no DashboardLayout — sign-in and the account-recovery flow. */
-const PUBLIC_ROUTES = ['/', '/activate', '/forgot-password', '/reset-password', '/verify-otp'];
+/** Routes with no DashboardLayout — sign-in, the account-recovery flow, and the
+ *  accessibility statement (§164), which must be readable before signing in. */
+const PUBLIC_ROUTES = ['/', '/activate', '/forgot-password', '/reset-password', '/verify-otp', '/accessibility'];
 
 module.exports = { PAGES, PUBLIC_ROUTES };

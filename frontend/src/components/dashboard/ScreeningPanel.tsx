@@ -464,6 +464,9 @@ function LateralSymmetry({ rows }: { rows: SymmetryRow[] }) {
           </span>
         </div>
       </div>
+      {/* .table-wrap (gotcha 8b): 15px wider than its card at 400% zoom (§164),
+          on all three dashboards that draw this panel. */}
+      <div className="table-wrap">
       <table className="cohort-profile-table">
         <thead>
           <tr>
@@ -490,6 +493,7 @@ function LateralSymmetry({ rows }: { rows: SymmetryRow[] }) {
           ))}
         </tbody>
       </table>
+      </div>
       <p className="card-sub" style={{ marginTop: 10 }}>
         Symmetry 0&ndash;100, higher is better. Weaker side is a separate reading.
       </p>

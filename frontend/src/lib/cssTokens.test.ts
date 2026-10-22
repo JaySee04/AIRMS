@@ -181,7 +181,69 @@ describe('CSS custom properties', () => {
     // that precedes it and sets only a background.
     const rule = css.match(/\.bm-card-item:focus-visible \{[^}]*outline:[^}]*\}/);
     expect(rule).not.toBeNull();
-    expect(rule![0]).toMatch(/outline:\s*2px solid var\(--brand-gold/);
+    expect(rule![0]).toMatch(/outline:\s*2px solid var\(--focus-ring\)/);
+  });
+});
+
+// ── A FOCUS RING YOU CAN SEE, IN BOTH THEMES (§164) ──────────────────────────
+//
+// Every ring was the brand gold, #f5c518, and nobody had measured it AS a ring:
+// 1.63:1 on a light card and 1.39:1 on the light page, against WCAG 1.4.11's
+// 3:1. verify:contrast reads TEXT, so it could never have said so. --focus-ring
+// now follows the theme; this computes it from the stylesheet's own values, so
+// retuning a surface or the ring re-checks the pair rather than trusting it.
+describe('the keyboard focus ring', () => {
+  const css = fs.readFileSync(CSS, 'utf8');
+
+  // The FIRST block for each selector holds the core tokens; later :root blocks
+  // add more and never redefine these.
+  function block(selector: string): Record<string, string> {
+    const start = css.indexOf(`${selector} {`);
+    const body = css.slice(start, css.indexOf('\n}', start));
+    const out: Record<string, string> = {};
+    for (const m of body.matchAll(/(--[\w-]+):\s*([^;]+);/g)) out[m[1]] = m[2].trim();
+    return out;
+  }
+  const light = block(':root');
+  const dark = { ...light, ...block('[data-theme="dark"]') };
+
+  function resolve(theme: Record<string, string>, v: string): string {
+    const ref = v.match(/^var\((--[\w-]+)\)$/);
+    return ref ? resolve(theme, theme[ref[1]]) : v;
+  }
+  function ratio(a: string, b: string): number {
+    const lum = (hex: string) => {
+      const c = hex.replace('#', '').match(/../g)!.map((x) => parseInt(x, 16) / 255)
+        .map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+      return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+    };
+    const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
+    return (hi + 0.05) / (lo + 0.05);
+  }
+
+  for (const [name, theme] of [['light', light], ['dark', dark]] as const) {
+    for (const surface of ['--bg-card', '--bg']) {
+      it(`reaches 3:1 against ${surface} in the ${name} theme`, () => {
+        const ring = resolve(theme, theme['--focus-ring']);
+        const ground = resolve(theme, theme[surface]);
+        expect(ring).toMatch(/^#[0-9a-f]{6}$/i);
+        expect(ratio(ring, ground)).toBeGreaterThanOrEqual(3);
+      });
+    }
+  }
+
+  it('the sidebar, navy in both themes, keeps a ring that shows on navy', () => {
+    expect(css).toMatch(/\.sidebar :focus-visible \{ outline-color: var\(--brand-gold\); \}/);
+    expect(ratio(light['--brand-gold'], light['--brand-navy'])).toBeGreaterThanOrEqual(3);
+  });
+
+  it('no outline is drawn in the brand gold anywhere else', () => {
+    // The regression shape: a new control copying the old `outline: … gold`.
+    const offenders = css.split('\n')
+      .map((line, i) => [line, i + 1] as const)
+      .filter(([line]) => /outline:[^;]*var\(--brand-gold/.test(line))
+      .map(([line, n]) => `globals.css:${n} ${line.trim()}`);
+    expect(offenders).toEqual([]);
   });
 });
 

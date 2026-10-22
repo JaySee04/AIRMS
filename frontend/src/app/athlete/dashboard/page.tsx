@@ -108,7 +108,7 @@ export default function AthleteDashboard() {
   if (error || !athlete) {
     return (
       <DashboardLayout allowedRoles={['athlete']} title="My Dashboard">
-        <div className="alert alert-error">{error ?? 'Athlete profile not found.'}</div>
+        <div role="alert" className="alert alert-error">{error ?? 'Athlete profile not found.'}</div>
       </DashboardLayout>
     );
   }
@@ -185,7 +185,7 @@ export default function AthleteDashboard() {
           )}
         />
         <div style={{ display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap' }}>
-          <div style={{ flex: '1 1 420px', minWidth: 300, maxWidth: 520 }}>
+          <div style={{ flex: '1 1 420px', minWidth: 'min(300px, 100%)', maxWidth: 520 }}>
             <RiskRadar labels={RADAR_LABELS} values={riskValues} thresholds={riskThresholds} />
           </div>
           <div style={{ flex: '1 1 260px', minWidth: 240 }}>
@@ -211,7 +211,7 @@ export default function AthleteDashboard() {
 
       {/* Report-to-report progress + the athlete's own downloadable PDF (the
           same individual report medical/coach pull, self-only server-side). */}
-      {dlError && <div className="alert alert-error" style={{ marginBottom: 16 }}>{dlError}</div>}
+      {dlError && <div role="alert" className="alert alert-error" style={{ marginBottom: 16 }}>{dlError}</div>}
       {athleteId && (
         <ScreeningHistory
           athleteId={athleteId}

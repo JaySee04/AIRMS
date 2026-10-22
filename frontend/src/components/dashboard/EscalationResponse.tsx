@@ -118,7 +118,7 @@ export default function EscalationResponse({
               placeholder="Anything the next clinician should know"
             />
           </label>
-          {error && <div className="alert alert-warning" style={{ marginBottom: 0 }}>{error}</div>}
+          {error && <div role="status" className="alert alert-warning" style={{ marginBottom: 0 }}>{error}</div>}
           <div className="decision-actions">
             <button
               type="button"

@@ -15254,3 +15254,227 @@ tells the operator to treat the whole database as fabricated if the demo
 accounts blocked. **The remedy for a seeded database is an empty one**, not a
 cleanup pass.
 
+
+## 163. One way out of every drill-down (2026-10-13, JC)
+
+JC: **"I am unhappy with the navigation within the project. Do a full scan and
+make sure there are easily accessible navigation features like the dashboard
+back button for the medical staff etc."**
+
+§161 fixed the medical record's *address* a day earlier. This is the rest of
+the scan: every page that opens something inside itself, and every link that
+points at the page already open.
+
+### Measured first
+
+A probe in a real browser, before any change, against the seeded database:
+
+| where | what happened |
+|---|---|
+| Medical — sidebar **Medical Dashboard** clicked with a record open | address went to the worklist; **the record stayed open** |
+| Medical — `?athlete=` that resolves to nothing | an error, the rail folded, **no back control anywhere** |
+| Medical — "Back to worklist" | present, but in the identity card's **footer**, 265px down, and gone once the reader scrolled into a record several screens long |
+| Coach — open a squad member, press browser **back** | left the page and **reloaded** onto the squad (planted marker lost) |
+| Sport Assessment → shortlist → record → **back** | came home on the **first** sport (Athletics), not the one chosen (Football) |
+| Sport Assessment → shortlist → record | the record offered **no way back to the sport** |
+| Admin Settings | "← **Back** to Cohort Norms" — Settings has had its own sidebar entry since §87, so "back" claimed a history most readers never had |
+
+The sidebar row is §161's defect by another door: a Next `<Link>` to the
+**same pathname** does not remount the page, so the page never learned it had
+been asked to go home. The address and the screen disagreed about what was open.
+
+### What changed
+
+**`useUrlParam(name, mode)`** (`lib/useUrlParam.ts`, pure half in
+`lib/urlParam.ts`) — §161's three effects on the medical page, written once and
+used by three pages: read the address on mount, write on change, follow
+back/forward. `push` for a drill-down (BACK steps out of it), `replace` for a
+filter (trying four sports should not cost four back presses). The medical
+record and the coach's squad member are `?athlete=`; Sport Assessment's sport is
+`?sport=`. `selectionUrl.ts` is gone — its tests moved to `urlParam.test.ts`
+unchanged in substance, plus a case pinning that one page's parameter cannot be
+read as another's.
+
+**`BackBar`** (`components/layout/BackBar.tsx`) — one bar at the top of a
+drill-down, **sticky beneath the topbar**, naming what is open once the identity
+card has scrolled away. Rendered from the moment a selection **exists**, not once
+it has loaded, so a failed record still has a way out. The medical footer button
+is removed rather than kept as a second copy — §107's reasoning for the control
+is unchanged and moved with it.
+
+**The sidebar link to the open page** dispatches `SECTION_HOME_EVENT` instead of
+navigating to itself; `useUrlParam` clears its value on it and the layout closes
+the mobile drawer. `aria-current="page"` is now set on the active entry.
+
+**Sport Assessment → record → Sport Assessment.** The shortlist adds
+`from=<sport>`; the record reads it once and its back bar offers **"Back to
+<sport> assessment"** beside "Back to worklist". Cleared when the clinician
+returns to the worklist, so a record opened later does not offer a trip it is
+not part of. The shortlist is a `<Link>` now rather than a bare `<a>`, so the
+round trip is a client navigation rather than two full page loads.
+
+**The coach's drill-down** falls back to the squad when the address names
+somebody not in it (a stale bookmark, another sport's athlete) — **replacing**
+the entry rather than pushing, because a pushed one is an entry BACK returns to
+and immediately bounces off.
+
+**The medical record scrolls to the top when opened**, as the coach's always
+has. A record opened from the bottom of the worklist started mid-page.
+
+**`.btn` pins `line-height: normal`.** A `<button>` computes it and an `<a>`
+inherits the body's 1.55, so every link styled as a button stood 4px taller than
+the button beside it — 31px against 27px in the back bar, the same on Cohort
+Norms. No `<button>` changes.
+
+### The defect the fix shipped with, and why it is worth recording
+
+The first `useUrlParam` skipped "the first run" of its write effect with a ref —
+the pattern §161 used inline. **React's StrictMode runs mount effects twice**, so
+the second pass found the ref already set and wrote the still-empty value over a
+deep link. Measured on the Sport Assessment round trip: history went
+`?athlete=X&from=Football` → `/medical/dashboard` → `?athlete=X`, losing `from`
+and leaving two junk entries. Full page loads happened not to show it; the
+client navigation did. The medical page's own scroll effect had the same flaw
+and would have cleared `from` on its own.
+
+Both are keyed on facts now rather than on run counts: the hook writes nothing
+until a `ready` **state** set in the same batch as the value it read, and the
+scroll effect fires on an actual **change** of selection. StrictMode is
+development-only, but a "first run" flag is a claim about how often React calls
+an effect, which React does not promise.
+
+### Verified
+
+- `npm run e2e` **189/189** — seven new checks (§9c): the bar stays on screen
+  2000px into a record; the sidebar link closes the record and clears the
+  address without a reload; a failed record still offers "Back to worklist";
+  the coach's drill-down is in the address and BACK is in-page; a record opened
+  from Sport Assessment offers the way back to that sport; and BACK returns to
+  the same sport.
+- **Proven able to fail.** Removing the sidebar dispatch failed the sidebar
+  check; removing the `ready` guard failed both sport checks (186/189). Both are
+  registered in `mutation-check.js` as browser-only notes beside §161's, which
+  takes the registry to **138 guards, 134 exercised, 4 skipped** — each skip
+  naming the e2e check that catches it.
+- `verify:contrast` and `verify:a11y` clean, **but neither opens a record**, so
+  the bar itself was measured separately: buttons 13.19:1 light / 15.06:1 dark,
+  the open athlete's name 5.22:1 / 6.07:1, fits at 390px with no horizontal
+  scroll. `verify:layout` 72/72 clean after the `.btn` change.
+
+### Not changed, deliberately
+
+- **No breadcrumb trail.** Every drill-down here is one level deep; a trail of
+  one crumb is a back button with extra words.
+- **No Escape-to-close on the record.** Escape already closes the mobile
+  drawer, the InfoTip panel and every combobox list, and on this very page it
+  clears the rail's search. Another meaning on the record pane would make the
+  key unpredictable, and closing a clinical record by accident is the worse
+  failure.
+- **The admin pages have no drill-downs**, so the bar does not appear there.
+  Reports' `selectedId` is a form field feeding a download button, not a view,
+  and Cohort Norms' `?sport=` from the import page is a one-shot highlight read
+  once on mount.
+
+## 164. Accessibility against what others publish (2026-10-14, JC)
+
+JC asked how to make AIRMS "more easily accessible by everyone", then asked for
+research "mainly on examples done by others" before anything was built. What
+the research found, and what it changed here.
+
+### What others do, and the standard ISN will be held to
+
+- **Malaysia: *Pekeliling Pendigitalan Perkhidmatan Awam Bil. 1 Tahun 2025***
+  (Jabatan Digital Negara, August 2025), read from its own text rather than a
+  summary. Agency portals *"hendaklah disediakan dalam 2 bahasa, iaitu bahasa
+  Melayu dan bahasa Inggeris"*; "W3C Disability Accessibility" is required, and
+  following *"WCAG yang terkini"* is encouraged. It gives concrete cases: colour
+  never the only signal, text for audio, and older users able to enlarge text.
+  §15 binds federal agencies and statutory bodies *"tertakluk kepada
+  penerimaan"*, and it is written for portals, *"boleh diluaskan"* to service
+  portals. **Whether it binds an internal staff system is ISN's call** — the
+  question is in `docs/ISN_SITE_VISIT.md`.
+- **UK government dashboard guidance** (Analysis Function): WCAG 2.2 AA; zoom to
+  400%; keyboard and screen reader; *"no chart is fully accessible"* without a
+  table or download; test with users, since automated tools catch only part.
+- **UKHSA data dashboard**: publishes an accessibility statement that lists its
+  own failures (colour-only chart lines among them) and a contact address.
+- **A 2025 audit of six US government dashboard ecosystems** (arXiv 2511.06688):
+  the top failures were charts trapped in canvases, values behind mouse-only
+  tooltips, and no data tables; its three minimum requirements are plain-
+  language summaries, tables or CSV of the same metrics, and a stated
+  accessibility commitment.
+- **Commercial athlete-monitoring platforms** (Catapult, Kitman Labs,
+  Smartabase) publish almost nothing on accessibility; Catapult mentions colour
+  contrast. A published statement is a differentiator here, not table stakes.
+
+### Measured before
+
+| | before |
+|---|---|
+| alert boxes with a live role (WCAG 4.1.3) | **0 of 65** |
+| skip link (2.4.1) | none — up to 8 sidebar links + 4 topbar controls before the content |
+| pages that scroll sideways at 320px, i.e. 400% zoom (1.4.10) | **6**, by 5–26px |
+| focus ring, light theme (1.4.11, 3:1) | **1.63:1** on a card, **1.39:1** on the page |
+| focused form field border, dark theme | **1.09:1** — fainter than at rest |
+| charts whose values were only in shapes / hover titles | 3 (Histogram, Scatter, PeriodChart) |
+| risk radar canvas | unnamed — a screen reader passed it in silence |
+| accessibility statement | none |
+
+The focus ring is the finding worth remembering. Every ring was the brand gold,
+#f5c518, in both themes. Dark mode showed it at 9.47:1, so it looked right to
+anyone who checked there; the default light theme — what nearly everyone uses —
+put it at 1.63:1. `verify:contrast` measures TEXT, so the one automated contrast
+check in the project could never have seen it. Found by checking a sentence
+before writing it into the statement ("every control shows a visible focus
+ring"), which is the argument for writing the statement at all.
+
+### What changed
+
+- **Every alert box is a live region.** Errors `role="alert"`, everything else
+  `role="status"`. Applied mechanically to 64 sites, then one more found by
+  writing the test: the password modal chose its class in a ternary, which the
+  literal sweep could not match. `src/app/alertRoles.test.ts` scans every .tsx
+  in both spellings and fails naming file and line.
+- **Skip to main content**, first in Tab order, moving focus to
+  `<main id="main-content" tabIndex={-1}>`. The tabIndex is the part that
+  matters: without it the link scrolls and focus stays in the sidebar (proven —
+  e2e reads `focus=BODY` with it removed).
+- **`--focus-ring`** follows the theme: navy in light (14.19:1 card, 12.09:1
+  page), gold in dark (9.47 / 10.88), gold on the always-navy sidebar (8.71).
+  The precedent was already in the file — the athlete rail's keyboard cursor
+  did exactly this. Form fields re-take the ring. `cssTokens.test.ts` computes
+  the ratios from the stylesheet's own tokens, both themes, both surfaces.
+- **"Show as table"** (`ChartTable`, a native `<details>`) on the three charts
+  whose values were drawn rather than written. Not on DotPlot, RankedBars or the
+  Heatmap, whose values are already text — a table there would be a copy. The
+  Scatter's table names each athlete's quadrant, and a dot ON a median line is
+  said to be so rather than forced into a corner. No new disclosure: the same
+  names were already in the dots' titles, on an admin/executive page.
+- **The radar canvas has a name** reading out each indicator against its
+  Elevated line. One attribute on a Module 1 component, nothing else touched.
+- **400% zoom.** The topbar sheds the full name below 480px (initials stay; the
+  dropdown names the account) and a long title truncates — the same order of
+  sacrifice the 900px breakpoint already used. The radar's `minWidth: 300`
+  became `min(300px, 100%)` on four pages. Two tables gained the `.table-wrap`
+  gotcha 8b asks for (the hero's cohort table and Lateral Symmetry).
+  `verify:layout` now sweeps **320** as well as 390: 390 measured the phone,
+  not the zoom.
+- **`/accessibility`**, public, linked from the sign-in page and every Profile
+  page — not from the topbar dropdown or sidebar, which are locked Figma chrome.
+  Modelled on UKHSA's: what works, what does not, *partially conforms*, how it
+  was checked, how to report. Its known gaps are stated before anyone finds
+  them: 63 of 87 body-map targets under 24×24, English only, untagged PDFs, and
+  no testing yet with disabled users.
+
+### Not done, and why
+
+- **Bahasa Melayu.** The largest item and contingent on ISN's answer about the
+  circular. Every page's copy would need translating, including the pinned
+  caveats (§131), so it is a project of its own, not a pass.
+- **Testing with disabled users and a real screen reader.** No script can do
+  it, and the statement says so rather than implying the sweeps are the same.
+- **A reporting contact.** The statement says "your AIRMS administrator at
+  ISN". A named address is ISN's to give, and is on the site-visit list.
+- **Tagged PDFs.** pdfkit can emit them, but every report's drawing code would
+  need structure added; stated as a limitation, with the dashboards as the
+  accessible route to the same content.

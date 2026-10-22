@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import Image from 'next/image';
 import { SessionUser, PermissionKey, Role, hasPermission } from '@/lib/auth';
+import { SECTION_HOME_EVENT } from '@/lib/urlParam';
 
 interface NavItem { href: string; label: string; icon: React.ReactNode; perm?: PermissionKey; }
 
@@ -156,6 +157,18 @@ export default function Sidebar({ user }: { user: SessionUser }) {
             key={item.href}
             href={item.href}
             className={`sidebar-link${pathname === item.href ? ' active' : ''}`}
+            aria-current={pathname === item.href ? 'page' : undefined}
+            // THE LINK TO THE PAGE YOU ARE ON TAKES YOU TO ITS START (§163).
+            // A Next <Link> to the same pathname does not remount the page, so
+            // with a record open the address changed to the worklist while the
+            // record stayed on screen — measured. The page is told instead, and
+            // it clears its own drill-down and writes its own address.
+            onClick={(e) => {
+              if (pathname !== item.href) return;
+              e.preventDefault();
+              window.dispatchEvent(new Event(SECTION_HOME_EVENT));
+              window.scrollTo({ top: 0 });
+            }}
           >
             <span className="sidebar-icon">{item.icon}</span>
             {item.label}

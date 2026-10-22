@@ -194,7 +194,7 @@ export default function TrendStrip({ query }: { query: string }) {
         </div>
       </div>
 
-      {error && <div className="alert alert-error">{error}</div>}
+      {error && <div role="alert" className="alert alert-error">{error}</div>}
 
       {!error && data === null && <p className="text-muted" style={{ fontSize: 'var(--fs-md)' }}>Loading…</p>}
 

@@ -96,7 +96,7 @@ export default function StaffActivity({
         </button>
       </div>
 
-      {error && <div className="alert alert-error">{error}</div>}
+      {error && <div role="alert" className="alert alert-error">{error}</div>}
       {!error && data === null && <p className="text-muted" style={{ fontSize: 'var(--fs-md)' }}>Loading…</p>}
 
       {data && staff.length === 0 && (

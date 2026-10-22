@@ -361,10 +361,10 @@ const MUTATIONS = [
     why: 'returning "" selects a record that cannot exist and cannot be dismissed',
     pkg: 'frontend',
     from: ROOT,
-    file: 'frontend/src/lib/selectionUrl.ts',
+    file: 'frontend/src/lib/urlParam.ts',
     find: "  return trimmed === '' ? null : trimmed;",
     replace: '  return trimmed;',
-    test: 'src/lib/selectionUrl.test.ts',
+    test: 'src/lib/urlParam.test.ts',
   },
   {
     // The companion. '?' and '' are different URLs to the browser, so writing a
@@ -375,10 +375,10 @@ const MUTATIONS = [
     why: 'a "?" entry makes one back press look like a no-op',
     pkg: 'frontend',
     from: ROOT,
-    file: 'frontend/src/lib/selectionUrl.ts',
-    find: "  if (!athleteId) return '';",
-    replace: "  if (!athleteId) return '?';",
-    test: 'src/lib/selectionUrl.test.ts',
+    file: 'frontend/src/lib/urlParam.ts',
+    find: "  if (!value) return '';",
+    replace: "  if (!value) return '?';",
+    test: 'src/lib/urlParam.test.ts',
   },
   {
     // §161, the browser half. Registered as a NOTE with no `test` because the
@@ -399,9 +399,100 @@ const MUTATIONS = [
     why: 'replaceState looks identical unless you check the page was never reloaded',
     pkg: 'frontend',
     from: ROOT,
-    file: 'frontend/src/app/medical/dashboard/page.tsx',
-    find: "    window.history.pushState(null, '', `${window.location.pathname}${selectionSearch(selectedId)}`);",
-    replace: "    window.history.replaceState(null, '', `${window.location.pathname}${selectionSearch(selectedId)}`);",
+    file: 'frontend/src/lib/useUrlParam.ts',
+    find: "    if (mode === 'push') window.history.pushState(null, '', url);",
+    replace: "    if (mode === 'push') window.history.replaceState(null, '', url);",
+    test: null,
+  },
+  {
+    // §163. Nothing is written to the address until it has been READ. The first
+    // version skipped "the first run" with a ref, and React's StrictMode runs
+    // mount effects twice: the second pass wrote the still-empty value over a
+    // deep link, so Sport Assessment's `?athlete=X&from=Football` lost `from`
+    // and the record offered no way back to the sport. Browser-only for the
+    // same reason as the entry above. Verified against `npm run e2e`: removing
+    // this line gave 186/189, failing both sport-nav checks.
+    skip: 'needs a real browser — e2e §9c, "offers the way back to that sport"',
+    guard: 'drill-down: the address is not written before it has been read',
+    why: 'an early write erases the deep link it was meant to follow',
+    pkg: 'frontend',
+    from: ROOT,
+    file: 'frontend/src/lib/useUrlParam.ts',
+    find: '    if (!ready) return;',
+    replace: '    // (ready guard removed)',
+    test: null,
+  },
+  {
+    // §163. The sidebar link to the page already open. A Next <Link> to the
+    // same pathname does not remount the page, so the address went to the
+    // worklist while the record stayed open — §161's defect by another door.
+    // Verified against `npm run e2e`: removing the dispatch failed "the sidebar
+    // link to the open page closes the record AND clears the address".
+    skip: 'needs a real browser — e2e §9c, "the sidebar link to the open page"',
+    guard: 'drill-down: the sidebar link to the open page returns it to its start',
+    why: 'without it the address and the screen disagree about what is open',
+    pkg: 'frontend',
+    from: ROOT,
+    file: 'frontend/src/components/layout/Sidebar.tsx',
+    find: '              window.dispatchEvent(new Event(SECTION_HOME_EVENT));',
+    replace: '              // (dispatch removed)',
+    test: null,
+  },
+  {
+    // §164. 64 alert boxes and not one announced itself to a screen reader, so
+    // "Download failed" or "Saved" reached sighted users only. The scan reads
+    // every .tsx as source; this proves it notices ONE missing role.
+    guard: 'a11y: every alert box carries the live role its variant needs',
+    why: 'an unannounced error is invisible to a screen-reader user',
+    pkg: 'frontend',
+    from: ROOT,
+    file: 'frontend/src/components/dashboard/SportContext.tsx',
+    find: '  if (error) return <div role="alert" className="alert alert-error">{error}</div>;',
+    replace: '  if (error) return <div className="alert alert-error">{error}</div>;',
+    test: 'src/app/alertRoles.test.ts',
+  },
+  {
+    // §164. The scatter's table names which quadrant each athlete is in — the
+    // fact the chart exists to surface. Swapping the top two corners would put
+    // every "high risk · good mover" athlete under "poor mover" in a table that
+    // still looks complete.
+    guard: 'a11y: a scatter table names the quadrant the dot is actually in',
+    why: 'a swapped quadrant reads as a finding about the wrong athletes',
+    pkg: 'frontend',
+    from: ROOT,
+    file: 'frontend/src/components/charts/Charts.tsx',
+    find: '              : quadrants[p.y > my ? (p.x > mx ? 1 : 0) : (p.x > mx ? 2 : 3)],',
+    replace: '              : quadrants[p.y > my ? (p.x > mx ? 0 : 1) : (p.x > mx ? 2 : 3)],',
+    test: 'src/components/charts/Charts.test.tsx',
+  },
+  {
+    // §164. The keyboard focus ring was the brand gold in BOTH themes: 1.63:1
+    // on a light card, 1.39:1 on the light page — invisible where it is needed
+    // most, in the default theme, on every page. verify:contrast reads text and
+    // so could never see it. Putting the gold back must fail.
+    guard: 'a11y: the light theme focus ring reaches 3:1 on card and page',
+    why: 'a gold ring on white is a focus indicator nobody can see',
+    pkg: 'frontend',
+    from: ROOT,
+    file: 'frontend/src/styles/globals.css',
+    find: '  --focus-ring: var(--brand-navy);',
+    replace: '  --focus-ring: var(--brand-gold);',
+    test: 'src/lib/cssTokens.test.ts',
+  },
+  {
+    // §164. The skip link's target must be focusable, or following it only
+    // SCROLLS and the next Tab starts from the sidebar again — the commonest
+    // broken skip link there is, and it looks fine. Browser-only: jsdom has no
+    // real focus model. Verified against `npm run e2e`: removing tabIndex gave
+    // 193/194, "focus=BODY".
+    skip: 'needs a real browser — e2e §9d, "the skip link MOVES focus to the content"',
+    guard: 'a11y: the skip link moves keyboard focus past the navigation',
+    why: 'a skip link that only scrolls leaves Tab in the sidebar',
+    pkg: 'frontend',
+    from: ROOT,
+    file: 'frontend/src/components/layout/DashboardLayout.tsx',
+    find: '        <main id="main-content" tabIndex={-1} className="page-content">',
+    replace: '        <main id="main-content" className="page-content">',
     test: null,
   },
   {

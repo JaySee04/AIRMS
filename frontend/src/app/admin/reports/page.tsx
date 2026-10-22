@@ -69,7 +69,7 @@ export default function AdminReportsPage() {
           <h2 className="card-title" style={{ marginBottom: 0 }}>HoloMotion Screening Reports</h2>
           <span className="card-sub">Holistic, individual, and team — all cohort-normed</span>
         </div></div>
-        {err && <div className="alert alert-error">{err}</div>}
+        {err && <div role="alert" className="alert alert-error">{err}</div>}
         <div className="grid-3" style={{ gap: 16 }}>
           <div>
             <strong style={{ fontSize: 'var(--fs-md)' }}>Holistic {hf.active ? '(filtered)' : '(all athletes)'}</strong>

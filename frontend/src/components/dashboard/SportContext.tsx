@@ -46,7 +46,7 @@ export default function SportContext({ athleteId }: { athleteId: string }) {
     return () => { cancelled = true; };
   }, [athleteId]);
 
-  if (error) return <div className="alert alert-error">{error}</div>;
+  if (error) return <div role="alert" className="alert alert-error">{error}</div>;
   if (!data) return <div className="card"><p className="text-muted">Loading sport context…</p></div>;
   if (!data.sport || data.n === 0) {
     return (

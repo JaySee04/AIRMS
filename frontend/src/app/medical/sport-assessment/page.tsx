@@ -29,7 +29,9 @@
 //     at 30 and half at 70 (§23's flattening mistake), and the band mix is shown
 //     as counts so the shape survives.
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import DashboardLayout from '@/components/layout/DashboardLayout';
+import { useUrlParam } from '@/lib/useUrlParam';
 import CardHead from '@/components/layout/CardHead';
 import InfoTip from '@/components/ui/InfoTip';
 import { api, isAuthError } from '@/lib/api';
@@ -72,7 +74,11 @@ const METRIC_LABEL: Record<string, string> = { rom: 'Range of motion', stab: 'St
 
 export default function SportAssessmentPage() {
   const [sports, setSports] = useState<string[]>([]);
-  const [sport, setSport] = useState('');
+  // In the ADDRESS (§163), REPLACED rather than pushed: it is a filter, so
+  // trying four sports should not cost four back presses. What it buys is that
+  // BACK from an athlete opened off the shortlist returns to THIS sport —
+  // measured, it came back on the first sport in the list instead.
+  const [sport, setSport] = useUrlParam('sport', 'replace');
   const [data, setData] = useState<Analytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -106,7 +112,7 @@ export default function SportAssessmentPage() {
         if (!live) return;
         const uniq = (Array.isArray(rows) ? rows : []).filter((s): s is string => !!s).sort();
         setSports(uniq);
-        setSport((cur) => cur || uniq[0] || '');
+        if (!uniq.length) setLoading(false);
       } catch (e) {
         if (!live) return;
         setError(isAuthError(e) ? 'You are not permitted to read the roster.' : 'Could not load the sport list.');
@@ -132,7 +138,14 @@ export default function SportAssessmentPage() {
     }
   }, []);
 
-  useEffect(() => { if (sport) load(sport); }, [sport, load]);
+  // One rule for which sport is shown: the address's, if the roster has it;
+  // otherwise the first. Covers a first visit, a stale or hand-typed `?sport=`,
+  // and the sidebar's reset (which clears it). Loading waits for the list, so an
+  // unknown name never flashes "Nothing screened yet in <typo>".
+  useEffect(() => {
+    if (sports.length && (!sport || !sports.includes(sport))) setSport(sports[0]);
+  }, [sport, sports, setSport]);
+  useEffect(() => { if (sport && sports.includes(sport)) load(sport); }, [sport, sports, load]);
 
   const bandCounts = data?.bandDistribution ?? {};
   const screened = data?.screened ?? 0;
@@ -170,7 +183,7 @@ export default function SportAssessmentPage() {
           <label htmlFor="sport-pick" className="sport-field-label">Sport</label>
           <select
             id="sport-pick"
-            value={sport}
+            value={sport ?? ''}
             onChange={(e) => setSport(e.target.value)}
             disabled={!sports.length}
           >
@@ -187,7 +200,7 @@ export default function SportAssessmentPage() {
         )}
       </div>
 
-      {error && <div className="alert alert-error">{error}</div>}
+      {error && <div role="alert" className="alert alert-error">{error}</div>}
       {loading && <p className="text-muted">Loading {sport}…</p>}
 
       {!loading && data && screened === 0 && (
@@ -207,7 +220,7 @@ export default function SportAssessmentPage() {
       {!loading && data && screened > 0 && (
         <>
           {small && (
-            <div className="alert alert-warning">
+            <div role="status" className="alert alert-warning">
               Only {screened} athlete{screened === 1 ? '' : 's'} in {sport} have been screened.
               Every count and mean below rests on that, and one athlete moves the
               picture noticeably.
@@ -533,8 +546,10 @@ export default function SportAssessmentPage() {
                     {/* The record is opened through the dashboard, which is the
                         audited path (`athlete.view`) and the only place the
                         clinical controls live. A second detail view here would
-                        be a second place to read a record from. */}
-                    <a className="sport-shortlist-row" href={`/medical/dashboard?athlete=${encodeURIComponent(p.athleteId)}`}>
+                        be a second place to read a record from. `from=` tells
+                        that record where the clinician came from, so its back
+                        bar can return to THIS sport (§163). */}
+                    <Link className="sport-shortlist-row" href={`/medical/dashboard?athlete=${encodeURIComponent(p.athleteId)}&from=${encodeURIComponent(sport ?? '')}`}>
                       <span
                         className={`decision-band decision-band--${p.band}`}
                       >
@@ -546,7 +561,7 @@ export default function SportAssessmentPage() {
                         {p.indicator !== null && <> · indicator {p.indicator}/100</>}
                         {p.exerciseRisks !== null && <> · exercise risks {p.exerciseRisks}</>}
                       </span>
-                    </a>
+                    </Link>
                   </li>
                 ))}
               </ul>

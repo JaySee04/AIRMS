@@ -262,7 +262,7 @@ export default function PdfScreeningUpload() {
       <h2 className="card-title">Import HoloMotion Screening Reports</h2>
 
       {status && status.configured && (
-        <div className="alert alert-info" style={{ marginBottom: 14 }}>
+        <div role="status" className="alert alert-info" style={{ marginBottom: 14 }}>
           <strong>AI-assisted ingestion.</strong> Reports are read automatically by a vision model. The athlete&apos;s
           name is blacked out on your device before any image is sent for reading, so the identity never leaves here.
           Reports are matched to the roster by their <strong>filename</strong> where possible — otherwise search the roster below to attach each one.
@@ -270,7 +270,7 @@ export default function PdfScreeningUpload() {
       )}
 
       {visionMissing && (
-        <div className="alert alert-warning" style={{ marginBottom: 14 }}>
+        <div role="status" className="alert alert-warning" style={{ marginBottom: 14 }}>
           <strong>Reading reports directly.</strong> No vision provider is configured, so reports are
           read from the PDF&apos;s own text — nothing is sent anywhere, and the values are exact.
           {' '}<strong>The compact 12-page layout cannot be read this way</strong> and will be refused
@@ -281,7 +281,7 @@ export default function PdfScreeningUpload() {
       )}
 
       {disabled && (
-        <div className="alert alert-error" style={{ marginBottom: 14 }}>
+        <div role="alert" className="alert alert-error" style={{ marginBottom: 14 }}>
           <strong>Import unavailable.</strong> The server reports that it cannot ingest reports in any
           form. Check the backend is running and up to date.
         </div>
@@ -460,13 +460,13 @@ export default function PdfScreeningUpload() {
               </div>
             </div>
 
-            {it.error && <div className="alert alert-error" style={{ marginTop: 8 }}>{it.error}</div>}
-            {it.doneNote && <div className="alert alert-success" style={{ marginTop: 8 }}>{it.doneNote}</div>}
+            {it.error && <div role="alert" className="alert alert-error" style={{ marginTop: 8 }}>{it.error}</div>}
+            {it.doneNote && <div role="status" className="alert alert-success" style={{ marginTop: 8 }}>{it.doneNote}</div>}
 
             {it.preview && it.status !== 'done' && (
               <div className="pdf-queue-body">
                 <div>
-                  <div className="alert alert-success" style={{ marginBottom: 10 }}>
+                  <div role="status" className="alert alert-success" style={{ marginBottom: 10 }}>
                     <strong>Report read</strong>
                     {it.preview.athlete.age ? ` · age ${it.preview.athlete.age}` : ''}
                     {it.preview.athlete.gender ? ` · ${it.preview.athlete.gender}` : ''}
@@ -481,7 +481,7 @@ export default function PdfScreeningUpload() {
                       IC it has been attached to, that is worth interrupting for,
                       and no amount of reading the card would have caught it. */}
                   {it.athleteId && checkOf(it).verdict === 'disagrees' && (
-                    <div className="alert alert-warning" style={{ marginBottom: 10 }}>
+                    <div role="status" className="alert alert-warning" style={{ marginBottom: 10 }}>
                       <strong>This report may not belong to this athlete.</strong>
                       {' '}
                       {checkOf(it).reason}. Check you have the right person before importing —
@@ -489,7 +489,7 @@ export default function PdfScreeningUpload() {
                     </div>
                   )}
                   {it.alreadyImported && (
-                    <div className="alert alert-warning" style={{ marginBottom: 10 }}>
+                    <div role="status" className="alert alert-warning" style={{ marginBottom: 10 }}>
                       <strong>Already imported.</strong> This athlete already has a screening
                       recorded at exactly this moment, so this is the same report again.
                       Importing replaces the stored one rather than adding a second — if that is
@@ -504,7 +504,7 @@ export default function PdfScreeningUpload() {
                   )}
 
                   {it.matched ? (
-                    <div className="alert alert-info" style={{ marginBottom: 10 }}>
+                    <div role="status" className="alert alert-info" style={{ marginBottom: 10 }}>
                       Attached to <strong>{it.matched.name} ({it.matched.athleteId})</strong> — identity, sport, and programme filled from the roster. Edit below if anything is wrong.
                     </div>
                   ) : (
@@ -699,17 +699,17 @@ export default function PdfScreeningUpload() {
               </ul>
             )}
             {role === 'admin' ? (
-              <div className="alert alert-info" style={{ marginBottom: recomputeMsg ? 12 : 0 }}>
+              <div role="status" className="alert alert-info" style={{ marginBottom: recomputeMsg ? 12 : 0 }}>
                 Recompute rebuilds the cohort stats and re-scores every athlete. Newly formed or changed
                 cohorts still need approval on the Cohort Thresholds page before they drive the indicator.
               </div>
             ) : (
-              <div className="alert alert-info" style={{ marginBottom: 0 }}>
+              <div role="status" className="alert alert-info" style={{ marginBottom: 0 }}>
                 Recomputing and approving cohort thresholds is an administrator action. Let your admin know
                 new screenings were imported so the norms can be refreshed.
               </div>
             )}
-            {recomputeMsg && <div className="alert alert-success" style={{ marginBottom: 0 }}>{recomputeMsg}</div>}
+            {recomputeMsg && <div role="status" className="alert alert-success" style={{ marginBottom: 0 }}>{recomputeMsg}</div>}
           </div>
           <div className="modal-footer">
             <button type="button" className="btn btn-outline" onClick={() => setShowThresholdModal(false)}>

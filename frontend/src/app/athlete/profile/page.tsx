@@ -79,7 +79,7 @@ export default function AthleteProfilePage() {
   return (
     <DashboardLayout allowedRoles={['athlete']} title="My Profile">
       {error ? (
-        <div className="alert alert-error">{error}</div>
+        <div role="alert" className="alert alert-error">{error}</div>
       ) : (
         <ProfileShell
           stats={[
@@ -89,7 +89,7 @@ export default function AthleteProfilePage() {
           onLoadStats={loadStats}
           roleBlurb={roleBlurb}
         >
-          <div className="alert alert-info" style={{ marginBottom: 20 }}>
+          <div role="status" className="alert alert-info" style={{ marginBottom: 20 }}>
             Personal details and biometric data are maintained by the medical and administrative teams.
             If anything below is incorrect, please contact your physio or programme coordinator.
           </div>

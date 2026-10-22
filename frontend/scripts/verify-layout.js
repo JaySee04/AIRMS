@@ -43,10 +43,18 @@ const CANARY = process.argv.includes('--canary');
 // 1440 desktop · 1024 tablet · 390 the narrowest phone the design claims to
 // support (the @media breakpoints in globals.css are 980px and 720px, so 390
 // exercises the far side of both).
+//
+// 320 is NOT a phone (§164). It is WCAG 1.4.10 Reflow's own figure: a 1280px
+// screen zoomed to 400% lays out at 320 CSS pixels, which is what a clinician
+// with low vision actually gets. The UK government's dashboard guidance names
+// "zoom in up to 400%" as a test, and Malaysia's Pekeliling Pendigitalan
+// Bil. 1/2025 asks that older users be able to enlarge the text. 390 was
+// measuring the phone, not the zoom.
 const VIEWPORTS = [
   { width: 1440, height: 900 },
   { width: 1024, height: 900 },
   { width: 390, height: 844 },
+  { width: 320, height: 720 },
 ];
 
 /**

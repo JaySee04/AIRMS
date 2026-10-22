@@ -82,7 +82,7 @@ export default function CompareAthletes({ entries }: { entries: WorklistEntry[] 
       {/* ABOVE the numbers, deliberately — and ONE line (§134). The claim that
           must not be made is "better score = safer pick"; saying so takes six
           words, and six words get read where four sentences get skipped. */}
-      <div className="alert alert-warning" style={{ marginBottom: 14 }}>
+      <div role="status" className="alert alert-warning" style={{ marginBottom: 14 }}>
         <strong>Readings, not readiness.</strong> Who to look at first, not who to select.
       </div>
 

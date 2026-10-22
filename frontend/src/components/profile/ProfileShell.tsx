@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
@@ -187,7 +188,7 @@ export default function ProfileShell({ stats: initialStats, onLoadStats, roleBlu
           </div>
         ))}
       </div>
-      {statsError && <div className="alert alert-error" style={{ marginTop: 12 }}>{statsError}</div>}
+      {statsError && <div role="alert" className="alert alert-error" style={{ marginTop: 12 }}>{statsError}</div>}
 
       {/* Role-specific content slot (athlete uses this for Personal Info +
           Screening Snapshot; medical/admin leave it empty). */}
@@ -218,6 +219,12 @@ export default function ProfileShell({ stats: initialStats, onLoadStats, roleBlu
               Sign out
             </button>
           </div>
+          {/* Here rather than in the topbar dropdown or sidebar, which are the
+              locked Figma chrome (§164). Every role has this page. */}
+          <p style={{ marginTop: 14, marginBottom: 0, fontSize: 'var(--fs-sm)' }}>
+            <Link href="/accessibility">Accessibility statement</Link>
+            {' '}&middot; what works with a keyboard or screen reader, and how to report a problem
+          </p>
         </div>
       </div>
 
@@ -231,7 +238,7 @@ export default function ProfileShell({ stats: initialStats, onLoadStats, roleBlu
               your inbox — colleagues in your role keep receiving it.
             </span>
           </div></div>
-          {prefsError && <div className="alert alert-error" style={{ marginBottom: 12 }}>{prefsError}</div>}
+          {prefsError && <div role="alert" className="alert alert-error" style={{ marginBottom: 12 }}>{prefsError}</div>}
           {/* auto-FILL with a capped track, not the global .stat-grid's
               auto-fit/1fr: medical and admin have a single toggle each, and
               auto-fit stretched that one checkbox across the full 1078px card. */}
@@ -272,7 +279,7 @@ export default function ProfileShell({ stats: initialStats, onLoadStats, roleBlu
             <form onSubmit={handlePasswordSubmit}>
               <div className="modal-body">
                 {pwMessage && (
-                  <div className={
+                  <div role={pwMessage.startsWith('error:') ? 'alert' : 'status'} className={
                     pwMessage.startsWith('error:')
                       ? 'alert alert-error'
                       : pwMessage.startsWith('success:')

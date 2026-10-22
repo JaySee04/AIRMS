@@ -39,6 +39,48 @@ function niceStep(span: number, target = 4): number {
   return step * mag;
 }
 
+// ── "Show as table" (§164) ─────────────────────────────────────────────────
+// The numbers behind a chart, as a real table, one click away.
+//
+// WHY. Three charts here kept their values ONLY in shapes and hover titles:
+// which athlete a scatter dot is, which range a histogram bar covers, and the
+// band split of each period column (a mouse-only tooltip). A screen reader
+// reads none of those, and a keyboard cannot hover. The 2025 audit of US
+// government dashboards ranked exactly this — "values hidden behind hover
+// tooltips" — among its top failures, and the UK government's dashboard
+// guidance says plainly that "no chart is fully accessible" without a table.
+//
+// A native <details>, so it opens by keyboard and is announced as expandable
+// with no script. Closed by default: the chart is still the first reading,
+// and a sighted reader who wants the exact figure gets it for one click.
+// Charts whose values are already TEXT on the page (DotPlot, RankedBars, the
+// Heatmap, which is itself a <table>) do not get one — it would be a copy.
+function ChartTable({ caption, head, rows }: {
+  caption: string;
+  head: string[];
+  rows: ReactNode[][];
+}) {
+  if (!rows.length) return null;
+  return (
+    <details className="chart-table">
+      <summary>Show as table</summary>
+      <div className="table-wrap">
+        <table>
+          <caption className="sr-only">{caption}</caption>
+          <thead><tr>{head.map((h) => <th key={h} scope="col">{h}</th>)}</tr></thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={i}>
+                {r.map((c, j) => (j === 0 ? <th key={j} scope="row">{c}</th> : <td key={j}>{c}</td>))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </details>
+  );
+}
+
 // ══════════════════════════════════════════════════════════════════════════
 // DotPlot — values that sit close together on a wide nominal scale.
 //
@@ -538,6 +580,24 @@ export function PeriodChart({
           </span>
         )}
       </div>
+      {/* Every column's split, which until now lived only in a MOUSE-hover tip:
+          unreachable by keyboard or touch, and unread by a screen reader. An
+          empty period stays a row saying so — §24's gap is the finding. */}
+      {(() => {
+        const segLabels = [...new Set(points.flatMap((p) => (p.segments ?? []).map((sg) => sg.label)))];
+        return (
+          <ChartTable
+            caption={`${countLabel} per period${segLabels.length ? `, split by ${(mixLabel ?? 'band').toLowerCase()}` : ''}`}
+            head={['Period', countLabel, ...segLabels, ...(hasLine ? [lineLabel ?? 'Average'] : [])]}
+            rows={points.map((p) => [
+              p.label,
+              p.value === 0 ? 'no screening' : p.value,
+              ...segLabels.map((l) => (p.segments ?? []).find((sg) => sg.label === l)?.value ?? 0),
+              ...(hasLine ? [p.line == null ? '—' : fmt(p.line)] : []),
+            ])}
+          />
+        );
+      })()}
     </div>
     {isPair && slope && (
       <div style={{ marginTop: 'var(--sp-lg)' }}>
@@ -1007,6 +1067,20 @@ export function Scatter({
           ))}
         </ul>
       )}
+      {/* Which athlete is which dot, and which corner they sit in — the reason
+          the chart exists, and until now only in each dot's hover title. A dot
+          ON a median line is named as such rather than forced into a corner. */}
+      <ChartTable
+        caption={`Each athlete's ${xLabel} and ${yLabel}, with the quadrant they fall in`}
+        head={['Athlete', xLabel, yLabel, ...(quadrants ? ['Quadrant'] : [])]}
+        rows={[...points].sort((a, b) => b.y - a.y || a.x - b.x).map((p) => [
+          p.label, fmt(p.x), fmt(p.y),
+          ...(quadrants ? [
+            p.x === mx || p.y === my ? 'on a median line'
+              : quadrants[p.y > my ? (p.x > mx ? 1 : 0) : (p.x > mx ? 2 : 3)],
+          ] : []),
+        ])}
+      />
     </div>
   );
 }
@@ -1079,6 +1153,11 @@ export function Histogram({
         ))}
         <span className="text-muted">median {fmt(med)} · {values.length} athletes · bin {binSize}</span>
       </div>
+      <ChartTable
+        caption={`How many athletes fall in each ${valueLabel ?? 'value'} range`}
+        head={[`${valueLabel ?? 'Value'} range`, 'Athletes']}
+        rows={bins.map((b) => [`${b.lo}–${b.hi}`, b.n])}
+      />
     </div>
   );
 }

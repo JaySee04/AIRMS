@@ -367,8 +367,8 @@ export default function CohortThresholdsPage() {
           </div>
         </div>
       )}
-      {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
-      {msg && <div className="alert alert-success" style={{ marginBottom: 16 }}>{msg}</div>}
+      {error && <div role="alert" className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
+      {msg && <div role="status" className="alert alert-success" style={{ marginBottom: 16 }}>{msg}</div>}
 
       {/* The norm-affecting settings, above the table they govern. Everything
           else that used to sit with them — email, scheduled mail, import alerts
@@ -488,7 +488,7 @@ export default function CohortThresholdsPage() {
                       <td colSpan={5} style={{ background: 'var(--bg)' }}>
                         <div style={{ padding: '8px 4px' }}>
                           {needsReview && (
-                            <div className="alert alert-info" style={{ marginBottom: 10 }}>
+                            <div role="status" className="alert alert-info" style={{ marginBottom: 10 }}>
                               <strong>New data has moved this cohort.</strong> Your edited norm is still live. Review the drift, then keep your edit or reset to the computed norm:
                               <ul style={{ margin: '6px 0 0', paddingLeft: 18, fontSize: 'var(--fs-sm)' }}>
                                 {c.review!.items.map((it) => {

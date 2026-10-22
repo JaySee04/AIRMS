@@ -12,7 +12,7 @@ This is the *what*. The **why** is [`DESIGN_DECISIONS.md`](DESIGN_DECISIONS.md),
 the measured figures are `npm run measure:facts` (which needs the database),
 and the access model argued in prose is [`PERMISSIONS.md`](PERMISSIONS.md).
 
-Counts: **9 models**, **144 columns**, **67 endpoints**, **24 pages**.
+Counts: **9 models**, **144 columns**, **67 endpoints**, **25 pages**.
 
 ## 1. Data model
 
@@ -289,6 +289,7 @@ client-side; the API's RBAC above is the real boundary.
 | Route | Roles | Title |
 |---|---|---|
 | `/` | public |  |
+| `/accessibility` | public |  |
 | `/activate` | public |  |
 | `/admin/activity` | admin, executive | Programme Activity |
 | `/admin/audit` | admin, executive | Activity Log |

@@ -79,7 +79,7 @@ export default function LoginPage() {
           <p className="login-subtext">Use your ISN credentials to access the system.</p>
 
           <form onSubmit={handleSubmit}>
-            {error && <div className="alert alert-error">{error}</div>}
+            {error && <div role="alert" className="alert alert-error">{error}</div>}
             <div className="form-group">
               <label htmlFor="email">Email</label>
               <input
@@ -121,6 +121,9 @@ export default function LoginPage() {
           </form>
 
           <Link href="/forgot-password" className="login-forgot">Forgot password?</Link>
+          {/* Reachable BEFORE sign-in on purpose (§164): somebody who cannot
+              use the form is exactly who needs to read this. */}
+          <Link href="/accessibility" className="login-forgot">Accessibility statement</Link>
         </div>
       </div>
       </div>

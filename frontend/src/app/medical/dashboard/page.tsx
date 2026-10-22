@@ -12,7 +12,9 @@ import ClinicianBandOverride from '@/components/dashboard/ClinicianBandOverride'
 import EscalationResponse from '@/components/dashboard/EscalationResponse';
 import type { AthleteRisks } from '@/lib/screeningAlerts';
 import { INSTRUMENT_BANDS, RADAR_LABELS, highThresholdsFor, riskBand, riskRadarSeries } from '@/lib/screeningAlerts';
-import { selectionFromSearch, selectionMatchesSearch, selectionSearch } from '@/lib/selectionUrl';
+import { paramFromSearch, paramSearch } from '@/lib/urlParam';
+import { useUrlParam } from '@/lib/useUrlParam';
+import BackBar from '@/components/layout/BackBar';
 
 // Chart.js and the body-map path data are the heaviest client code on this
 // page and render nothing on the server anyway — split them out so the
@@ -90,7 +92,7 @@ export default function MedicalDashboard() {
   const [loadingList, setLoadingList] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
 
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useUrlParam('athlete');
   const [selectedAthlete, setSelectedAthlete] = useState<AthleteFull | null>(null);
   // A PAST screening the clinician chose to view (null = the athlete's latest).
   const [picked, setPicked] = useState<FullScreening | null>(null);
@@ -115,56 +117,44 @@ export default function MedicalDashboard() {
   const [eventDraft, setEventDraft] = useState<string[]>([]);
   const [eventsSaving, setEventsSaving] = useState(false);
 
-  useEffect(() => { setPicked(null); }, [selectedId]);
-
   // ?athlete=<IC> OPENS THAT RECORD (§123). Sport Assessment's "who to see
   // first" list links here rather than growing a second detail view — this is
   // the audited path (`athlete.view`) and the only place the clinical controls
   // live, so a shortlist that opened its own read-only copy would be a second
   // place to read a record from and only one of them would be in the trail.
   //
-  // Read from `window.location` rather than useSearchParams: that hook forces a
-  // Suspense boundary on any page that calls it, and this page is one large
-  // client component. Once only — the rail and the worklist drive every
-  // subsequent selection, and re-reading the URL on every render would fight
-  // them. The two effects below keep the address in step instead, which is a
-  // different thing from re-reading it.
-  useEffect(() => {
-    const id = selectionFromSearch(window.location.search);
-    if (id) setSelectedId(id);
-  }, []);
+  // THE ADDRESS FOLLOWS THE SELECTION (§161): the open record is `?athlete=`,
+  // pushed so BACK returns to the worklist, and cleared by "Back to worklist"
+  // and by the sidebar so a reload never re-opens a record the clinician left.
+  // The mechanics live in useUrlParam since §163 shared them with the coach's
+  // squad and Sport Assessment.
+  //
+  // `from=<sport>` is the one-shot hint Sport Assessment's shortlist adds, read
+  // once so the back bar can offer the way back to THAT sport — "Back to
+  // worklist" from there lands on a page the clinician never visited.
+  const [fromSport, setFromSport] = useState<string | null>(null);
+  useEffect(() => { setFromSport(paramFromSearch('from', window.location.search)); }, []);
 
-  // THE ADDRESS FOLLOWS THE SELECTION (2026-10-12, JC, §161).
+  // Opening or leaving a record is a view swap, not a route change, so the
+  // browser keeps the scroll position of whatever was open before — a record
+  // opened from the bottom of the worklist started mid-page. The coach's
+  // drill-down has always jumped to the top; this one now agrees (§163).
   //
-  // Opening a record used to change nothing in the address bar, so the record
-  // could not be bookmarked or sent to anybody, the browser's back button left
-  // the PAGE instead of returning to the worklist, and — the one that bites —
-  // `?athlete=<IC>` outlived "Back to worklist", so a reload put the clinician
-  // back inside the record they had just left.
-  //
-  // pushState, not replaceState: the whole point is that BACK returns to the
-  // worklist, and replace would leave the history exactly as broken as it was.
-  // Next supports the native call for search-param updates, and nothing here
-  // reads the param through the router, so no re-render is needed.
-  //
-  // The mount run is skipped: at that moment the ADDRESS is the truth and the
-  // selection has not caught up, so syncing would clobber a deep link with the
-  // empty worklist URL before the effect above has read it.
-  const urlSynced = useRef(false);
+  // Keyed on an actual CHANGE of selection, not on "not the first run": React's
+  // StrictMode runs mount effects twice, and a first-run flag let the second
+  // pass clear `from` before the reader had seen it (useUrlParam has the same
+  // note). A reload keeps the browser's own scroll restoration.
+  const prevSelected = useRef<string | null | undefined>(undefined);
   useEffect(() => {
-    if (!urlSynced.current) { urlSynced.current = true; return; }
-    if (selectionMatchesSearch(selectedId, window.location.search)) return;
-    window.history.pushState(null, '', `${window.location.pathname}${selectionSearch(selectedId)}`);
+    setPicked(null);
+    const prev = prevSelected.current;
+    prevSelected.current = selectedId;
+    if (prev === undefined || prev === selectedId) return;
+    window.scrollTo({ top: 0 });
+    // Back on the worklist, the trip from Sport Assessment is over; the next
+    // record opened from here should not offer to return there.
+    if (!selectedId) setFromSport(null);
   }, [selectedId]);
-
-  // ...and BACK moves the selection. Without this the entries pushed above are
-  // addresses the page ignores: the URL would change on back and the open record
-  // would not, which is worse than not pushing at all.
-  useEffect(() => {
-    const onPop = () => setSelectedId(selectionFromSearch(window.location.search));
-    window.addEventListener('popstate', onPop);
-    return () => window.removeEventListener('popstate', onPop);
-  }, []);
 
   // THE RAIL FOLDS AWAY ONCE AN ATHLETE IS OPEN (2026-10-05, JC).
   //
@@ -654,7 +644,7 @@ export default function MedicalDashboard() {
             {loadingList ? (
               <p className="text-muted" style={{ padding: 12 }}>Loading roster…</p>
             ) : listError ? (
-              <div className="alert alert-error">{listError}</div>
+              <div role="alert" className="alert alert-error">{listError}</div>
             ) : hits.length === 0 ? (
               // Say which of the two things emptied the list, because the fix
               // differs: retype the name, or drop a filter.
@@ -721,6 +711,24 @@ export default function MedicalDashboard() {
 
         {/* ── Right pane ──────────────────────────────────────────────────── */}
         <section className="medical-pane">
+          {/* BACK TO THE QUEUE (§107, moved to the top in §163). The worklist is
+              the page a clinician works FROM: open an athlete, decide, come back
+              for the next. Offered whether or not a decision was recorded —
+              leaving without one is a legitimate outcome, and a control that
+              appeared only after a decision would read as a gate. Rendered from
+              the moment a record is SELECTED, not once it has loaded: a record
+              that fails to load used to leave no visible way out at all. */}
+          {selectedId && (
+            <BackBar
+              label="Back to worklist"
+              onBack={() => setSelectedId(null)}
+              current={selectedAthlete?.athleteId === selectedId ? selectedAthlete.name : null}
+              secondary={fromSport ? {
+                href: `/medical/sport-assessment${paramSearch('sport', fromSport)}`,
+                label: `Back to ${fromSport} assessment`,
+              } : null}
+            />
+          )}
           {!selectedId ? (
             /* Empty state — clinician's natural entry points */
             <>
@@ -907,7 +915,7 @@ export default function MedicalDashboard() {
           ) : loadingSelected ? (
             <p className="text-muted">Loading athlete details…</p>
           ) : selectedError ? (
-            <div className="alert alert-error">{selectedError}</div>
+            <div role="alert" className="alert alert-error">{selectedError}</div>
           ) : selectedAthlete && view ? (
             <>
               {/* Athlete header card */}
@@ -1016,21 +1024,6 @@ export default function MedicalDashboard() {
                       contradictory flexShrink:0-with-flexWrap that used to be
                       here is gone with the inline style. */}
                   <div className="medical-id-actions">
-                    {/* BACK TO THE QUEUE (§107, JC). The worklist is the page a
-                        clinician works FROM: they open an athlete, decide, and
-                        come back for the next one. Without this the only way
-                        back was the browser button or re-picking from the rail,
-                        and neither reads as "I am finished with this one".
-                        Offered whether or not a decision was recorded — leaving
-                        without one is a legitimate outcome, and a control that
-                        appeared only after a decision would read as a gate. */}
-                    <button
-                      type="button"
-                      className="btn btn-outline"
-                      onClick={() => setSelectedId(null)}
-                    >
-                      &larr; Back to worklist
-                    </button>
                     {selectedAthlete.screening && (
                       <button
                         type="button"
@@ -1053,7 +1046,7 @@ export default function MedicalDashboard() {
                       </button>
                     )}
                 </div>
-                {pdfError && <div className="alert alert-error" style={{ marginTop: 12, marginBottom: 0 }}>{pdfError}</div>}
+                {pdfError && <div role="alert" className="alert alert-error" style={{ marginTop: 12, marginBottom: 0 }}>{pdfError}</div>}
               </div>
 
               <InjuryStatusControl
@@ -1111,7 +1104,7 @@ export default function MedicalDashboard() {
                   )}
                 />
                 <div style={{ display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <div style={{ flex: '1 1 420px', minWidth: 300, maxWidth: 520 }}>
+                  <div style={{ flex: '1 1 420px', minWidth: 'min(300px, 100%)', maxWidth: 520 }}>
                     {/* 250, not the 320 default (JC, §137). This chart shares a
                         row with the identity card and the breach list; at 320 it
                         set the height of the whole hero and left white space

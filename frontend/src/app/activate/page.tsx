@@ -82,12 +82,12 @@ export default function ActivatePage() {
             </p>
 
             {done ? (
-              <div className="alert alert-success" style={{ marginTop: 12 }}>
+              <div role="status" className="alert alert-success" style={{ marginTop: 12 }}>
                 Account activated. Redirecting you to sign in…
               </div>
             ) : (
               <form onSubmit={handleSubmit}>
-                {error && <div className="alert alert-error">{error}</div>}
+                {error && <div role="alert" className="alert alert-error">{error}</div>}
 
                 <div className="form-group">
                   <label htmlFor="ac-email">Email address</label>

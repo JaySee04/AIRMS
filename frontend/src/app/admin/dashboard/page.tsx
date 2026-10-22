@@ -265,7 +265,7 @@ export default function AdminDashboard() {
 
   return (
     <DashboardLayout allowedRoles={['admin', 'executive']} title="Screening Analytics">
-      {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
+      {error && <div role="alert" className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
 
       <CohortFilters
         f={f}

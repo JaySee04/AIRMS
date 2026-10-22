@@ -151,7 +151,7 @@ export default function ClinicianBandOverride({
         </div>
       )}
 
-      {error && <div className="alert alert-error" style={{ marginTop: 10, marginBottom: 0 }}>{error}</div>}
+      {error && <div role="alert" className="alert alert-error" style={{ marginTop: 10, marginBottom: 0 }}>{error}</div>}
     </section>
   );
 }

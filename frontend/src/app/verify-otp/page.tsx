@@ -88,8 +88,8 @@ function VerifyOtpContent() {
               {ttlMinutes !== null && ` The code expires in ${ttlMinutes} minute${ttlMinutes === 1 ? '' : 's'}.`}
             </p>
             <form onSubmit={handleSubmit}>
-              {error && <div className="alert alert-error">{error}</div>}
-              {info && !error && <div className="alert alert-success">{info}</div>}
+              {error && <div role="alert" className="alert alert-error">{error}</div>}
+              {info && !error && <div role="status" className="alert alert-success">{info}</div>}
               <div className="form-group">
                 <label htmlFor="code">6-digit code</label>
                 <input

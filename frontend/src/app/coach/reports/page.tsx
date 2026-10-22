@@ -56,7 +56,7 @@ export default function CoachReportsPage() {
 
   return (
     <DashboardLayout allowedRoles={['coach']} title="Reports">
-      {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
+      {error && <div role="alert" className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
 
       {/* Date window — shared by both reports */}
       <div className="card" style={{ marginBottom: 20 }}>

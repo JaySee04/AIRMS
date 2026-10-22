@@ -372,6 +372,9 @@ export default function OverallRiskBadge({
                   </span>
                 )}
             </div>
+            {/* .table-wrap (gotcha 8b): at 400% zoom this table was 15px wider
+                than its card and took the whole page sideways (§164). */}
+            <div className="table-wrap">
             <table className="cohort-profile-table">
               <thead>
                 <tr>
@@ -414,6 +417,7 @@ export default function OverallRiskBadge({
                 })}
               </tbody>
             </table>
+            </div>
           </div>
         )}
         {/* WHAT THE SCREENING FOUND, BOTH WAYS (§107, JC).

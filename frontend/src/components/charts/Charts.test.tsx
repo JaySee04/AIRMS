@@ -652,3 +652,48 @@ describe('PeriodChart — the sparse-grain layouts', () => {
     expect(html).not.toContain('is made of');
   });
 });
+
+// ── §164: the numbers behind a chart are reachable without a mouse ──────────
+// Three charts kept their values only in shapes and hover titles. Each now
+// carries a "Show as table". These assert the TABLE carries the values — a
+// <details> that rendered but held an empty table would pass a presence check.
+describe('Show as table — the values a chart draws are in a real table', () => {
+  const tableOf = (html: string) => {
+    const i = html.indexOf('class="chart-table"');
+    return i === -1 ? '' : html.slice(i);
+  };
+
+  it('Histogram: each range and its count, not just the counts', () => {
+    const t = tableOf(render(<Histogram values={[12, 14, 22, 23, 24]} min={10} max={30} binSize={10} valueLabel="Exercise Risks" />));
+    expect(t).toContain('Show as table');
+    expect(t).toContain('<th scope="row">10–20</th><td>2</td>');
+    expect(t).toContain('<th scope="row">20–30</th><td>3</td>');
+  });
+
+  it('Scatter: names the athlete and the quadrant each dot is in', () => {
+    const t = tableOf(render(<Scatter
+      xLabel="Total Score" yLabel="Exercise Risks"
+      quadrants={['TL', 'TR', 'BR', 'BL']}
+      points={[
+        { key: 'a', label: 'Adam', x: 80, y: 30 },
+        { key: 'b', label: 'Bea', x: 60, y: 10 },
+        { key: 'c', label: 'Cal', x: 70, y: 20 },
+      ]}
+    />));
+    expect(t).toContain('<th scope="row">Adam</th><td>80</td><td>30</td><td>TR</td>');
+    expect(t).toContain('<th scope="row">Bea</th><td>60</td><td>10</td><td>BL</td>');
+    // Cal IS the median on both axes: named as such, never forced into a corner.
+    expect(t).toContain('<th scope="row">Cal</th><td>70</td><td>20</td><td>on a median line</td>');
+  });
+
+  it('PeriodChart: every column split, which was a mouse-only tooltip', () => {
+    const t = tableOf(render(<PeriodChart points={[period('q2', 'Q2 2026', 40, 73.6), period('q3', 'Q3 2026', 20, 72.3)]} />));
+    expect(t).toContain('<th scope="col">Needs attention</th>');
+    expect(t).toContain('<th scope="row">Q2 2026</th><td>40</td><td>24</td><td>12</td><td>4</td><td>73.6</td>');
+  });
+
+  it('an empty period stays a row that says so', () => {
+    const t = tableOf(render(<PeriodChart points={[period('a', 'Jan', 10, 70), period('b', 'Feb', 0, null as unknown as number), period('c', 'Mar', 10, 71)]} />));
+    expect(t).toContain('<th scope="row">Feb</th><td>no screening</td>');
+  });
+});

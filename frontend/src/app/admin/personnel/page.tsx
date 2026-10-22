@@ -377,7 +377,7 @@ export default function AdminPersonnelPage() {
 
   return (
     <DashboardLayout allowedRoles={['admin']} title="Personnel">
-      {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
+      {error && <div role="alert" className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
 
       <div className="card" style={{ marginBottom: 20 }}>
         <div className="card-header"><div>
@@ -388,8 +388,8 @@ export default function AdminPersonnelPage() {
             must meet the AIRMS policy ({PASSWORD_MIN_LENGTH}+ characters, upper and lower case, a number, a symbol).
           </span>
         </div></div>
-        {addError && <div className="alert alert-error">{addError}</div>}
-        {addMsg && <div className="alert alert-success">{addMsg}</div>}
+        {addError && <div role="alert" className="alert alert-error">{addError}</div>}
+        {addMsg && <div role="status" className="alert alert-success">{addMsg}</div>}
         <form onSubmit={addAccount}>
           <div className="form-row-2">
             <div className="form-group">
@@ -496,8 +496,8 @@ export default function AdminPersonnelPage() {
             that works and a dashboard that shows nothing.
           </span>
         </div></div>
-        {athleteError && <div className="alert alert-error">{athleteError}</div>}
-        {athleteMsg && <div className="alert alert-success">{athleteMsg}</div>}
+        {athleteError && <div role="alert" className="alert alert-error">{athleteError}</div>}
+        {athleteMsg && <div role="status" className="alert alert-success">{athleteMsg}</div>}
 
         {athleteConfirm ? (
           // Echo-back confirm. The address was typed a moment ago and is about

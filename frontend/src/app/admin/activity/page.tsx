@@ -468,7 +468,7 @@ export default function AdminActivity() {
 
   return (
     <DashboardLayout allowedRoles={['admin', 'executive']} title="Programme Activity">
-      {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
+      {error && <div role="alert" className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
 
       <CohortFilters
         f={f}
@@ -938,7 +938,7 @@ function SeasonalityCard({ season }: { season: NonNullable<PeriodsPayload['seaso
           worth acting on if it repeats.
         </p>
       ) : (
-        <div className="alert alert-warning" style={{ marginBottom: 14 }}>
+        <div role="status" className="alert alert-warning" style={{ marginBottom: 14 }}>
           <strong>Not yet a seasonal reading.</strong>{' '}
           All screenings on record fall in{' '}
           {season.yearsCovered === 1 ? `a single year (${season.years.join(', ')})` : 'no complete year'},

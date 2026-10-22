@@ -121,7 +121,7 @@ export default function AthleteHistoryPage() {
         )}
       </div>
 
-      {error && rows.length > 0 && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
+      {error && rows.length > 0 && <div role="alert" className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
 
       {full && (
         <>
@@ -136,7 +136,7 @@ export default function AthleteHistoryPage() {
               </div>
             </div>
             <div style={{ display: 'flex', gap: 24, alignItems: 'center', flexWrap: 'wrap' }}>
-              <div style={{ flex: '1 1 420px', minWidth: 300, maxWidth: 520 }}>
+              <div style={{ flex: '1 1 420px', minWidth: 'min(300px, 100%)', maxWidth: 520 }}>
                 <RiskRadar labels={RADAR_LABELS} values={riskValues} thresholds={riskThresholds} />
               </div>
               <div style={{ flex: '1 1 260px', minWidth: 240 }}>

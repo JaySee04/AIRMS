@@ -22,6 +22,14 @@ the conversation goes somewhere else. The rest can be settled on the day.
 3. **How long should screening data be kept?** It is never deleted today. If
    ISN has a retention period, say so now rather than retrofitting it.
 4. **Is this a pilot or production?** Changes how much the gaps below matter.
+4a. **Does ISN apply *Pekeliling Pendigitalan Perkhidmatan Awam Bil. 1 Tahun
+    2025* to internal systems?** It requires agency portals in **both Bahasa
+    Melayu and English** and asks for WCAG accessibility. AIRMS is English-only
+    today; if the answer is yes, BM becomes a requirement rather than a
+    nice-to-have, and it is the largest single piece of work left (DD §164).
+4b. **Who should accessibility problems be reported to?** The public
+    statement at `/accessibility` currently says "your AIRMS administrator at
+    ISN". A named address is better, and is ISN's to give.
 
 ## B · ISN IT — the slow ones
 
