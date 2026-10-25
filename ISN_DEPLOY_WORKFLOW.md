@@ -153,15 +153,19 @@ variable. A malformed file refuses at boot rather than loading half of itself.
 
 ## 5. Updating a live install
 
+After the release loop has pushed to `AIRMS-ISN`, on the server:
+
 ```bash
-# on the server
-cd /opt/airms            # wherever it lives
-git pull
-cd backend  && npm ci
-cd ../frontend && npm ci && npm run build
-sudo systemctl restart airms-api airms-web
-cd ../backend && npm run verify:schema   # did a migration land?
+sudo airms-update              # fetch, install, test, build, check schema, swap, verify
+sudo airms-update --rollback   # put the previous version back
 ```
+
+It prepares the new version in `/opt/airms-next` while the live site keeps
+serving, swaps directories only once every step passed, and reverses the swap
+by itself if the restarted site is not healthy or is not the code just built.
+**Do not update in place** (`git pull` + `npm run build` inside `/opt/airms`):
+the build rewrites `.next` underneath the running site, and a failed build
+leaves it broken. See the header of `deploy/airms-update.sh`.
 
 **Migrations are expand-then-deploy.** Apply the migration *before* the code
 that selects the new columns, or every query answers

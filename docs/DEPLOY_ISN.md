@@ -297,6 +297,31 @@ the printed PDF. Nothing else substitutes for that.
 
 ---
 
+## 7. Updating
+
+```bash
+sudo install -m 755 deploy/airms-update.sh /usr/local/bin/airms-update   # once
+
+sudo airms-update              # update to the latest pushed version
+sudo airms-update --rollback   # put the previous version back
+```
+
+The new version is fetched, installed, tested, built and checked against the
+live database in `/opt/airms-next` while `/opt/airms` keeps serving. Only when
+all of that passes are the directories swapped and the services restarted —
+seconds of downtime, not minutes. If the restarted site is not healthy, or is
+not the code just built (`assert-fresh`), the swap is reversed automatically.
+The previous version stays at `/opt/airms-prev`.
+
+It stops, without touching the live site, if the database lacks a column the
+new code declares: run that migration first (expand, then deploy).
+
+**Do not update in place** with `git pull` and `npm run build` inside
+`/opt/airms`. The build rewrites `.next` underneath the running site, so pages
+break for as long as it takes, and a failed build leaves them broken.
+
+---
+
 ## Known gaps for the first install
 
 Honest list, because discovering these on the day is worse than reading them
