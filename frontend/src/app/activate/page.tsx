@@ -32,6 +32,8 @@ export default function ActivatePage() {
   const [code, setCode] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
@@ -117,16 +119,27 @@ export default function ActivatePage() {
 
                 <div className="form-group">
                   <label htmlFor="ac-pw">Choose a password</label>
-                  <input
-                    id="ac-pw"
-                    type="password"
-                    value={password}
-                    autoComplete="new-password"
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder={`At least ${PASSWORD_MIN_LENGTH} characters`}
-                    aria-describedby="password-rules"
-                    required
-                  />
+                  <div className="password-input-wrap">
+                    <input
+                      id="ac-pw"
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      autoComplete="new-password"
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder={`At least ${PASSWORD_MIN_LENGTH} characters`}
+                      aria-describedby="password-rules"
+                      required
+                    />
+                    <button
+                      type="button"
+                      className="password-toggle"
+                      onClick={() => setShowPassword((v) => !v)}
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      aria-pressed={showPassword}
+                    >
+                      {showPassword ? 'Hide' : 'Show'}
+                    </button>
+                  </div>
                   <ul id="password-rules" className="password-rules">
                     {passwordRules.map((rule) => {
                       const pass = rule.test(password);
@@ -141,15 +154,26 @@ export default function ActivatePage() {
 
                 <div className="form-group">
                   <label htmlFor="ac-pw2">Confirm password</label>
-                  <input
-                    id="ac-pw2"
-                    type="password"
-                    value={confirm}
-                    autoComplete="new-password"
-                    onChange={(e) => setConfirm(e.target.value)}
-                    placeholder="Re-enter the password"
-                    required
-                  />
+                  <div className="password-input-wrap">
+                    <input
+                      id="ac-pw2"
+                      type={showConfirm ? 'text' : 'password'}
+                      value={confirm}
+                      autoComplete="new-password"
+                      onChange={(e) => setConfirm(e.target.value)}
+                      placeholder="Re-enter the password"
+                      required
+                    />
+                    <button
+                      type="button"
+                      className="password-toggle"
+                      onClick={() => setShowConfirm((v) => !v)}
+                      aria-label={showConfirm ? 'Hide password' : 'Show password'}
+                      aria-pressed={showConfirm}
+                    >
+                      {showConfirm ? 'Hide' : 'Show'}
+                    </button>
+                  </div>
                 </div>
 
                 <button type="submit" className="btn btn-gold btn-block" disabled={busy}>

@@ -452,6 +452,30 @@ const MUTATIONS = [
     test: 'src/app/alertRoles.test.ts',
   },
   {
+    // /activate shipped its two password fields fixed to type="password" while
+    // every other password field could be revealed. The scan reads every .tsx;
+    // these prove it notices ONE fixed field, and ONE toggle that has come
+    // unwired from the field it claims to reveal.
+    guard: 'password: no field is fixed to type="password"',
+    why: 'a field nobody can reveal is the one where a typo locks the user out',
+    pkg: 'frontend',
+    from: ROOT,
+    file: 'frontend/src/app/activate/page.tsx',
+    find: "                      type={showConfirm ? 'text' : 'password'}",
+    replace: '                      type="password"',
+    test: 'src/app/passwordToggle.test.ts',
+  },
+  {
+    guard: 'password: each toggle reports the state of its own field',
+    why: 'a toggle wired to nothing looks like a working control',
+    pkg: 'frontend',
+    from: ROOT,
+    file: 'frontend/src/app/activate/page.tsx',
+    find: '                      aria-pressed={showConfirm}',
+    replace: '                      aria-pressed={false}',
+    test: 'src/app/passwordToggle.test.ts',
+  },
+  {
     // §164. The scatter's table names which quadrant each athlete is in — the
     // fact the chart exists to surface. Swapping the top two corners would put
     // every "high risk · good mover" athlete under "poor mover" in a table that
