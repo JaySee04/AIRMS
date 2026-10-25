@@ -23,7 +23,9 @@ WorkingDirectory=/opt/airms/frontend
 EnvironmentFile=/etc/airms/web.env
 Environment=NODE_ENV=production
 
-ExecStart=/usr/bin/npx next start -p 3000
+# -H 127.0.0.1: only the reverse proxy may reach this. Both shipped proxy
+# configs (nginx-airms.conf, apache-airms.conf) target 127.0.0.1:3000.
+ExecStart=/usr/bin/npx next start -p 3000 -H 127.0.0.1
 
 Restart=always
 RestartSec=5

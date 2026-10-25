@@ -260,8 +260,13 @@ async function start() {
     console.log('Sequelize sync complete (tables created if missing).');
   }
 
-  const server = app.listen(PORT, () => {
-    console.log(`AIRMS backend running on port ${PORT}`);
+  // LISTEN_HOST=127.0.0.1 behind a reverse proxy, so the API answers only the
+  // proxy. Unset keeps Node's default of every interface — on the ISN VM that
+  // left :5000 hidden by nothing but ISN's NAT (measured 2026-10-25), which is
+  // one network change away from plain-HTTP clinical data on the internet.
+  const LISTEN_HOST = process.env.LISTEN_HOST || undefined;
+  const server = app.listen(PORT, LISTEN_HOST, () => {
+    console.log(`AIRMS backend running on ${LISTEN_HOST || 'all interfaces'}, port ${PORT}`);
     // WHICH ATHLETE DIRECTORY IS SERVED, said out loud at boot (§162).
     //
     // Deliberately NOT on /api/health: that endpoint is unauthenticated and its

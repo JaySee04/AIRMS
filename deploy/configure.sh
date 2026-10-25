@@ -96,6 +96,9 @@ PORT=5000
 # The backend's CORS allow-list. Must be the BROWSER-FACING web origin.
 FRONTEND_URL=https://$WEB_HOST
 
+# Answer only the reverse proxy, never the network directly.
+LISTEN_HOST=127.0.0.1
+
 JWT_SECRET=$JWT_SECRET
 JWT_EXPIRES_IN=7d
 
