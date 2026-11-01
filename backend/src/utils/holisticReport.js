@@ -220,13 +220,13 @@ function drawHolistic(doc, data, stamp = todayStamp()) {
     {
       xLabel: 'Total Score (movement quality)',
       yLabel: 'Exercise Risks',
-      quadrants: ['High risk - poor mover', 'High risk - GOOD mover', 'Low risk - good mover', 'Low risk - poor mover'],
+      quadrants: ['HIGH RISK - POOR MOVER', 'High risk - good mover', 'Low risk - good mover', 'Low risk - poor mover'],
     },
   );
   doc.fontSize(7.5).fillColor(MUTED).text(
-    'Top-right is the reading to look for: movement quality above the group median AND injury risk above '
-    + 'it too. The HoloMotion Total Score excludes injury risk entirely, so those two facts are '
-    + 'independent and an athlete can be both — which no ranked table or averaged panel here would surface.',
+    'Top-left comes first: injury risk above the group median AND movement quality below it - poor on both '
+    + 'halves of the report. The overall band does not catch all of them. Top-right is the other reading: the '
+    + 'HoloMotion Total Score excludes injury risk entirely, so an athlete can move well and still carry risk.',
     50, doc.y + 2, { width: doc.page.width - 100 },
   );
   doc.fillColor(TEXT);

@@ -192,8 +192,9 @@ The squad's **shape**, not only its averages.
 - **Squad body map** — the same licensed figure fed the cohort's mean subitem
   scores.
 - **Risk vs movement scatter** — quadrants split on the squad's own medians. The
-  reading to look for is top-right: an athlete who moves well *and* scores risky.
-  No averaged panel surfaces those.
+  corner to act on first is top-left: high risk *and* a poor mover. Top-right is
+  the other reading — an athlete who moves well and still scores risky. No
+  averaged panel surfaces either.
 - **Indicator distribution** — a mean of 50 is produced equally by everyone at 50
   and by half the squad at 30 and half at 70. Those are different squads.
 - **Subitem heatmap and left–right asymmetry** — the 25-cell table aggregated,

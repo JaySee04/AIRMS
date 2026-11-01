@@ -3700,8 +3700,8 @@ textarea:focus-visible,
 
 /* ── Scatter: one dot per athlete, two measures at once ───────────────────────
    Quadrants split on the cohort MEDIANS, not fixed cut-offs, so "high risk"
-   means high for this group. The reading that matters is top-right: an athlete
-   who moves well and still scores risky, which no averaged panel can surface. */
+   means high for this group. The emphasised corner is chosen by the page
+   (`highlight`), not here. */
 .scatter { position: relative; padding-left: 34px; }
 .scatter-plot {
   position: relative;

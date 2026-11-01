@@ -838,8 +838,7 @@ export default function AdminDashboard() {
 
       {/* ── Risk vs movement quality ─────────────────────────────────────────
           One dot per athlete. Every other panel here is an average, and an
-          average cannot show the athlete who moves well and still scores risky —
-          which is exactly the one a screening programme exists to catch. */}
+          average cannot show WHICH athletes are poor on both halves of the report. */}
       <div className="card" style={{ marginTop: 20 }}>
         <CardHead
           title="Risk vs Movement Quality"
@@ -870,9 +869,11 @@ export default function AdminDashboard() {
                 'Low risk · good mover',
                 'Low risk · poor mover',
               ]}
-              /* Top-right: high risk AND a good mover. The one a single number
-                 cannot surface, and the reason this chart exists. */
-              highlight={1}
+              /* Top-left: high risk AND a poor mover — worst on both halves of
+                 the report, so first in line (§165). It was top-right on the
+                 premise that top-left is "already flagged elsewhere"; on ISN's
+                 846 real athletes 70 of the 215 in it were green. */
+              highlight={0}
               legend={bandSegments({}).map((s) => ({ label: s.label, color: s.color }))}
             />
             {/* THE WHOLE EXPLANATION, ON THE CHART (§126).
@@ -889,16 +890,15 @@ export default function AdminDashboard() {
                   loses nothing by not opening them. */}
               {/* FOUR LABELS, NOT FOUR PARAGRAPHS (§134). The quadrant key has to
                   stay on the card — a chart whose corners are unlabelled makes the
-                  reader do the decoding — but a label is all it has to be. Why the
-                  top-right corner is the interesting one is method, and moved. */}
+                  reader do the decoding — but a label is all it has to be. */}
               <ul className="chart-explain-quads">
                 <li>
-                  <span className="chart-explain-key chart-explain-key--tr" aria-hidden />
-                  <strong>Top right — high risk, good mover.</strong> The ones to act on.
+                  <span className="chart-explain-key chart-explain-key--tl" aria-hidden />
+                  <strong>Top left — high risk, poor mover.</strong> The ones to act on first.
                 </li>
                 <li>
-                  <span className="chart-explain-key chart-explain-key--tl" aria-hidden />
-                  <strong>Top left — high risk, poor mover.</strong> Already flagged elsewhere.
+                  <span className="chart-explain-key chart-explain-key--tr" aria-hidden />
+                  <strong>Top right — high risk, good mover.</strong> Risk a movement score alone would miss.
                 </li>
                 <li>
                   <span className="chart-explain-key chart-explain-key--br" aria-hidden />

@@ -936,10 +936,9 @@ export function Heatmap({
 // Scatter — one dot per athlete, two measures at once.
 //
 // Every other panel on the analytics page is an AVERAGE, and an average cannot
-// show a squad splitting into two groups, or the single good mover who is
-// carrying a high risk score. Quadrants split by the cohort medians turn that
-// into a reading: the dangerous athlete is the one top-RIGHT — moves well, scored
-// risky — because no single-number view will ever surface them.
+// show a squad splitting into two groups, or name the athletes who are poor on
+// both measures. Quadrants split by the cohort medians turn that into a reading;
+// which corner is emphasised is the caller's `highlight` (§165).
 // ══════════════════════════════════════════════════════════════════════════
 export interface ScatterPoint {
   key: string; label: string; x: number; y: number; color?: string; hint?: string;

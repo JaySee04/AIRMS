@@ -12341,6 +12341,10 @@ axis, because that is the axis a reader is deciding on, and it reuses the existi
 `--risk-*-bg` tokens: **no new colour is introduced and the dots keep their band
 hues unchanged.**
 
+> **SUPERSEDED by §165 (2026-10-28):** the emphasised quadrant is now top-LEFT
+> (`highlight={0}`). The mechanism below is unchanged; the choice of corner was
+> wrong on real data.
+
 **One quadrant is named as the one to act on** (`highlight={1}` — high risk, good
 mover). Emphasis is opacity (0.55 against 0.25) plus an inset border, so the tint
 still says "high risk" and the emphasis is a second channel on top of it rather
@@ -15478,3 +15482,29 @@ ring"), which is the argument for writing the statement at all.
 - **Tagged PDFs.** pdfkit can emit them, but every report's drawing code would
   need structure added; stated as a limitation, with the dashboards as the
   accessible route to the same content.
+
+## 165. The scatter emphasises the worst corner, not the surprising one (2026-10-28, JC)
+
+**Asked:** "Shouldn't high risk poor mover be the one that is highlighted?"
+
+§126 emphasised **top-right** (high risk, good mover) and captioned top-left
+"already flagged elsewhere". The argument: a poor mover with a high risk score is
+caught by the band anyway, so the chart's job is the athlete the band misses.
+That was reasoned on seeded data and never measured.
+
+**Measured on ISN's 846 real athletes** (first import, 2026-10-28; medians Total
+79, Exercise Risks 12; latest screening per athlete, effective band):
+
+| quadrant | athletes | green | amber | red |
+|---|---|---|---|---|
+| high risk, poor mover (top-left) | 215 | **70** | 29 | 116 |
+| high risk, good mover (top-right) | 15 | 13 | 1 | 1 |
+
+"Already flagged elsewhere" is false for a third of the corner: 70 athletes worst
+on both halves of the report carry **no** flag. And the emphasised corner held 15
+athletes against 215. So `highlight={0}`. The card key now reads top-left "the
+ones to act on first", top-right "risk a movement score alone would miss" — both
+readings stay, the order changed. The holistic PDF's labels and caption follow.
+
+Nothing else moved: the medians, the tints, the single-emphasis rule (e2e 4i
+asserts exactly one key zone, not which) and the quadrant table guard (§164).
