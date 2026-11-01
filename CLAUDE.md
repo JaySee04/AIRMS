@@ -834,7 +834,7 @@ cd backend; npx jest      # 75 suites / 1161 tests: cohorts, overallIndicator, p
                           # other suite. Static: it reads both files as text and never
                           # require()s the target, because several modules build a Sequelize
                           # instance at import time)
-cd frontend; npx jest     # 34 suites / 561 tests (the run is pinned to UTC by
+cd frontend; npx jest     # 33 suites / 552 tests (the run is pinned to UTC by
                           # jest.globalSetup.js - this machine sits IN the institution
                           # zone, which made the date tests pass for the wrong reason
                           # until mutation testing said so; see DD 62): lib/risk.ts, lib/screeningUploadStore.ts, bodymap-data/muscles.ts,
@@ -2054,12 +2054,11 @@ stripper handles it, but §118's trap is why the stripper exists.
 tap paths, all three, because any one can break while the other two keep the
 feature looking fine) and `npx jest src/components/ui/InfoTip.test.tsx`.
 
-**A real pointer gesture in e2e needs the what's-new notice dismissed first.**
-`visit()` seeds a token but not the acknowledgement, so `.modal-backdrop` covers
-the document. Every other section clicks through `page.evaluate(el.click())`,
-which is programmatic and never met the overlay; §4l is the first to use
-`page.hover()` / `page.click()` and it dismisses the notice, then asserts nothing
-is covering the button before measuring.
+**A real pointer gesture in e2e hits whatever is on top.** Every other section
+clicks through `page.evaluate(el.click())`, which is programmatic and goes
+straight to the handler; §4l uses `page.hover()` / `page.click()`, so it first
+asserts nothing is covering the button — an overlay would otherwise read as a
+broken tip.
 
 ## Comments: which ones are load-bearing (2026-09-13, `DESIGN_DECISIONS.md §99.2`)
 

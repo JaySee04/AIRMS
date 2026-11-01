@@ -7,18 +7,15 @@
 // landing assertions, the unmeasured bookkeeping, SIGINT teardown. One sweep
 // written twice.
 //
-// It had already bitten. The "What's new" notice opens on a fresh context and
-// its backdrop sits over the page, so both sweeps have to acknowledge it in
-// their session seed — and that acknowledgement had to be written into two
-// files. A second copy of a rule is a second place for it to go stale, which is
-// what most of this repo's guards exist to prevent.
+// A second copy of a rule is a second place for it to go stale, which is what
+// most of this repo's guards exist to prevent.
 //
 // WHAT THE HARNESS OWNS, because it is the same question for any sweep:
 //   * which pages, as which role (scripts/lib/pages.js);
 //   * a browser CONTEXT per visit — localStorage is per-origin, so concurrent
 //     plain tabs trample each other's token and a visit silently reads another
 //     role's screen (§121.8);
-//   * the session seed, including the what's-new acknowledgement;
+//   * the session seed;
 //   * EVERY VISIT PROVES IT WAS MEASURED. An expired session, a renamed route or
 //     a role losing access all end on a screen with no findings, so a broken
 //     sweep reports a confident green ZERO. A visit that cannot be measured is
@@ -80,17 +77,15 @@ async function allSessions(api) {
 /**
  * The session a page boots with.
  *
- * ONE definition, and the what's-new acknowledgement is the reason it has to be:
- * each visit gets a fresh context, so the notice would open on every single one
- * and its backdrop would sit over the page. Measured when it did — the contrast
- * sweep reported `.text-muted` at 2.32:1 on /coach/dashboard, which is not a
- * defect but the page's own text read through a translucent overlay.
+ * ONE definition: each visit gets a fresh context, so anything the seed must
+ * set has to be set for every sweep. A modal left open on a fresh context once
+ * made the contrast sweep report `.text-muted` at 2.32:1 on /coach/dashboard —
+ * the page's own text read through a translucent overlay, not a defect.
  */
 const SEED = (s, theme) => {
   localStorage.setItem('airms_token', s.token);
   localStorage.setItem('airms_user', JSON.stringify(s.user));
   if (theme) localStorage.setItem('airms_theme', theme);
-  localStorage.setItem(`airms_whatsnew_v1:${s.user.id}`, '1');
 };
 
 /**

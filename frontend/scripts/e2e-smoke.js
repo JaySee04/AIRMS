@@ -813,20 +813,6 @@ async function visit(browser, route, session) {
       const panels = () => r.page.evaluate(() => document.querySelectorAll('.infotip-panel').length);
       const settle = () => new Promise((res) => { setTimeout(res, 300); });
 
-      // THE WHAT'S-NEW BACKDROP HAS TO GO FIRST, and finding out why cost a run.
-      // `visit()` seeds a token but not the notice acknowledgement, so the modal
-      // opens on every fresh page and `.modal-backdrop` covers the whole document.
-      // Every OTHER section in this suite clicks through `page.evaluate(el.click())`,
-      // which is programmatic and goes straight to the handler — so the overlay has
-      // never mattered. This is the first section that uses REAL pointer gestures,
-      // and a real pointer hits the backdrop. Dismissed the way a person does.
-      await r.page.evaluate(() => {
-        const b = [...document.querySelectorAll('.modal-footer .btn')]
-          .find((x) => /got it/i.test(x.textContent || ''));
-        if (b) b.click();
-      });
-      await settle();
-
       const n = await r.page.evaluate(() => document.querySelectorAll('.infotip-btn').length);
       check('infotip: the page offers info tips at all', n > 0, `${n} tip(s)`);
       // COULD-NOT-MEASURE GUARD (rule 2). If anything still covers the button,

@@ -374,7 +374,7 @@ cd frontend; npm run lint
 
 # Tests
 cd backend;  npx jest      # 75 backend suites
-cd frontend; npx jest      # 34 frontend suites
+cd frontend; npx jest      # 33 frontend suites
 
 # Health check
 curl http://localhost:5000/api/health
@@ -437,7 +437,7 @@ rather than half-wired** — a green tick that quietly skipped them is a worse
 signal than no tick at all. Until this existed, every test and every guard ran
 only when somebody remembered, on a branch where a push **is** a deploy.
 
-Counts as of 2026-10-25: **75 backend suites / 1167 tests**, **34 frontend suites / 561 tests**.
+Counts as of 2026-10-30: **75 backend suites / 1167 tests**, **33 frontend suites / 552 tests**.
 
 The **suite** counts above are guarded (`codebaseHygiene.test.js`); the test
 totals are not, deliberately — measuring them means running jest inside jest,

@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
-import WhatsNewNotice from './WhatsNewNotice';
 import { api, isAuthError } from '@/lib/api';
 import {
   getSession, saveSession, clearSession, isRole,
@@ -318,10 +317,6 @@ export default function DashboardLayout({ children, allowedRoles, title, require
         <main id="main-content" tabIndex={-1} className="page-content">
           {blocked ? null : children}
         </main>
-        {/* Shown once per user, and only to someone the gate has let in —
-            `blocked` means the session was refused, and a release note over a
-            bounce-to-sign-in would be both useless and confusing. */}
-        {blocked ? null : <WhatsNewNotice />}
       </div>
     </div>
   );
