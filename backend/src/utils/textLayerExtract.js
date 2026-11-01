@@ -203,6 +203,20 @@ function textLayerScore(pages) {
 
 // ---------------------------------------------------------------- page 1
 
+/**
+ * The printed gender, in the vocabulary the commit validates against.
+ * Reports print it in more than one case: the 2026 batch on the ISN server
+ * carried "male", which passed through raw and was refused at commit as
+ * `Invalid Gender "male"`, so the report could not be imported from the page.
+ * Anything unrecognised is null, never a guess, matching the vision path.
+ */
+function normaliseGender(raw) {
+  const s = String(raw ?? '').trim().toLowerCase();
+  if (s === 'male' || s === 'm' || s === '男') return 'Male';
+  if (s === 'female' || s === 'f' || s === '女') return 'Female';
+  return null;
+}
+
 function parseCover(page) {
   const out = { name: null, gender: null, age: null, assessedAt: null, summary: null };
   if (!page) return out;
@@ -233,7 +247,7 @@ function parseCover(page) {
   };
 
   out.name = labelled('name');
-  out.gender = labelled('gender');
+  out.gender = normaliseGender(labelled('gender'));
   const age = labelled('age');
   out.age = age == null ? null : toNumOrNull(age);
   out.assessedAt = labelled('time');
@@ -583,6 +597,7 @@ module.exports = {
   looksLetterSpaced,
   parseMuscle,
   completenessShortfall,
+  normaliseGender,
   MIN_TEXT_CHARS,
   LABEL_TO_KEY,
 };

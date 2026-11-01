@@ -99,8 +99,8 @@ cd backend; npm run coverage         # 82.4% statements / 72.3% branches (re-mea
                                      # a missing transitive dep (fs.realpath) before it would run.
 cd backend; npm run mutate           # BREAK each registered guard on purpose and prove its
                                      # test fails. A surviving mutation exits non-zero: the
-                                     # test is not testing what it claims. 144 guards across
-                                     # both packages. 139 are EXERCISED here; five are
+                                     # test is not testing what it claims. 147 guards across
+                                     # both packages. 142 are EXERCISED here; five are
                                      # listed with a `skip` because only a real browser
                                      # can see them — one is layout (jsdom computes none,
                                      # e2e 4l), three are HISTORY (jsdom's stub fires

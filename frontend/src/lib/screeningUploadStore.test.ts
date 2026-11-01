@@ -1,4 +1,5 @@
-import { parseNameFromFilename, setMaxUploadBytes, needsReducing } from './screeningUploadStore';
+import { parseNameFromFilename, setMaxUploadBytes, needsReducing, commitSingle } from './screeningUploadStore';
+import { api as realApi } from './api';
 
 // The athlete is resolved from this name — roster first, then the ISN directory
 // — so anything left clinging to it (a batch number, a hash) makes the lookup
@@ -150,5 +151,42 @@ describe('needsReducing', () => {
       setMaxUploadBytes(v);
       expect(needsReducing(file(13.67))).toBe(false);
     }
+  });
+});
+
+// THE COMMIT CARRIES EVERYTHING THE PREVIEW READ.
+//
+// The preview has returned HoloMotion's training prescription since §112, and
+// the server stores whatever `prescription` the commit sends. The commit sent
+// none, so every report imported through this page lost its programme while
+// the preview had read it. Asserted on the body actually POSTed.
+jest.mock('./api', () => ({ api: { post: jest.fn(), get: jest.fn() } }));
+
+describe('commitSingle', () => {
+  const api = realApi as unknown as { post: jest.Mock };
+
+  const PRESCRIPTION = { days: [{ day: 1, exercises: [{ name: 'Plank', reps: '30s', sets: 3, rest: '30s' }] }] };
+  const item = (prescription: unknown) => ({
+    id: 1, file: null as unknown as File, status: 'ready' as const, error: null, doneNote: null,
+    matched: null, matchSource: null, matchedName: '', athleteId: '900101011001',
+    sport: 'Badminton', program: 'PELAPIS', disciplines: [], disciplinesTouched: false,
+    name: 'Test Athlete', age: '', gender: '',
+    preview: {
+      athlete: { age: 20, gender: 'Male' as const }, myodynamia: [], tension: [],
+      assessedAt: '2026-01-01 10:00:00', pagesRead: [1], prescription,
+    },
+  });
+
+  beforeEach(() => { api.post.mockReset(); api.post.mockResolvedValue({ action: 'created', athleteId: '900101011001', muscleFlags: 0 }); });
+
+  it('sends the prescription the preview read', async () => {
+    await commitSingle(item(PRESCRIPTION));
+    expect(api.post).toHaveBeenCalledTimes(1);
+    expect(api.post.mock.calls[0][1].prescription).toEqual(PRESCRIPTION);
+  });
+
+  it('sends null, not undefined, when the report carried none', async () => {
+    await commitSingle(item(undefined));
+    expect(api.post.mock.calls[0][1]).toHaveProperty('prescription', null);
   });
 });

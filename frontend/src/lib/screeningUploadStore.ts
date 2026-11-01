@@ -56,6 +56,11 @@ export interface PreviewResponse {
   providerCalls?: number;
   summary?: string | null;
   subitems?: Record<string, Record<string, number | null>> | null;
+  /** HoloMotion's two-week programme, read from the text layer. Opaque here:
+   *  the uploader only carries it from preview to commit. It was dropped at
+   *  commit until 2026-11-02, so every report imported through this page
+   *  stored no prescription although the preview had read one. */
+  prescription?: unknown;
   // What the vision call cost. Passed back on commit so the Activity Log can
   // answer "what does ingesting one report cost?" per import; null when the
   // provider doesn't report usage.
@@ -545,6 +550,7 @@ async function commitOne(item: QueueItem): Promise<CommittedEntry | null> {
       assessedAt: item.preview.assessedAt,
       summary: item.preview.summary ?? null,
       subitems: item.preview.subitems ?? null,
+      prescription: item.preview.prescription ?? null,
       usage: item.preview.usage ?? null,
     });
     patchItemInternal(item.id, {

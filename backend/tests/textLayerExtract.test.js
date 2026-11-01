@@ -311,3 +311,27 @@ describe('the fast path is only taken when the report was actually read', () => 
     });
   });
 });
+
+// THE PRINTED GENDER, IN THE VOCABULARY THE COMMIT ACCEPTS.
+//
+// Reports in the 2026 batch print "male". The text-layer path passed it through
+// raw, and routes/upload.js refused it at commit: `Invalid Gender "male"`. So
+// the report previewed cleanly and could not be imported from the page.
+describe('the printed gender is normalised', () => {
+  const { normaliseGender } = require('../src/utils/textLayerExtract');
+
+  it.each([['Male', 'Male'], ['male', 'Male'], ['MALE ', 'Male'], ['男', 'Male'],
+    ['Female', 'Female'], ['female', 'Female'], ['女', 'Female']])('%s -> %s', (raw, want) => {
+    expect(normaliseGender(raw)).toBe(want);
+  });
+
+  it('refuses rather than guesses', () => {
+    for (const raw of [null, undefined, '', 'Other', 'Male Age 21']) expect(normaliseGender(raw)).toBeNull();
+  });
+
+  // The winAnsiSafe shape: correct, exported, tested, and never called.
+  it('is what the cover parser assigns', () => {
+    const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'utils', 'textLayerExtract.js'), 'utf8');
+    expect(src).toMatch(/out\.gender = normaliseGender\(labelled\('gender'\)\);/);
+  });
+});

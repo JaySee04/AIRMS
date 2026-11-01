@@ -1679,6 +1679,33 @@ const MUTATIONS = [
     replace: '// Turning a stored value into a number, once (see §9999).',
     test: 'tests/decisionRefs.test.js',
   },
+  {
+    guard: 'text layer: a lowercase printed gender is normalised',
+    why: '2026-11-02 — "male" reached the commit validator raw and the report could not be imported from the page',
+    pkg: 'backend',
+    file: 'src/utils/textLayerExtract.js',
+    find: "  if (s === 'male' || s === 'm' || s === '男') return 'Male';",
+    replace: "  if (raw === 'Male') return 'Male';",
+    test: 'tests/textLayerExtract.test.js',
+  },
+  {
+    guard: 'text layer: the cover parser calls the gender normaliser',
+    why: 'the winAnsiSafe shape — a pure function is correct whether or not anybody calls it',
+    pkg: 'backend',
+    file: 'src/utils/textLayerExtract.js',
+    find: "  out.gender = normaliseGender(labelled('gender'));",
+    replace: "  out.gender = labelled('gender');",
+    test: 'tests/textLayerExtract.test.js',
+  },
+  {
+    guard: 'upload: the commit sends the prescription the preview read',
+    why: '2026-11-02 — every report imported from the page stored no programme although the preview had one',
+    pkg: 'frontend',
+    file: 'src/lib/screeningUploadStore.ts',
+    find: '      prescription: item.preview.prescription ?? null,\n',
+    replace: '',
+    test: 'src/lib/screeningUploadStore.test.ts',
+  },
 ];
 
 function pkgDir(pkg) {
