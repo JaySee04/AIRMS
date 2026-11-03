@@ -49,4 +49,4 @@ Remaining gaps are limited to blank fields on the Original Literary Work Declara
 
 ## Existing systems compared
 
-Kitman Labs, Teamworks, Catapult Sports, Athletic Trainer System (ATS) — across 6 features (Workload/ACWR, Injury Risk Display, Medical Injury Recording, Athlete Self-Report, Admin Analytics, Bulk Import). AIRMS positioned as the only one combining all six in a hardware-free, institution-accessible form.
+Kitman Labs, Teamworks, Catapult Sports, Athletic Trainer System (ATS) — across 6 features (Workload/ACWR, Injury Risk Display, Medical Injury Recording, Athlete Self-Report, Admin Analytics, Bulk Import). SPIRiT positioned as the only one combining all six in a hardware-free, institution-accessible form.

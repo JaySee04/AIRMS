@@ -15557,6 +15557,12 @@ logo image — because a new asset in a PDF route has to be named in
 `backend/vercel.json` `includeFiles`, and missing that broke every hosted PDF
 for 23 days once (SILENT_FAILURES 4a).
 
-**Not renamed here, deliberately:** the FYP report and viva material under
-`docs/fyp/`. The project's registered title with the university is JC's and
-his supervisor's to change.
+**The FYP material, the same day, on JC's instruction.** The files that state
+the current position were renamed: `VIVA_FYP2.md`, `REFERENCES.md`,
+`REPORT_EDIT_PACK.md`, `docs/fyp/README.md`, `FYP_RUBRICS.md`, the report
+diagrams and slides (`*.html`), and the use-case diagrams, regenerated from
+`uc-diagrams/generate.js` (still 0 rows differing from Table 4.1). Dated
+records and the frozen FYP I artefacts (`VIVA_SCRIPT.md`, `VIVA_ANSWERS.md`,
+the progress pack, changelogs, roadmap and specs) keep AIRMS, because they
+record what was true when written. The registered FYP title with the
+university, and the report's Word file, are outside the repo and JC's.

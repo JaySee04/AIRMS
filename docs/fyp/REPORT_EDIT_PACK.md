@@ -21,7 +21,7 @@
 
 ---
 
-> **APPLIED 2026-08-21** to `FYP II REPORT (AIRMS) - revised.docx` (from JC's
+> **APPLIED 2026-08-21** to `FYP II REPORT (SPIRiT) - revised.docx` (from JC's
 > `Downloads/FYP I REPORT.docx`). R1–R9 are in the document, plus edits this pack
 > did not cover: a new §2.5 literature cluster (Bahr 2016, Robertson et al. 2017),
 > Chapters 1 and 7 rewritten, §4.6 UX de-overclaimed, four non-functional
@@ -74,20 +74,20 @@ Stale General-module rows to fix if the current draft still has them:
 
 | Change | Detail |
 |---|---|
-| Remove *Register Account* | AIRMS has no self-registration; accounts are provisioned by the administrator |
+| Remove *Register Account* | SPIRiT has no self-registration; accounts are provisioned by the administrator |
 | *Login* description | "…with session management via cookies" → "…issuing a signed JWT attached as a bearer token on every subsequent request" |
 | *Reset Password* description | "via email token link" → "via a single-use six-digit email OTP verified before the new password is accepted" |
 | *Reset Password* roles | Slides say "Medical Staff, Administrator"; report lists all roles. Use **all four** |
 
 ## R5 · §2.5/2.6 Existing Systems Comparison
 
-**"Bulk Data Import" cell for AIRMS — replace with:**
+**"Bulk Data Import" cell for SPIRiT — replace with:**
 
 > Batch AI-assisted ingestion of image-only HoloMotion screening PDFs, with the athlete's name redacted on-device before transmission and confirm-before-commit review; full dataset backup export (Excel)
 
 **Add to the closing narrative paragraph:**
 
-> Notably, none of the reviewed systems can ingest image-only clinical screening reports; each depends on structured exports, proprietary formats, or wearable telemetry. AIRMS's AI-assisted PDF ingestion addresses the format that ISN's screening workflow actually produces, and does so without transmitting the athlete's identity to the extraction service.
+> Notably, none of the reviewed systems can ingest image-only clinical screening reports; each depends on structured exports, proprietary formats, or wearable telemetry. SPIRiT's AI-assisted PDF ingestion addresses the format that ISN's screening workflow actually produces, and does so without transmitting the athlete's identity to the extraction service.
 
 Remove "import history log" from this table — no such feature exists (overclaim).
 
@@ -109,7 +109,7 @@ Paste-ready draft (adjust numbering):
 
 > **5.1.x AI-Assisted HoloMotion Report Ingestion**
 >
-> ISN's biomechanical screening workflow produces a per-athlete HoloMotion report as a PDF. These reports are generated as pure graphics with no embedded text layer, so conventional text extraction returns nothing, and off-the-shelf OCR proved unreliable on the report's circular gauge figures — the very values the system needs. AIRMS therefore treats ingestion as a vision problem: the backend renders the report's data pages to images and submits them to a vision-capable AI model with a structured extraction prompt, receiving the athlete's headline scores, the eight per-region injury-risk indicators, the twenty-five physical-fitness subitem scores, the report summary and the flagged muscles as validated JSON mapped onto the existing athlete schema.
+> ISN's biomechanical screening workflow produces a per-athlete HoloMotion report as a PDF. These reports are generated as pure graphics with no embedded text layer, so conventional text extraction returns nothing, and off-the-shelf OCR proved unreliable on the report's circular gauge figures — the very values the system needs. SPIRiT therefore treats ingestion as a vision problem: the backend renders the report's data pages to images and submits them to a vision-capable AI model with a structured extraction prompt, receiving the athlete's headline scores, the eight per-region injury-risk indicators, the twenty-five physical-fitness subitem scores, the report summary and the flagged muscles as validated JSON mapped onto the existing athlete schema.
 >
 > The integration is deliberately provider-agnostic — the same code path supports any OpenAI-compatible endpoint (OpenAI, Gemini, Qwen, OpenRouter, or a fully local Ollama deployment) as well as Anthropic's native API, selected purely by environment configuration, so the institution is not coupled to a single AI vendor and can keep athlete data on-premises if required. Ingestion follows a two-step confirm-before-commit flow: the extraction result is first presented to the operator as a preview rendered in the same form the dashboards use, and only on explicit confirmation is the database updated. Where no AI provider is configured, the import path disables itself cleanly and the rest of the system is unaffected.
 
@@ -119,7 +119,7 @@ Paste-ready draft (adjust numbering):
 
 > **5.1.y Privacy-Preserving Extraction**
 >
-> Submitting a clinical report to a third-party AI service raises an obvious objection: the report carries the athlete's name, and transmitting it discloses to an external processor both who the athlete is and what their assessment found. AIRMS answers this at the point of capture rather than by policy. Before any page image is transmitted, a local optical-character-recognition pass — running entirely in the application process, with no network access — locates the name field on the report's first page and obscures its value, leaving every clinical value intact. The extraction model therefore receives a complete but anonymous report.
+> Submitting a clinical report to a third-party AI service raises an obvious objection: the report carries the athlete's name, and transmitting it discloses to an external processor both who the athlete is and what their assessment found. SPIRiT answers this at the point of capture rather than by policy. Before any page image is transmitted, a local optical-character-recognition pass — running entirely in the application process, with no network access — locates the name field on the report's first page and obscures its value, leaving every clinical value intact. The extraction model therefore receives a complete but anonymous report.
 >
 > The mechanism fails closed: where the name cannot be located with confidence, the entire identifying region of the page is obscured rather than risking disclosure, accepting the loss of the age and gender fields, which the operator can supply from the roster. Re-attaching the anonymous report to the correct athlete happens locally, against the institute's own roster, so the linkage between identity and assessment is never transmitted either.
 >
@@ -144,7 +144,7 @@ The athlete key became the identity-card number on 2026-08-04. State it and own 
 
 Add (locked decision — the body-map asset attribution must appear):
 
-> Shehryar, S. (2023). *react-muscle-highlighter* [Computer software]. MIT License. https://github.com/soroojshehryar/react-muscle-highlighter — anatomical path data adapted for the AIRMS body-map component.
+> Shehryar, S. (2023). *react-muscle-highlighter* [Computer software]. MIT License. https://github.com/soroojshehryar/react-muscle-highlighter — anatomical path data adapted for the SPIRiT body-map component.
 
 Still correct after the 2026-08-04 change: the geometry was re-partitioned into the screening instrument's muscle vocabulary, but no path data was redrawn and the licence terms are unchanged.
 

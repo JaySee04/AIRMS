@@ -1,4 +1,4 @@
-# AIRMS FYP II — Viva Dossier
+# SPIRiT FYP II — Viva Dossier
 
 > **What this is.** The defence pack for the system as it stands on
 > **2026-09-05**. `VIVA_SCRIPT.md` and `VIVA_ANSWERS.md` are FYP I artefacts,
@@ -22,7 +22,7 @@
 
 **One sentence, if you get one sentence:**
 
-> AIRMS turns the screening reports ISN already produces into one explainable
+> SPIRiT turns the screening reports ISN already produces into one explainable
 > risk signal, scored against each athlete's real peer cohort rather than a
 > published threshold, and delivers it in four role-shaped views — without
 > anyone having to read a PDF.
@@ -32,7 +32,7 @@
 > ISN runs HoloMotion screenings and receives image-only PDFs. Those PDFs are
 > read by one clinician, filed, and effectively never seen again — the coach
 > does not get them, the athlete does not get them, and nobody can see the squad
-> as a whole. AIRMS ingests that existing artefact, scores each athlete against
+> as a whole. SPIRiT ingests that existing artefact, scores each athlete against
 > peers matched on sport, programme, gender and discipline, and presents one
 > verdict shaped for whoever is looking. The scoring is institution-governed:
 > the norms in force are an approved, versioned, **pinned** snapshot, so an
@@ -40,7 +40,7 @@
 > clinician can override any verdict with a note recorded against their name.
 
 **The claim it does NOT make** — and volunteering this is stronger than being
-caught by it: *AIRMS does not predict injury.* It triages who is worth a
+caught by it: *SPIRiT does not predict injury.* It triages who is worth a
 clinician's time. See §3 Q1.
 
 ---
@@ -115,11 +115,11 @@ is for if they push.
 > beats intervening on everyone. No published screening test has cleared all
 > three — the best-known threshold in the field, an FMS composite of 14 or below,
 > is not significantly associated with injury risk once studies are pooled.
-> AIRMS therefore reports indicators and triages who is worth assessing; the
+> SPIRiT therefore reports indicators and triages who is worth assessing; the
 > verdict stays with a clinician, who can override it.
 
 **If pushed — why is this better than an FMS-style cut-off?** A published
-threshold imports whatever population it was derived on. AIRMS scores against
+threshold imports whatever population it was derived on. SPIRiT scores against
 the athlete's own peer cohort, so it never inherits that mismatch. And red
 requires **two independent rules to agree**, which is the standard defence
 against the false-positive rate that makes flagging systems get ignored.
@@ -151,7 +151,7 @@ contained. What it would not fix is the reconciliation the IC was chosen for.
 
 **Yes it is, and no we do not hold it. That is a scope decision.**
 
-> Prior injury is the single strongest known predictor and AIRMS does not have
+> Prior injury is the single strongest known predictor and SPIRiT does not have
 > it. That follows from the HoloMotion-only decision: the HoloMotion PDF is the
 > sole source of truth and it does not carry injury history. Adding load and
 > history would not have cleared Bahr's three steps either — it would be a larger
@@ -301,7 +301,7 @@ re-establishing a training-load input is a stated future-work item.
 
 **The schedule does not depend on the app being open.**
 
-> Two things in AIRMS have to happen without anyone asking: the monthly institute
+> Two things in SPIRiT have to happen without anyone asking: the monthly institute
 > digest and the rescreen recall. They were driven by a timer inside the web
 > server, which ties a monthly obligation to that server's uptime — on a
 > workstation, "monthly" really meant "whenever somebody opened the project". The
@@ -379,7 +379,7 @@ without anyone deciding it should be.
 **The window is 24 hours, which is the standard's own figure.** SP 800-63-4
 (July 2025, superseding the 2017 Rev 3) sets the ceiling **by delivery channel**
 in Vol. A §3.8, and for a code sent to an email address it is **24 hours**.
-AIRMS emails the code, so AIRMS sits at the ceiling.
+SPIRiT emails the code, so SPIRiT sits at the ceiling.
 
 **This is worth volunteering, because it was wrong twice and the second version
 is the better story.** Until 2026-09-09 the window was seven days and this
@@ -395,7 +395,7 @@ is active — it holds a random password that was hashed and discarded unread �
 the ordinary forgot-password flow works on it, issuing a fresh ten-minute code
 with nobody else involved. `/activate` had simply been pointing at a person
 instead, and now links to it. Separately, §3.8's 24 hours is specified for a
-**validated** email address; AIRMS's is typed by an administrator and validated
+**validated** email address; SPIRiT's is typed by an administrator and validated
 by nothing, so a typo puts a credential-establishing code in a stranger's inbox
 for exactly as long as the TTL allows — which argues for the *shorter* window,
 not a longer one.
@@ -450,13 +450,13 @@ that is configuration rather than code.
 
 > The HoloMotion report prints a two-week Training Prescription on its last
 > pages — day by day, each exercise with reps, sets and a rest interval, derived
-> by the instrument from the same screening AIRMS scores. Nothing read it until
+> by the instrument from the same screening SPIRiT scores. Nothing read it until
 > 2026-08-23. It now appears on the screening panel for the athlete, the
 > clinician and the coach, headed as the instrument's own, with its caveat about
 > how long the programme stands quoted verbatim rather than paraphrased.
 
-**If pushed — isn't AIRMS giving training advice?** No, and the interface keeps
-the two visibly apart. The *Training Focus* card is AIRMS's own: a
+**If pushed — isn't SPIRiT giving training advice?** No, and the interface keeps
+the two visibly apart. The *Training Focus* card is SPIRiT's own: a
 region-frequency heuristic that speaks about programme load rather than
 treatment, because a read-only coach acting on a screening should be adjusting
 volume, not prescribing rehabilitation. The *Training Prescription* card is
@@ -525,16 +525,16 @@ reports **found 0 vulnerabilities**.*
 **This is the question most likely to be asked from a document you did not
 write.** Lee et al. (2026) — `REFERENCES.md` A5, a Malaysian university study
 using HoloMotion — states the instrument's banding as **low 0–15, medium 16–55,
-high 56–100**. AIRMS uses `WATCH_THRESHOLD = 15` and `HIGH_THRESHOLD = 25`.
+high 56–100**. SPIRiT uses `WATCH_THRESHOLD = 15` and `HIGH_THRESHOLD = 25`.
 
 **The lower edge agrees exactly. The upper one does not, and the gap is large.**
 
-**The answer:** AIRMS's bands are not the instrument's bands, and are not trying
+**The answer:** SPIRiT's bands are not the instrument's bands, and are not trying
 to be. They answer a different question.
 
 - HoloMotion's 16–55 "medium" describes **one reading on its own scale**. It is
   a property of the measurement.
-- AIRMS's band is a **triage decision for a specific squad** — who should a
+- SPIRiT's band is a **triage decision for a specific squad** — who should a
   clinician see next, out of these sixty athletes. That is a property of the
   population, which is why the overall indicator is cohort-normed at all.
 
@@ -546,7 +546,7 @@ report into something a clinician can act on.
 **What to concede, because it is true:** 25 is a judgement, not a derived value.
 It has not been validated against injury outcomes — nothing here has, and Q1
 already says so. It is defensible as a *worklist* cut-off and would be
-indefensible as a *clinical* one, which is exactly why no AIRMS surface says
+indefensible as a *clinical* one, which is exactly why no SPIRiT surface says
 "safe", "cleared" or "fit to play".
 
 **What strengthens the answer:** the sport-tightened thresholds (12/20) already
@@ -585,7 +585,7 @@ softer if you get there first.
 - **W1 · The system cannot answer Dr Thung's most specific request.** In the
   2026-04-24 meeting he asked for an administrator view of injury *cases* — how
   many, which body part, which side, what type, trending over time. The
-  HoloMotion-only cut removed it. AIRMS answers the anatomical half from
+  HoloMotion-only cut removed it. SPIRiT answers the anatomical half from
   screening data but cannot answer "how many knee injuries last year". **Put this
   to him before the viva** (§6) so it is a decision he made, not a gap you missed.
 - **W2 · Every scored athlete sits in a cohort of fewer than 11.** Median 7. The

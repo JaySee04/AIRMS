@@ -1,4 +1,4 @@
-# AIRMS — FYP Rubrics & Report Requirements
+# SPIRiT — FYP Rubrics & Report Requirements
 
 > What's being assessed and at what weight. Check before drafting report sections, prepping for viva, or deciding what to polish next.
 >
@@ -52,7 +52,7 @@ Total 100% across four components:
 | 7 | **Technical Implementation** | **25%** | **>2 working core modules + DB CRUD integration + able to explain/modify code live** |
 | 8 | Stakeholder Collaboration | 2% | Formal collaboration (NDA/LOI/signed letter) **+ execution with collaborator** = "Exceeds" |
 
-**Implication for AIRMS:**
+**Implication for SPIRiT:**
 - Six modules built — comfortably above the "exceed 2" threshold for the 25% item.
 - Stakeholder Collaboration sits at "Exceeds" tier (signed letter from Dr Thung + meeting on 2026-04-24).
 - Be ready to demo and modify code on the spot during viva — the rubric explicitly rewards live code competence.
@@ -132,7 +132,7 @@ Summary of the original deliverables-shift items:
 5. **Ch 5 lacks the vision-AI pipeline** (pdfjs render → provider-agnostic vision model → preview/commit) and must present the composite risk model, not plain Gabbett.
 6. **Slides predate the MySQL migration** (2026-05-25 draft) — check every tech-stack slide for MongoDB; "33 use cases" count changes with the UC edits; consider mockup slides for the PDF uploader / screening report / alert banner.
 7. **Coach role** — FYP I shipped 3 roles, so the FYP I *artifacts* describe those three; **FYP II promotes the coach to a first-class 4th role** (2026-07-19), so FYP II write-ups own it fully (squad readiness + filters + read-only athlete detail + team report + `/admin/coaches`). It is no longer "experimental / future work".
-8. **The body-map attribution belongs in the references.** The figure's path data is `react-muscle-highlighter` (MIT, Sorooj Shehryar), re-sliced into HoloMotion's 22 muscles — so the entry in `docs/fyp/REFERENCES.md` must appear in the submitted report. What is AIRMS's own, and what Chapter 3 should claim, is the **re-slicing and the clinical mapping**: a workout atlas's training regions turned into an instrument's individual muscles, including the **five** deep stabilisers it has no shapes for — Piriformis, Gluteus Minimus, Iliopsoas, Internal Oblique, Rectus Capitis Anterior (DD §4a / §138 / §152). Claim the mapping, cite the paths.
+8. **The body-map attribution belongs in the references.** The figure's path data is `react-muscle-highlighter` (MIT, Sorooj Shehryar), re-sliced into HoloMotion's 22 muscles — so the entry in `docs/fyp/REFERENCES.md` must appear in the submitted report. What is SPIRiT's own, and what Chapter 3 should claim, is the **re-slicing and the clinical mapping**: a workout atlas's training regions turned into an instrument's individual muscles, including the **five** deep stabilisers it has no shapes for — Piriformis, Gluteus Minimus, Iliopsoas, Internal Oblique, Rectus Capitis Anterior (DD §4a / §138 / §152). Claim the mapping, cite the paths.
 9. **Repo hygiene** — `reports/FYP-I-Report.pdf` is a stale pre-refresh draft (51 pp); replace with the current draft and add the slides PDF to `docs/fyp/` per its README.
 
 ---

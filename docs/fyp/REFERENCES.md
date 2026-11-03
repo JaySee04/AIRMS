@@ -22,7 +22,7 @@ surveillance.
 
 | Cluster | Supports | Cite it for |
 |---|---|---|
-| **A — methods in force** (§2) | What AIRMS computes and displays now | "Why is that number what it is?" |
+| **A — methods in force** (§2) | What SPIRiT computes and displays now | "Why is that number what it is?" |
 | **B — standards in force** (§3) | Security, accessibility, licensing | Normative compliance |
 | **C — FYP I lineage** (§5) | ACWR, sRPE, injury surveillance | Nothing in the report. Viva background only |
 
@@ -49,12 +49,12 @@ not worth a section in the report.
 > Living*, 7, 1565900. doi:10.3389/fspor.2025.1565900
 
 **Supports:** `DESIGN_DECISIONS §33` (green reads *"No indicators flagged"*, never
-*"Safe"*), the stale-screening disclosure, and the mission's framing of AIRMS as
+*"Safe"*), the stale-screening disclosure, and the mission's framing of SPIRiT as
 a **risk signal** rather than a prediction.
 
 **Why it is the right citation, and why it is better than the 2016 review it
 descends from:** this is a 2025 systematic review of the exact instrument class
-HoloMotion belongs to, and its conclusion is almost a specification for AIRMS —
+HoloMotion belongs to, and its conclusion is almost a specification for SPIRiT —
 that such tools "should be considered as assessment tests and technologies to
 individualize training programs and identify injury risk **factors**", not
 standalone predictors, and that FMS in particular showed "limited prognostic
@@ -80,11 +80,11 @@ dead band, and the "is this change real?" verdict (`DESIGN_DECISIONS §27/§28`)
 **Use this one in the viva ahead of any other methods citation.** The lead author
 is **Head of the Centre for Strength & Endurance Sports at Institut Sukan
 Negara** — the project's own stakeholder institution. The paper computes
-`MDC = 1.96 × SEM × √2`, which is structurally the formula AIRMS applies
+`MDC = 1.96 × SEM × √2`, which is structurally the formula SPIRiT applies
 (`MDC95 = 1.96 × √2 × TE = 2.77 × TE`). So the threshold is not an invention of
 this project: it is the method ISN's own sports scientists publish with.
 
-**The honest caveat that goes with it:** AIRMS derives its error term from
+**The honest caveat that goes with it:** SPIRiT derives its error term from
 screenings **months apart**, which contain real change as well as measurement
 error. The SD is therefore inflated and MDC95 is an **upper bound** — it
 under-calls change rather than over-calling it, which is the safe direction for
@@ -95,7 +95,7 @@ a threshold that decides whether a clinician is asked to look.
 Not a separate reference — a property of A2's method, stated here because it is
 the most examinable decision in the file.
 
-Reliable MDC estimation needs far more repeat measurements than AIRMS has: the
+Reliable MDC estimation needs far more repeat measurements than SPIRiT has: the
 seeded database holds **18 repeat pairs** against a `MIN_PAIRS` floor of 20. The
 module therefore **declines**, falls back to a documented constant, and says so
 on screen and in the PDF. **Do not "fix" this by lowering the floor** — a
@@ -126,7 +126,7 @@ other description of HoloMotion in this project comes from HoloMotion — its ow
 reports, its own app. This is a peer-reviewed, *Malaysian university athlete*
 study using the same instrument, and it independently documents:
 
-- the four outcomes AIRMS reads (total movement score, exercise risk score, joint
+- the four outcomes SPIRiT reads (total movement score, exercise risk score, joint
   pain index, ligament strain index) and that the last two are **modelled
   tissue-level loading, not clinical injury events**;
 - the regional sub-scores — neck, shoulder and upper limb, torso, pelvis, lower
@@ -143,7 +143,7 @@ evidence about the INSTRUMENT, and most of what it says is a caution. A panel
 that finds this paper after you did is a much worse moment than one where you
 cited it yourself.
 
-**It also contradicts one AIRMS number, and that is answerable.** See
+**It also contradicts one SPIRiT number, and that is answerable.** See
 `VIVA_FYP2.md` Q16.
 
 ## 3. Cluster B — standards in force
@@ -167,7 +167,7 @@ the `express-rate-limit` on `/api/auth`.
 recommends disregarding previous failed attempts once the subscriber
 authenticates successfully from the same IP — which is precisely what
 `skipSuccessfulRequests` does — and it names the denial-of-service risk of
-account lockout, which is why AIRMS throttles rather than locking accounts.
+account lockout, which is why SPIRiT throttles rather than locking accounts.
 
 **Known limitation to volunteer:** the store is in-memory and keyed per-IP, so it
 does not survive a restart and is weak behind shared NAT. Recorded in
@@ -227,7 +227,7 @@ said seven days was *"the NIST SP 800-63A ceiling for an enrollment code"*.
 | Validated telephone (SMS or voice) | 10 minutes |
 | **Validated email address** | **24 hours** |
 
-AIRMS emails the code, so the applicable figure is **24 hours** and the current
+SPIRiT emails the code, so the applicable figure is **24 hours** and the current
 window is **7× that**. The 7-day figure came from Revision 3, where it applied to
 a code handed to the subscriber **in person** for later authenticator binding —
 a different delivery mode from the one this system uses. **Revision 4 does not
@@ -255,7 +255,7 @@ live code is actually on the row. The remedy is self-service, already built,
 already hardened at ten minutes and five attempts, and involves nobody else.
 
 **And §3.8's 24 hours cuts the other way from how it was read.** It applies to a
-code sent to a **validated** email address. AIRMS's address is typed by an
+code sent to a **validated** email address. SPIRiT's address is typed by an
 administrator and validated by nothing, so a typo puts a credential-establishing
 code in a stranger's inbox — and the TTL is exactly how long it sits there
 unattended. An **unvalidated** address argues for the shorter window. The
@@ -388,7 +388,7 @@ nobody repeats it, and one that turned out to be more than a citation gap.
 
 **Supports `§43`** — the coach's 403-not-404 on scoped lookups, and `/teammates`
 withholding the IC entirely. An identity-card (MyKad) number is personal data
-under the amended Act, and the AIRMS IC additionally encodes date of birth,
+under the amended Act, and the SPIRiT IC additionally encodes date of birth,
 birth state and sex, so exposing it discloses more than an identifier.
 
 **Post-2022 and the right jurisdiction** — this is Malaysian law governing a
@@ -404,7 +404,7 @@ number the system does display.
 
 The normative-testing literature holds that a z-score against a normative sample
 becomes unreliable at small n, and the standard remedy below roughly n=50 is a
-**t-based comparison** (Crawford & Howell's method) rather than a z. **AIRMS
+**t-based comparison** (Crawford & Howell's method) rather than a z. **SPIRiT
 computes `cohortZ` against cohorts of 5–10 peers** — `min_cohort_n` is 5, and
 the measured spread is min 5 / median 7 / max 10.
 
