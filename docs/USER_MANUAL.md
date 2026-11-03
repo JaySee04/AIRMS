@@ -1,4 +1,4 @@
-# AIRMS — User Manual
+# SPIRiT — User Manual
 
 > Walk-through of every shipped feature from the end-user's perspective. Read this when you need to know *what* a feature does, not *how* it's implemented.
 >
@@ -47,7 +47,7 @@ Opens backend on `http://localhost:5000` and frontend on `http://localhost:3000`
 ### Login page (`/`)
 
 Split-card layout on a cream gradient background.
-- **Left panel (navy)**: AIRMS full logo, tagline, ISN address, version footer
+- **Left panel (navy)**: the SPIRiT logo, its full name (*Sports Performance, Injury Risk & Technology*), and ISN’s name and address
 - **Right panel (white)**: "Sign in" heading, email + password fields (with a show/hide password toggle), **Sign in** button, "Forgot password" link
 
 There is no role selector — you just enter your email and password. After successful login the system reads your role from the JWT and redirects to that role's landing page.
@@ -76,9 +76,8 @@ the sign-in page.
 ### Sidebar
 
 A 256px navy sidebar visible on every authenticated page:
-- **Branding block** at top: square ISN logo + "AIRMS / SPORTS HEALTH"
+- **Branding block** at top: the SPIRiT caduceus mark + "SPIRiT / INSTITUT SUKAN NEGARA"
 - **Nav links** — varies by role (see below). The active page has a solid gold background with navy text
-- **Footer**: "AIRMS Prototype v0.2"
 
 Per-role nav:
 
@@ -219,7 +218,7 @@ The athlete's home page. Vertical sections from top to bottom:
 
 ### 4.0 "Regions behind this band" (when the band is amber/red)
 
-Sits *below* the hero, and only when the athlete's band is **amber or red**. It answers the obvious follow-up question — *which regions put me here?* — listing each out-of-range region with a Watch/Elevated chip, and starring the ones the athlete's sport loads heavily (which AIRMS holds to a tighter standard). Full behaviour in [§13](#13-sport-critical-screening-alerts).
+Sits *below* the hero, and only when the athlete's band is **amber or red**. It answers the obvious follow-up question — *which regions put me here?* — listing each out-of-range region with a Watch/Elevated chip, and starring the ones the athlete's sport loads heavily (which SPIRiT holds to a tighter standard). Full behaviour in [§13](#13-sport-critical-screening-alerts).
 
 > **This used to be an always-on alarm at the top of the page**, keyed on absolute thresholds. It fired for **59 of 59** screened athletes — an alarm that never stops isn't an alarm. It also gave a *second* verdict competing with the indicator, using exactly the kind of absolute cut-off the cohort-normed design exists to replace. Since 2026-07-16 it explains the band instead of competing with it, and green athletes don't get one — their region detail is on the threshold strips and in Training Focus.
 
@@ -271,7 +270,7 @@ report prints its Muscle Imbalance page. Figure adapted from the MIT-licensed
   - Muscle Tension (list specific muscles + side)
   - Compensation Pattern (muscles that appear in both — flagged as clinically significant)
 
-Tooltip on hover shows which specific AIRMS muscles map to the region you're hovering ("Vastus Lateralis — weak", "Rectus Femoris — tight", etc.).
+Tooltip on hover shows which specific SPIRiT muscles map to the region you're hovering ("Vastus Lateralis — weak", "Rectus Femoris — tight", etc.).
 
 **Reading the sides.** The two figures are drawn the way a clinician views a
 patient, which is also how the HoloMotion report prints them: on the **front**
@@ -314,7 +313,7 @@ than left to send a reader to a dead route.
 
 **Why:** JC set the direction that the **HoloMotion PDF is the single source of
 truth**. Self-reported pain and hand-logged injuries are a different input
-stream, and keeping them would have meant AIRMS quoting two kinds of evidence
+stream, and keeping them would have meant SPIRiT quoting two kinds of evidence
 with different provenance under one verdict. See
 `docs/fyp/HOLOMOTION_SCOPE_2026-08.md` and `MASTER_CLARIFICATIONS.md §1`.
 
@@ -323,7 +322,7 @@ with different provenance under one verdict. See
 `PATCH /api/athletes/:id/injury` from the medical and admin surfaces. Its
 purpose is **cohort-norm eligibility** — an injured athlete should not shape the
 norm their peers are scored against — **not** an injury history. There is no
-injury table, no injury history and no athlete self-reporting anywhere in AIRMS.
+injury table, no injury history and no athlete self-reporting anywhere in SPIRiT.
 
 Module 2 was recast accordingly as **Athlete Roster & Identity Management**
 (ratified by JC 2026-08-06); `docs/fyp/REPORT_TABLE_4-1.md` is the authority for
@@ -472,7 +471,7 @@ and why they are named what they are named.
 **On submit** — the form POSTs to `/api/reports/injuries-pdf`. The backend (server-side `pdfkit`) queries the live `Injury` collection against the filters, assembles a multi-page A4 PDF, and streams it back. The browser saves it as `airms-<reportType>-<YYYY-MM-DD>.pdf`.
 
 **Sections that always appear:**
-- Cover with AIRMS branding, report type, generated-on timestamp, generated-by, filter summary
+- Cover with SPIRiT branding, report type, generated-on timestamp, generated-by, filter summary
 - Executive summary table (total cases, athletes affected, sports affected, currently recovering)
 - Distribution by body part (horizontal bar chart, navy)
 - Distribution by injury type (horizontal bar chart, gold)
@@ -483,7 +482,7 @@ and why they are named what they are named.
 - Cases-over-time monthly trend chart
 - Athlete index (paginated, up to 80 entries)
 
-Every page has a footer with "AIRMS · Page X of Y".
+Every page has a footer with "SPIRiT · Page X of Y".
 
 ---
 
@@ -507,7 +506,7 @@ Accessed from the topbar avatar dropdown's "My Profile" link. Both pages share t
 
 ## 12. Screening Import — `/admin/data-upload` and `/medical/data-upload`
 
-Screening data enters AIRMS one way: **importing HoloMotion report PDFs** — the artefact Dr Thung's real workflow produces. HoloMotion reports are image-only PDFs (no text layer), so the system renders their pages and a vision model reads them. *(The original Excel import was retired 2026-07-12; its code is archived in `archive/excel-upload/`. The Excel backup **export** in §12.2 is unaffected.)*
+Screening data enters SPIRiT one way: **importing HoloMotion report PDFs** — the artefact Dr Thung's real workflow produces. HoloMotion reports are image-only PDFs (no text layer), so the system renders their pages and a vision model reads them. *(The original Excel import was retired 2026-07-12; its code is archived in `archive/excel-upload/`. The Excel backup **export** in §12.2 is unaffected.)*
 
 ### 12.1 HoloMotion PDF import (AI-assisted, batch-capable)
 
@@ -546,7 +545,7 @@ The athlete's latest HoloMotion screening lives directly on the **athlete dashbo
 - **Five score gauges** (Total Score, ROM, Stability, Symmetry on 0–100; Exercise Risks on the risk scale) with tick marks at the HoloMotion tier boundaries (60 / 75 / 85) and the tier name coloured by band
 - **Seven indicator threshold strips** — each exercise-risk indicator drawn on **its sport's zones** (standard ≤15/≤25; sport-critical regions tightened to ≤12/≤20, visibly shorter zones and starred) with a marker at the athlete's value, coloured green / amber / red by the zone it lands in — same threshold source as the §13 alerts. Lumbar Disc Herniation is not among them (see [§4.2](#42-risk-indicators-radar))
 
-  **Band vocabulary (one scheme everywhere).** AIRMS reads exercise risks as **Low ≤15 · Watch 16–25 · Elevated >25**. The HoloMotion report itself prints *Low 0–15 · Medium 16–55 · High 56–100* — so AIRMS keeps the report's **Low** boundary exactly and **subdivides the report's broad Medium band** into Watch and Elevated, because ISN wants to act well before an athlete drifts up through Medium. AIRMS deliberately never says **"High"**: the report reserves that for 56–100, far above anything the instrument produces in practice (the two real reports top out at 27). The dashboards, the alert chips, the admin cohort chart and the three PDF reports all use these same words, so the same number never reads two ways. *(Until 2026-07-16 the screens said "HIGH RISK" for a 26 while the PDFs said "Medium Risk".)* The one deliberate difference: the PDFs show the **standard** bands, while the dashboards tighten **sport-critical** regions to 12/20 — so a sport-critical region can band one step higher on screen than on the PDF, which the PDF states.
+  **Band vocabulary (one scheme everywhere).** SPIRiT reads exercise risks as **Low ≤15 · Watch 16–25 · Elevated >25**. The HoloMotion report itself prints *Low 0–15 · Medium 16–55 · High 56–100* — so SPIRiT keeps the report's **Low** boundary exactly and **subdivides the report's broad Medium band** into Watch and Elevated, because ISN wants to act well before an athlete drifts up through Medium. SPIRiT deliberately never says **"High"**: the report reserves that for 56–100, far above anything the instrument produces in practice (the two real reports top out at 27). The dashboards, the alert chips, the admin cohort chart and the three PDF reports all use these same words, so the same number never reads two ways. *(Until 2026-07-16 the screens said "HIGH RISK" for a 26 while the PDFs said "Medium Risk".)* The one deliberate difference: the PDFs show the **standard** bands, while the dashboards tighten **sport-critical** regions to 12/20 — so a sport-critical region can band one step higher on screen than on the PDF, which the PDF states.
 - **Training Focus** — the panel's counterpart of the report's closing *Training Prescription*: for up to the three most pressing out-of-range regions (sport-critical first), a block of corrective exercises with reps × sets · rest dosing, drawn from the HoloMotion prescription exercise vocabulary. Shows a "maintain current programme" state when everything is within thresholds. Informational — medical staff remain the authority
 - The muscle lists render on the adjacent **body-map card** (figure + per-category flag cards)
 - Athletes with no ingested report see an explicit "no screening ingested yet" state instead of empty charts
@@ -563,7 +562,7 @@ Two jobs on one page: **creating accounts** (below) and **tuning what medical st
 
 ### 15.1 Creating a staff account
 
-There is **no self-registration** in AIRMS and there will not be. An administrator creates every account.
+There is **no self-registration** in SPIRiT and there will not be. An administrator creates every account.
 
 - Pick the role first — **Coach**, **Medical staff**, **Executive** or **Administrator**. What each one can and cannot reach is listed live beside the picker, because `admin` and `medical` sit next to each other in the list and confusing them is the expensive, quiet mistake
 - A **coach** must be given an assigned sport; they will see that sport and nothing else
@@ -578,7 +577,7 @@ There is **no self-registration** in AIRMS and there will not be. An administrat
 An athlete on the roster **has no login until they are invited here.** Importing their HoloMotion report creates their roster record; it does not create an account.
 
 - Pick the athlete **from the roster**, not by typing their IC. The account is bound to the roster row you picked, and that binding is what lets them read their own dashboard — an account created without it signs in successfully and can then see nothing at all
-- Supply an email address. AIRMS holds **no athlete email** until you give one here; there is no such column on the roster
+- Supply an email address. SPIRiT holds **no athlete email** until you give one here; there is no such column on the roster
 - **You are shown the address and the athlete's name and asked to confirm before anything sends.** Whoever receives that code can set the password on that athlete's account, and it stays valid for 24 hours — so a typo is worth catching while it is still free
 - Inviting an athlete who already has an unactivated account **re-sends** rather than creating a second one
 - Athlete is deliberately **not** an option in the staff role picker above, for the binding reason in 15.2's first bullet
@@ -680,7 +679,7 @@ instant, so a process that was down when one came due sends **late rather than
 never**.
 
 **Per-user opt-out.** Every profile page carries notification preferences. Two
-gates, in order: the institution setting decides whether AIRMS sends this kind
+gates, in order: the institution setting decides whether SPIRiT sends this kind
 of mail at all, then the user decides whether they still want it — a user cannot
 opt *in* to something an admin switched off. Only the opt-**outs** are stored, so
 a notification added later defaults to on. There is deliberately **no route by
@@ -816,7 +815,7 @@ cleared them, the worklist stops handing them back.
 
 > **It does not predict injury.** It orders who is worth a clinician's time.
 
-This is the same limit that applies everywhere else in AIRMS (§16), stated on the
+This is the same limit that applies everywhere else in SPIRiT (§16), stated on the
 panel itself because an ordered list is easy to mistake for a forecast. Nobody on
 this list is predicted to be injured, and nobody absent from it is safe.
 

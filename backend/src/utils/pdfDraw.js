@@ -216,7 +216,7 @@ function finish(doc, kind) {
     const oldBottom = doc.page.margins.bottom;
     doc.page.margins.bottom = 0;
     doc.fontSize(8).font('Helvetica').fillColor(MUTED)
-      .text(`AIRMS · ${kind} · page ${i + 1} of ${range.count}`, 50, doc.page.height - 36, {
+      .text(`SPIRiT · ${kind} · page ${i + 1} of ${range.count}`, 50, doc.page.height - 36, {
         width: doc.page.width - 100, align: 'center', lineBreak: false,
       });
     doc.page.margins.bottom = oldBottom;
@@ -231,8 +231,8 @@ function ensure(doc, h) {
 
 function cover(doc, kind, subtitle) {
   doc.rect(0, 0, doc.page.width, 90).fill(NAVY);
-  doc.fillColor('#fff').fontSize(20).font('Helvetica-Bold').text('AIRMS', 50, 30, { lineBreak: false });
-  doc.fillColor(GOLD).fontSize(11).font('Helvetica').text('Athlete Injury Risk Management System', 50, 56, { lineBreak: false });
+  doc.fillColor('#fff').fontSize(20).font('Helvetica-Bold').text('SPIRiT', 50, 30, { lineBreak: false });
+  doc.fillColor(GOLD).fontSize(11).font('Helvetica').text('Sports Performance, Injury Risk & Technology', 50, 56, { lineBreak: false });
   doc.fillColor('#fff').fontSize(13).font('Helvetica-Bold').text(kind, 50, 30, { align: 'right', width: doc.page.width - 100 });
   if (subtitle) doc.fillColor('#cbd5e1').fontSize(9).font('Helvetica').text(subtitle, 50, 56, { align: 'right', width: doc.page.width - 100 });
   doc.fillColor(TEXT).y = 110;
@@ -607,7 +607,7 @@ function riskLegend(doc, { hasBandChip = false } = {}) {
   doc.fillColor(TEXT);
   doc.y = y + 12;
   doc.fontSize(7.5).fillColor(MUTED).font('Helvetica')
-    .text('The HoloMotion report prints Low 0–15 · Medium 16–55 · High 56–100. AIRMS keeps the report’s Low boundary and subdivides its Medium band into Watch and Elevated so ISN can act early; readings above 55 do not occur in practice. These are the standard bands — the dashboards hold each athlete’s sport-critical regions to a tighter Watch/Elevated boundary (12/20), so a region may band one step higher on screen than here.'
+    .text('The HoloMotion report prints Low 0–15 · Medium 16–55 · High 56–100. SPIRiT keeps the report’s Low boundary and subdivides its Medium band into Watch and Elevated so ISN can act early; readings above 55 do not occur in practice. These are the standard bands — the dashboards hold each athlete’s sport-critical regions to a tighter Watch/Elevated boundary (12/20), so a region may band one step higher on screen than here.'
       + (hasBandChip
         ? ' A Watch or Elevated reading here is a REGIONAL finding, not an escalation — the risk band at the top of this report summarises the cohort-normed escalation rules, so it can read “No indicators flagged” while a region below sits above Low.'
         : ''),

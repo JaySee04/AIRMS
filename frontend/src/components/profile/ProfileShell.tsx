@@ -126,7 +126,7 @@ export default function ProfileShell({ stats: initialStats, onLoadStats, roleBlu
   }, [onLoadStats]);
 
   function handleSignOut() {
-    if (!window.confirm('Sign out of AIRMS?')) return;
+    if (!window.confirm('Sign out of SPIRiT?')) return;
     clearSession();
     router.push('/');
   }
@@ -234,7 +234,7 @@ export default function ProfileShell({ stats: initialStats, onLoadStats, roleBlu
           <div className="card-header"><div>
             <h2 className="card-title" style={{ marginBottom: 0 }}>Email notifications</h2>
             <span className="card-sub">
-              Which AIRMS emails reach <strong>{user.email}</strong>. Turning one off affects only
+              Which SPIRiT emails reach <strong>{user.email}</strong>. Turning one off affects only
               your inbox — colleagues in your role keep receiving it.
             </span>
           </div></div>
@@ -264,7 +264,7 @@ export default function ProfileShell({ stats: initialStats, onLoadStats, roleBlu
           </div>
           <p className="text-muted" style={{ fontSize: 'var(--fs-sm)', marginTop: 10, marginBottom: 0 }}>
             An administrator can switch any of these off institution-wide, which overrides your
-            choice here. Everything still appears in AIRMS whether or not it is emailed.
+            choice here. Everything still appears in SPIRiT whether or not it is emailed.
           </p>
         </div>
       )}

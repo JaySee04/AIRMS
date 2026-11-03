@@ -166,7 +166,7 @@ export default function DashboardLayout({ children, allowedRoles, title, require
   // NO PER-PAGE BROWSER TAB TITLE HERE, AND THE ATTEMPT IS WORTH RECORDING.
   //
   // All twenty authenticated pages share one tab title, from app/layout.tsx's
-  // `metadata`: "AIRMS — Athlete Injury Risk Management System". Three tabs open
+  // `metadata`: "SPIRiT — Sports Performance, Injury Risk & Technology". Three tabs open
   // on the roster, an athlete's record and the norms are indistinguishable,
   // which is the same as having no title at all.
   //

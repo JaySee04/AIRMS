@@ -1,4 +1,4 @@
-# AIRMS — Athlete Injury Risk Management System
+# SPIRiT — Sports Performance, Injury Risk & Technology
 
 A web application for **Institut Sukan Negara (ISN)** Malaysia that turns the
 HoloMotion screening reports ISN already produces into one explainable risk

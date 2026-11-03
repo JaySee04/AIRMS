@@ -47,7 +47,7 @@ export default function ForgotPasswordPage() {
           <div className="login-form-wrap">
             <h1 className="login-heading">Forgot password?</h1>
             <p className="login-subtext">
-              Enter the email address associated with your AIRMS account and we&apos;ll send you a 6-digit code to reset your password.
+              Enter the email address associated with your SPIRiT account and we&apos;ll send you a 6-digit code to reset your password.
             </p>
             <form onSubmit={handleSubmit}>
               {error && <div role="alert" className="alert alert-error">{error}</div>}

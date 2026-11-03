@@ -1,6 +1,6 @@
-# AIRMS — System Guide
+# SPIRiT — System Guide
 
-**Athlete Injury Risk Management System · Institut Sukan Negara**
+**Sports Performance, Injury Risk & Technology · Institut Sukan Negara**
 
 A guide to what each part of the system does, written for the people trying it
 rather than for the people who built it. Every screen below was checked against
@@ -10,10 +10,10 @@ The athlete's own view is not covered here.
 
 ---
 
-## 1. What AIRMS does
+## 1. What SPIRiT does
 
 ISN already screens athletes with HoloMotion, and every screening already
-produces a PDF. AIRMS takes that PDF and turns it into one risk reading that a
+produces a PDF. SPIRiT takes that PDF and turns it into one risk reading that a
 clinician, a coach and management can each act on without opening the document.
 
 Three things distinguish it from reading the report directly:
@@ -58,7 +58,7 @@ you cannot use is not shown rather than shown-and-refused.
 Profile and Sign out. The theme choice persists.
 
 **Profile.** Your own account: name, password change, and per-notification email
-opt-outs. Two gates apply in order — the institution decides whether AIRMS sends
+opt-outs. Two gates apply in order — the institution decides whether SPIRiT sends
 that kind of mail at all, then you decide whether you still want it. You cannot
 opt *in* to something an administrator has switched off, and nobody can mute
 somebody else's clinical alerts.
@@ -130,7 +130,7 @@ athletes currently flagged as injured, your watchlist, and recent activity.
   is a different finding rather than a contradiction.
 - **Training Prescription** — HoloMotion's own two-week programme, day by day,
   reproduced when the report carried one. This is the instrument's advice, not
-  AIRMS's; the *Training Focus* card below it is AIRMS's own suggestion and
+  SPIRiT's; the *Training Focus* card below it is SPIRiT's own suggestion and
   speaks about load rather than treatment.
 - **Muscle map** — front and back, HoloMotion's 22 individual muscles. Deep
   muscles are drawn with a dashed edge, the illustration convention for a
@@ -305,7 +305,7 @@ trail that changes when somebody is renamed is not a trail.
   extraction**, so the one direct identifier never reaches the AI provider. This
   is working on the hosted site — a test import returned the name as `██████`.
 - **The athlete need not already be on the roster.** If the report is for
-  somebody AIRMS has never seen, the system looks them up in the **ISN athlete
+  somebody SPIRiT has never seen, the system looks them up in the **ISN athlete
   directory** and offers to create them pre-filled — name, IC, sport, programme,
   events — so a new athlete costs no separate data-entry step. The panel says
   *"new, from the ISN directory ... added when you commit"*, and the athlete is
@@ -316,7 +316,7 @@ trail that changes when somebody is renamed is not a trail.
 
 Three real HoloMotion reports from the screening session of **29 July 2025** are
 provided with this guide. They are set up to demonstrate the path above: all
-three athletes are **in the ISN directory and not yet on the AIRMS roster**, so
+three athletes are **in the ISN directory and not yet on the SPIRiT roster**, so
 uploading their reports both creates the athlete and records their first
 screening.
 
@@ -384,7 +384,7 @@ Stated plainly so nobody spends time reporting a known limit.
 about 4.5 MB. The compact report (~1 MB) imports fine and was verified on the
 live site, taking about 18 seconds. The expanded 38-page report (7.6 MB) is
 refused. This is a hosting limit, not a system limit — it imports normally when
-AIRMS is run on ISN's own machine.
+SPIRiT is run on ISN's own machine.
 
 **Email arrives from a personal Gmail address.** It will look unofficial and may
 land in spam. Sending from an ISN address is a configuration change, not a
@@ -403,9 +403,9 @@ checked at 23:00 UTC rather than every hour. They still send on the correct day.
 down when idle. A keep-alive request runs every 15 minutes, but if it has been
 asleep the first request wakes it and takes a few seconds. Try once more.
 
-**"On-device" redaction is "pre-provider" redaction here.** When AIRMS runs on
+**"On-device" redaction is "pre-provider" redaction here.** When SPIRiT runs on
 ISN's machine, the athlete's name is removed before the image leaves that
-machine. On this hosted demonstration the browser uploads the PDF to the AIRMS
+machine. On this hosted demonstration the browser uploads the PDF to the SPIRiT
 server, which redacts before contacting the AI provider — so the name still never
 reaches the provider, but it does traverse the hosted server first.
 

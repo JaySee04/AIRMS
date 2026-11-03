@@ -158,7 +158,7 @@ export default function CoachDashboard() {
     if (!data?.sport) return;
     setDlBusy(true); setDlError(null);
     try {
-      await api.downloadGet(`/screening-reports/team.pdf?sport=${encodeURIComponent(data.sport)}`, `AIRMS-team-${data.sport}.pdf`);
+      await api.downloadGet(`/screening-reports/team.pdf?sport=${encodeURIComponent(data.sport)}`, `SPIRiT-team-${data.sport}.pdf`);
     } catch (e) {
       setDlError(e instanceof Error ? e.message : 'Download failed');
     } finally {
@@ -171,7 +171,7 @@ export default function CoachDashboard() {
   async function downloadIndividualReport(athleteId: string) {
     setDlBusy(true); setDlError(null);
     try {
-      await api.downloadGet(`/screening-reports/individual/${athleteId}.pdf`, `AIRMS-${athleteId}.pdf`);
+      await api.downloadGet(`/screening-reports/individual/${athleteId}.pdf`, `SPIRiT-${athleteId}.pdf`);
     } catch (e) {
       setDlError(e instanceof Error ? e.message : 'Download failed');
     } finally {

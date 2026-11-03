@@ -132,7 +132,7 @@ router.get('/individual/:id.pdf', auth, rbac('athlete', 'medical', 'admin', 'coa
     const latest = history[0];
     const cohort = await resolveCohortStats(athlete, { minN: settings.min_cohort_n, fallbackEnabled: settings.fallback_enabled });
 
-    const doc = startDoc(res, `AIRMS_Individual_${fileSlug(athlete.name)}_${athlete.athleteId}_${fmtDate(latest.assessedAt)}.pdf`);
+    const doc = startDoc(res, `SPIRiT_Individual_${fileSlug(athlete.name)}_${athlete.athleteId}_${fmtDate(latest.assessedAt)}.pdf`);
     // The one download that carries a named athlete's clinical record, so the
     // athlete is the audited entity rather than a filter string.
     logDownload(req, 'Individual Screening Report', {
@@ -188,7 +188,7 @@ router.get('/individual/:id.pdf', auth, rbac('athlete', 'medical', 'admin', 'coa
     for (const [key, label] of RISKS) zoneGauge(doc, label, num(latest[key]) ?? 0);
     doc.moveDown(0.3);
     radar(doc, RISKS.map(([key, label]) => ({ label, value: num(latest[key]) ?? 0 })), { max: 40, color: GOLD, guide: ELEVATED_THRESHOLD });
-    doc.fontSize(8).fillColor(MUTED).text('Radar scale 0–40 (lower is better). Dashed red line = Elevated threshold (>25, standard bands — see note above on sport-critical tightening). Lumbar Disc Herniation is recorded but not assessed at ISN and is excluded from AIRMS risk displays.', 50, doc.y, { width: doc.page.width - 100 });
+    doc.fontSize(8).fillColor(MUTED).text('Radar scale 0–40 (lower is better). Dashed red line = Elevated threshold (>25, standard bands — see note above on sport-critical tightening). Lumbar Disc Herniation is recorded but not assessed at ISN and is excluded from SPIRiT risk displays.', 50, doc.y, { width: doc.page.width - 100 });
 
     // Physical Fitness Subitem Score — figure (glance) → priority callout (the
     // lowest readings, so what matters leads) → full table (exact numbers).
@@ -337,7 +337,7 @@ router.get('/team.pdf', auth, rbac('medical', 'admin', 'coach', 'executive'), re
     const group = computeStats(members.map((m) => m.s));
 
     const groupParts = [sport, programme, gender].filter(Boolean);
-    const doc = startDoc(res, `AIRMS_Team_${groupParts.map(fileSlug).join('_')}_${todayStamp()}.pdf`);
+    const doc = startDoc(res, `SPIRiT_Team_${groupParts.map(fileSlug).join('_')}_${todayStamp()}.pdf`);
     logDownload(req, 'Team Screening Report', {
       summary: `${groupParts.join(' · ')} (${members.length} athlete${members.length === 1 ? '' : 's'})`,
       meta: { ...scopeMeta(req.query), athletes: members.length },
@@ -474,7 +474,7 @@ router.get('/programme-activity.pdf', auth, rbac('admin', 'executive'), async (r
     const { coverage: cov, periods, betweenTests: bt, scope, grain, recall } = data;
     const grainWord = { month: 'Monthly', quarter: 'Quarterly', year: 'Yearly' }[grain] || 'Quarterly';
 
-    const nameBits = ['AIRMS_Programme_Activity'];
+    const nameBits = ['SPIRiT_Programme_Activity'];
     if (req.query.sport) nameBits.push(fileSlug(String(req.query.sport)));
     const doc = startDoc(res, `${nameBits.join('_')}_${todayStamp()}.pdf`);
     logDownload(req, KIND_ACTIVITY, { summary: `${scope} · ${grainWord}`, meta: scopeMeta(req.query) });
@@ -763,7 +763,7 @@ router.get('/activity-log.pdf', auth, rbac('admin', 'executive'), async (req, re
       req.query.to ? `To ${String(req.query.to)}` : null,
     ].filter(Boolean).join(' · ') || 'All recorded activity';
 
-    const doc = startDoc(res, `AIRMS-activity-log-${todayStamp()}.pdf`);
+    const doc = startDoc(res, `SPIRiT-activity-log-${todayStamp()}.pdf`);
     // Exporting the log is itself an audited act. The row is written after the
     // rows above were read, so the export never contains its own entry — it
     // shows up in the next one, which is the honest ordering.

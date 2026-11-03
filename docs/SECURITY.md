@@ -1,4 +1,4 @@
-# AIRMS — security posture, MEASURED
+# SPIRiT — security posture, MEASURED
 
 **Last run: 2026-09-13.** Every row below was checked by *running something*
 against the code or the live process, not by reading a doc. Where a claim could
@@ -64,13 +64,13 @@ Three properties are non-obvious and each was a real defect:
 to a third-party vision model — ~11,400 tokens per HoloMotion report, measured.
 
 > **Corrected 2026-09-14.** This originally said the endpoint *bills per call*.
-> It does not: AIRMS runs on Gemini's FREE tier. A free tier still carries
+> It does not: SPIRiT runs on Gemini's FREE tier. A free tier still carries
 > per-minute and per-day quotas, so exhausting it produces an **outage** rather
 > than an invoice — screening import stops for everybody until the window
 > resets. It becomes a money question only if the provider is ever changed,
 > which is one env var.
 
-It is the only endpoint in AIRMS that consumes a third-party allowance, and it
+It is the only endpoint in SPIRiT that consumes a third-party allowance, and it
 had **no cap of any kind** — `express-rate-limit` was mounted on `/api/auth` and
 nowhere else.
 
@@ -127,7 +127,7 @@ one more host. That is stated in `DEPLOY.md` rather than glossed.
 it, what Supabase exposes); MySQL 8.4 offers no equivalent, so there is nothing
 to switch on and no policy to write. Saying "we have RLS" here would be false.
 
-What AIRMS has instead is **application-layer scoping**, and the honest framing
+What SPIRiT has instead is **application-layer scoping**, and the honest framing
 is that the *trust boundary is the API process*, not the database. That is a
 weaker guarantee than RLS — a SQL-injection hole or a direct database connection
 would bypass it entirely — and it is mitigated by three things rather than
@@ -241,7 +241,7 @@ never checked.
 `utils/emailAddress.js` now holds one definition, used by the model (as a
 backstop, because the routes are not the only writers) and by both invite
 routes (for a readable message). It is a **typo catcher, not an authenticity
-check** — only a round trip proves an address, and AIRMS's round trip *is* the
+check** — only a round trip proves an address, and SPIRiT's round trip *is* the
 activation code. RFC 5322 is deliberately not implemented; the rules are the
 pragmatic set, and each exists because it rejects something the model accepted.
 

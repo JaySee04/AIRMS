@@ -2856,6 +2856,7 @@ tr.row-flash > td { animation: row-flash 1.6s ease-out; }
 .login-logos {
   margin-bottom: 40px;
 }
+.login-logo { display: block; height: auto; }
 .login-left-body { flex: 1; }
 .login-tagline {
   color: #fff;
@@ -2920,6 +2921,7 @@ tr.row-flash > td { animation: row-flash 1.6s ease-out; }
   }
   .login-left { width: 100%; padding: 22px 22px 20px; }
   .login-logos { margin-bottom: 16px; }
+  .login-logo { width: 72px; height: auto; }
   .login-tagline { font-size: var(--fs-xl); margin-bottom: 10px; }
   /* The postal address is branding, not something anyone needs in order to
      sign in — it is the first thing to go when the panel is a header strip. */

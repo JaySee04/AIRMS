@@ -93,7 +93,7 @@ function mb(bytes, round = 'nearest') {
 function tooLargeMessage(size, limit = maxUploadBytes(), env = process.env) {
   const head = `This report is ${mb(size, 'up')} and this server accepts ${mb(limit, 'down')}.`;
   if (env.VERCEL) {
-    return `${head} The limit is the hosting platform's, not AIRMS's — the full-size `
+    return `${head} The limit is the hosting platform's, not SPIRiT's — the full-size `
       + 'report imports normally on an installation running on your own server '
       + '(see docs/DEPLOY_ISN.md). A compact 12-page export is small enough to use here.';
   }

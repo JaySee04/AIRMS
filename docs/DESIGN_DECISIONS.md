@@ -15508,3 +15508,55 @@ readings stay, the order changed. The holistic PDF's labels and caption follow.
 
 Nothing else moved: the medians, the tints, the single-emphasis rule (e2e 4i
 asserts exactly one key zone, not which) and the quadrant table guard (§164).
+
+## 166. The product is SPIRiT (2026-11-03, JC)
+
+**Decision.** The product is renamed **SPIRiT — Sports Performance, Injury
+Risk & Technology**, with the caduceus logo JC supplied ("03 / Insight"). JC:
+*"let us change our project name into SPIRiT, with the latest caduceus logo.
+Change it across all our project outputs, including the ISN server one."*
+
+**What changed — everything a person sees.**
+
+- Web app: sidebar brand (mark + "SPIRiT / INSTITUT SUKAN NEGARA"), the sign-in
+  card's logo and tagline, the browser tab title, the favicon, and every
+  on-screen sentence that named the product.
+- Downloads: report filenames (`SPIRiT-team.pdf`, `SPIRiT_Individual_…`,
+  `SPIRiT_Holistic_…`, `SPIRiT_Programme_Activity_…`, `SPIRiT-activity-log-…`).
+- PDFs: the header band and footer.
+- Email: every subject line and sign-off, and the mailer's fallback From.
+- Docs a reader outside this repo meets: README, SYSTEM_GUIDE (and its PDF,
+  now `SPIRiT-System-Guide.pdf`), USER_MANUAL, HANDOVER, DEPLOY_ISN, SECURITY.
+
+The rename was applied **at named lines**, not by a global replace, so code
+comments, environment-variable names and server log lines were left exactly as
+they were.
+
+**What did NOT change, on purpose.** Identifiers nobody reads and some that
+would break if touched:
+
+| Kept | Why |
+|---|---|
+| `airms.isn.gov.my` | A new name needs ISN IT, DNS and a new certificate |
+| database `airms`, user `airms` | Renaming moves the live data for no visible gain |
+| `airms-api` / `airms-web` services, `/opt/airms`, `airms-update` | The install and its rollback are built on these |
+| `AIRMS_*` environment variables | Already set on the ISN server; a rename silently unsets them |
+| `airms_token` / `airms_user` / `airms_theme` storage keys | Renaming signs every user out and drops their theme |
+| repo and folder names | Tooling, the sync scripts and the deploy pipeline name them |
+
+**The ISN logo leaves the app.** The sidebar and sign-in card carried ISN's
+logo; both now carry SPIRiT's, and ISN is named in text beside it
+("INSTITUT SUKAN NEGARA", plus the address on the sign-in card). If ISN wants
+its own mark back, the sign-in panel has room for both.
+
+**Known limit.** The logo is a raster cut out of the supplied artwork (~550 px
+at most). It is sharp on screen; the favicon at 16 px is a blur of the detailed
+mark, and print beyond ~4.5 cm wide will soften. A vector redraw fixes both and
+is the next step if the logo is kept. The PDFs carry the name in text only — no
+logo image — because a new asset in a PDF route has to be named in
+`backend/vercel.json` `includeFiles`, and missing that broke every hosted PDF
+for 23 days once (SILENT_FAILURES 4a).
+
+**Not renamed here, deliberately:** the FYP report and viva material under
+`docs/fyp/`. The project's registered title with the university is JC's and
+his supervisor's to change.

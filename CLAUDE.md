@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project context
 
-AIRMS (Athlete Injury Risk Management System) is JC's Final Year Project. Stakeholder: **Dr Thung** at Institut Sukan Negara (ISN). Supervisor: **Dr Hoo Wai Lam**. This is a graded academic artifact — every architectural decision needs to be defensible in viva voce, not just shippable.
+**SPIRiT (Sports Performance, Injury Risk & Technology)** is JC's Final Year Project. Every name a person sees is SPIRiT — the web app, PDFs, emails, the system guide and the user-facing docs — with the caduceus logo in `frontend/public/images/spirit-*.png` and `frontend/src/app/icon.png`. It was called **AIRMS** until 2026-11-03 (DD §166), and that name deliberately survives in technical identifiers only: the repo and folder names, `airms.isn.gov.my`, the database, the `airms-*` services, `AIRMS_*` env vars and the `airms_*` browser storage keys (renaming those signs every user out). Do not "finish" the rename into those. Stakeholder: **Dr Thung** at Institut Sukan Negara (ISN). Supervisor: **Dr Hoo Wai Lam**. This is a graded academic artifact — every architectural decision needs to be defensible in viva voce, not just shippable.
 
 **Mission:** *turn ISN's existing HoloMotion screening reports into a risk signal a clinician, a coach and an athlete can each act on — without any of them needing to read a PDF.* Ingest what ISN already produces (the HoloMotion PDF is the **single source of truth**), score each athlete against their real peer cohort rather than a published threshold, and deliver that one explainable verdict in four role-shaped views. Norms are institution-governed (approved, versioned, auditable); the clinician can always override with a note; the athlete's name is redacted on-device before any image leaves the machine.
 
@@ -1425,7 +1425,7 @@ class, inside the verification of it (`SILENT_FAILURES.md` 3l). Against
 
 ## The stakeholder guide is generated and CHECKED (2026-09-01)
 
-`docs/SYSTEM_GUIDE.md` → `AIRMS-System-Guide.pdf` via **`cd backend; npm run
+`docs/SYSTEM_GUIDE.md` → `SPIRiT-System-Guide.pdf` via **`cd backend; npm run
 guide:pdf`**, which renders *and* verifies in one command. Doing those
 separately is exactly how it shipped broken three times: `scripts/guide-to-pdf.js`
 was a line printer, not a markdown renderer, and produced a document where every

@@ -308,7 +308,7 @@ export default function CohortThresholdsPage() {
     if (!window.confirm(
       `Pin “${v.label}” as the norms in force?\n\n`
       + `Its values are installed over the current norms for ${v.cohorts} cohorts and every athlete is re-scored. `
-      + 'From then on, imports will NOT change the norms — AIRMS keeps computing what the data would say and shows you the drift, '
+      + 'From then on, imports will NOT change the norms — SPIRiT keeps computing what the data would say and shows you the drift, '
       + 'so you can release the pin when you choose.',
     )) return;
     setBusy(true); setError(null); setMsg(null);
@@ -354,7 +354,7 @@ export default function CohortThresholdsPage() {
               </div>
               <div className="text-muted" style={{ fontSize: 'var(--fs-md)', lineHeight: 1.5 }}>
                 Every athlete is scored against this saved set, and <strong>imports will not change it</strong>.
-                AIRMS keeps computing what the current data would produce and shows the difference per cohort
+                SPIRiT keeps computing what the current data would produce and shows the difference per cohort
                 below, so you can see how far the held norm has drifted before releasing it.
                 {pin.createdBy && <> Pinned set saved by {pin.createdBy}.</>}
               </div>

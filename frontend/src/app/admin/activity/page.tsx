@@ -420,7 +420,7 @@ export default function AdminActivity() {
       qs.set('grain', grain);
       await api.downloadGet(
         `/screening-reports/programme-activity.pdf?${qs.toString()}`,
-        `AIRMS-programme-activity-${grain}.pdf`,
+        `SPIRiT-programme-activity-${grain}.pdf`,
       );
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Download failed');

@@ -11,7 +11,7 @@ const { getSettings } = require('./settings');
 
 const { BAND_LABEL } = require('./bands');
 const { recipientsFor } = require('./mailPrefs');
-const SIGNOFF = '— AIRMS · Institut Sukan Negara';
+const SIGNOFF = '— SPIRiT · Institut Sukan Negara';
 
 // Shared skeleton: gate on `setting`, resolve recipients, drop the ones who have
 // opted out of `prefKey`, build + send. Returns a small { sent, reason } summary
@@ -46,7 +46,7 @@ function notifyOverrideToCoach(athlete, band, note, by) {
   if (!['amber', 'red'].includes(band)) return Promise.resolve({ sent: false, reason: 'not an escalation' });
   if (!athlete || !athlete.sport) return Promise.resolve({ sent: false, reason: 'no sport' });
   return notify('notify_override', 'override', activeUsers({ role: 'coach', coachSport: athlete.sport }), () => ({
-    subject: `AIRMS — ${athlete.name} set to ${BAND_LABEL[band]} by the medical team`,
+    subject: `SPIRiT — ${athlete.name} set to ${BAND_LABEL[band]} by the medical team`,
     text: [
       `The medical team has assessed ${athlete.name} and set their status to: ${BAND_LABEL[band]}.`,
       note ? `\nClinician note: "${note}"${by ? ` — ${by}` : ''}` : (by ? `\nSet by ${by}.` : ''),
@@ -54,7 +54,7 @@ function notifyOverrideToCoach(athlete, band, note, by) {
       band === 'red'
         ? 'Please treat this athlete as a clinical priority and hold high-load work until the medical team confirms.'
         : 'Please factor this into training until the medical team reviews the flagged areas.',
-      'The status stays until the next HoloMotion screening is imported. See AIRMS → Squad Readiness.',
+      'The status stays until the next HoloMotion screening is imported. See SPIRiT → Squad Readiness.',
       '',
       SIGNOFF,
     ].join('\n'),
@@ -73,8 +73,8 @@ function notifyInjuryToCoach(athlete, injured, note, by) {
   if (!athlete || !athlete.sport) return Promise.resolve({ sent: false, reason: 'no sport' });
   return notify('notify_injury', 'injury', activeUsers({ role: 'coach', coachSport: athlete.sport }), () => ({
     subject: injured
-      ? `AIRMS — ${athlete.name} declared injured by the medical team`
-      : `AIRMS — ${athlete.name} cleared to train`,
+      ? `SPIRiT — ${athlete.name} declared injured by the medical team`
+      : `SPIRiT — ${athlete.name} cleared to train`,
     text: (injured
       ? [
         `The medical team has declared ${athlete.name} injured.`,
@@ -89,7 +89,7 @@ function notifyInjuryToCoach(athlete, injured, note, by) {
         '',
         'They count toward their cohort norm again from now on.',
       ]
-    ).concat(['', 'See AIRMS → Squad Readiness.', '', SIGNOFF]).join('\n'),
+    ).concat(['', 'See SPIRiT → Squad Readiness.', '', SIGNOFF]).join('\n'),
   }));
 }
 

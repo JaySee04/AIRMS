@@ -385,7 +385,7 @@ export default function AdminPersonnelPage() {
           <span className="card-sub">
             Pick the role first — what it can reach is listed beneath it. Inviting the person is the
             recommended path: they set the only password the account ever has. A password you set yourself
-            must meet the AIRMS policy ({PASSWORD_MIN_LENGTH}+ characters, upper and lower case, a number, a symbol).
+            must meet the SPIRiT policy ({PASSWORD_MIN_LENGTH}+ characters, upper and lower case, a number, a symbol).
           </span>
         </div></div>
         {addError && <div role="alert" className="alert alert-error">{addError}</div>}
@@ -549,7 +549,7 @@ export default function AdminPersonnelPage() {
                   autoComplete="off"
                 />
                 <p className="card-sub" style={{ margin: '6px 0 0' }}>
-                  Not held on the roster — AIRMS stores no athlete email until one is given here.
+                  Not held on the roster — SPIRiT stores no athlete email until one is given here.
                 </p>
               </div>
             </div>

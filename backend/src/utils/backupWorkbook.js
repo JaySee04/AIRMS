@@ -178,7 +178,7 @@ function manifestRows(plan, takenAt) {
     };
   });
   return [
-    { Sheet: 'AIRMS backup', Rows: '', 'Rows in database': '', Complete: '', Notes: `Taken ${takenAt}` },
+    { Sheet: 'SPIRiT backup', Rows: '', 'Rows in database': '', Complete: '', Notes: `Taken ${takenAt}` },
     ...rows,
   ];
 }

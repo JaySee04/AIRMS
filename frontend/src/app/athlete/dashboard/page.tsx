@@ -57,7 +57,7 @@ export default function AthleteDashboard() {
     if (!athleteId) return;
     setDlBusy(true); setDlError(null);
     try {
-      await api.downloadGet(`/screening-reports/individual/${athleteId}.pdf`, `AIRMS-${athleteId}.pdf`);
+      await api.downloadGet(`/screening-reports/individual/${athleteId}.pdf`, `SPIRiT-${athleteId}.pdf`);
     } catch (e) {
       setDlError(e instanceof Error ? e.message : 'Download failed');
     } finally {

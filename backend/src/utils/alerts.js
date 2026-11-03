@@ -111,8 +111,8 @@ async function alertMany(athleteIds) {
   for (const [email, items] of perRecipient) {
     const worst = items.some((i) => i.band === 'red') ? 'red' : 'amber';
     const subject = items.length === 1
-      ? `AIRMS alert — ${items[0].athlete.name} (${items[0].athlete.athleteId}): ${BAND_LABEL[items[0].band]}`
-      : `AIRMS alert — ${items.length} athletes flagged: ${BAND_LABEL[worst]}`;
+      ? `SPIRiT alert — ${items[0].athlete.name} (${items[0].athlete.athleteId}): ${BAND_LABEL[items[0].band]}`
+      : `SPIRiT alert — ${items.length} athletes flagged: ${BAND_LABEL[worst]}`;
 
     const lines = [];
     if (items.length === 1) {
@@ -147,7 +147,7 @@ async function alertMany(athleteIds) {
         ? 'Athletes marked Immediate assessment should be reviewed before the next high-load session.'
         : 'Please review these athletes at the next opportunity.');
     }
-    lines.push('', 'Open AIRMS → Athlete Dashboard to review the full screening and, after assessment, set the risk band.', '', '— AIRMS · Institut Sukan Negara');
+    lines.push('', 'Open SPIRiT → Athlete Dashboard to review the full screening and, after assessment, set the risk band.', '', '— SPIRiT · Institut Sukan Negara');
 
     await sendMail({ to: email, subject, text: lines.join('\n') });
     for (const it of items) sentFor.add(it.athlete.athleteId);

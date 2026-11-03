@@ -241,7 +241,7 @@ export default function MedicalDashboard() {
     try {
       await api.downloadGet(
         `/screening-reports/individual/${selectedAthlete.athleteId}.pdf`,
-        `AIRMS-${selectedAthlete.athleteId}.pdf`,
+        `SPIRiT-${selectedAthlete.athleteId}.pdf`,
       );
     } catch (e) {
       setPdfError(e instanceof Error ? e.message : 'Download failed');
@@ -256,7 +256,7 @@ export default function MedicalDashboard() {
     try {
       await api.downloadGet(
         `/screening-reports/team.pdf?sport=${encodeURIComponent(selectedAthlete.sport)}`,
-        `AIRMS-team-${selectedAthlete.sport}.pdf`,
+        `SPIRiT-team-${selectedAthlete.sport}.pdf`,
       );
     } catch (e) {
       setPdfError(e instanceof Error ? e.message : 'Download failed');

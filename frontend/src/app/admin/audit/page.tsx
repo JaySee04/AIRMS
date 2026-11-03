@@ -235,7 +235,7 @@ export default function AuditPage() {
                 try {
                   await api.downloadGet(
                     `/screening-reports/activity-log.pdf${q.toString() ? `?${q.toString()}` : ''}`,
-                    'AIRMS-activity-log.pdf',
+                    'SPIRiT-activity-log.pdf',
                   );
                 } catch (e) {
                   setError(e instanceof Error ? e.message : 'Download failed');

@@ -8,7 +8,7 @@
 //   node scripts/verify-guide-pdf.js
 const path = require('path');
 
-const PDF = path.join(__dirname, '..', '..', 'AIRMS-System-Guide.pdf');
+const PDF = path.join(__dirname, '..', '..', 'SPIRiT-System-Guide.pdf');
 const MARGIN = 62;
 const SLACK = 2;            // rounding in the text-item transform
 

@@ -92,7 +92,7 @@ function addressOf(from) {
 function senderIdentity() {
   const configured = Boolean(process.env.SMTP_HOST);
   const dryRun = process.env.MAILER_DRY_RUN === 'true';
-  const from = process.env.SMTP_FROM || 'AIRMS <no-reply@airms.local>';
+  const from = process.env.SMTP_FROM || 'SPIRiT <no-reply@airms.local>';
   const domain = addressOf(from).split('@')[1] || null;
 
   // The domain the transport is AUTHENTICATED as, which is not necessarily the
@@ -139,7 +139,7 @@ async function sendMail({
   to, subject, text, html, attachments,
 }) {
   const transport = await getTransport();
-  const from = process.env.SMTP_FROM || 'AIRMS <no-reply@airms.local>';
+  const from = process.env.SMTP_FROM || 'SPIRiT <no-reply@airms.local>';
   return transport.sendMail({
     from, to, subject, text, html, attachments,
   });
@@ -150,19 +150,19 @@ async function sendMail({
 // in the SAME tab. This keeps the whole flow in one tab and eliminates the
 // orphaned-tab UX issue that a link-based flow has.
 function buildResetEmail({ code, expiresInMinutes, maxAttempts }) {
-  const subject = 'AIRMS — Password Reset Code';
+  const subject = 'SPIRiT — Password Reset Code';
   const text = [
     'Password reset code',
     '',
-    `Your AIRMS password reset code is:`,
+    `Your SPIRiT password reset code is:`,
     '',
     `    ${code}`,
     '',
     `Enter this code on the password reset screen in your browser to continue. The code expires in ${expiresInMinutes} minutes and is single-use. After ${maxAttempts} incorrect entries it is automatically invalidated, and you will need to request a new one.`,
     '',
-    "If you did not request this reset, you can ignore this email — your current password is unchanged and the code will expire on its own. As a precaution, sign in to AIRMS normally and rotate your password from My Profile if you suspect any unauthorised activity.",
+    "If you did not request this reset, you can ignore this email — your current password is unchanged and the code will expire on its own. As a precaution, sign in to SPIRiT normally and rotate your password from My Profile if you suspect any unauthorised activity.",
     '',
-    '— AIRMS · Institut Sukan Negara',
+    '— SPIRiT · Institut Sukan Negara',
   ].join('\n');
 
   return { subject, text };
@@ -209,13 +209,13 @@ function humaniseWindow(minutes) {
 }
 
 function buildInviteEmail({ code, name, role, invitedBy, expiresInMinutes, maxAttempts, siteUrl }) {
-  const subject = 'AIRMS — Your account is ready to activate';
+  const subject = 'SPIRiT — Your account is ready to activate';
   const who = invitedBy ? `${invitedBy} at Institut Sukan Negara` : 'Institut Sukan Negara';
   const text = [
     `Hello${name ? ` ${name}` : ''},`,
     '',
-    `${who} has created an AIRMS account for you${role ? ` as ${role}` : ''}.`,
-    'AIRMS is the Athlete Injury Risk Management System used to read and act on',
+    `${who} has created an SPIRiT account for you${role ? ` as ${role}` : ''}.`,
+    'SPIRiT is the Sports Performance, Injury Risk & Technology used to read and act on',
     'HoloMotion screening results.',
     '',
     'Your activation code is:',
@@ -224,7 +224,7 @@ function buildInviteEmail({ code, name, role, invitedBy, expiresInMinutes, maxAt
     '',
     siteUrl
       ? `To finish setting up, open ${siteUrl}/activate and enter your email address and this code. You will then choose your own password.`
-      : 'To finish setting up, open the AIRMS activation page and enter your email address and this code. You will then choose your own password.',
+      : 'To finish setting up, open the SPIRiT activation page and enter your email address and this code. You will then choose your own password.',
     '',
     `Nobody at ISN knows or can see the password you choose — that is the point of this step. The code expires in ${humaniseWindow(expiresInMinutes)} and is single-use; after ${maxAttempts} incorrect entries it is invalidated.`,
     '',
@@ -237,7 +237,7 @@ function buildInviteEmail({ code, name, role, invitedBy, expiresInMinutes, maxAt
     '',
     'If you were not expecting this, please contact the person named above before using it rather than ignoring it — an account has been created either way.',
     '',
-    '— AIRMS · Institut Sukan Negara',
+    '— SPIRiT · Institut Sukan Negara',
   ].join('\n');
 
   return { subject, text };

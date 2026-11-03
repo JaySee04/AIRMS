@@ -52,7 +52,7 @@ not trip it.)
 | [`SECURITY.md`](SECURITY.md) | Reference | The security posture, **measured**: nine checks, each with the command that produced the answer. Re-run the commands before quoting a number. |
 | [`DEPLOY.md`](DEPLOY.md) | Reference | Deployment, and the platform faults that all present as the same opaque error. Read before deploying. |
 | [`USER_MANUAL.md`](USER_MANUAL.md) | Reference | Every shipped feature from the end user's point of view — *what* it does, not how. |
-| [`SYSTEM_GUIDE.md`](SYSTEM_GUIDE.md) | Reference | The stakeholder-facing guide, written for people trying the system. Renders to `AIRMS-System-Guide.pdf` via `cd backend; npm run guide:pdf`, which renders **and verifies** in one command. |
+| [`SYSTEM_GUIDE.md`](SYSTEM_GUIDE.md) | Reference | The stakeholder-facing guide, written for people trying the system. Renders to `SPIRiT-System-Guide.pdf` via `cd backend; npm run guide:pdf`, which renders **and verifies** in one command. |
 | [`ATHLETE_ASSESSMENT_FIELDS.md`](ATHLETE_ASSESSMENT_FIELDS.md) | Reference | Domain glossary: every column, score and label in an athlete assessment, for someone reading the data for the first time. |
 
 ## Decision and defect records — append, don't rewrite

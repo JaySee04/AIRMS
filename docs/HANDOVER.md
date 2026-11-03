@@ -1,7 +1,7 @@
-# AIRMS — handover guide for whoever maintains this next
+# SPIRiT — handover guide for whoever maintains this next
 
 **You are reading this because you have to change the code, not just run it.**
-If you only need to install and operate AIRMS, read [`DEPLOY_ISN.md`](DEPLOY_ISN.md)
+If you only need to install and operate SPIRiT, read [`DEPLOY_ISN.md`](DEPLOY_ISN.md)
 and [`USER_MANUAL.md`](USER_MANUAL.md) instead — this document is about the
 codebase.
 
@@ -13,14 +13,14 @@ produces it is given beside it.
 
 ## 1. What the system is, in one paragraph
 
-AIRMS turns the musculoskeletal screening reports Institut Sukan Negara already
+SPIRiT turns the musculoskeletal screening reports Institut Sukan Negara already
 produces into one explainable risk signal, scored against each athlete's real
 peer cohort rather than a published threshold, and delivers it in five
 role-shaped views so that nobody has to read a PDF to act on it. The HoloMotion
 report is the **single source of truth**: everything on every screen derives
 from it.
 
-**The claim it does not make:** AIRMS does not predict injury. It triages who is
+**The claim it does not make:** SPIRiT does not predict injury. It triages who is
 worth a clinician's time. No surface says *safe*, *cleared* or *fit to play* —
 the lowest risk band reads "No indicators flagged" for that reason, and if you
 change that wording you have changed a clinical claim, not a label.
@@ -86,7 +86,7 @@ Sign in with any seeded account; they all use the same password, printed by the
 seeder. `npm run seed` **refuses** to run against anything that looks like a
 real installation — production mode, or a database holding non-demo accounts.
 
-`npm run dev:stop` stops every AIRMS dev server. Use it rather than killing the
+`npm run dev:stop` stops every SPIRiT dev server. Use it rather than killing the
 process on the port: killing the listener leaves `nodemon` alive, and it
 restarts the server the moment any file under `backend/src` changes.
 

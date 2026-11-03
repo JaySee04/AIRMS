@@ -174,7 +174,7 @@ app.get('/api/health', async (_req, res) => {
 app.get('/', (_req, res) => {
   res.json({
     service: 'AIRMS API',
-    description: 'Athlete Injury Risk Management System — Institut Sukan Negara',
+    description: 'Sports Performance, Injury Risk & Technology — Institut Sukan Negara',
     health: '/api/health',
     app: process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',')[0] : undefined,
   });

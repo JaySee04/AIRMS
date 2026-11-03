@@ -480,7 +480,7 @@ export default function SportAssessmentPage() {
                   </p>
                   <p>
                     One indicator the instrument reports is deliberately never scored, charted or
-                    named anywhere in AIRMS, on the stakeholder&rsquo;s instruction.
+                    named anywhere in SPIRiT, on the stakeholder&rsquo;s instruction.
                   </p>
                 </InfoTip>
               )}

@@ -86,7 +86,7 @@ describe('holisticData — population filters', () => {
     expect(d.parts).toEqual([]);
     // Unfiltered reports must not pick up a filter slug, or every month's saved
     // file would claim a scope it does not have.
-    expect(d.nameBits).toEqual(['AIRMS_Holistic']);
+    expect(d.nameBits).toEqual(['SPIRiT_Holistic']);
   });
 
   test('each filter narrows on its own field', async () => {
@@ -130,7 +130,7 @@ describe('holisticData — scope and filename', () => {
   test('scope reads as a sentence and slugs into the filename', async () => {
     const d = await holisticData({ sport: 'Badminton', gender: 'Female', ageMin: 18 });
     expect(d.scope).toBe('Badminton · Female · age 18-+');
-    expect(d.nameBits.join('_')).toBe('AIRMS_Holistic_Badminton_Female_age_18-');
+    expect(d.nameBits.join('_')).toBe('SPIRiT_Holistic_Badminton_Female_age_18-');
   });
 
   test('a focus region is named in the file, an unknown one is ignored', async () => {
@@ -206,7 +206,7 @@ describe('renderHolisticPdf', () => {
     const { buffer, filename } = await renderHolisticPdf({ grain: 'month' }, '2026-08');
     expect(isPdf(buffer)).toBe(true);
     expect(buffer.length).toBeGreaterThan(1000);
-    expect(filename).toBe('AIRMS_Holistic_2026-08.pdf');
+    expect(filename).toBe('SPIRiT_Holistic_2026-08.pdf');
   });
 });
 

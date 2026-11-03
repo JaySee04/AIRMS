@@ -49,7 +49,7 @@ const SAFE = {
 const safe = (s) => String(s).replace(/[ -◿·×±]/g, (c) => SAFE[c] ?? '');
 
 const md = fs.readFileSync(path.join(B, '..', 'docs', 'SYSTEM_GUIDE.md'), 'utf8');
-const out = path.join(B, '..', 'AIRMS-System-Guide.pdf');
+const out = path.join(B, '..', 'SPIRiT-System-Guide.pdf');
 
 const M = 62;                       // left/right margin
 const INK = '#1a1f28';
@@ -258,7 +258,7 @@ for (let p = 0; p < range.count; p += 1) {
   const y = doc.page.height - 46;
   doc.moveTo(M, y - 8).lineTo(doc.page.width - M, y - 8).strokeColor(RULE).lineWidth(0.5).stroke();
   doc.fontSize(7.6).font('Helvetica').fillColor(MUTED);
-  doc.text('AIRMS - System Guide - Institut Sukan Negara', M, y, { width: 300, lineBreak: false });
+  doc.text('SPIRiT - System Guide - Institut Sukan Negara', M, y, { width: 300, lineBreak: false });
   doc.text(`Page ${p + 1} of ${range.count}`, doc.page.width - 200, y, { width: 138, align: 'right', lineBreak: false });
 }
 

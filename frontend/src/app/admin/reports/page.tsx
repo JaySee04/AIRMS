@@ -77,7 +77,7 @@ export default function AdminReportsPage() {
               Risk distribution, averages, programme activity and flagged athletes
               {hf.active ? ' — for the group selected above.' : ' — for every athlete. Use the filters above to narrow it.'}
             </p>
-            <button type="button" className="btn btn-primary btn-sm" disabled={busy !== ''} onClick={() => dl('h', `/screening-reports/holistic.pdf${hf.query ? `?${hf.query}` : ''}`, 'AIRMS-holistic.pdf')}>{busy === 'h' ? '…' : 'Download'}</button>
+            <button type="button" className="btn btn-primary btn-sm" disabled={busy !== ''} onClick={() => dl('h', `/screening-reports/holistic.pdf${hf.query ? `?${hf.query}` : ''}`, 'SPIRiT-holistic.pdf')}>{busy === 'h' ? '…' : 'Download'}</button>
           </div>
           <div>
             <strong style={{ fontSize: 'var(--fs-md)' }}>Individual</strong>
@@ -87,7 +87,7 @@ export default function AdminReportsPage() {
                 {selectedId ? `Selected · ${selectedId}` : 'Search and pick an athlete'}
               </div>
             </div>
-            <button type="button" className="btn btn-primary btn-sm" disabled={busy !== '' || !selectedId} onClick={() => dl('i', `/screening-reports/individual/${selectedId}.pdf`, `AIRMS-${selectedId}.pdf`)}>{busy === 'i' ? '…' : 'Download'}</button>
+            <button type="button" className="btn btn-primary btn-sm" disabled={busy !== '' || !selectedId} onClick={() => dl('i', `/screening-reports/individual/${selectedId}.pdf`, `SPIRiT-${selectedId}.pdf`)}>{busy === 'i' ? '…' : 'Download'}</button>
           </div>
           <div>
             <strong style={{ fontSize: 'var(--fs-md)' }}>Team / group</strong>
@@ -100,7 +100,7 @@ export default function AdminReportsPage() {
             </div>
             <button type="button" className="btn btn-primary btn-sm" disabled={busy !== '' || !sport.trim()} onClick={() => {
               const q = new URLSearchParams({ sport: sport.trim(), ...(programme ? { programme } : {}), ...(gender ? { gender } : {}) });
-              dl('t', `/screening-reports/team.pdf?${q}`, 'AIRMS-team.pdf');
+              dl('t', `/screening-reports/team.pdf?${q}`, 'SPIRiT-team.pdf');
             }}>{busy === 't' ? '…' : 'Download'}</button>
           </div>
         </div>

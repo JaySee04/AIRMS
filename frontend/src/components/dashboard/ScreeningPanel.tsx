@@ -311,7 +311,7 @@ export default function ScreeningPanel({
           <span>standard bands ≤{WATCH_THRESHOLD} / ≤{HIGH_THRESHOLD}</span>
           <span>★ sport-critical — tightened to ≤{TIGHT_WATCH_THRESHOLD} / ≤{TIGHT_HIGH_THRESHOLD}</span>
           <span className="text-muted">
-            Report prints Low 0–15 · Medium 16–55; AIRMS splits Medium into Watch / Elevated
+            Report prints Low 0–15 · Medium 16–55; SPIRiT splits Medium into Watch / Elevated
           </span>
         </div>
       </div>

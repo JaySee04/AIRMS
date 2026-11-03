@@ -78,7 +78,7 @@ export default function ActivatePage() {
           <div className="login-form-wrap">
             <h1 className="login-heading">Activate your account</h1>
             <p className="login-subtext">
-              An administrator has created an AIRMS account for you and emailed a
+              An administrator has created an SPIRiT account for you and emailed a
               six-digit code. Enter it with the password you want to use — the
               password is yours alone, and nobody at ISN can see it.
             </p>

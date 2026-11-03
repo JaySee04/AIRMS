@@ -33,7 +33,7 @@ const { rescreenRecall } = require('./programmeActivity');
 const { withLock } = require('./lock');
 
 const HOUR = 60 * 60 * 1000;
-const SIGNOFF = '— AIRMS · Institut Sukan Negara';
+const SIGNOFF = '— SPIRiT · Institut Sukan Negara';
 
 // Record the outcome of an attempt — including a failed one.
 //
@@ -96,7 +96,7 @@ async function buildDigest(now, { attached = false } = {}) {
   const prev = periods[periods.length - 2] || null;
 
   const lines = [
-    `AIRMS monthly summary — ${isnMonth(now)}`,
+    `SPIRiT monthly summary — ${isnMonth(now)}`,
     '',
     `Athletes on the roster: ${rostered}`,
     `Screened at least once: ${rows.length}`,
@@ -134,15 +134,15 @@ async function buildDigest(now, { attached = false } = {}) {
     ...(attached
       ? ['The Holistic Screening Report for the whole institute is attached.']
       : ['The Holistic Screening Report could not be generated for this email —',
-        'it is still available on AIRMS under PDF Reports.']),
+        'it is still available on SPIRiT under PDF Reports.']),
     'Team and individual reports, and holistic reports filtered by sport, programme,',
-    'gender or age group, are on AIRMS under PDF Reports.',
+    'gender or age group, are on SPIRiT under PDF Reports.',
     '',
     SIGNOFF,
   );
 
   return {
-    subject: `AIRMS monthly summary — ${isnMonth(now)}`,
+    subject: `SPIRiT monthly summary — ${isnMonth(now)}`,
     text: lines.join('\n'),
   };
 }
@@ -348,8 +348,8 @@ async function buildReminder(now, { sport = null, recall = null, roster = null }
 
   const who = sport ? `${sport} ` : '';
   const subject = needed
-    ? `AIRMS rescreen reminder - ${plural(needed, who ? `${who}athlete` : 'athlete', who ? `${who}athletes` : 'athletes')} need attention`
-    : `AIRMS rescreen reminder - ${sport ? `${sport} squad` : 'roster'} fully current`;
+    ? `SPIRiT rescreen reminder - ${plural(needed, who ? `${who}athlete` : 'athlete', who ? `${who}athletes` : 'athletes')} need attention`
+    : `SPIRiT rescreen reminder - ${sport ? `${sport} squad` : 'roster'} fully current`;
   return { subject, text: L.join('\n'), needed, recall };
 }
 

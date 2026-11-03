@@ -60,7 +60,7 @@ export default function IsnLookup({ onPick }: { onPick: (r: IsnRecord) => void }
                 </span>
               </div>
               {r.inRoster
-                ? <span className="badge-low" title="Already an AIRMS athlete">In AIRMS</span>
+                ? <span className="badge-low" title="Already an SPIRiT athlete">In SPIRiT</span>
                 : <button type="button" className="btn btn-primary btn-sm" onClick={() => onPick(r)}>Use</button>}
             </div>
           ))}

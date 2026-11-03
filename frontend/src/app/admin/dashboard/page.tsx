@@ -688,7 +688,7 @@ export default function AdminDashboard() {
               <p>
                 Cell colour uses <strong>HoloMotion&rsquo;s own 60 / 75 / 85 boundaries</strong> — the
                 same ones behind the gauges, the threshold strips and the body map, so a cell
-                that reads amber here reads amber everywhere else in AIRMS.
+                that reads amber here reads amber everywhere else in SPIRiT.
               </p>
               <p>
                 The matrix is the report&rsquo;s own layout, and it is kept because it is the only

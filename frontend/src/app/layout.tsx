@@ -9,7 +9,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'AIRMS — Athlete Injury Risk Management System',
+  title: 'SPIRiT — Sports Performance, Injury Risk & Technology',
   description: 'Institut Sukan Negara Malaysia athlete injury risk management platform',
   // Belt and braces with app/robots.ts. robots.txt asks a crawler not to FETCH;
   // this tells one that fetched anyway not to INDEX. Neither is a security

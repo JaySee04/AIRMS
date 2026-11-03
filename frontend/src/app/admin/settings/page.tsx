@@ -147,7 +147,7 @@ export default function AdminSettingsPage() {
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="card-header"><div>
             <h2 className="card-title" style={{ marginBottom: 0 }}>Needs your attention</h2>
-            <span className="card-sub">Conditions that do not stop AIRMS working, and that nobody else will report.</span>
+            <span className="card-sub">Conditions that do not stop SPIRiT working, and that nobody else will report.</span>
           </div></div>
           {settings?.mailSender?.concern && (
             <div role="status" className="alert alert-warning" style={{ marginBottom: 12 }}>
@@ -227,7 +227,7 @@ export default function AdminSettingsPage() {
             </div>
             <div className="stat-tile-delta">
               Email admin and executive accounts a roster, band-mix and activity summary once a month.
-              Capped at day 28 so February always fires. If AIRMS is down when it falls due it sends
+              Capped at day 28 so February always fires. If SPIRiT is down when it falls due it sends
               late rather than skipping the month
               {set.digest_last_sent ? ` — last sent ${String(set.digest_last_sent)}` : ' — not sent yet'}
             </div>

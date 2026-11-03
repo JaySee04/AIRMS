@@ -91,7 +91,7 @@ async function holisticData(query = {}) {
   if (ageMin || ageMax) parts.push(`age ${ageMin || '0'}-${ageMax || '+'}`);
   const focused = region && isShownIndicator(region) ? region : null;
 
-  const nameBits = ['AIRMS_Holistic'];
+  const nameBits = ['SPIRiT_Holistic'];
   if (parts.length) nameBits.push(fileSlug(parts.join('_')));
   if (focused) nameBits.push(fileSlug(INDICATOR_LABEL[focused]));
 

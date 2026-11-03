@@ -18,7 +18,7 @@ import Link from 'next/link';
 // Hence "partially conforms", the known gaps stated before anybody finds them,
 // and "not yet done" for the testing a script cannot do.
 
-export const metadata = { title: 'Accessibility statement · AIRMS' };
+export const metadata = { title: 'Accessibility statement · SPIRiT' };
 
 const REVIEWED = '14 October 2026';
 
@@ -27,9 +27,9 @@ export default function AccessibilityPage() {
     <main className="statement">
       <p><Link href="/">&larr; Back to sign in</Link></p>
 
-      <h1>Accessibility statement for AIRMS</h1>
+      <h1>Accessibility statement for SPIRiT</h1>
       <p>
-        AIRMS (Athlete Injury Risk Management System) is used by Institut Sukan
+        SPIRiT (Sports Performance, Injury Risk & Technology) is used by Institut Sukan
         Negara staff, coaches and athletes to read HoloMotion screening results. We
         want as many people as possible to be able to use it. This page says what
         works, what does not yet, and how to tell us when something gets in your way.
@@ -81,7 +81,7 @@ export default function AccessibilityPage() {
           region.
         </li>
         <li>
-          <strong>English only.</strong> AIRMS is not yet available in Bahasa Melayu.
+          <strong>English only.</strong> SPIRiT is not yet available in Bahasa Melayu.
         </li>
         <li>
           <strong>PDF reports are not tagged.</strong> The downloadable reports are
@@ -90,14 +90,14 @@ export default function AccessibilityPage() {
         </li>
         <li>
           <strong>Not yet tested with disabled users.</strong> All the checks below are
-          automated or carried out by the developer. AIRMS has not yet been tested with
+          automated or carried out by the developer. SPIRiT has not yet been tested with
           a screen reader by someone who relies on one, or with disabled staff.
         </li>
       </ul>
 
       <h2>Compliance status</h2>
       <p>
-        AIRMS <strong>partially conforms</strong> with the Web Content Accessibility
+        SPIRiT <strong>partially conforms</strong> with the Web Content Accessibility
         Guidelines (WCAG) 2.2 at level AA, because of the issues listed above.
       </p>
 
@@ -110,16 +110,16 @@ export default function AccessibilityPage() {
         <li>keyboard, focus and back-button behaviour, by an automated walk through each role&rsquo;s pages.</li>
       </ul>
       <p>
-        Each check is a script in the AIRMS source code and can be re-run. A clean
+        Each check is a script in the SPIRiT source code and can be re-run. A clean
         result from a script is not the same as a page that is easy to use, which is
         why testing with disabled users is listed above as not yet done.
       </p>
 
       <h2>Reporting a problem</h2>
       <p>
-        If something on AIRMS is hard or impossible for you to use, please tell your
-        AIRMS administrator at Institut Sukan Negara, saying which page you were on and
-        what you were trying to do. If you need information from AIRMS in another
+        If something on SPIRiT is hard or impossible for you to use, please tell your
+        SPIRiT administrator at Institut Sukan Negara, saying which page you were on and
+        what you were trying to do. If you need information from SPIRiT in another
         format, ask them too.
       </p>
 

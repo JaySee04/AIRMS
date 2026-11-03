@@ -120,7 +120,7 @@ export async function sliceForUpload(file: File, maxBytes: number | null): Promi
         // hidden: the upload genuinely differed from the file they chose.
         note: `Sent a reduced copy — pages 1–${Math.min(HEAD_PAGES, total)} and `
           + `${total - tail + 1}–${total} (${mb(saved.length)} of ${mb(file.size)}), because this server `
-          + `accepts ${mb(maxBytes)}. The omitted pages are angle-trajectory charts, which AIRMS does not read; `
+          + `accepts ${mb(maxBytes)}. The omitted pages are angle-trajectory charts, which SPIRiT does not read; `
           + 'every extracted value is identical.',
       };
     }

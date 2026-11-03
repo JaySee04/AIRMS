@@ -106,7 +106,7 @@ export default function CoachReportsPage() {
               type="button"
               className="btn btn-primary btn-sm"
               disabled={busy !== '' || !selectedId}
-              onClick={() => dl('i', `/screening-reports/individual/${selectedId}.pdf?${range()}`, `AIRMS-${selectedId}.pdf`)}
+              onClick={() => dl('i', `/screening-reports/individual/${selectedId}.pdf?${range()}`, `SPIRiT-${selectedId}.pdf`)}
             >
               {busy === 'i' ? 'Preparing…' : 'Download individual report'}
             </button>
@@ -124,7 +124,7 @@ export default function CoachReportsPage() {
               type="button"
               className="btn btn-primary btn-sm"
               disabled={busy !== ''}
-              onClick={() => dl('t', `/screening-reports/team.pdf?sport=${encodeURIComponent(sport)}&${range()}`, `AIRMS-team-${sport}.pdf`)}
+              onClick={() => dl('t', `/screening-reports/team.pdf?sport=${encodeURIComponent(sport)}&${range()}`, `SPIRiT-team-${sport}.pdf`)}
             >
               {busy === 't' ? 'Preparing…' : 'Download team report'}
             </button>

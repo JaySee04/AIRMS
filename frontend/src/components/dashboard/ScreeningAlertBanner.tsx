@@ -65,10 +65,10 @@ export default function ScreeningAlertBanner({
           </div>
           <div className="screening-alert-sub">
             {hasCriticalAlert
-              ? `These regions ${wasWere} out of range ${onWhich}, and are ones ${audience === 'self' ? 'your' : 'their'} sport loads heavily — so AIRMS holds them to a tighter standard.`
+              ? `These regions ${wasWere} out of range ${onWhich}, and are ones ${audience === 'self' ? 'your' : 'their'} sport loads heavily — so SPIRiT holds them to a tighter standard.`
               : `These indicators ${wasWere} out of range ${onWhich}.`}
             {criticalRegions.length > 0 && (
-              <> Regions AIRMS treats as critical for {sport}: <strong>{criticalRegions.join(', ')}</strong>.</>
+              <> Regions SPIRiT treats as critical for {sport}: <strong>{criticalRegions.join(', ')}</strong>.</>
             )}
             {/* On a dashboard this is the follow-up action; in history it is
                 replaced by a statement that this is not the current position. */}

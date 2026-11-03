@@ -1,11 +1,11 @@
-# Deploying AIRMS on an ISN server
+# Deploying SPIRiT on an ISN server
 
-For installing AIRMS on hardware ISN controls, rather than on Vercel.
+For installing SPIRiT on hardware ISN controls, rather than on Vercel.
 [`DEPLOY.md`](DEPLOY.md) covers the Vercel deployment and stays the reference
 for that; this is the self-hosted path and the two differ in ways that matter.
 
 **Everything here was run on 2026-09-22 except the parts marked NOT VERIFIED,
-which say so because nobody has yet run AIRMS on a machine that is not this
+which say so because nobody has yet run SPIRiT on a machine that is not this
 one.** Treat those as the list of things to discover during the first install,
 not as steps known to work.
 
@@ -14,7 +14,7 @@ not as steps known to work.
 ## Why self-hosting is the better fit
 
 Four limitations recorded against the hosted deployment are **properties of
-Vercel, not of AIRMS**, and they disappear here.
+Vercel, not of SPIRiT**, and they disappear here.
 
 | | Vercel | ISN server |
 |---|---|---|
@@ -50,7 +50,7 @@ leaves ISN at all.**
 
 ## 1. Database
 
-Create the database and a user that is not `root`. AIRMS connecting as `root` is
+Create the database and a user that is not `root`. SPIRiT connecting as `root` is
 an open item on the hosted install (`SECURITY.md`, DD §97) and there is no
 reason to repeat it on a fresh one:
 
@@ -90,7 +90,7 @@ SMTP_PORT=587
 SMTP_SECURE=false
 SMTP_USER=
 SMTP_PASS=
-SMTP_FROM='AIRMS <injriskdashboard@isn.gov.my>'
+SMTP_FROM='SPIRiT <injriskdashboard@isn.gov.my>'
 
 # WHICH ATHLETE DIRECTORY THE LOOKUP SEARCHES. Leave UNSET on a real install:
 # with NODE_ENV=production and nothing here the directory is EMPTY, which is the
@@ -172,7 +172,7 @@ not want a process altering the schema on every boot.
 
 ## 4. The first administrator
 
-AIRMS has no self-registration by design: an administrator creates every
+SPIRiT has no self-registration by design: an administrator creates every
 account, and the invitee sets the first password that ever exists on it. On a
 fresh database there is no administrator, and `npm run seed` was the only thing
 that could make one — which is why step 3 forbids it.
@@ -350,7 +350,7 @@ now.
    off-box copy is required. An on-box backup alone does not survive the event
    most backups exist for.
 3. **TLS terminates at a reverse proxy, and `deploy/nginx-airms.conf` is that
-   proxy** (2026-10-09, §159). AIRMS speaks plain HTTP and has no certificate
+   proxy** (2026-10-09, §159). SPIRiT speaks plain HTTP and has no certificate
    handling; serving it without TLS puts IC numbers and clinical notes on the
    wire in clear. The config carries the two origins, HSTS (**without** preload
    — close to irreversible, so ISN's call), `client_max_body_size 20m` matched to
@@ -359,7 +359,7 @@ now.
    throttle keys every request to the proxy, so one brute-force attempt locks out
    the whole institution while the attacker goes unthrottled — the §48 NAT lesson
    with the proxy playing the part of the NAT.
-   **It deliberately sets no CSP or frame-ancestors**: AIRMS sets those itself,
+   **It deliberately sets no CSP or frame-ancestors**: SPIRiT sets those itself,
    and two `Content-Security-Policy` headers are enforced as an INTERSECTION, so
    a second copy silently changes the effective policy.
    **Still ISN's:** the certificates, and the hostnames.

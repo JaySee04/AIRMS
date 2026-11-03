@@ -74,7 +74,7 @@ router.post('/login', async (req, res) => {
       // for valid accounts. Wording is friendlier than a stock "Invalid
       // credentials" while preserving the no-enumeration property.
       return res.status(401).json({
-        message: "That email and password don't match an active AIRMS account. Double-check both, or use Forgot password? if you can't remember it.",
+        message: "That email and password don't match an active SPIRiT account. Double-check both, or use Forgot password? if you can't remember it.",
       });
     }
 
