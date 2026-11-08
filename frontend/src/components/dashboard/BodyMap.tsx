@@ -578,13 +578,13 @@ export default function BodyMap({
                   {compEntries.length > 0 && (
                     <FlagCard
                       title="Compensation Pattern"
-                      subtitle="Weak + tight in same muscle"
+                      subtitle="Weak and tight in the same muscle"
                       accent="var(--flag-both)"
                       items={compEntries.map((c) => (
                         <FlagItem key={c.name} name={c.name} side="B" activeKeys={activeKeys} onActive={setActiveKeys}>
                           <span>
-                            <span className="lat-code">W:{c.weak}</span>{' '}
-                            <span className="lat-code">T:{c.tight}</span>
+                            <span className="lat-code">weak {c.weak}</span>{' '}
+                            <span className="lat-code">tight {c.tight}</span>
                           </span>
                         </FlagItem>
                       ))}

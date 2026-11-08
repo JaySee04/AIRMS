@@ -120,11 +120,8 @@ export default function AthleteSquadPage() {
                 />
                 <p className="chart-note">
                   Where every scored athlete in {data.sport} sits, and where you sit among them.
-                  Unlike the same chart on a single-cohort view, the centre here is <strong>not</strong> fixed
-                  at 50: this squad spans several cohorts and each athlete is normed against their own,
-                  so the shape is the squad&apos;s spread rather than a scale with a guaranteed middle.
-                  A long tail on either side means a few athletes are carrying most of the difference —
-                  which the three counts above cannot tell apart from an even squad.
+                  Each athlete is compared with their own group (same programme and gender), so the
+                  middle of this chart is <strong>not</strong> always at 50.
                 </p>
               </div>
             )}
@@ -151,7 +148,7 @@ export default function AthleteSquadPage() {
               </table>
             </div>
             <p className="text-muted" style={{ fontSize: 'var(--fs-sm)', marginTop: 10, marginBottom: 0 }}>
-              Indicator is the cohort-normed score (0–100, 50 = group average). Only squad readiness is shared here — detailed screening reports aren&apos;t visible between athletes.
+              Indicator: a score from 0 to 100 against the athlete&apos;s own comparison group, where 50 is the group average. Only squad readiness is shared here — detailed screening reports aren&apos;t visible between athletes.
             </p>
           </>
         )}

@@ -246,14 +246,14 @@ export default function ScreeningPanel({
           <div>
             <h2 className="card-title" style={{ marginBottom: 0 }}>HoloMotion Screening</h2>
             <span className="card-sub">
-              Tier ticks at 60 / 75 / 85
+              Marks at 60, 75 and 85 divide each dial into its bands
               {athlete.age ? ` · age ${athlete.age}` : ''}{athlete.gender ? ` · ${athlete.gender}` : ''}
             </span>
           </div>
         </div>
         <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', justifyContent: 'space-around' }}>
           <ScoreGauge value={athlete.overallActivityScore} max={100} label="Total Score" band={qualityBand(athlete.overallActivityScore ?? 0)} ticks={[0.6, 0.75, 0.85]} />
-          <ScoreGauge value={athlete.mobility} max={100} label="ROM (Mobility)" band={qualityBand(athlete.mobility ?? 0)} ticks={[0.6, 0.75, 0.85]} />
+          <ScoreGauge value={athlete.mobility} max={100} label="ROM (range of motion)" band={qualityBand(athlete.mobility ?? 0)} ticks={[0.6, 0.75, 0.85]} />
           <ScoreGauge value={athlete.stability} max={100} label="Stability" band={qualityBand(athlete.stability ?? 0)} ticks={[0.6, 0.75, 0.85]} />
           <ScoreGauge value={athlete.symmetry} max={100} label="Symmetry" band={qualityBand(athlete.symmetry ?? 0)} ticks={[0.6, 0.75, 0.85]} />
           <ScoreGauge value={athlete.injuryRiskIndex} max={STRIP_MAX} label="Exercise Risks" band={riskBand(athlete.injuryRiskIndex ?? 0)} ticks={[WATCH_THRESHOLD / STRIP_MAX, HIGH_THRESHOLD / STRIP_MAX]} />
@@ -308,10 +308,10 @@ export default function ScreeningPanel({
           <span><span className="legend-swatch legend-swatch--ok" /> {BAND_LABEL.ok}</span>
           <span><span className="legend-swatch legend-swatch--watch" /> {BAND_LABEL.watch}</span>
           <span><span className="legend-swatch legend-swatch--high" /> {BAND_LABEL.high}</span>
-          <span>standard bands ≤{WATCH_THRESHOLD} / ≤{HIGH_THRESHOLD}</span>
-          <span>★ sport-critical — tightened to ≤{TIGHT_WATCH_THRESHOLD} / ≤{TIGHT_HIGH_THRESHOLD}</span>
+          <span>Low up to {WATCH_THRESHOLD} · Watch up to {HIGH_THRESHOLD} · Elevated above {HIGH_THRESHOLD}</span>
+          <span>★ a key area for this sport, so the limits are stricter: {TIGHT_WATCH_THRESHOLD} and {TIGHT_HIGH_THRESHOLD}</span>
           <span className="text-muted">
-            Report prints Low 0–15 · Medium 16–55; SPIRiT splits Medium into Watch / Elevated
+            HoloMotion&apos;s own report says Low (0–15) or Medium (16–55); SPIRiT splits Medium into Watch and Elevated
           </span>
         </div>
       </div>
@@ -495,7 +495,7 @@ function LateralSymmetry({ rows }: { rows: SymmetryRow[] }) {
       </table>
       </div>
       <p className="card-sub" style={{ marginTop: 10 }}>
-        Symmetry 0&ndash;100, higher is better. Weaker side is a separate reading.
+        Symmetry is scored 0&ndash;100 (higher is better). It can be low even when left and right are level, because it also counts imbalance that is not between the two sides.
       </p>
     </div>
   );

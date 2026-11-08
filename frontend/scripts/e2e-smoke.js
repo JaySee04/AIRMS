@@ -210,7 +210,7 @@ async function visit(browser, route, session) {
         label: el.querySelector('.stat-tile-label')?.textContent?.trim() || '',
         value: el.querySelector('.stat-tile-value')?.textContent?.trim() || '',
       }))
-      .filter((t) => /full-go|observation|restricted/i.test(t.label)));
+      .filter((t) => /nothing flagged|work with care|hold back/i.test(t.label)));
     const pcts = tiles.map((t) => Number(String(t.value).replace('%', ''))).filter(Number.isFinite);
     const sum = pcts.reduce((a, b) => a + b, 0);
     check('three readiness tiles are rendered', pcts.length === 3, JSON.stringify(tiles));
@@ -310,7 +310,7 @@ async function visit(browser, route, session) {
         predictOpened ? '' : 'no info tip on the worklist panel');
       // An entry without a reason is an instruction a clinician cannot check.
       check(`${role}: every entry carries a reason`,
-        /below cohort average|never screened|overdue|override in force|flagged by the cohort/i.test(r.text));
+        /below (the group|cohort) average|never screened|overdue|override in force|flagged by the cohort/i.test(r.text));
       // THE ENTRY OPENS THE RECORD (§107). 'Mark reviewed' was removed: it was a
       // private bookmark that cleared the reader's own queue WITHOUT the record
       // ever being opened, which is the wrong SOP for a clinical worklist. The
@@ -736,8 +736,8 @@ async function visit(browser, route, session) {
       });
       await new Promise((res) => { setTimeout(res, 300); });
       const opened = await r.page.evaluate(() => document.body.innerText);
-      check('radar: the toggle explains that the field is a cutoff, NOT the cohort average',
-        revealed === true && /not<\/strong>? the cohort average|not the cohort average/i.test(opened),
+      check('radar: the toggle explains that the field is a cutoff, NOT the group average',
+        revealed === true && /not<\/strong>? the group average|not the group average/i.test(opened),
         revealed ? '' : 'no toggle labelled for the chart');
       // The reason the field is neutral rather than green, kept where a future
       // reader will look before changing it.

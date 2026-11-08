@@ -67,7 +67,7 @@ export default function AdminReportsPage() {
       <div className="card">
         <div className="card-header"><div>
           <h2 className="card-title" style={{ marginBottom: 0 }}>HoloMotion Screening Reports</h2>
-          <span className="card-sub">Holistic, individual, and team — all cohort-normed</span>
+          <span className="card-sub">Holistic, individual, and team — each athlete compared with their own group</span>
         </div></div>
         {err && <div role="alert" className="alert alert-error">{err}</div>}
         <div className="grid-3" style={{ gap: 16 }}>

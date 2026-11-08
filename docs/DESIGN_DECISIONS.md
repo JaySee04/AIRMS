@@ -15566,3 +15566,58 @@ records and the frozen FYP I artefacts (`VIVA_SCRIPT.md`, `VIVA_ANSWERS.md`,
 the progress pack, changelogs, roadmap and specs) keep AIRMS, because they
 record what was true when written. The registered FYP title with the
 university, and the report's Word file, are outside the repo and JC's.
+
+## 167. Plain words on every screen (2026-11-08, JC)
+
+**Decision.** Before ISN's usability test, JC asked that "the content on the
+website can be understood by all". The pass read what the browser actually
+paints (`npm run verify:copy`, 23 page visits), not the source, and changed
+the wording where a reader without sports-science training would stall. No
+behaviour, number or rule changed.
+
+**The one that was a defect, not a style point.** The coach dashboard named its
+readiness states four ways on one page: "Hold back / Work with care / Nothing
+flagged", "Full-Go / Observation / Restricted", "full / obs / restricted / n/a",
+and the band names. Worse, a card headed **"Needs attention (2)"** listed the
+*restricted* (red) athletes, while "Needs attention" is the amber band's name.
+One set now: **Nothing flagged / Work with care / Hold back**. "Full-Go … cleared"
+also contradicted the page's own caveat ("not a fitness-to-play decision") and
+§33 (green never reads as safe), so it went rather than being kept as a synonym.
+Report Table 4.1, the use-case docs and the user manual follow.
+
+**Mislabelled column.** The coach table's "HoloMotion Risk" showed SPIRiT's own
+0–100 group-comparison score, which HoloMotion never prints. It is
+**"Indicator"**, the word the athlete and medical screens already used.
+
+**Changed:** "Tier ticks at 60 / 75 / 85"; the percentile "50th of the group"
+(now "3 of 5 in your group (1 = lowest)", as the reasons list already said);
+"No cohort score" (now "Not scored yet"); "L/R balance" (now "Left–right
+balance"); the risk legend; "Mild asymmetry (not side-to-side)"; "W:B T:B";
+"bin 5"; the squad page's paragraph on norming; and "cohort" wherever it was
+not the name of the Cohort Norms concept itself.
+
+**Deliberately NOT changed.**
+
+| Kept | Why |
+|---|---|
+| "ROM" | HoloMotion prints it; `scoreOrder.test.js` pins the six score names to the report's vocabulary (§83) so a clinician can lay the screen beside the PDF. Explained on the dial instead: "ROM (range of motion)". |
+| "Cohort Norms" (admin) | The governance page for exactly that concept; its name is pinned to the sidebar and the user manual, and its user is Dr Thung. |
+| Coaching cues ("microcycle", "posterior chain") | Coaches' own vocabulary, and the content rather than commentary on it (§134). |
+
+**Stored text needs a re-score.** The comparison table's labels and the
+escalation reasons are written onto each screening when it is scored (the
+§21 "persisted, not recomputed on read" rule), so existing screenings keep
+"L/R balance" and "below cohort average" until a recompute. Measured locally:
+0 → 4 renders of the new label after one recompute, pinned norms held. **On the
+ISN server, run Recompute (Admin → Cohort Norms) once after deploying.**
+
+**Found on the way: OneDrive damage, three kinds in one session.** A file
+missing from `backend/node_modules` (jest could not start), Next's own templates
+broken in `frontend/node_modules` (every page 500), and **two pages deleted by
+§123 — `medical/cohort-norms` and `medical/data-upload` — restored to disk**,
+byte-identical to the deleted versions and untracked. The last is the
+dangerous one: it would have re-opened import and norm editing to medical staff
+on the next build, and only `systemMap.test.js`'s page count noticed. Fixed by
+`npm ci` in both packages and deleting the two restored pages. Gotcha 7's
+durable remedy ("Always keep on this device", or moving the repo out of
+OneDrive) stands.

@@ -91,7 +91,7 @@ export default function SubitemMatrix({ subitems }: { subitems?: Subitems | null
     const row = subitems![r.key]!;
     return [
       { region: r.label, what: 'ROM', l: row.romL, r: row.romR },
-      { region: r.label, what: 'Stability', l: row.stabL, r: row.stabR },
+      { region: r.label, what: 'stability', l: row.stabL, r: row.stabR },
     ];
   }).filter((g) => (
     typeof g.l === 'number' && typeof g.r === 'number'
@@ -139,7 +139,7 @@ export default function SubitemMatrix({ subitems }: { subitems?: Subitems | null
       {gaps.length > 0 && (
         <p className="sm-gaps">
           <strong>Left–right gap of {NOTABLE_GAP} or more:</strong>{' '}
-          {gaps.map((g) => `${g.region} ${g.what.toLowerCase()} (${g.gap} pts, ${g.weaker} weaker)`).join('; ')}
+          {gaps.map((g) => `${g.region} ${g.what} (${g.gap} points, ${g.weaker} side weaker)`).join('; ')}
         </p>
       )}
     </div>

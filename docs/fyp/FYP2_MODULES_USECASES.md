@@ -203,7 +203,7 @@ which were removed 2026-07-20 along with their only data source.)
 | UC-41 | View Athlete Clinical Overview | The selected athlete's full picture — the same indicator hero, radar, screening panel and body map the athlete sees, plus profile summary, chronological injury history, and a deep-linked "+ Log Injury" that pre-fills the intake | Medical Staff |
 | UC-42 | Override Risk Band | After an actual assessment, set the athlete's band (green/amber/red) with a **required note**; the override wins on every surface until the next import, and can be cleared | Medical Staff |
 | UC-43 | View Sport-Level Context | The athlete's sport's injury statistics (total cases, athletes affected) beside the individual view, so the clinician reads the athlete against their sport's pattern | Medical Staff |
-| UC-44 | View Squad Readiness | Read-only board scoped to the coach's assigned sports: every athlete's indicator and band mapped to Full-Go / Observation / Restricted (the same band the medical team sees), sorted worst-first, with each athlete's worst screening region named and active-injury counts | Coach *(experimental)* |
+| UC-44 | View Squad Readiness | Read-only board scoped to the coach's assigned sports: every athlete's indicator and band mapped to Nothing flagged / Work with care / Hold back (the same band the medical team sees), sorted worst-first, with each athlete's worst screening region named and active-injury counts | Coach *(experimental)* |
 
 ---
 

@@ -8,7 +8,7 @@
 import {
   BANDS, BAND_BG, BAND_COLOR, BAND_GLYPH, BAND_LABEL, type Band,
 } from '@/lib/bands';
-import { ordinal, percentileFromRank } from '@/lib/rank';
+import { percentileFromRank } from '@/lib/rank';
 import { SMALL_COHORT } from '@/lib/shared/facts';
 
 // Physical Fitness Subitem Score — 5 body regions × {romL,romR,stabL,stabR,sym}
@@ -190,14 +190,14 @@ export default function OverallRiskBadge({
 
   // No score yet (no screening, or cohort too small to score against).
   if (!screening || !screening.effectiveBand) {
-    if (compact) return <span className="text-muted" style={{ fontSize: 'var(--fs-sm)' }}>No cohort score</span>;
+    if (compact) return <span className="text-muted" style={{ fontSize: 'var(--fs-sm)' }}>Not scored yet</span>;
     return (
       <div className="risk-hero">
         <div style={{ flex: 1 }}>
           <div className="risk-hero-label">{heroLabel}</div>
           {/* "yet" is right on a dashboard and wrong on a past screening — that
               one is settled, not pending. */}
-          <div className="risk-hero-level">{historical ? 'No cohort score' : 'No cohort score yet'}</div>
+          <div className="risk-hero-level">{historical ? 'Not scored' : 'Not scored yet'}</div>
           <div className="risk-hero-msg">
             {historical
               // "Import a report" is the wrong instruction here: a screening on
@@ -307,8 +307,8 @@ export default function OverallRiskBadge({
             as printed by HoloMotion
             {pct != null && (
               audience === 'self'
-                ? <><br /><strong>{ordinal(pct)}</strong> of the group ({rank} of {size})</>
-                : <><br /><strong>{ordinal(pct)} pct</strong> of group ({rank}/{size})</>
+                ? <><br /><strong>{rank} of {size}</strong> in your group (1 = lowest)</>
+                : <><br /><strong>{rank} of {size}</strong> in the group (1 = lowest)</>
             )}
           </div>
         </div>

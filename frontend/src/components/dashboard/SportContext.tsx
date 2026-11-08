@@ -149,7 +149,7 @@ export default function SportContext({ athleteId }: { athleteId: string }) {
       </div>
       <div className="text-muted" style={{ fontSize: 'var(--fs-xs)', marginTop: 10 }}>
         Readings are lower-is-better, so a positive &ldquo;vs squad&rdquo; is worse than the squad average.
-        Elevated is &gt;25 on the standard bands.
+        Elevated means a reading above 25.
       </div>
     </div>
   );

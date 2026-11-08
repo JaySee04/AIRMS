@@ -34,7 +34,7 @@ describe('screening escalation banding', () => {
     const r = computeIndicator(SCREENING, STATS_ABOVE, null, {});
     expect(r.escalations).toBe(1);
     expect(r.band).toBe('amber');
-    expect(r.factors.some((f) => /below cohort average/.test(f))).toBe(true);
+    expect(r.factors.some((f) => /below the group average/.test(f))).toBe(true);
   });
 
   test('two screening escalations (below-mean + bottom-k) → red', () => {

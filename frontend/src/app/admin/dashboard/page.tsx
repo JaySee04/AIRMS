@@ -289,7 +289,7 @@ export default function AdminDashboard() {
           bands={cohort.bandDistribution}
           scope={`${cohort.screened} of ${cohort.totalAthletes} athletes screened`
             + `${cohort.unscreened ? ` · ${cohort.unscreened} never screened` : ''}`
-            + ' · averages across the filtered cohort'}
+            + ' · averages across the filtered group'}
         />
       )}
 
@@ -311,7 +311,7 @@ export default function AdminDashboard() {
             <div className="card-header"><div>
               <h2 className="card-title" style={{ marginBottom: 0 }}>Focus &middot; {focus.label}</h2>
               <span className="card-sub">
-                This cohort read through one indicator. No athlete is filtered out &mdash; that is what makes the
+                This group read through one indicator. No athlete is filtered out &mdash; that is what makes the
                 comparisons below meaningful.
               </span>
             </div></div>
@@ -321,7 +321,7 @@ export default function AdminDashboard() {
                 <div className="stat-tile-value" style={{ color: focus.high > 0 ? C.red : undefined }}>
                   {focus.high}<span style={{ fontSize: 'var(--fs-md)', color: 'var(--text-muted)', fontWeight: 500 }}> / {focus.n}</span>
                 </div>
-                <div className="stat-tile-delta">{focus.n ? Math.round((focus.high / focus.n) * 100) : 0}% of this cohort</div>
+                <div className="stat-tile-delta">{focus.n ? Math.round((focus.high / focus.n) * 100) : 0}% of this group</div>
               </div>
               <div className="stat-tile">
                 <div className="stat-tile-label">Watch</div>
@@ -540,7 +540,7 @@ export default function AdminDashboard() {
                 <div>
                   <span className="verdict-stat-label">Elevated readings</span>
                   <span className="verdict-stat-value" style={{ color: elevatedTotal > 0 ? C.red : undefined }}>{elevatedTotal}</span>
-                  <span className="verdict-stat-hint">above 25, across the cohort</span>
+                  <span className="verdict-stat-hint">above 25, across the group</span>
                 </div>
               </div>
             </div>
@@ -548,7 +548,7 @@ export default function AdminDashboard() {
         )}
       </div>
 
-      <SectionHeading note="Averaged across the filtered cohort — the instrument's readings, not a verdict">
+      <SectionHeading note="Averaged across the filtered group — the instrument's readings, not a verdict">
         What the screening measured
       </SectionHeading>
 
@@ -557,7 +557,7 @@ export default function AdminDashboard() {
         <div className="card">
           <div className="card-header"><div>
             <h2 className="card-title" style={{ marginBottom: 0 }}>Physical Quality — which is weakest?</h2>
-            <span className="card-sub">Cohort averages, 0–100 and higher is better</span>
+            <span className="card-sub">Group averages, 0–100, higher is better</span>
           </div></div>
           {a ? (
             /* A ZOOMED axis, because these four numbers cluster inside a few
@@ -630,7 +630,7 @@ export default function AdminDashboard() {
             <span className="card-sub">Myodynamia deficiency · athletes flagged</span>
           </div></div>
           {weakMuscles.length === 0 ? (
-            <div className="text-muted" style={{ fontSize: 'var(--fs-md)' }}>No weakness flags on record for this cohort.</div>
+            <div className="text-muted" style={{ fontSize: 'var(--fs-md)' }}>No weakness flags on record for this group.</div>
           ) : (
             <RankedBars
               rows={weakMuscles.map((m) => ({
@@ -646,7 +646,7 @@ export default function AdminDashboard() {
             <span className="card-sub">Muscle tension · athletes flagged</span>
           </div></div>
           {tightMuscles.length === 0 ? (
-            <div className="text-muted" style={{ fontSize: 'var(--fs-md)' }}>No tension flags on record for this cohort.</div>
+            <div className="text-muted" style={{ fontSize: 'var(--fs-md)' }}>No tension flags on record for this group.</div>
           ) : (
             <RankedBars
               rows={tightMuscles.map((m) => ({
@@ -658,7 +658,7 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      <SectionHeading note="The same cohort described anatomically — region, side, and the figure itself">
+      <SectionHeading note="The same group described on the body — region, side, and the figure itself">
         Where on the body
       </SectionHeading>
 
@@ -679,7 +679,7 @@ export default function AdminDashboard() {
           title="Movement Quality by Region"
           sub={(
             <>
-              Cohort average for each cell of the HoloMotion subitem table · 0–100, higher is better
+              Group average for each cell of the HoloMotion subitem table · 0–100, higher is better
               {cohort?.subitems ? ` · ${cohort.subitems.n} athlete${cohort.subitems.n === 1 ? '' : 's'} with subitem scores` : ''}
             </>
           )}
@@ -769,7 +769,7 @@ export default function AdminDashboard() {
                   label: `${m.region} · ${m.metric === 'rom' ? 'ROM' : 'Stability'}`,
                   segments: [{ label: 'athletes', value: m.notable, color: S.s1 }],
                   note: (
-                    <span title={`Cohort means — left ${m.meanLeft}, right ${m.meanRight}`}>
+                    <span title={`Group averages — left ${m.meanLeft}, right ${m.meanRight}`}>
                       <strong>{m.notable}</strong>{' '}
                       <span className="text-muted">
                         of {m.n} · L {m.meanLeft} / R {m.meanRight}
@@ -800,11 +800,11 @@ export default function AdminDashboard() {
       <div className="card" style={{ marginTop: 20 }}>
         <CardHead
           title="Squad Body Map"
-          sub="The cohort average on the same figure used for an individual · switch modes below"
+          sub="The group average on the same figure used for an individual · switch modes below"
           info={(
             <InfoTip label="What the figure is showing">
               <p>
-                Region shading is the <strong>cohort mean</strong>, banded on HoloMotion&rsquo;s own
+                Region shading is the <strong>group average</strong>, banded on HoloMotion&rsquo;s own
                 60 / 75 / 85 boundaries — the same figure a clinician reads for one athlete, fed
                 the group&rsquo;s averages instead.
               </p>
@@ -823,7 +823,7 @@ export default function AdminDashboard() {
             {/* CAVEAT, so it stays on the card (§131.2): without it the figure
                 reads as magnitude, and one flagged athlete looks like nine. */}
             <p className="chart-note">
-              A muscle is lit if <em>anyone</em> in this cohort was flagged for it, not by how many.
+              A muscle is lit if <em>anyone</em> in this group was flagged for it, not by how many.
             </p>
           </>
         )}
@@ -842,7 +842,7 @@ export default function AdminDashboard() {
       <div className="card" style={{ marginTop: 20 }}>
         <CardHead
           title="Risk vs Movement Quality"
-          sub={<>One dot per athlete, coloured by risk band · quadrants split on this cohort&apos;s medians</>}
+          sub={<>One dot per athlete, coloured by risk band · lines split at this group&apos;s medians (middle values)</>}
           info={(
             <InfoTip label="What the two axes measure">
               <p>
@@ -913,7 +913,7 @@ export default function AdminDashboard() {
                   "high" is relative to this filter, and a red dot in a low corner
                   is extra information rather than a contradiction. */}
               <p className="text-muted">
-                <strong>Lines are this cohort&rsquo;s medians, not fixed cut-offs</strong> — change
+                <strong>Lines are this group&rsquo;s medians, not fixed cut-offs</strong> — change
                 the filter and the crosshair moves. <strong>Dot colour is the overall
                 band</strong>, a separate judgement from either axis.
               </p>
@@ -928,7 +928,7 @@ export default function AdminDashboard() {
       <div className="card" style={{ marginTop: 20 }}>
         <CardHead
           title="Indicator Distribution"
-          sub={<>Cohort-normed indicator · 50 is this group&apos;s average by construction</>}
+          sub={<>Indicator: each athlete scored against their own comparison group · 50 is that group&apos;s average</>}
           info={(
             <InfoTip label="Why the spread is the reading">
               <p>
@@ -953,7 +953,7 @@ export default function AdminDashboard() {
               max={100}
               binSize={5}
               valueLabel="indicator"
-              markers={[{ at: 50, label: 'Cohort average (50)', color: 'var(--text-muted)' }]}
+              markers={[{ at: 50, label: 'Group average (50)', color: 'var(--text-muted)' }]}
             />
           </>
         )}

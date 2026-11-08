@@ -96,9 +96,9 @@ const DEFAULT_DEAD_BAND = 2;
 type Band = ReadinessBand;
 
 const BAND_META: Record<Band, { label: string; badge: string; color: string }> = {
-  full: { label: 'Full-Go', badge: 'badge-low', color: 'var(--risk-low)' },
-  observation: { label: 'Observation', badge: 'badge-moderate', color: 'var(--risk-moderate-ink)' },
-  restricted: { label: 'Restricted', badge: 'badge-high', color: 'var(--risk-high)' },
+  full: { label: 'Nothing flagged', badge: 'badge-low', color: 'var(--risk-low)' },
+  observation: { label: 'Work with care', badge: 'badge-moderate', color: 'var(--risk-moderate-ink)' },
+  restricted: { label: 'Hold back', badge: 'badge-high', color: 'var(--risk-high)' },
 };
 
 // Display name per body region for the coaching-suggestion card (the alert
@@ -839,7 +839,7 @@ export default function CoachDashboard() {
         <div className="card">
           <CardHead
             title="Squad muscle assessment map"
-            sub={<>The whole {data.sport ?? 'squad'} at once · switch modes on the figure</>}
+            sub={<>The whole {data.sport ? `${data.sport} squad` : 'squad'} at once · switch modes on the figure</>}
             info={(
               <InfoTip label="What the figure is showing">
                 <p>
@@ -933,7 +933,7 @@ export default function CoachDashboard() {
                       <div className="stat-tile-value">{pct(b)}%</div>
                       <div className="stat-tile-delta">
                         {counts[b]} athlete{counts[b] === 1 ? '' : 's'}
-                        {b === 'full' ? ' · cleared' : b === 'observation' ? ' · modified load' : ' · clinical priority'}
+                        {b === 'full' ? ' · nothing raised' : b === 'observation' ? ' · adjust load' : ' · see the medical team'}
                       </div>
                     </div>
                   ))}
@@ -1039,8 +1039,8 @@ export default function CoachDashboard() {
         <div className="card" style={{ marginBottom: 20, borderLeft: '4px solid var(--risk-high)' }}>
           <div className="card-header">
             <div>
-              <h2 className="card-title" style={{ marginBottom: 0 }}>Needs attention ({attention.length})</h2>
-              <span className="card-sub">Restricted athletes — raise these with the medical team.</span>
+              <h2 className="card-title" style={{ marginBottom: 0 }}>Hold back ({attention.length})</h2>
+              <span className="card-sub">Injured, or flagged for immediate assessment — raise these with the medical team.</span>
             </div>
           </div>
           <div>
@@ -1116,10 +1116,10 @@ export default function CoachDashboard() {
                 <ul className="insight-list" style={{ marginTop: 8 }}>
                   {readinessByEvent.map((e) => {
                     const parts = [
-                      e.full > 0 ? <span key="f" style={{ color: 'var(--risk-low)' }}>{e.full} full</span> : null,
-                      e.observation > 0 ? <span key="o" style={{ color: 'var(--risk-moderate-ink)' }}>{e.observation} obs</span> : null,
-                      e.restricted > 0 ? <span key="r" style={{ color: 'var(--risk-high)' }}>{e.restricted} restricted</span> : null,
-                      e.unscored > 0 ? <span key="u" className="text-muted">{e.unscored} n/a</span> : null,
+                      e.full > 0 ? <span key="f" style={{ color: 'var(--risk-low)' }}>{e.full} nothing flagged</span> : null,
+                      e.observation > 0 ? <span key="o" style={{ color: 'var(--risk-moderate-ink)' }}>{e.observation} with care</span> : null,
+                      e.restricted > 0 ? <span key="r" style={{ color: 'var(--risk-high)' }}>{e.restricted} held back</span> : null,
+                      e.unscored > 0 ? <span key="u" className="text-muted">{e.unscored} not screened</span> : null,
                     ].filter(Boolean);
                     return (
                       <li key={e.discipline}>
@@ -1146,8 +1146,8 @@ export default function CoachDashboard() {
                 <InfoTip label="What each column means">
                   <ul>
                     <li>
-                      <strong>HoloMotion Risk</strong> — the cohort indicator, 0–100, where 50 is
-                      this group&rsquo;s average by construction. The mark beside it is the risk
+                      <strong>Indicator</strong> — SPIRiT&rsquo;s score, 0–100, against the athlete&rsquo;s comparison
+                      group, where 50 is the group&rsquo;s average. The mark beside it is the risk
                       band: {RISK_BANDS.map((b: RiskBand, i) => (
                         <span key={b}>
                           {i > 0 && ' · '}
@@ -1163,8 +1163,8 @@ export default function CoachDashboard() {
                       within ±{deadBand}.
                     </li>
                     <li>
-                      <strong>Readiness</strong> — Full-Go = cleared · Observation = modified
-                      load · Restricted = clinical priority.
+                      <strong>Readiness</strong> — nothing flagged · work with care (adjust load) ·
+                      hold back (see the medical team). Never a clearance.
                     </li>
                     <li>
                       <strong>Worst region</strong> — the athlete&rsquo;s highest exercise-risk
@@ -1182,7 +1182,7 @@ export default function CoachDashboard() {
                 <tr>
                   <th>Athlete</th>
                   {squadHasEvents && <th>Events</th>}
-                  <th style={{ textAlign: 'center' }}>HoloMotion Risk</th>
+                  <th style={{ textAlign: 'center' }}>Indicator</th>
                   <th style={{ textAlign: 'center' }}>Trend</th>
                   <th style={{ textAlign: 'center' }}>Readiness</th>
                   <th style={{ textAlign: 'center' }}>Worst region</th>

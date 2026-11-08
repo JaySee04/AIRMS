@@ -94,7 +94,7 @@ function symmetryFindings(subitems) {
     // A low score with level sides is not a contradiction, it is a different
     // finding: the imbalance is not left-versus-right. Saying so beats leaving
     // the reader to reconcile "Mild asymmetry" with "Balanced" from a footnote.
-    if (sym < 75 && weaker === 'Balanced') status += ' (not side-to-side)';
+    if (sym < 75 && weaker === 'Balanced') status += ' (left and right level)';
 
     out.push({ key, label, sym, status, weaker, gap });
   }

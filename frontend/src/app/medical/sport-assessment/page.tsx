@@ -351,8 +351,8 @@ export default function SportAssessmentPage() {
                 title="How each region measures, squad mean"
                 sub={(
                   <>
-                    The mean of the subitem table across {data.subitems.n} athlete
-                    {data.subitems.n === 1 ? '' : 's'} — <strong>a mean is not the squad</strong>.
+                    The average of the subitem table across {data.subitems.n} athlete
+                    {data.subitems.n === 1 ? '' : 's'} — <strong>an average, not any one athlete</strong>.
                   </>
                 )}
                 info={(
@@ -470,7 +470,7 @@ export default function SportAssessmentPage() {
             <CardHead
               title="Which tracked risks are firing"
               /* "rules that fired, not a diagnosis" is a CAVEAT and stays. */
-              sub={<>By how many athletes sit above each line — the rules that fired, <strong>not a diagnosis</strong></>}
+              sub={<>How many athletes are above each warning line — a warning, <strong>not a diagnosis</strong></>}
               info={(
                 <InfoTip label="What is in this table, and what is left out">
                   <p>

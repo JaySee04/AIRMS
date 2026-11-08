@@ -188,7 +188,7 @@ const CAVEATS: Array<[string, string, string]> = [
     'an auto-generated focus list read as a prescription'],
   ['app/medical/sport-assessment/page.tsx', 'not how severe it is',
     'a prevalence bar read as severity'],
-  ['app/medical/sport-assessment/page.tsx', 'a mean is not the squad',
+  ['app/medical/sport-assessment/page.tsx', 'an average, not any one athlete',
     'a squad mean read as a description of its members'],
   ['app/medical/sport-assessment/page.tsx', 'not a diagnosis',
     'a fired rule read as a clinical finding'],

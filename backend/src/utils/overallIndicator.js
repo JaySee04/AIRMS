@@ -73,7 +73,7 @@ function effectiveK(n, settings = {}) {
 // because his ROM is 7.8 points below. The headline number could never say that.
 const DELTA_LABEL = {
   totalScore: 'Total Score', rom: 'ROM', stability: 'Stability',
-  symmetry: 'Symmetry', riskGood: 'Injury risk', balance: 'L/R balance',
+  symmetry: 'Symmetry', riskGood: 'Injury risk', balance: 'Left–right balance',
 };
 
 function cohortDeltas(screening, cohortStats) {
@@ -129,8 +129,8 @@ function computeIndicator(screening, cohortStats, rankInfo, settings = {}) {
     // component could be Injury risk or L/R balance, where a negative oriented
     // delta means a HIGHER raw value.
     factors.push(worstComp
-      ? `below cohort average — ${worstComp.label} ${Math.abs(worstComp.delta)} worse than the group`
-      : 'below cohort average');
+      ? `below the group average — ${worstComp.label} ${Math.abs(worstComp.delta)} worse than the group`
+      : 'below the group average');
   }
   const k = rankInfo?.k ?? effectiveK(rankInfo?.total, settings);
   if (settings.escalation_bottom_k !== false && rankInfo && rankInfo.rank <= k) {

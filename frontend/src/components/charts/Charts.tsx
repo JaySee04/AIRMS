@@ -1150,7 +1150,7 @@ export function Histogram({
             {m.label}
           </span>
         ))}
-        <span className="text-muted">median {fmt(med)} · {values.length} athletes · bin {binSize}</span>
+        <span className="text-muted">middle value {fmt(med)} · {values.length} athletes · each bar spans {binSize} points</span>
       </div>
       <ChartTable
         caption={`How many athletes fall in each ${valueLabel ?? 'value'} range`}

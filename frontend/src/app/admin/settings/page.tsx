@@ -207,7 +207,7 @@ export default function AdminSettingsPage() {
             <div className="stat-tile-label">Injury → coach</div>
             <div><label><input type="checkbox" checked={Boolean(set.notify_injury)}
               onChange={(e) => saveSetting('notify_injury', e.target.checked)} /> enabled</label></div>
-            <div className="stat-tile-delta">Email the sport&apos;s coach when medical declares an athlete injured, and again when they are cleared &mdash; the athlete is unavailable and leaves the cohort norm while injured</div>
+            <div className="stat-tile-delta">Email the sport&apos;s coach when medical declares an athlete injured, and again when they are cleared &mdash; the athlete is unavailable and is left out of the group averages while injured</div>
           </div>
           <div className="stat-tile">
             <div className="stat-tile-label">Monthly summary</div>

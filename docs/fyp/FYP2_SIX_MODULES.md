@@ -134,7 +134,7 @@ decisive affordance is the **clinician override**: set the band
 green/amber/red with a required note; it wins everywhere until the next
 import. The **coach** (FYP II first-class 4th role) gets a read-only
 squad-readiness board scoped to their one admin-assigned sport: every
-athlete's indicator mapped to Full-Go / Observation / Restricted (the same
+athlete's indicator mapped to Nothing flagged / Work with care / Hold back (the same
 band medical sees), sorted worst-first with the worst screening region named.
 No in-page filters; coaches edit nothing.
 

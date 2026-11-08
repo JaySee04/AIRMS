@@ -32,14 +32,19 @@ const PW = 'airms2026';
 const ATH = process.env.ATH || '030109371036';
 
 const PAGES = [
-  ['admin', 'admin@isn.gov.my', ['/admin/dashboard', '/admin/analytics', '/admin/activity',
+  // Kept in step with src/app by hand. It named /admin/analytics, /admin/athletes
+  // and /medical/watchlist, none of which exist, and missed five real pages; the
+  // dead routes reported "not measured" (rule 2 held), the missing ones nothing.
+  ['admin', 'admin@isn.gov.my', ['/admin/dashboard', '/admin/activity', '/admin/reports',
     '/admin/audit', '/admin/personnel', '/admin/thresholds', '/admin/settings',
-    '/admin/data-upload', '/admin/athletes']],
+    '/admin/data-upload', '/admin/profile']],
   ['medical', 'medical@isn.gov.my', [`/medical/dashboard?athlete=${ATH}`, '/medical/sport-assessment',
-    '/medical/watchlist', '/medical/profile']],
+    '/medical/profile']],
   ['coach', 'coach@isn.gov.my', ['/coach/dashboard', '/coach/reports', '/coach/profile']],
-  ['athlete', 'athlete@isn.gov.my', ['/athlete/dashboard', '/athlete/history', '/athlete/profile']],
-  ['executive', 'executive@isn.gov.my', ['/admin/dashboard', '/admin/analytics']],
+  ['athlete', 'athlete@isn.gov.my', ['/athlete/dashboard', '/athlete/history', '/athlete/squad',
+    '/athlete/profile']],
+  ['executive', 'executive@isn.gov.my', ['/admin/dashboard', '/admin/activity', '/admin/reports',
+    '/admin/audit']],
 ];
 
 // Terms a first-time clinician or coach may not share with us. Checked against

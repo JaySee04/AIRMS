@@ -778,7 +778,7 @@ export default function MedicalDashboard() {
                 <div className="stat-tile">
                   <div className="stat-tile-label">Flagged injured</div>
                   <div className="stat-tile-value">{loadingList ? '…' : roster.injured}</div>
-                  <div className="stat-tile-delta">excluded from cohort norms</div>
+                  <div className="stat-tile-delta">left out of group averages</div>
                 </div>
               </div>
 
@@ -835,7 +835,7 @@ export default function MedicalDashboard() {
                   clinician acts on. */}
               {!loadingList && (roster.bandCounts.red + roster.bandCounts.amber + roster.bandCounts.green) > 0 && (
                 <div className="card">
-                  <h3 className="quick-heading">Who the cohort verdict flags</h3>
+                  <h3 className="quick-heading">Who SPIRiT&rsquo;s verdict flags</h3>
                   <p className="text-muted quick-sub">
                     Against their own comparison group, overrides applied.
                     Never-screened counted apart, above.
@@ -888,7 +888,7 @@ export default function MedicalDashboard() {
                   <h3 className="quick-heading">Highest exercise risk</h3>
                   <p className="text-muted quick-sub">
                     HoloMotion&rsquo;s printed score, highest first —
-                    <strong> the instrument&rsquo;s reading, not the cohort verdict</strong>.
+                    <strong> the instrument&rsquo;s reading, not SPIRiT&rsquo;s verdict</strong>.
                   </p>
                   <ul className="quick-list">
                     {roster.topRisk.map((a) => {
@@ -1089,7 +1089,7 @@ export default function MedicalDashboard() {
                       <p>
                         The shaded field is the athlete&apos;s <strong>Elevated cutoff</strong>
                         {' '}per region, tightened where the region is sport-critical. It is a
-                        risk cut-off and <strong>not</strong> the cohort average — half a squad
+                        risk cut-off and <strong>not</strong> the group average — half a squad
                         is not expected to sit outside it. The gold line is this athlete; where
                         the line leaves the field, that spoke is over and its point is drawn
                         larger and red.

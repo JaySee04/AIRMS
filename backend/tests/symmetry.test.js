@@ -73,7 +73,7 @@ describe('a real subitem table', () => {
 describe('a low score with level sides is a different finding', () => {
   it('says so rather than leaving two columns to contradict each other', () => {
     const [row] = symmetryFindings({ neck: { romL: 50, romR: 50, stabL: 50, stabR: 50, sym: 60 } });
-    expect(row.status).toBe('Mild asymmetry (not side-to-side)');
+    expect(row.status).toBe('Mild asymmetry (left and right level)');
   });
 
   it('does not add the qualifier when the sides genuinely differ', () => {

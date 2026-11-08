@@ -105,7 +105,7 @@ const COMPONENTS: Array<[string, string]> = [
   ['stability', 'Stability'],
   ['symmetry', 'Symmetry'],
   ['riskGood', 'Risk (inverted)'],
-  ['balance', 'L/R balance'],
+  ['balance', 'Left–right balance'],
 ];
 
 const TIER_LABEL: Record<string, string> = {
