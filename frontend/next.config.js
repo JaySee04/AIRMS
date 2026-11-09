@@ -4,6 +4,12 @@ const path = require('path');
 const nextConfig = {
   reactStrictMode: true,
 
+  // No `X-Powered-By: Next.js`. The ISN web log held 533 probes for Next
+  // server actions in the week to 2026-11-09, all refused; naming the framework
+  // on every response is what tells a scanner to send them. The API already
+  // drops its own via helmet.
+  poweredByHeader: false,
+
   // This package IS the build root. Say so, rather than letting Next guess.
   //
   // There are three lockfiles in this repo (root, backend, frontend) because the
