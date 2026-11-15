@@ -296,7 +296,7 @@ async function extractFromPdf(buffer, { reserveProviderCall } = {}) {
     const verdict = await coverLooksRight(buffer);
     if (verdict.known && !verdict.relevant) {
       const err = new Error(
-        'This PDF has no readable text and does not look like a HoloMotion '
+        'This PDF has little or no readable text and does not look like a HoloMotion '
         + `screening report (${verdict.why}). Nothing was sent to the extraction `
         + 'service. Check the file, or import the report exported by HoloMotion.',
       );

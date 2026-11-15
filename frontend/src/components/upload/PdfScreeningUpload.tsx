@@ -263,8 +263,9 @@ export default function PdfScreeningUpload() {
 
       {status && status.configured && (
         <div role="status" className="alert alert-info" style={{ marginBottom: 14 }}>
-          <strong>AI-assisted ingestion.</strong> Reports are read automatically by a vision model. The athlete&apos;s
-          name is blacked out on your device before any image is sent for reading, so the identity never leaves here.
+          <strong>Reports are read from their own text.</strong> Every value is read exactly from the PDF. Only a
+          compact 12-page report, which has no text, is read by a vision model — and the athlete&apos;s name is blacked
+          out on your device before any page is sent, so the identity never leaves here.
           Reports are matched to the roster by their <strong>filename</strong> where possible — otherwise search the roster below to attach each one.
         </div>
       )}
@@ -273,9 +274,8 @@ export default function PdfScreeningUpload() {
         <div role="status" className="alert alert-warning" style={{ marginBottom: 14 }}>
           <strong>Reading reports directly.</strong> No vision provider is configured, so reports are
           read from the PDF&apos;s own text — nothing is sent anywhere, and the values are exact.
-          {' '}<strong>The compact 12-page layout cannot be read this way</strong> and will be refused
-          per file; HoloMotion&apos;s written Summary will also be missing. To enable both, set
-          {' '}<code>VISION_API_KEY</code> and <code>VISION_MODEL</code> in the backend environment —
+          {' '}<strong>The compact 12-page layout has no text</strong> and will be refused per file. To read
+          it, set <code>VISION_API_KEY</code> and <code>VISION_MODEL</code> in the backend environment —
           any OpenAI-compatible provider (Gemini, OpenAI, Qwen, OpenRouter, local Ollama) or Anthropic works.
         </div>
       )}
