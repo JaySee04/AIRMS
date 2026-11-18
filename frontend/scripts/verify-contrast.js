@@ -135,6 +135,15 @@ const IN_PAGE = () => {
     return { r: 255, g: 255, b: 255, a: 1 };
   };
 
+  // Open every <details> first. A closed one still hands its content a
+  // bounding box (Chrome lays it out under content-visibility: hidden), so the
+  // size test below let it through and bgOf, finding nothing at that point,
+  // compared it against whatever the fallback reached: the "Show as table"
+  // under the scatter reported 4.10 and 2.59 on text nobody could see
+  // (2026-11-18). Skipping invisible text would also have stopped measuring
+  // those tables when a reader opens them; opening them measures what is read.
+  for (const d of document.querySelectorAll('details')) d.open = true;
+
   const out = [];
   // COUNTED, NOT ASSUMED. `scanned` is how many elements actually reached the
   // contrast test — the denominator behind a "0 findings" result. Without it,

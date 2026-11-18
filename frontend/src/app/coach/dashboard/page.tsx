@@ -1203,7 +1203,7 @@ export default function CoachDashboard() {
                         <div
                           style={{
                             fontSize: 'var(--fs-2xs)', fontWeight: 700,
-                            color: row.screening.recallState === 'overdue' ? 'var(--risk-high)' : 'var(--risk-moderate)',
+                            color: row.screening.recallState === 'overdue' ? 'var(--risk-high)' : 'var(--risk-moderate-ink)',
                           }}
                         >
                           {row.screening.recallState === 'overdue' ? 'Screening overdue' : 'Rescreen due soon'}
