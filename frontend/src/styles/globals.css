@@ -3900,6 +3900,12 @@ textarea:focus-visible,
      the box so the shape underneath stays visible while reading. */
   transform: translate(-50%, calc(-100% - 10px));
 }
+/* Fades in rather than snapping, and is collapsed to nothing by the global
+   reduced-motion block. The tip is aria-hidden, so this is purely visual. */
+.viz-tip { animation: viz-tip-in var(--dur) var(--ease); }
+@keyframes viz-tip-in {
+  from { opacity: 0; transform: translate(-50%, calc(-100% - 4px)); }
+}
 .viz-tip-line { display: flex; align-items: center; gap: var(--sp-xs); white-space: nowrap; }
 .viz-tip-line + .viz-tip-line { margin-top: 3px; }
 .viz-tip-name { font-weight: 600; }
@@ -4939,7 +4945,9 @@ textarea:focus-visible,
   border-radius: var(--r-xs);
   border: 1px solid var(--border);
 }
-.chart-explain-key--tr { background: var(--risk-high-bg); border-color: var(--risk-high); }
+.chart-explain-key--tr { background: var(--risk-high-bg); }
+/* The quadrant the plot emphasises (.scatter-zone--key), edged the same way. */
+.chart-explain-key--focus { border-color: var(--risk-high); }
 .chart-explain-key--tl { background: var(--risk-moderate-bg); }
 .chart-explain-key--br { background: var(--risk-low-bg); }
 .chart-explain-key--bl { background: var(--risk-undertrained-bg); }
@@ -5337,3 +5345,108 @@ textarea:focus-visible,
   color: var(--text-muted);
   line-height: 1.5;
 }
+
+/* ── Interaction layer (2026-11-19) ─────────────────────────────────────────
+   Three rules hold everything below together:
+   1. HOVER POINTS AT ONE THING. On a chart the hovered mark is drawn up and
+      the others step back, so the eye lands where the tooltip is talking.
+      Only the GRAPHIC dims, never a label: dimmed text is low-contrast text.
+   2. ONLY WHAT OPENS SOMETHING MOVES LIKE IT. Static cards and rows keep their
+      quiet row tint; a thing that navigates gets a pointer, an accent edge and
+      a chevron. A card that lifts on hover is a promise it can be clicked.
+   3. MOTION IS SHORT AND OPTIONAL. Every duration is --dur or a small multiple,
+      and the global reduced-motion block collapses all of it.
+   :has() is used where "dim the others" needs it. A browser without it simply
+   keeps every mark at full strength, which is today's behaviour. */
+
+.chart-host { position: relative; }
+
+/* Scatter: the hovered athlete grows and gains a ring; the rest fade. */
+.scatter-dot {
+  transition: transform var(--dur) var(--ease), opacity var(--dur) var(--ease),
+              box-shadow var(--dur) var(--ease);
+}
+.scatter-plot:has(.scatter-dot:hover) .scatter-dot:not(:hover) { opacity: 0.3; }
+.scatter-dot:hover {
+  opacity: 1;
+  transform: scale(1.7);
+  z-index: 3;
+  box-shadow: 0 0 0 1.5px var(--bg-card), 0 0 0 3px var(--text);
+}
+
+/* Dot plot and ranked bars: the hovered row's track stays, the rest recede. */
+.dotplot-track, .ranked-track { transition: opacity var(--dur) var(--ease); }
+.dotplot-rows:has(.dotplot-dot:hover) .dotplot-row:not(:has(.dotplot-dot:hover)) .dotplot-track,
+.ranked:has(.ranked-bar > span:hover) .ranked-row:not(:has(.ranked-bar > span:hover)) .ranked-track {
+  opacity: 0.4;
+}
+.dotplot-dot { transition: transform var(--dur) var(--ease); }
+.dotplot-dot:hover { transform: translateY(-50%) scale(1.3); }
+.ranked-bar > span { transition: box-shadow var(--dur) var(--ease); }
+.ranked-bar > span:hover { box-shadow: inset 0 0 0 2px var(--text); }
+
+/* Histogram: the hovered bin stays, its neighbours step back. */
+.histogram-bar { transition: background var(--dur) var(--ease), opacity var(--dur) var(--ease); }
+.histogram-bars:has(.histogram-bar:hover) .histogram-bar:not(:hover) { opacity: 0.5; }
+
+/* Heatmap: the hovered cell is outlined in the text colour, which reads on
+   every tier fill in both themes. */
+.heatmap-cell { transition: box-shadow var(--dur) var(--ease); }
+.heatmap-cell:hover { box-shadow: inset 0 0 0 2px var(--text); }
+
+/* Sparkline: hit areas are invisible until hovered. */
+.sparkline-host { display: inline-block; vertical-align: middle; line-height: 0; }
+.sparkline-hit { fill: transparent; }
+.sparkline-hit:hover { fill: var(--text-muted); fill-opacity: 0.25; }
+
+/* A table row that OPENS something (rule 2). Keyboard-reachable in the markup
+   (tabIndex + Enter/Space), so it gets the focus ring as well as the hover. */
+tbody tr.row-link { cursor: pointer; }
+tbody tr.row-link > td:first-child { box-shadow: inset 3px 0 0 transparent; transition: box-shadow var(--dur) var(--ease); }
+tbody tr.row-link:hover > td:first-child,
+tbody tr.row-link:focus-visible > td:first-child { box-shadow: inset 3px 0 0 var(--focus-ring); }
+tbody tr.row-link:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+.row-link-chevron {
+  color: var(--text-muted);
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+tbody tr.row-link:hover .row-link-chevron,
+tbody tr.row-link:focus-visible .row-link-chevron { opacity: 1; transform: none; }
+
+/* Screening gauges: each explains itself on hover, tap or focus. The dotted
+   underline is the conventional "there is a definition here" mark. */
+.gauge {
+  position: relative;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  min-width: 108px;
+  padding: var(--sp-xs);
+  border-radius: var(--r-md);
+  cursor: help;
+  transition: background var(--dur) var(--ease);
+}
+.gauge:hover, .gauge:focus-visible { background: var(--bg); }
+.gauge:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.gauge-label {
+  font-size: var(--fs-sm); font-weight: 600; text-align: center;
+  text-decoration: underline dotted var(--text-muted);
+  text-underline-offset: 3px;
+}
+.gauge .viz-tip { white-space: normal; width: 240px; }
+.gauge .viz-tip-line { white-space: normal; }
+.gauge .viz-tip-line:first-child { font-weight: 600; }
+
+/* Motion (rule 3). Cards arrive rather than appear; `backwards` fill so no
+   transform outlives the 240ms — a lingering transform would make the card a
+   containing block for every fixed-position child (modals, tips). */
+@keyframes rise-in { from { opacity: 0; transform: translateY(6px); } }
+@keyframes fade-in { from { opacity: 0; } }
+.card { animation: rise-in calc(var(--dur) * 1.5) var(--ease) backwards; }
+.infotip-panel { animation: fade-in var(--dur) var(--ease); }
+.chart-table[open] > .table-wrap { animation: fade-in var(--dur) var(--ease); }
+/* Bars grow from their axis on first paint, so the eye reads them as amounts. */
+@keyframes grow-x { from { transform: scaleX(0); } }
+@keyframes grow-y { from { transform: scaleY(0); } }
+.ranked-bar { transform-origin: left center; animation: grow-x calc(var(--dur) * 3) var(--ease) backwards; }
+.histogram-bar { transform-origin: bottom center; animation: grow-y calc(var(--dur) * 3) var(--ease) backwards; }

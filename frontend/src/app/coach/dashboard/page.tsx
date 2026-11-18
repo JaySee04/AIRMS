@@ -1192,12 +1192,18 @@ export default function CoachDashboard() {
                 {classified.map(({ row, band, screening, worst }) => (
                   <tr
                     key={row.athleteId}
+                    className="row-link"
                     onClick={() => setSelectedId(row.athleteId)}
-                    style={{ cursor: 'pointer' }}
+                    // It opened on a mouse click only, so the squad's records
+                    // were unreachable from the keyboard (2026-11-19).
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedId(row.athleteId); }
+                    }}
                     title="View screening detail"
                   >
                     <td>
-                      <strong>{row.name}</strong>
+                      <strong>{row.name}</strong> <span className="row-link-chevron" aria-hidden>›</span>
                       <div className="text-muted" style={{ fontSize: 'var(--fs-sm)' }}>{row.athleteId} · {row.program ?? '—'} · {row.gender ?? '—'}</div>
                       {(row.screening?.recallState === 'overdue' || row.screening?.recallState === 'due-soon') && (
                         <div

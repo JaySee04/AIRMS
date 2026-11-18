@@ -19,6 +19,8 @@
 // Flags" and "ROM & Stability" on the same figure, so repeating either here
 // would be noise.
 
+import { useRef } from 'react';
+import HoverTip, { useHoverTip } from '@/components/ui/HoverTip';
 import { tierMeta } from '@/lib/holomotionTiers';
 import {
   AthleteRisks, BAND_LABEL, INDICATORS, WATCH_THRESHOLD, HIGH_THRESHOLD,
@@ -98,6 +100,7 @@ const STRIP_MAX = 40;
 // HoloMotion quality tiers for the 0–100 gauges — shared with the subitem
 // table rendered beneath and the body map beside (lib/holomotionTiers.ts).
 const qualityBand = tierMeta;
+const QUALITY_SCALE = 'Below 60 Below Average · 60 Average · 75 Good · 85 Excellent';
 
 // Presentation for a lower-is-better band (Exercise Risks gauge + indicators).
 // BAND_META, INSTRUMENT_BANDS and riskBand live in lib/screeningAlerts.ts, with
@@ -105,20 +108,41 @@ const qualityBand = tierMeta;
 
 // Ring gauge with tier tick marks so the value is read against its
 // thresholds, not just as a number. `ticks` are fractions of `max`.
-function ScoreGauge({ value, max, label, band, ticks }: {
+//
+// `meaning` is what the score MEASURES, in plain words, and `scale` is how its
+// bands are cut. Both reach the reader on hover, tap or keyboard focus, and the
+// meaning is part of the accessible name. Added 2026-11-19: a reader new to
+// HoloMotion met five numbers with nothing on screen saying what any of them
+// measured — the AP1 panel's "explain your terms" comment, on the screen itself.
+function ScoreGauge({ value, max, label, band, ticks, meaning, scale }: {
   value: number | null | undefined;
   max: number;
   label: string;
   band: { label: string; color: string };
   ticks: number[];
+  meaning: string;
+  scale: string;
 }) {
+  const { tip, show, showAt, hide } = useHoverTip();
+  const host = useRef<HTMLDivElement>(null);
+  const lines = [label, meaning, scale];
   const has = value !== undefined && value !== null;
   const pct = has ? Math.max(0, Math.min(1, (value as number) / max)) : 0;
   const R = 34;
   const C = 2 * Math.PI * R;
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, minWidth: 108 }}>
-      <svg width="92" height="92" viewBox="0 0 92 92" role="img" aria-label={`${label}: ${has ? value : 'no data'} of ${max}${has ? ` — ${band.label}` : ''}`}>
+    <div
+      ref={host}
+      className="gauge"
+      tabIndex={0}
+      onMouseEnter={(e) => show(lines, host.current, e.clientX, e.clientY)}
+      onMouseMove={(e) => show(lines, host.current, e.clientX, e.clientY)}
+      onMouseLeave={hide}
+      onFocus={(e) => showAt(lines, host.current, e.currentTarget)}
+      onBlur={hide}
+    >
+      <HoverTip tip={tip} />
+      <svg width="92" height="92" viewBox="0 0 92 92" role="img" aria-label={`${label}: ${has ? value : 'no data'} of ${max}${has ? ` — ${band.label}` : ''}. ${meaning} ${scale}`}>
         <circle cx="46" cy="46" r={R} fill="none" stroke="var(--border, #e2e6ea)" strokeWidth="8" />
         <circle
           cx="46" cy="46" r={R} fill="none"
@@ -141,7 +165,7 @@ function ScoreGauge({ value, max, label, band, ticks }: {
         </text>
         <text x="46" y="60" textAnchor="middle" fontSize="9" fill="var(--text-muted, #6b7280)">/ {max}</text>
       </svg>
-      <div style={{ fontSize: 'var(--fs-sm)', fontWeight: 600, textAlign: 'center' }}>{label}</div>
+      <div className="gauge-label">{label}</div>
       <div style={{ fontSize: 'var(--fs-xs)', color: has ? band.color : 'var(--text-muted)', fontWeight: 600 }}>
         {has ? band.label : 'No data'}
       </div>
@@ -252,11 +276,21 @@ export default function ScreeningPanel({
           </div>
         </div>
         <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', justifyContent: 'space-around' }}>
-          <ScoreGauge value={athlete.overallActivityScore} max={100} label="Total Score" band={qualityBand(athlete.overallActivityScore ?? 0)} ticks={[0.6, 0.75, 0.85]} />
-          <ScoreGauge value={athlete.mobility} max={100} label="ROM (range of motion)" band={qualityBand(athlete.mobility ?? 0)} ticks={[0.6, 0.75, 0.85]} />
-          <ScoreGauge value={athlete.stability} max={100} label="Stability" band={qualityBand(athlete.stability ?? 0)} ticks={[0.6, 0.75, 0.85]} />
-          <ScoreGauge value={athlete.symmetry} max={100} label="Symmetry" band={qualityBand(athlete.symmetry ?? 0)} ticks={[0.6, 0.75, 0.85]} />
-          <ScoreGauge value={athlete.injuryRiskIndex} max={STRIP_MAX} label="Exercise Risks" band={riskBand(athlete.injuryRiskIndex ?? 0)} ticks={[WATCH_THRESHOLD / STRIP_MAX, HIGH_THRESHOLD / STRIP_MAX]} />
+          <ScoreGauge value={athlete.overallActivityScore} max={100} label="Total Score" band={qualityBand(athlete.overallActivityScore ?? 0)} ticks={[0.6, 0.75, 0.85]}
+            meaning="Overall movement quality: the average of the 25 subitem scores below. Higher is better."
+            scale={QUALITY_SCALE} />
+          <ScoreGauge value={athlete.mobility} max={100} label="ROM (range of motion)" band={qualityBand(athlete.mobility ?? 0)} ticks={[0.6, 0.75, 0.85]}
+            meaning="How far the joints move through their normal range. Higher is better."
+            scale={QUALITY_SCALE} />
+          <ScoreGauge value={athlete.stability} max={100} label="Stability" band={qualityBand(athlete.stability ?? 0)} ticks={[0.6, 0.75, 0.85]}
+            meaning="How steadily the body holds and controls a position. Higher is better."
+            scale={QUALITY_SCALE} />
+          <ScoreGauge value={athlete.symmetry} max={100} label="Symmetry" band={qualityBand(athlete.symmetry ?? 0)} ticks={[0.6, 0.75, 0.85]}
+            meaning="How evenly the body moves, left against right. Higher is better."
+            scale={QUALITY_SCALE} />
+          <ScoreGauge value={athlete.injuryRiskIndex} max={STRIP_MAX} label="Exercise Risks" band={riskBand(athlete.injuryRiskIndex ?? 0)} ticks={[WATCH_THRESHOLD / STRIP_MAX, HIGH_THRESHOLD / STRIP_MAX]}
+            meaning="HoloMotion's injury-risk reading for this screening. Lower is better."
+            scale={`Low up to ${WATCH_THRESHOLD} · Watch up to ${HIGH_THRESHOLD} · Elevated above ${HIGH_THRESHOLD}`} />
         </div>
       </div>
 

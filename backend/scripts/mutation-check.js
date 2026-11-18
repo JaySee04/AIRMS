@@ -485,8 +485,10 @@ const MUTATIONS = [
     pkg: 'frontend',
     from: ROOT,
     file: 'frontend/src/components/charts/Charts.tsx',
-    find: '              : quadrants[p.y > my ? (p.x > mx ? 1 : 0) : (p.x > mx ? 2 : 3)],',
-    replace: '              : quadrants[p.y > my ? (p.x > mx ? 0 : 1) : (p.x > mx ? 2 : 3)],',
+    // quadrantOf() since 2026-11-19: the hover tip and this table share it, so
+    // one break now mislabels both.
+    find: '      : quadrants[p.y > my ? (p.x > mx ? 1 : 0) : (p.x > mx ? 2 : 3)]);',
+    replace: '      : quadrants[p.y > my ? (p.x > mx ? 0 : 1) : (p.x > mx ? 2 : 3)]);',
     test: 'src/components/charts/Charts.test.tsx',
   },
   {

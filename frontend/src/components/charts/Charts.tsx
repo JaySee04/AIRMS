@@ -39,6 +39,30 @@ function niceStep(span: number, target = 4): number {
   return step * mag;
 }
 
+/**
+ * The themed hover tip, for any chart. `host` goes on the chart's positioned
+ * wrapper; `bind(lines)` spreads onto each mark. Mouse events fire for a tap as
+ * well, so a touch reader gets the same value a pointer does.
+ *
+ * It replaced `title` on the dot plot, ranked bars, scatter, histogram, heatmap
+ * and sparklines (2026-11-19): the native box waits about a second, ignores the
+ * theme, and is unreachable by touch, so on a phone those values were simply
+ * absent. PeriodChart and the body map already used HoverTip; this is the same
+ * component, so the whole app shows one kind of tooltip. The keyboard and
+ * screen-reader route to these values is still each chart's printed numbers or
+ * its "Show as table".
+ */
+function useChartTip() {
+  const { tip, show, hide } = useHoverTip();
+  const host = useRef<HTMLDivElement>(null);
+  const bind = (lines: string | string[]) => {
+    const l = Array.isArray(lines) ? lines : [lines];
+    const on = (e: ReactMouseEvent) => show(l, host.current, e.clientX, e.clientY);
+    return { onMouseEnter: on, onMouseMove: on, onMouseLeave: hide };
+  };
+  return { tip, host, bind };
+}
+
 // ── "Show as table" (§164) ─────────────────────────────────────────────────
 // The numbers behind a chart, as a real table, one click away.
 //
@@ -101,6 +125,7 @@ export function DotPlot({
   max?: number;
   unit?: string;
 }) {
+  const { tip, host, bind } = useChartTip();
   const vals = rows.map((r) => r.value).filter((v): v is number => v !== null);
   if (!vals.length) return <p className="text-muted" style={{ fontSize: 'var(--fs-md)' }}>No data for this selection.</p>;
 
@@ -119,7 +144,8 @@ export function DotPlot({
   for (let t = Math.ceil(axisLo / step) * step; t <= axisHi; t += step) ticks.push(+t.toFixed(6));
 
   return (
-    <div className="dotplot">
+    <div className="dotplot chart-host" ref={host}>
+      <HoverTip tip={tip} />
       <div className="dotplot-rows">
         {rows.map((r) => (
           <div className="dotplot-row" key={r.label}>
@@ -136,7 +162,7 @@ export function DotPlot({
                   <span
                     className="dotplot-dot"
                     style={{ left: `${pos(r.value)}%` }}
-                    title={r.hint ?? `${r.label}: ${fmt(r.value)}${unit}`}
+                    {...bind(r.hint ?? `${r.label}: ${fmt(r.value)}${unit}`)}
                   />
                 </>
               )}
@@ -172,6 +198,7 @@ export interface RankedRow {
 }
 
 export function RankedBars({ rows, unit = '' }: { rows: RankedRow[]; unit?: string }) {
+  const { tip, host, bind } = useChartTip();
   const sums = rows.map((r) => r.segments.reduce((s, x) => s + x.value, 0));
   const max = Math.max(1, ...sums);
   const step = niceStep(max, 4);
@@ -179,7 +206,8 @@ export function RankedBars({ rows, unit = '' }: { rows: RankedRow[]; unit?: stri
   for (let t = 0; t <= max; t += step) ticks.push(t);
 
   return (
-    <div className="ranked">
+    <div className="ranked chart-host" ref={host}>
+      <HoverTip tip={tip} />
       {rows.map((r, i) => {
         const sum = sums[i];
         return (
@@ -194,7 +222,7 @@ export function RankedBars({ rows, unit = '' }: { rows: RankedRow[]; unit?: stri
                   <span
                     key={s.label}
                     style={{ flex: `${s.value} 0 0`, background: s.color }}
-                    title={`${r.label} — ${s.label}: ${s.value}${unit}`}
+                    {...bind([r.label, `${s.label}: ${s.value}${unit}`, ...(r.segments.length > 1 ? [`Total: ${sum}${unit}`] : [])])}
                   />
                 ))}
               </div>
@@ -883,7 +911,7 @@ export interface HeatCell { key: string; label: string; value: number | null }
 export interface HeatRow { key: string; label: string; cells: HeatCell[] }
 
 export function Heatmap({
-  rows, colorFor, inkFor, legend, rowHeader = 'Region',
+  rows, colorFor, inkFor, describe, legend, rowHeader = 'Region',
 }: {
   rows: HeatRow[];
   /** Cell background for a value — pass the shared tier colours, not a new ramp. */
@@ -892,42 +920,53 @@ export function Heatmap({
    *  caller keeps working; without it the cell inherits, which is what the
    *  stylesheet did before and is still legible on an uncoloured cell. */
   inkFor?: (v: number) => string;
+  /** The value in words for the hover tip, e.g. its tier ("Average"). */
+  describe?: (v: number) => string;
   legend?: ReactNode;
   rowHeader?: string;
 }) {
+  const { tip, host, bind } = useChartTip();
   if (!rows.length) return <p className="text-muted" style={{ fontSize: 'var(--fs-md)' }}>No subitem scores for this selection.</p>;
   const cols = rows[0].cells;
   return (
-    <div className="heatmap-wrap">
-      <table className="heatmap">
-        <thead>
-          <tr>
-            <th scope="col">{rowHeader}</th>
-            {cols.map((c) => <th key={c.key} scope="col" className="num">{c.label}</th>)}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.key}>
-              <th scope="row">{r.label}</th>
-              {r.cells.map((c) => (
-                <td
-                  key={c.key}
-                  className="heatmap-cell"
-                  style={c.value === null ? undefined : {
-                    background: colorFor(c.value),
-                    ...(inkFor ? { color: inkFor(c.value) } : {}),
-                  }}
-                  title={`${r.label} · ${c.label}: ${c.value === null ? 'no reading' : c.value}`}
-                >
-                  {c.value === null ? <span className="heatmap-empty">—</span> : fmt(c.value)}
-                </td>
-              ))}
+    // The tip's host sits OUTSIDE .heatmap-wrap: that scrolls sideways, and an
+    // overflow box clips a tip raised above the first row.
+    <div className="chart-host" ref={host}>
+      <HoverTip tip={tip} />
+      <div className="heatmap-wrap">
+        <table className="heatmap">
+          <thead>
+            <tr>
+              <th scope="col">{rowHeader}</th>
+              {cols.map((c) => <th key={c.key} scope="col" className="num">{c.label}</th>)}
             </tr>
-          ))}
-        </tbody>
-      </table>
-      {legend && <div className="heatmap-legend">{legend}</div>}
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.key}>
+                <th scope="row">{r.label}</th>
+                {r.cells.map((c) => (
+                  <td
+                    key={c.key}
+                    className="heatmap-cell"
+                    style={c.value === null ? undefined : {
+                      background: colorFor(c.value),
+                      ...(inkFor ? { color: inkFor(c.value) } : {}),
+                    }}
+                    {...bind([
+                      `${r.label} · ${c.label}`,
+                      c.value === null ? 'No reading' : `${fmt(c.value)}${describe ? ` — ${describe(c.value)}` : ''}`,
+                    ])}
+                  >
+                    {c.value === null ? <span className="heatmap-empty">—</span> : fmt(c.value)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {legend && <div className="heatmap-legend">{legend}</div>}
+      </div>
     </div>
   );
 }
@@ -941,7 +980,12 @@ export function Heatmap({
 // which corner is emphasised is the caller's `highlight` (§165).
 // ══════════════════════════════════════════════════════════════════════════
 export interface ScatterPoint {
-  key: string; label: string; x: number; y: number; color?: string; hint?: string;
+  key: string; label: string; x: number; y: number; color?: string;
+  /** Who the dot is, as the tip's first line (e.g. "Name · Sport"). The chart
+   *  adds the two measures and the quadrant itself. */
+  hint?: string;
+  /** What the dot's colour means for this athlete, e.g. the band in words. */
+  colorLabel?: string;
 }
 
 // median comes from lib/num — EXACT, and now the same function the backend
@@ -973,6 +1017,7 @@ export function Scatter({
   /** Series key for the dot colours, so two colour systems are each explained. */
   legend?: Array<{ label: string; color: string }>;
 }) {
+  const { tip, host, bind } = useChartTip();
   if (!points.length) return <p className="text-muted" style={{ fontSize: 'var(--fs-md)' }}>No athletes with both measures in this selection.</p>;
 
   const xs = points.map((p) => p.x);
@@ -990,10 +1035,15 @@ export function Scatter({
 
   const xTicks = [xLo, mx, xHi].map((v) => +v.toFixed(0));
   const yTicks = [yLo, my, yHi].map((v) => +v.toFixed(0));
+  // One definition of "which corner", shared by the tip and the table below.
+  const quadrantOf = (p: ScatterPoint) => (!quadrants ? null
+    : p.x === mx || p.y === my ? 'on a median line'
+      : quadrants[p.y > my ? (p.x > mx ? 1 : 0) : (p.x > mx ? 2 : 3)]);
 
   return (
     <div className="scatter">
-      <div className="scatter-plot" style={{ height }}>
+      <div className="scatter-plot" style={{ height }} ref={host}>
+        <HoverTip tip={tip} />
         {/* Median crosshair — quadrant boundaries that move with the cohort
             rather than fixed cut-offs, so "high risk" means high FOR THIS GROUP. */}
         <span className="scatter-cross scatter-cross--v" style={{ left: `${px(mx)}%` }} aria-hidden />
@@ -1030,7 +1080,12 @@ export function Scatter({
             key={p.key}
             className="scatter-dot"
             style={{ left: `${px(p.x)}%`, top: `${py(p.y)}%`, background: p.color ?? 'var(--series-1)' }}
-            title={p.hint ?? `${p.label} — ${xLabel} ${fmt(p.x)}, ${yLabel} ${fmt(p.y)}`}
+            {...bind([
+              p.hint ?? p.label,
+              `${xLabel}: ${fmt(p.x)} · ${yLabel}: ${fmt(p.y)}`,
+              ...(quadrantOf(p) ? [`Quadrant: ${quadrantOf(p)}`] : []),
+              ...(p.colorLabel ? [p.colorLabel] : []),
+            ])}
           />
         ))}
       </div>
@@ -1074,10 +1129,7 @@ export function Scatter({
         head={['Athlete', xLabel, yLabel, ...(quadrants ? ['Quadrant'] : [])]}
         rows={[...points].sort((a, b) => b.y - a.y || a.x - b.x).map((p) => [
           p.label, fmt(p.x), fmt(p.y),
-          ...(quadrants ? [
-            p.x === mx || p.y === my ? 'on a median line'
-              : quadrants[p.y > my ? (p.x > mx ? 1 : 0) : (p.x > mx ? 2 : 3)],
-          ] : []),
+          ...(quadrants ? [quadrantOf(p)] : []),
         ])}
       />
     </div>
@@ -1103,6 +1155,7 @@ export function Histogram({
   valueLabel?: string;
   height?: number;
 }) {
+  const { tip, host, bind } = useChartTip();
   if (!values.length) return <p className="text-muted" style={{ fontSize: 'var(--fs-md)' }}>No scored athletes in this selection.</p>;
 
   const binCount = Math.max(1, Math.ceil((max - min) / binSize));
@@ -1121,9 +1174,10 @@ export function Histogram({
 
   return (
     <div className="histogram">
-      <div className="histogram-plot" style={{ height }}>
+      <div className="histogram-plot" style={{ height }} ref={host}>
+        <HoverTip tip={tip} />
         {markers.map((m) => (
-          <span key={m.label} className="histogram-marker" style={{ left: `${pos(m.at)}%`, borderColor: m.color }} title={`${m.label} (${m.at})`} />
+          <span key={m.label} className="histogram-marker" style={{ left: `${pos(m.at)}%`, borderColor: m.color }} {...bind(`${m.label} (${m.at})`)} />
         ))}
         <div className="histogram-bars">
           {bins.map((b) => (
@@ -1131,7 +1185,10 @@ export function Histogram({
               key={b.lo}
               className="histogram-bar"
               style={{ height: `${(b.n / peak) * 100}%` }}
-              title={`${b.lo}–${b.hi}${valueLabel ? ` ${valueLabel}` : ''}: ${b.n} athlete${b.n === 1 ? '' : 's'}`}
+              {...bind([
+                `${valueLabel ? `${valueLabel.charAt(0).toUpperCase()}${valueLabel.slice(1)} ` : ''}${b.lo}–${b.hi}`,
+                `${b.n} athlete${b.n === 1 ? '' : 's'} (${Math.round((b.n / values.length) * 100)}% of ${values.length})`,
+              ])}
             >
               {b.n > 0 && <span className="histogram-n">{b.n}</span>}
             </div>
@@ -1186,6 +1243,7 @@ export function Sparkline({
   width?: number;
   height?: number;
 }) {
+  const { tip, host, bind } = useChartTip();
   const real = points.filter((p): p is number => p !== null);
   if (real.length < 2) {
     return <span className="text-muted" style={{ fontSize: 'var(--fs-xs)' }}>needs 2+ screenings</span>;
@@ -1219,15 +1277,30 @@ export function Sparkline({
   const lastIdx = points.length - 1 - [...points].reverse().findIndex((p) => p !== null);
 
   return (
-    <svg width={width} height={height} className="sparkline" role="img"
-      aria-label={`${real.length} screenings, ${fmt(first)} to ${fmt(last)}`}>
-      {segs.map((pts, i) => (
-        // eslint-disable-next-line react/no-array-index-key
-        <polyline key={i} points={pts} fill="none" stroke={tone} strokeWidth="1.6"
-          strokeLinecap="round" strokeLinejoin="round" />
-      ))}
-      <circle cx={pad + lastIdx * stepX} cy={yOf(last)} r="2.6" fill={tone} />
-    </svg>
+    <span className="sparkline-host chart-host" ref={host}>
+      <HoverTip tip={tip} />
+      <svg width={width} height={height} className="sparkline" role="img"
+        aria-label={`${real.length} screenings, ${fmt(first)} to ${fmt(last)}`}>
+        {segs.map((pts, i) => (
+          // eslint-disable-next-line react/no-array-index-key
+          <polyline key={i} points={pts} fill="none" stroke={tone} strokeWidth="1.6"
+            strokeLinecap="round" strokeLinejoin="round" />
+        ))}
+        <circle cx={pad + lastIdx * stepX} cy={yOf(last)} r="2.6" fill={tone} />
+        {/* One hit area per screening, a column wide, so the value is found by
+            sweeping along the line rather than by landing on a 3px dot. The
+            visible mark is CSS on hover (.sparkline-hit). */}
+        {points.map((p, i) => (p === null ? null : (
+          <circle
+            // eslint-disable-next-line react/no-array-index-key
+            key={i}
+            className="sparkline-hit"
+            cx={pad + i * stepX} cy={yOf(p)} r={Math.max(5, Math.min(10, stepX / 2))}
+            {...bind(`${i === lastIdx ? 'Latest screening' : i === 0 ? 'First screening' : `Screening ${i + 1} of ${points.length}`}: ${fmt(p)}`)}
+          />
+        )))}
+      </svg>
+    </span>
   );
 }
 

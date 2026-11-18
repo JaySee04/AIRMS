@@ -26,7 +26,7 @@ import TrendStrip from '@/components/admin/TrendStrip';
 import DistributionBar from '@/components/admin/DistributionBar';
 import { DotPlot, Heatmap, Histogram, RankedBars, Ring, Scatter } from '@/components/charts/Charts';
 import { TIER_COLOR, TIER_INK, TIER_LABEL, TIER_ORDER, TIER_RANGE, tierOf } from '@/lib/holomotionTiers';
-import { BAND_COLOR, bandSegments } from '@/lib/bands';
+import { BAND_COLOR, BAND_LABEL, bandSegments } from '@/lib/bands';
 import InfoTip from '@/components/ui/InfoTip';
 import CardHead from '@/components/layout/CardHead';
 import { squadFlags as squadFlagsOf, squadSubitems as squadSubitemsOf } from '@/lib/squadFigure';
@@ -251,7 +251,8 @@ export default function AdminDashboard() {
       x: p.totalScore as number,
       y: p.exerciseRisks as number,
       color: p.band ? C[p.band] : 'var(--text-muted)',
-      hint: `${p.name}${p.sport ? ` · ${p.sport}` : ''} — Total Score ${p.totalScore}, Exercise Risks ${p.exerciseRisks}`,
+      hint: `${p.name}${p.sport ? ` · ${p.sport}` : ''}`,
+      colorLabel: p.band ? `Band: ${BAND_LABEL[p.band]}` : 'Band: not scored',
     })), [cohort]);
 
   const indicatorValues = useMemo(
@@ -704,6 +705,7 @@ export default function AdminDashboard() {
               rows={cohort.subitems.matrix}
               colorFor={(v) => TIER_COLOR[tierOf(v)]}
               inkFor={(v) => TIER_INK[tierOf(v)]}
+              describe={(v) => TIER_LABEL[tierOf(v)]}
               legend={TIER_ORDER.map((t) => (
                 <span key={t} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <span style={{ width: 12, height: 12, borderRadius: 3, background: TIER_COLOR[t] }} />
@@ -892,21 +894,26 @@ export default function AdminDashboard() {
                   stay on the card — a chart whose corners are unlabelled makes the
                   reader do the decoding — but a label is all it has to be. */}
               <ul className="chart-explain-quads">
+                {/* Each item is a two-column grid, so the label and its clause
+                    share ONE span: left loose, the clause fell into the swatch
+                    column on a row of its own (2026-11-19). The emphasised key
+                    is the quadrant `highlight` names, which §165 moved to top
+                    left — the red edge had stayed on top right. */}
                 <li>
-                  <span className="chart-explain-key chart-explain-key--tl" aria-hidden />
-                  <strong>Top left — high risk, poor mover.</strong> The ones to act on first.
+                  <span className="chart-explain-key chart-explain-key--tl chart-explain-key--focus" aria-hidden />
+                  <span><strong>Top left — high risk, poor mover.</strong> The ones to act on first.</span>
                 </li>
                 <li>
                   <span className="chart-explain-key chart-explain-key--tr" aria-hidden />
-                  <strong>Top right — high risk, good mover.</strong> Risk a movement score alone would miss.
+                  <span><strong>Top right — high risk, good mover.</strong> Risk a movement score alone would miss.</span>
                 </li>
                 <li>
                   <span className="chart-explain-key chart-explain-key--br" aria-hidden />
-                  <strong>Bottom right — low risk, good mover.</strong> Most of a healthy squad.
+                  <span><strong>Bottom right — low risk, good mover.</strong> Most of a healthy squad.</span>
                 </li>
                 <li>
                   <span className="chart-explain-key chart-explain-key--bl" aria-hidden />
-                  <strong>Bottom left — low risk, poor mover.</strong> A technique look.
+                  <span><strong>Bottom left — low risk, poor mover.</strong> A technique look.</span>
                 </li>
               </ul>
               {/* The two caveats, as clauses. Each still blocks its wrong reading:
