@@ -10,6 +10,12 @@
 > you go; tell me if any is wrong and I'll fix. Nothing here blocks me
 > continuing to the next stage.
 
+> **Newest state first:** [`FYP2_STATUS_2026-11.md`](FYP2_STATUS_2026-11.md) has
+> the status as of 2026-11-24: objectives restored to FYP I's wording,
+> non-functional requirements cut to 3, the Week 7 deck, the Dr Hoo one-to-one
+> handout, report draft v4 and the open items. It supersedes this list where
+> they differ.
+
 ## ⏳ Open right now — your remaining actions (as of 2026-08-01)
 
 The short list you asked me to keep in front of you. Fuller detail for each is
