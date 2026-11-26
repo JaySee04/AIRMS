@@ -144,9 +144,14 @@ const FILLS = {
 const PART_STROKE = 0.55;
 const DEEP_FILL = 0.68;
 
-function svg(outline, parts, inert, states, viewBox, figure, deep = new Set()) {
+function svg(outline, parts, inert, states, viewBox, figure, deep = new Set(), sideTagFor) {
   const paint = (p) => {
-    const sides = [['left', 'L'], ['right', 'R'], ['common', 'B']];
+    // The SUBJECT'S side, through the app's own sideTagFor (§168) — on the
+    // front figure the atlas's `left` half is the athlete's right. This sheet
+    // painted page-sides for seven weeks, exactly as the app did, which is why
+    // laying it beside HoloMotion's figure is what caught it.
+    const fig = figure === 'Front' ? 'front' : 'back';
+    const sides = [['left', sideTagFor(fig, 'left')], ['right', sideTagFor(fig, 'right')], ['common', 'B']];
     return sides.flatMap(([k, side]) => {
       const paths = p.path?.[k];
       if (!paths) return [];
@@ -299,8 +304,8 @@ async function main() {
   }
 
   const svgs = [
-    svg(outlines.FRONT_OUTLINE, muscles.muscleFront, muscles.INERT_FRONT, states, '0 0 724 1448', 'Front', muscles.MARKER_MUSCLES),
-    svg(outlines.BACK_OUTLINE, muscles.muscleBack, muscles.INERT_BACK, states, '724 0 724 1448', 'Back', muscles.MARKER_MUSCLES),
+    svg(outlines.FRONT_OUTLINE, muscles.muscleFront, muscles.INERT_FRONT, states, '0 0 724 1448', 'Front', muscles.MARKER_MUSCLES, muscles.sideTagFor),
+    svg(outlines.BACK_OUTLINE, muscles.muscleBack, muscles.INERT_BACK, states, '724 0 724 1448', 'Back', muscles.MARKER_MUSCLES, muscles.sideTagFor),
   ].join('');
 
   fs.writeFileSync(OUT, page({

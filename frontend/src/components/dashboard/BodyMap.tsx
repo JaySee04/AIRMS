@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState } from 'react';
 import type { MouseEvent as ReactMouseEvent, FocusEvent as ReactFocusEvent } from 'react';
 import { bodyFront } from './bodymap-data/bodyFront';
-import { MUSCLE_CLIPS, clipPathsFor } from './bodymap-data/muscles';
+import { MUSCLE_CLIPS, clipPathsFor, sideTagFor } from './bodymap-data/muscles';
 import { bodyBack } from './bodymap-data/bodyBack';
 import { FRONT_OUTLINE, BACK_OUTLINE } from './bodymap-data/outlines';
 import {
@@ -269,6 +269,10 @@ function ClipDefs({ fig }: { fig: 'front' | 'back' }) {
 }
 
 function renderParts(
+  // Which figure this is decides which of the SUBJECT'S sides each atlas path
+  // is — see sideTagFor. Not optional: a default would let a front figure be
+  // painted with back-view sides, which is the §168 defect.
+  fig: 'front' | 'back',
   data: BodyPart[],
   states: Map<string, string>,
   inScopeSlugs: Set<string>,
@@ -381,8 +385,8 @@ function renderParts(
       );
     };
     renderSide(part.path.common, 'C');
-    renderSide(part.path.left, 'L');
-    renderSide(part.path.right, 'R');
+    renderSide(part.path.left, sideTagFor(fig, 'left'));
+    renderSide(part.path.right, sideTagFor(fig, 'right'));
   });
   return out;
 }
@@ -517,7 +521,7 @@ export default function BodyMap({
             <svg viewBox="0 0 724 1448" xmlns="http://www.w3.org/2000/svg" aria-label="Front body view">
               <ClipDefs fig="front" />
               <path className="bodymap-silhouette" d={FRONT_OUTLINE} />
-              {renderParts(parts.frontData, parts.states, parts.inScope, parts.tooltipFor, parts.merge, parts.markers, parts.interaction)}
+              {renderParts('front', parts.frontData, parts.states, parts.inScope, parts.tooltipFor, parts.merge, parts.markers, parts.interaction)}
             </svg>
           </div>
           <div className="bm-fig">
@@ -525,7 +529,7 @@ export default function BodyMap({
             <svg viewBox="724 0 724 1448" xmlns="http://www.w3.org/2000/svg" aria-label="Back body view">
               <ClipDefs fig="back" />
               <path className="bodymap-silhouette" d={BACK_OUTLINE} />
-              {renderParts(parts.backData, parts.states, parts.inScope, parts.tooltipFor, parts.merge, parts.markers, parts.interaction)}
+              {renderParts('back', parts.backData, parts.states, parts.inScope, parts.tooltipFor, parts.merge, parts.markers, parts.interaction)}
             </svg>
           </div>
         </div>

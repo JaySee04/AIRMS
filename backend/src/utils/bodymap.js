@@ -66,8 +66,20 @@ function worstValueBySlug(subitems) {
   return out;
 }
 
+// Which of the SUBJECT'S sides an atlas path is (DD §168). The atlas keys its
+// paths `left`/`right` by where they sit on the page, which is the subject's
+// left only in a BACK view: a person facing you has their right on your left.
+// A copy of sideTagFor in frontend bodymap-data/muscles.ts — the packages cannot
+// import each other — and tests/bodymapSides.test.js pins the two together.
+// Without it the front figure of every individual report paints each region's
+// left reading on the right side of the body.
+function sideTagFor(fig, atlasSide) {
+  if (fig === 'front') return atlasSide === 'left' ? 'R' : 'L';
+  return atlasSide === 'left' ? 'L' : 'R';
+}
+
 module.exports = {
   bodyFront, bodyBack, frontOutline, backOutline,
   SUBITEM_REGION_SLUGS, SLUG_TO_REGION, SCOPED_SLUGS,
-  worstValueBySlug,
+  worstValueBySlug, sideTagFor,
 };

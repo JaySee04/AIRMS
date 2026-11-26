@@ -159,8 +159,8 @@ This project's signature defect is *a wrong answer that looks like a right one*
 catch output that reads as ordinary.
 
 ```powershell
-cd backend;  npx jest              # 75 backend suites
-cd frontend; npx jest              # 33 frontend suites
+cd backend;  npx jest              # 76 backend suites
+cd frontend; npx jest              # 34 frontend suites
 cd frontend; npm run typecheck
 cd frontend; npm run lint
 

@@ -14927,6 +14927,10 @@ exist for, and that sentence is in the script rather than left implied.
 
 ## 160. The deep muscles are drawn at their true extent (2026-10-12, JC)
 
+> **Superseded for the iliopsoas by §168 (2026-11-26).** The T12-to-thigh
+> course recorded here was replaced by a groin wedge after Dr Thung marked it
+> wrong. The internal oblique's sheet stands. Reasoning below left intact.
+
 > **Supersedes the inset conventions recorded in §4a and §138** for two of the
 > five deep muscles. Those sections' reasoning is left intact below the banner,
 > including the part that was right.
@@ -15621,3 +15625,62 @@ on the next build, and only `systemMap.test.js`'s page count noticed. Fixed by
 `npm ci` in both packages and deleting the two restored pages. Gotcha 7's
 durable remedy ("Always keep on this device", or moving the repo out of
 OneDrive) stands.
+
+## 168. Front-view sides restored, and the iliopsoas drawn at the groin (2026-11-26, Dr Thung / JC)
+
+Dr Thung sent a screenshot of an athlete's body map with the iliopsoas crossed
+out and redrawn lower: "this is wrong". Checking it found two defects, the
+second worse than the one he pointed at.
+
+**1. Every front-view finding was on the opposite side of the body.** The atlas
+keys its paths `left`/`right` by where they sit on the PAGE. A person facing you
+has their right on your left, so on the front figure the page's left half is the
+athlete's right. `anterior()` made that swap, but it lived in the redraw's
+`figure.ts` (§144), and the §152 revert deleted that file on 2026-10-09. From
+then on `BodyMap.tsx` and the PDF's body figure (`pdfDraw.js` `muscleFigure`)
+both painted page sides. The written side lists beside the figure stayed
+correct, so the figure and the list disagreed on every front-view finding, on
+the dashboards and in every individual and team PDF, for seven weeks.
+
+Measured, not inferred: `npm run bodymap:proof` on `nazwan.pdf` (Iliopsoas L)
+showed HoloMotion's own figure shading it on the viewer's right and ours on the
+viewer's left, and Dr Thung's screenshot (Iliopsoas R) showed the mirror case.
+
+Every test was green throughout. Nothing measured WHERE a side was drawn; the
+tests checked that both sides existed. CLAUDE.md went on describing
+`anterior()` as load-bearing for seven weeks after it had been deleted.
+
+**Fix.** `sideTagFor(fig, atlasSide)` in `muscles.ts`, used by every painter:
+`BodyMap.tsx`, `pdfDraw.js` (through a copy in `backend/src/utils/bodymap.js`,
+since the packages cannot import each other, §53) and `bodymap-proof.js`.
+`BodyMap.sides.test.tsx` renders the real component and measures where a lit
+shape lands; `tests/bodymapSides.test.js` records the colour `muscleFigure`
+paints on each half of each figure and pins the backend copy to the frontend's.
+Both measure the drawing rather than the helper's return value, because a
+correct helper nobody calls passes a helper test (`winAnsiSafe`). Three
+mutations are registered: the swap itself, BodyMap's wiring, and the PDF's.
+
+**2. The iliopsoas ran up the abdomen.** §160 drew it from T12: a strip over the
+rectus abdominis that ended at the groin, with most of the thigh part clipped
+off because `quadriceps` was not in its clip set. Anatomically defensible, and
+wrong for this figure. That upper course lies behind the abdominal organs where
+nobody examines it, so drawn on the surface it reads as an ABDOMINAL finding.
+A flagged iliopsoas is a hip-flexor finding. Dr Thung redrew it as the groin
+course, and HoloMotion's figure for the same report shades the same wedge.
+
+It is now a wedge from the lower abdomen inside the hip bone, under the
+inguinal ligament, into the top of the inner thigh. The clip set gains
+`quadriceps`. The test that pinned the T12 start is replaced by one pinning the
+opposite: it starts below the middle of the abdomen and reaches a third of the
+way down the adductors. Two mutations restore each half of the old shape.
+
+**Process.** JC asked to see it before it went live. The real component was
+rendered before and after for three cases (Dr Thung's athlete, `nazwan.pdf`
+beside HoloMotion's figure, and a side check on four surface muscles) and
+published as a private preview; JC approved it. It was deployed to the ISN
+server during the UAT, breaking the `99b48ba` freeze, because clinician task C3
+asks which side is weaker and the figure answered it backwards.
+
+Also found on the way: OneDrive had dehydrated `node_modules` in both packages
+and restored the two medical pages §123 removed (the §167 incident, again).
+Both fixed as §167 describes.

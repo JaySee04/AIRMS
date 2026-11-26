@@ -404,16 +404,12 @@ describe('deep muscle form', () => {
     }
   });
 
-  it('draws iliopsoas as a DESCENDING sheet that crosses the pelvic brim', () => {
-    // It was a spindle until 2026-10-12, on the textbook word "fusiform" - true
-    // of the psoas belly and false of what the figure needs to show, which is
-    // where the muscle RUNS. Nothing else on the front of the body connects the
-    // lumbar spine to the thigh, and that course is the finding: a flagged
-    // iliopsoas is read as a hip flexor problem, not an abdominal one.
-    //
-    // So the form guard is now about the course rather than the belly: clearly
-    // taller than wide, starting level with the upper abdomen and ending in the
-    // thigh, past the top of the adductors.
+  it('draws iliopsoas at the GROIN: lower abdomen into the upper thigh', () => {
+    // Where a clinician finds it, and where HoloMotion's own figure shades it
+    // (DD §168, Dr Thung 2026-11-26). It was drawn from T12 down - a strip up the
+    // abdomen over the rectus abdominis that read as an ABDOMINAL finding, with
+    // the thigh part clipped off. This pins both halves of the correction: it no
+    // longer starts in the upper abdomen, and it does reach into the thigh.
     (['left', 'right'] as const).forEach((s) => {
       const d = box('Iliopsoas', s);
       const abs = box('Rectus Abdominis', s);
@@ -422,10 +418,17 @@ describe('deep muscle form', () => {
       const add = unionBox(bodyFront
         .filter((pt) => pt.slug === 'adductors')
         .flatMap((pt) => pt.path[s] ?? []));
-      expect(d.maxY - d.minY).toBeGreaterThan((d.maxX - d.minX) * 1.5);
-      expect(d.minY).toBeLessThan(abs.minY + (abs.maxY - abs.minY) * 0.25);
-      expect(d.maxY).toBeGreaterThan(add.minY);
+      expect(d.minY).toBeGreaterThan(abs.minY + (abs.maxY - abs.minY) * 0.5);
+      expect(d.maxY).toBeGreaterThan(add.minY + (add.maxY - add.minY) * 0.3);
+      // Still a course, not a blob: it runs down across the groin.
+      expect(d.maxY - d.minY).toBeGreaterThan(d.maxX - d.minX);
     });
+  });
+
+  it('clips iliopsoas to a set that includes the upper thigh', () => {
+    // Without `quadriceps` the clip cut the tendon off at the groin crease, and
+    // the shape stopped exactly where the finding is.
+    expect(MUSCLE_CLIPS.Iliopsoas.slugs).toEqual(expect.arrayContaining(['adductors', 'quadriceps']));
   });
 
   it('emits no elliptical arc for any reshaped muscle', () => {

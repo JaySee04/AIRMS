@@ -14,6 +14,7 @@ const { effectiveBand, BAND_LABEL } = require('./bands');
 const { symmetryFindings } = require('./symmetry');
 const {
   bodyFront, bodyBack, frontOutline, backOutline, SCOPED_SLUGS: BODYMAP_SCOPED_SLUGS, worstValueBySlug,
+  sideTagFor,
 } = require('../utils/bodymap');
 const { aggregateSubitems } = require('./subitemAggregate');
 
@@ -1098,7 +1099,7 @@ function muscleFigure(doc, subitems, { width = 170, gap = 14 } = {}) {
   const values = worstValueBySlug(subitems);
   const mergeWorst = (a, b) => (a === undefined ? b : b === undefined ? a : Math.min(a, b));
 
-  const drawView = (parts, outline, x, cropX) => {
+  const drawView = (fig, parts, outline, x, cropX) => {
     const scale = figW / 724;
     doc.save();
     doc.translate(x - cropX * scale, top + 14);
@@ -1122,15 +1123,17 @@ function muscleFigure(doc, subitems, { width = 170, gap = 14 } = {}) {
         });
       };
       draw(part.path.common, 'C');
-      draw(part.path.left, 'L');
-      draw(part.path.right, 'R');
+      // The SUBJECT'S side, not the page's: on the front figure the atlas's
+      // `left` half is the athlete's right (§168).
+      draw(part.path.left, sideTagFor(fig, 'left'));
+      draw(part.path.right, sideTagFor(fig, 'right'));
     });
 
     doc.restore();
   };
 
-  drawView(bodyFront, frontOutline, left, 0);
-  drawView(bodyBack, backOutline, left + figW + gap, 724);
+  drawView('front', bodyFront, frontOutline, left, 0);
+  drawView('back', bodyBack, backOutline, left + figW + gap, 724);
 
   doc.fontSize(7.5).font('Helvetica').fillColor(MUTED)
     .text('Front', left, top + figH + 16, { width: figW, align: 'center', lineBreak: false });

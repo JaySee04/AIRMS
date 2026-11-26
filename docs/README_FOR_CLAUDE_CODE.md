@@ -183,8 +183,8 @@ Edit `backend/src/utils/pdfDraw.js`, not the route. Run `cd backend; npx jest pd
 ### Before you say you're done
 
 ```powershell
-cd backend;  npx jest                       # 75 backend suites
-cd frontend; npx jest                       # 33 frontend suites
+cd backend;  npx jest                       # 76 backend suites
+cd frontend; npx jest                       # 34 frontend suites
 cd frontend; npx tsc --noEmit -p tsconfig.json
 cd frontend; npm run lint
 ```

@@ -541,22 +541,60 @@ const MUTATIONS = [
     test: 'src/components/dashboard/bodymap-data/muscles.test.ts',
   },
   {
-    // The form guard that replaced "iliopsoas is a SPINDLE, fattest in the
-    // middle". That was built on the textbook word "fusiform", which is true of
-    // the psoas belly and silent about the thing the figure has to carry: where
-    // the muscle RUNS. Nothing else on the front connects the lumbar spine to
-    // the thigh, and a flagged iliopsoas is read as a hip-flexor finding rather
-    // than an abdominal one. This mutation restores the old reach - a shape
-    // stopping at the pelvic brim - which is anatomically about the last fifth
-    // of the muscle.
-    guard: 'bodymap: the iliopsoas crosses the pelvic brim into the thigh',
-    why: 'confined to the groin it reads as an abdominal finding, not a hip one',
+    // §168. The iliopsoas is drawn at the GROIN, where Dr Thung marked it and
+    // HoloMotion shades it. These two restore each half of what he corrected:
+    // a shape stopping at the groin crease, and one starting up the abdomen.
+    guard: 'bodymap: the iliopsoas reaches into the upper thigh',
+    why: 'stopping at the groin crease, it stops exactly where the finding is',
     pkg: 'frontend',
     from: ROOT,
     file: 'frontend/src/components/dashboard/bodymap-data/muscles.ts',
-    find: '        maxY: ab.minY + (ab.maxY - ab.minY) * 0.26,',
-    replace: '        maxY: ab.minY + (ab.maxY - ab.minY) * 0.0,',
+    find: '        maxY: ab.minY + (ab.maxY - ab.minY) * 0.62,         // upper inner thigh',
+    replace: '        maxY: ab.minY + (ab.maxY - ab.minY) * 0.0,         // upper inner thigh',
     test: 'src/components/dashboard/bodymap-data/muscles.test.ts',
+  },
+  {
+    guard: 'bodymap: the iliopsoas does not run up the abdomen',
+    why: 'drawn over the rectus abdominis it reads as an abdominal finding',
+    pkg: 'frontend',
+    from: ROOT,
+    file: 'frontend/src/components/dashboard/bodymap-data/muscles.ts',
+    find: '        minY: absB.minY + (absB.maxY - absB.minY) * 0.70,   // lower abdomen, level with the hip bone',
+    replace: '        minY: absB.minY + (absB.maxY - absB.minY) * 0.06,   // lower abdomen, level with the hip bone',
+    test: 'src/components/dashboard/bodymap-data/muscles.test.ts',
+  },
+  {
+    // §168. The front-view side swap. Lost once already, silently, when the
+    // file that carried it was deleted - every test stayed green for seven
+    // weeks because nothing measured WHERE a side was drawn.
+    guard: 'bodymap: the front figure swaps page sides for the subject\'s',
+    why: 'every front-view finding is drawn on the opposite side of the body',
+    pkg: 'frontend',
+    from: ROOT,
+    file: 'frontend/src/components/dashboard/bodymap-data/muscles.ts',
+    find: "  if (fig === 'front') return atlasSide === 'left' ? 'R' : 'L';",
+    replace: "  if (fig === 'front') return atlasSide === 'left' ? 'L' : 'R';",
+    test: 'src/components/dashboard/BodyMap.sides.test.tsx',
+  },
+  {
+    // The WIRING, separately: a correct sideTagFor that BodyMap stopped calling.
+    guard: 'bodymap: BodyMap paints through sideTagFor',
+    why: 'a correct helper nobody calls is the winAnsiSafe shape',
+    pkg: 'frontend',
+    from: ROOT,
+    file: 'frontend/src/components/dashboard/BodyMap.tsx',
+    find: "    renderSide(part.path.left, sideTagFor(fig, 'left'));",
+    replace: "    renderSide(part.path.left, 'L');",
+    test: 'src/components/dashboard/BodyMap.sides.test.tsx',
+  },
+  {
+    guard: 'pdf: the report\'s body figure paints the subject\'s side',
+    why: 'the individual PDF draws each region\'s left reading on the right of the body',
+    pkg: 'backend',
+    file: 'src/utils/pdfDraw.js',
+    find: "      draw(part.path.left, sideTagFor(fig, 'left'));",
+    replace: "      draw(part.path.left, 'L');",
+    test: 'tests/bodymapSides.test.js',
   },
   {
     // §135. The rule globals.css states at the top of its --series-* block and

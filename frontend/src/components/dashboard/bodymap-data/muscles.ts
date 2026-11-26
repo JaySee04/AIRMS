@@ -26,6 +26,27 @@ import type { BodyPart } from './types';
 
 export type Figure = 'front' | 'back';
 type Side = 'left' | 'right';
+
+/**
+ * WHICH OF THE SUBJECT'S SIDES an atlas path is (2026-11-26, DD §168).
+ *
+ * The atlas keys its paths `left` / `right` by where they sit ON THE PAGE: in
+ * both figures `left` is the half nearer the viewer's left. That is the
+ * subject's left in a BACK view and the subject's RIGHT in a FRONT view,
+ * because a person facing you has their right hand on your left.
+ *
+ * Every painter goes through this — BodyMap, the proof sheet, and a hand-kept
+ * copy in backend/src/utils/bodymap.js for the PDF. Without it, every finding on
+ * the front figure is drawn on the opposite side of the body. That is not
+ * hypothetical: `anterior()` did this job inside the redraw's figure.ts, the
+ * redraw was reverted on 2026-10-09 (§152), the function went with it, and the
+ * front view painted mirror-image flags for seven weeks while the side lists
+ * beside it stayed correct. Found by Dr Thung, from the drawing.
+ */
+export function sideTagFor(fig: Figure, atlasSide: Side): 'L' | 'R' {
+  if (fig === 'front') return atlasSide === 'left' ? 'R' : 'L';
+  return atlasSide === 'left' ? 'L' : 'R';
+}
 export type Box = { minX: number; minY: number; maxX: number; maxY: number };
 
 // ---------------------------------------------------------------------------
@@ -898,48 +919,38 @@ function put(fig: Figure, muscle: string, side: Side, ds: string[]) {
     const add = paths('front', 'adductors', side);
     if (add.length) {
       const ab = unionBox(add);
-      // Iliopsoas: descends from the lumbar spine across the pelvic brim to the
-      // lesser trochanter — a long, near-vertical strap at the groin, NOT the
-      // inner-thigh mass its parent box belongs to.
-      // FUSIFORM — "spindle-shaped", explicitly contrasted with the piriformis's
-      // pear (ScienceDirect). A long belly tapering to the tendon that reaches the
-      // lesser trochanter, which is the form an ellipse cannot carry.
+      // Iliopsoas: drawn where a clinician FINDS it - the wedge across the
+      // groin, from the lower abdomen inside the hip bone, under the inguinal
+      // ligament, to the top of the inner thigh (2026-11-26, Dr Thung, DD §168).
       //
-      // REBUILT AS A SHEET (2026-10-12, JC). It was a spindle confined to the
-      // groin - roughly the last fifth of the muscle. Psoas major starts at
-      // T12-L5, level with the bottom of the ribcage, and iliacus fills the iliac
-      // fossa; they converge across the pelvic brim onto the lesser trochanter.
+      // It was drawn from T12 down (2026-10-12): a long strip up the abdomen,
+      // over the rectus abdominis, ending at the groin with most of the thigh
+      // part clipped off. Anatomically defensible - psoas major does start at
+      // T12-L5 - and wrong for this figure, because that upper part lies deep
+      // behind the abdominal organs where nobody examines it, and drawn on the
+      // surface it reads as an ABDOMINAL finding. A flagged iliopsoas is a hip
+      // flexor finding. Dr Thung marked the upper strip out on a screenshot and
+      // drew the groin course; HoloMotion's own Muscle Imbalance figure shades
+      // the same wedge (`npm run bodymap:proof`, nazwan.pdf). Laid beside that
+      // figure, this is now the same structure in the same place.
       //
-      // THIS DELIBERATELY RELAXES TWO DEEP-MUSCLE CONVENTIONS. The old rules were
-      // that a deep shape stays inside the single structure it lies under and
-      // stays a minority of it, so the figure never asserts a large interior it
-      // cannot see. JC chose anatomical truth over those: "screw that just change
-      // them." Containment is now enforced by MUSCLE_CLIPS at render time rather
-      // than by the geometry, which is a stronger guarantee - a clip cannot be
-      // overshot - and the dashed deep edge still marks it as inferred.
+      // Broad at the top, where iliacus fills the iliac fossa beside psoas;
+      // narrowing to the tendon that passes onto the lesser trochanter.
       //
       // Measured: abs x 303..362 y 426..716, adductors x 274..351 y 647..899.
       const absB = unionBox(paths('front', 'abs', side));
       const ipBox = {
-        minX: Math.min(absB.minX, ab.minX), maxX: Math.max(absB.maxX, ab.maxX),
-        minY: absB.minY + (absB.maxY - absB.minY) * 0.06,
-        maxY: ab.minY + (ab.maxY - ab.minY) * 0.26,
+        minX: ab.minX, maxX: Math.max(absB.maxX, ab.maxX),
+        minY: absB.minY + (absB.maxY - absB.minY) * 0.70,   // lower abdomen, level with the hip bone
+        maxY: ab.minY + (ab.maxY - ab.minY) * 0.62,         // upper inner thigh
       };
       const Xi = medialX('front', ipBox);
-      // The WIDTH is the iliacus. Psoas descends as a narrow belly beside the
-      // spine, then iliacus fans across the whole iliac fossa before the two
-      // converge on one tendon - so the shape is narrow at both ends and broad
-      // at the pelvis. Drawn 0.22 of the box wide through the middle at first,
-      // which rendered as a sliver and showed only the psoas half.
       put('front', 'Iliopsoas', side, [sheet(ipBox, [
-        [Xi(0.93), 0.02],         // T12/L1 beside the spine
-        [Xi(0.74), 0.05],         // psoas belly at its origin
-        [Xi(0.55), 0.46, 0.03],   // psoas descending, still narrow
-        [Xi(0.17), 0.70, 0.05],   // iliacus, widest across the iliac fossa
-        [Xi(0.38), 0.92, 0.04],   // converging over the pelvic brim
-        [Xi(0.54), 0.99],         // lesser trochanter, the tendon
-        [Xi(0.66), 0.74, -0.04],  // back up the medial border
-        [Xi(0.84), 0.44, -0.02],
+        [Xi(0.12), 0.00],          // iliacus, inside the hip bone
+        [Xi(0.60), 0.00],          // psoas, beside the lower lumbar spine
+        [Xi(0.72), 0.42, -0.02],   // medial border, beside the pubis
+        [Xi(0.64), 1.00],          // the tendon, onto the lesser trochanter
+        [Xi(0.36), 0.52, 0.04],    // lateral border, under the inguinal ligament
       ])]);
     }
   }
@@ -1078,7 +1089,9 @@ export const MUSCLE_CLIPS: Record<string, { fig: Figure; slugs: string[] }> = {
   // abdominis. Measured: with 'obliques' alone the left shape sat 5 units past
   // the strip's medial edge and the clip was cutting that insertion off.
   'Internal Oblique': { fig: 'front', slugs: ['obliques', 'abs'] },
-  'Iliopsoas': { fig: 'front', slugs: ['abs', 'obliques', 'adductors'] },
+  // `quadriceps` because the groin course crosses into the upper thigh lateral
+  // to the adductors; without it the clip cut the tendon off (§168).
+  'Iliopsoas': { fig: 'front', slugs: ['abs', 'obliques', 'adductors', 'quadriceps'] },
   'Sartorius': { fig: 'front', slugs: ['quadriceps', 'adductors'] },
   'Rectus Femoris': { fig: 'front', slugs: ['quadriceps'] },
   'Upper Trapezius': { fig: 'back', slugs: ['trapezius', 'deltoids', 'neck'] },
