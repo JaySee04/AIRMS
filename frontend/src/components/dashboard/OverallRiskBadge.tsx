@@ -6,7 +6,7 @@
 // clinician override. Shared by the athlete, medical, and coach views.
 
 import {
-  BANDS, BAND_BG, BAND_COLOR, BAND_GLYPH, BAND_LABEL, type Band,
+  BANDS, BAND_BADGE, BAND_BG, BAND_COLOR, BAND_GLYPH, BAND_LABEL, type Band,
 } from '@/lib/bands';
 import { percentileFromRank } from '@/lib/rank';
 import { SMALL_COHORT } from '@/lib/shared/facts';
@@ -175,10 +175,13 @@ const HERO_MSG = {
 // being the athlete's latest (the history views). It only changes wording; the
 // band, indicator and factors are whatever that screening recorded.
 export default function OverallRiskBadge({
-  screening, compact, historical = false, audience = 'staff',
+  screening, compact, labelled = false, historical = false, audience = 'staff',
 }: {
   screening?: ScreeningIndicator | null;
   compact?: boolean;
+  // A compact badge that NAMES the band in words, with the reasons beneath.
+  // For a card with no column header to explain the glyph — see the branch.
+  labelled?: boolean;
   hero?: boolean;
   historical?: boolean;
   // Defaults to 'staff' to match ScreeningAlertBanner — one default across the
@@ -227,6 +230,43 @@ export default function OverallRiskBadge({
   // glyph differs per band (lib/bands.ts) and the accessible name carries the
   // full wording, so the column reads correctly in greyscale, under a red-green
   // deficiency, and aloud.
+  // LABELLED: the medical record's identity card (UAT 2026-11-26, DD §169).
+  //
+  // That card used the table form below — a glyph and the indicator — and a
+  // clinician tester could not find the athlete's risk status at all: he read
+  // the red "23" beside it as the status, and needed to be shown where the
+  // concern was. In the coach's table the column header names what the glyph
+  // means; on a card there is no header, so the glyph and number said nothing.
+  // So this form writes the band in words, says what it is, and lists the
+  // reasons the band was given — the stored escalation factors, which until now
+  // were reachable only through a hover tooltip.
+  if (compact && labelled) {
+    const reasons = overridden
+      ? [`Set by a clinician${screening.overrideNote ? `: ${screening.overrideNote}` : ''}`]
+      : whyAssess(screening, audience);
+    return (
+      <div className="risk-status">
+        <div className="risk-status-row">
+          <span className="risk-status-caption">{historical ? 'Risk status at this screening' : 'Risk status'}</span>
+          <span className={`${BAND_BADGE[band]} risk-status-chip`}>
+            <span aria-hidden="true">{meta.glyph}</span> {meta.label}
+            {overridden && <span aria-hidden="true"> ✎</span>}
+          </span>
+          {screening.overallIndicator != null && (
+            // 50 is the group mean and higher is better (overallIndicator.js), so
+            // a bare "34/100" beside a red band would read as "34% risk".
+            <span className="risk-status-index">Score against peers {screening.overallIndicator} (group average 50)</span>
+          )}
+        </div>
+        {band !== 'green' && reasons.length > 0 && (
+          <ul className="risk-status-why" aria-label="Why this status">
+            {reasons.slice(0, 3).map((r) => <li key={r}>{r}</li>)}
+          </ul>
+        )}
+      </div>
+    );
+  }
+
   if (compact) {
     const detail = overridden
       ? `Clinician override → ${meta.label}${screening.overrideNote ? `: ${screening.overrideNote}` : ''}`

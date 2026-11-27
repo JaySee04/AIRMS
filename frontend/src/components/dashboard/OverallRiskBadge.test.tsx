@@ -342,3 +342,35 @@ describe('the copy knows who is reading it', () => {
 it('the excluded-key list is a value that can be asserted, not an absence', () => {
   expect(EXCLUDED_RISK_KEYS).toContain('spinalDiscHerniation');
 });
+
+describe('the labelled badge names the status in words (§169)', () => {
+  // UAT 2026-11-26: on the medical record the compact form showed a glyph and
+  // a number, and a clinician tester could not find the athlete's risk status.
+  // He read the red number beside it as the status. A card has no column
+  // header to explain a glyph, so the labelled form must carry the WORD.
+  const red = base({
+    overallBand: 'red', effectiveBand: 'red', overallIndicator: 34,
+    factors: ['below the group average — Total Score 10.4 worse than the group', 'bottom 1 of 5 in cohort'],
+  });
+
+  it('writes the band label, not just a glyph and a number', () => {
+    const { container } = render(<OverallRiskBadge screening={red} compact labelled />);
+    expect(container.textContent).toContain(BAND_LABEL.red);
+    expect(container.textContent).toContain('Risk status');
+  });
+
+  it('lists the reasons the band was given, on the card rather than in a tooltip', () => {
+    render(<OverallRiskBadge screening={red} compact labelled />);
+    expect(screen.getByText(/bottom 1 of 5 in cohort/)).toBeTruthy();
+  });
+
+  it('names the score so it cannot be read as a percentage of risk', () => {
+    const { container } = render(<OverallRiskBadge screening={red} compact labelled />);
+    expect(container.textContent).toContain('group average 50');
+  });
+
+  it('leaves the table form alone: no label, so a squad table keeps its width', () => {
+    const { container } = render(<OverallRiskBadge screening={red} compact />);
+    expect(container.textContent).not.toContain('Risk status');
+  });
+});

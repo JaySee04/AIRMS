@@ -5180,6 +5180,22 @@ textarea:focus-visible,
 
 .medical-id-verdict { margin-top: var(--sp-sm); }
 
+/* The risk status IN WORDS on the medical record (§169). The chip is the
+   ordinary band badge, so its colours are the ones already measured for
+   contrast; only its size changes, because this is the record's verdict. */
+.risk-status-row { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-sm); }
+.risk-status-caption {
+  font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--text-muted); font-weight: 600;
+}
+.risk-status-chip { font-size: var(--fs-md); font-weight: 700; }
+.risk-status-index { font-size: var(--fs-sm); color: var(--text-muted); }
+.risk-status-why {
+  margin: var(--sp-xs) 0 0; padding-left: var(--sp-lg);
+  font-size: var(--fs-sm); color: var(--text);
+}
+.risk-status-why li { margin: 2px 0; }
+
 /* ── CARD PAIRS AND ROWS, one definition (§134.3) ───────────────────────────
    Cards that sit side by side until there is no room for two.
 

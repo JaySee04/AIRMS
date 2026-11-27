@@ -269,3 +269,35 @@ describe('opening a worklist entry', () => {
     expect(item.querySelectorAll('button')).toHaveLength(1);
   });
 });
+
+describe('the worklist follows the page filter (§169)', () => {
+  // UAT 2026-11-26: a clinician filtered the dashboard to Karate and was still
+  // shown a Wushu athlete at Immediate assessment, because the panel read the
+  // whole roster. The page now hands over the athletes it is showing.
+  const entry = (athleteId: string, name: string, sport: string) => ({
+    athleteId, name, sport, isInjured: false, band: 'red', ageDays: 10, recall: 'current',
+    reasons: ['bottom 1 of 5 in cohort'], screeningId: 1, reviewed: false,
+    responseOutcome: null, responseBy: null, responseAt: null,
+  });
+  const twoSports = () => payload({
+    headline: { verb: 'Assess', count: 2, parts: ['2 Immediate assessment'] },
+    worklist: [entry('1', 'Karate Athlete', 'Karate'), entry('2', 'Wushu Athlete', 'Wushu')],
+    changes: [],
+  });
+
+  it('shows only the athletes in the filter, and counts those in the heading', async () => {
+    mockGet.mockResolvedValue(twoSports());
+    render(<DecisionPanel onlyIds={new Set(['1'])} onlyLabel="Karate" />);
+    await waitFor(() => expect(screen.getByText('Karate Athlete')).toBeTruthy());
+    expect(screen.queryByText('Wushu Athlete')).toBeNull();
+    expect(screen.getByText(/Waiting: 1 athlete in Karate/)).toBeTruthy();
+  });
+
+  it('shows everyone when no filter is set', async () => {
+    mockGet.mockResolvedValue(twoSports());
+    render(<DecisionPanel />);
+    // getAllBy: with two entries the Compare picker names each athlete again.
+    await waitFor(() => expect(screen.getAllByText('Wushu Athlete').length).toBeGreaterThan(0));
+    expect(screen.getAllByText('Karate Athlete').length).toBeGreaterThan(0);
+  });
+});

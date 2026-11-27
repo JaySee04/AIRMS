@@ -162,3 +162,37 @@ describe('the shared dashboard components are told who is reading', () => {
     expect(openingTags('<OverallRiskBadgeCompact audience="self" />', 'OverallRiskBadge')).toEqual([]);
   });
 });
+
+// UAT 2026-11-26 (DD §169). Each component change below is tested where it is
+// built; these pin that the PAGES use it, because a correct component a page
+// stopped passing the prop to passes every component test (winAnsiSafe).
+describe('the UAT fixes are wired into the pages that needed them', () => {
+  // Comments stripped, so a sentence ABOUT the fix cannot satisfy the check.
+  const code = (rel: string) => fs.readFileSync(path.join(APP, rel), 'utf8')
+    .replace(/\r\n/g, '\n')
+    .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '');
+
+  it('the medical record names the risk status in words', () => {
+    const tags = openingTags(code('medical/dashboard/page.tsx'), 'OverallRiskBadge');
+    expect(tags.some((t) => /\blabelled\b/.test(t))).toBe(true);
+  });
+
+  it('the medical worklist is handed the page filter', () => {
+    const tags = openingTags(code('medical/dashboard/page.tsx'), 'DecisionPanel');
+    expect(tags.some((t) => /onlyIds=\{scope/.test(t))).toBe(true);
+  });
+
+  it('the landing summary counts the filtered population, not the whole roster', () => {
+    expect(code('medical/dashboard/page.tsx')).toMatch(/const screened = population\.filter/);
+  });
+
+  it('deactivating an account is a button that says so', () => {
+    expect(code('admin/personnel/page.tsx')).toMatch(/'Deactivate account'/);
+  });
+
+  it('Cohort Norms says so when nothing is pinned', () => {
+    expect(code('admin/thresholds/page.tsx')).toMatch(/\{!pin && cohorts\.length > 0 && \(/);
+  });
+});

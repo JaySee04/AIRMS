@@ -99,8 +99,8 @@ cd backend; npm run coverage         # 82.4% statements / 72.3% branches (re-mea
                                      # a missing transitive dep (fs.realpath) before it would run.
 cd backend; npm run mutate           # BREAK each registered guard on purpose and prove its
                                      # test fails. A surviving mutation exits non-zero: the
-                                     # test is not testing what it claims. 151 guards across
-                                     # both packages. 146 are EXERCISED here; five are
+                                     # test is not testing what it claims. 158 guards across
+                                     # both packages. 153 are EXERCISED here; five are
                                      # listed with a `skip` because only a real browser
                                      # can see them — one is layout (jsdom computes none,
                                      # e2e 4l), three are HISTORY (jsdom's stub fires
@@ -834,7 +834,7 @@ cd backend; npx jest      # 76 suites / 1179 tests: cohorts, overallIndicator, p
                           # other suite. Static: it reads both files as text and never
                           # require()s the target, because several modules build a Sequelize
                           # instance at import time)
-cd frontend; npx jest     # 34 suites / 559 tests (the run is pinned to UTC by
+cd frontend; npx jest     # 34 suites / 570 tests (the run is pinned to UTC by
                           # jest.globalSetup.js - this machine sits IN the institution
                           # zone, which made the date tests pass for the wrong reason
                           # until mutation testing said so; see DD 62): lib/risk.ts, lib/screeningUploadStore.ts, bodymap-data/muscles.ts,

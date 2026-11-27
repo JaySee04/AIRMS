@@ -149,10 +149,21 @@ function entryLabel(band: string): string {
 export default function DecisionPanel({
   onOpenAthlete,
   limit = 5,
+  onlyIds = null,
+  onlyLabel,
 }: {
   /** Opening an athlete is the page's business, not this panel's. */
   onOpenAthlete?: (athleteId: string) => void;
   limit?: number;
+  /**
+   * The page's filtered population (§169). The server scopes by ROLE and takes
+   * no filter, on purpose; the page's sport/programme/gender/event dropdowns are
+   * applied here, to the same athletes the rest of the page is showing. null =
+   * no filter.
+   */
+  onlyIds?: Set<string> | null;
+  /** How to name that population in the heading, e.g. "Karate". */
+  onlyLabel?: string;
 }) {
   const [data, setData] = useState<DecisionPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -227,7 +238,9 @@ export default function DecisionPanel({
   }
   if (!data) return null;
 
-  const open = data.worklist.filter((w) => !w.reviewed && w.band !== 'green' && w.band !== 'none');
+  const inScope = (id: string) => !onlyIds || onlyIds.has(id);
+  const open = data.worklist.filter((w) => inScope(w.athleteId) && !w.reviewed && w.band !== 'green' && w.band !== 'none');
+  const changes = data.changes.filter((c) => inScope(c.athleteId));
   const shown = showAll ? open : open.slice(0, limit);
 
   /**
@@ -258,12 +271,18 @@ export default function DecisionPanel({
   return (
     <div className="card decision-panel" style={{ marginBottom: 20 }}>
       <CardHead
-        title={data.headline
-          ? `${data.headline.verb}: ${data.headline.count} athlete${data.headline.count === 1 ? '' : 's'}`
-          : 'Nothing waiting on you'}
-        sub={data.headline
-          ? <>{data.headline.parts.join(' · ')} — across {data.scope}</>
-          : <>No athlete in {data.scope} is flagged or unscreened right now</>}
+        // The server's headline counts the WHOLE scope, so under a page filter
+        // it would put "162 athletes" above a list of three (§169).
+        title={onlyIds
+          ? (open.length ? `Waiting: ${open.length} athlete${open.length === 1 ? '' : 's'} in ${onlyLabel ?? 'this filter'}` : `Nothing waiting in ${onlyLabel ?? 'this filter'}`)
+          : data.headline
+            ? `${data.headline.verb}: ${data.headline.count} athlete${data.headline.count === 1 ? '' : 's'}`
+            : 'Nothing waiting on you'}
+        sub={onlyIds
+          ? <>Filtered to the athletes this page is showing</>
+          : data.headline
+            ? <>{data.headline.parts.join(' · ')} — across {data.scope}</>
+            : <>No athlete in {data.scope} is flagged or unscreened right now</>}
         info={(
           <InfoTip label="What this ordering means">
             <p>
@@ -369,7 +388,7 @@ export default function DecisionPanel({
 
       {open.length >= 2 && <CompareAthletes entries={open} />}
 
-      {data.changes.length > 0 && (
+      {changes.length > 0 && (
         <div className="decision-changes">
           <h3 className="quick-heading">
             {/* Named from what the SERVER did, not from whether we sent a
@@ -392,7 +411,7 @@ export default function DecisionPanel({
             </p>
           )}
           <ul className="decision-reasons">
-            {data.changes.slice(0, 6).map((c) => (
+            {changes.slice(0, 6).map((c) => (
               <li key={`${c.athleteId}-${c.at}`}>
                 <strong>{c.name ?? c.athleteId}</strong>{' '}
                 {c.direction === 'new'

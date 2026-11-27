@@ -362,17 +362,28 @@ export default function AdminPersonnelPage() {
     </button>
   ));
 
+  // THE STATUS AND THE CONTROL ARE TWO THINGS (UAT 2026-11-26, DD §169).
+  //
+  // This was one element: a green "Active" pill that deactivated the account
+  // when clicked. Nothing about a status pill says "press me", so in the medical
+  // staff row the only thing that LOOKED like a switch was the records-access
+  // checkbox. The administrator tester, asked to switch an account off, unticked
+  // that instead — the account stayed active and he reported success. Now the
+  // pill only reports, and the action is a button that names what it does.
   const accountBadge = (u: StaffUser) => (
-    <button
-      type="button"
-      className={u.isActive ? 'badge-low' : 'badge-high'}
-      style={{ cursor: 'pointer', border: 'none' }}
-      disabled={savingId === u._id}
-      onClick={() => patchUser(u, { isActive: !u.isActive })}
-      title={u.isActive ? 'Click to deactivate' : 'Click to reactivate'}
-    >
-      {u.isActive ? 'Active' : 'Inactive'}
-    </button>
+    <>
+      <span className={u.isActive ? 'badge-low' : 'badge-high'}>
+        {u.isActive ? 'Active' : 'Deactivated'}
+      </span>
+      <button
+        type="button"
+        className="btn btn-outline btn-sm"
+        disabled={savingId === u._id}
+        onClick={() => patchUser(u, { isActive: !u.isActive })}
+      >
+        {u.isActive ? 'Deactivate account' : 'Reactivate account'}
+      </button>
+    </>
   );
 
   return (

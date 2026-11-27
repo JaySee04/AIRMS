@@ -367,6 +367,18 @@ export default function CohortThresholdsPage() {
           </div>
         </div>
       )}
+      {/* AND WHEN NOTHING IS PINNED, SAY SO (UAT 2026-11-26, DD §169). The page
+          announced a pin and was silent without one, so "are the norms frozen?"
+          could only be answered from an absence. The administrator tester
+          answered "yes" while nothing was pinned. Shown once the cohorts have
+          loaded, so it never flashes up before the real state is known. */}
+      {!pin && cohorts.length > 0 && (
+        <div role="status" className="alert alert-warning" style={{ marginBottom: 16 }}>
+          <strong>Norms are not pinned.</strong> They are recalculated from the data, so importing new
+          reports can change them. Turning auto-overwrite off does not freeze them; it only keeps your manual edits.
+          To freeze them, save the current norms as a version below and press <strong>Pin</strong>.
+        </div>
+      )}
       {error && <div role="alert" className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
       {msg && <div role="status" className="alert alert-success" style={{ marginBottom: 16 }}>{msg}</div>}
 

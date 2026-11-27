@@ -323,19 +323,30 @@ export default function MedicalDashboard() {
   // Dropdowns narrow the POPULATION; the search box then ranks what is left.
   // In that order, so relevance is judged against the athletes actually on
   // offer and "ambiguous" reflects the rows a clinician can really mis-pick.
-  const hits = useMemo(() => {
-    const pool = athletes.filter((a) => {
-      if (filterSport && a.sport !== filterSport) return false;
-      const prog = a.programme ?? a.program;
-      if (filterProgramme && prog !== filterProgramme) return false;
-      if (filterGender && a.gender !== filterGender) return false;
-      if (filterDiscipline && !(a.disciplines ?? []).includes(filterDiscipline)) return false;
-      return true;
-    });
-    return searchAthletes(pool, search);
-  }, [athletes, search, filterSport, filterProgramme, filterGender, filterDiscipline]);
+  //
+  // ONE POPULATION FOR THE WHOLE PAGE (UAT 2026-11-26, DD §169). The dropdowns
+  // used to narrow the rail list only, while every landing panel beside it —
+  // the worklist, the band split, the shortlist — kept reading the whole
+  // roster. A clinician tester filtered to Karate and was shown a Wushu athlete
+  // at Immediate assessment, and reasonably took the filter to be broken. The
+  // search box still narrows the RAIL only: it finds a person, it does not
+  // define a squad.
+  const population = useMemo(() => athletes.filter((a) => {
+    if (filterSport && a.sport !== filterSport) return false;
+    const prog = a.programme ?? a.program;
+    if (filterProgramme && prog !== filterProgramme) return false;
+    if (filterGender && a.gender !== filterGender) return false;
+    if (filterDiscipline && !(a.disciplines ?? []).includes(filterDiscipline)) return false;
+    return true;
+  }), [athletes, filterSport, filterProgramme, filterGender, filterDiscipline]);
+  const hits = useMemo(() => searchAthletes(population, search), [population, search]);
 
   const activeFilters = [filterSport, filterProgramme, filterGender, filterDiscipline].filter(Boolean).length;
+  const filterLabel = [filterSport, filterDiscipline, filterProgramme, filterGender].filter(Boolean).join(' · ');
+  const scope = useMemo(
+    () => (activeFilters ? { ids: new Set(population.map((a) => a.athleteId)), label: filterLabel } : null),
+    [activeFilters, population, filterLabel],
+  );
   function clearFilters() {
     setFilterSport(''); setFilterProgramme(''); setFilterGender(''); setFilterDiscipline('');
   }
@@ -431,7 +442,7 @@ export default function MedicalDashboard() {
   // Risks, banded by the SAME riskBand/INSTRUMENT_BANDS the screening panel
   // uses for that gauge, so the two cannot disagree.
   const roster = useMemo(() => {
-    const screened = athletes.filter((a) => a.injuryRiskIndex != null);
+    const screened = population.filter((a) => a.injuryRiskIndex != null);
     const bySport = Array.from(
       athletes.reduce((m, a) => m.set(a.sport, (m.get(a.sport) ?? 0) + 1), new Map<string, number>()),
     ).sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0]));
@@ -456,7 +467,7 @@ export default function MedicalDashboard() {
     // `latestBand` is the EFFECTIVE band from the server, so this cannot disagree
     // with the athlete's own dashboard, the coach's table or the printed report.
     const byBand = { red: [] as AthleteListItem[], amber: [] as AthleteListItem[], green: [] as AthleteListItem[] };
-    for (const a of athletes) {
+    for (const a of population) {
       if (a.latestBand === 'red' || a.latestBand === 'amber' || a.latestBand === 'green') {
         byBand[a.latestBand].push(a);
       }
@@ -471,8 +482,8 @@ export default function MedicalDashboard() {
 
     return {
       screened: screened.length,
-      unscreened: athletes.length - screened.length,
-      injured: athletes.filter((a) => a.isInjured).length,
+      unscreened: population.length - screened.length,
+      injured: population.filter((a) => a.isInjured).length,
       bySport,
       topRisk,
       bandCounts: { red: byBand.red.length, amber: byBand.amber.length, green: byBand.green.length },
@@ -480,7 +491,7 @@ export default function MedicalDashboard() {
       avgTotal: mean((a) => a.overallActivityScore),
       avgRisks: mean((a) => a.injuryRiskIndex),
     };
-  }, [athletes]);
+  }, [athletes, population]);
 
   // Autocomplete for the events editor: curated seeds for the selected athlete's
   // sport plus every event already used in that sport.
@@ -732,11 +743,17 @@ export default function MedicalDashboard() {
           {!selectedId ? (
             /* Empty state — clinician's natural entry points */
             <>
+              {scope && (
+                <div role="status" className="alert alert-info" style={{ marginBottom: 16 }}>
+                  Showing <strong>{scope.label}</strong> only ({scope.ids.size} athlete{scope.ids.size === 1 ? '' : 's'}).{' '}
+                  <button type="button" className="btn btn-outline btn-sm" onClick={clearFilters}>Show everyone</button>
+                </div>
+              )}
               {/* The same two figures the admin and coach dashboards open on, so
                   every role starts from one headline (JC, 2026-09-04). */}
               {!loadingList && roster.screened > 0 && (
                 <HeadlineScores
-                  subject="Institute"
+                  subject={scope ? scope.label : 'Institute'}
                   totalScore={roster.avgTotal}
                   exerciseRisks={roster.avgRisks}
                   scope={`averaged over ${roster.screened} screened athlete`
@@ -750,7 +767,7 @@ export default function MedicalDashboard() {
                   answer "who is there". Opening an entry selects the athlete,
                   so the panel hands off to the existing detail view rather than
                   becoming a second one. */}
-              <DecisionPanel onOpenAthlete={(id) => setSelectedId(id)} />
+              <DecisionPanel onOpenAthlete={(id) => setSelectedId(id)} onlyIds={scope?.ids ?? null} onlyLabel={scope?.label} />
 
               <div className="card medical-empty-hero">
                 <h2 className="medical-empty-hero-title">Pick an athlete to begin</h2>
@@ -761,9 +778,9 @@ export default function MedicalDashboard() {
 
               <div className="stat-grid stat-grid--pairs">
                 <div className="stat-tile">
-                  <div className="stat-tile-label">Athletes on roster</div>
-                  <div className="stat-tile-value">{loadingList ? '…' : athletes.length}</div>
-                  <div className="stat-tile-delta">{loadingList ? '' : `across ${sports.length} sports`}</div>
+                  <div className="stat-tile-label">{scope ? 'Athletes in this filter' : 'Athletes on roster'}</div>
+                  <div className="stat-tile-value">{loadingList ? '…' : population.length}</div>
+                  <div className="stat-tile-delta">{loadingList ? '' : scope ? `of ${athletes.length} on the roster` : `across ${sports.length} sports`}</div>
                 </div>
                 <div className="stat-tile">
                   <div className="stat-tile-label">Screened</div>
@@ -975,6 +992,7 @@ export default function MedicalDashboard() {
                       <OverallRiskBadge
                         screening={view.screening}
                         compact
+                        labelled
                         audience="staff"
                         historical={!!picked}
                       />

@@ -15684,3 +15684,62 @@ asks which side is weaker and the figure answered it backwards.
 Also found on the way: OneDrive had dehydrated `node_modules` in both packages
 and restored the two medical pages §123 removed (the §167 incident, again).
 Both fixed as §167 describes.
+
+## 169. The first two UAT responses, and what they changed (2026-11-27, JC)
+
+The usability test runs unmoderated through a Google Form. The first two
+responses came back on 2026-11-26: TJS (Dr Thung, Administrator) and CPYH
+(Christopher Pok, Clinician). Both scored the system highly (SUS 85 and 90).
+The answers were checked against the ISN database rather than taken at their
+self-rating, and that is where the findings are: Dr Thung rated all eight tasks
+7/7 and "found it on my own", and three of his answers were wrong.
+
+**1. The medical record did not say the athlete's risk status in words.** The
+identity card carried the compact badge built for the coach's squad table: a
+glyph and the indicator number. In a table the column header explains the
+glyph; on a card nothing does. Christopher could not find the status, read the
+red "23" (the Exercise Risks score) as it, and needed to be shown where the
+concern was. That is SILENT_FAILURES 3i — a band carried by colour alone — on
+the one screen the clinician role exists for. `OverallRiskBadge` gains a
+`labelled` form: "Risk status", the band in words in its badge colours, the
+score named as "against peers (group average 50)" so 34 cannot read as 34%
+risk, and the stored escalation reasons as a list. Those reasons were reachable
+only through a hover tooltip before. The coach's table keeps the unlabelled form.
+
+**2. The medical dashboard's filters narrowed one panel out of six.** The
+sport / programme / gender / event dropdowns filtered the rail list only; the
+worklist, the band split, the shortlist and the headline scores read the whole
+roster. Filtered to Karate, Christopher was shown a Wushu athlete at Immediate
+assessment and reasonably took the filter to be broken. The page now builds one
+filtered population. The landing summary reads it, the worklist is handed it
+(`DecisionPanel` `onlyIds` — the server still scopes by role and takes no
+filter, on purpose, §79), and a banner names the filter with a way back. The
+worklist heading counts what it shows; the server's headline counts the whole
+scope and would have put "162" above a list of three. The search box still
+narrows the rail only: it finds a person, it does not define a squad.
+
+**3. Deactivating an account looked like a status, not a control.** The
+Personnel row's "Active" pill was a button. The only thing that looked like a
+switch was the records-access checkbox, so Dr Thung, asked to switch an account
+off, unticked that. The account stayed active and he reported success. The pill
+now only reports, beside a button reading "Deactivate account".
+
+**4. Cohort Norms said nothing when the norms were not pinned.** A pin was
+announced; its absence was not. Dr Thung answered "frozen (all except auto
+overwrite)" with nothing pinned, which also shows the specific misreading: that
+switching auto-overwrite off freezes the norms. It does not — it only protects
+manual edits (`utils/cohorts.js`). A banner now says the norms are not pinned,
+that imports can change them, that auto-overwrite is not a freeze, and how to pin.
+
+**Not changed, and why.**
+- *Who last imported* (D5): he gave the newest Activity Log row. The log has an
+  action filter that answers it; this is a misreading, not a missing feature.
+- *"Need a more modern interface"*: not specific enough to act on.
+- *Sport Assessment crashed* (C7): not a defect in the code. The frontend was
+  rebuilt on the ISN server on 2026-11-26 at 15:48 and the services were not
+  restarted until 11:47 the next day, so every page asked for 4 script files
+  that no longer existed. A build and its restart are one step on that server.
+
+Guarded by four component tests, five page-wiring checks (a correct component
+that a page stops passing the prop to passes every component test) and seven
+registered mutations.
